@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Search } from 'lucide-react';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 import { ZmccPager } from '../shared/ZmccDrawer';
 import { MyCorrectionTicketsButton } from '@/frontend/modules/governance/MyCorrectionTickets';
 import type { CorrectionTarget, HcArrivalRow, McArrivalRow } from './arrivalTypes';
@@ -125,7 +126,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
       </div>
 
       <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto">
+        <TableWrapper>
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-border text-xs uppercase tracking-wider text-slate-500 font-semibold">
@@ -209,7 +210,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
               )}
             </tbody>
           </table>
-        </div>
+        </TableWrapper>
 
         <ZmccPager
           page={p.historyPage}

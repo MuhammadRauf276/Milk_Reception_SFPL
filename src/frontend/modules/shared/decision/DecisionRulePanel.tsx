@@ -12,6 +12,7 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle2, Circle, Clock, Gavel, Loader2, MinusCircle, Send, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import type { DecisionResult, DecisionRoute, ExceptionReason, PersonDecision } from '@/types/stage1-decision';
 
 export type DecisionTestOutcome = 'PASS' | 'FAIL' | 'WARN' | 'NOT_TESTED';
@@ -269,15 +270,25 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
       )}
 
       {remarksNeeded && (
-        <div>
-          <label className="mb-1 block text-sm font-semibold text-slate-900">
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-slate-900">
             Reason <span className="text-rose-700">(required)</span>
           </label>
+          <QuickRemarksChips
+            presets={
+              personDecision === 'REJECT'
+                ? ['Quality SOP Fail', 'Temperature Deviation', 'Adulteration Suspected', 'Foreign Material', 'Organoleptic Fail']
+                : ['Approved under Concession', 'Re-tested and Acceptable', 'Management Waiver', 'Verified by Supervisor']
+            }
+            value={remarks}
+            onChange={onRemarksChange}
+            label="Quick reasons:"
+          />
           <textarea
             rows={3}
             value={remarks}
             onChange={(e) => onRemarksChange(e.target.value)}
-            placeholder="Write a short reason"
+            placeholder="Write a short reason or tap quick presets above…"
             className={cn(
               'min-h-12 w-full min-w-0 resize-y rounded-xl border-2 p-3 text-base focus:outline-none focus:ring-2 focus:ring-slate-900',
               remarksMissing ? 'border-rose-300 bg-rose-50/40' : 'border-slate-300 bg-white'

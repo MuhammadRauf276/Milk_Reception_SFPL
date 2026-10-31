@@ -5,7 +5,7 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { fetchJson } from '@/lib/query/fetchJson';
 import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
 import { stationQueryKeys } from '@/lib/query/stationQueryKeys';
-import { Clock, Search, CheckCircle2, ShieldAlert, XCircle } from 'lucide-react';
+import { Clock, Search, CheckCircle2, ShieldAlert, XCircle, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { User } from '@core/types';
@@ -14,6 +14,7 @@ import { formatDispatchQuantity } from '@/backend/modules/dispatch/quantity/disp
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyAction } from './components/EmptyAction';
 import { InfoTip } from '@/components/ui/info-tip';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -320,6 +321,16 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
             ) : (
               <div className="p-6 rounded-xl bg-card border border-border shadow-xs space-y-5 text-foreground">
                 <div className="pb-3 border-b border-border-strong">
+                  <div className="lg:hidden flex items-center justify-between pb-2 mb-2 border-b border-border">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEntryVisitId(null)}
+                      className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                    >
+                      <ArrowLeft className="h-4 w-4" /> Back to Vehicle Queue
+                    </button>
+                    <span className="text-[11px] font-semibold text-muted-foreground">Vehicle Selected</span>
+                  </div>
                   <h3 className="text-base font-semibold text-foreground">Entry Processing</h3>
                   <p className="text-xs text-slate-700 font-semibold mt-0.5">
                     Vehicle: <strong className="tabular-nums text-foreground">{selectedEntryVisit.vehicle_number}</strong> | Contractor: <strong className="text-primary">{selectedEntryVisit.zonal_contractor_name}</strong>
@@ -347,7 +358,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       value={tokenNumber}
                       onChange={(e) => setTokenNumber(e.target.value.toUpperCase())}
                       placeholder="e.g. TK-9025"
-                      className="w-full min-h-[44px] px-4 py-2.5 text-sm tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden"
+                      className="w-full min-h-[44px] px-4 py-2.5 text-base sm:text-sm tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden"
                       required
                     />
                   </div>
@@ -394,7 +405,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
           {activeVisits.length === 0 ? (
             <EmptyAction message="No vehicles" onRefresh={() => queryClient.invalidateQueries()} />
           ) : (
-            <div className="overflow-x-auto max-w-full">
+            <TableWrapper className="max-w-full">
               <table className="w-full text-left text-xs font-medium min-w-[600px]">
                 <thead className="bg-muted text-slate-700 font-semibold uppercase text-[10px] tracking-wider border-b border-border-strong">
                   <tr>
@@ -429,7 +440,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableWrapper>
           )}
         </div>
       )}
@@ -507,6 +518,16 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
             ) : (
               <div className="p-6 rounded-xl bg-card border border-border shadow-xs space-y-5 text-foreground">
                 <div className="pb-3 border-b border-border-strong">
+                  <div className="lg:hidden flex items-center justify-between pb-2 mb-2 border-b border-border">
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedExitVisitId(null); setTankerWashed(null); }}
+                      className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                    >
+                      <ArrowLeft className="h-4 w-4" /> Back to Exit Queue
+                    </button>
+                    <span className="text-[11px] font-semibold text-muted-foreground">Vehicle Selected</span>
+                  </div>
                   <h3 className="text-base font-semibold text-foreground">Gate Exit Clearance</h3>
                   <p className="text-xs text-slate-700 font-semibold mt-0.5">
                     Vehicle: <strong className="tabular-nums text-foreground">{selectedExitVisit.vehicle_number}</strong> | Token: <strong className="tabular-nums text-primary-hover">{selectedExitVisit.token_number || 'NO-TOKEN'}</strong> | Entry: <strong className="tabular-nums text-primary">{selectedExitVisit.entry_timestamp ? new Date(selectedExitVisit.entry_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-'}</strong>

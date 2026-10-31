@@ -213,6 +213,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
               window.history.replaceState({}, '', url.toString());
             }
           }}
+          mobileOnly={false}
           className="lg:inline-flex"
           tabs={tabs.map((tab) => ({ value: tab.id, label: tab.label, icon: tab.icon as React.ReactElement, count: tab.count }))}
         />

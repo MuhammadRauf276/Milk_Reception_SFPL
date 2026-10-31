@@ -6,6 +6,7 @@ import type { User } from '@/backend/core/types';
 import type { UnifiedApprovalItem } from '@/backend/services/approvals/approvalInboxService';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Spinner } from '@/components/ui/spinner';
+import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -121,20 +122,30 @@ export function ApprovalDecisionDrawer({
           )}
 
           <form onSubmit={handleConfirmDecision} className="space-y-3 pt-2">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700">
                 Supervisor Remarks {verdict === 'NO' ? <span className="text-rose-600">* (Required)</span> : '(Optional)'}
               </label>
+              <QuickRemarksChips
+                presets={
+                  verdict === 'OKAY'
+                    ? ['Approved as per SOP', 'Parameters within limits', 'Verified and accepted', 'Batch released for processing']
+                    : ['Quality test failed', 'Temperature exceeds maximum limit', 'Adulteration suspected', 'Return vehicle to supplier', 'Unacceptable acidity']
+                }
+                value={decisionRemarks}
+                onChange={setDecisionRemarks}
+                label="Quick remarks:"
+              />
               <textarea
                 rows={3}
                 value={decisionRemarks}
                 onChange={(e) => setDecisionRemarks(e.target.value)}
                 placeholder={
                   verdict === 'OKAY'
-                    ? 'Add any operational approval notes…'
+                    ? 'Add any operational approval notes or tap quick presets…'
                     : 'Specify reason for rejection or return instructions (minimum 5 letters)…'
                 }
-                className="w-full border border-border rounded-xl p-2.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none min-h-11"
+                className="w-full border border-border rounded-xl p-2.5 text-base sm:text-xs focus:ring-1 focus:ring-primary focus:outline-none min-h-11"
                 autoFocus
               />
               <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1">

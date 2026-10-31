@@ -25,13 +25,23 @@ interface SegmentedTabsProps<T extends string> {
   /** Accessible name for the tab list. */
   label: string;
   className?: string;
+  mobileOnly?: boolean;
+  fullWidth?: boolean;
 }
 
 /**
  * The single tab style used across workspaces: a quiet segmented control with an
  * animated active indicator. Arrow keys move between tabs (roving tabindex).
  */
-export function SegmentedTabs<T extends string>({ tabs, value, onValueChange, label, className }: SegmentedTabsProps<T>) {
+export function SegmentedTabs<T extends string>({
+  tabs,
+  value,
+  onValueChange,
+  label,
+  className,
+  mobileOnly = true,
+  fullWidth = false,
+}: SegmentedTabsProps<T>) {
   const id = React.useId();
   const refs = React.useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -52,7 +62,9 @@ export function SegmentedTabs<T extends string>({ tabs, value, onValueChange, la
       role="tablist"
       aria-label={label}
       className={cn(
-        'scrollbar-none inline-flex lg:hidden max-w-full items-center gap-0.5 overflow-x-auto rounded-lg border bg-muted/60 p-0.5',
+        'scrollbar-none max-w-full items-center gap-0.5 overflow-x-auto rounded-lg border bg-muted/60 p-0.5',
+        mobileOnly ? 'inline-flex lg:hidden' : 'inline-flex',
+        fullWidth && 'w-full flex',
         className
       )}
     >
@@ -75,6 +87,7 @@ export function SegmentedTabs<T extends string>({ tabs, value, onValueChange, la
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
               'relative inline-flex min-h-11 min-w-11 justify-center shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
+              fullWidth && 'flex-1',
               active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
             )}
           >

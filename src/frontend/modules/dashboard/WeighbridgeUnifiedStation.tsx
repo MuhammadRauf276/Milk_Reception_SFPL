@@ -26,6 +26,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { Pager, pageCount, paginate } from './components/Pager';
 import { EmptyAction } from './components/EmptyAction';
 import { InfoTip } from '@/components/ui/info-tip';
+import { CollapsibleDisclosure } from '@/components/ui/collapsible-disclosure';
 import {
   UnifiedWeighbridgeVisit,
   WeighbridgeFilter,
@@ -510,14 +511,25 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
             </button>
           </div>
 
-          {/* Mathematical Rule Banner */}
+          {/* Mathematical Rule & Security Policy */}
           {visit.accepted_portion_count > 0 ? (
-            <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-900 text-xs text-blue-900 dark:text-blue-200 flex items-center justify-between">
-              <span>
-                <strong>Physical Weighment Rule:</strong> {visit.accepted_portion_count} Accepted Portion{visit.accepted_portion_count > 1 ? 's' : ''}: 
-                <strong>{visit.total_weighments} Physical Scale Weighments</strong> (1 Initial Loaded Gross W0 + {visit.accepted_portion_count} Tares).
-              </span>
-            </div>
+            <CollapsibleDisclosure
+              title="Weighment Progression & Double-Blind Policy"
+              icon={<ShieldCheck className="w-4 h-4 text-emerald-600" />}
+              badge={<span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">{visit.total_weighments} Physical Weighings</span>}
+              defaultOpen={false}
+              forceOpenDesktop={true}
+            >
+              <div className="space-y-2 text-xs">
+                <p>
+                  <strong>Physical Weighment Rule:</strong> {visit.accepted_portion_count} Accepted Portion{visit.accepted_portion_count > 1 ? 's' : ''}: 
+                  <strong> {visit.total_weighments} Physical Scale Weighments</strong> (1 Initial Loaded Gross W0 + {visit.accepted_portion_count} Tares).
+                </p>
+                <p>
+                  <strong>Double-Blind Anti-Tamper Enforcement:</strong> All previously recorded weights are permanently audit-locked and cannot be edited. Upstream dispatch quantities are strictly hidden to ensure unbiased scale entry.
+                </p>
+              </div>
+            </CollapsibleDisclosure>
           ) : (
             <div className="p-4 bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-300 dark:border-rose-900 text-xs text-rose-900 dark:text-rose-200 space-y-2">
               <div className="flex items-center gap-2 font-bold text-sm text-rose-700 dark:text-rose-400">
@@ -542,15 +554,6 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
               </span>
             </div>
           )}
-
-          {/* Double-Blind Security Notice */}
-          <div className="p-3 bg-muted/40 rounded-xl border border-border flex items-start gap-2.5 text-xs text-muted-foreground">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-            <span>
-              <strong>Double-Blind Anti-Tamper Enforcement:</strong> All previously recorded weights are permanently
-              audit-locked and cannot be edited. Upstream dispatch quantities are strictly hidden to ensure unbiased scale entry.
-            </span>
-          </div>
 
           {/* Stepper Timeline: All N+1 Boxes */}
           {visit.accepted_portion_count > 0 && (
@@ -668,6 +671,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                         <div className="relative">
                           <input
                             type="number"
+                            inputMode="decimal"
                             autoFocus
                             step="1"
                             min="1"

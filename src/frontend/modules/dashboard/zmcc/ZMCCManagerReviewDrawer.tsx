@@ -6,6 +6,7 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import { formatOperationalDatetime } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import type { ZmccLabSessionItem } from './zmccQualityTypes';
 
 /** Bottom sheet where the ZMCC manager records an accept / reject decision on a lab session. */
@@ -169,17 +170,27 @@ export const ZMCCManagerReviewDrawer: React.FC<{
             </div>
 
             {/* Substantive Reason Textarea */}
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label className="text-xs font-semibold text-slate-800 block">
                 Substantive Justification / Reason <span className="text-rose-600">*</span>
               </label>
+              <QuickRemarksChips
+                presets={
+                  reviewDecision === 'ACCEPTED'
+                    ? ['Approved under Concession', 'Re-tested within tolerance', 'Management waiver granted', 'Verified by Plant Quality']
+                    : ['Lab SOP failure confirmed', 'Critical quality deviation', 'Return to source', 'Unacceptable organoleptic result']
+                }
+                value={reviewReason}
+                onChange={setReviewReason}
+                label="Quick justification presets:"
+              />
               <textarea
                 value={reviewReason}
                 onChange={(e) => setReviewReason(e.target.value)}
-                placeholder="Justification"
+                placeholder="Enter substantive justification or tap quick presets above…"
                 rows={3}
                 required
-                className="w-full p-2.5 text-xs font-medium rounded-xl bg-subtle border border-border text-foreground focus:ring-2 focus:ring-primary outline-hidden min-h-11"
+                className="w-full p-2.5 text-base sm:text-xs font-medium rounded-xl bg-subtle border border-border text-foreground focus:ring-2 focus:ring-primary outline-hidden min-h-11"
               />
             </div>
 

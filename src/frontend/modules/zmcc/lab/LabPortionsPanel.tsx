@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { LiveCamera } from '@/components/camera/LiveCamera';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/DecisionStatusBadge';
 import {
   buildLabPortionDecision,
@@ -842,6 +843,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                                 {isNumeric ? (
                                   <input
                                     type="number"
+                                    inputMode="decimal"
                                     step="any"
                                     value={v}
                                     aria-label={t.testName}
@@ -853,7 +855,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                                     }
                                     aria-invalid={isOut || undefined}
                                     className={cn('min-h-11', 
-                                      'h-10 w-28 rounded-lg border px-2 text-sm font-semibold tabular-nums focus:outline-none focus:ring-2',
+                                      'h-10 w-28 rounded-lg border px-2 text-base sm:text-sm font-semibold tabular-nums focus:outline-none focus:ring-2',
                                       isFail
                                         ? 'border-rose-400 bg-rose-50/40 text-rose-950 focus:border-rose-500 focus:ring-rose-500'
                                         : isWarning
@@ -1017,17 +1019,27 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                       </div>
                     )}
 
-                    <div>
-                      <label htmlFor="portion-remarks" className="mb-1 block text-xs font-semibold text-slate-700">
+                    <div className="space-y-2">
+                      <label htmlFor="portion-remarks" className="block text-xs font-semibold text-slate-700">
                         {modalPreview?.remarksRequired ? 'Remarks / Justification (Required)' : 'Remarks (Optional)'}
                       </label>
+                      <QuickRemarksChips
+                        presets={
+                          modalDraft.person === 'REJECT'
+                            ? ['Lab SOP Failure', 'Acidity High', 'Abnormal Sediment', 'Organoleptic Off-flavor', 'Fat Below Spec']
+                            : ['Sample In Spec', 'All Tests Normal', 'Approved for Reception', 'Retest Passed']
+                        }
+                        value={modalDraft.remarks}
+                        onChange={(val) => setDraft(modalPortion.id, { remarks: val })}
+                        label="Quick remarks:"
+                      />
                       <textarea
                         id="portion-remarks"
                         value={modalDraft.remarks}
                         onChange={(e) => setDraft(modalPortion.id, { remarks: e.target.value })}
                         rows={2}
-                        placeholder={modalPreview?.remarksRequired ? 'Reason…' : 'Observations…'}
-                        className="min-h-11 w-full resize-none rounded-xl border border-border p-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder={modalPreview?.remarksRequired ? 'Enter reason or tap quick presets above…' : 'Observations or tap quick presets…'}
+                        className="min-h-11 w-full resize-none rounded-xl border border-border p-2.5 text-base sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
 

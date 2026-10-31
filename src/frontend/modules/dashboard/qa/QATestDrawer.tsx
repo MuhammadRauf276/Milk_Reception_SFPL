@@ -14,6 +14,7 @@ import {
   Calculator,
 } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import { LiveCameraCapture } from '@/components/camera/LiveCameraCapture';
 import { cn } from '@/lib/utils';
 import { evaluate3ZoneTest } from '@/lib/sop-evaluation';
@@ -367,7 +368,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                         onChange={(e) => onSealChange(e.target.value)}
                         placeholder="Enter seal number on tanker"
                         className={cn(
-                          'mt-1 w-full rounded-lg border p-2 text-xs font-mono font-bold focus:outline-hidden',
+                          'mt-1 w-full min-h-11 rounded-lg border p-2 text-base sm:text-xs font-mono font-bold focus:outline-hidden',
                           isSealMismatch
                             ? 'border-rose-400 bg-rose-50 text-rose-900'
                             : 'border-border focus:border-primary'
@@ -499,6 +500,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                               ) : isNumeric ? (
                                 <input
                                   type="number"
+                                  inputMode="decimal"
                                   step="any"
                                   value={state.numericValue}
                                   aria-label={t.testName}
@@ -506,7 +508,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                                   onChange={(e) => onTestNumericChange(t.id, e.target.value)}
                                   aria-invalid={isOut || undefined}
                                   className={cn(
-                                    'min-h-11 h-10 w-28 rounded-lg border px-2 text-sm font-semibold tabular-nums text-right sm:text-left focus:outline-hidden focus:ring-2',
+                                    'min-h-11 h-10 w-28 rounded-lg border px-2 text-base sm:text-sm font-semibold tabular-nums text-right sm:text-left focus:outline-hidden focus:ring-2',
                                     isFail
                                         ? 'border-rose-400 bg-rose-50/40 text-rose-950 focus:border-rose-500 focus:ring-rose-500'
                                         : isWarning
@@ -655,17 +657,27 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                     </button>
                   </div>
 
-                  <div>
+                  <div className="space-y-1.5">
                     <label htmlFor="qa-decision-remarks" className="text-[10px] uppercase font-bold text-slate-500 block">
                       Decision Remarks / Notes {personDecision === 'REJECT' ? '*' : '(Optional)'}
                     </label>
+                    <QuickRemarksChips
+                      presets={
+                        personDecision === 'REJECT'
+                          ? ['Direct Rejection', 'Temperature Above Spec', 'Acidity Test Failed', 'Adulteration Detected', 'Organoleptic Sour / Curdled']
+                          : ['Within Plant Acceptance Limits', 'Organoleptic Normal', 'Acceptable with Concession', 'Verified by Plant QA']
+                      }
+                      value={decisionRemarks}
+                      onChange={(val) => onDecisionRemarksChange?.(val)}
+                      label="Quick remarks:"
+                    />
                     <input
                       id="qa-decision-remarks"
                       type="text"
                       value={decisionRemarks}
                       onChange={(e) => onDecisionRemarksChange?.(e.target.value)}
-                      placeholder={personDecision === 'REJECT' ? 'Mandatory rejection reason' : 'Operational remarks'}
-                      className="mt-1 w-full rounded-lg border border-border p-2 text-xs focus:border-primary focus:outline-hidden"
+                      placeholder={personDecision === 'REJECT' ? 'Mandatory rejection reason or tap quick presets' : 'Operational remarks or tap quick presets'}
+                      className="mt-1 w-full min-h-11 rounded-lg border border-border p-2 text-base sm:text-xs focus:border-primary focus:outline-hidden"
                     />
                   </div>
                 </div>
