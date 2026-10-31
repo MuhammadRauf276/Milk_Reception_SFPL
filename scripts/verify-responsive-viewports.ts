@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import { chromium, type Browser } from 'playwright';
 import { prisma } from '../src/backend/core/db';
 import { createSessionToken } from '../src/backend/core/auth';
 import type { Role } from '../src/backend/core/types';
@@ -91,7 +91,7 @@ async function generateUserToken(username: string): Promise<string> {
     name: dbUser.full_name || dbUser.username,
     role: dbUser.role as Role,
     department: dbUser.department || 'Operations',
-    zone: (dbUser as any).zone || null,
+    zone: (dbUser as unknown as { zone?: string | null }).zone || null,
     scope_type: dbUser.scope_type || 'ALL',
     procurement_source_id: dbUser.procurement_source_id ? String(dbUser.procurement_source_id) : null,
   });
@@ -120,8 +120,9 @@ async function runResponsiveVerification() {
       executablePath: CHROME_PATH,
       headless: true,
     });
-  } catch (err: any) {
-    console.warn('Chrome path unavailable, using default playwright chromium...', err.message);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('Chrome path unavailable, using default playwright chromium...', msg);
     browser = await chromium.launch({ headless: true });
   }
 
@@ -136,9 +137,10 @@ async function runResponsiveVerification() {
         const token = await generateUserToken(s.username);
         tokenCache.set(s.username, token);
         console.log(`  ✓ Auth token generated for user '${s.username}' (${s.role})`);
-      } catch (err: any) {
-        tokenErrors.set(s.username, err.message);
-        console.error(`  ✗ Failed to generate token for user '${s.username}':`, err.message);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        tokenErrors.set(s.username, msg);
+        console.error(`  ✗ Failed to generate token for user '${s.username}':`, msg);
       }
     }
   }
@@ -293,15 +295,16 @@ async function runResponsiveVerification() {
             clientWidth: metrics.clientWidth,
           });
         }
-      } catch (err: any) {
-        console.error(`  ✗ [${screen.id}] ${screen.name}: FAIL (${err.message})`);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`  ✗ [${screen.id}] ${screen.name}: FAIL (${msg})`);
         results.push({
           id: screen.id,
           role: screen.role,
           name: screen.name,
           viewport: vp.name,
           status: 'FAIL',
-          reason: err.message,
+          reason: msg,
         });
       } finally {
         await page.close();
@@ -324,6 +327,7 @@ async function runResponsiveVerification() {
   });
 
   let interactionPasses = 0;
+  let interactionFails = 0;
   let interactionTotal = 0;
 
   // Interaction Test 1: Keyboard Open & Focused Input Visibility on /login
@@ -350,79 +354,143 @@ async function runResponsiveVerification() {
     console.log('  ✓ [INTERACTION-01] Virtual keyboard input visibility & focus retention: PASS');
     interactionPasses++;
     await page.close();
-  } catch (err: any) {
-    console.error('  ✗ [INTERACTION-01] Virtual keyboard input visibility: FAIL -', err.message);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('  ✗ [INTERACTION-01] Virtual keyboard input visibility: FAIL -', msg);
+    interactionFails++;
+    results.push({
+      id: 'INTERACTION-01',
+      role: 'PUBLIC',
+      name: 'Virtual Keyboard Input Visibility',
+      viewport: '360x800',
+      status: 'FAIL',
+      reason: msg,
+    });
   }
 
   // Interaction Test 2: Drawer Opening, Escape Key Dismissal & Focus Restoration
   interactionTotal++;
   try {
     const page = await mobileCtx.newPage();
-    if (tokenCache.has('admin.superuser')) {
-      await mobileCtx.addCookies([
-        { name: 'auth_token', value: tokenCache.get('admin.superuser')!, url: 'http://127.0.0.1:3000' },
-      ]);
+    if (!tokenCache.has('admin.superuser')) {
+      throw new Error('Missing authentication token for user admin.superuser');
     }
+    await mobileCtx.addCookies([
+      { name: 'auth_token', value: tokenCache.get('admin.superuser')!, url: 'http://127.0.0.1:3000' },
+    ]);
     await page.goto('http://127.0.0.1:3000/super-admin', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('[role="status"]', { state: 'detached', timeout: 6000 }).catch(() => {});
     await page.waitForTimeout(600);
 
-    // Click hamburger button to open drawer
-    const menuBtn = page.getByRole('button', { name: /menu|open navigation|navigation/i }).first();
+    // Click hamburger button to open drawer (MUST FAIL if button is missing)
+    const menuBtn = page.getByRole('button', { name: /open navigation|menu|navigation/i }).first();
     const canOpen = await menuBtn.isVisible().catch(() => false);
-    if (canOpen) {
-      await menuBtn.click();
-      await page.waitForTimeout(400);
-
-      // Press Escape key
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(400);
-      console.log('  ✓ [INTERACTION-02] Navigation drawer open, Escape key dismiss & focus: PASS');
-      interactionPasses++;
-    } else {
-      console.log('  ✓ [INTERACTION-02] Drawer backdrop dismiss verified: PASS');
-      interactionPasses++;
+    if (!canOpen) {
+      throw new Error('Navigation menu button not found or not visible on mobile viewport');
     }
+
+    await menuBtn.click();
+
+    // 1. Verify drawer actually opened
+    const drawerDialog = page.locator('[role="dialog"]').first();
+    await drawerDialog.waitFor({ state: 'visible', timeout: 4000 });
+    const isDrawerVisible = await drawerDialog.isVisible();
+    assert(isDrawerVisible, 'Navigation drawer dialog must be visible after clicking menu button');
+
+    // 2. Press Escape key to dismiss
+    await page.keyboard.press('Escape');
+    await drawerDialog.waitFor({ state: 'hidden', timeout: 4000 });
+    const isDrawerClosed = !(await drawerDialog.isVisible().catch(() => false));
+    assert(isDrawerClosed, 'Navigation drawer dialog must close on Escape key');
+
+    // 3. Verify focus restoration where supported
+    await page.waitForTimeout(200);
+    const isFocusRestored = await menuBtn.evaluate((el) => el === document.activeElement).catch(() => false);
+    console.log(`  ✓ [INTERACTION-02] Navigation drawer opened, Escape dismissed, focus verified (${isFocusRestored}): PASS`);
+    interactionPasses++;
     await page.close();
-  } catch (err: any) {
-    console.error('  ✗ [INTERACTION-02] Navigation drawer escape handling: FAIL -', err.message);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('  ✗ [INTERACTION-02] Navigation drawer escape handling: FAIL -', msg);
+    interactionFails++;
+    results.push({
+      id: 'INTERACTION-02',
+      role: 'SUPER_ADMIN',
+      name: 'Navigation Drawer Open & Escape Dismissal',
+      viewport: '360x800',
+      status: 'FAIL',
+      reason: msg,
+    });
   }
 
   // Interaction Test 3: Table Local Momentum Scrolling & Container Stability
   interactionTotal++;
   try {
     const page = await mobileCtx.newPage();
-    if (tokenCache.has('admin.superuser')) {
-      await mobileCtx.addCookies([
-        { name: 'auth_token', value: tokenCache.get('admin.superuser')!, url: 'http://127.0.0.1:3000' },
-      ]);
+    if (!tokenCache.has('admin.superuser')) {
+      throw new Error('Missing authentication token for user admin.superuser');
     }
+    await mobileCtx.addCookies([
+      { name: 'auth_token', value: tokenCache.get('admin.superuser')!, url: 'http://127.0.0.1:3000' },
+    ]);
     await page.goto('http://127.0.0.1:3000/super-admin/audit', { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('[role="status"]', { state: 'detached', timeout: 6000 }).catch(() => {});
     await page.waitForSelector('table', { timeout: 6000 }).catch(() => {});
     await page.waitForTimeout(500);
 
+    const table = page.locator('table').first();
+    const hasTable = await table.isVisible().catch(() => false);
+    if (!hasTable) {
+      throw new Error('Audit table not found on page');
+    }
+
     const tableMetrics = await page.evaluate(() => {
-      const table = document.querySelector('table');
-      if (!table) return null;
-      const container = table.closest('.overflow-x-auto, .table-responsive, [data-table-wrapper]');
+      const tableEl = document.querySelector('table');
+      if (!tableEl) return null;
+      const container = tableEl.closest('.overflow-x-auto, .table-responsive, [data-table-wrapper]');
+      if (!container) return null;
       const docScrollWidth = document.documentElement.scrollWidth;
       const winWidth = window.innerWidth;
+
+      // Test horizontal scrolling
+      const initialScroll = container.scrollLeft;
+      container.scrollLeft = 50;
+      const didScroll = container.scrollLeft > 0;
+      container.scrollLeft = initialScroll;
+
       return {
         hasTable: true,
-        hasContainer: Boolean(container),
+        hasContainer: true,
+        canScroll: didScroll,
         docNoOverflow: docScrollWidth <= winWidth + 1,
       };
     });
 
-    if (tableMetrics && tableMetrics.docNoOverflow) {
-      console.log('  ✓ [INTERACTION-03] Audit table horizontal scroll containment on 360px: PASS');
-      interactionPasses++;
-    } else {
-      throw new Error('Table container overflowed document width');
+    if (!tableMetrics || !tableMetrics.hasContainer) {
+      throw new Error('Table container wrapper not found around audit table');
     }
+    if (!tableMetrics.docNoOverflow) {
+      throw new Error('Document-level horizontal overflow detected with table present');
+    }
+    if (!tableMetrics.canScroll) {
+      throw new Error('Table container could not be scrolled horizontally');
+    }
+
+    console.log('  ✓ [INTERACTION-03] Audit table horizontal scroll containment & scrolling on 360px: PASS');
+    interactionPasses++;
     await page.close();
-  } catch (err: any) {
-    console.error('  ✗ [INTERACTION-03] Table scroll containment: FAIL -', err.message);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('  ✗ [INTERACTION-03] Table scroll containment: FAIL -', msg);
+    interactionFails++;
+    results.push({
+      id: 'INTERACTION-03',
+      role: 'SUPER_ADMIN',
+      name: 'Table Horizontal Scroll Containment',
+      viewport: '360x800',
+      status: 'FAIL',
+      reason: msg,
+    });
   }
 
   await mobileCtx.close();
@@ -440,7 +508,7 @@ async function runResponsiveVerification() {
   console.log(`  PASSED:              ${passed} (${Math.round((passed / total) * 100)}%)`);
   console.log(`  FAILED:              ${failed}`);
   console.log(`  SKIPPED:             ${skipped}`);
-  console.log(`  Interactions Tested: ${interactionPasses} / ${interactionTotal} PASSED`);
+  console.log(`  Interactions Tested: ${interactionPasses} / ${interactionTotal} PASSED (Failed: ${interactionFails})`);
   console.log('========================================================================\n');
 
   if (failed > 0) {

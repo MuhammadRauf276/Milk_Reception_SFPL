@@ -55,6 +55,7 @@ export const TableWrapper = React.forwardRef<HTMLDivElement, TableWrapperProps>(
             if (typeof ref === 'function') ref(node);
             else if (ref) ref.current = node;
           }}
+          data-table-wrapper="true"
           className={cn(
             'table-responsive scrollbar-thin touch-scroll w-full min-w-0 rounded-lg border border-border bg-card',
             className
