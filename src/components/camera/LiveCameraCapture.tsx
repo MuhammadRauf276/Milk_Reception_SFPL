@@ -237,12 +237,12 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="relative overflow-hidden rounded-lg bg-black flex items-center justify-center max-h-[70vh]">
+          <div className="relative overflow-hidden rounded-lg bg-black flex items-center justify-center max-h-[70dvh]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={currentPhotoUrl}
               alt={`${testLabel} verification`}
-              className="max-h-[70vh] w-auto object-contain"
+              className="max-h-[70dvh] w-auto object-contain"
             />
           </div>
         </Modal>

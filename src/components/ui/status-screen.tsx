@@ -21,7 +21,7 @@ const TONES = {
 /** Centered full-page message for errors, 404s and access problems. */
 export function StatusScreen({ icon, tone = 'neutral', title, description, children }: StatusScreenProps) {
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-background p-6">
+    <div className="flex min-h-[100dvh] w-full items-center justify-center bg-background p-6 pt-safe pb-safe">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}

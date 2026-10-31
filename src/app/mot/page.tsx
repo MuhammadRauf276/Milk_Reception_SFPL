@@ -171,7 +171,7 @@ export default function MotPage() {
   if (!currentUser) return null;
 
   return (
-    <div className="w-full max-w-full flex flex-col h-screen bg-background text-foreground overflow-hidden">
+    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-hidden">
       <Header
         currentUser={currentUser}
         title="Mobile Tester"
@@ -188,8 +188,8 @@ export default function MotPage() {
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      <div className="flex-1 flex overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 w-full max-w-5xl mx-auto space-y-4">
+      <div className="flex-1 flex flex-col w-full min-w-0">
+        <main className="flex-1 w-full min-w-0 max-w-5xl mx-auto p-3 sm:p-5 lg:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-4">
           <PageTransition>
             <SyncBar
               isOnline={isOnline}

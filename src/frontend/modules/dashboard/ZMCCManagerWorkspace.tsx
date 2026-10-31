@@ -310,7 +310,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   }, [selectedLog, liveLogs, reportingLogs]);
 
   return (
-    <div className="w-full max-w-full flex flex-col h-screen bg-background text-foreground overflow-hidden">
+    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-hidden">
       <Header
         currentUser={currentUser}
         title={subpageTitle ?? sectionTitle}

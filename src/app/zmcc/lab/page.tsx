@@ -69,7 +69,7 @@ function ZmccLabContent() {
   }
 
   return (
-    <div className="w-full max-w-full flex flex-col h-screen bg-background text-foreground overflow-hidden">
+    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-hidden">
       {/* Header */}
       <Header
         currentUser={currentUser}
@@ -89,8 +89,8 @@ function ZmccLabContent() {
       />
 
       {/* Main Full-Width Responsive Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 w-full max-w-full space-y-4">
+      <div className="flex-1 flex flex-col w-full min-w-0">
+        <main className="flex-1 w-full min-w-0 max-w-full p-3 sm:p-6 lg:p-8 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-4">
           <PageTransition>
           <ZmccLabWorkspace currentUser={currentUser} hideTabBar={false} />
           </PageTransition>

@@ -251,7 +251,7 @@ export function DeviceSetupScreen() {
   const shown = banner ?? stateBanner(syncState, hasKey);
 
   return (
-    <main className="mx-auto w-full max-w-xl space-y-6 p-4 pb-28">
+    <main className="mx-auto min-h-[100dvh] w-full max-w-xl space-y-6 p-4 pt-safe pb-[max(7rem,env(safe-area-inset-bottom))]">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold">
           <Smartphone className="size-7" aria-hidden /> Phone setup

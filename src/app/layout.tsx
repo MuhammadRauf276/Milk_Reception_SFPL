@@ -27,6 +27,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: '#ED1C24',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({
@@ -36,7 +41,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-background font-sans text-foreground antialiased" suppressHydrationWarning>
+      <body className="min-h-[100dvh] bg-background font-sans text-foreground antialiased" suppressHydrationWarning>
         <MotionProvider>
           <TooltipProvider delayDuration={250}>
             <ToastProvider>

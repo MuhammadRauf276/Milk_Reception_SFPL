@@ -84,11 +84,11 @@ export function ZMCCPlantTransitHub({
         </div>
 
         {/* Segmented Subtabs */}
-        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border w-fit">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border w-full sm:w-fit">
           <button
             type="button"
             onClick={() => handleSubViewChange('IN_TRANSIT')}
-            className={`min-h-9 px-3.5 py-1.5 text-xs font-semibold rounded-md transition flex items-center gap-1.5 ${
+            className={`min-h-9 px-3.5 py-1.5 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${
               subView === 'IN_TRANSIT' ? 'bg-primary text-white shadow-2xs' : 'text-slate-600 hover:text-foreground'
             }`}
           >
@@ -98,7 +98,7 @@ export function ZMCCPlantTransitHub({
           <button
             type="button"
             onClick={() => handleSubViewChange('RECONCILIATION')}
-            className={`min-h-9 px-3.5 py-1.5 text-xs font-semibold rounded-md transition flex items-center gap-1.5 ${
+            className={`min-h-9 px-3.5 py-1.5 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${
               subView === 'RECONCILIATION' ? 'bg-primary text-white shadow-2xs' : 'text-slate-600 hover:text-foreground'
             }`}
           >
@@ -108,7 +108,7 @@ export function ZMCCPlantTransitHub({
           <button
             type="button"
             onClick={() => handleSubViewChange('ALL_DISPATCHES')}
-            className={`min-h-9 px-3.5 py-1.5 text-xs font-semibold rounded-md transition flex items-center gap-1.5 ${
+            className={`min-h-9 px-3.5 py-1.5 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${
               subView === 'ALL_DISPATCHES' ? 'bg-primary text-white shadow-2xs' : 'text-slate-600 hover:text-foreground'
             }`}
           >

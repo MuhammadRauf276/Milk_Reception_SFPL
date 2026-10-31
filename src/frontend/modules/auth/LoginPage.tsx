@@ -61,7 +61,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-background text-foreground">
+    <div className="flex min-h-[100dvh] w-full flex-col bg-background text-foreground pt-safe pb-safe">
       <header className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
         <BrandMark size="lg" />
         <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">

@@ -46,7 +46,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
   if (loading) {
     return (
-      <PageLoader label="Verifying access…" className="min-h-screen" />
+      <PageLoader label="Verifying access…" className="min-h-[100dvh]" />
     );
   }
 
@@ -55,7 +55,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="flex min-h-screen w-full max-w-full flex-col bg-background text-foreground">
+    <div className="flex min-h-[100dvh] w-full max-w-full flex-col bg-background text-foreground overflow-x-hidden">
       <SuperAdminHeader
         currentUser={currentUser}
         isOpen={isDrawerOpen}
@@ -68,7 +68,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         onClose={() => setIsDrawerOpen(false)}
         triggerRef={hamburgerButtonRef}
       />
-      <main className="w-full min-w-0 max-w-full flex-1 overflow-x-clip p-4 sm:p-6 lg:p-8">
+      <main className="w-full min-w-0 max-w-full flex-1 p-3 sm:p-6 lg:p-8 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <PageTransition>{children}</PageTransition>
       </main>
     </div>

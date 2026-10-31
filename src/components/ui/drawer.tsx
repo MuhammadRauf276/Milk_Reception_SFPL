@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Drawer as DrawerPrimitive } from 'vaul';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { cn } from '@/lib/utils';
+import { useVisualViewport } from '@/frontend/hooks/useVisualViewport';
 
 const DESKTOP_QUERY = '(min-width: 768px)';
 
@@ -76,8 +77,9 @@ DrawerOverlay.displayName = 'DrawerOverlay';
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+>(({ className, children, style, ...props }, ref) => {
   const desktop = React.useContext(DesktopContext);
+  const { height: vvh, isKeyboardOpen } = useVisualViewport();
 
   const keepCameraOpen = (e: { target: EventTarget | null; preventDefault: () => void }) => {
     if ((e.target as HTMLElement | null)?.closest?.('[data-live-camera]')) e.preventDefault();
@@ -94,12 +96,19 @@ const DrawerContent = React.forwardRef<
             'fixed left-1/2 top-1/2 z-modal flex max-h-[88dvh] w-[calc(100vw-3rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl outline-hidden data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 duration-150',
             className
           )}
+          style={style}
         >
           {children}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     );
   }
+
+  // On mobile Android/iOS: adjust max-height dynamically when software keyboard opens
+  const mobileMaxHeight =
+    isKeyboardOpen && vvh
+      ? `${Math.max(260, Math.floor(vvh - 12))}px`
+      : '92dvh';
 
   return (
     <DrawerPrimitive.Portal>
@@ -109,9 +118,13 @@ const DrawerContent = React.forwardRef<
         aria-describedby={undefined}
         onInteractOutside={keepCameraOpen}
         className={cn(
-          'fixed inset-x-0 bottom-0 z-modal mx-auto flex max-h-[92dvh] w-full max-w-2xl flex-col rounded-t-3xl border border-border bg-card outline-hidden',
+          'fixed inset-x-0 bottom-0 z-modal mx-auto flex w-full max-w-2xl flex-col rounded-t-3xl border border-border bg-card outline-hidden overflow-hidden touch-scroll transition-[max-height] duration-150 ease-out',
           className
         )}
+        style={{
+          maxHeight: mobileMaxHeight,
+          ...style,
+        }}
         {...props}
       >
         <div className="mx-auto mt-2.5 h-1.5 w-11 shrink-0 rounded-full bg-slate-300" aria-hidden="true" />
@@ -136,4 +149,48 @@ const DrawerTitle = React.forwardRef<
 });
 DrawerTitle.displayName = 'DrawerTitle';
 
-export { Drawer, DrawerContent, DrawerTitle, DrawerOverlay };
+const DrawerDescription = React.forwardRef<
+  React.ElementRef<typeof DrawerPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Description>
+>(({ className, ...props }, ref) => {
+  const desktop = React.useContext(DesktopContext);
+  const cls = cn('text-sm text-muted-foreground', className);
+  return desktop ? (
+    <DialogPrimitive.Description className={cls} {...(props as React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>)} />
+  ) : (
+    <DrawerPrimitive.Description ref={ref} className={cls} {...props} />
+  );
+});
+DrawerDescription.displayName = 'DrawerDescription';
+
+const DrawerHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn('flex shrink-0 flex-col gap-1.5 px-4 pt-3 pb-2 text-left sm:px-6', className)} {...props} />
+);
+DrawerHeader.displayName = 'DrawerHeader';
+
+const DrawerBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn('flex-1 min-h-0 overflow-y-auto px-4 py-2 touch-scroll sm:px-6', className)} {...props} />
+);
+DrawerBody.displayName = 'DrawerBody';
+
+const DrawerFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn(
+      'mt-auto flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-6',
+      className
+    )}
+    {...props}
+  />
+);
+DrawerFooter.displayName = 'DrawerFooter';
+
+export {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerOverlay,
+  DrawerHeader,
+  DrawerBody,
+  DrawerFooter,
+};

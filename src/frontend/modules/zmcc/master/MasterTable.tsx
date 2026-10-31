@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Edit2, Power } from 'lucide-react';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 
 export interface MasterCol<T> {
   header: string;
@@ -41,73 +42,75 @@ export function MasterTable<T extends { id: string; is_active: boolean }>({
   emptyText,
   entity,
   canEdit,
-  hideActionsWhenReadOnly,
+  hideActionsWhenReadOnly: _hideActionsWhenReadOnly,
   onEdit,
   onToggle,
 }: Props<T>) {
   const showActionsCol = canEdit;
   const colSpan = cols.length + (showActionsCol ? 1 : 0);
   return (
-    <table className="w-full text-left text-xs border-collapse">
-      <thead>
-        <tr className="bg-subtle border-b border-border text-slate-600 font-semibold uppercase text-xs tracking-wider">
-          {cols.map((c) => (
-            <th key={c.header} className={`py-3 px-4 ${alignCls[c.align ?? 'left']}`}>
-              {c.header}
-            </th>
-          ))}
-          {showActionsCol && <th className="py-3 px-4 text-right">Actions</th>}
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-border">
-        {rows.length === 0 ? (
-          <tr>
-            <td colSpan={colSpan} className="py-8 text-center text-slate-400 font-semibold">
-              {emptyText}
-            </td>
+    <TableWrapper>
+      <table className="w-full text-left text-xs border-collapse min-w-[500px]">
+        <thead>
+          <tr className="bg-subtle border-b border-border text-slate-600 font-semibold uppercase text-xs tracking-wider">
+            {cols.map((c) => (
+              <th key={c.header} className={`py-3 px-4 ${alignCls[c.align ?? 'left']}`}>
+                {c.header}
+              </th>
+            ))}
+            {showActionsCol && <th className="py-3 px-4 text-right">Actions</th>}
           </tr>
-        ) : (
-          rows.map((r) => (
-            <tr key={r.id} className="hover:bg-subtle/60 transition">
-              {cols.map((c) => (
-                <td key={c.header} className={`py-3 px-4 ${alignCls[c.align ?? 'left']} ${c.tdClass ?? ''}`}>
-                  {c.cell(r)}
-                </td>
-              ))}
-              {showActionsCol && (
-                <td className="py-3 px-4 text-right">
-                  {canEdit && (
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => onEdit(r)}
-                        className="p-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg border border-border hover:bg-slate-100 text-slate-700 transition"
-                        title={`Edit ${entity}`}
-                        aria-label={`Edit ${entity}`}
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onToggle(r)}
-                        className={`p-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg border transition ${
-                          r.is_active
-                            ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
-                            : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
-                        }`}
-                        title={r.is_active ? `Deactivate ${entity}` : `Activate ${entity}`}
-                        aria-label={r.is_active ? `Deactivate ${entity}` : `Activate ${entity}`}
-                      >
-                        <Power className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </td>
-              )}
+        </thead>
+        <tbody className="divide-y divide-border">
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={colSpan} className="py-8 text-center text-slate-400 font-semibold">
+                {emptyText}
+              </td>
             </tr>
-          ))
-        )}
-      </tbody>
-    </table>
+          ) : (
+            rows.map((r) => (
+              <tr key={r.id} className="hover:bg-subtle/60 transition">
+                {cols.map((c) => (
+                  <td key={c.header} className={`py-3 px-4 ${alignCls[c.align ?? 'left']} ${c.tdClass ?? ''}`}>
+                    {c.cell(r)}
+                  </td>
+                ))}
+                {showActionsCol && (
+                  <td className="py-3 px-4 text-right">
+                    {canEdit && (
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onEdit(r)}
+                          className="p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-border hover:bg-slate-100 text-slate-700 transition"
+                          title={`Edit ${entity}`}
+                          aria-label={`Edit ${entity}`}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onToggle(r)}
+                          className={`p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border transition ${
+                            r.is_active
+                              ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
+                              : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                          }`}
+                          title={r.is_active ? `Deactivate ${entity}` : `Activate ${entity}`}
+                          aria-label={r.is_active ? `Deactivate ${entity}` : `Activate ${entity}`}
+                        >
+                          <Power className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                )}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </TableWrapper>
   );
 }

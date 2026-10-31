@@ -1,5 +1,7 @@
 'use client';
 
+import { useVisualViewportHeight } from '@/frontend/hooks/useVisualViewport';
+
 /**
  * MOT shop collection as a streamlined 2-step wizard + dedicated Decide Modal:
  *   1. Quantity & Source   (RMR token, milk source with ERP Combobox, gross quantity, notes)
@@ -56,18 +58,7 @@ const STEPS = ['Source & Tests', 'Quantity & Comments'] as const;
 const FIELD_CLASS =
   'h-12 w-full min-w-0 rounded-xl border border-border bg-white px-3 text-base font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary';
 
-function useVisualViewportHeight(): number | null {
-  const [h, setH] = useState<number | null>(null);
-  useEffect(() => {
-    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
-    if (!vv) return;
-    const update = () => setH(vv.height);
-    update();
-    vv.addEventListener('resize', update);
-    return () => vv.removeEventListener('resize', update);
-  }, []);
-  return h;
-}
+
 
 export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
   const {
@@ -167,7 +158,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
 
   return (
     <div
-      className="flex max-h-[90vh] flex-col"
+      className="flex max-h-[90dvh] flex-col"
       style={vvh ? { maxHeight: Math.min(vvh - 24, typeof window !== 'undefined' ? window.innerHeight * 0.9 : vvh) } : undefined}
     >
       {/* Header */}

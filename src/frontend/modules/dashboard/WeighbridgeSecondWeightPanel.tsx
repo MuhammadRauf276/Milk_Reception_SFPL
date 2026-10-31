@@ -273,6 +273,7 @@ const SecondWeightDrawer: React.FC<{
               <div className="relative">
                 <input
                   type="number"
+                  inputMode="decimal"
                   step="1"
                   value={tareInputKg}
                   onChange={(e) => setTareInputKg(e.target.value)}

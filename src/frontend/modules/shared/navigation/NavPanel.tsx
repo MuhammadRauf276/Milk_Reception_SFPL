@@ -84,7 +84,7 @@ export function NavPanel({
         ) : null}
       </div>
 
-      <nav aria-label="Primary" className="scrollbar-thin flex-1 overflow-y-auto px-3 py-4">
+      <nav aria-label="Primary" className="scrollbar-thin touch-scroll flex-1 overflow-y-auto px-3 py-4">
         {caption ? (
           <p className="mb-2 px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             {caption}
@@ -151,42 +151,42 @@ export function NavPanel({
                   {isOpen ? (
                     <motion.ul
                       id={panelId}
-                      key="panel"
+                      role="region"
+                      aria-label={section.label}
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-                      className="ml-[18px] overflow-hidden border-l pl-2 space-y-0.5"
+                      transition={{ duration: 0.16, ease: 'easeOut' }}
+                      className="space-y-0.5 overflow-hidden pl-5"
                     >
                       {children.map((leaf, index) => {
                         const active = isActive(leaf.href);
                         const LeafIcon = leaf.icon;
-                        const prevLeaf = index > 0 ? children[index - 1] : null;
-                        const showGroupHeader = Boolean(leaf.group && leaf.group !== prevLeaf?.group);
+                        const prevGroup = index > 0 ? children[index - 1].group : undefined;
+                        const showGroupHeader = leaf.group && leaf.group !== prevGroup;
 
                         return (
                           <React.Fragment key={leaf.id}>
-                            {showGroupHeader && (
-                              <li className="pt-2.5 pb-1 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80 list-none">
-                                {leaf.group}
+                            {showGroupHeader ? (
+                              <li className="pt-2 pb-1 px-2.5">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                                  {leaf.group}
+                                </span>
                               </li>
-                            )}
-                            <li className="py-px first:pt-1 last:pb-1">
+                            ) : null}
+                            <li>
                               <Link
                                 href={leaf.href}
                                 onClick={onNavigate}
                                 aria-current={active ? 'page' : undefined}
                                 className={cn(
                                   itemBase,
-                                  'relative min-h-[48px] sm:min-h-11 text-[13px] py-2',
+                                  'min-h-11 pl-2',
                                   active
                                     ? 'bg-primary/[0.07] font-medium text-primary'
                                     : 'text-slate-600 hover:bg-muted hover:text-foreground'
                                 )}
                               >
-                                {active ? (
-                                  <span className="absolute left-[-9px] top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary" />
-                                ) : null}
                                 {LeafIcon ? (
                                   <LeafIcon
                                     className={cn(
@@ -210,7 +210,11 @@ export function NavPanel({
         </ul>
       </nav>
 
-      {footer ? <div className="shrink-0 border-t px-4 py-3">{footer}</div> : null}
+      {footer ? (
+        <div className="shrink-0 border-t border-border px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-card">
+          {footer}
+        </div>
+      ) : null}
     </div>
   );
 }

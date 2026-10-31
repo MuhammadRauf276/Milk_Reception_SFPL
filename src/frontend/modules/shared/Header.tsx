@@ -59,15 +59,15 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <div className="sticky top-0 z-header flex flex-col w-full max-w-full shrink-0">
-      {/* Main Header Bar */}
-      <header className="flex h-16 w-full max-w-full items-center gap-3 border-b bg-card/95 px-3 backdrop-blur-sm supports-backdrop-filter:bg-card/80 sm:px-6">
+      {/* Main Header Bar with notch safe-area handling */}
+      <header className="flex h-16 w-full max-w-full items-center gap-2 border-b bg-card/95 px-2.5 backdrop-blur-sm supports-backdrop-filter:bg-card/80 sm:gap-3 sm:px-6 pt-safe">
         {shouldShowMenu && (
           <Button
             ref={menuButtonRef}
             variant="ghost"
             size="icon"
             onClick={onMenuClick}
-            className="hide-with-sidebar -ml-1 text-foreground"
+            className="hide-with-sidebar -ml-1 text-foreground shrink-0"
             aria-label="Open navigation"
           >
             <Menu className="h-5 w-5" />
@@ -81,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
           <h1 className="truncate text-sm font-semibold text-foreground">{title}</h1>
 
           {/* Searchable Multi-Source Selector for System Superiors on Regional Stations (§5.5) */}
@@ -99,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <SyncStatusSign />
           <NotificationBell currentUser={currentUser} />
           <UserMenu currentUser={currentUser} />

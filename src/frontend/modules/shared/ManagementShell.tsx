@@ -41,11 +41,11 @@ export function ManagementShell({ title, allowedRoles, children }: ManagementShe
     setTimeout(() => hamburgerButtonRef.current?.focus(), 0);
   }, []);
 
-  if (loadingUser) return <PageLoader label="Verifying Authorization…" className="min-h-screen" />;
+  if (loadingUser) return <PageLoader label="Verifying Authorization…" className="min-h-[100dvh]" />;
   if (!currentUser || !isAuthorized) return null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
       <Header
         currentUser={currentUser}
         title={title}
@@ -60,7 +60,7 @@ export function ManagementShell({ title, allowedRoles, children }: ManagementShe
         onClose={closeDrawer}
         triggerButtonRef={hamburgerButtonRef}
       />
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full">
+      <main className="flex-1 w-full min-w-0 max-w-full p-3 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <PageTransition>{children(currentUser)}</PageTransition>
       </main>
     </div>

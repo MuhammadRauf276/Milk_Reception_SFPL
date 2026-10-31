@@ -4,6 +4,7 @@ import { CheckCircle2, Camera, ChevronRight, FileText, MapPin, Maximize2, Shield
 import type { UnifiedApprovalItem } from '@/backend/services/approvals/approvalInboxService';
 import { getRoleLabel } from '@/backend/core/roles/labels';
 import { InfoTip } from '@/components/ui/info-tip';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 import { cn } from '@/lib/utils';
 
 export function ApprovalDetailBody({
@@ -174,7 +175,7 @@ export function ApprovalDetailBody({
           {item.details.testValues && item.details.testValues.length > 0 && (
             <div>
               <h4 className="font-bold text-slate-700 mb-2">Complete Laboratory Results</h4>
-              <div className="border border-border rounded-lg overflow-hidden">
+              <TableWrapper className="border border-border rounded-lg">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-border">
                     <tr>
@@ -212,7 +213,7 @@ export function ApprovalDetailBody({
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </TableWrapper>
             </div>
           )}
 

@@ -77,7 +77,7 @@ export function Modal({
       <DialogPrimitive.Portal forceMount>
         <DialogPrimitive.Overlay asChild forceMount>
           <motion.div
-            className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto bg-slate-950/40 p-3 backdrop-blur-[2px] sm:items-center sm:p-6"
+            className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto touch-scroll bg-slate-950/40 p-3 pt-safe pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-[2px] sm:items-center sm:p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -99,7 +99,7 @@ export function Modal({
                 ref={contentRef}
                 tabIndex={-1}
                 className={cn(
-                  'relative my-auto w-full rounded-xl border bg-card text-card-foreground shadow-xl outline-hidden',
+                  'relative my-auto w-full max-w-full rounded-xl border border-border bg-card text-card-foreground shadow-xl outline-hidden',
                   SIZE_CLASSES[size],
                   className
                 )}
@@ -109,7 +109,7 @@ export function Modal({
                 transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.8 }}
               >
                 {showHeader ? (
-                  <div className="flex items-start justify-between gap-4 border-b px-5 py-4">
+                  <div className="flex items-start justify-between gap-4 border-b px-4 py-3 sm:px-5 sm:py-4">
                     <div className="min-w-0 space-y-1">
                       <DialogPrimitive.Title className="text-base font-semibold leading-tight">{title}</DialogPrimitive.Title>
                       {description ? (

@@ -134,7 +134,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
 
   const camera = (
     <div data-live-camera className="pointer-events-auto fixed inset-0 z-[100] flex flex-col bg-black text-white">
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between px-4 py-3 pt-safe">
         <span className="text-base font-semibold">{stamp.pointLabel}</span>
         <button
           type="button"
@@ -179,7 +179,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
         )}
       </div>
 
-      <div className="flex items-center justify-center gap-3 px-4 py-4">
+      <div className="flex items-center justify-center gap-3 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {(phase === 'live' || phase === 'working') && (
           <button
             type="button"

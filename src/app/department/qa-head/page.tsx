@@ -28,13 +28,13 @@ export default function QAHeadDepartmentPage() {
   }, [loading, user, router]);
 
   if (loading) {
-    return <PageLoader label="Loading AVP-QA Workspace…" className="min-h-screen" />;
+    return <PageLoader label="Loading AVP-QA Workspace…" className="min-h-[100dvh]" />;
   }
 
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
       <Header
         currentUser={user}
         title="QA Head"
@@ -51,7 +51,7 @@ export default function QAHeadDepartmentPage() {
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      <main className="flex-1 w-full min-w-0 max-w-7xl mx-auto p-3 sm:p-6 lg:p-8 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-6">
         <PageTransition>
           <ApprovalInbox
             currentUser={user}

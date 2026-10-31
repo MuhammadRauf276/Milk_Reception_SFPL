@@ -247,6 +247,7 @@ const FirstWeightDrawer: React.FC<{
               <div className="relative">
                 <input
                   type="number"
+                  inputMode="decimal"
                   step="1"
                   value={grossInputKg}
                   onChange={(e) => setGrossInputKg(e.target.value)}

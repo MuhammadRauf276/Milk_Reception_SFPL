@@ -42,12 +42,12 @@ function QADepartmentContent() {
 
   if (loading) {
     return (
-      <PageLoader label="Loading QA Laboratory…" className="min-h-screen" />
+      <PageLoader label="Loading QA Laboratory…" className="min-h-[100dvh]" />
     );
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
       <Header
         currentUser={user}
         title="QA Laboratory"
@@ -64,7 +64,7 @@ function QADepartmentContent() {
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      <main className="flex-1 p-4 sm:p-6 overflow-y-auto w-full max-w-full">
+      <main className="flex-1 w-full min-w-0 max-w-full p-3 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <PageTransition>
         <QALaboratoryWorkspace
           currentUser={user}
@@ -83,7 +83,7 @@ export default function QADepartmentPage() {
   return (
     <Suspense
       fallback={
-        <PageLoader label="Loading QA Laboratory…" className="min-h-screen" />
+        <PageLoader label="Loading QA Laboratory…" className="min-h-[100dvh]" />
       }
     >
       <QADepartmentContent />

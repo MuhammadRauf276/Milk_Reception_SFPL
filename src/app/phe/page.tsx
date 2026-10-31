@@ -134,7 +134,7 @@ function PheContent() {
   }
 
   return (
-    <div className="w-full max-w-full flex flex-col h-screen bg-background text-foreground overflow-hidden">
+    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-hidden">
       {/* Header with Accessible Hamburger Trigger */}
       <Header
         currentUser={currentUser}
@@ -154,9 +154,9 @@ function PheContent() {
       />
 
       {/* Main Full-Width Responsive Workspace */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col w-full min-w-0">
         {/* Center Content Pane with Full Canvas Width */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-full space-y-4">
+        <main className="flex-1 w-full min-w-0 max-w-full p-3 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-4">
           <PageTransition>
             {section === 'arrivals' && (
               <ZmccArrivalsWorkspace
