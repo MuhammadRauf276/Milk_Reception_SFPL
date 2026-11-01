@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { apiClient } from '@/frontend/lib/apiClient';
 import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
 import { stationQueryKeys } from '@/lib/query/stationQueryKeys';
 import { Clock, Search, ShieldAlert, ArrowLeft } from 'lucide-react';
@@ -169,18 +170,18 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
     setMsg(null);
 
     try {
-      const res = await fetch('/api/security/gate-entry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const data = await apiClient.post<{ visit?: { token_number?: string } }>(
+        '/api/security/gate-entry',
+        {
           visitId: selectedEntryVisit.id,
           tokenNumber: tokenNumber.trim().toUpperCase(),
           entryTimestamp: datetimeLocalToIso(entryOpTimestamp) || undefined,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to record gate entry');
+        },
+        {
+          dedupKey: `gate-entry-${selectedEntryVisit.id}`,
+          idempotencyKey: `ENTRY-${selectedEntryVisit.id}-${Date.now()}`,
+        }
+      );
 
       const successMsgText = `Gate Entry recorded. Token ${data.visit?.token_number || tokenNumber} issued successfully.`;
       toast.showSuccess(successMsgText, 'Gate Entry Recorded');
@@ -203,18 +204,18 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
     setMsg(null);
 
     try {
-      const res = await fetch('/api/security/gate-exit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await apiClient.post(
+        '/api/security/gate-exit',
+        {
           visitId: selectedExitVisit.id,
           exitTimestamp: datetimeLocalToIso(exitOpTimestamp) || undefined,
           tanker_washed: selectedExitVisit.is_all_rejected ? false : tankerWashed,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to record gate exit');
+        },
+        {
+          dedupKey: `gate-exit-${selectedExitVisit.id}`,
+          idempotencyKey: `EXIT-${selectedExitVisit.id}-${Date.now()}`,
+        }
+      );
 
       const successMsgText = `Gate Exit completed successfully for vehicle ${selectedExitVisit.vehicle_number}.`;
       toast.showSuccess(successMsgText, 'Gate Exit Completed');

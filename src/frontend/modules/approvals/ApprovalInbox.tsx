@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { Loader2, ShieldCheck, Undo2 } from 'lucide-react';
+import { apiClient, ApiError } from '@/frontend/lib/apiClient';
 import type { User } from '@/backend/core/types';
 import type { OperationalStage } from '@/backend/services/escalation/approvalMatrix';
 import type { UnifiedApprovalItem, InboxCounts } from '@/backend/services/approvals/approvalInboxService';
@@ -157,17 +158,16 @@ export function ApprovalInbox({
 
   const decisionMutation = useMutation({
     mutationFn: async ({ id, body }: { id: string; body: Record<string, unknown> }) => {
-      const res = await fetch(`/api/approvals/${id}/decision`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        if (res.status === 409) {
+      try {
+        await apiClient.post(`/api/approvals/${id}/decision`, body, {
+          dedupKey: `approval-decision-${id}`,
+          timeoutMs: 20_000,
+        });
+      } catch (err: unknown) {
+        if (err instanceof ApiError && err.status === 409) {
           throw new Error('This item was already updated or decided by another supervisor. Reloading queue…');
         }
-        throw new Error(errData.error || 'Failed to submit approval decision.');
+        throw err;
       }
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['approvals', 'inbox'] }),

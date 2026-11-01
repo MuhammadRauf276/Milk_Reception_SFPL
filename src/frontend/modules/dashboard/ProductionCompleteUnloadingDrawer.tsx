@@ -5,6 +5,8 @@ import { X, Layers } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
+import { getErrorMessage } from '@/lib/errors';
+import { apiClient } from '@/frontend/lib/apiClient';
 import type { UnloadingVisitDef } from './productionTypes';
 
 /** Bottom sheet: review the silo allocation and confirm unloading completion. */
@@ -37,28 +39,26 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
 
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/production/vehicle-visits/${visit.id}/portions/${targetPortionId}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await apiClient.post(
+        `/api/production/vehicle-visits/${visit.id}/portions/${targetPortionId}/complete`,
+        {
           opTimestamp: datetimeLocalToIso(completeOpTimestamp) || undefined,
-        }),
-      });
+        },
+        {
+          dedupKey: `prod-complete-${visit.id}-${targetPortionId}`,
+          timeoutMs: 20_000,
+        }
+      );
 
-      const data = await res.json();
-      if (res.ok) {
-        toast.showSuccess(
-          isPortionWise && activePortion
-            ? `Unloading completed for Portion #${activePortion.portion_number}. Vehicle ready for Scale 2 second weight.`
-            : `Unloading completed for vehicle ${visit.vehicle_number}. Vehicle moved to READY_FOR_TARE.`,
-          'Unloading Completed'
-        );
-        onCompleted();
-      } else {
-        toast.showError(data.error || 'Failed to complete unloading', 'Unloading Error');
-      }
-    } catch (_err) {
-      toast.showError('Network error completing unloading', 'Network Error');
+      toast.showSuccess(
+        isPortionWise && activePortion
+          ? `Unloading completed for Portion #${activePortion.portion_number}. Vehicle ready for Scale 2 second weight.`
+          : `Unloading completed for vehicle ${visit.vehicle_number}. Vehicle moved to READY_FOR_TARE.`,
+        'Unloading Completed'
+      );
+      onCompleted();
+    } catch (err) {
+      toast.showError(getErrorMessage(err) || 'Failed to complete unloading', 'Unloading Error');
     } finally {
       setActionLoading(false);
     }

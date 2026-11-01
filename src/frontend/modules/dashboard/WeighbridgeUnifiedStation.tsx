@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { apiClient } from '@/frontend/lib/apiClient';
 import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
 import { useToast } from '@/frontend/context/ToastContext';
 import {
@@ -421,19 +422,20 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
     setIsSubmitting(true);
     try {
       if (isGrossStep) {
-        // Step 0: Record Initial Gross Weight
-        const res = await fetch('/api/scale/gross-weight', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        // Step 0: Record Initial Gross Weight with in-flight deduplication and timeout
+        await apiClient.post(
+          '/api/scale/gross-weight',
+          {
             visitId: visit.id,
             scaleId: 'SCALE-01',
             grossWeightKg: enteredVal,
             grossTimestamp: isoTimestamp,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to record gross weight');
+          },
+          {
+            dedupKey: `gross-${visit.id}`,
+            idempotencyKey: `GROSS-${visit.id}-${Date.now()}`,
+          }
+        );
 
         toast.showSuccess(
           `Initial Loaded Gross (${enteredVal.toLocaleString()} kg) recorded and locked! Vehicle routed to Silo for Compartment #1.`,
@@ -441,18 +443,19 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
         );
       } else {
         // Step 1..N: Record Intermediate Tare or Final Tare
-        const res = await fetch('/api/scale/tare-weight', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        const data = await apiClient.post<{ isPortionCycle?: boolean; completedPortionNumber?: number; nextPortionNumber?: number; data?: { ticket_net_weight_kg?: number } }>(
+          '/api/scale/tare-weight',
+          {
             visitId: visit.id,
             scaleId: 'SCALE-01',
             tareWeightKg: enteredVal,
             tareTimestamp: isoTimestamp,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to record tare weight');
+          },
+          {
+            dedupKey: `tare-${visit.id}`,
+            idempotencyKey: `TARE-${visit.id}-${Date.now()}`,
+          }
+        );
 
         if (data.isPortionCycle) {
           toast.showSuccess(

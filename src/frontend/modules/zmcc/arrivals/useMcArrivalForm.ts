@@ -3,6 +3,7 @@
 import React, { useCallback, useState } from 'react';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
+import { apiClient, ApiError } from '@/frontend/lib/apiClient';
 import { isForcedOffline } from '@/frontend/hooks/useOnlineStatus';
 import { enqueueSyncItem } from '@/frontend/modules/pwa/syncEngine';
 import { getActiveOwnerUserId } from '@/frontend/modules/pwa/deviceIdentity';
@@ -125,25 +126,27 @@ export function useMcArrivalForm(policyMode: PolicyMode, onRecorded: () => void)
     }
 
     try {
-      const res = await fetch('/api/zmcc/arrivals/mot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Failed to record Mobile Tester arrival.');
-      } else {
-        setSuccessResult(data);
-        setFormOpen(false);
-        onRecorded();
-      }
+      const data = await apiClient.post<McArrivalRow>(
+        '/api/zmcc/arrivals/mot',
+        payload,
+        {
+          dedupKey: `zmcc-arr-${selectedJourney.id}`,
+          timeoutMs: 15_000,
+        }
+      );
+      setSuccessResult(data);
+      setFormOpen(false);
+      onRecorded();
     } catch (err) {
-      try {
-        await handleOfflineQueue();
-      } catch {
-        setError(getErrorMessage(err) || 'An unexpected error occurred.');
+      if (err instanceof ApiError && (err.isNetworkError || err.isTimeout)) {
+        try {
+          await handleOfflineQueue();
+          return;
+        } catch {
+          // fall through to error reporting
+        }
       }
+      setError(getErrorMessage(err) || 'An unexpected error occurred.');
     } finally {
       setSubmitting(false);
     }

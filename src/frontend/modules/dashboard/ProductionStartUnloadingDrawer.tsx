@@ -6,6 +6,8 @@ import { Combobox } from '@/components/ui/combobox';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
+import { getErrorMessage } from '@/lib/errors';
+import { apiClient } from '@/frontend/lib/apiClient';
 import type { ReadyVisitDef, SiloOption } from './productionTypes';
 
 /** Bottom sheet: assign a destination silo to each accepted portion and start unloading. */
@@ -66,30 +68,28 @@ export const ProductionStartUnloadingDrawer: React.FC<{
 
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/production/vehicle-visits/${visit.id}/portions/${targetPortionId}/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await apiClient.post(
+        `/api/production/vehicle-visits/${visit.id}/portions/${targetPortionId}/start`,
+        {
           assignments,
           siloId: assignments[0]?.siloId,
           opTimestamp: datetimeLocalToIso(startOpTimestamp) || undefined,
-        }),
-      });
+        },
+        {
+          dedupKey: `prod-start-${visit.id}-${targetPortionId}`,
+          timeoutMs: 20_000,
+        }
+      );
 
-      const data = await res.json();
-      if (res.ok) {
-        toast.showSuccess(
-          isPortionWise && activePortion
-            ? `Unloading started for Portion #${activePortion.portion_number} (${visit.vehicle_number}).`
-            : `Unloading started for vehicle ${visit.vehicle_number}.`,
-          'Unloading Started'
-        );
-        onStarted();
-      } else {
-        toast.showError(data.error || 'Failed to start unloading', 'Unloading Error');
-      }
-    } catch (_err) {
-      toast.showError('Network error starting unloading', 'Network Error');
+      toast.showSuccess(
+        isPortionWise && activePortion
+          ? `Unloading started for Portion #${activePortion.portion_number} (${visit.vehicle_number}).`
+          : `Unloading started for vehicle ${visit.vehicle_number}.`,
+        'Unloading Started'
+      );
+      onStarted();
+    } catch (err) {
+      toast.showError(getErrorMessage(err) || 'Failed to start unloading', 'Unloading Error');
     } finally {
       setActionLoading(false);
     }

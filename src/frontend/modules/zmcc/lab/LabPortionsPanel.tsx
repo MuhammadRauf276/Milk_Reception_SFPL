@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { apiClient, ApiError } from '@/frontend/lib/apiClient';
 import {
   AlertTriangle,
   Camera,
@@ -367,10 +368,9 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
     setBusy(`submit:${p.id}`);
     setItemError((e) => ({ ...e, [p.id]: '' }));
     try {
-      const res = await fetch(`/api/zmcc/lab/sessions/${sessionId}/portions/${p.id}/decision`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await apiClient.post(
+        `/api/zmcc/lab/sessions/${sessionId}/portions/${p.id}/decision`,
+        {
           version: p.version,
           person_decision: d.person,
           remarks: d.remarks.trim() || null,
@@ -381,18 +381,21 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
             value: t.resultType === 'NUMERIC' ? d.values[t.labTestId] ?? null : null,
             text_value: t.resultType !== 'NUMERIC' ? d.values[t.labTestId] ?? null : null,
           })),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setItemError((e) => ({ ...e, [p.id]: data.error || 'Could not save.' }));
-        if (res.status === 409) load();
-        return;
-      }
+        },
+        {
+          dedupKey: `zmcc-lab-decision-${sessionId}-${p.id}`,
+          timeoutMs: 20_000,
+        }
+      );
       await load();
       setActivePortionModal(null);
     } catch (err) {
-      setItemError((e) => ({ ...e, [p.id]: getErrorMessage(err) || 'Could not save.' }));
+      if (err instanceof ApiError && err.status === 409) {
+        setItemError((e) => ({ ...e, [p.id]: err.message || 'This portion was already decided or modified. Reloading…' }));
+        load();
+      } else {
+        setItemError((e) => ({ ...e, [p.id]: getErrorMessage(err) || 'Could not save.' }));
+      }
     } finally {
       setBusy(null);
     }

@@ -4,6 +4,8 @@ import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { ToastProvider } from '@/frontend/context/ToastContext';
 import { PwaShell } from '@/frontend/modules/pwa/PwaShell';
+import { NetworkStatusBar } from '@/components/ui/NetworkStatusBar';
+import { ReAuthModal } from '@/components/auth/ReAuthModal';
 import { QueryProvider } from '@/lib/query/QueryProvider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { MotionProvider } from '@/components/motion/motion-provider';
@@ -45,6 +47,8 @@ export default function RootLayout({
         <MotionProvider>
           <TooltipProvider delayDuration={250}>
             <ToastProvider>
+              <NetworkStatusBar />
+              <ReAuthModal />
               <QueryProvider>{children}</QueryProvider>
               <PwaShell />
             </ToastProvider>

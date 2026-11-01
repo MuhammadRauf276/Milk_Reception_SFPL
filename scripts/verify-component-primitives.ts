@@ -36,6 +36,7 @@ async function runComponentPrimitivesTests() {
   const page = await mobileCtx.newPage();
   await page.goto('http://127.0.0.1:3000/test-primitives', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('h1', { timeout: 8000 });
+  await page.waitForTimeout(400);
 
   // TEST 1: MobileNumberInput actual behaviour
   try {
@@ -57,6 +58,14 @@ async function runComponentPrimitivesTests() {
     // d) Increment via stepper button (+)
     const plusBtn = page.getByRole('button', { name: 'Increase value' });
     await plusBtn.click();
+    await page.waitForFunction(
+      () => (document.querySelector('#test-number-input') as HTMLInputElement)?.value === '5',
+      null,
+      { timeout: 2500 }
+    ).catch(async () => {
+      // Retry click if initial click landed while React was attaching event handlers
+      await plusBtn.click();
+    });
     const valAfterInc = await input.inputValue();
     assert.equal(valAfterInc, '5', 'Value after increment with 0.5 step should be 5');
 

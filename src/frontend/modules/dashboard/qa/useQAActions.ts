@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
+import { apiClient } from '@/frontend/lib/apiClient';
 import type { QAVisitDetailState } from './useQAVisitDetail';
 
 export type QAActionModal = 'START' | 'RESUME' | 'ACCEPT' | 'HOLD' | 'REJECT';
@@ -75,17 +76,13 @@ export function useQAActions({
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/qa/sessions/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          visitId: targetVisitId,
-          operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
-        }),
+      await apiClient.post('/api/qa/sessions/start', {
+        visitId: targetVisitId,
+        operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
+      }, {
+        dedupKey: `qa-start-${targetVisitId}`,
+        timeoutMs: 15_000,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to start testing session');
 
       toast.showSuccess('QA testing session started successfully.', 'Session Started');
       setActiveActionModal(null);
@@ -106,17 +103,13 @@ export function useQAActions({
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/qa/sessions/resume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          visitId: targetVisitId,
-          operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
-        }),
+      await apiClient.post('/api/qa/sessions/resume', {
+        visitId: targetVisitId,
+        operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
+      }, {
+        dedupKey: `qa-resume-${targetVisitId}`,
+        timeoutMs: 15_000,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to resume testing session');
 
       toast.showSuccess('QA testing session resumed.', 'Session Resumed');
       setActiveActionModal(null);
@@ -177,10 +170,9 @@ export function useQAActions({
       const effectiveReason = (portionRemarks || exceptionReason || rejectionReason).trim();
       const resultsPayload = buildResultsPayload(portionPhotos, false, effectiveReason);
 
-      const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await apiClient.post(
+        `/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/complete`,
+        {
           decision: 'ACCEPTED',
           completionClientEventId: `plant-qa-${currentPortion.id}-${crypto.randomUUID()}`,
           results: resultsPayload,
@@ -189,11 +181,12 @@ export function useQAActions({
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
           exceptionReason: (portionRemarks || exceptionReason || rejectionReason).trim() || undefined,
           rejectionReason: (portionRemarks || exceptionReason || rejectionReason).trim() || undefined,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to accept portion');
+        },
+        {
+          dedupKey: `qa-portion-complete-${visitDetail.id}-${currentPortion.id}`,
+          timeoutMs: 25_000,
+        }
+      );
 
       toast.showSuccess(`Portion ${currentPortion.portion_number} ACCEPTED.`, 'Portion Accepted');
       setActiveActionModal(null);
@@ -236,10 +229,9 @@ export function useQAActions({
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await apiClient.post(
+        `/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/complete`,
+        {
           decision: 'REJECTED',
           completionClientEventId: `plant-qa-${currentPortion.id}-${crypto.randomUUID()}`,
           rejectionReason: effectiveReason,
@@ -248,11 +240,12 @@ export function useQAActions({
           sealNumber: enteredSeal || undefined,
           photoUrl: primaryPhotoUrl,
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to reject portion');
+        },
+        {
+          dedupKey: `qa-portion-complete-${visitDetail.id}-${currentPortion.id}`,
+          timeoutMs: 25_000,
+        }
+      );
 
       toast.showSuccess(`Portion ${currentPortion.portion_number} REJECTED.`, 'Portion Rejected');
       setActiveActionModal(null);
@@ -275,17 +268,17 @@ export function useQAActions({
 
     setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/hold`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await apiClient.post(
+        `/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/hold`,
+        {
           reason: holdReason.trim(),
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to place portion on hold');
+        },
+        {
+          dedupKey: `qa-portion-hold-${visitDetail.id}-${currentPortion.id}`,
+          timeoutMs: 15_000,
+        }
+      );
 
       toast.showSuccess(`Portion ${currentPortion.portion_number} placed ON HOLD.`, 'Portion On Hold');
       setActiveActionModal(null);
@@ -378,17 +371,17 @@ export function useQAActions({
     if (!visitDetail) return;
     setIsRoutingVehicle(true);
     try {
-      const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/complete-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await apiClient.post(
+        `/api/qa/vehicle-visits/${visitDetail.id}/complete-session`,
+        {
           action: targetAction,
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to route vehicle');
+        },
+        {
+          dedupKey: `qa-route-${visitDetail.id}`,
+          timeoutMs: 20_000,
+        }
+      );
 
       if (targetAction === 'GATE_EXIT') {
         toast.showSuccess(
