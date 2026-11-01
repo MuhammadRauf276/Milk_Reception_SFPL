@@ -433,7 +433,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
           },
           {
             dedupKey: `gross-${visit.id}`,
-            idempotencyKey: `GROSS-${visit.id}-${Date.now()}`,
+            idempotencyKey: `GROSS-${visit.id}`,
           }
         );
 
@@ -453,7 +453,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
           },
           {
             dedupKey: `tare-${visit.id}`,
-            idempotencyKey: `TARE-${visit.id}-${Date.now()}`,
+            idempotencyKey: `TARE-${visit.id}-${visit.active_portion_number || 1}`,
           }
         );
 

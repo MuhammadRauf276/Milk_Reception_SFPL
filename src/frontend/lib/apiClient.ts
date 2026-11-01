@@ -102,14 +102,17 @@ async function executeWithTimeout<T>(
   if (!headers.has('Content-Type') && options.body && typeof options.body === 'string') {
     headers.set('Content-Type', 'application/json');
   }
-  if (options.idempotencyKey) {
-    headers.set('Idempotency-Key', options.idempotencyKey);
-  } else if (method === 'POST' || method === 'PUT') {
-    const autoKey =
-      typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
-    headers.set('Idempotency-Key', autoKey);
+  const effectiveIdempotencyKey =
+    options.idempotencyKey ||
+    options.dedupKey ||
+    (method === 'POST' || method === 'PUT'
+      ? (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`)
+      : null);
+
+  if (effectiveIdempotencyKey) {
+    headers.set('Idempotency-Key', effectiveIdempotencyKey);
   }
 
   const maxRetries = method === 'GET' ? (options.retries ?? 1) : 0;

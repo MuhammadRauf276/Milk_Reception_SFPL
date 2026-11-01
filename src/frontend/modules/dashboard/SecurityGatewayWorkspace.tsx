@@ -179,7 +179,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
         },
         {
           dedupKey: `gate-entry-${selectedEntryVisit.id}`,
-          idempotencyKey: `ENTRY-${selectedEntryVisit.id}-${Date.now()}`,
+          idempotencyKey: `ENTRY-${selectedEntryVisit.id}`,
         }
       );
 
@@ -213,7 +213,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
         },
         {
           dedupKey: `gate-exit-${selectedExitVisit.id}`,
-          idempotencyKey: `EXIT-${selectedExitVisit.id}-${Date.now()}`,
+          idempotencyKey: `EXIT-${selectedExitVisit.id}`,
         }
       );
 

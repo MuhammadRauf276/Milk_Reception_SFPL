@@ -65,6 +65,9 @@ async function main() {
 
   // 1. Health Probe Verification
   await runTest('NET-01', 'Health check endpoint (/api/health) response, payload, and cache headers', async () => {
+    // Warmup ping if route was cold in dev mode
+    await fetch(`${BASE_URL}/api/health`, { cache: 'no-store' }).catch(() => {});
+
     const start = performance.now();
     const res = await fetch(`${BASE_URL}/api/health`, { cache: 'no-store' });
     const latency = performance.now() - start;

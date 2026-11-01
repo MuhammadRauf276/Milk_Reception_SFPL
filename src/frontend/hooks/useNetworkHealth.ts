@@ -191,16 +191,18 @@ function getSnapshot(): NetworkHealthSnapshot {
   return currentSnapshot;
 }
 
+const SERVER_SNAPSHOT: NetworkHealthSnapshot = Object.freeze({
+  status: 'ONLINE',
+  isOnline: true,
+  isOffline: false,
+  isApiUnreachable: false,
+  isReconnecting: false,
+  lastCheckedAt: null,
+  latencyMs: null,
+});
+
 function getServerSnapshot(): NetworkHealthSnapshot {
-  return {
-    status: 'ONLINE',
-    isOnline: true,
-    isOffline: false,
-    isApiUnreachable: false,
-    isReconnecting: false,
-    lastCheckedAt: null,
-    latencyMs: null,
-  };
+  return SERVER_SNAPSHOT;
 }
 
 /**
