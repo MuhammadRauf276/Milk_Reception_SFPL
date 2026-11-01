@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
@@ -56,6 +56,10 @@ export function useQAActions({
   const [isAddingPortion, setIsAddingPortion] = useState(false);
   const [isRemovingPortion, setIsRemovingPortion] = useState(false);
   const [isRoutingVehicle, setIsRoutingVehicle] = useState(false);
+
+  // Stable client operation identities retained across transient network timeouts / errors
+  const activeAddPortionOpIdRef = useRef<string | null>(null);
+  const activeCompletionOpIdMap = useRef<Record<string, string>>({});
 
   const openActionModal = (action: QAActionModal, targetVisitId?: string) => {
     setActiveActionModal(action);
@@ -170,11 +174,17 @@ export function useQAActions({
       const effectiveReason = (portionRemarks || exceptionReason || rejectionReason).trim();
       const resultsPayload = buildResultsPayload(portionPhotos, false, effectiveReason);
 
+      // Stable operation ID across retries of the same portion decision
+      if (!activeCompletionOpIdMap.current[portionId]) {
+        activeCompletionOpIdMap.current[portionId] = `plant-qa-${portionId}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`;
+      }
+      const completionClientEventId = activeCompletionOpIdMap.current[portionId];
+
       await apiClient.post(
         `/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/complete`,
         {
           decision: 'ACCEPTED',
-          completionClientEventId: `plant-qa-${currentPortion.id}-${crypto.randomUUID()}`,
+          completionClientEventId,
           results: resultsPayload,
           sealNumber: enteredSeal || undefined,
           photoUrl: primaryPhotoUrl,
@@ -183,11 +193,13 @@ export function useQAActions({
           rejectionReason: (portionRemarks || exceptionReason || rejectionReason).trim() || undefined,
         },
         {
+          idempotencyKey: completionClientEventId,
           dedupKey: `qa-portion-complete-${visitDetail.id}-${currentPortion.id}`,
           timeoutMs: 25_000,
         }
       );
 
+      delete activeCompletionOpIdMap.current[portionId];
       toast.showSuccess(`Portion ${currentPortion.portion_number} ACCEPTED.`, 'Portion Accepted');
       setActiveActionModal(null);
       await fetchVisitDetail(visitDetail.id);
@@ -229,11 +241,17 @@ export function useQAActions({
 
     setIsSubmitting(true);
     try {
+      // Stable operation ID across retries of the same portion decision
+      if (!activeCompletionOpIdMap.current[portionId]) {
+        activeCompletionOpIdMap.current[portionId] = `plant-qa-${portionId}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`;
+      }
+      const completionClientEventId = activeCompletionOpIdMap.current[portionId];
+
       await apiClient.post(
         `/api/qa/vehicle-visits/${visitDetail.id}/portions/${currentPortion.id}/complete`,
         {
           decision: 'REJECTED',
-          completionClientEventId: `plant-qa-${currentPortion.id}-${crypto.randomUUID()}`,
+          completionClientEventId,
           rejectionReason: effectiveReason,
           rejectionRemarks: effectiveRemarks,
           results: resultsPayload,
@@ -242,11 +260,13 @@ export function useQAActions({
           operationalTimestamp: datetimeLocalToIso(qaOpTimestamp) || undefined,
         },
         {
+          idempotencyKey: completionClientEventId,
           dedupKey: `qa-portion-complete-${visitDetail.id}-${currentPortion.id}`,
           timeoutMs: 25_000,
         }
       );
 
+      delete activeCompletionOpIdMap.current[portionId];
       toast.showSuccess(`Portion ${currentPortion.portion_number} REJECTED.`, 'Portion Rejected');
       setActiveActionModal(null);
       setRejectionReason('');
@@ -301,18 +321,26 @@ export function useQAActions({
     if (!visitDetail) return;
     setIsAddingPortion(true);
     try {
-      const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to add test portion');
+      if (!activeAddPortionOpIdRef.current) {
+        activeAddPortionOpIdRef.current = `add-portion-${visitDetail.id}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`;
+      }
+      const opId = activeAddPortionOpIdRef.current;
 
+      const data = await apiClient.post<{ success: boolean; portion: { id: string; portion_number: number } }>(
+        `/api/qa/vehicle-visits/${visitDetail.id}/portions`,
+        { clientOperationId: opId },
+        {
+          idempotencyKey: opId,
+          dedupKey: `add-portion-${visitDetail.id}`,
+          timeoutMs: 20_000,
+        }
+      );
+
+      activeAddPortionOpIdRef.current = null;
       toast.showSuccess(`Portion ${data.portion.portion_number} added for independent testing.`, 'Portion Added');
 
-      const detailRes = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}`);
-      const detailData = await detailRes.json();
-      if (detailRes.ok && detailData.visit) {
+      const detailData = await apiClient.get<{ visit?: any }>(`/api/qa/vehicle-visits/${visitDetail.id}`);
+      if (detailData && detailData.visit) {
         setVisitDetail(detailData.visit);
         const newIndex = detailData.visit.portions.length - 1;
         setActivePortionIndex(newIndex);
@@ -340,18 +368,13 @@ export function useQAActions({
 
     setIsRemovingPortion(true);
     try {
-      const res = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${portionId}`, {
-        method: 'DELETE',
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to remove test portion');
+      await apiClient.delete(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${portionId}`);
 
       toast.showSuccess(`Portion #${portionNumber} removed.`, 'Portion Removed');
 
       // Refresh visit detail and adjust active tab
-      const detailRes = await fetch(`/api/qa/vehicle-visits/${visitDetail.id}`);
-      const detailData = await detailRes.json();
-      if (detailRes.ok && detailData.visit) {
+      const detailData = await apiClient.get<{ visit?: any }>(`/api/qa/vehicle-visits/${visitDetail.id}`);
+      if (detailData && detailData.visit) {
         setVisitDetail(detailData.visit);
         const fallbackIndex = Math.max(0, Math.min(activePortionIndex, detailData.visit.portions.length - 1));
         setActivePortionIndex(fallbackIndex);

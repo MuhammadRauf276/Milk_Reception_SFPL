@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useEffectEvent } from 'react';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { apiClient } from '@/frontend/lib/apiClient';
 import { useToast } from '@/frontend/context/ToastContext';
 import { getErrorMessage } from '@/lib/errors';
 import type { PersonDecision } from '@/types/stage1-decision';
@@ -82,9 +83,11 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
   const fetchVisitDetail = async (visitId: string) => {
     setIsLoadingVisit(true);
     try {
-      const res = await fetch(`/api/qa/vehicle-visits/${visitId}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch visit detail');
+      const data = await apiClient.get<{ visit?: VisitDetail }>(`/api/qa/vehicle-visits/${visitId}`, {
+        timeoutMs: 15_000,
+      });
+
+      if (!data || !data.visit) throw new Error('Failed to fetch visit detail');
 
       setVisitDetail(data.visit);
       if (data.visit?.portions && data.visit.portions.length > activePortionIndex) {

@@ -7,6 +7,12 @@ import { parseStrictDateOnly } from '@/lib/datetime-utils';
 import { requireCapability } from '@/backend/modules/access-control/serverGuard';
 import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
+import {
+  findOperationRecord,
+  recordOperation,
+  validateReplayPayload,
+} from '@/backend/services/operationIdempotencyService';
+import { Prisma } from '@prisma/client';
 
 const SECURITY_SCOPE = { kind: 'DEPARTMENT', departmentId: 'Security' } as const;
 
@@ -15,6 +21,7 @@ const gateExitSchema = z.object({
   exitTimestamp: z.string().optional(),
   tanker_washed: z.boolean().optional(),
   tankerWashed: z.boolean().optional(),
+  idempotencyKey: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -46,8 +53,15 @@ export async function POST(req: Request) {
 
   const userIdBigInt = dbUser.id;
 
+  let body: Record<string, unknown> = {};
   try {
-    const body = await req.json();
+    const text = await req.text();
+    if (text) body = JSON.parse(text);
+  } catch {
+    body = {};
+  }
+
+  try {
     const validated = gateExitSchema.parse(body);
     const visitId = BigInt(validated.visitId);
     const serverNow = new Date();
@@ -59,6 +73,46 @@ export async function POST(req: Request) {
 
     if (opTimestamp.getTime() > serverNow.getTime()) {
       return NextResponse.json({ error: 'Gate exit operational timestamp cannot be in the future.' }, { status: 400 });
+    }
+
+    const idempotencyKey = (
+      req.headers.get('idempotency-key') ||
+      validated.idempotencyKey ||
+      `GATE_EXIT-${validated.visitId}`
+    ).trim();
+
+    // 1. Check idempotency store for existing completed operation
+    if (idempotencyKey) {
+      const existingOp = await findOperationRecord(idempotencyKey);
+      if (existingOp) {
+        if (!validateReplayPayload(existingOp.request_payload, { visitId: validated.visitId }, ['visitId'])) {
+          return NextResponse.json(
+            { error: 'Idempotency conflict: Gate exit key reused with different visit.' },
+            { status: 409 }
+          );
+        }
+        return NextResponse.json({
+          ...existingOp.response_payload,
+          idempotent: true,
+          is_replay: true,
+        });
+      }
+    }
+
+    // 2. Check if visit has already completed gate exit
+    const existingVisit = await prisma.vehicleVisit.findUnique({
+      where: { id: visitId },
+      include: { gate_log: true },
+    });
+
+    if (existingVisit && existingVisit.current_status === 'COMPLETED' && existingVisit.gate_log?.exit_timestamp) {
+      return NextResponse.json({
+        success: true,
+        idempotent: true,
+        is_replay: true,
+        visit_id: visitId.toString(),
+        exit_timestamp: existingVisit.gate_log.exit_timestamp.toISOString(),
+      });
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -115,7 +169,7 @@ export async function POST(req: Request) {
       const predTs = isAllRejected
         ? (visit.gate_log?.entry_timestamp ? new Date(visit.gate_log.entry_timestamp) : null)
         : (visit.weight_ticket?.tare_timestamp ? new Date(visit.weight_ticket.tare_timestamp) : visit.gate_log?.entry_timestamp ? new Date(visit.gate_log.entry_timestamp) : null);
-      
+
       const predName = isAllRejected ? 'QA Rejection / Gate Entry' : 'Tare Weight';
       const chronoVal = validateOperationalTimestamp(validated.exitTimestamp || serverNow.toISOString(), predTs, 'Gate Exit', predName);
       if (!chronoVal.isValid) {
@@ -174,15 +228,44 @@ export async function POST(req: Request) {
         actor: auditActorFromUser(dbUser),
       });
 
-      return {
+      const responsePayload = {
         success: true,
         visit_id: visitId.toString(),
         exit_timestamp: verifiedOpTimestamp.toISOString(),
       };
+
+      if (idempotencyKey) {
+        await recordOperation({
+          key: idempotencyKey,
+          operationType: 'GATE_EXIT',
+          entityType: 'vehicle_visit',
+          entityId: visitId,
+          requestPayload: { visitId: validated.visitId },
+          responsePayload,
+          statusCode: 200,
+        }, tx);
+      }
+
+      return responsePayload;
     });
 
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const winner = await prisma.vehicleVisit.findUnique({
+        where: { id: BigInt((body as { visitId: string }).visitId) },
+        include: { gate_log: true },
+      });
+      if (winner && winner.gate_log?.exit_timestamp) {
+        return NextResponse.json({
+          success: true,
+          idempotent: true,
+          is_replay: true,
+          visit_id: winner.id.toString(),
+          exit_timestamp: winner.gate_log.exit_timestamp.toISOString(),
+        });
+      }
+    }
     const errorDetails = {
       issues: getErrorIssues(error),
       message: getErrorMessage(error),

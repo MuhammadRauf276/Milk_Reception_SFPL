@@ -238,6 +238,7 @@ model VisitPortion {
   plant_rejection_reason     String?           @map("plant_rejection_reason") @db.Text
   plant_decided_by           BigInt?           @map("plant_decided_by")
   plant_decided_at           DateTime?         @map("plant_decided_at") @db.Timestamp(6)
+  creation_client_event_id   String?           @unique @map("creation_client_event_id") @db.VarChar(255)
   completion_client_event_id String?           @unique @map("completion_client_event_id") @db.VarChar(255)
 
   // QA Manager Review Workflow (Stage 6G-G)
@@ -2223,4 +2224,20 @@ model ZmccWeighingPolicy {
   updated_at           DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
 
   @@map("zmcc_weighing_policy")
+}
+
+// Phase 3: Server-side operation idempotency store for transactional operations
+model OperationIdempotencyRecord {
+  id               BigInt   @id @default(autoincrement())
+  key              String   @unique @map("key") @db.VarChar(255)
+  operation_type   String   @map("operation_type") @db.VarChar(64)
+  entity_type      String   @map("entity_type") @db.VarChar(64)
+  entity_id        BigInt   @map("entity_id")
+  request_payload  Json?    @map("request_payload") @db.JsonB
+  response_payload Json     @map("response_payload") @db.JsonB
+  status_code      Int      @default(200) @map("status_code")
+  created_at       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([operation_type, entity_id])
+  @@map("operation_idempotency_record")
 }

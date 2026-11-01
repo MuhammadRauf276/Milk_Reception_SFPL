@@ -3,16 +3,18 @@
 import { useSyncExternalStore, useCallback } from 'react';
 
 export type NetworkHealthStatus =
-  | 'ONLINE'           // Browser online & backend API responded successfully
-  | 'API_UNREACHABLE'  // Browser online, but backend API probe failed or timed out
-  | 'OFFLINE'          // Browser has no network connectivity (navigator.onLine === false)
-  | 'RECONNECTING';    // Actively probing connection after an outage
+  | 'ONLINE'                // Browser online & backend API + DB responded successfully
+  | 'API_UNREACHABLE'       // Browser online, but backend API probe failed or timed out
+  | 'DATABASE_UNAVAILABLE'  // API reachable, but database connectivity check failed / timed out
+  | 'OFFLINE'               // Browser has no network connectivity (navigator.onLine === false)
+  | 'RECONNECTING';         // Actively probing connection after an outage
 
 export interface NetworkHealthSnapshot {
   status: NetworkHealthStatus;
   isOnline: boolean;
   isOffline: boolean;
   isApiUnreachable: boolean;
+  isDatabaseUnavailable: boolean;
   isReconnecting: boolean;
   lastCheckedAt: number | null;
   latencyMs: number | null;
@@ -26,6 +28,7 @@ let currentSnapshot: NetworkHealthSnapshot = {
   isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
   isOffline: typeof navigator !== 'undefined' ? !navigator.onLine : false,
   isApiUnreachable: false,
+  isDatabaseUnavailable: false,
   isReconnecting: false,
   lastCheckedAt: null,
   latencyMs: null,
@@ -46,31 +49,36 @@ function notifyListeners() {
 }
 
 function updateSnapshot(partial: Partial<NetworkHealthSnapshot>) {
+  const effectiveStatus = partial.status ?? currentSnapshot.status;
   currentSnapshot = {
     ...currentSnapshot,
     ...partial,
-    isOnline: (partial.status ?? currentSnapshot.status) === 'ONLINE',
-    isOffline: (partial.status ?? currentSnapshot.status) === 'OFFLINE',
-    isApiUnreachable: (partial.status ?? currentSnapshot.status) === 'API_UNREACHABLE',
-    isReconnecting: (partial.status ?? currentSnapshot.status) === 'RECONNECTING',
+    status: effectiveStatus,
+    isOnline: effectiveStatus === 'ONLINE',
+    isOffline: effectiveStatus === 'OFFLINE',
+    isApiUnreachable: effectiveStatus === 'API_UNREACHABLE',
+    isDatabaseUnavailable: effectiveStatus === 'DATABASE_UNAVAILABLE',
+    isReconnecting: effectiveStatus === 'RECONNECTING',
   };
   notifyListeners();
 }
 
 /**
- * Pure evaluation function for network health status based on browser and reachability flags.
+ * Pure evaluation function for network health status based on browser, reachability and database flags.
  */
 export function evaluateNetworkHealthState(
   isBrowserOnline: boolean,
-  isBackendReachable: boolean
+  isBackendReachable: boolean,
+  isDatabaseConnected = true
 ): NetworkHealthStatus {
   if (!isBrowserOnline) return 'OFFLINE';
   if (!isBackendReachable) return 'API_UNREACHABLE';
+  if (!isDatabaseConnected) return 'DATABASE_UNAVAILABLE';
   return 'ONLINE';
 }
 
 /**
- * Executes a lightweight HTTP probe against /api/health to confirm true backend reachability.
+ * Executes a lightweight HTTP probe against /api/health to confirm true backend and database reachability.
  */
 export async function probeBackendHealth(): Promise<NetworkHealthStatus> {
   if (typeof window === 'undefined') return 'ONLINE';
@@ -116,13 +124,16 @@ export async function probeBackendHealth(): Promise<NetworkHealthStatus> {
       });
       return 'ONLINE';
     } else {
+      const data = await res.json().catch(() => ({}));
       consecutiveFailures++;
+      const isDbDown = res.status === 503 || (data && (data as { database?: string }).database === 'disconnected');
+      const status: NetworkHealthStatus = isDbDown ? 'DATABASE_UNAVAILABLE' : 'API_UNREACHABLE';
       updateSnapshot({
-        status: 'API_UNREACHABLE',
+        status,
         lastCheckedAt: Date.now(),
         latencyMs: elapsed,
       });
-      return 'API_UNREACHABLE';
+      return status;
     }
   } catch (_err) {
     clearTimeout(timeoutId);
@@ -196,6 +207,7 @@ const SERVER_SNAPSHOT: NetworkHealthSnapshot = Object.freeze({
   isOnline: true,
   isOffline: false,
   isApiUnreachable: false,
+  isDatabaseUnavailable: false,
   isReconnecting: false,
   lastCheckedAt: null,
   latencyMs: null,

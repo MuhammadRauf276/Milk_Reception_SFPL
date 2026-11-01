@@ -5,6 +5,12 @@ import { validateOperationalTimestamp } from '@/backend/services/chronology-vali
 import { requireCapability } from '@/backend/modules/access-control/serverGuard';
 import { paperLinkedIdentity } from '@/backend/modules/paper-references';
 import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
+import {
+  findOperationRecord,
+  recordOperation,
+  validateReplayPayload,
+} from '@/backend/services/operationIdempotencyService';
+import { Prisma } from '@prisma/client';
 
 const SECURITY_SCOPE = { kind: 'DEPARTMENT', departmentId: 'Security' } as const;
 
@@ -37,12 +43,75 @@ export async function POST(req: Request) {
 
   const userIdBigInt = dbUser.id;
 
+  let body: Record<string, unknown> = {};
   try {
-    const body = await req.json();
+    const text = await req.text();
+    if (text) body = JSON.parse(text);
+  } catch {
+    body = {};
+  }
+
+  try {
     const validated = gateEntrySchema.parse(body);
 
     const visitId = BigInt(validated.visitId);
     const now = validated.entryTimestamp ? new Date(validated.entryTimestamp) : new Date();
+
+    const idempotencyKey = (
+      req.headers.get('idempotency-key') ||
+      (body as { idempotencyKey?: string }).idempotencyKey ||
+      `GATE_ENTRY-${validated.visitId}`
+    ).trim();
+
+    // 1. Check idempotency store for existing completed operation
+    if (idempotencyKey) {
+      const existingOp = await findOperationRecord(idempotencyKey);
+      if (existingOp) {
+        if (!validateReplayPayload(existingOp.request_payload, { visitId: validated.visitId, tokenNumber: validated.tokenNumber }, ['visitId', 'tokenNumber'])) {
+          return NextResponse.json(
+            { error: 'Idempotency conflict: Gate entry key reused with different parameters.' },
+            { status: 409 }
+          );
+        }
+        return NextResponse.json({
+          ...existingOp.response_payload,
+          idempotent: true,
+          is_replay: true,
+        });
+      }
+    }
+
+    // 2. Check if visit already has completed gate entry
+    const existingVisit = await prisma.vehicleVisit.findUnique({
+      where: { id: visitId },
+      include: { gate_log: true },
+    });
+
+    if (existingVisit && existingVisit.gate_log && existingVisit.gate_log.entry_timestamp) {
+      if (existingVisit.token_number === validated.tokenNumber) {
+        return NextResponse.json({
+          success: true,
+          idempotent: true,
+          is_replay: true,
+          visitId: existingVisit.id.toString(),
+          tokenNumber: existingVisit.token_number,
+          identifiers: paperLinkedIdentity(
+            {
+              entity: 'vehicle_visit',
+              id: existingVisit.id.toString(),
+              number: existingVisit.visit_number,
+            },
+            [{ type: 'PLANT_GATE_TOKEN', value: existingVisit.token_number }]
+          ),
+          message: `Token ${existingVisit.token_number} issued. Vehicle ${existingVisit.vehicle_number} entered gate.`,
+        });
+      } else {
+        return NextResponse.json(
+          { error: `Conflict: Gate entry already recorded with token "${existingVisit.token_number}".` },
+          { status: 409 }
+        );
+      }
+    }
 
     // Perform atomic transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -108,7 +177,7 @@ export async function POST(req: Request) {
       });
 
       // 6. Create GateLog
-      const gateLog = await tx.gateLog.create({
+      await tx.gateLog.create({
         data: {
           visit_id: visitId,
           entry_timestamp: chronoVal.date || now,
@@ -117,24 +186,62 @@ export async function POST(req: Request) {
         },
       });
 
-      return { updatedVisit, gateLog };
+      const responsePayload = {
+        success: true,
+        visitId: updatedVisit.id.toString(),
+        tokenNumber: updatedVisit.token_number,
+        identifiers: paperLinkedIdentity(
+          {
+            entity: 'vehicle_visit',
+            id: updatedVisit.id.toString(),
+            number: updatedVisit.visit_number,
+          },
+          [{ type: 'PLANT_GATE_TOKEN', value: updatedVisit.token_number }]
+        ),
+        message: `Token ${updatedVisit.token_number} issued. Vehicle ${updatedVisit.vehicle_number} entered gate.`,
+      };
+
+      if (idempotencyKey) {
+        await recordOperation({
+          key: idempotencyKey,
+          operationType: 'GATE_ENTRY',
+          entityType: 'vehicle_visit',
+          entityId: visitId,
+          requestPayload: { visitId: validated.visitId, tokenNumber: validated.tokenNumber },
+          responsePayload,
+          statusCode: 200,
+        }, tx);
+      }
+
+      return responsePayload;
     });
 
-    return NextResponse.json({
-      success: true,
-      visitId: result.updatedVisit.id.toString(),
-      tokenNumber: result.updatedVisit.token_number,
-      identifiers: paperLinkedIdentity(
-        {
-          entity: 'vehicle_visit',
-          id: result.updatedVisit.id.toString(),
-          number: result.updatedVisit.visit_number,
-        },
-        [{ type: 'PLANT_GATE_TOKEN', value: result.updatedVisit.token_number }]
-      ),
-      message: `Token ${result.updatedVisit.token_number} issued. Vehicle ${result.updatedVisit.vehicle_number} entered gate.`,
-    });
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const winner = await prisma.vehicleVisit.findUnique({
+        where: { id: BigInt((body as { visitId: string }).visitId) },
+        include: { gate_log: true },
+      });
+      if (winner && winner.gate_log?.entry_timestamp) {
+        return NextResponse.json({
+          success: true,
+          idempotent: true,
+          is_replay: true,
+          visitId: winner.id.toString(),
+          tokenNumber: winner.token_number,
+          identifiers: paperLinkedIdentity(
+            {
+              entity: 'vehicle_visit',
+              id: winner.id.toString(),
+              number: winner.visit_number,
+            },
+            [{ type: 'PLANT_GATE_TOKEN', value: winner.token_number }]
+          ),
+          message: `Token ${winner.token_number} issued. Vehicle ${winner.vehicle_number} entered gate.`,
+        });
+      }
+    }
     if (getErrorName(error) === 'ZodError') {
       return NextResponse.json({ error: getErrorIssues(error)?.[0]?.message || 'Validation failed' }, { status: 400 });
     }

@@ -23,11 +23,11 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "test:unit": "tsx --test src/components/ui/__tests__/*.ts src/components/auth/__tests__/*.ts src/frontend/hooks/__tests__/*.ts src/frontend/lib/__tests__/*.ts src/backend/services/__tests__/approvalAuthorization.test.ts",
+    "test:unit": "tsx --env-file=.env --test src/components/ui/__tests__/*.ts src/components/auth/__tests__/*.ts src/frontend/hooks/__tests__/*.ts src/frontend/lib/__tests__/*.ts src/backend/services/__tests__/*.ts src/frontend/modules/zmcc/arrivals/__tests__/*.ts",
     "test:components": "tsx scripts/verify-component-primitives.ts",
     "test:viewports": "tsx scripts/verify-responsive-viewports.ts",
     "test:workflows": "tsx scripts/verify-operational-workflows.ts",
-    "test:network": "tsx scripts/verify-network-stability.ts",
+    "test:network": "tsx --env-file=.env scripts/verify-network-stability.ts",
     "verify:phase2": "npm run typecheck && npm run lint && npm run check:ui-text && npm run test:unit && npm run test:components && npm run test:viewports && npm run test:workflows && npm run build",
     "verify:phase3": "npm run typecheck && npm run lint && npm run check:ui-text && npm run test:unit && npm run test:components && npm run test:network"
   },

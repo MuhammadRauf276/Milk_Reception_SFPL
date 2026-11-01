@@ -7,6 +7,11 @@ import { validateOperationalTimestamp } from '@/backend/services/chronology-vali
 import { requireCapability } from '@/backend/modules/access-control/serverGuard';
 import { getErrorMessage } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
+import {
+  findOperationRecord,
+  recordOperation,
+  validateReplayPayload,
+} from '@/backend/services/operationIdempotencyService';
 
 const WEIGHBRIDGE_SCOPE = {
   kind: 'DEPARTMENT',
@@ -43,14 +48,18 @@ export async function POST(req: Request) {
 
   const userIdBigInt = dbUser.id;
 
+  let body: Record<string, unknown> = {};
+  let visitIdStr = '';
+
   try {
-    const body = await req.json();
-    const visitIdStr = body.visitId || body.id;
+    const text = await req.text();
+    if (text) body = JSON.parse(text);
+    visitIdStr = ((body.visitId || body.id) as string) || '';
     if (!visitIdStr) {
       return NextResponse.json({ error: 'Visit ID is required.' }, { status: 400 });
     }
 
-    const tareVal = validatePositiveDecimal(body.tareWeightKg, 'Tare Weight');
+    const tareVal = validatePositiveDecimal(body.tareWeightKg as string | number, 'Tare Weight');
     if (!tareVal.isValid) {
       return NextResponse.json({ error: tareVal.error }, { status: 400 });
     }
@@ -58,6 +67,61 @@ export async function POST(req: Request) {
 
     const visitId = BigInt(visitIdStr);
     const serverNow = new Date();
+
+    const idempotencyKey = (
+      req.headers.get('idempotency-key') ||
+      (body as { idempotencyKey?: string }).idempotencyKey ||
+      `TARE-${visitIdStr}-${body.portionId || 'final'}`
+    ).trim();
+
+    // 1. Check idempotency store for existing completed operation
+    if (idempotencyKey) {
+      const existingOp = await findOperationRecord(idempotencyKey);
+      if (existingOp) {
+        if (!validateReplayPayload(existingOp.request_payload, { visitId: visitIdStr, tareWeightKg }, ['visitId', 'tareWeightKg'])) {
+          return NextResponse.json(
+            { error: 'Idempotency conflict: Tare weight key reused with different parameters.' },
+            { status: 409 }
+          );
+        }
+        return NextResponse.json({
+          ...existingOp.response_payload,
+          idempotent: true,
+          is_replay: true,
+        });
+      }
+    }
+
+    // 2. Check if visit already has completed tare weight
+    const existingVisit = await prisma.vehicleVisit.findUnique({
+      where: { id: visitId },
+      include: { weight_ticket: true },
+    });
+
+    if (existingVisit && existingVisit.weight_ticket && existingVisit.weight_ticket.tare_weight_kg) {
+      if (Number(existingVisit.weight_ticket.tare_weight_kg) === Number(tareWeightKg)) {
+        return NextResponse.json({
+          success: true,
+          idempotent: true,
+          is_replay: true,
+          ticketNumber: existingVisit.weight_ticket.ticket_number,
+          tareWeightKg: Number(existingVisit.weight_ticket.tare_weight_kg),
+          netWeightKg: Number(existingVisit.weight_ticket.net_weight_kg),
+          receiptCreated: true,
+          isPendingFinalReceipt: false,
+          finalPhysicalLiters: null,
+          finalAt13TSLiters: null,
+          targetSiloCode: null,
+          reason: null,
+          message: `Second Weight (Tare: ${tareWeightKg} kg) already recorded.`,
+        });
+      } else {
+        return NextResponse.json(
+          { error: `Conflict: Tare weight already recorded as ${existingVisit.weight_ticket.tare_weight_kg} kg under Ticket #${existingVisit.weight_ticket.ticket_number}.` },
+          { status: 409 }
+        );
+      }
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Atomic status claim lock: verify vehicle is strictly in READY_FOR_TARE status
@@ -157,7 +221,7 @@ export async function POST(req: Request) {
           : null;
 
         const chronoVal = validateOperationalTimestamp(
-          body.tareTimestamp || serverNow.toISOString(),
+          (body.tareTimestamp as string) || serverNow.toISOString(),
           predTs,
           'Second Weight',
           'Unloading Completion'
@@ -334,7 +398,7 @@ export async function POST(req: Request) {
         : null;
 
       const chronoVal = validateOperationalTimestamp(
-        body.tareTimestamp || serverNow.toISOString(),
+        (body.tareTimestamp as string) || serverNow.toISOString(),
         predecessorTs,
         'Tare Weight',
         'Unloading Completion'
@@ -426,18 +490,6 @@ export async function POST(req: Request) {
       };
     });
 
-    if (result.isPortionCycle) {
-      return NextResponse.json({
-        success: true,
-        isPortionCycle: true,
-        completedPortionNumber: result.completedPortionNumber,
-        nextPortionNumber: result.nextPortionNumber,
-        tareWeightKg,
-        portionNetKg: result.netWeightKg,
-        message: `Second Weight (${tareWeightKg.toLocaleString()} kg) for Portion #${result.completedPortionNumber} recorded (Net: ${result.netWeightKg.toLocaleString()} kg). Vehicle is now ready for Unloading Portion #${result.nextPortionNumber}.`,
-      });
-    }
-
     const isFinalized = result.finalizeRes.success && result.finalizeRes.receiptCreated;
     const finalPhysicalLiters = result.finalizeRes.finalPhysicalLiters != null ? Math.round(result.finalizeRes.finalPhysicalLiters) : null;
     const finalAt13TSLiters = result.finalizeRes.finalAt13TSLiters != null ? Math.round(result.finalizeRes.finalAt13TSLiters) : null;
@@ -449,20 +501,67 @@ export async function POST(req: Request) {
       msg += ` Final silo inventory receipt is PENDING (${result.finalizeRes.message}). Vehicle remains in TARE_WEIGHED status.`;
     }
 
-    return NextResponse.json({
-      success: true,
-      ticketNumber: result.ticket.ticket_number,
-      tareWeightKg: Number(result.ticket.tare_weight_kg),
-      netWeightKg: result.netWeightKg,
-      receiptCreated: isFinalized,
-      isPendingFinalReceipt: !isFinalized,
-      finalPhysicalLiters,
-      finalAt13TSLiters,
-      targetSiloCode: result.finalizeRes.targetSiloCode || null,
-      reason: result.finalizeRes.reason || null,
-      message: msg,
-    });
+    const responsePayload = result.isPortionCycle
+      ? {
+          success: true,
+          isPortionCycle: true,
+          completedPortionNumber: result.completedPortionNumber,
+          nextPortionNumber: result.nextPortionNumber,
+          tareWeightKg,
+          portionNetKg: result.netWeightKg,
+          message: `Second Weight (${tareWeightKg.toLocaleString()} kg) for Portion #${result.completedPortionNumber} recorded (Net: ${result.netWeightKg.toLocaleString()} kg). Vehicle is now ready for Unloading Portion #${result.nextPortionNumber}.`,
+        }
+      : {
+          success: true,
+          ticketNumber: result.ticket.ticket_number,
+          tareWeightKg: Number(result.ticket.tare_weight_kg),
+          netWeightKg: result.netWeightKg,
+          receiptCreated: isFinalized,
+          isPendingFinalReceipt: !isFinalized,
+          finalPhysicalLiters,
+          finalAt13TSLiters,
+          targetSiloCode: result.finalizeRes.targetSiloCode || null,
+          reason: result.finalizeRes.reason || null,
+          message: msg,
+        };
+
+    if (idempotencyKey) {
+      await recordOperation({
+        key: idempotencyKey,
+        operationType: 'SCALE_TARE_WEIGHT',
+        entityType: 'weight_ticket',
+        entityId: result.ticket.id,
+        requestPayload: { visitId: visitIdStr, tareWeightKg },
+        responsePayload,
+        statusCode: 200,
+      }).catch((e) => console.warn('Failed to record idempotency log:', e));
+    }
+
+    return NextResponse.json(responsePayload);
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002' && visitIdStr) {
+      const winner = await prisma.vehicleVisit.findUnique({
+        where: { id: BigInt(visitIdStr) },
+        include: { weight_ticket: true },
+      });
+      if (winner && winner.weight_ticket?.tare_weight_kg) {
+        return NextResponse.json({
+          success: true,
+          idempotent: true,
+          is_replay: true,
+          ticketNumber: winner.weight_ticket.ticket_number,
+          tareWeightKg: Number(winner.weight_ticket.tare_weight_kg),
+          netWeightKg: Number(winner.weight_ticket.net_weight_kg),
+          receiptCreated: true,
+          isPendingFinalReceipt: false,
+          finalPhysicalLiters: null,
+          finalAt13TSLiters: null,
+          targetSiloCode: null,
+          reason: null,
+          message: `Second Weight (Tare: ${winner.weight_ticket.tare_weight_kg} kg) recorded.`,
+        });
+      }
+    }
     const errorMsg = getErrorMessage(error) || 'Failed to record tare weight';
     const status = errorMsg.includes('INACTIVE') ? 409 : 400;
     return NextResponse.json({ error: errorMsg }, { status });

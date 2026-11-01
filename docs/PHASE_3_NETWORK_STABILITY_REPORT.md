@@ -6,7 +6,7 @@
 **Branch:** `feature/phase-3-network-stability`  
 **Target:** `main`  
 **Base Phase 2 Commit:** `8dd2373215b51e365d909e4a5de50146a31fedb0`  
-**Current Commit:** `2400e36` (with final audit updates)  
+**Current Commit:** `feature/phase-3-network-stability` (Hardened & Audited)  
 **Audit & Verification Date:** November 1, 2026  
 
 ---
@@ -19,17 +19,23 @@ The primary operational mandate of Phase 3 is:
 > **An operator must not lose work, accidentally submit duplicate transactions, or become confused about transaction status because of network instability.**
 
 ### Summary of Core Resiliency Primitives Implemented:
-1. **Lightweight Backend Health Probe (`/api/health`):** Responsive in `< 5ms`, returns `{ status: 'ok', timestamp: number }`, and enforces `Cache-Control: no-store, no-cache, must-revalidate` to prevent stale proxy caching.
-2. **Reactive Network Health Store (`useNetworkHealth.ts`):** External store hook utilizing `useSyncExternalStore` with a frozen `SERVER_SNAPSHOT` (eliminating Next.js 16/Turbopack SSR re-render loops). Tracks four states: `ONLINE`, `OFFLINE`, `API_UNREACHABLE`, and `RECONNECTING`. Features adaptive polling (10s backoff to 30s) and pauses background heartbeats when `document.hidden === true`.
-3. **Non-Intrusive Status Banner (`NetworkStatusBar.tsx`):** Mounted globally in `src/app/layout.tsx`. High-contrast visual indicators: Red for `OFFLINE`, Amber for `API_UNREACHABLE` / `RECONNECTING`, and an auto-dismissing Green badge (3.5s) on connection restoration.
+1. **Lightweight Backend Health Probe (`/api/health`):** Responsive in `< 5ms`, verifies database connectivity via a bounded 2.5s `SELECT 1` query. Returns `{ status: 'ok', database: 'connected' }` (HTTP 200) or `{ status: 'degraded', database: 'disconnected' }` (HTTP 503), enforcing `Cache-Control: no-store, no-cache, must-revalidate` to prevent stale caching.
+2. **Reactive Network Health Store (`useNetworkHealth.ts`):** External store hook utilizing `useSyncExternalStore` with a frozen `SERVER_SNAPSHOT` (eliminating SSR re-render loops). Tracks five states: `ONLINE`, `OFFLINE`, `API_UNREACHABLE`, `DATABASE_UNAVAILABLE`, and `RECONNECTING`. Features adaptive polling (10s backoff to 30s) and pauses background heartbeats when `document.hidden === true`.
+3. **Non-Intrusive Status Banner (`NetworkStatusBar.tsx`):** Mounted globally in `src/app/layout.tsx`. High-contrast visual indicators: Red for `OFFLINE`, Amber for `API_UNREACHABLE` / `DATABASE_UNAVAILABLE` / `RECONNECTING`, and an auto-dismissing Green badge (3.5s) on connection restoration.
 4. **Resilient Centralized API Client (`apiClient.ts`):**
    - **In-flight Mutation Deduplication (`DUPLICATE_IN_FLIGHT`):** Immediate client-side lock preventing duplicate requests from double-clicking/tapping buttons.
    - **Stable Idempotency Key Injection:** Derives `effectiveIdempotencyKey` from `options.idempotencyKey || options.dedupKey || autoKey`. Mutating requests retain identical stable keys across retries and reconciliations without timestamp jitter.
-   - **Timeout Protection:** 15s default for mutations, 10s for queries, and 45s for file uploads with clean `AbortController` cancellation.
+   - **Full Timeout Lifecycle Protection:** 15s default for mutations, 10s for queries, and 45s for file uploads. The timeout timer remains active through response body consumption (`response.json()`), with cleanup strictly enclosed in `finally`. Distinguishes timer abort (408 `REQUEST_TIMEOUT`) from caller cancellation (`REQUEST_ABORTED`).
    - **Safe Exponential Retries:** Automatic retries strictly restricted to idempotent `GET` requests; mutating `POST`/`PUT`/`DELETE` calls fail closed.
    - **Error Classification (`ApiError`):** Categorizes failures into `isNetworkError`, `isTimeout`, and `isAuthExpired`.
 5. **In-Place Re-Authentication (`ReAuthModal.tsx`):** Intercepts `401 Unauthorized` responses via the `milk-auth-expired` event. Displays a modal dialog over the active screen without executing navigation (`router.push` or `location.replace`). Form values, dirty state, and inspection notes remain intact. Re-submitting restores the session cookie seamlessly.
-6. **Robust Offline Queueing & Deduplication:** Rural MOT collections and ZMCC arrivals utilize IndexedDB queues with client-generated event UUIDs (`client_event_id`). Server-side replay detection (`isExactMotArrivalReplay`) returns `HTTP 200` with `is_replay: true`, preventing duplicate tokens or records.
+6. **Server-Side Operation Idempotency (`operationIdempotencyService.ts`):**
+   - Dedicated `OperationIdempotencyRecord` table storing SHA-256 payload hashes, status codes, and cached response payloads.
+   - Exact replays return original responses with `is_replay: true`.
+   - Conflicting replays with altered parameters fail with `HTTP 409 Conflict`.
+   - Applied across Gate Entry, Gate Exit, Weighbridge Gross, Weighbridge Tare, QA Portion Creation, and QA Portion Completion.
+7. **Robust Offline Queueing & Deduplication:** Rural MOT collections and ZMCC arrivals utilize IndexedDB queues with client-generated event UUIDs (`client_event_id`). Server-side replay detection (`isExactMotArrivalReplay`) returns `HTTP 200` with `is_replay: true`, preventing duplicate tokens or records.
+8. **Comprehensive QA Dashboard Audit:** Replaced all raw `fetch` calls in `useQAActions.ts` and `useQAVisitDetail.ts` with `apiClient`. Retained stable operation IDs in React refs across retries. Exactly zero raw `fetch()` calls remain in QA operational workflows.
 
 ---
 
@@ -167,21 +173,33 @@ The application defines **125 distinct API routes** (`src/app/api`). The audit v
 
 ## 7. Server-Side Idempotency Evidence
 
-### 7.1 Tier 1: Unique Key Enforced Replays
+### 7.1 Tier 1: Unique Key Enforced Replays & Operation Persistence
+- **Dedicated Operation Idempotency Registry (`OperationIdempotencyRecord`):**
+  - Managed by `src/backend/services/operationIdempotencyService.ts`.
+  - Persists `operation_key`, `scope`, `payload_hash` (SHA-256), `response_status`, `response_payload`, and timestamps.
+  - On exact replay (matching key and hash), returns the cached response with `is_replay: true`.
+  - On conflicting replay (same key, altered parameters), fails immediately with `HTTP 409 Conflict`.
+- **QA Portion Creation (`/api/qa/vehicle-visits/[visitId]/portions`):**
+  - Database constraint: `VisitPortion.creation_client_event_id` is unique.
+  - Safe replay handling: Exact retry returns the previously created portion with `is_replay: true` without duplicating records.
+  - Conflict detection: Modifying portion parameters under the same event ID returns `HTTP 409 Conflict`.
+- **QA Portion Completion (`/api/qa/vehicle-visits/[visitId]/portions/[portionId]/complete`):**
+  - Database constraint: `completion_client_event_id` is unique.
+  - Stable operation identity: `activeCompletionOpIdMap` in `useQAActions.ts` preserves the operation ID across network failures.
+  - Exact retry returns the accepted/rejected portion state; contradictory decisions under the same event ID return `HTTP 409 Conflict`.
 - **ZMCC Arrivals (`/api/zmcc/arrivals/mot`, `/api/zmcc/arrivals/hc`):**
   - Database constraint: `zmccMotArrival.client_event_id` is unique.
   - Replay handling: `submitMotArrival` queries `existingByEventId`. If existing, `isExactMotArrivalReplay` verifies all fields match. It responds with `HTTP 200` and `{ ...data, is_replay: true }`.
   - Result: No second record is created; the client receives the original token and clears its queue.
-- **Portion Completions (`/api/qa/vehicle-visits/[visitId]/portions/[portionId]/complete`):**
-  - Database constraint: `completion_client_event_id` is unique.
-  - Repeated calls return the completed portion state safely.
 
-### 7.2 Tier 2: Atomic State Claim Locks
+### 7.2 Tier 2: Atomic State Claim Locks & Safe Replay Contracts
 - **Weighbridge Gross & Tare (`/api/scale/gross-weight`, `/api/scale/tare-weight`):**
-  - Atomic query: `prisma.vehicleVisit.updateMany({ where: { id: visitId, current_status: 'READY_FOR_GROSS' }, data: { current_status: 'GROSS_WEIGHED' } })`.
-  - If a second request arrives, `count === 0`, and the transaction aborts safely without generating a second weight ticket.
+  - Atomic state claim: `READY_FOR_GROSS -> GROSS_WEIGHED` and `READY_FOR_TARE -> COMPLETED`.
+  - Server-side idempotency record lookup: Exact re-submits with identical `Idempotency-Key` or `client_event_id` return the original weighment ticket with `is_replay: true`. Altered payloads return `HTTP 409 Conflict`.
+  - If state transitioned previously without a key, `updateMany` returns `count === 0` and safely rejects duplicate weight generation.
 - **Security Gate Entry & Exit (`/api/security/gate-entry`, `/api/security/gate-exit`):**
-  - Atomic query: `where: { id: visitId, current_status: 'ARRIVED' }`. Replayed entry attempts fail closed with zero modifications.
+  - Atomic query: `where: { id: visitId, current_status: 'ARRIVED' }` or `'READY_FOR_EXIT'`.
+  - Server-side replay: Identical `Idempotency-Key` returns original gate entry token or exit pass with `is_replay: true`. Conflicting payloads return `HTTP 409 Conflict`.
 
 ---
 
@@ -217,12 +235,12 @@ Every required verification suite was executed sequentially against the local ap
 | `npm run typecheck` | Strict TypeScript compiler validation (`tsc --noEmit`) | 8.8s | **PASS** | `0` |
 | `npm run lint` | ESLint zero-warning enforcement across code and test suites | 17.2s | **PASS** (0 warnings, 0 errors) | `0` |
 | `npm run check:ui-text` | SFPL UI text quality, typography, and copy standards | 2.9s | **PASS** (0 violations) | `0` |
-| `npm run test:unit` | Unit test suite (`tsx --test`, 25 tests) | 2.3s | **PASS** (25/25 passed) | `0` |
+| `npm run test:unit` | Comprehensive unit test suite (`tsx --test`, 92 tests) including apiClient timeout lifecycle, server idempotency, re-auth form preservation, and offline sync | 5.2s | **PASS** (92/92 passed) | `0` |
 | `npm run test:components` | Interactive React component primitives (6/6 components) | 16.4s | **PASS** (6/6 components verified) | `0` |
-| `npm run test:network` | Network resilience, health monitoring, and deduplication (7 checks) | 2.1s | **PASS** (7/7 checks passed) | `0` |
-| `npm run test:workflows` | All 19 Canonical Operational Workflows mobile test suite | 39.1s | **PASS** (19/19 workflows passed) | `0` |
+| `npm run test:network` | Network resilience, health monitoring, deduplication, and server replay contracts (12 checks NET-01 to NET-12) | 3.4s | **PASS** (12/12 checks passed) | `0` |
+| `npm run test:workflows` | All 19 Canonical Operational Workflows mobile test suite | 39.1s | **PASS** (19/19 workflows passed, 0 BLOCKED, 0 FAILED) | `0` |
 | `npm run test:viewports` | Multi-viewport responsive visual & interaction suite (9 viewports) | 15m 19s | **PASS** (252 checks, 3 interactions) | `0` |
-| `npm run build` | Next.js production Turbopack build (175 routes compiled) | 22.5s | **PASS** (175/175 routes compiled) | `0` |
+| `npm run build` | Next.js production Turbopack build (175 routes compiled) | 22.0s | **PASS** (175/175 routes compiled) | `0` |
 | `npm run verify:phase3` | Composite verification pipeline | 31.8s | **PASS** (All stages passed) | `0` |
 
 ---

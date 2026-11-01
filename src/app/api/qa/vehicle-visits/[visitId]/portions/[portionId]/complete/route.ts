@@ -18,6 +18,11 @@ import { writeAuditLog, auditActorFromUser } from '@core/audit';
 import { isPlantLrTest, isPlantFatTest } from '@/backend/services/vehicleQuantityService';
 import { recordRejectedMilkForDisposition } from '@/backend/services/rejectedMilkDispositionService';
 import { QaWarningEscalationService } from '@/backend/services/qaWarningEscalationService';
+import {
+  findOperationRecord,
+  recordOperation,
+  validateReplayPayload,
+} from '@/backend/services/operationIdempotencyService';
 
 class RouteError extends Error {
   statusCode: number;
@@ -81,9 +86,37 @@ export async function POST(
       return NextResponse.json({ error: 'Portion record not found for this vehicle visit' }, { status: 404 });
     }
 
+    // Check idempotency store for previous submission with this completionEventId
+    const existingOp = await findOperationRecord(completionEventId);
+    if (existingOp) {
+      if (!validateReplayPayload(existingOp.request_payload, { visitId: visitIdStr, portionId: portionIdStr, decision: validated.decision }, ['visitId', 'portionId', 'decision'])) {
+        return NextResponse.json(
+          { error: 'Idempotency conflict: Completion operation ID reused with different parameters or decision.' },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({
+        ...existingOp.response_payload,
+        idempotent: true,
+        is_replay: true,
+      });
+    }
+
     if (portion.plant_decision === 'ACCEPTED' || portion.plant_decision === 'REJECTED') {
       if (portion.completion_client_event_id === completionEventId) {
-        return NextResponse.json({ success: true, idempotent: true, portionId: portionIdStr, plantDecision: portion.plant_decision });
+        if (portion.plant_decision !== validated.decision) {
+          return NextResponse.json(
+            { error: `Conflict: Portion already completed with decision ${portion.plant_decision}.` },
+            { status: 409 }
+          );
+        }
+        return NextResponse.json({
+          success: true,
+          idempotent: true,
+          is_replay: true,
+          portionId: portionIdStr,
+          plantDecision: portion.plant_decision,
+        });
       }
       return NextResponse.json({ error: 'Portion testing has already been completed and finalized.' }, { status: 409 });
     }
@@ -199,7 +232,7 @@ export async function POST(
     let systemQualityOutcome: string = 'PASS';
 
     // Atomic Prisma Transaction
-    await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // 0. Acquire PostgreSQL Row-Level Lock (FOR UPDATE) for the exact VehicleVisit
       await tx.$executeRaw`SELECT id FROM vehicle_visit WHERE id = ${visitId} FOR UPDATE`;
 
@@ -213,7 +246,19 @@ export async function POST(
       }
 
       if (lockedPortion.plant_decision === 'ACCEPTED' || lockedPortion.plant_decision === 'REJECTED') {
-        if (lockedPortion.completion_client_event_id === completionEventId) return;
+        if (lockedPortion.completion_client_event_id === completionEventId) {
+          return {
+            success: true,
+            idempotent: true,
+            is_replay: true,
+            portionId: portionIdStr,
+            plantDecision: lockedPortion.plant_decision,
+            managerReviewStatus: lockedPortion.manager_review_status,
+            systemQualityOutcome: lockedPortion.system_quality_outcome || 'PASS',
+            sealMatch: null,
+            message: `Portion #${lockedPortion.portion_number} testing completed. Decision: ${lockedPortion.plant_decision}.`,
+          };
+        }
         throw new RouteError('Portion testing has already been completed and finalized.', 409);
       }
 
@@ -665,21 +710,51 @@ export async function POST(
           },
         });
       }
+
+      const responseData = {
+        success: true,
+        portionId: portionIdStr,
+        plantDecision: finalPlantDecision,
+        managerReviewStatus: finalManagerReviewStatus,
+        systemQualityOutcome,
+        sealMatch,
+        message:
+          finalManagerReviewStatus === 'PENDING'
+            ? `Portion #${lockedPortionRecord?.portion_number ?? portion.portion_number} submitted. Escalated to AVP-QA (QA Head) for exception review.`
+            : `Portion #${lockedPortionRecord?.portion_number ?? portion.portion_number} testing completed. Decision: ${finalPlantDecision}.`,
+      };
+
+      if (completionEventId) {
+        await recordOperation({
+          key: completionEventId,
+          operationType: 'QA_PORTION_COMPLETE',
+          entityType: 'visit_portion',
+          entityId: portionId,
+          requestPayload: { visitId: visitIdStr, portionId: portionIdStr, decision: validated.decision },
+          responsePayload: responseData,
+          statusCode: 200,
+        }, tx);
+      }
+
+      return responseData;
     });
 
-    return NextResponse.json({
-      success: true,
-      portionId: portionIdStr,
-      plantDecision: finalPlantDecision,
-      managerReviewStatus: finalManagerReviewStatus,
-      systemQualityOutcome,
-      sealMatch,
-      message:
-        finalManagerReviewStatus === 'PENDING'
-          ? `Portion #${lockedPortionRecord?.portion_number ?? portion.portion_number} submitted. Escalated to AVP-QA (QA Head) for exception review.`
-          : `Portion #${lockedPortionRecord?.portion_number ?? portion.portion_number} testing completed. Decision: ${finalPlantDecision}.`,
-    });
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const winner = await prisma.visitPortion.findUnique({
+        where: { id: BigInt(portionIdStr) },
+      });
+      if (winner && winner.completion_client_event_id) {
+        return NextResponse.json({
+          success: true,
+          idempotent: true,
+          is_replay: true,
+          portionId: portionIdStr,
+          plantDecision: winner.plant_decision,
+        });
+      }
+    }
     if (getErrorName(error) === 'ZodError' || getErrorIssues(error)) {
       const msg = getErrorIssues(error)?.[0]?.message || getErrorMessage(error) || 'Validation failed';
       return NextResponse.json({ error: msg }, { status: 400 });

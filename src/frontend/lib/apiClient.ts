@@ -88,16 +88,6 @@ async function executeWithTimeout<T>(
   method: string,
   timeoutMs: number
 ): Promise<T> {
-  const controller = new AbortController();
-  const timeoutTimer = setTimeout(() => {
-    controller.abort();
-  }, timeoutMs);
-
-  // If caller supplied their own signal, listen to it
-  if (options.signal) {
-    options.signal.addEventListener('abort', () => controller.abort());
-  }
-
   const headers = new Headers(options.headers || {});
   if (!headers.has('Content-Type') && options.body && typeof options.body === 'string') {
     headers.set('Content-Type', 'application/json');
@@ -119,14 +109,28 @@ async function executeWithTimeout<T>(
   let attempt = 0;
 
   while (attempt <= maxRetries) {
+    let didTimeout = false;
+    const controller = new AbortController();
+    const timeoutTimer = setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, timeoutMs);
+
+    const onCallerAbort = () => controller.abort();
+    if (options.signal) {
+      if (options.signal.aborted) {
+        clearTimeout(timeoutTimer);
+        throw new ApiError('Request was aborted.', 0, 'REQUEST_ABORTED');
+      }
+      options.signal.addEventListener('abort', onCallerAbort);
+    }
+
     try {
       const response = await fetch(url, {
         ...options,
         headers,
         signal: controller.signal,
       });
-
-      clearTimeout(timeoutTimer);
 
       if (response.status === 401) {
         dispatchAuthExpired();
@@ -141,7 +145,20 @@ async function executeWithTimeout<T>(
 
       const contentType = response.headers.get('content-type') || '';
       const isJson = contentType.includes('application/json');
-      const data = isJson ? await response.json().catch(() => ({})) : await response.text();
+      // Body reading remains guarded under the timeoutTimer
+      let data: unknown;
+      if (isJson) {
+        try {
+          data = await response.json();
+        } catch (jsonErr) {
+          if (controller.signal.aborted || (jsonErr instanceof Error && jsonErr.name === 'AbortError')) {
+            throw jsonErr;
+          }
+          data = {};
+        }
+      } else {
+        data = await response.text();
+      }
 
       if (!response.ok) {
         const errorMsg =
@@ -165,13 +182,17 @@ async function executeWithTimeout<T>(
       const isAbort = err instanceof Error && err.name === 'AbortError';
       const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
-      if (isAbort) {
+      if (didTimeout) {
         throw new ApiError(
           `Request timed out after ${Math.round(timeoutMs / 1000)} seconds. Please check connection and try again.`,
           408,
           'REQUEST_TIMEOUT',
           { isTimeout: true }
         );
+      }
+
+      if (isAbort) {
+        throw new ApiError('Request was aborted.', 0, 'REQUEST_ABORTED');
       }
 
       // If GET request failed on network and has retries remaining, wait with backoff
@@ -181,7 +202,6 @@ async function executeWithTimeout<T>(
         continue;
       }
 
-      clearTimeout(timeoutTimer);
       throw new ApiError(
         isOffline
           ? 'Network connection unavailable. Please check your internet connection.'
@@ -190,10 +210,14 @@ async function executeWithTimeout<T>(
         'NETWORK_FAILURE',
         { isNetworkError: true }
       );
+    } finally {
+      clearTimeout(timeoutTimer);
+      if (options.signal) {
+        options.signal.removeEventListener('abort', onCallerAbort);
+      }
     }
   }
 
-  clearTimeout(timeoutTimer);
   throw new ApiError('Request failed after retries.', 0, 'MAX_RETRIES_EXCEEDED');
 }
 

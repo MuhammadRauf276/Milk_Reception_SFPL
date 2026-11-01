@@ -7,6 +7,12 @@ import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
 import { getOperationalBusinessDate } from '@/backend/core/business-day';
 import { parseStrictDateOnly } from '@/lib/datetime-utils';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
+import {
+  findOperationRecord,
+  recordOperation,
+  validateReplayPayload,
+} from '@/backend/services/operationIdempotencyService';
+import { Prisma } from '@prisma/client';
 
 const WEIGHBRIDGE_SCOPE = {
   kind: 'DEPARTMENT',
@@ -43,9 +49,16 @@ export async function POST(req: Request) {
 
   const userIdBigInt = dbUser.id;
 
+  let body: Record<string, unknown> = {};
   try {
-    const body = await req.json();
-    const visitIdStr = body.visitId || body.id;
+    const text = await req.text();
+    if (text) body = JSON.parse(text);
+  } catch {
+    body = {};
+  }
+
+  try {
+    const visitIdStr = (body.visitId || body.id) as string | undefined;
     if (!visitIdStr) {
       return NextResponse.json({ error: 'Visit ID is required.' }, { status: 400 });
     }
@@ -58,6 +71,57 @@ export async function POST(req: Request) {
 
     const visitId = BigInt(visitIdStr);
     const serverNow = new Date();
+
+    const idempotencyKey = (
+      req.headers.get('idempotency-key') ||
+      (body as { idempotencyKey?: string }).idempotencyKey ||
+      `GROSS-${visitIdStr}`
+    ).trim();
+
+    // 1. Check idempotency store for existing completed operation
+    if (idempotencyKey) {
+      const existingOp = await findOperationRecord(idempotencyKey);
+      if (existingOp) {
+        if (!validateReplayPayload(existingOp.request_payload, { visitId: visitIdStr, grossWeightKg }, ['visitId', 'grossWeightKg'])) {
+          return NextResponse.json(
+            { error: 'Idempotency conflict: Gross weight key reused with different parameters.' },
+            { status: 409 }
+          );
+        }
+        return NextResponse.json({
+          ...existingOp.response_payload,
+          idempotent: true,
+          is_replay: true,
+        });
+      }
+    }
+
+    // 2. Check if visit already has gross weight recorded
+    const existingVisit = await prisma.vehicleVisit.findUnique({
+      where: { id: visitId },
+      include: { weight_ticket: true, portions: true },
+    });
+
+    if (existingVisit && existingVisit.weight_ticket && existingVisit.weight_ticket.gross_weight_kg) {
+      if (Number(existingVisit.weight_ticket.gross_weight_kg) === Number(grossWeightKg)) {
+        const isMultiPortion = (existingVisit.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED').length > 1;
+        return NextResponse.json({
+          success: true,
+          idempotent: true,
+          is_replay: true,
+          ticketNumber: existingVisit.weight_ticket.ticket_number,
+          grossWeightKg: Number(existingVisit.weight_ticket.gross_weight_kg),
+          isPortionWise: isMultiPortion,
+          isMultiPortion,
+          message: `First Weight (Gross: ${grossWeightKg} kg) recorded successfully. Vehicle is ready for unloading.`,
+        });
+      } else {
+        return NextResponse.json(
+          { error: `Conflict: Gross weight already recorded as ${existingVisit.weight_ticket.gross_weight_kg} kg under Ticket #${existingVisit.weight_ticket.ticket_number}.` },
+          { status: 409 }
+        );
+      }
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Load VehicleVisit, gate_log, portions.dispatch_info, qa_session, weight_ticket
@@ -89,7 +153,7 @@ export async function POST(req: Request) {
         ? new Date(firstDispatchTs)
         : null;
 
-      const chronoVal = validateOperationalTimestamp(body.grossTimestamp || serverNow.toISOString(), predecessorTs, 'Gross Weight', 'QA Completion');
+      const chronoVal = validateOperationalTimestamp((body.grossTimestamp as string) || serverNow.toISOString(), predecessorTs, 'Gross Weight', 'QA Completion');
       if (!chronoVal.isValid) {
         throw new Error(chronoVal.error);
       }
@@ -100,7 +164,7 @@ export async function POST(req: Request) {
       }
 
       // Validate operator-selected gross operational timestamp vs server bounds
-      const opTimestamp = body.grossTimestamp ? new Date(body.grossTimestamp) : serverNow;
+      const opTimestamp = body.grossTimestamp ? new Date(body.grossTimestamp as string) : serverNow;
       if (isNaN(opTimestamp.getTime())) {
         throw new Error('Invalid gross weight timestamp format.');
       }
@@ -216,7 +280,6 @@ export async function POST(req: Request) {
       // If multiple portions exist (N > 1), Portion 1 receives initial gross W0.
       // Subsequent portions (P2, P3...) will inherit their starting weight from the previous portion's tare weight.
       const sortedAccepted = [...acceptedPortions].sort((a, b) => a.portion_number - b.portion_number);
-      const isMultiPortion = sortedAccepted.length > 1;
       const firstPortion = sortedAccepted[0];
       if (firstPortion) {
         await tx.visitPortion.update({
@@ -261,18 +324,51 @@ export async function POST(req: Request) {
         },
       });
 
-      return { visit, ticket };
+      const responsePayload = {
+        success: true,
+        ticketNumber: ticket.ticket_number,
+        grossWeightKg: Number(ticket.gross_weight_kg),
+        isPortionWise: (visit.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED').length > 1,
+        isMultiPortion: (visit.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED').length > 1,
+        message: `First Weight (Gross: ${grossWeightKg} kg) recorded successfully. Vehicle is ready for unloading.`,
+      };
+
+      if (idempotencyKey) {
+        await recordOperation({
+          key: idempotencyKey,
+          operationType: 'SCALE_GROSS_WEIGHT',
+          entityType: 'weight_ticket',
+          entityId: ticket.id,
+          requestPayload: { visitId: visitIdStr, grossWeightKg },
+          responsePayload,
+          statusCode: 200,
+        }, tx);
+      }
+
+      return responsePayload;
     });
 
-    return NextResponse.json({
-      success: true,
-      ticketNumber: result.ticket.ticket_number,
-      grossWeightKg: Number(result.ticket.gross_weight_kg),
-      isPortionWise: (result.visit.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED').length > 1,
-      isMultiPortion: (result.visit.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED').length > 1,
-      message: `First Weight (Gross: ${grossWeightKg} kg) recorded successfully. Vehicle is ready for unloading.`,
-    });
+    return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const winner = await prisma.vehicleVisit.findUnique({
+        where: { id: BigInt((body as { visitId: string }).visitId) },
+        include: { weight_ticket: true, portions: true },
+      });
+      if (winner && winner.weight_ticket?.gross_weight_kg) {
+        const isMultiPortion = (winner.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED').length > 1;
+        return NextResponse.json({
+          success: true,
+          idempotent: true,
+          is_replay: true,
+          ticketNumber: winner.weight_ticket.ticket_number,
+          grossWeightKg: Number(winner.weight_ticket.gross_weight_kg),
+          isPortionWise: isMultiPortion,
+          isMultiPortion,
+          message: `First Weight (Gross: ${winner.weight_ticket.gross_weight_kg} kg) recorded successfully. Vehicle is ready for unloading.`,
+        });
+      }
+    }
     if (getErrorName(error) === 'ZodError') {
       return NextResponse.json({ error: getErrorIssues(error)?.[0]?.message || 'Validation failed' }, { status: 400 });
     }
