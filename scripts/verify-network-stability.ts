@@ -20,7 +20,11 @@ import http from 'node:http';
 import assert from 'node:assert/strict';
 import { apiClient, ApiError } from '../src/frontend/lib/apiClient';
 import { evaluateNetworkHealthState } from '../src/frontend/hooks/useNetworkHealth';
-import { validateReplayPayload } from '../src/backend/services/operationIdempotencyService';
+import {
+  validateReplayPayload,
+  computePayloadHash,
+  verifyReplay,
+} from '../src/backend/services/operationIdempotencyService';
 
 const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3000';
 
@@ -298,31 +302,62 @@ async function main() {
     assert.equal(evaluateNetworkHealthState(true, false, false), 'API_UNREACHABLE');
   });
 
-  // 11. QA Portion Creation & Completion Idempotency Contract
-  await runTest('NET-11', 'QA portion creation & completion idempotency payload contracts', async () => {
-    const stored = { visitId: '101', portionId: '5', decision: 'ACCEPTED' };
-    const exactReplay = { visitId: '101', portionId: '5', decision: 'ACCEPTED' };
-    const conflictReplay = { visitId: '101', portionId: '5', decision: 'REJECTED' };
+  // 11. QA Portion Creation & Completion Canonical SHA-256 Idempotency Contract
+  await runTest('NET-11', 'QA portion creation & completion canonical SHA-256 idempotency contracts', async () => {
+    const payloadA = { visitId: '101', portionId: '5', decision: 'ACCEPTED', results: [{ testId: 'FAT', numericValue: 4.5 }] };
+    const payloadExact = { visitId: '101', portionId: '5', decision: 'ACCEPTED', results: [{ testId: 'FAT', numericValue: 4.5 }] };
+    const payloadConflict = { visitId: '101', portionId: '5', decision: 'REJECTED', results: [{ testId: 'FAT', numericValue: 4.5 }] };
 
-    assert.equal(validateReplayPayload(stored, exactReplay, ['visitId', 'portionId', 'decision']), true);
-    assert.equal(validateReplayPayload(stored, conflictReplay, ['visitId', 'portionId', 'decision']), false);
+    const envelopeA = { operationType: 'QA_PORTION_COMPLETE', entityType: 'visit_portion', entityId: '5', payload: payloadA };
+    const envelopeExact = { operationType: 'QA_PORTION_COMPLETE', entityType: 'visit_portion', entityId: '5', payload: payloadExact };
+    const envelopeConflict = { operationType: 'QA_PORTION_COMPLETE', entityType: 'visit_portion', entityId: '5', payload: payloadConflict };
+
+    const hashA = computePayloadHash(envelopeA);
+    const hashExact = computePayloadHash(envelopeExact);
+    const hashConflict = computePayloadHash(envelopeConflict);
+
+    assert.equal(hashA, hashExact, 'Exact payload must produce identical SHA-256 hash');
+    assert.notEqual(hashA, hashConflict, 'Altered decision must produce different SHA-256 hash');
+
+    const mockRecord = {
+      id: BigInt(1),
+      key: 'test-key',
+      operation_type: 'QA_PORTION_COMPLETE',
+      entity_type: 'visit_portion',
+      entityId: BigInt(5),
+      entity_id: BigInt(5),
+      payload_hash: hashA,
+      request_payload: payloadA,
+      response_payload: { success: true },
+      status_code: 200,
+      created_at: new Date(),
+    };
+
+    assert.equal(
+      verifyReplay(mockRecord, { operationType: 'QA_PORTION_COMPLETE', entityType: 'visit_portion', entityId: 5, incomingPayload: payloadExact }).isMatch,
+      true
+    );
+    assert.equal(
+      verifyReplay(mockRecord, { operationType: 'QA_PORTION_COMPLETE', entityType: 'visit_portion', entityId: 5, incomingPayload: payloadConflict }).isMatch,
+      false
+    );
   });
 
   // 12. Gate & Weighbridge Replay Contract
-  await runTest('NET-12', 'Gate & Weighbridge replay verification contracts', async () => {
-    const grossStored = { visitId: '202', grossWeightKg: '31500' };
-    const grossReplay = { visitId: '202', grossWeightKg: '31500' };
-    const grossConflict = { visitId: '202', grossWeightKg: '32000' };
+  await runTest('NET-12', 'Gate & Weighbridge SHA-256 replay verification contracts', async () => {
+    const grossPayload = { visitId: '202', grossWeightKg: 31500 };
+    const grossReplay = { visitId: '202', grossWeightKg: 31500 };
+    const grossConflict = { visitId: '202', grossWeightKg: 32000 };
 
-    assert.equal(validateReplayPayload(grossStored, grossReplay, ['visitId', 'grossWeightKg']), true);
-    assert.equal(validateReplayPayload(grossStored, grossConflict, ['visitId', 'grossWeightKg']), false);
+    assert.equal(computePayloadHash(grossPayload), computePayloadHash(grossReplay));
+    assert.notEqual(computePayloadHash(grossPayload), computePayloadHash(grossConflict));
 
-    const gateStored = { visitId: '303', tokenNumber: 'TK-12' };
+    const gatePayload = { visitId: '303', tokenNumber: 'TK-12' };
     const gateReplay = { visitId: '303', tokenNumber: 'TK-12' };
     const gateConflict = { visitId: '303', tokenNumber: 'TK-99' };
 
-    assert.equal(validateReplayPayload(gateStored, gateReplay, ['visitId', 'tokenNumber']), true);
-    assert.equal(validateReplayPayload(gateStored, gateConflict, ['visitId', 'tokenNumber']), false);
+    assert.equal(computePayloadHash(gatePayload), computePayloadHash(gateReplay));
+    assert.notEqual(computePayloadHash(gatePayload), computePayloadHash(gateConflict));
   });
 
   // Print Summary

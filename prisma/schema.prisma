@@ -2233,6 +2233,7 @@ model OperationIdempotencyRecord {
   operation_type   String   @map("operation_type") @db.VarChar(64)
   entity_type      String   @map("entity_type") @db.VarChar(64)
   entity_id        BigInt   @map("entity_id")
+  payload_hash     String?  @map("payload_hash") @db.VarChar(64)
   request_payload  Json?    @map("request_payload") @db.JsonB
   response_payload Json     @map("response_payload") @db.JsonB
   status_code      Int      @default(200) @map("status_code")

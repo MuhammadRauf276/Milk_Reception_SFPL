@@ -7,7 +7,8 @@ import { writeAuditLog, auditActorFromUser } from '@core/audit';
 import {
   findOperationRecord,
   recordOperation,
-  validateReplayPayload,
+  checkOperationReplay,
+  handleConcurrentReplayOrConflict,
 } from '@/backend/services/operationIdempotencyService';
 import { Prisma } from '@prisma/client';
 
@@ -57,22 +58,19 @@ export async function POST(
   try {
     const visitId = BigInt(visitIdStr);
 
+    const canonicalPayload = {
+      visitId: visitIdStr,
+    };
+
     // 1. Check idempotency store first
     if (clientOperationId) {
-      const existingOp = await findOperationRecord(clientOperationId);
-      if (existingOp) {
-        if (!validateReplayPayload(existingOp.request_payload, { visitId: visitIdStr }, ['visitId'])) {
-          return NextResponse.json(
-            { error: 'Idempotency conflict: Operation ID reused with different visit.' },
-            { status: 409 }
-          );
-        }
-        return NextResponse.json({
-          ...existingOp.response_payload,
-          idempotent: true,
-          is_replay: true,
-        });
-      }
+      const replayResponse = await checkOperationReplay(clientOperationId, {
+        operationType: 'QA_ADD_PORTION',
+        entityType: 'vehicle_visit',
+        entityId: visitId,
+        incomingPayload: canonicalPayload,
+      });
+      if (replayResponse) return replayResponse;
 
       // Check visit_portion unique constraint directly
       const existingPortion = await prisma.visitPortion.findUnique({
@@ -179,9 +177,9 @@ export async function POST(
           await recordOperation({
             key: clientOperationId,
             operationType: 'QA_ADD_PORTION',
-            entityType: 'visit_portion',
-            entityId: portion.id,
-            requestPayload: { visitId: visitIdStr },
+            entityType: 'vehicle_visit',
+            entityId: visitId,
+            requestPayload: canonicalPayload,
             responsePayload: formattedResponse,
             statusCode: 200,
           }, tx);
@@ -192,6 +190,16 @@ export async function POST(
 
       responsePayload = newPortion;
     } catch (txError) {
+      if (clientOperationId) {
+        const concurrentReplay = await handleConcurrentReplayOrConflict(clientOperationId, {
+          operationType: 'QA_ADD_PORTION',
+          entityType: 'vehicle_visit',
+          entityId: visitId,
+          incomingPayload: canonicalPayload,
+        });
+        if (concurrentReplay) return concurrentReplay;
+      }
+
       if (
         txError instanceof Prisma.PrismaClientKnownRequestError &&
         txError.code === 'P2002' &&

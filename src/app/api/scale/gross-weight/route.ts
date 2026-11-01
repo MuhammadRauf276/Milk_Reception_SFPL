@@ -10,7 +10,8 @@ import { writeAuditLog, auditActorFromUser } from '@core/audit';
 import {
   findOperationRecord,
   recordOperation,
-  validateReplayPayload,
+  checkOperationReplay,
+  handleConcurrentReplayOrConflict,
 } from '@/backend/services/operationIdempotencyService';
 import { Prisma } from '@prisma/client';
 
@@ -57,8 +58,12 @@ export async function POST(req: Request) {
     body = {};
   }
 
+  let idempotencyKey = '';
+  let canonicalPayload: any = null;
+  let visitIdStr = '';
+
   try {
-    const visitIdStr = (body.visitId || body.id) as string | undefined;
+    visitIdStr = ((body.visitId || body.id) as string) || '';
     if (!visitIdStr) {
       return NextResponse.json({ error: 'Visit ID is required.' }, { status: 400 });
     }
@@ -72,28 +77,29 @@ export async function POST(req: Request) {
     const visitId = BigInt(visitIdStr);
     const serverNow = new Date();
 
-    const idempotencyKey = (
+    idempotencyKey = (
       req.headers.get('idempotency-key') ||
       (body as { idempotencyKey?: string }).idempotencyKey ||
       `GROSS-${visitIdStr}`
     ).trim();
 
+    canonicalPayload = {
+      visitId: visitIdStr,
+      grossWeightKg,
+      grossTimestamp: body.grossTimestamp ? new Date(body.grossTimestamp as string).toISOString() : null,
+      driverName: typeof body.driverName === 'string' ? body.driverName.trim() : null,
+      remarks: typeof body.remarks === 'string' ? body.remarks.trim() : null,
+    };
+
     // 1. Check idempotency store for existing completed operation
     if (idempotencyKey) {
-      const existingOp = await findOperationRecord(idempotencyKey);
-      if (existingOp) {
-        if (!validateReplayPayload(existingOp.request_payload, { visitId: visitIdStr, grossWeightKg }, ['visitId', 'grossWeightKg'])) {
-          return NextResponse.json(
-            { error: 'Idempotency conflict: Gross weight key reused with different parameters.' },
-            { status: 409 }
-          );
-        }
-        return NextResponse.json({
-          ...existingOp.response_payload,
-          idempotent: true,
-          is_replay: true,
-        });
-      }
+      const replay = await checkOperationReplay(idempotencyKey, {
+        operationType: 'SCALE_GROSS_WEIGHT',
+        entityType: 'vehicle_visit',
+        entityId: visitId,
+        incomingPayload: canonicalPayload,
+      });
+      if (replay) return replay;
     }
 
     // 2. Check if visit already has gross weight recorded
@@ -337,9 +343,9 @@ export async function POST(req: Request) {
         await recordOperation({
           key: idempotencyKey,
           operationType: 'SCALE_GROSS_WEIGHT',
-          entityType: 'weight_ticket',
-          entityId: ticket.id,
-          requestPayload: { visitId: visitIdStr, grossWeightKg },
+          entityType: 'vehicle_visit',
+          entityId: visitId,
+          requestPayload: canonicalPayload,
           responsePayload,
           statusCode: 200,
         }, tx);
@@ -350,6 +356,16 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result);
   } catch (error) {
+    if (idempotencyKey) {
+      const concurrentReplay = await handleConcurrentReplayOrConflict(idempotencyKey, {
+        operationType: 'SCALE_GROSS_WEIGHT',
+        entityType: 'vehicle_visit',
+        entityId: BigInt(visitIdStr || '0'),
+        incomingPayload: canonicalPayload,
+      });
+      if (concurrentReplay) return concurrentReplay;
+    }
+
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const winner = await prisma.vehicleVisit.findUnique({
         where: { id: BigInt((body as { visitId: string }).visitId) },

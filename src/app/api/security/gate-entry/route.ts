@@ -8,7 +8,8 @@ import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
 import {
   findOperationRecord,
   recordOperation,
-  validateReplayPayload,
+  checkOperationReplay,
+  handleConcurrentReplayOrConflict,
 } from '@/backend/services/operationIdempotencyService';
 import { Prisma } from '@prisma/client';
 
@@ -51,34 +52,36 @@ export async function POST(req: Request) {
     body = {};
   }
 
+  let idempotencyKey = '';
+  let canonicalPayload: any = null;
+
   try {
     const validated = gateEntrySchema.parse(body);
 
     const visitId = BigInt(validated.visitId);
     const now = validated.entryTimestamp ? new Date(validated.entryTimestamp) : new Date();
 
-    const idempotencyKey = (
+    idempotencyKey = (
       req.headers.get('idempotency-key') ||
       (body as { idempotencyKey?: string }).idempotencyKey ||
       `GATE_ENTRY-${validated.visitId}`
     ).trim();
 
+    canonicalPayload = {
+      visitId: validated.visitId,
+      tokenNumber: validated.tokenNumber,
+      entryTimestamp: validated.entryTimestamp ? new Date(validated.entryTimestamp).toISOString() : null,
+    };
+
     // 1. Check idempotency store for existing completed operation
     if (idempotencyKey) {
-      const existingOp = await findOperationRecord(idempotencyKey);
-      if (existingOp) {
-        if (!validateReplayPayload(existingOp.request_payload, { visitId: validated.visitId, tokenNumber: validated.tokenNumber }, ['visitId', 'tokenNumber'])) {
-          return NextResponse.json(
-            { error: 'Idempotency conflict: Gate entry key reused with different parameters.' },
-            { status: 409 }
-          );
-        }
-        return NextResponse.json({
-          ...existingOp.response_payload,
-          idempotent: true,
-          is_replay: true,
-        });
-      }
+      const replay = await checkOperationReplay(idempotencyKey, {
+        operationType: 'GATE_ENTRY',
+        entityType: 'vehicle_visit',
+        entityId: visitId,
+        incomingPayload: canonicalPayload,
+      });
+      if (replay) return replay;
     }
 
     // 2. Check if visit already has completed gate entry
@@ -207,7 +210,7 @@ export async function POST(req: Request) {
           operationType: 'GATE_ENTRY',
           entityType: 'vehicle_visit',
           entityId: visitId,
-          requestPayload: { visitId: validated.visitId, tokenNumber: validated.tokenNumber },
+          requestPayload: canonicalPayload,
           responsePayload,
           statusCode: 200,
         }, tx);
@@ -218,6 +221,16 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result);
   } catch (error) {
+    if (idempotencyKey) {
+      const concurrentReplay = await handleConcurrentReplayOrConflict(idempotencyKey, {
+        operationType: 'GATE_ENTRY',
+        entityType: 'vehicle_visit',
+        entityId: BigInt((body as { visitId: string }).visitId || '0'),
+        incomingPayload: canonicalPayload,
+      });
+      if (concurrentReplay) return concurrentReplay;
+    }
+
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const winner = await prisma.vehicleVisit.findUnique({
         where: { id: BigInt((body as { visitId: string }).visitId) },

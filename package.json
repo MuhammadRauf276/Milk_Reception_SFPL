@@ -29,7 +29,9 @@
     "test:workflows": "tsx scripts/verify-operational-workflows.ts",
     "test:network": "tsx --env-file=.env scripts/verify-network-stability.ts",
     "verify:phase2": "npm run typecheck && npm run lint && npm run check:ui-text && npm run test:unit && npm run test:components && npm run test:viewports && npm run test:workflows && npm run build",
-    "verify:phase3": "npm run typecheck && npm run lint && npm run check:ui-text && npm run test:unit && npm run test:components && npm run test:network"
+    "verify:phase3": "npm run typecheck && npm run lint && npm run check:ui-text && npm run test:unit && npm run test:components && npm run test:network && npm run build",
+    "verify:phase3:full": "npm run verify:phase3 && npm run test:workflows",
+    "verify:phase3:all": "npm run verify:phase3 && npm run test:workflows && npm run test:viewports"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

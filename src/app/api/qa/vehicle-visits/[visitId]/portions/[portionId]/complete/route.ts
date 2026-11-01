@@ -21,7 +21,8 @@ import { QaWarningEscalationService } from '@/backend/services/qaWarningEscalati
 import {
   findOperationRecord,
   recordOperation,
-  validateReplayPayload,
+  checkOperationReplay,
+  handleConcurrentReplayOrConflict,
 } from '@/backend/services/operationIdempotencyService';
 
 class RouteError extends Error {
@@ -68,6 +69,9 @@ export async function POST(
   const visitIdStr = resolvedParams.visitId;
   const portionIdStr = resolvedParams.portionId;
 
+  let completionEventId = '';
+  let canonicalPayload: any = null;
+
   try {
     const visitId = BigInt(visitIdStr);
     const portionId = BigInt(portionIdStr);
@@ -75,7 +79,30 @@ export async function POST(
 
     const body = await req.json();
     const validated = completeQATestSchema.parse(body);
-    const completionEventId = validated.completionClientEventId || `plant-qa-${visitIdStr}-${portionIdStr}-${Date.now()}`;
+    completionEventId = validated.completionClientEventId || `plant-qa-${visitIdStr}-${portionIdStr}-${Date.now()}`;
+
+    const enteredSeal = (validated.sealNumber || validated.seal_number || (body as { plantSealNumberEntered?: string }).plantSealNumberEntered || '').trim();
+    const rejectionReasonInput = (validated.exceptionReason || validated.exception_reason || validated.rejectionReason || validated.decisionReason || '').trim();
+
+    // Canonical payload containing all transaction-relevant details for deterministic SHA-256 verification
+    canonicalPayload = {
+      visitId: visitIdStr,
+      portionId: portionIdStr,
+      decision: validated.decision ?? null,
+      action: validated.action ?? null,
+      sealNumber: enteredSeal || null,
+      rejectionReason: rejectionReasonInput || null,
+      rejectionRemarks: (validated.rejectionRemarks || '').trim() || null,
+      operationalTimestamp: validated.operationalTimestamp ? new Date(validated.operationalTimestamp).toISOString() : null,
+      results: (validated.results || []).map((r) => ({
+        testId: String(r.testId).trim(),
+        performanceStatus: r.performanceStatus ?? 'PERFORMED',
+        numericValue: r.numericValue !== undefined && r.numericValue !== null ? Number(r.numericValue) : null,
+        textValue: r.textValue !== undefined && r.textValue !== null ? String(r.textValue).trim() : null,
+        notPerformedReason: r.notPerformedReason !== undefined && r.notPerformedReason !== null ? String(r.notPerformedReason).trim() : null,
+        photoUrl: (r.photoUrl || r.photo_url || '').trim() || null,
+      })).sort((a, b) => a.testId.localeCompare(b.testId)),
+    };
 
     const portion = await prisma.visitPortion.findFirst({
       where: { id: portionId, visit_id: visitId },
@@ -87,19 +114,14 @@ export async function POST(
     }
 
     // Check idempotency store for previous submission with this completionEventId
-    const existingOp = await findOperationRecord(completionEventId);
-    if (existingOp) {
-      if (!validateReplayPayload(existingOp.request_payload, { visitId: visitIdStr, portionId: portionIdStr, decision: validated.decision }, ['visitId', 'portionId', 'decision'])) {
-        return NextResponse.json(
-          { error: 'Idempotency conflict: Completion operation ID reused with different parameters or decision.' },
-          { status: 409 }
-        );
-      }
-      return NextResponse.json({
-        ...existingOp.response_payload,
-        idempotent: true,
-        is_replay: true,
+    if (completionEventId) {
+      const replayResponse = await checkOperationReplay(completionEventId, {
+        operationType: 'QA_PORTION_COMPLETE',
+        entityType: 'visit_portion',
+        entityId: portionId,
+        incomingPayload: canonicalPayload,
       });
+      if (replayResponse) return replayResponse;
     }
 
     if (portion.plant_decision === 'ACCEPTED' || portion.plant_decision === 'REJECTED') {
@@ -120,9 +142,6 @@ export async function POST(
       }
       return NextResponse.json({ error: 'Portion testing has already been completed and finalized.' }, { status: 409 });
     }
-
-    // Seal Verification (Phase 4d Stage 4)
-    const enteredSeal = (validated.sealNumber || validated.seal_number || (body as { plantSealNumberEntered?: string }).plantSealNumberEntered || '').trim();
     let sealMatch: boolean | null = null;
     let sealMismatchException = false;
 
@@ -148,7 +167,6 @@ export async function POST(
     }
 
     const explicitDecision = validated.decision;
-    const rejectionReasonInput = (validated.exceptionReason || validated.exception_reason || validated.rejectionReason || validated.decisionReason || '').trim();
 
     // Load assigned Plant QA test snapshot for this visit
     const assignedPlantTests = await getOrAssignPlantQATests(prisma, visitId);
@@ -730,7 +748,7 @@ export async function POST(
           operationType: 'QA_PORTION_COMPLETE',
           entityType: 'visit_portion',
           entityId: portionId,
-          requestPayload: { visitId: visitIdStr, portionId: portionIdStr, decision: validated.decision },
+          requestPayload: canonicalPayload,
           responsePayload: responseData,
           statusCode: 200,
         }, tx);
@@ -741,6 +759,16 @@ export async function POST(
 
     return NextResponse.json(result);
   } catch (error) {
+    if (completionEventId) {
+      const concurrentReplay = await handleConcurrentReplayOrConflict(completionEventId, {
+        operationType: 'QA_PORTION_COMPLETE',
+        entityType: 'visit_portion',
+        entityId: BigInt(portionIdStr),
+        incomingPayload: canonicalPayload,
+      });
+      if (concurrentReplay) return concurrentReplay;
+    }
+
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const winner = await prisma.visitPortion.findUnique({
         where: { id: BigInt(portionIdStr) },

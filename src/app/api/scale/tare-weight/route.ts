@@ -10,7 +10,8 @@ import { writeAuditLog, auditActorFromUser } from '@core/audit';
 import {
   findOperationRecord,
   recordOperation,
-  validateReplayPayload,
+  checkOperationReplay,
+  handleConcurrentReplayOrConflict,
 } from '@/backend/services/operationIdempotencyService';
 
 const WEIGHBRIDGE_SCOPE = {
@@ -50,6 +51,8 @@ export async function POST(req: Request) {
 
   let body: Record<string, unknown> = {};
   let visitIdStr = '';
+  let idempotencyKey = '';
+  let canonicalPayload: any = null;
 
   try {
     const text = await req.text();
@@ -68,28 +71,29 @@ export async function POST(req: Request) {
     const visitId = BigInt(visitIdStr);
     const serverNow = new Date();
 
-    const idempotencyKey = (
+    idempotencyKey = (
       req.headers.get('idempotency-key') ||
       (body as { idempotencyKey?: string }).idempotencyKey ||
       `TARE-${visitIdStr}-${body.portionId || 'final'}`
     ).trim();
 
+    const canonicalPayload = {
+      visitId: visitIdStr,
+      portionId: body.portionId ? String(body.portionId) : null,
+      tareWeightKg,
+      tareTimestamp: body.tareTimestamp ? new Date(body.tareTimestamp as string).toISOString() : null,
+      remarks: typeof body.remarks === 'string' ? body.remarks.trim() : null,
+    };
+
     // 1. Check idempotency store for existing completed operation
     if (idempotencyKey) {
-      const existingOp = await findOperationRecord(idempotencyKey);
-      if (existingOp) {
-        if (!validateReplayPayload(existingOp.request_payload, { visitId: visitIdStr, tareWeightKg }, ['visitId', 'tareWeightKg'])) {
-          return NextResponse.json(
-            { error: 'Idempotency conflict: Tare weight key reused with different parameters.' },
-            { status: 409 }
-          );
-        }
-        return NextResponse.json({
-          ...existingOp.response_payload,
-          idempotent: true,
-          is_replay: true,
-        });
-      }
+      const replay = await checkOperationReplay(idempotencyKey, {
+        operationType: 'SCALE_TARE_WEIGHT',
+        entityType: 'vehicle_visit',
+        entityId: visitId,
+        incomingPayload: canonicalPayload,
+      });
+      if (replay) return replay;
     }
 
     // 2. Check if visit already has completed tare weight
@@ -529,9 +533,9 @@ export async function POST(req: Request) {
       await recordOperation({
         key: idempotencyKey,
         operationType: 'SCALE_TARE_WEIGHT',
-        entityType: 'weight_ticket',
-        entityId: result.ticket.id,
-        requestPayload: { visitId: visitIdStr, tareWeightKg },
+        entityType: 'vehicle_visit',
+        entityId: visitId,
+        requestPayload: canonicalPayload,
         responsePayload,
         statusCode: 200,
       }).catch((e) => console.warn('Failed to record idempotency log:', e));
@@ -539,6 +543,16 @@ export async function POST(req: Request) {
 
     return NextResponse.json(responsePayload);
   } catch (error) {
+    if (idempotencyKey) {
+      const concurrentReplay = await handleConcurrentReplayOrConflict(idempotencyKey, {
+        operationType: 'SCALE_TARE_WEIGHT',
+        entityType: 'vehicle_visit',
+        entityId: BigInt(visitIdStr || '0'),
+        incomingPayload: canonicalPayload,
+      });
+      if (concurrentReplay) return concurrentReplay;
+    }
+
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002' && visitIdStr) {
       const winner = await prisma.vehicleVisit.findUnique({
         where: { id: BigInt(visitIdStr) },

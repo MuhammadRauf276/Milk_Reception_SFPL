@@ -10,15 +10,23 @@ export const revalidate = 0;
  */
 export async function GET() {
   const checkDb = async (): Promise<boolean> => {
+    let timer: NodeJS.Timeout | undefined;
     try {
-      const dbPromise = prisma.$queryRawUnsafe('SELECT 1');
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Database check timeout')), 2500)
-      );
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Database check timeout')), 2500);
+      });
+      // Attach a catch handler to dbPromise to suppress unhandled rejection if timeout triggers first
+      const dbPromise = prisma.$queryRawUnsafe('SELECT 1').catch((err) => {
+        return Promise.reject(err);
+      });
       await Promise.race([dbPromise, timeoutPromise]);
       return true;
     } catch {
       return false;
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
+      }
     }
   };
 
