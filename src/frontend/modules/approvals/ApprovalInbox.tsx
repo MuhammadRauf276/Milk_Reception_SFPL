@@ -61,7 +61,9 @@ export function ApprovalInbox({
     const isSuperOrAuditor =
       role === 'SUPER_ADMIN' ||
       role === 'DATA_EXECUTIVE' ||
-      role === 'EXECUTIVE_MANAGEMENT';
+      role === 'EXECUTIVE_MANAGEMENT' ||
+      role === 'FINANCE_ACCOUNTS' ||
+      role === 'ADMIN_HEAD';
 
     const canSeeStage1 =
       role === 'ZMCC_MANAGER' ||

@@ -14,11 +14,14 @@ interface ViewportSpec {
 }
 
 const VIEWPORTS: ViewportSpec[] = [
+  { name: 'Smallest Mobile (320x568)', width: 320, height: 568, isMobile: true },
   { name: 'Android Small (360x800)', width: 360, height: 800, isMobile: true },
   { name: 'iPhone / Small (375x812)', width: 375, height: 812, isMobile: true },
   { name: 'Standard Mobile (390x844)', width: 390, height: 844, isMobile: true },
-  { name: 'Android Large (412x915)', width: 412, height: 915, isMobile: true },
+  { name: 'Android Large / Plus (414x896)', width: 414, height: 896, isMobile: true },
   { name: 'Tablet Portrait (768x1024)', width: 768, height: 1024, isMobile: false },
+  { name: 'Tablet Landscape (1024x768)', width: 1024, height: 768, isMobile: false },
+  { name: 'Compact Desktop (1280x800)', width: 1280, height: 800, isMobile: false },
   { name: 'Desktop (1366x768)', width: 1366, height: 768, isMobile: false },
 ];
 
