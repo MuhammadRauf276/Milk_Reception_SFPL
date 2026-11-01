@@ -1,0 +1,95 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.shakarganj.milkreception.mot'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.shakarganj.milkreception.mot"
+        minSdk 24
+        targetSdk 34
+        versionCode 10004
+        versionName "1.0.0-p4"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables.useSupportLibrary = true
+    }
+
+    signingConfigs {
+        release {
+            // Environment variable configuration for production CI/CD signing
+            def keystorePath = System.getenv("SFPL_KEYSTORE_PATH") ?: "sfpl-release.jks"
+            if (file(keystorePath).exists()) {
+                storeFile file(keystorePath)
+                storePassword System.getenv("SFPL_KEYSTORE_PASSWORD") ?: "Shakarganj2026!"
+                keyAlias System.getenv("SFPL_KEY_ALIAS") ?: "sfpl-mot-key"
+                keyPassword System.getenv("SFPL_KEY_PASSWORD") ?: "Shakarganj2026!"
+            }
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+            debuggable true
+            minifyEnabled false
+            buildConfigField "String", "API_BASE_URL", "\"http://10.168.254.155:3000\""
+            buildConfigField "boolean", "ENABLE_VERBOSE_LOGS", "true"
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            buildConfigField "String", "API_BASE_URL", "\"https://milk.shakarganj.com.pk\""
+            buildConfigField "boolean", "ENABLE_VERBOSE_LOGS", "false"
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.webkit:webkit:1.10.0'
+
+    // Google Play Services Location (Fused Location Provider)
+    implementation 'com.google.android.gms:play-services-location:21.1.0'
+
+    // AndroidX WorkManager for background sync
+    implementation 'androidx.work:work-runtime-ktx:2.9.0'
+
+    // OkHttp for reliable network and file uploads
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
+
+    // Security & EncryptedSharedPreferences
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+
+    // Coroutines
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}

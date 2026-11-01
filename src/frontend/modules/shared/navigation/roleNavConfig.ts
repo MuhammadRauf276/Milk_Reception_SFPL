@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   Scale,
+  Layers,
   Tv,
   Receipt,
   PauseCircle,
@@ -551,7 +552,32 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         id: 'weighbridge',
         label: 'Weighbridge Station',
         icon: Scale,
-        href: '/department/weighbridge',
+        children: [
+          {
+            id: 'needs-scale',
+            label: 'Needs Scale',
+            href: '/department/weighbridge?tab=SCALE_ACTION',
+            icon: Scale,
+          },
+          {
+            id: 'at-silo',
+            label: 'At Silos',
+            href: '/department/weighbridge?tab=AT_SILO',
+            icon: Building2,
+          },
+          {
+            id: 'all-active',
+            label: 'All Active',
+            href: '/department/weighbridge?tab=ALL_ACTIVE',
+            icon: Layers,
+          },
+          {
+            id: 'completed',
+            label: 'Completed',
+            href: '/department/weighbridge?tab=COMPLETED_TODAY',
+            icon: CheckCircle2,
+          },
+        ],
       },
       {
         id: 'tv-board',

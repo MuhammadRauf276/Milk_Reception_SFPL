@@ -23,7 +23,7 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "test:unit": "tsx --env-file=.env --test src/components/ui/__tests__/*.ts src/components/auth/__tests__/*.ts src/frontend/hooks/__tests__/*.ts src/frontend/lib/__tests__/*.ts src/backend/services/__tests__/*.ts src/frontend/modules/zmcc/arrivals/__tests__/*.ts",
+    "test:unit": "tsx --env-file=.env --test src/components/ui/__tests__/*.ts src/components/auth/__tests__/*.ts src/frontend/hooks/__tests__/*.ts src/frontend/lib/__tests__/*.ts src/backend/services/__tests__/*.ts src/frontend/modules/zmcc/arrivals/__tests__/*.ts src/frontend/modules/mot/__tests__/*.ts",
     "test:components": "tsx scripts/verify-component-primitives.ts",
     "test:viewports": "tsx scripts/verify-responsive-viewports.ts",
     "test:workflows": "tsx scripts/verify-operational-workflows.ts",

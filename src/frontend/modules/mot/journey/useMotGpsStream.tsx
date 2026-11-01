@@ -3,10 +3,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getFixAgeLabel, shouldRecordPoint, type TrackedPoint } from '@/lib/gpsTracker';
 import { queueGpsLocation } from '../offlineStore';
+import { androidBridge } from '../native/androidBridge';
 
 /**
  * One GPS stream: proximity sorting always, route recording while COLLECTING.
  * `recordRoute` is true only for the MOT; a superior covering MOT work does not send route points.
+ *
+ * When running in native Android, seamlessly engages the Android Foreground Service
+ * for continuous background tracking even when the screen is locked.
  */
 export function useMotGpsStream(opts: {
   journeyId: string | null;
@@ -18,10 +22,12 @@ export function useMotGpsStream(opts: {
   const [deviceGps, setDeviceGps] = useState<{ latitude: number; longitude: number } | null>(null);
   const [lastFixAt, setLastFixAt] = useState<number | null>(null);
   const [gpsClock, setGpsClock] = useState<number>(() => Date.now());
+
   useEffect(() => {
     const t = setInterval(() => setGpsClock(Date.now()), 15000);
     return () => clearInterval(t);
   }, []);
+
   const gpsFixAgeMs = lastFixAt === null ? null : Math.max(0, gpsClock - lastFixAt);
   const gpsBadge = (
     <span
@@ -42,11 +48,49 @@ export function useMotGpsStream(opts: {
   const latestFixRef = useRef<TrackedPoint | null>(null);
   const refreshUnsyncedRef = useRef(refreshUnsynced);
   const triggerSyncRef = useRef(triggerSync);
+
   useEffect(() => {
     refreshUnsyncedRef.current = refreshUnsynced;
     triggerSyncRef.current = triggerSync;
   }, [refreshUnsynced, triggerSync]);
 
+  // --- Native Android Foreground Service Integration ---
+  useEffect(() => {
+    if (!androidBridge.isNativeAndroid()) return;
+
+    if (recordRoute && journeyId) {
+      androidBridge.startGpsTracking(journeyId, 'mot');
+    }
+
+    const pollNativeGps = () => {
+      const status = androidBridge.getGpsTrackingStatus();
+      if (status && status.latitude !== undefined && status.longitude !== undefined) {
+        const point: TrackedPoint = {
+          latitude: status.latitude,
+          longitude: status.longitude,
+          accuracy: status.accuracy ?? 10,
+          timestamp: status.lastFixTimestamp || Date.now(),
+          speed: status.speed,
+          heading: status.heading,
+        };
+        latestFixRef.current = point;
+        setDeviceGps({ latitude: point.latitude, longitude: point.longitude });
+        setLastFixAt(point.timestamp);
+      }
+    };
+
+    pollNativeGps();
+    const interval = setInterval(pollNativeGps, 5000);
+
+    return () => {
+      clearInterval(interval);
+      if (recordRoute && journeyId) {
+        androidBridge.stopGpsTracking();
+      }
+    };
+  }, [recordRoute, journeyId]);
+
+  // --- Browser Standard Geolocation Watcher (Fallback & Desktop) ---
   useEffect(() => {
     if (typeof window === 'undefined' || !navigator.geolocation) return;
 

@@ -4,7 +4,10 @@ import {
   type CachedJourney,
   saveMotOfflinePreparation,
   getMotOfflinePreparation,
+  cacheAvailableSources,
+  cacheMotShopPolicy,
 } from '../offlineStore';
+import { getActiveOwnerUserId } from '@/frontend/modules/pwa/deviceIdentity';
 import { getErrorMessage } from '@/lib/errors';
 import { COVER_HEADERS, type CurrentJourney } from './types';
 
@@ -36,6 +39,10 @@ async function getPreparedCachedJourney(): Promise<CurrentJourney | null> {
   const cached = await getCachedJourney();
   const preparation = await getMotOfflinePreparation();
   if (cached && preparation && preparation.journeyId === cached.id && new Date(preparation.expiresAt).getTime() > Date.now()) {
+    const activeOwner = getActiveOwnerUserId();
+    if (activeOwner && preparation.userId && String(preparation.userId) !== String(activeOwner)) {
+      return null;
+    }
     return toCurrentJourney(cached);
   }
   return null;
@@ -77,6 +84,27 @@ export async function resolveCurrentJourney(
       if (data.journey.status === 'COLLECTING' || data.journey.status === 'RETURNING') {
         const preparation = await fetch('/api/zmcc/mot/journeys/current/offline-preparation', { method: 'POST' });
         if (preparation.ok) await saveMotOfflinePreparation(await preparation.json());
+
+        // Eagerly pre-cache shop policy and available sources for offline collection readiness
+        try {
+          const zmccId = data.journey.zmcc?.id;
+          const [policyRes, sourcesRes] = await Promise.all([
+            fetch('/api/zmcc/mot/shop-policy'),
+            zmccId ? fetch(`/api/sources/available?zmcc_id=${encodeURIComponent(zmccId)}`) : Promise.resolve(null),
+          ]);
+          if (policyRes && policyRes.ok) {
+            const policy = await policyRes.json();
+            await cacheMotShopPolicy(policy);
+          }
+          if (sourcesRes && sourcesRes.ok) {
+            const sourcesData = await sourcesRes.json();
+            if (sourcesData.sources && Array.isArray(sourcesData.sources)) {
+              await cacheAvailableSources(sourcesData.sources);
+            }
+          }
+        } catch {
+          // Non-fatal eager pre-cache failure
+        }
       }
       return { journey: data.journey, error: null };
     }

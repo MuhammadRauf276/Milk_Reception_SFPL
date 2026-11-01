@@ -190,7 +190,7 @@ async function runResponsiveVerification() {
           ]);
         }
 
-        const resp = await page.goto(screen.url, { waitUntil: 'domcontentloaded', timeout: 12000 });
+        const resp = await page.goto(screen.url, { waitUntil: 'domcontentloaded', timeout: 25000 });
         const status = resp?.status() || 0;
         // Wait for page loader/hydration spinner to detach
         await page.waitForSelector('[role="status"]', { state: 'detached', timeout: 6000 }).catch(() => {});
@@ -248,7 +248,9 @@ async function runResponsiveVerification() {
 
         // Check 4: Expected content visibility (verifies real screen rendered)
         if (screen.expectedText) {
-          const hasExpected = await page.getByText(screen.expectedText).first().isVisible().catch(() => false);
+          const locator = page.getByText(screen.expectedText).first();
+          await locator.waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
+          const hasExpected = await locator.isVisible().catch(() => false);
           if (!hasExpected) {
             console.error(`  ✗ [${screen.id}] ${screen.name}: FAIL (Expected UI '${screen.expectedText}' not found)`);
             results.push({

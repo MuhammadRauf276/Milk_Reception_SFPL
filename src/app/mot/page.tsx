@@ -15,6 +15,7 @@ import { useMotGpsStream } from '@/frontend/modules/mot/journey/useMotGpsStream'
 import { useMotJourney } from '@/frontend/modules/mot/journey/useMotJourney';
 import { useCollection } from '@/frontend/modules/mot/journey/useCollection';
 import { SyncBar } from '@/frontend/modules/mot/journey/SyncBar';
+import { MotNativeStatusBadge } from '@/frontend/modules/mot/components/MotNativeStatusBadge';
 import { CoveringBanner } from '@/frontend/modules/mot/journey/CoveringBanner';
 import { JourneyCard } from '@/frontend/modules/mot/journey/JourneyCard';
 import { StopsList } from '@/frontend/modules/mot/journey/StopsList';
@@ -198,6 +199,12 @@ export default function MotPage() {
               syncFeedback={sync.syncFeedback}
               syncing={sync.syncing}
               onSync={sync.triggerSync}
+            />
+
+            <MotNativeStatusBadge
+              online={isOnline}
+              journeyId={journey?.id ?? null}
+              onManualSync={sync.triggerSync}
             />
 
             {isCovering && (

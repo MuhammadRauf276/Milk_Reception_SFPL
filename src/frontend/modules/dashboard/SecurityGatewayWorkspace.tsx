@@ -274,16 +274,18 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
         title="Gate entry & exit"
       />
 
-      <SegmentedTabs
-        label="Gate operations"
-        value={activeTab}
-        onValueChange={(val) => handleTabChange(val as SecurityTab)}
-        tabs={[
-          { value: 'WAITING_ENTRY', label: 'Waiting Entry', count: dispatchedVisits.length },
-          { value: 'INSIDE_PLANT', label: 'Inside Plant', count: activeVisits.length },
-          { value: 'READY_EXIT', label: 'Ready for Exit', count: readyExitVisits.length },
-        ]}
-      />
+      <div className="lg:hidden">
+        <SegmentedTabs
+          label="Gate operations"
+          value={activeTab}
+          onValueChange={(val) => handleTabChange(val as SecurityTab)}
+          tabs={[
+            { value: 'WAITING_ENTRY', label: 'Waiting Entry', count: dispatchedVisits.length },
+            { value: 'INSIDE_PLANT', label: 'Inside Plant', count: activeVisits.length },
+            { value: 'READY_EXIT', label: 'Ready for Exit', count: readyExitVisits.length },
+          ]}
+        />
+      </div>
 
       {activeTab === 'WAITING_ENTRY' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-panel-in">

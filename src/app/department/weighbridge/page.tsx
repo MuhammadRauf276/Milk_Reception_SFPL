@@ -2,7 +2,7 @@
 
 import React, { useCallback, useRef, Suspense, useMemo, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { WeighbridgeWorkspace, WeighbridgeTab } from '@modules/dashboard/WeighbridgeWorkspace';
+import { WeighbridgeWorkspace, WeighbridgeFilter } from '@modules/dashboard/WeighbridgeWorkspace';
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
 import { canActAs } from '@/backend/core/roles/hierarchy';
@@ -30,9 +30,15 @@ function WeighbridgeDepartmentContent() {
     setTimeout(() => hamburgerButtonRef.current?.focus(), 0);
   }, []);
 
-  const tabParam = searchParams?.get('tab')?.toUpperCase() || 'FIRST_WEIGHT';
-  const resolvedTab: WeighbridgeTab =
-    tabParam === 'SECOND_WEIGHT' ? 'SECOND_WEIGHT' : 'FIRST_WEIGHT';
+  const tabParam = searchParams?.get('tab')?.toUpperCase() || 'SCALE_ACTION';
+  const resolvedTab: WeighbridgeFilter =
+    tabParam === 'AT_SILO' || tabParam === 'SECOND_WEIGHT'
+      ? 'AT_SILO'
+      : tabParam === 'ALL_ACTIVE'
+      ? 'ALL_ACTIVE'
+      : tabParam === 'COMPLETED_TODAY'
+      ? 'COMPLETED_TODAY'
+      : 'SCALE_ACTION';
 
   const hasAccess = useMemo(() => {
     if (!user) return false;

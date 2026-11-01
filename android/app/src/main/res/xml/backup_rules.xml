@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude sensitive database and keystores from cloud backups -->
+    <exclude domain="database" path="mot_offline.db" />
+    <exclude domain="sharedpref" path="sfpl_secure_prefs.xml" />
+</full-backup-content>

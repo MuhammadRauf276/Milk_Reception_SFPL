@@ -16,7 +16,6 @@ import {
   Search,
   Layers,
   ArrowRight,
-  ShieldCheck,
   AlertCircle,
   Building2,
 } from 'lucide-react';
@@ -27,15 +26,31 @@ import { getErrorMessage } from '@/lib/errors';
 import { Pager, pageCount, paginate } from './components/Pager';
 import { EmptyAction } from './components/EmptyAction';
 import { InfoTip } from '@/components/ui/info-tip';
-import { CollapsibleDisclosure } from '@/components/ui/collapsible-disclosure';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import {
   UnifiedWeighbridgeVisit,
   WeighbridgeFilter,
   formatDuration,
 } from './weighbridgeTypes';
 
-export const WeighbridgeUnifiedStation: React.FC = () => {
-  const [filter, setFilter] = useState<WeighbridgeFilter>('SCALE_ACTION');
+interface WeighbridgeUnifiedStationProps {
+  activeTab?: WeighbridgeFilter;
+  onTabChange?: (tab: WeighbridgeFilter) => void;
+}
+
+export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps> = ({
+  activeTab: controlledTab,
+  onTabChange,
+}) => {
+  const [internalTab, setInternalTab] = useState<WeighbridgeFilter>('SCALE_ACTION');
+  const filter = controlledTab !== undefined ? controlledTab : internalTab;
+
+  const handleFilterChange = (newFilter: WeighbridgeFilter) => {
+    setInternalTab(newFilter);
+    setPage(1);
+    if (onTabChange) onTabChange(newFilter);
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -81,118 +96,61 @@ export const WeighbridgeUnifiedStation: React.FC = () => {
 
   return (
     <div className="space-y-5 animate-panel-in">
-      {/* Top Controls & Filter Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+      {/* Header aligned with Production / Security UI */}
+      <div className="flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-1.5">
           <Scale className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-bold tracking-tight text-foreground">
+          <h1 className="text-lg font-bold tracking-tight text-foreground">
             Weighbridge Station
-          </h2>
+          </h1>
           <InfoTip text="Progressive multi-compartment scale queue with immutable audit locks." />
         </div>
-
-        {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border">
-          <button
-            type="button"
-            onClick={() => {
-              setFilter('SCALE_ACTION');
-              setPage(1);
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-              filter === 'SCALE_ACTION'
-                ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Scale className="w-3.5 h-3.5" />
-            <span>Needs Scale</span>
-            <span
-              className={`text-[10px] tabular-nums font-bold px-1.5 py-0.2 rounded-full ${
-                filter === 'SCALE_ACTION'
-                  ? 'bg-primary-foreground/20 text-primary-foreground'
-                  : 'bg-primary/10 text-primary'
-              }`}
-            >
-              {scaleActionVisits.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setFilter('AT_SILO');
-              setPage(1);
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-              filter === 'AT_SILO'
-                ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            <span>At Silos</span>
-            <span
-              className={`text-[10px] tabular-nums font-bold px-1.5 py-0.2 rounded-full ${
-                filter === 'AT_SILO'
-                  ? 'bg-primary-foreground/20 text-primary-foreground'
-                  : 'bg-muted text-foreground'
-              }`}
-            >
-              {atSiloVisits.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setFilter('ALL_ACTIVE');
-              setPage(1);
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-              filter === 'ALL_ACTIVE'
-                ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>All Active</span>
-            <span
-              className={`text-[10px] tabular-nums font-bold px-1.5 py-0.2 rounded-full ${
-                filter === 'ALL_ACTIVE'
-                  ? 'bg-primary-foreground/20 text-primary-foreground'
-                  : 'bg-muted text-foreground'
-              }`}
-            >
-              {allVisits.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setFilter('COMPLETED_TODAY');
-              setPage(1);
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-              filter === 'COMPLETED_TODAY'
-                ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Completed</span>
-            <span
-              className={`text-[10px] tabular-nums font-bold px-1.5 py-0.2 rounded-full ${
-                filter === 'COMPLETED_TODAY'
-                  ? 'bg-primary-foreground/20 text-primary-foreground'
-                  : 'bg-muted text-foreground'
-              }`}
-            >
-              {completedVisits.length}
-            </span>
-          </button>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold tabular-nums px-2.5 py-1 rounded-md bg-muted text-foreground border border-border">
+            {filter === 'SCALE_ACTION'
+              ? `${scaleActionVisits.length} Waiting on Scale`
+              : filter === 'AT_SILO'
+              ? `${atSiloVisits.length} at Silos`
+              : filter === 'ALL_ACTIVE'
+              ? `${allVisits.length} Active`
+              : `${completedVisits.length} Completed`}
+          </span>
         </div>
+      </div>
+
+      {/* Mobile-only Segmented Tabs (Desktop uses Left Sidebar Navigation) */}
+      <div className="lg:hidden">
+        <SegmentedTabs
+          label="Weighbridge Queues"
+          value={filter}
+          onValueChange={(val) => handleFilterChange(val as WeighbridgeFilter)}
+          tabs={[
+            {
+              value: 'SCALE_ACTION',
+              label: 'Needs Scale',
+              count: scaleActionVisits.length,
+              icon: Scale,
+            },
+            {
+              value: 'AT_SILO',
+              label: 'At Silos',
+              count: atSiloVisits.length,
+              icon: Building2,
+            },
+            {
+              value: 'ALL_ACTIVE',
+              label: 'All Active',
+              count: allVisits.length,
+              icon: Layers,
+            },
+            {
+              value: 'COMPLETED_TODAY',
+              label: 'Completed',
+              count: completedVisits.length,
+              icon: CheckCircle2,
+            },
+          ]}
+        />
       </div>
 
       {/* Search Bar */}
@@ -259,7 +217,7 @@ export const WeighbridgeUnifiedStation: React.FC = () => {
                   </div>
 
                   {v.accepted_portion_count === 0 || v.active_scale_status === 'REJECTED_EXIT' ? (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold tabular-nums bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-950 dark:text-rose-300">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold tabular-nums bg-destructive/10 text-destructive border border-destructive/20">
                       Rejected · Exit
                     </span>
                   ) : v.active_scale_status === 'READY_FOR_GROSS' ? (
@@ -271,19 +229,19 @@ export const WeighbridgeUnifiedStation: React.FC = () => {
                       Weighment {v.current_weighment_index}/{v.total_weighments}
                     </span>
                   ) : v.active_scale_status === 'AT_SILO' ? (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950 dark:text-amber-300">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20">
                       At {v.active_silo_text}
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/20">
                       Completed
                     </span>
                   )}
                 </div>
 
-                {/* Accepted Portion Count & Formula Indicator */}
+                {/* Accepted Portion Count & Indicator */}
                 {v.accepted_portion_count === 0 ? (
-                  <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-300 font-semibold flex items-center justify-between">
+                  <div className="p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive font-semibold flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>All Portions Rejected</span>
@@ -325,7 +283,7 @@ export const WeighbridgeUnifiedStation: React.FC = () => {
                 )}
 
                 {/* Current Action / Description */}
-                <div className="text-xs font-medium text-slate-700 dark:text-slate-300 bg-muted/40 p-2 rounded-lg flex items-center justify-between">
+                <div className="text-xs font-medium text-foreground bg-muted/60 p-2.5 rounded-lg flex items-center justify-between border border-border/50">
                   <span className="truncate">{v.current_action_label}</span>
                   <ArrowRight className="w-3.5 h-3.5 text-primary shrink-0 ml-2" />
                 </div>
@@ -496,286 +454,283 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
 
           {/* Drawer Top Header */}
           <div className="flex items-start justify-between gap-3 pb-3 border-b border-border">
-            <div>
+            <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-2">
-                <Scale className="w-5 h-5 text-primary" />
-                <h3 className="text-base font-bold text-foreground">
+                <Scale className="w-5 h-5 text-primary shrink-0" />
+                <h3 className="text-base font-bold text-foreground truncate">
                   {visit.accepted_portion_count === 0
-                    ? `QA Total Rejection (Direct Gate Exit)`
-                    : `Progressive Weighment Stepper (${visit.total_weighments} Physical Weighings)`}
+                    ? 'QA Total Rejection (Gate Exit)'
+                    : `Weighment Stepper (${visit.total_weighments} Physical Weighings)`}
                 </h3>
+                <InfoTip
+                  label="Weighing Policy"
+                  text={
+                    visit.accepted_portion_count === 0
+                      ? 'All compartments were rejected by QA. Under plant SOPs, fully rejected vehicles bypass physical gross/tare weighing. Direct vehicle to Security Gate.'
+                      : `Physical Weighment Rule: 1 Initial Loaded Gross (W0) + ${visit.accepted_portion_count} tare scale readings. Previously recorded weights are permanently audit-locked. Upstream dispatch quantities are double-blind hidden.`
+                  }
+                />
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Tanker: <strong className="tabular-nums text-foreground">{visit.vehicle_number}</strong> | Token:{' '}
-                <strong className="tabular-nums text-primary">{visit.token_number || 'NO-TOKEN'}</strong> | Portions:{' '}
-                <strong className="text-foreground">
-                  {visit.accepted_portion_count} of {visit.portion_count} Accepted
-                  {visit.rejected_portion_count > 0 ? ` (${visit.rejected_portion_count} Rejected)` : ''}
-                </strong>
-              </p>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>Tanker: <strong className="tabular-nums text-foreground">{visit.vehicle_number}</strong></span>
+                <span>·</span>
+                <span>Token: <strong className="tabular-nums text-primary">{visit.token_number || 'NO-TOKEN'}</strong></span>
+                <span>·</span>
+                <span>
+                  Portions: <strong className="text-foreground">{visit.accepted_portion_count} of {visit.portion_count} Accepted</strong>
+                </span>
+                {visit.rejected_portion_count > 0 && (
+                  <span className="text-destructive font-semibold">({visit.rejected_portion_count} Rejected)</span>
+                )}
+              </div>
             </div>
             <button
               type="button"
               aria-label="Close"
               onClick={onClose}
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Mathematical Rule & Security Policy */}
-          {visit.accepted_portion_count > 0 ? (
-            <CollapsibleDisclosure
-              title="Weighment Progression & Double-Blind Policy"
-              icon={<ShieldCheck className="w-4 h-4 text-emerald-600" />}
-              badge={<span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">{visit.total_weighments} Physical Weighings</span>}
-              defaultOpen={false}
-              forceOpenDesktop={true}
-            >
-              <div className="space-y-2 text-xs">
-                <p>
-                  <strong>Physical Weighment Rule:</strong> {visit.accepted_portion_count} Accepted Portion{visit.accepted_portion_count > 1 ? 's' : ''}: 
-                  <strong> {visit.total_weighments} Physical Scale Weighments</strong> (1 Initial Loaded Gross W0 + {visit.accepted_portion_count} Tares).
-                </p>
-                <p>
-                  <strong>Double-Blind Anti-Tamper Enforcement:</strong> All previously recorded weights are permanently audit-locked and cannot be edited. Upstream dispatch quantities are strictly hidden to ensure unbiased scale entry.
-                </p>
-              </div>
-            </CollapsibleDisclosure>
-          ) : (
-            <div className="p-4 bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-300 dark:border-rose-900 text-xs text-rose-900 dark:text-rose-200 space-y-2">
-              <div className="flex items-center gap-2 font-bold text-sm text-rose-700 dark:text-rose-400">
+          {/* QA Total Rejection Notice */}
+          {visit.accepted_portion_count === 0 && (
+            <div className="flex items-center justify-between p-3 bg-destructive/10 rounded-xl border border-destructive/20 text-xs text-destructive font-medium">
+              <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>100% Rejected by QA Laboratory · No Scale Weighment</span>
+                <span className="font-semibold">100% Rejected by QA · Direct to Security Gate</span>
               </div>
-              <p>
-                All {visit.portion_count} compartments were rejected during QA testing. Under plant SOPs, fully rejected vehicles bypass physical gross/tare weighing and silo offloading completely.
-              </p>
-              <p className="font-semibold text-rose-800 dark:text-rose-300">
-                Direct vehicle to Security Gate for exit checkout.
-              </p>
+              <InfoTip
+                text={`All ${visit.portion_count} compartments rejected during QA testing. Under plant SOPs, vehicle bypasses scale weighment. Direct to Security Gate for exit checkout.`}
+              />
             </div>
           )}
 
-          {/* Rejected Compartments Notice if Partial Rejection */}
+          {/* Partial QA Rejection Notice */}
           {visit.accepted_portion_count > 0 && visit.rejected_portion_count > 0 && (
-            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-900 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <span>
-                <strong>Partial QA Rejection Notice:</strong> Compartment #{visit.rejected_portion_numbers?.join(', #')} was <strong>REJECTED</strong> by QA. It is strictly blocked from silo offloading and scale tares. Only the {visit.accepted_portion_count} accepted compartments are weighed.
-              </span>
+            <div className="flex items-center justify-between p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300 font-medium">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Compartment #{visit.rejected_portion_numbers?.join(', #')} Rejected</span>
+              </div>
+              <InfoTip
+                text={`Compartment #${visit.rejected_portion_numbers?.join(', #')} was rejected by QA and is blocked from silo offloading and scale tares. Only the ${visit.accepted_portion_count} accepted compartments are weighed.`}
+              />
             </div>
           )}
 
           {/* Stepper Timeline: All N+1 Boxes */}
           {visit.accepted_portion_count > 0 && (
             <div className="space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Weighment Progression ({visit.total_weighments} Physical Scale Readings)
-              </h4>
+              <div className="flex items-center gap-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Weighment Progression ({visit.total_weighments} Physical Scale Readings)
+                </h4>
+                <InfoTip
+                  text="Each completed step is permanently locked. The active step requires scale entry, and future steps unlock sequentially after silo transfer."
+                />
+              </div>
 
-            <div className="space-y-3">
-              {visit.steps.map((step) => {
-                const isLocked = step.is_locked;
-                const isActive = step.status === 'ACTIVE_INPUT';
+              <div className="space-y-3">
+                {visit.steps.map((step) => {
+                  const isLocked = step.is_locked;
+                  const isActive = step.status === 'ACTIVE_INPUT';
 
-                if (isLocked) {
-                  // ===========================================================
-                  // LOCKED / NON-CLICKABLE BOX (Audit-Frozen Past Weight)
-                  // ===========================================================
-                  return (
-                    <div
-                      key={`box-locked-${step.step_index}`}
-                      className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-2 select-none"
-                    >
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1.5 font-bold text-foreground">
-                          <Lock className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span>
-                            Step {step.step_number} of {visit.total_weighments} · {step.label}
+                  if (isLocked) {
+                    // LOCKED / NON-CLICKABLE BOX (Audit-Frozen Past Weight)
+                    return (
+                      <div
+                        key={`box-locked-${step.step_index}`}
+                        className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-2 select-none"
+                      >
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5 font-bold text-foreground">
+                            <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span>
+                              Step {step.step_number} of {visit.total_weighments} · {step.label}
+                            </span>
+                          </div>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold tabular-nums bg-emerald-500/10 text-emerald-800 border border-emerald-500/20 dark:text-emerald-300 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Audit Locked
                           </span>
                         </div>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold tabular-nums bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Audit Locked
-                        </span>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+                          <div className="bg-card p-2 rounded-lg border border-border/50">
+                            <span className="text-[10px] text-muted-foreground block font-medium">Recorded Scale Weight</span>
+                            <span className="text-sm font-bold tabular-nums text-foreground">
+                              {step.recorded_weight_kg?.toLocaleString()} kg
+                            </span>
+                          </div>
+
+                          {step.net_weight_kg !== null && (
+                            <div className="bg-card p-2 rounded-lg border border-border/50">
+                              <span className="text-[10px] text-muted-foreground block font-medium">Compartment Net</span>
+                              <span className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+                                {step.net_weight_kg?.toLocaleString()} kg
+                              </span>
+                            </div>
+                          )}
+
+                          {step.destination_silo && (
+                            <div className="bg-card p-2 rounded-lg border border-border/50">
+                              <span className="text-[10px] text-muted-foreground block font-medium">Offloaded Into</span>
+                              <span className="text-xs font-bold text-foreground">{step.destination_silo}</span>
+                            </div>
+                          )}
+
+                          <div className="bg-card p-2 rounded-lg border border-border/50">
+                            <span className="text-[10px] text-muted-foreground block font-medium">Weighed At</span>
+                            <span className="text-xs tabular-nums text-foreground">
+                              {step.timestamp
+                                ? new Date(step.timestamp).toLocaleTimeString('en-GB', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
+                                : '-'}
+                            </span>
+                          </div>
+                        </div>
                       </div>
+                    );
+                  }
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
-                        <div className="bg-background/80 p-2 rounded-lg border border-border/50">
-                          <span className="text-[10px] text-muted-foreground block font-medium">Recorded Scale Weight</span>
-                          <span className="text-sm font-bold tabular-nums text-foreground">
-                            {step.recorded_weight_kg?.toLocaleString()} kg
+                  if (isActive) {
+                    // ACTIVE INPUT BOX (Current Physical Weighment on Scale)
+                    return (
+                      <form
+                        key={`box-active-${step.step_index}`}
+                        onSubmit={handleSubmit}
+                        className="p-4 rounded-xl border-2 border-primary bg-primary/[0.03] shadow-xs space-y-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 font-bold text-primary text-sm">
+                            <Scale className="w-4 h-4" />
+                            <span>
+                              Step {step.step_number} of {visit.total_weighments} · {step.label}
+                            </span>
+                          </div>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold tabular-nums bg-primary text-primary-foreground animate-pulse">
+                            Active Scale Action
                           </span>
                         </div>
 
-                        {step.net_weight_kg !== null && (
-                          <div className="bg-background/80 p-2 rounded-lg border border-border/50">
-                            <span className="text-[10px] text-muted-foreground block font-medium">Compartment Net</span>
-                            <span className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
-                              {step.net_weight_kg?.toLocaleString()} kg
+                        {/* Reference for Tares */}
+                        {step.starting_weight_kg !== null && (
+                          <div className="p-2.5 rounded-lg bg-card border border-border text-xs flex items-center justify-between">
+                            <span className="text-muted-foreground font-medium">
+                              Starting Loaded Weight:
+                            </span>
+                            <span className="text-sm font-bold tabular-nums text-foreground">
+                              {step.starting_weight_kg.toLocaleString()} kg
                             </span>
                           </div>
                         )}
 
-                        {step.destination_silo && (
-                          <div className="bg-background/80 p-2 rounded-lg border border-border/50">
-                            <span className="text-[10px] text-muted-foreground block font-medium">Offloaded Into</span>
-                            <span className="text-xs font-bold text-foreground">{step.destination_silo}</span>
+                        {/* Numeric Scale Input */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <label className="text-xs font-bold text-foreground block">
+                              Current Scale Indicator Reading (kg) *
+                            </label>
+                            <InfoTip
+                              text={
+                                isGrossStep
+                                  ? 'Capture the scale indicator for the fully loaded tanker upon plant arrival.'
+                                  : `Scale reading must be strictly less than ${step.starting_weight_kg?.toLocaleString()} kg.`
+                              }
+                            />
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              autoFocus
+                              step="1"
+                              min="1"
+                              value={activeInputKg}
+                              onChange={(e) => setActiveInputKg(e.target.value)}
+                              placeholder="Enter scale reading in kg…"
+                              className="w-full min-h-[48px] px-3.5 py-2 text-lg font-bold tabular-nums rounded-xl border-2 border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                            />
+                            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+                              KG
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Real-Time Net Preview */}
+                        {previewNetKg !== null && (
+                          <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between font-medium">
+                            <span>Computed Net Weight:</span>
+                            <span className="text-base font-extrabold tabular-nums">
+                              {previewNetKg.toLocaleString()} kg
+                            </span>
                           </div>
                         )}
 
-                        <div className="bg-background/80 p-2 rounded-lg border border-border/50">
-                          <span className="text-[10px] text-muted-foreground block font-medium">Weighed At</span>
-                          <span className="text-xs tabular-nums text-foreground">
-                            {step.timestamp
-                              ? new Date(step.timestamp).toLocaleTimeString('en-GB', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })
-                              : '-'}
-                          </span>
+                        {/* Operational Timestamp */}
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-muted-foreground block">
+                            Operational Date & Time
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={opDateTimeInput}
+                            onChange={(e) => setOpDateTimeInput(e.target.value)}
+                            className="w-full min-h-[40px] px-3 py-1.5 text-xs tabular-nums font-semibold rounded-lg border border-input bg-card text-foreground"
+                          />
                         </div>
-                      </div>
-                    </div>
-                  );
-                }
 
-                if (isActive) {
-                  // ===========================================================
-                  // ACTIVE INPUT BOX (Current Physical Weighment on Scale)
-                  // ===========================================================
+                        {/* Submit Action */}
+                        <button
+                          type="submit"
+                          disabled={isSubmitting || !isValidNum}
+                          className="w-full min-h-[44px] px-4 py-2.5 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Recording & Locking Weighment…
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-4 h-4" />
+                              Commit & Lock Step {step.step_number} of {visit.total_weighments}
+                            </>
+                          )}
+                        </button>
+                      </form>
+                    );
+                  }
+
+                  // PENDING FUTURE BOX (Waiting for Silo Unloading)
                   return (
-                    <form
-                      key={`box-active-${step.step_index}`}
-                      onSubmit={handleSubmit}
-                      className="p-4 rounded-xl border-2 border-primary bg-primary/[0.03] shadow-md space-y-4"
+                    <div
+                      key={`box-pending-${step.step_index}`}
+                      className="p-3.5 rounded-xl border border-dashed border-border/60 bg-muted/10 opacity-70 space-y-1 select-none"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 font-bold text-primary text-sm">
-                          <Scale className="w-4 h-4" />
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <Clock className="w-3.5 h-3.5" />
                           <span>
                             Step {step.step_number} of {visit.total_weighments} · {step.label}
                           </span>
-                        </div>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold tabular-nums bg-primary text-primary-foreground animate-pulse">
-                          Active Scale Action
-                        </span>
-                      </div>
-
-                      {/* Reference for Tares */}
-                      {step.starting_weight_kg !== null && (
-                        <div className="p-2.5 rounded-lg bg-background border border-border text-xs flex items-center justify-between">
-                          <span className="text-muted-foreground font-medium">
-                            Starting Loaded Weight (Before Unloading):
-                          </span>
-                          <span className="text-sm font-bold tabular-nums text-foreground">
-                            {step.starting_weight_kg.toLocaleString()} kg
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Numeric Scale Input */}
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-foreground block">
-                          Current Scale Indicator Reading (kg) *
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            autoFocus
-                            step="1"
-                            min="1"
-                            value={activeInputKg}
-                            onChange={(e) => setActiveInputKg(e.target.value)}
-                            placeholder="Enter scale reading in kg…"
-                            className="w-full min-h-[48px] px-3.5 py-2 text-lg font-bold tabular-nums rounded-xl border-2 border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                          <InfoTip
+                            text={`Unlocks after Compartment #${step.portion_number} completes offloading at the silo.`}
                           />
-                          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
-                            KG
-                          </span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">
-                          {isGrossStep
-                            ? 'Capture the scale indicator for the fully loaded tanker upon plant arrival.'
-                            : `Scale reading must be strictly less than ${step.starting_weight_kg?.toLocaleString()} kg.`}
-                        </p>
-                      </div>
-
-                      {/* Real-Time Net Preview */}
-                      {previewNetKg !== null && (
-                        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-300 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 flex items-center justify-between font-medium">
-                          <span>Computed Net Weight for Compartment:</span>
-                          <span className="text-base font-extrabold tabular-nums">
-                            {previewNetKg.toLocaleString()} kg
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Operational Timestamp */}
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-muted-foreground block">
-                          Operational Date & Time
-                        </label>
-                        <input
-                          type="datetime-local"
-                          value={opDateTimeInput}
-                          onChange={(e) => setOpDateTimeInput(e.target.value)}
-                          className="w-full min-h-[40px] px-3 py-1.5 text-xs tabular-nums font-semibold rounded-lg border border-input bg-card text-foreground"
-                        />
-                      </div>
-
-                      {/* Submit Action */}
-                      <button
-                        type="submit"
-                        disabled={isSubmitting || !isValidNum}
-                        className="w-full min-h-[44px] px-4 py-2.5 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Recording & Locking Weighment…
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="w-4 h-4" />
-                            Commit & Lock Weighment Step {step.step_number} of {visit.total_weighments}
-                          </>
-                        )}
-                      </button>
-                    </form>
-                  );
-                }
-
-                // =============================================================
-                // PENDING FUTURE BOX (Waiting for Silo Unloading)
-                // =============================================================
-                return (
-                  <div
-                    key={`box-pending-${step.step_index}`}
-                    className="p-3.5 rounded-xl border border-dashed border-border/60 bg-muted/10 opacity-60 space-y-1 select-none"
-                  >
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1.5 font-medium">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>
-                          Step {step.step_number} of {visit.total_weighments} · {step.label}
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                          Pending Silo Unload
                         </span>
                       </div>
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase">
-                        Pending Silo Unload
-                      </span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground pl-5">
-                      This scale weighment unlocks after Compartment #{step.portion_number} completes offloading at the silo.
-                    </p>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
           )}
         </div>
       </DrawerContent>
