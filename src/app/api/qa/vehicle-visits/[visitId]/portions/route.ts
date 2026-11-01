@@ -55,6 +55,13 @@ export async function POST(
     (typeof body.clientOperationId === 'string' ? body.clientOperationId : '')
   ).trim();
 
+  if (!clientOperationId) {
+    return NextResponse.json(
+      { error: 'Client operation ID (clientOperationId or idempotency-key header) is required for portion creation.' },
+      { status: 400 }
+    );
+  }
+
   try {
     const visitId = BigInt(visitIdStr);
 
@@ -63,14 +70,13 @@ export async function POST(
     };
 
     // 1. Check idempotency store first
-    if (clientOperationId) {
-      const replayResponse = await checkOperationReplay(clientOperationId, {
-        operationType: 'QA_ADD_PORTION',
-        entityType: 'vehicle_visit',
-        entityId: visitId,
-        incomingPayload: canonicalPayload,
-      });
-      if (replayResponse) return replayResponse;
+    const replayResponse = await checkOperationReplay(clientOperationId, {
+      operationType: 'QA_ADD_PORTION',
+      entityType: 'vehicle_visit',
+      entityId: visitId,
+      incomingPayload: canonicalPayload,
+    });
+    if (replayResponse) return replayResponse;
 
       // Check visit_portion unique constraint directly
       const existingPortion = await prisma.visitPortion.findUnique({
@@ -99,7 +105,6 @@ export async function POST(
           },
         });
       }
-    }
 
     const visit = await prisma.vehicleVisit.findUnique({
       where: { id: visitId },
@@ -200,33 +205,6 @@ export async function POST(
         if (concurrentReplay) return concurrentReplay;
       }
 
-      if (
-        txError instanceof Prisma.PrismaClientKnownRequestError &&
-        txError.code === 'P2002' &&
-        clientOperationId
-      ) {
-        // Concurrent replay won the race: return the winner's portion
-        const winner = await prisma.visitPortion.findUnique({
-          where: { creation_client_event_id: clientOperationId },
-        });
-        if (winner && winner.visit_id.toString() === visitIdStr) {
-          return NextResponse.json({
-            success: true,
-            idempotent: true,
-            is_replay: true,
-            portion: {
-              id: winner.id.toString(),
-              visit_id: winner.visit_id.toString(),
-              portion_number: winner.portion_number,
-              current_status: winner.current_status,
-              plant_decision: winner.plant_decision || 'PENDING',
-              plant_rejection_reason: winner.plant_rejection_reason || null,
-              dispatch_results: [],
-              plant_results: [],
-            },
-          });
-        }
-      }
       throw txError;
     }
 

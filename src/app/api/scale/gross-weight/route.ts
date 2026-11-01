@@ -80,8 +80,16 @@ export async function POST(req: Request) {
     idempotencyKey = (
       req.headers.get('idempotency-key') ||
       (body as { idempotencyKey?: string }).idempotencyKey ||
-      `GROSS-${visitIdStr}`
+      (body as { clientOperationId?: string }).clientOperationId ||
+      ''
     ).trim();
+
+    if (!idempotencyKey) {
+      return NextResponse.json(
+        { error: 'Idempotency key is required for gross weight submission.' },
+        { status: 400 }
+      );
+    }
 
     canonicalPayload = {
       visitId: visitIdStr,
@@ -92,15 +100,13 @@ export async function POST(req: Request) {
     };
 
     // 1. Check idempotency store for existing completed operation
-    if (idempotencyKey) {
-      const replay = await checkOperationReplay(idempotencyKey, {
-        operationType: 'SCALE_GROSS_WEIGHT',
-        entityType: 'vehicle_visit',
-        entityId: visitId,
-        incomingPayload: canonicalPayload,
-      });
-      if (replay) return replay;
-    }
+    const replay = await checkOperationReplay(idempotencyKey, {
+      operationType: 'SCALE_GROSS_WEIGHT',
+      entityType: 'vehicle_visit',
+      entityId: visitId,
+      incomingPayload: canonicalPayload,
+    });
+    if (replay) return replay;
 
     // 2. Check if visit already has gross weight recorded
     const existingVisit = await prisma.vehicleVisit.findUnique({
@@ -366,25 +372,6 @@ export async function POST(req: Request) {
       if (concurrentReplay) return concurrentReplay;
     }
 
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      const winner = await prisma.vehicleVisit.findUnique({
-        where: { id: BigInt((body as { visitId: string }).visitId) },
-        include: { weight_ticket: true, portions: true },
-      });
-      if (winner && winner.weight_ticket?.gross_weight_kg) {
-        const isMultiPortion = (winner.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED').length > 1;
-        return NextResponse.json({
-          success: true,
-          idempotent: true,
-          is_replay: true,
-          ticketNumber: winner.weight_ticket.ticket_number,
-          grossWeightKg: Number(winner.weight_ticket.gross_weight_kg),
-          isPortionWise: isMultiPortion,
-          isMultiPortion,
-          message: `First Weight (Gross: ${winner.weight_ticket.gross_weight_kg} kg) recorded successfully. Vehicle is ready for unloading.`,
-        });
-      }
-    }
     if (getErrorName(error) === 'ZodError') {
       return NextResponse.json({ error: getErrorIssues(error)?.[0]?.message || 'Validation failed' }, { status: 400 });
     }

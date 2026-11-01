@@ -186,3 +186,86 @@ test('apiClient: Custom stable idempotency key is preserved across client retrie
     server.close();
   }
 });
+
+test('apiClient: Timeout before headers arrive triggers 408 REQUEST_TIMEOUT', async () => {
+  const { server, url } = await startMockServer((_req, _res) => {
+    // Hang completely without sending any headers
+  });
+
+  try {
+    await assert.rejects(
+      async () => apiClient.get(`${url}/timeout-before-headers`, { timeoutMs: 100, retries: 0 }),
+      (err: unknown) => err instanceof ApiError && err.isTimeout && err.status === 408
+    );
+  } finally {
+    server.close();
+  }
+});
+
+test('apiClient: Caller abort while reading body throws REQUEST_ABORTED', async () => {
+  const { server, url } = await startMockServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.write('{"streaming":');
+  });
+
+  try {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 60);
+
+    await assert.rejects(
+      async () =>
+        apiClient.get(`${url}/abort-reading-body`, {
+          signal: controller.signal,
+          timeoutMs: 2000,
+          retries: 0,
+        }),
+      (err: unknown) => err instanceof ApiError && err.code === 'REQUEST_ABORTED' && !err.isTimeout
+    );
+  } finally {
+    server.close();
+  }
+});
+
+test('apiClient: Timeout and caller abort happening close together prioritizes REQUEST_ABORTED', async () => {
+  const { server, url } = await startMockServer((_req, _res) => {
+    // Do not respond
+  });
+
+  try {
+    const controller = new AbortController();
+    // Abort controller right at timeout boundary
+    setTimeout(() => controller.abort(), 50);
+
+    await assert.rejects(
+      async () =>
+        apiClient.get(`${url}/close-race`, {
+          signal: controller.signal,
+          timeoutMs: 60,
+          retries: 0,
+        }),
+      (err: unknown) => err instanceof ApiError && err.code === 'REQUEST_ABORTED'
+    );
+  } finally {
+    server.close();
+  }
+});
+
+test('apiClient: Normal response cleanup allows subsequent mutation with same dedupKey', async () => {
+  const { server, url } = await startMockServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+  });
+
+  try {
+    const dedupKey = 'unique-operation-seq-1';
+    // First mutation completes
+    const res1 = await apiClient.post<{ ok: boolean }>(`${url}/action`, { op: 1 }, { dedupKey });
+    assert.equal(res1.ok, true);
+
+    // Second mutation with the same dedupKey afterwards succeeds (not blocked by previous mutation)
+    const res2 = await apiClient.post<{ ok: boolean }>(`${url}/action`, { op: 2 }, { dedupKey });
+    assert.equal(res2.ok, true);
+  } finally {
+    server.close();
+  }
+});

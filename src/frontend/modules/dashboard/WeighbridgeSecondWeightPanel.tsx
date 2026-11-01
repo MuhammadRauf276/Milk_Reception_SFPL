@@ -1,7 +1,7 @@
 'use client';
 
 import { EmptyAction } from './components/EmptyAction';
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
@@ -12,6 +12,7 @@ import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
 import { Pager, pageCount, paginate } from './components/Pager';
+import { apiClient } from '@/frontend/lib/apiClient';
 import type { SecondWeightVisit } from './weighbridgeTypes';
 
 /** Second (empty) weight: queue of unloaded vehicles plus a bottom-sheet to record the weighment. */
@@ -124,6 +125,7 @@ const SecondWeightDrawer: React.FC<{
   const [tareInputKg, setTareInputKg] = useState<string>('');
   const [tareDateTimeInput, setTareDateTimeInput] = useState<string>(toDatetimeLocalInput(new Date()));
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const activeTareOpIdRef = useRef<string | null>(null);
 
   const handleRecordSecondWeight = async () => {
     const tareVal = Number(tareInputKg);
@@ -171,20 +173,22 @@ const SecondWeightDrawer: React.FC<{
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/scale/tare-weight', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          visitId: visit.id,
-          tareWeightKg: tareVal,
-          tareTimestamp: isoTareTs,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to record second weight');
+      if (!activeTareOpIdRef.current) {
+        activeTareOpIdRef.current = `tare-${visit.id}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`;
       }
+      const opId = activeTareOpIdRef.current;
+      const data = await apiClient.post<any>('/api/scale/tare-weight', {
+        visitId: visit.id,
+        tareWeightKg: tareVal,
+        tareTimestamp: isoTareTs,
+        clientOperationId: opId,
+      }, {
+        idempotencyKey: opId,
+        dedupKey: `wb-tare-${visit.id}`,
+        timeoutMs: 25_000,
+      });
+      activeTareOpIdRef.current = null;
+      
 
       if (data.isPortionCycle) {
         toast.showSuccess(

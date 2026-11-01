@@ -79,7 +79,20 @@ export async function POST(
 
     const body = await req.json();
     const validated = completeQATestSchema.parse(body);
-    completionEventId = validated.completionClientEventId || `plant-qa-${visitIdStr}-${portionIdStr}-${Date.now()}`;
+    completionEventId = (
+      req.headers.get('idempotency-key') ||
+      req.headers.get('x-client-operation-id') ||
+      validated.completionClientEventId ||
+      (body as { clientOperationId?: string }).clientOperationId ||
+      ''
+    ).trim();
+
+    if (!completionEventId) {
+      return NextResponse.json(
+        { error: 'Client operation ID (completionClientEventId or idempotency-key header) is required for QA completion.' },
+        { status: 400 }
+      );
+    }
 
     const enteredSeal = (validated.sealNumber || validated.seal_number || (body as { plantSealNumberEntered?: string }).plantSealNumberEntered || '').trim();
     const rejectionReasonInput = (validated.exceptionReason || validated.exception_reason || validated.rejectionReason || validated.decisionReason || '').trim();
@@ -769,20 +782,6 @@ export async function POST(
       if (concurrentReplay) return concurrentReplay;
     }
 
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      const winner = await prisma.visitPortion.findUnique({
-        where: { id: BigInt(portionIdStr) },
-      });
-      if (winner && winner.completion_client_event_id) {
-        return NextResponse.json({
-          success: true,
-          idempotent: true,
-          is_replay: true,
-          portionId: portionIdStr,
-          plantDecision: winner.plant_decision,
-        });
-      }
-    }
     if (getErrorName(error) === 'ZodError' || getErrorIssues(error)) {
       const msg = getErrorIssues(error)?.[0]?.message || getErrorMessage(error) || 'Validation failed';
       return NextResponse.json({ error: msg }, { status: 400 });

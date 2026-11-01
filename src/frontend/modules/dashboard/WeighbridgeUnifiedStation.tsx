@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { apiClient } from '@/frontend/lib/apiClient';
@@ -376,6 +376,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
   const [activeInputKg, setActiveInputKg] = useState<string>('');
   const [opDateTimeInput, setOpDateTimeInput] = useState<string>(toDatetimeLocalInput(new Date()));
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const activeWeighOpIdRef = useRef<string | null>(null);
 
   // Identify currently active step
   const activeStep = visit.steps.find((s) => s.status === 'ACTIVE_INPUT') || null;
@@ -421,6 +422,12 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
 
     setIsSubmitting(true);
     try {
+      if (!activeWeighOpIdRef.current) {
+        const prefix = isGrossStep ? 'gross' : `tare-${activeStep.step_index}`;
+        activeWeighOpIdRef.current = `wb-${prefix}-${visit.id}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`;
+      }
+      const opId = activeWeighOpIdRef.current;
+
       if (isGrossStep) {
         // Step 0: Record Initial Gross Weight with in-flight deduplication and timeout
         await apiClient.post(
@@ -430,10 +437,11 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
             scaleId: 'SCALE-01',
             grossWeightKg: enteredVal,
             grossTimestamp: isoTimestamp,
+            clientOperationId: opId,
           },
           {
             dedupKey: `gross-${visit.id}`,
-            idempotencyKey: `GROSS-${visit.id}`,
+            idempotencyKey: opId,
           }
         );
 
@@ -450,10 +458,11 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
             scaleId: 'SCALE-01',
             tareWeightKg: enteredVal,
             tareTimestamp: isoTimestamp,
+            clientOperationId: opId,
           },
           {
             dedupKey: `tare-${visit.id}`,
-            idempotencyKey: `TARE-${visit.id}-${visit.active_portion_number || 1}`,
+            idempotencyKey: opId,
           }
         );
 
@@ -470,6 +479,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
         }
       }
 
+      activeWeighOpIdRef.current = null;
       await onSuccess();
     } catch (err) {
       toast.showError(getErrorMessage(err) || 'Failed to record weighment reading', 'Weighbridge Error');

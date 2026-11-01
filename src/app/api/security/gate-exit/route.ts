@@ -82,8 +82,16 @@ export async function POST(req: Request) {
     idempotencyKey = (
       req.headers.get('idempotency-key') ||
       validated.idempotencyKey ||
-      `GATE_EXIT-${validated.visitId}`
+      (body as { clientOperationId?: string }).clientOperationId ||
+      ''
     ).trim();
+
+    if (!idempotencyKey) {
+      return NextResponse.json(
+        { error: 'Idempotency key is required for gate exit submission.' },
+        { status: 400 }
+      );
+    }
 
     canonicalPayload = {
       visitId: validated.visitId,
@@ -92,15 +100,13 @@ export async function POST(req: Request) {
     };
 
     // 1. Check idempotency store for existing completed operation
-    if (idempotencyKey) {
-      const replay = await checkOperationReplay(idempotencyKey, {
-        operationType: 'GATE_EXIT',
-        entityType: 'vehicle_visit',
-        entityId: visitId,
-        incomingPayload: canonicalPayload,
-      });
-      if (replay) return replay;
-    }
+    const replay = await checkOperationReplay(idempotencyKey, {
+      operationType: 'GATE_EXIT',
+      entityType: 'vehicle_visit',
+      entityId: visitId,
+      incomingPayload: canonicalPayload,
+    });
+    if (replay) return replay;
 
     // 2. Check if visit has already completed gate exit
     const existingVisit = await prisma.vehicleVisit.findUnique({
@@ -264,21 +270,6 @@ export async function POST(req: Request) {
       if (concurrentReplay) return concurrentReplay;
     }
 
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      const winner = await prisma.vehicleVisit.findUnique({
-        where: { id: BigInt((body as { visitId: string }).visitId) },
-        include: { gate_log: true },
-      });
-      if (winner && winner.gate_log?.exit_timestamp) {
-        return NextResponse.json({
-          success: true,
-          idempotent: true,
-          is_replay: true,
-          visit_id: winner.id.toString(),
-          exit_timestamp: winner.gate_log.exit_timestamp.toISOString(),
-        });
-      }
-    }
     const errorDetails = {
       issues: getErrorIssues(error),
       message: getErrorMessage(error),

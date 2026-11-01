@@ -7,22 +7,38 @@ export const revalidate = 0;
 /**
  * Health check endpoint for client-side API reachability and database availability probing.
  * Tests DB connectivity with a strict 2.5-second timeout boundary.
+ *
+ * NOTE / KNOWN LIMITATION: Prisma client and pg driver do not support runtime cancellation
+ * tokens for in-flight queries. A query that times out cannot be forcibly cancelled at the driver
+ * level; its promise rejection is safely handled to prevent unhandled rejections, and PostgreSQL's
+ * server-side statement_timeout governs eventual execution cancellation on the backend.
  */
 export async function GET() {
-  const checkDb = async (): Promise<boolean> => {
+  type DbCheckResult =
+    | { ok: true }
+    | { ok: false; reason: 'timeout' | 'unavailable'; error: string };
+
+  const checkDb = async (): Promise<DbCheckResult> => {
     let timer: NodeJS.Timeout | undefined;
     try {
       const timeoutPromise = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('Database check timeout')), 2500);
+        timer = setTimeout(() => reject(new Error('TIMEOUT')), 2500);
       });
-      // Attach a catch handler to dbPromise to suppress unhandled rejection if timeout triggers first
-      const dbPromise = prisma.$queryRawUnsafe('SELECT 1').catch((err) => {
-        return Promise.reject(err);
-      });
-      await Promise.race([dbPromise, timeoutPromise]);
-      return true;
-    } catch {
-      return false;
+
+      // Guard raw query with local error capture and safe detached catch
+      const queryPromise = prisma.$queryRawUnsafe('SELECT 1');
+      // Detached catch ensures no unhandled rejection if timeout triggers before query settles
+      queryPromise.catch(() => {});
+
+      await Promise.race([queryPromise, timeoutPromise]);
+      return { ok: true };
+    } catch (err: unknown) {
+      const isTimeout = err instanceof Error && err.message === 'TIMEOUT';
+      return {
+        ok: false,
+        reason: isTimeout ? 'timeout' : 'unavailable',
+        error: isTimeout ? 'Database check timed out after 2.5s' : 'Database connection failed',
+      };
     } finally {
       if (timer) {
         clearTimeout(timer);
@@ -30,14 +46,14 @@ export async function GET() {
     }
   };
 
-  const dbOk = await checkDb();
+  const dbStatus = await checkDb();
 
-  if (!dbOk) {
+  if (!dbStatus.ok) {
     return NextResponse.json(
       {
         status: 'degraded',
-        database: 'disconnected',
-        error: 'Database unavailable',
+        database: dbStatus.reason,
+        error: dbStatus.error,
         timestamp: Date.now(),
       },
       {

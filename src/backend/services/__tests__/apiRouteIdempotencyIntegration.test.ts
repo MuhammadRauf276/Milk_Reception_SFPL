@@ -4,6 +4,9 @@ import { prisma } from '@/backend/core/db';
 import { createSessionToken } from '@/backend/core/auth';
 import type { Role, User } from '@/backend/core/types';
 import { POST as gateEntryHandler } from '@/app/api/security/gate-entry/route';
+import { POST as gateExitHandler } from '@/app/api/security/gate-exit/route';
+import { POST as grossWeightHandler } from '@/app/api/scale/gross-weight/route';
+import { POST as tareWeightHandler } from '@/app/api/scale/tare-weight/route';
 import { POST as qaCompleteHandler } from '@/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/complete/route';
 import { POST as qaPortionsHandler } from '@/app/api/qa/vehicle-visits/[visitId]/portions/route';
 import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
@@ -536,6 +539,640 @@ test('apiRouteIdempotencyIntegration: QA Complete canonical payload hashing, exa
     await prisma.auditLog.deleteMany({ where: { record_id: portion.id } });
     await prisma.visitPortion.deleteMany({ where: { visit_id: visit.id } });
     await prisma.qATestingSession.deleteMany({ where: { visit_id: visit.id } });
+    await prisma.vehicleVisit.delete({ where: { id: visit.id } });
+  }
+});
+
+test('apiRouteIdempotencyIntegration: Missing operation ID is rejected with 400 across all operational mutation endpoints', async () => {
+  assertTestDatabaseSafety();
+
+  const secUser = await prisma.user.findFirst({ where: { role: 'SECURITY_OPERATOR', is_active: true } });
+  assert.ok(secUser);
+  const secToken = await createSessionToken({
+    id: secUser.id.toString(),
+    username: secUser.username,
+    name: secUser.full_name || secUser.username,
+    role: secUser.role as Role,
+    department: 'Security',
+    scope_type: 'DEPARTMENT',
+  });
+
+  const wbUser = await prisma.user.findFirst({ where: { role: 'WEIGHBRIDGE_OPERATOR', is_active: true } });
+  assert.ok(wbUser);
+  const wbToken = await createSessionToken({
+    id: wbUser.id.toString(),
+    username: wbUser.username,
+    name: wbUser.full_name || wbUser.username,
+    role: wbUser.role as Role,
+    department: 'Production & Weighbridge',
+    scope_type: 'DEPARTMENT',
+  });
+
+  const qaUser = await prisma.user.findFirst({ where: { role: 'QA_LAB_ATTENDANT', is_active: true } });
+  assert.ok(qaUser);
+  const qaToken = await createSessionToken({
+    id: qaUser.id.toString(),
+    username: qaUser.username,
+    name: qaUser.full_name || qaUser.username,
+    role: qaUser.role as Role,
+    department: 'QA',
+    scope_type: 'DEPARTMENT',
+  });
+
+  const runId = `NOKEY-${Date.now()}`;
+  const visit = await prisma.vehicleVisit.create({
+    data: {
+      visit_number: `V-${runId}`,
+      vehicle_number: `T-${runId}`,
+      current_status: 'DISPATCHED',
+      operational_date: new Date(),
+    },
+  });
+
+  try {
+    // 1. Gate Entry without key -> 400
+    const reqEntry = new Request('http://localhost:3000/api/security/gate-entry', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${secToken}` },
+      body: JSON.stringify({ visitId: visit.id.toString(), tokenNumber: `TOK-${runId}` }),
+    });
+    const resEntry = await gateEntryHandler(reqEntry);
+    assert.equal(resEntry.status, 400, 'Gate entry without key must return 400');
+
+    // 2. Gate Exit without key -> 400
+    const reqExit = new Request('http://localhost:3000/api/security/gate-exit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${secToken}` },
+      body: JSON.stringify({ visitId: visit.id.toString() }),
+    });
+    const resExit = await gateExitHandler(reqExit);
+    assert.equal(resExit.status, 400, 'Gate exit without key must return 400');
+
+    // 3. Gross Weight without key -> 400
+    const reqGross = new Request('http://localhost:3000/api/scale/gross-weight', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${wbToken}` },
+      body: JSON.stringify({ visitId: visit.id.toString(), grossWeightKg: 25000 }),
+    });
+    const resGross = await grossWeightHandler(reqGross);
+    assert.equal(resGross.status, 400, 'Gross weight without key must return 400');
+
+    // 4. Tare Weight without key -> 400
+    const reqTare = new Request('http://localhost:3000/api/scale/tare-weight', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${wbToken}` },
+      body: JSON.stringify({ visitId: visit.id.toString(), tareWeightKg: 10000 }),
+    });
+    const resTare = await tareWeightHandler(reqTare);
+    assert.equal(resTare.status, 400, 'Tare weight without key must return 400');
+
+    // 5. QA Add Portion without key -> 400
+    const reqPortion = new Request(`http://localhost:3000/api/qa/vehicle-visits/${visit.id}/portions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${qaToken}` },
+      body: JSON.stringify({}),
+    });
+    const resPortion = await qaPortionsHandler(reqPortion, { params: Promise.resolve({ visitId: visit.id.toString() }) });
+    assert.equal(resPortion.status, 400, 'QA portion creation without key must return 400');
+
+    // 6. QA Complete without key -> 400
+    const reqComplete = new Request(`http://localhost:3000/api/qa/vehicle-visits/${visit.id}/portions/1/complete`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${qaToken}` },
+      body: JSON.stringify({ decision: 'ACCEPTED', results: [] }),
+    });
+    const resComplete = await qaCompleteHandler(reqComplete, { params: Promise.resolve({ visitId: visit.id.toString(), portionId: '1' }) });
+    assert.equal(resComplete.status, 400, 'QA complete without key must return 400');
+  } finally {
+    await prisma.vehicleVisit.delete({ where: { id: visit.id } });
+  }
+});
+
+test('apiRouteIdempotencyIntegration: Gate Exit replay, 409 conflict, and concurrent requests', async () => {
+  assertTestDatabaseSafety();
+
+  const secUser = await prisma.user.findFirst({ where: { role: 'SECURITY_OPERATOR', is_active: true } });
+  assert.ok(secUser);
+  const token = await createSessionToken({
+    id: secUser.id.toString(),
+    username: secUser.username,
+    name: secUser.full_name || secUser.username,
+    role: secUser.role as Role,
+    department: 'Security',
+    scope_type: 'DEPARTMENT',
+  });
+
+  const runId = `EXIT-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+  const key = `EXIT-KEY-${runId}`;
+
+  // Vehicle ready for gate exit
+  const visit = await prisma.vehicleVisit.create({
+    data: {
+      visit_number: `V-${runId}`,
+      vehicle_number: `T-EXIT-${runId}`,
+      current_status: 'READY_FOR_GATE_EXIT',
+      operational_date: new Date(),
+      weight_ticket: {
+        create: {
+          ticket_number: `TK-EX-${runId}`,
+          gross_weight_kg: 28000,
+          tare_weight_kg: 10000,
+          net_weight_kg: 18000,
+          gross_timestamp: new Date(Date.now() - 3000000),
+          tare_timestamp: new Date(Date.now() - 1000000),
+          gross_recorded_by: secUser.id,
+          tare_recorded_by: secUser.id,
+          gross_submitted_at: new Date(Date.now() - 3000000),
+          tare_submitted_at: new Date(Date.now() - 1000000),
+        },
+      },
+      gate_log: {
+        create: {
+          entry_timestamp: new Date(Date.now() - 3600000),
+          entry_guard_id: secUser.id,
+          entry_submitted_at: new Date(Date.now() - 3600000),
+        },
+      },
+    },
+  });
+
+  try {
+    const payload = {
+      visitId: visit.id.toString(),
+      exitTimestamp: new Date().toISOString(),
+      tankerWashed: true,
+    };
+
+    // 1. Initial Gate Exit
+    const req1 = new Request('http://localhost:3000/api/security/gate-exit', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+        'idempotency-key': key,
+      },
+      body: JSON.stringify(payload),
+    });
+    const res1 = await gateExitHandler(req1);
+    const body1 = await res1.json();
+    assert.equal(res1.status, 200, `Initial gate exit must return 200: ${JSON.stringify(body1)}`);
+    assert.equal(body1.success, true);
+
+    // Verify DB
+    const gateLog = await prisma.gateLog.findUnique({ where: { visit_id: visit.id } });
+    assert.ok(gateLog?.exit_timestamp, 'Exit timestamp must be recorded');
+    const opCount = await prisma.operationIdempotencyRecord.count({ where: { key } });
+    assert.equal(opCount, 1, 'Exactly 1 idempotency record must exist');
+
+    // 2. Exact Replay
+    const reqReplay = new Request('http://localhost:3000/api/security/gate-exit', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+        'idempotency-key': key,
+      },
+      body: JSON.stringify(payload),
+    });
+    const resReplay = await gateExitHandler(reqReplay);
+    assert.equal(resReplay.status, 200);
+    const bodyReplay = await resReplay.json();
+    assert.equal(bodyReplay.is_replay, true, 'Exact replay must return is_replay: true');
+
+    // 3. Changed payload under same key -> 409 Conflict
+    const changedPayload = { ...payload, tankerWashed: false };
+    const reqConflict = new Request('http://localhost:3000/api/security/gate-exit', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+        'idempotency-key': key,
+      },
+      body: JSON.stringify(changedPayload),
+    });
+    const resConflict = await gateExitHandler(reqConflict);
+    assert.equal(resConflict.status, 409, 'Modified payload under same key must return 409');
+
+    // 4. Concurrent gate exit on another visit
+    const concRunId = `CONC-EX-${Date.now()}`;
+    const concKey = `CONC-KEY-${concRunId}`;
+    const concVisit = await prisma.vehicleVisit.create({
+      data: {
+        visit_number: `V-${concRunId}`,
+        vehicle_number: `T-${concRunId}`,
+        current_status: 'READY_FOR_GATE_EXIT',
+        operational_date: new Date(),
+        weight_ticket: {
+          create: {
+            ticket_number: `TK-CEX-${concRunId}`,
+            gross_weight_kg: 28000,
+            tare_weight_kg: 10000,
+            net_weight_kg: 18000,
+            gross_timestamp: new Date(Date.now() - 3000000),
+            tare_timestamp: new Date(Date.now() - 1000000),
+            gross_recorded_by: secUser.id,
+            tare_recorded_by: secUser.id,
+            gross_submitted_at: new Date(Date.now() - 3000000),
+            tare_submitted_at: new Date(Date.now() - 1000000),
+          },
+        },
+        gate_log: {
+          create: {
+            entry_timestamp: new Date(Date.now() - 3600000),
+            entry_guard_id: secUser.id,
+            entry_submitted_at: new Date(Date.now() - 3600000),
+          },
+        },
+      },
+    });
+
+    try {
+      const concPayload = {
+        visitId: concVisit.id.toString(),
+        exitTimestamp: new Date().toISOString(),
+        tankerWashed: true,
+      };
+      const [resA, resB] = await Promise.all([
+        gateExitHandler(new Request('http://localhost:3000/api/security/gate-exit', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'idempotency-key': concKey },
+          body: JSON.stringify(concPayload),
+        })),
+        gateExitHandler(new Request('http://localhost:3000/api/security/gate-exit', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'idempotency-key': concKey },
+          body: JSON.stringify(concPayload),
+        })),
+      ]);
+      assert.equal(resA.status, 200);
+      assert.equal(resB.status, 200);
+      const bA = await resA.json();
+      const bB = await resB.json();
+      assert.ok(bA.is_replay || bB.is_replay, 'At least one concurrent request must be replay');
+      const concOpCount = await prisma.operationIdempotencyRecord.count({ where: { key: concKey } });
+      assert.equal(concOpCount, 1, 'Exactly 1 idempotency record for concurrent requests');
+    } finally {
+      await prisma.operationIdempotencyRecord.deleteMany({ where: { key: concKey } });
+      await prisma.auditLog.deleteMany({ where: { record_id: concVisit.id } });
+      await prisma.weightTicket.deleteMany({ where: { visit_id: concVisit.id } });
+      await prisma.gateLog.deleteMany({ where: { visit_id: concVisit.id } });
+      await prisma.vehicleVisit.delete({ where: { id: concVisit.id } });
+    }
+  } finally {
+    await prisma.operationIdempotencyRecord.deleteMany({ where: { key } });
+    await prisma.auditLog.deleteMany({ where: { record_id: visit.id } });
+    await prisma.weightTicket.deleteMany({ where: { visit_id: visit.id } });
+    await prisma.gateLog.deleteMany({ where: { visit_id: visit.id } });
+    await prisma.vehicleVisit.delete({ where: { id: visit.id } });
+  }
+});
+
+test('apiRouteIdempotencyIntegration: Gross Weight replay, 409 conflict, and concurrent requests', async () => {
+  assertTestDatabaseSafety();
+
+  const wbUser = await prisma.user.findFirst({ where: { role: 'WEIGHBRIDGE_OPERATOR', is_active: true } });
+  assert.ok(wbUser);
+  const token = await createSessionToken({
+    id: wbUser.id.toString(),
+    username: wbUser.username,
+    name: wbUser.full_name || wbUser.username,
+    role: wbUser.role as Role,
+    department: 'Production & Weighbridge',
+    scope_type: 'DEPARTMENT',
+  });
+
+  const runId = `GROSS-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+  const key = `GROSS-KEY-${runId}`;
+
+  // Vehicle ready for gross weight
+  const visit = await prisma.vehicleVisit.create({
+    data: {
+      visit_number: `V-${runId}`,
+      vehicle_number: `T-GROSS-${runId}`,
+      current_status: 'READY_FOR_GROSS',
+      operational_date: new Date(),
+      gate_log: {
+        create: {
+          entry_timestamp: new Date(Date.now() - 3600000),
+          entry_guard_id: wbUser.id,
+          entry_submitted_at: new Date(Date.now() - 3600000),
+        },
+      },
+      portions: {
+        create: {
+          portion_number: 1,
+          current_status: 'ACCEPTED',
+          plant_decision: 'ACCEPTED',
+        },
+      },
+    },
+  });
+
+  try {
+    const payload = {
+      visitId: visit.id.toString(),
+      grossWeightKg: 28500,
+      grossTimestamp: new Date().toISOString(),
+    };
+
+    // 1. Initial Gross Weight
+    const req1 = new Request('http://localhost:3000/api/scale/gross-weight', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+        'idempotency-key': key,
+      },
+      body: JSON.stringify(payload),
+    });
+    const res1 = await grossWeightHandler(req1);
+    const body1 = await res1.json();
+    assert.equal(res1.status, 200, `Gross weight initial must return 200: ${JSON.stringify(body1)}`);
+    assert.equal(body1.success, true);
+    assert.equal(body1.grossWeightKg, 28500);
+
+    // Verify DB
+    const ticket = await prisma.weightTicket.findUnique({ where: { visit_id: visit.id } });
+    assert.ok(ticket);
+    assert.equal(Number(ticket.gross_weight_kg), 28500);
+    const opCount = await prisma.operationIdempotencyRecord.count({ where: { key } });
+    assert.equal(opCount, 1);
+
+    // 2. Exact Replay
+    const reqReplay = new Request('http://localhost:3000/api/scale/gross-weight', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+        'idempotency-key': key,
+      },
+      body: JSON.stringify(payload),
+    });
+    const resReplay = await grossWeightHandler(reqReplay);
+    assert.equal(resReplay.status, 200);
+    const bodyReplay = await resReplay.json();
+    assert.equal(bodyReplay.is_replay, true);
+    assert.equal(bodyReplay.grossWeightKg, 28500);
+
+    // 3. Changed payload under same key -> 409 Conflict
+    const changedPayload = { ...payload, grossWeightKg: 29000 };
+    const reqConflict = new Request('http://localhost:3000/api/scale/gross-weight', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+        'idempotency-key': key,
+      },
+      body: JSON.stringify(changedPayload),
+    });
+    const resConflict = await grossWeightHandler(reqConflict);
+    assert.equal(resConflict.status, 409, 'Modified gross weight under same key must return 409');
+
+    // 4. Concurrent requests on another visit
+    const concRunId = `CONC-GW-${Date.now()}`;
+    const concKey = `CONC-KEY-${concRunId}`;
+    const concVisit = await prisma.vehicleVisit.create({
+      data: {
+        visit_number: `V-${concRunId}`,
+        vehicle_number: `T-${concRunId}`,
+        current_status: 'READY_FOR_GROSS',
+        operational_date: new Date(),
+        gate_log: {
+          create: {
+            entry_timestamp: new Date(Date.now() - 3600000),
+            entry_guard_id: wbUser.id,
+            entry_submitted_at: new Date(Date.now() - 3600000),
+          },
+        },
+        portions: {
+          create: {
+            portion_number: 1,
+            current_status: 'ACCEPTED',
+            plant_decision: 'ACCEPTED',
+          },
+        },
+      },
+    });
+
+    try {
+      const concPayload = {
+        visitId: concVisit.id.toString(),
+        grossWeightKg: 30000,
+        grossTimestamp: new Date().toISOString(),
+      };
+      const [resA, resB] = await Promise.all([
+        grossWeightHandler(new Request('http://localhost:3000/api/scale/gross-weight', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'idempotency-key': concKey },
+          body: JSON.stringify(concPayload),
+        })),
+        grossWeightHandler(new Request('http://localhost:3000/api/scale/gross-weight', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'idempotency-key': concKey },
+          body: JSON.stringify(concPayload),
+        })),
+      ]);
+      assert.equal(resA.status, 200);
+      assert.equal(resB.status, 200);
+      const bA = await resA.json();
+      const bB = await resB.json();
+      assert.ok(bA.is_replay || bB.is_replay);
+      const concOpCount = await prisma.operationIdempotencyRecord.count({ where: { key: concKey } });
+      assert.equal(concOpCount, 1);
+    } finally {
+      await prisma.operationIdempotencyRecord.deleteMany({ where: { key: concKey } });
+      await prisma.weightTicket.deleteMany({ where: { visit_id: concVisit.id } });
+      await prisma.visitPortion.deleteMany({ where: { visit_id: concVisit.id } });
+      await prisma.gateLog.deleteMany({ where: { visit_id: concVisit.id } });
+      await prisma.vehicleVisit.delete({ where: { id: concVisit.id } });
+    }
+  } finally {
+    await prisma.operationIdempotencyRecord.deleteMany({ where: { key } });
+    await prisma.weightTicket.deleteMany({ where: { visit_id: visit.id } });
+    await prisma.visitPortion.deleteMany({ where: { visit_id: visit.id } });
+    await prisma.gateLog.deleteMany({ where: { visit_id: visit.id } });
+    await prisma.vehicleVisit.delete({ where: { id: visit.id } });
+  }
+});
+
+test('apiRouteIdempotencyIntegration: Tare Weight atomic transaction, replay, 409 conflict, and concurrent requests', async () => {
+  assertTestDatabaseSafety();
+
+  const wbUser = await prisma.user.findFirst({ where: { role: 'WEIGHBRIDGE_OPERATOR', is_active: true } });
+  assert.ok(wbUser);
+  const token = await createSessionToken({
+    id: wbUser.id.toString(),
+    username: wbUser.username,
+    name: wbUser.full_name || wbUser.username,
+    role: wbUser.role as Role,
+    department: 'Production & Weighbridge',
+    scope_type: 'DEPARTMENT',
+  });
+
+  const runId = `TARE-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+  const key = `TARE-KEY-${runId}`;
+
+  // Vehicle ready for tare weight
+  const visit = await prisma.vehicleVisit.create({
+    data: {
+      visit_number: `V-${runId}`,
+      vehicle_number: `T-TARE-${runId}`,
+      current_status: 'READY_FOR_TARE',
+      operational_date: new Date(),
+      weight_ticket: {
+        create: {
+          ticket_number: `TK-${runId}`,
+          gross_weight_kg: 28500,
+          gross_timestamp: new Date(Date.now() - 1800000),
+          gross_recorded_by: wbUser.id,
+          gross_submitted_at: new Date(Date.now() - 1800000),
+        },
+      },
+      portions: {
+        create: {
+          portion_number: 1,
+          current_status: 'UNLOADED',
+          plant_decision: 'ACCEPTED',
+          first_weight_kg: 28500,
+          first_weight_at: new Date(Date.now() - 1800000),
+          first_weight_by_user_id: wbUser.id,
+        },
+      },
+    },
+  });
+
+  try {
+    const payload = {
+      visitId: visit.id.toString(),
+      tareWeightKg: 11200,
+      tareTimestamp: new Date().toISOString(),
+    };
+
+    // 1. Initial Tare Weight (Atomicity check: mutation + audit + idempotency record in single transaction)
+    const req1 = new Request('http://localhost:3000/api/scale/tare-weight', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+        'idempotency-key': key,
+      },
+      body: JSON.stringify(payload),
+    });
+    const res1 = await tareWeightHandler(req1);
+    const body1 = await res1.json();
+    assert.equal(res1.status, 200, `Tare weight initial must return 200: ${JSON.stringify(body1)}`);
+    assert.equal(body1.success, true);
+    assert.equal(body1.tareWeightKg, 11200);
+    assert.equal(body1.netWeightKg, 28500 - 11200);
+
+    // Verify DB
+    const ticket = await prisma.weightTicket.findUnique({ where: { visit_id: visit.id } });
+    assert.ok(ticket);
+    assert.equal(Number(ticket.tare_weight_kg), 11200);
+    assert.equal(Number(ticket.net_weight_kg), 17300);
+
+    const opRecord = await prisma.operationIdempotencyRecord.findUnique({ where: { key } });
+    assert.ok(opRecord, 'Idempotency record must be committed atomically in the transaction');
+    assert.equal(opRecord.operation_type, 'SCALE_TARE_WEIGHT');
+
+    // 2. Exact Replay
+    const reqReplay = new Request('http://localhost:3000/api/scale/tare-weight', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+        'idempotency-key': key,
+      },
+      body: JSON.stringify(payload),
+    });
+    const resReplay = await tareWeightHandler(reqReplay);
+    assert.equal(resReplay.status, 200);
+    const bodyReplay = await resReplay.json();
+    assert.equal(bodyReplay.is_replay, true);
+    assert.equal(bodyReplay.tareWeightKg, 11200);
+
+    // 3. Changed payload under same key -> 409 Conflict
+    const changedPayload = { ...payload, tareWeightKg: 12000 };
+    const reqConflict = new Request('http://localhost:3000/api/scale/tare-weight', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+        'idempotency-key': key,
+      },
+      body: JSON.stringify(changedPayload),
+    });
+    const resConflict = await tareWeightHandler(reqConflict);
+    assert.equal(resConflict.status, 409, 'Modified tare weight under same key must return 409');
+
+    // 4. Concurrent tare weight requests
+    const concRunId = `CONC-TW-${Date.now()}`;
+    const concKey = `CONC-KEY-${concRunId}`;
+    const concVisit = await prisma.vehicleVisit.create({
+      data: {
+        visit_number: `V-${concRunId}`,
+        vehicle_number: `T-${concRunId}`,
+        current_status: 'READY_FOR_TARE',
+        operational_date: new Date(),
+        weight_ticket: {
+          create: {
+            ticket_number: `TK-${concRunId}`,
+            gross_weight_kg: 28500,
+            gross_timestamp: new Date(Date.now() - 1800000),
+            gross_recorded_by: wbUser.id,
+            gross_submitted_at: new Date(Date.now() - 1800000),
+          },
+        },
+        portions: {
+          create: {
+            portion_number: 1,
+            current_status: 'UNLOADED',
+            plant_decision: 'ACCEPTED',
+            first_weight_kg: 28500,
+            first_weight_at: new Date(Date.now() - 1800000),
+            first_weight_by_user_id: wbUser.id,
+          },
+        },
+      },
+    });
+
+    try {
+      const concPayload = {
+        visitId: concVisit.id.toString(),
+        tareWeightKg: 10500,
+        tareTimestamp: new Date().toISOString(),
+      };
+      const [resA, resB] = await Promise.all([
+        tareWeightHandler(new Request('http://localhost:3000/api/scale/tare-weight', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'idempotency-key': concKey },
+          body: JSON.stringify(concPayload),
+        })),
+        tareWeightHandler(new Request('http://localhost:3000/api/scale/tare-weight', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, 'idempotency-key': concKey },
+          body: JSON.stringify(concPayload),
+        })),
+      ]);
+      assert.equal(resA.status, 200);
+      assert.equal(resB.status, 200);
+      const bA = await resA.json();
+      const bB = await resB.json();
+      assert.ok(bA.is_replay || bB.is_replay);
+      const concOpCount = await prisma.operationIdempotencyRecord.count({ where: { key: concKey } });
+      assert.equal(concOpCount, 1);
+    } finally {
+      await prisma.operationIdempotencyRecord.deleteMany({ where: { key: concKey } });
+      await prisma.auditLog.deleteMany({ where: { record_id: concVisit.id } });
+      await prisma.weightTicket.deleteMany({ where: { visit_id: concVisit.id } });
+      await prisma.visitPortion.deleteMany({ where: { visit_id: concVisit.id } });
+      await prisma.vehicleVisit.delete({ where: { id: concVisit.id } });
+    }
+  } finally {
+    await prisma.operationIdempotencyRecord.deleteMany({ where: { key } });
+    await prisma.auditLog.deleteMany({ where: { record_id: visit.id } });
+    await prisma.weightTicket.deleteMany({ where: { visit_id: visit.id } });
+    await prisma.visitPortion.deleteMany({ where: { visit_id: visit.id } });
     await prisma.vehicleVisit.delete({ where: { id: visit.id } });
   }
 });

@@ -64,8 +64,16 @@ export async function POST(req: Request) {
     idempotencyKey = (
       req.headers.get('idempotency-key') ||
       (body as { idempotencyKey?: string }).idempotencyKey ||
-      `GATE_ENTRY-${validated.visitId}`
+      (body as { clientOperationId?: string }).clientOperationId ||
+      ''
     ).trim();
+
+    if (!idempotencyKey) {
+      return NextResponse.json(
+        { error: 'Idempotency key is required for gate entry submission.' },
+        { status: 400 }
+      );
+    }
 
     canonicalPayload = {
       visitId: validated.visitId,
@@ -74,15 +82,13 @@ export async function POST(req: Request) {
     };
 
     // 1. Check idempotency store for existing completed operation
-    if (idempotencyKey) {
-      const replay = await checkOperationReplay(idempotencyKey, {
-        operationType: 'GATE_ENTRY',
-        entityType: 'vehicle_visit',
-        entityId: visitId,
-        incomingPayload: canonicalPayload,
-      });
-      if (replay) return replay;
-    }
+    const replay = await checkOperationReplay(idempotencyKey, {
+      operationType: 'GATE_ENTRY',
+      entityType: 'vehicle_visit',
+      entityId: visitId,
+      incomingPayload: canonicalPayload,
+    });
+    if (replay) return replay;
 
     // 2. Check if visit already has completed gate entry
     const existingVisit = await prisma.vehicleVisit.findUnique({
@@ -231,30 +237,6 @@ export async function POST(req: Request) {
       if (concurrentReplay) return concurrentReplay;
     }
 
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      const winner = await prisma.vehicleVisit.findUnique({
-        where: { id: BigInt((body as { visitId: string }).visitId) },
-        include: { gate_log: true },
-      });
-      if (winner && winner.gate_log?.entry_timestamp) {
-        return NextResponse.json({
-          success: true,
-          idempotent: true,
-          is_replay: true,
-          visitId: winner.id.toString(),
-          tokenNumber: winner.token_number,
-          identifiers: paperLinkedIdentity(
-            {
-              entity: 'vehicle_visit',
-              id: winner.id.toString(),
-              number: winner.visit_number,
-            },
-            [{ type: 'PLANT_GATE_TOKEN', value: winner.token_number }]
-          ),
-          message: `Token ${winner.token_number} issued. Vehicle ${winner.vehicle_number} entered gate.`,
-        });
-      }
-    }
     if (getErrorName(error) === 'ZodError') {
       return NextResponse.json({ error: getErrorIssues(error)?.[0]?.message || 'Validation failed' }, { status: 400 });
     }

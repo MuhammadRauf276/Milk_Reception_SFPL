@@ -23,12 +23,15 @@ export interface OperationIdempotencyRecordData {
  * - Sorts object keys alphabetically
  * - Converts BigInt to string
  * - Converts Date to ISOString
- * - Trims strings
+ * - Preserves original string contents (no generic global trimming)
  * - Recursively processes arrays and nested objects
- * - Normalizes undefined to omitted (in objects) or null
+ * - Distinguishes null vs omitted fields deterministically
  */
 export function canonicalizeValue(value: unknown): unknown {
-  if (value === null || value === undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null) {
     return null;
   }
   if (typeof value === 'bigint') {
@@ -38,7 +41,7 @@ export function canonicalizeValue(value: unknown): unknown {
     return value.toISOString();
   }
   if (typeof value === 'string') {
-    return value.trim();
+    return value;
   }
   if (typeof value !== 'object') {
     return value;
@@ -63,7 +66,9 @@ export function canonicalizeValue(value: unknown): unknown {
  * Returns deterministic canonical JSON string.
  */
 export function canonicalizeJson(value: unknown): string {
-  return JSON.stringify(canonicalizeValue(value));
+  const canon = canonicalizeValue(value);
+  if (canon === undefined) return '';
+  return JSON.stringify(canon);
 }
 
 /**
@@ -93,7 +98,7 @@ export async function findOperationRecord(
  */
 export async function waitForOperationRecord(
   key: string,
-  maxWaitMs = 1500,
+  maxWaitMs = 2500,
   pollIntervalMs = 50,
   client: PrismaClientOrTx = prisma
 ): Promise<OperationIdempotencyRecordData | null> {
@@ -190,6 +195,16 @@ export function verifyReplay(
     };
   }
 
+  // A missing stored payload must not automatically be treated as an exact replay
+  if (!record.payload_hash && (record.request_payload === null || record.request_payload === undefined)) {
+    if (params.incomingPayload !== null && params.incomingPayload !== undefined) {
+      return {
+        isMatch: false,
+        reason: 'Idempotency conflict: Stored operation record has no payload data to verify replay.',
+      };
+    }
+  }
+
   const incomingCanonical = canonicalizeValue(params.incomingPayload);
   const incomingHash = computePayloadHash({
     operationType: params.operationType,
@@ -217,13 +232,18 @@ export function verifyReplay(
 
 /**
  * Backward compatibility helper for existing callers.
+ * A missing stored payload must not automatically be treated as an exact replay.
  */
 export function validateReplayPayload(
   storedPayload: any,
   incomingPayload: any,
   _criticalFields?: string[]
 ): boolean {
-  if (!storedPayload || !incomingPayload) return true;
+  if (storedPayload === undefined && incomingPayload === undefined) return true;
+  if (storedPayload === null && incomingPayload === null) return true;
+  if (storedPayload === null || storedPayload === undefined || incomingPayload === null || incomingPayload === undefined) {
+    return false;
+  }
   const hash1 = computePayloadHash(storedPayload);
   const hash2 = computePayloadHash(incomingPayload);
   return hash1 === hash2;
@@ -277,7 +297,7 @@ export async function handleConcurrentReplayOrConflict(
   },
   client: PrismaClientOrTx = prisma
 ): Promise<NextResponse | null> {
-  const record = await waitForOperationRecord(key, 1500, 50, client);
+  const record = await waitForOperationRecord(key, 2500, 50, client);
   if (!record) return null;
 
   const verification = verifyReplay(record, params);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { apiClient } from '@/frontend/lib/apiClient';
@@ -109,6 +109,8 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
   const [exitOpTimestamp, setExitOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const activeEntryOpIdRef = useRef<string | null>(null);
+  const activeExitOpIdRef = useRef<string | null>(null);
   const [_msg, setMsg] = useState<{ text: string; isError: boolean } | null>(null);
 
   const queryClient = useQueryClient();
@@ -170,19 +172,26 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
     setMsg(null);
 
     try {
+      if (!activeEntryOpIdRef.current) {
+        activeEntryOpIdRef.current = `gate-entry-${selectedEntryVisit.id}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`;
+      }
+      const opId = activeEntryOpIdRef.current;
+
       const data = await apiClient.post<{ visit?: { token_number?: string } }>(
         '/api/security/gate-entry',
         {
           visitId: selectedEntryVisit.id,
           tokenNumber: tokenNumber.trim().toUpperCase(),
           entryTimestamp: datetimeLocalToIso(entryOpTimestamp) || undefined,
+          clientOperationId: opId,
         },
         {
           dedupKey: `gate-entry-${selectedEntryVisit.id}`,
-          idempotencyKey: `ENTRY-${selectedEntryVisit.id}`,
+          idempotencyKey: opId,
         }
       );
 
+      activeEntryOpIdRef.current = null;
       const successMsgText = `Gate Entry recorded. Token ${data.visit?.token_number || tokenNumber} issued successfully.`;
       toast.showSuccess(successMsgText, 'Gate Entry Recorded');
       setTokenNumber(suggestTokenNumber());
@@ -204,19 +213,26 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
     setMsg(null);
 
     try {
+      if (!activeExitOpIdRef.current) {
+        activeExitOpIdRef.current = `gate-exit-${selectedExitVisit.id}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`;
+      }
+      const opId = activeExitOpIdRef.current;
+
       await apiClient.post(
         '/api/security/gate-exit',
         {
           visitId: selectedExitVisit.id,
           exitTimestamp: datetimeLocalToIso(exitOpTimestamp) || undefined,
           tanker_washed: selectedExitVisit.is_all_rejected ? false : tankerWashed,
+          clientOperationId: opId,
         },
         {
           dedupKey: `gate-exit-${selectedExitVisit.id}`,
-          idempotencyKey: `EXIT-${selectedExitVisit.id}`,
+          idempotencyKey: opId,
         }
       );
 
+      activeExitOpIdRef.current = null;
       const successMsgText = `Gate Exit completed successfully for vehicle ${selectedExitVisit.vehicle_number}.`;
       toast.showSuccess(successMsgText, 'Gate Exit Completed');
       setSelectedExitVisitId(null);

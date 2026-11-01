@@ -18,10 +18,11 @@ test('operationIdempotency: canonicalizeValue and computePayloadHash determinist
   assert.equal(canonicalizeJson(obj1), canonicalizeJson(obj2));
   assert.equal(computePayloadHash(obj1), computePayloadHash(obj2));
 
-  // 2. Whitespace trimming in strings
+  // 2. String contents are preserved without generic global trimming
   const str1 = { name: '  tanker-01  ', code: 'T1' };
   const str2 = { name: 'tanker-01', code: 'T1' };
-  assert.equal(computePayloadHash(str1), computePayloadHash(str2));
+  assert.notEqual(computePayloadHash(str1), computePayloadHash(str2));
+  assert.equal(canonicalizeJson(str1), '{"code":"T1","name":"  tanker-01  "}');
 
   // 3. Nested arrays preserve order but items are canonicalized
   const arr1 = { items: [{ b: 2, a: 1 }, { d: 4, c: 3 }] };
@@ -34,12 +35,28 @@ test('operationIdempotency: canonicalizeValue and computePayloadHash determinist
   const undef2 = { a: 1 };
   assert.equal(canonicalizeJson(undef1), canonicalizeJson(undef2));
 
-  // 5. BigInt and Date handling
+  // 5. Null vs missing fields are not equivalent
+  const withNull = { a: 1, b: null };
+  const withoutField = { a: 1 };
+  assert.notEqual(canonicalizeJson(withNull), canonicalizeJson(withoutField));
+  assert.notEqual(computePayloadHash(withNull), computePayloadHash(withoutField));
+
+  // 6. BigInt and Date handling
   const bigIntVal = { id: BigInt(123456789), date: new Date('2026-11-01T12:00:00.000Z') };
   const expectedJson = '{"date":"2026-11-01T12:00:00.000Z","id":"123456789"}';
   assert.equal(canonicalizeJson(bigIntVal), expectedJson);
   assert.equal(typeof computePayloadHash(bigIntVal), 'string');
   assert.equal(computePayloadHash(bigIntVal).length, 64); // SHA-256 hex length
+});
+
+test('operationIdempotency: validateReplayPayload strictly verifies payloads and rejects missing stored payloads', () => {
+  assert.equal(validateReplayPayload({ a: 1 }, { a: 1 }), true);
+  assert.equal(validateReplayPayload({ a: 1 }, { a: 2 }), false);
+  assert.equal(validateReplayPayload(null, { a: 1 }), false, 'Missing stored payload must not validate incoming payload');
+  assert.equal(validateReplayPayload({ a: 1 }, null), false);
+  assert.equal(validateReplayPayload(undefined, { a: 1 }), false);
+  assert.equal(validateReplayPayload(null, null), true);
+  assert.equal(validateReplayPayload(undefined, undefined), true);
 });
 
 test('operationIdempotency: verifyReplay detects payload modifications, nested array changes, and operation mismatches', () => {

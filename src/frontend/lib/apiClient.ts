@@ -182,6 +182,11 @@ async function executeWithTimeout<T>(
       const isAbort = err instanceof Error && err.name === 'AbortError';
       const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
+      // Caller cancellation takes priority if caller aborted
+      if (options.signal?.aborted) {
+        throw new ApiError('Request was aborted.', 0, 'REQUEST_ABORTED');
+      }
+
       if (didTimeout) {
         throw new ApiError(
           `Request timed out after ${Math.round(timeoutMs / 1000)} seconds. Please check connection and try again.`,
