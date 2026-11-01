@@ -6,14 +6,14 @@ import { useVisualViewport, useVisualViewportHeight } from '../useVisualViewport
 class MockVisualViewport {
   height = 800;
   width = 360;
-  private listeners: Record<string, Function[]> = {};
+  private listeners: Record<string, (() => void)[]> = {};
 
-  addEventListener(event: string, fn: Function) {
+  addEventListener(event: string, fn: () => void) {
     if (!this.listeners[event]) this.listeners[event] = [];
     this.listeners[event].push(fn);
   }
 
-  removeEventListener(event: string, fn: Function) {
+  removeEventListener(event: string, fn: () => void) {
     if (!this.listeners[event]) return;
     this.listeners[event] = this.listeners[event].filter((f) => f !== fn);
   }
@@ -107,31 +107,34 @@ test('useVisualViewport: event listener attachment and cleanup lifecycle', () =>
 });
 
 test('useVisualViewport: focused input visibility scroll invocation', () => {
-  let scrolledElements: string[] = [];
+  const scrolledElements: string[] = [];
 
   const mockInput = {
     tagName: 'INPUT',
-    scrollIntoView: (opts?: any) => {
+    scrollIntoView: (opts?: ScrollIntoViewOptions) => {
       scrolledElements.push(`INPUT:${opts?.behavior}`);
     },
   };
 
   const mockTextarea = {
     tagName: 'TEXTAREA',
-    scrollIntoView: (opts?: any) => {
+    scrollIntoView: (opts?: ScrollIntoViewOptions) => {
       scrolledElements.push(`TEXTAREA:${opts?.behavior}`);
     },
   };
 
   const mockDiv = {
     tagName: 'DIV',
-    scrollIntoView: (opts?: any) => {
+    scrollIntoView: (opts?: ScrollIntoViewOptions) => {
       scrolledElements.push(`DIV:${opts?.behavior}`);
     },
   };
 
   // Helper function mimicking the hook's focus scroll behavior
-  const handleKeyboardFocusScroll = (activeElement: any, isKeyboardOpen: boolean) => {
+  const handleKeyboardFocusScroll = (
+    activeElement: { tagName: string; scrollIntoView: (opts?: ScrollIntoViewOptions) => void } | null,
+    isKeyboardOpen: boolean
+  ) => {
     if (
       isKeyboardOpen &&
       activeElement &&

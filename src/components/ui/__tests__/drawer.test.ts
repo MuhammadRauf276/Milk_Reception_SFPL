@@ -23,7 +23,7 @@ test('Drawer: dynamic mobile max-height calculation logic', () => {
 });
 
 test('Drawer: desktop breakpoint matching query', () => {
-  const DESKTOP_QUERY = '(min-width: 768px)';
+  const _DESKTOP_QUERY = '(min-width: 768px)';
   const matchesDesktop = (width: number) => width >= 768;
 
   // Mobile widths

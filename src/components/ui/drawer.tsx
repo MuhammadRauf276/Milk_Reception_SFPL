@@ -115,6 +115,7 @@ const DrawerContent = React.forwardRef<
       <DrawerOverlay />
       <DrawerPrimitive.Content
         ref={ref}
+        role="dialog"
         aria-describedby={undefined}
         onInteractOutside={keepCameraOpen}
         className={cn(

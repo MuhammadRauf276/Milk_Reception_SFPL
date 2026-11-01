@@ -177,10 +177,7 @@ export async function getApprovalInbox(
   const isSuperOrAuditor =
     actor.role === 'SUPER_ADMIN' ||
     actor.role === 'DATA_EXECUTIVE' ||
-    actor.role === 'EXECUTIVE_MANAGEMENT' ||
-    actor.role === 'FINANCE_ACCOUNTS' ||
-    actor.role === 'ADMIN_HEAD' ||
-    actor.role === 'HEAD_OF_MPD';
+    actor.role === 'EXECUTIVE_MANAGEMENT';
 
   const items: UnifiedApprovalItem[] = [];
 
@@ -1028,7 +1025,7 @@ export async function getApprovalInbox(
   // Filter out non-actionable items for operational roles in PENDING mode:
   // An operational approver's pending queue must only show items they can actually decide.
   // Governance and auditor roles may review all pending items across stages.
-  const isAuditorOrViewer = ['DATA_EXECUTIVE', 'FINANCE_ACCOUNTS', 'ADMIN_HEAD', 'EXECUTIVE_MANAGEMENT', 'SUPER_ADMIN'].includes(actor.role);
+  const isAuditorOrViewer = ['DATA_EXECUTIVE', 'SUPER_ADMIN'].includes(actor.role);
   const activeItems =
     statusFilter === 'PENDING' && !isAuditorOrViewer
       ? scopedItems.filter((item) => item.canDecide === true)

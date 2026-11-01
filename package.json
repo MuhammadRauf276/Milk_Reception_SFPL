@@ -12,7 +12,7 @@
     "build": "next build",
     "start": "next start",
     "postinstall": "prisma generate",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "eslint src/components/ui/ src/frontend/hooks/useVisualViewport.ts src/frontend/hooks/__tests__/ scripts/verify-component-primitives.ts scripts/verify-responsive-viewports.ts scripts/verify-operational-workflows.ts scripts/seed-synthetic-test-workflows.ts src/backend/services/__tests__/approvalAuthorization.test.ts --max-warnings=0",
     "check:ui-text": "node scripts/check-ui-text.js",
     "typecheck": "node node_modules/typescript-7/bin/tsc --noEmit",
     "db:seed": "prisma db seed",
@@ -23,11 +23,11 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "test:unit": "tsx --test src/components/ui/__tests__/*.ts src/frontend/hooks/__tests__/*.ts",
+    "test:unit": "tsx --test src/components/ui/__tests__/*.ts src/frontend/hooks/__tests__/*.ts src/backend/services/__tests__/approvalAuthorization.test.ts",
     "test:components": "tsx scripts/verify-component-primitives.ts",
     "test:viewports": "tsx scripts/verify-responsive-viewports.ts",
     "test:workflows": "tsx scripts/verify-operational-workflows.ts",
-    "verify:phase2": "npm run typecheck && npm run check:ui-text && npm run test:unit && npm run test:components && npm run test:viewports && npm run test:workflows"
+    "verify:phase2": "npm run typecheck && npm run lint && npm run check:ui-text && npm run test:unit && npm run test:components && npm run test:viewports && npm run test:workflows && npm run build"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

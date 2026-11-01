@@ -43,31 +43,31 @@ test('TableWrapper: scroll overflow indicators calculation logic', () => {
 });
 
 test('TableWrapper: event listener registration and ResizeObserver lifecycle', () => {
-  let scrollListeners: Function[] = [];
-  let resizeListeners: Function[] = [];
-  let observedElements: any[] = [];
+  let scrollListeners: (() => void)[] = [];
+  let resizeListeners: (() => void)[] = [];
+  let observedElements: unknown[] = [];
   let disconnected = false;
 
   const mockElement = {
-    addEventListener: (event: string, fn: Function) => {
+    addEventListener: (event: string, fn: () => void) => {
       if (event === 'scroll') scrollListeners.push(fn);
     },
-    removeEventListener: (event: string, fn: Function) => {
+    removeEventListener: (event: string, fn: () => void) => {
       if (event === 'scroll') scrollListeners = scrollListeners.filter((f) => f !== fn);
     },
   };
 
   const mockWindow = {
-    addEventListener: (event: string, fn: Function) => {
+    addEventListener: (event: string, fn: () => void) => {
       if (event === 'resize') resizeListeners.push(fn);
     },
-    removeEventListener: (event: string, fn: Function) => {
+    removeEventListener: (event: string, fn: () => void) => {
       if (event === 'resize') resizeListeners = resizeListeners.filter((f) => f !== fn);
     },
   };
 
   const mockResizeObserver = {
-    observe: (el: any) => {
+    observe: (el: unknown) => {
       observedElements.push(el);
     },
     disconnect: () => {

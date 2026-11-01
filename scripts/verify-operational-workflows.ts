@@ -3,8 +3,15 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { prisma } from '../src/backend/core/db';
 import { createSessionToken } from '../src/backend/core/auth';
 import type { Role } from '../src/backend/core/types';
-import { seedSyntheticWorkflows, cleanupSyntheticWorkflows } from './seed-synthetic-test-workflows';
+import {
+  seedSyntheticWorkflows,
+  cleanupSyntheticWorkflows,
+  type TestRunContext,
+} from './seed-synthetic-test-workflows';
 import assert from 'node:assert/strict';
+
+// Set explicit test flag for test database safety validation
+process.env.PHASE2_TEST_ENV = 'true';
 
 const CHROME_PATH = 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe';
 
@@ -14,7 +21,7 @@ interface WorkflowSpec {
   role: string;
   username: string;
   url: string;
-  testFn: (page: Page) => Promise<{ status: 'PASS' | 'BLOCKED' | 'FAIL'; details: string }>;
+  testFn: (page: Page, context: TestRunContext) => Promise<{ status: 'PASS' | 'BLOCKED' | 'FAIL'; details: string }>;
 }
 
 async function generateUserToken(username: string): Promise<string> {
@@ -51,38 +58,32 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       // Check if active stop exists
       const recordBtn = page.getByRole('button', { name: /Record/i }).first();
-      const hasRecord = await recordBtn.isVisible({ timeout: 4000 }).catch(() => false);
+      await recordBtn.waitFor({ state: 'visible', timeout: 8000 });
+      assert(await recordBtn.isVisible(), 'Record stop button must be visible');
 
-      if (hasRecord) {
-        await recordBtn.click();
-        const modal = page.locator('[role="dialog"]').first();
-        await modal.waitFor({ state: 'visible', timeout: 5000 });
+      await recordBtn.click();
+      const modal = page.locator('[role="dialog"]').first();
+      await modal.waitFor({ state: 'visible', timeout: 5000 });
 
-        // Enter quantity and verify input
-        const qtyInput = modal.locator('input[type="number"], input[inputmode="decimal"]').first();
-        if (await qtyInput.isVisible()) {
-          await qtyInput.fill('45.5');
-          assert.equal(await qtyInput.inputValue(), '45.5');
-        }
-
-        // Close modal safely
-        const closeBtn = modal.getByRole('button', { name: /cancel|close/i }).first();
-        if (await closeBtn.isVisible()) {
-          await closeBtn.click();
-        } else {
-          await page.keyboard.press('Escape');
-        }
-        await modal.waitFor({ state: 'hidden', timeout: 4000 }).catch(() => {});
-
-        return {
-          status: 'PASS',
-          details: 'Active MOT collection stop opened, quantity entered (45.5 L), closed safely',
-        };
+      // Enter quantity and verify input validation
+      const qtyInput = modal.locator('input[type="number"], input[inputmode="decimal"]').first();
+      if (await qtyInput.isVisible()) {
+        await qtyInput.fill('45.5');
+        assert.equal(await qtyInput.inputValue(), '45.5');
       }
+
+      // Close modal safely
+      const closeBtn = modal.getByRole('button', { name: /cancel|close/i }).first();
+      if (await closeBtn.isVisible()) {
+        await closeBtn.click();
+      } else {
+        await page.keyboard.press('Escape');
+      }
+      await modal.waitFor({ state: 'hidden', timeout: 4000 }).catch(() => {});
 
       return {
         status: 'PASS',
-        details: 'MOT journey dashboard active; sync bar, telemetry and route controls verified',
+        details: 'Active MOT collection stop opened, collection quantity entered (45.5 L), safely dismissed',
       };
     },
   },
@@ -145,7 +146,7 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       return {
         status: 'PASS',
-        details: `PHE Station operational; verified ${tabCount} operational view tabs with active switching`,
+        details: `PHE Station operational: verified ${tabCount} operational view tabs with active switching`,
       };
     },
   },
@@ -157,30 +158,23 @@ const WORKFLOWS: WorkflowSpec[] = [
     role: 'ZMCC_LAB_ATTENDANT',
     username: 'zmcc.operator',
     url: 'http://127.0.0.1:3000/zmcc/lab?zmcc_id=1',
-    testFn: async (page) => {
+    testFn: async (page, ctx) => {
       const heading = page.getByRole('heading', { name: /ZMCC Laboratory Station|ZMCC Laboratory/i }).first();
       await heading.waitFor({ state: 'visible', timeout: 8000 });
       assert(await heading.isVisible(), 'ZMCC Laboratory heading must be visible');
 
-      // Test search input in queue
+      // Test search input in queue with the seeded arrival vehicle
       const searchInput = page.getByPlaceholder(/search/i).first();
       if (await searchInput.isVisible()) {
-        await searchInput.fill('LES-1001');
-        assert.equal(await searchInput.inputValue(), 'LES-1001');
+        await searchInput.fill(ctx.arrivalVehicleNumber);
+        assert.equal(await searchInput.inputValue(), ctx.arrivalVehicleNumber);
         await searchInput.fill('');
       }
 
       // Check for Start/Resume Testing button on arrival item (await async query)
       const testBtn = page.getByRole('button', { name: /start testing|resume/i }).first();
-      await testBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-      const hasTestableItem = await testBtn.isVisible().catch(() => false);
-
-      if (!hasTestableItem) {
-        return {
-          status: 'BLOCKED',
-          details: 'No arrivals waiting in ZMCC lab queue in test database',
-        };
-      }
+      await testBtn.waitFor({ state: 'visible', timeout: 10000 });
+      assert(await testBtn.isVisible(), 'Start/Resume testing trigger must be visible');
 
       // Click to start/resume testing
       await testBtn.click();
@@ -192,7 +186,7 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       return {
         status: 'PASS',
-        details: 'ZMCC Lab queue item opened, testing observation interface verified',
+        details: `ZMCC Lab queue item ${ctx.arrivalVehicleNumber} opened, testing observation interface verified`,
       };
     },
   },
@@ -204,7 +198,7 @@ const WORKFLOWS: WorkflowSpec[] = [
     role: 'SECURITY_OPERATOR',
     username: 'security.gate',
     url: 'http://127.0.0.1:3000/department/security',
-    testFn: async (page) => {
+    testFn: async (page, ctx) => {
       const heading = page.getByText(/Gate Entry|Gate Entry & Exit/i).first();
       await heading.waitFor({ state: 'visible', timeout: 8000 });
       assert(await heading.isVisible(), 'Security Gate heading must be visible');
@@ -225,16 +219,16 @@ const WORKFLOWS: WorkflowSpec[] = [
         }
       }
 
-      // Test search input
+      // Test search input with seeded vehicle
       const searchInput = page.getByPlaceholder(/search vehicle|search token/i).first();
       await searchInput.waitFor({ state: 'visible', timeout: 8000 });
-      await searchInput.fill('TK-SYNTH-QA-01');
-      assert.equal(await searchInput.inputValue(), 'TK-SYNTH-QA-01');
+      await searchInput.fill(ctx.qaVehicleNumber);
+      assert.equal(await searchInput.inputValue(), ctx.qaVehicleNumber);
       await searchInput.fill('');
 
       return {
         status: 'PASS',
-        details: 'Security Gate verified: tabs (Waiting/Inside/Exit), vehicle search input, and clearance panels',
+        details: `Security Gate verified: tabs (Waiting/Inside/Exit), search for ${ctx.qaVehicleNumber}, clearance panel`,
       };
     },
   },
@@ -246,29 +240,39 @@ const WORKFLOWS: WorkflowSpec[] = [
     role: 'QA_LAB_ATTENDANT',
     username: 'qa.reception@shakarganj.com.pk',
     url: 'http://127.0.0.1:3000/department/qa',
-    testFn: async (page) => {
+    testFn: async (page, ctx) => {
       const hasQA = await page.getByText(/QA Laboratory|Plant QA/i).first().isVisible();
       assert(hasQA, 'QA Laboratory heading must be visible');
 
-      // Check if test samples exist in queue (await async query)
-      const sampleCard = page.getByText(/TK-SYNTH-QA-01/i).first();
-      await sampleCard.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-      const hasSamples = await sampleCard.isVisible().catch(() => false);
+      // Check if test sample exists in queue
+      const sampleCard = page.getByText(new RegExp(ctx.qaVehicleNumber, 'i')).first();
+      await sampleCard.waitFor({ state: 'visible', timeout: 10000 });
+      assert(await sampleCard.isVisible(), `Test sample for ${ctx.qaVehicleNumber} must be visible in QA queue`);
 
-      if (!hasSamples) {
-        return {
-          status: 'BLOCKED',
-          details: 'No tankers waiting in plant QA queue in test database',
-        };
+      // Locate the exact action button for starting the test session
+      const startBtn = page.getByRole('button', { name: /^Start QA Testing Session$|^Start Testing$/i }).first();
+      await startBtn.waitFor({ state: 'visible', timeout: 5000 });
+      assert(await startBtn.isVisible(), 'Start Testing trigger must be visible');
+
+      // Click to open QA testing session confirmation drawer
+      await startBtn.click();
+
+      const drawer = page.locator('[role="dialog"]').first();
+      await drawer.waitFor({ state: 'visible', timeout: 6000 });
+      assert(await drawer.isVisible(), 'QA testing session confirmation drawer must open on session start');
+
+      // Dismiss drawer safely
+      const cancelBtn = drawer.getByRole('button', { name: /cancel|close/i }).first();
+      if (await cancelBtn.isVisible()) {
+        await cancelBtn.click();
+      } else {
+        await page.keyboard.press('Escape');
       }
-
-      // Verify "Start QA Testing Session" or "Start Testing" button
-      const startBtn = page.getByRole('button', { name: /Start QA Testing Session|Start Testing/i }).first();
-      assert(await startBtn.isVisible({ timeout: 5000 }), 'Start QA Testing Session trigger must be visible');
+      await drawer.waitFor({ state: 'hidden', timeout: 4000 }).catch(() => {});
 
       return {
         status: 'PASS',
-        details: 'QA Reception Laboratory operational: queue card verified with Start Testing Session control',
+        details: `QA Reception Laboratory verified: ${ctx.qaVehicleNumber} testing session confirmation drawer opened, safely dismissed`,
       };
     },
   },
@@ -280,7 +284,7 @@ const WORKFLOWS: WorkflowSpec[] = [
     role: 'QA_HEAD',
     username: 'qa.head@shakarganj.com.pk',
     url: 'http://127.0.0.1:3000/department/qa-head',
-    testFn: async (page) => {
+    testFn: async (page, ctx) => {
       const hasQAHead = await page.getByText(/QA Head|Management/i).first().isVisible();
       assert(hasQAHead, 'QA Head workspace heading must be visible');
 
@@ -288,18 +292,15 @@ const WORKFLOWS: WorkflowSpec[] = [
       await page.locator('text=Loading approvals…').waitFor({ state: 'detached', timeout: 8000 }).catch(() => {});
 
       // Locate pending exception item
-      const itemCard = page.locator('[data-testid="approval-item"], button:has-text("View"), [role="button"]:has-text("View")').first();
-      const hasItem = await itemCard.isVisible({ timeout: 6000 }).catch(() => false);
+      const itemCard = page.getByText(new RegExp(ctx.qaHeadVehicleNumber, 'i')).first();
+      await itemCard.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
-      if (!hasItem) {
-        return {
-          status: 'BLOCKED',
-          details: 'No QA exception records awaiting disposition in test database',
-        };
-      }
+      const fallbackItem = page.locator('[data-testid="approval-item"], button:has-text("View"), [role="button"]:has-text("View")').first();
+      const targetItem = (await itemCard.isVisible().catch(() => false)) ? itemCard : fallbackItem;
+      assert(await targetItem.isVisible({ timeout: 6000 }), 'QA Head exception record must be visible');
 
       // Click View to inspect exception
-      await itemCard.click();
+      await targetItem.click();
       const drawer = page.locator('[role="dialog"]').first();
       await drawer.waitFor({ state: 'visible', timeout: 5000 });
       assert(await drawer.isVisible(), 'QA Head inspection drawer must open');
@@ -315,7 +316,7 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       return {
         status: 'PASS',
-        details: 'QA Head management dashboard verified: exception card inspected and drawer dismissed',
+        details: `QA Head management dashboard verified: exception card for ${ctx.qaHeadVehicleNumber} inspected and drawer dismissed`,
       };
     },
   },
@@ -327,7 +328,7 @@ const WORKFLOWS: WorkflowSpec[] = [
     role: 'WEIGHBRIDGE_OPERATOR',
     username: 'weighbridge.operator',
     url: 'http://127.0.0.1:3000/department/weighbridge',
-    testFn: async (page) => {
+    testFn: async (page, ctx) => {
       const hasWB = await page.getByText(/Weighbridge/i).first().isVisible();
       assert(hasWB, 'Weighbridge station heading must be visible');
 
@@ -335,15 +336,9 @@ const WORKFLOWS: WorkflowSpec[] = [
       await page.locator('text=Loading weighbridge station queue…').waitFor({ state: 'detached', timeout: 8000 }).catch(() => {});
 
       // Look for tanker on scale queue
-      const scaleCard = page.getByText(/TK-SYNTH-WB-01|Initial Gross/i).first();
-      const hasTanker = await scaleCard.isVisible({ timeout: 6000 }).catch(() => false);
-
-      if (!hasTanker) {
-        return {
-          status: 'BLOCKED',
-          details: 'No tankers waiting on weighbridge scale queue in test database',
-        };
-      }
+      const scaleCard = page.getByText(new RegExp(ctx.wbVehicleNumber, 'i')).first();
+      await scaleCard.waitFor({ state: 'visible', timeout: 10000 });
+      assert(await scaleCard.isVisible(), `Scale card for ${ctx.wbVehicleNumber} must be visible`);
 
       // Click card to open ProgressiveWeighmentDrawer
       await scaleCard.click();
@@ -362,7 +357,7 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       return {
         status: 'PASS',
-        details: 'Weighbridge Station operational: scale card clicked, progressive weighment drawer verified',
+        details: `Weighbridge Station operational: ${ctx.wbVehicleNumber} clicked, progressive weighment drawer verified`,
       };
     },
   },
@@ -396,7 +391,7 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       return {
         status: 'PASS',
-        details: `Production reception station operational; verified ${tabCount} queue tabs`,
+        details: `Production reception station operational: verified ${tabCount} queue tabs`,
       };
     },
   },
@@ -442,26 +437,23 @@ const WORKFLOWS: WorkflowSpec[] = [
     role: 'CONTRACTOR_MANAGER',
     username: 'contractor.manager.alkhair',
     url: 'http://127.0.0.1:3000/contractor/manager',
-    testFn: async (page) => {
+    testFn: async (page, ctx) => {
       const hasManager = await page.getByText(/Approval|Inbox|Overview|Pipeline/i).first().isVisible();
       assert(hasManager, 'Contractor Manager heading must be visible');
 
       // Wait for loading indicator to detach
       await page.locator('text=Loading approvals…').waitFor({ state: 'detached', timeout: 8000 }).catch(() => {});
 
-      // Check if receipts or approvals exist
-      const itemCard = page.locator('[data-testid="approval-item"], button:has-text("View"), [role="button"]:has-text("View")').first();
-      const hasData = await itemCard.isVisible({ timeout: 6000 }).catch(() => false);
+      // Check if receipts or approvals exist for the contractor visit
+      const card = page.getByText(new RegExp(ctx.contractorVehicleNumber, 'i')).first();
+      await card.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
-      if (!hasData) {
-        return {
-          status: 'BLOCKED',
-          details: 'No contractor reconciliation records in test database',
-        };
-      }
+      const fallbackItem = page.locator('[data-testid="approval-item"], button:has-text("View"), [role="button"]:has-text("View")').first();
+      const targetItem = (await card.isVisible().catch(() => false)) ? card : fallbackItem;
+      assert(await targetItem.isVisible({ timeout: 6000 }), 'Contractor reconciliation record must be visible');
 
       // Click card to open inspection modal
-      await itemCard.click();
+      await targetItem.click();
       const drawer = page.locator('[role="dialog"]').first();
       await drawer.waitFor({ state: 'visible', timeout: 5000 });
       assert(await drawer.isVisible(), 'Contractor manager review drawer must open');
@@ -477,7 +469,7 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       return {
         status: 'PASS',
-        details: 'Contractor Manager station verified: dispatch reconciliation inspected and drawer dismissed',
+        details: `Contractor Manager station verified: dispatch reconciliation for ${ctx.contractorVehicleNumber} inspected and dismissed`,
       };
     },
   },
@@ -489,26 +481,23 @@ const WORKFLOWS: WorkflowSpec[] = [
     role: 'ZMCC_MANAGER',
     username: 'zmcc.manager.hasilpur',
     url: 'http://127.0.0.1:3000/mpd/zmcc-manager?tab=APPROVALS',
-    testFn: async (page) => {
+    testFn: async (page, ctx) => {
       const hasApprovals = await page.getByText(/Approval|Inbox|Overview/i).first().isVisible();
       assert(hasApprovals, 'ZMCC Manager approvals view must be visible');
 
       // Wait for loading indicator to detach
       await page.locator('text=Loading approvals…').waitFor({ state: 'detached', timeout: 8000 }).catch(() => {});
 
-      // Check if approvals exist
-      const itemCard = page.locator('[data-testid="approval-item"], button:has-text("View"), [role="button"]:has-text("View")').first();
-      const hasItem = await itemCard.isVisible({ timeout: 6000 }).catch(() => false);
+      // Check for seeded pending route
+      const routeCard = page.getByText(new RegExp(ctx.routeCode, 'i')).first();
+      await routeCard.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
 
-      if (!hasItem) {
-        return {
-          status: 'BLOCKED',
-          details: 'No ZMCC manager approvals pending in test database',
-        };
-      }
+      const fallbackItem = page.locator('[data-testid="approval-item"], button:has-text("View"), [role="button"]:has-text("View")').first();
+      const targetItem = (await routeCard.isVisible().catch(() => false)) ? routeCard : fallbackItem;
+      assert(await targetItem.isVisible({ timeout: 6000 }), 'ZMCC Manager approval item must be visible');
 
       // Click card to open review drawer
-      await itemCard.click();
+      await targetItem.click();
       const drawer = page.locator('[role="dialog"]').first();
       await drawer.waitFor({ state: 'visible', timeout: 5000 });
       assert(await drawer.isVisible(), 'ZMCC Manager inspection drawer must open');
@@ -524,12 +513,12 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       return {
         status: 'PASS',
-        details: 'ZMCC Manager approval inbox verified: pending approval item inspected, drawer dismissed',
+        details: `ZMCC Manager approval inbox verified: pending route ${ctx.routeCode} inspected, drawer dismissed`,
       };
     },
   },
 
-  // 13. Finance Approval Workflow
+  // 13. Finance Approval Workflow (Read-only Governance Role)
   {
     id: 'WF-13',
     name: 'Finance Approval Workflow',
@@ -543,48 +532,31 @@ const WORKFLOWS: WorkflowSpec[] = [
       // Wait for loading indicator to detach
       await page.locator('text=Loading approvals…').waitFor({ state: 'detached', timeout: 8000 }).catch(() => {});
 
-      // Test stage filter pills (Area, ZMCC, Dispatch)
-      const stagePills = page.getByRole('button', { name: /Area|ZMCC|Dispatch|Plant QA/i });
-      const pillCount = await stagePills.count();
-      if (pillCount > 0) {
-        await stagePills.first().click();
-        await page.waitForTimeout(200);
+      // Verify status filter switching (Pending vs Decided)
+      const decidedBtn = page.getByRole('button', { name: /Decided/i }).first();
+      if (await decidedBtn.isVisible()) {
+        await decidedBtn.click();
+        await page.waitForTimeout(300);
+        const pendingBtn = page.getByRole('button', { name: /Pending/i }).first();
+        if (await pendingBtn.isVisible()) {
+          await pendingBtn.click();
+          await page.waitForTimeout(300);
+        }
       }
 
-      // Check if approval requests exist
-      const itemCard = page.locator('[data-testid="approval-item"], button:has-text("View"), [role="button"]:has-text("View")').first();
-      const hasItem = await itemCard.isVisible({ timeout: 6000 }).catch(() => false);
-
-      if (!hasItem) {
-        return {
-          status: 'BLOCKED',
-          details: 'No financial approval requests pending in test database',
-        };
-      }
-
-      // Click to inspect
-      await itemCard.click();
-      const drawer = page.locator('[role="dialog"]').first();
-      await drawer.waitFor({ state: 'visible', timeout: 5000 });
-      assert(await drawer.isVisible(), 'Finance approval inspect drawer must open');
-
-      // Close safely
-      const closeBtn = drawer.getByRole('button', { name: /cancel|close/i }).first();
-      if (await closeBtn.isVisible()) {
-        await closeBtn.click();
-      } else {
-        await page.keyboard.press('Escape');
-      }
-      await drawer.waitFor({ state: 'hidden', timeout: 4000 }).catch(() => {});
+      // Verify read-only governance boundary: Finance has no unauthorized write buttons
+      const unauthorizedDecideBtn = page.getByRole('button', { name: /^Approve$|^Reject$/i }).first();
+      const hasUnauthorizedDecide = await unauthorizedDecideBtn.isVisible().catch(() => false);
+      assert(!hasUnauthorizedDecide, 'Finance must NOT have unauthorized direct approval buttons on operational exceptions');
 
       return {
         status: 'PASS',
-        details: 'Finance governance inbox verified: stage pills, multi-tiered item inspected and dismissed',
+        details: 'Finance governance inbox verified: status switching (Pending/Decided), SLA metric display, read-only audit boundary verified',
       };
     },
   },
 
-  // 14. Admin Head Exception & Approval Workflow
+  // 14. Admin Head Exception & Approval Workflow (Read-only Governance Role)
   {
     id: 'WF-14',
     name: 'Admin Head Exception & Approval Workflow',
@@ -598,35 +570,26 @@ const WORKFLOWS: WorkflowSpec[] = [
       // Wait for loading indicator to detach
       await page.locator('text=Loading approvals…').waitFor({ state: 'detached', timeout: 8000 }).catch(() => {});
 
-      // Check if administrative exceptions exist
-      const itemCard = page.locator('[data-testid="approval-item"], button:has-text("View"), [role="button"]:has-text("View")').first();
-      const hasItem = await itemCard.isVisible({ timeout: 6000 }).catch(() => false);
-
-      if (!hasItem) {
-        return {
-          status: 'BLOCKED',
-          details: 'No administrative exceptions awaiting approval in test database',
-        };
+      // Verify status filter switching
+      const decidedBtn = page.getByRole('button', { name: /Decided/i }).first();
+      if (await decidedBtn.isVisible()) {
+        await decidedBtn.click();
+        await page.waitForTimeout(300);
+        const pendingBtn = page.getByRole('button', { name: /Pending/i }).first();
+        if (await pendingBtn.isVisible()) {
+          await pendingBtn.click();
+          await page.waitForTimeout(300);
+        }
       }
 
-      // Click to inspect
-      await itemCard.click();
-      const drawer = page.locator('[role="dialog"]').first();
-      await drawer.waitFor({ state: 'visible', timeout: 5000 });
-      assert(await drawer.isVisible(), 'Admin Head inspection drawer must open');
-
-      // Close safely
-      const closeBtn = drawer.getByRole('button', { name: /cancel|close/i }).first();
-      if (await closeBtn.isVisible()) {
-        await closeBtn.click();
-      } else {
-        await page.keyboard.press('Escape');
-      }
-      await drawer.waitFor({ state: 'hidden', timeout: 4000 }).catch(() => {});
+      // Verify read-only governance boundary
+      const unauthorizedDecideBtn = page.getByRole('button', { name: /^Approve$|^Reject$/i }).first();
+      const hasUnauthorizedDecide = await unauthorizedDecideBtn.isVisible().catch(() => false);
+      assert(!hasUnauthorizedDecide, 'Admin Head must NOT have unauthorized direct approval buttons on operational exceptions');
 
       return {
         status: 'PASS',
-        details: 'Admin Head exception review inbox verified with administrative clearance inspection',
+        details: 'Admin Head exception review inbox verified: status switching, administrative audit boundary verified',
       };
     },
   },
@@ -668,32 +631,21 @@ const WORKFLOWS: WorkflowSpec[] = [
     role: 'DATA_EXECUTIVE',
     username: 'data.executive',
     url: 'http://127.0.0.1:3000/super-admin/corrections',
-    testFn: async (page) => {
+    testFn: async (page, ctx) => {
       const hasCorrections = await page.getByText(/Correction|Audit/i).first().isVisible();
       assert(hasCorrections, 'Corrections workspace heading must be visible');
 
       // Look for ticket in table (give TanStack query time to complete)
-      const ticket = page.getByText(/SYNTH-CORR-REQ-01/i).first();
+      const ticket = page.getByText(new RegExp(ctx.corrCorrelationId, 'i')).first();
       await ticket.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-      const hasTicket = await ticket.isVisible().catch(() => false);
 
-      if (!hasTicket) {
-        const anyTicket = page.getByText(/Correction Request|Ticket #/i).first();
-        if (await anyTicket.isVisible().catch(() => false)) {
-          return {
-            status: 'PASS',
-            details: 'Data Executive corrections desk verified with active governance ticket list',
-          };
-        }
-        return {
-          status: 'BLOCKED',
-          details: 'No correction tickets in test database',
-        };
-      }
+      const fallbackTicket = page.getByText(/Correction Request|Ticket #/i).first();
+      const targetTicket = (await ticket.isVisible().catch(() => false)) ? ticket : fallbackTicket;
+      assert(await targetTicket.isVisible({ timeout: 6000 }), 'Correction governance ticket must be visible');
 
       return {
         status: 'PASS',
-        details: 'Data Executive corrections desk verified with active governance ticket SYNTH-CORR-REQ-01',
+        details: `Data Executive corrections desk verified with active governance ticket ${ctx.corrCorrelationId}`,
       };
     },
   },
@@ -750,7 +702,7 @@ async function runWorkflowsVerification() {
   console.log('========================================================================\n');
 
   // Step 1: Seed synthetic test records so operational workflows have realistic data
-  await seedSyntheticWorkflows();
+  const testContext = await seedSyntheticWorkflows();
 
   let browser: Browser;
   try {
@@ -794,7 +746,7 @@ async function runWorkflowsVerification() {
         const winWidth = await page.evaluate(() => window.innerWidth);
         assert(docScrollWidth <= winWidth + 1, `Horizontal overflow detected (${docScrollWidth}px > ${winWidth}px)`);
 
-        const res = await wf.testFn(page);
+        const res = await wf.testFn(page, testContext);
         const symbol = res.status === 'PASS' ? '✓' : res.status === 'BLOCKED' ? '⚠' : '✗';
         console.log(`  ${symbol} [${wf.id}] ${wf.name} (${wf.role}): ${res.status} — ${res.details}`);
         results.push({ id: wf.id, name: wf.name, role: wf.role, status: res.status, details: res.details });
@@ -810,7 +762,7 @@ async function runWorkflowsVerification() {
   } finally {
     await browser.close();
     // Step 2: Clean up synthetic records to ensure isolated test hygiene
-    await cleanupSyntheticWorkflows();
+    await cleanupSyntheticWorkflows(testContext);
   }
 
   const total = results.length;
@@ -827,7 +779,8 @@ async function runWorkflowsVerification() {
   console.log(`  FAILED:                 ${failed}`);
   console.log('========================================================================\n');
 
-  if (failed > 0) {
+  // Strictly enforce non-zero exit code if ANY workflow is BLOCKED or FAIL
+  if (failed > 0 || blocked > 0) {
     process.exit(1);
   }
 }
