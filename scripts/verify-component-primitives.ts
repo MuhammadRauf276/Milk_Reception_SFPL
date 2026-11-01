@@ -36,7 +36,8 @@ async function runComponentPrimitivesTests() {
   const page = await mobileCtx.newPage();
   await page.goto('http://127.0.0.1:3000/test-primitives', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('h1', { timeout: 8000 });
-  await page.waitForTimeout(400);
+  await page.waitForSelector('[data-hydrated="true"]', { timeout: 12000 });
+  await page.waitForTimeout(300);
 
   // TEST 1: MobileNumberInput actual behaviour
   try {

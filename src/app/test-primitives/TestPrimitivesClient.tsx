@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MobileNumberInput } from '@/components/ui/mobile-number-input';
 import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import { CollapsibleDisclosure } from '@/components/ui/collapsible-disclosure';
@@ -11,6 +11,11 @@ import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 
 export default function TestPrimitivesClient() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // 1. MobileNumberInput State
   const [numberVal, setNumberVal] = useState('4.5');
 
@@ -32,7 +37,7 @@ export default function TestPrimitivesClient() {
   const [actionCount, setActionCount] = useState(0);
 
   return (
-    <div className="p-4 space-y-8 max-w-4xl mx-auto pb-32">
+    <div data-hydrated={mounted ? 'true' : undefined} className="p-4 space-y-8 max-w-4xl mx-auto pb-32">
       <h1 className="text-xl font-bold">Mobile Component Primitives Test Harness</h1>
 
       {/* 1. MobileNumberInput */}
