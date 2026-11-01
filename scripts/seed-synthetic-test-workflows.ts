@@ -21,17 +21,54 @@ export interface TestRunContext {
 }
 
 /**
- * Validates that the test is executing against an isolated local/test database
- * and that explicit test flags are present.
+ * Positively allowlisted hosts for isolated synthetic test execution.
+ */
+const APPROVED_TEST_HOSTS = new Set([
+  'localhost',
+  '127.0.0.1',
+  '::1',
+  '[::1]',
+]);
+
+/**
+ * Positively allowlisted database names for test execution.
+ */
+const APPROVED_TEST_DB_NAMES = new Set([
+  'milk_reception_test',
+  'milk_reception_test_db',
+  'milk_reception_dev',
+  'milk_reception_db',
+  'sfpl_milk_test',
+]);
+
+/**
+ * Substrings that positively disqualify any database or host from test execution.
+ */
+const FORBIDDEN_SUBSTRINGS = [
+  'prod',
+  'production',
+  'live',
+  'stage',
+  'staging',
+  'sfpl-cloud',
+  'remote',
+];
+
+/**
+ * Validates that the test is executing against an isolated, positively verified test database
+ * and that explicit caller test flags are present.
+ * Fails closed if the database cannot be positively identified as an approved isolated test database.
  */
 export function assertSafeTestDatabaseEnvironment(): void {
+  // 1. Caller MUST explicitly provide PHASE2_TEST_ENV=true. Never auto-assigned by script.
   if (process.env.PHASE2_TEST_ENV !== 'true') {
     throw new Error(
-      'DATABASE SAFETY REFUSAL: Synthetic workflow seeding requires PHASE2_TEST_ENV=true. ' +
+      'DATABASE SAFETY REFUSAL: Synthetic workflow seeding requires PHASE2_TEST_ENV=true to be explicitly provided by the caller environment. ' +
       'Execution aborted to protect production/operational databases.'
     );
   }
 
+  // 2. Validate DATABASE_URL presence
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     throw new Error('DATABASE SAFETY REFUSAL: DATABASE_URL environment variable is missing.');
@@ -40,13 +77,43 @@ export function assertSafeTestDatabaseEnvironment(): void {
   try {
     const parsed = new URL(dbUrl);
     const host = parsed.hostname.toLowerCase();
-    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1';
-    const dbPath = parsed.pathname.toLowerCase();
-    const isProductionDb = dbPath.includes('prod') || dbPath.includes('production');
+    const rawDbName = parsed.pathname.replace(/^\//, '').split('?')[0].toLowerCase();
 
-    if (!isLocal || isProductionDb) {
+    // 3. Positive allowlist: Host check
+    if (!APPROVED_TEST_HOSTS.has(host)) {
       throw new Error(
-        `DATABASE SAFETY REFUSAL: Database host "${host}" / name "${dbPath}" is not an isolated local/test database. Execution aborted.`
+        `DATABASE SAFETY REFUSAL: Database host "${host}" is not in the approved test host allowlist (${Array.from(APPROVED_TEST_HOSTS).join(', ')}). Execution aborted.`
+      );
+    }
+
+    // 4. Positive allowlist: Database name check
+    if (!APPROVED_TEST_DB_NAMES.has(rawDbName)) {
+      throw new Error(
+        `DATABASE SAFETY REFUSAL: Database "${rawDbName}" is not in the approved test database allowlist (${Array.from(APPROVED_TEST_DB_NAMES).join(', ')}). Execution aborted.`
+      );
+    }
+
+    // 5. Negative blacklist check: Disallow any production/live markers
+    for (const forbidden of FORBIDDEN_SUBSTRINGS) {
+      if (rawDbName.includes(forbidden) || host.includes(forbidden)) {
+        throw new Error(
+          `DATABASE SAFETY REFUSAL: Database "${rawDbName}" or host "${host}" contains forbidden identifier "${forbidden}". Execution aborted.`
+        );
+      }
+    }
+
+    // 6. Explicit test-database marker check
+    // Either the database is a dedicated test database (*_test, *_test_db)
+    // OR the caller provides an explicit positive marker: PHASE2_APPROVED_TEST_DB=true or ALLOW_TEST_DB_MUTATIONS=true
+    const isDedicatedTestDb = rawDbName.endsWith('_test') || rawDbName.endsWith('_test_db');
+    const hasExplicitTestMarker =
+      process.env.PHASE2_APPROVED_TEST_DB === 'true' ||
+      process.env.ALLOW_TEST_DB_MUTATIONS === 'true';
+
+    if (!isDedicatedTestDb && !hasExplicitTestMarker) {
+      throw new Error(
+        `DATABASE SAFETY REFUSAL: Database "${rawDbName}" on host "${host}" lacks an explicit test-database marker. ` +
+        `The caller must explicitly provide PHASE2_APPROVED_TEST_DB=true or ALLOW_TEST_DB_MUTATIONS=true, or use a dedicated *_test database. Execution aborted.`
       );
     }
   } catch (err: unknown) {
@@ -165,7 +232,8 @@ export async function seedSyntheticWorkflows(): Promise<TestRunContext> {
     createdJourneyIds: [],
   };
 
-  // 1. Find mot.driver and linked MotProfile
+  try {
+    // 1. Find mot.driver and linked MotProfile
   const motDriver = await prisma.user.findFirst({ where: { username: 'mot.driver' } });
   if (!motDriver) throw new Error('mot.driver user not found in database');
 
@@ -416,10 +484,22 @@ export async function seedSyntheticWorkflows(): Promise<TestRunContext> {
 
   console.log(`All synthetic operational test records seeded successfully for run ${testRunId}.`);
   return context;
+} catch (seedErr: unknown) {
+  console.error(
+    `Partial seeding failure during test run ${testRunId}: ${seedErr instanceof Error ? seedErr.message : String(seedErr)}. Initiating immediate rollback cleanup...`
+  );
+  try {
+    await cleanupSyntheticWorkflows(context);
+  } catch (cleanupErr: unknown) {
+    console.error(
+      `Rollback cleanup failed during partial seeding recovery: ${cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)}`
+    );
+  }
+  throw seedErr;
+}
 }
 
 if (require.main === module) {
-  process.env.PHASE2_TEST_ENV = 'true';
   seedSyntheticWorkflows()
     .then((ctx) => {
       console.log('Seeded successfully with context:', ctx.testRunId);

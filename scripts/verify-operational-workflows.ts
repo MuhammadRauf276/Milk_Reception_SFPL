@@ -6,12 +6,10 @@ import type { Role } from '../src/backend/core/types';
 import {
   seedSyntheticWorkflows,
   cleanupSyntheticWorkflows,
+  assertSafeTestDatabaseEnvironment,
   type TestRunContext,
 } from './seed-synthetic-test-workflows';
 import assert from 'node:assert/strict';
-
-// Set explicit test flag for test database safety validation
-process.env.PHASE2_TEST_ENV = 'true';
 
 const CHROME_PATH = 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe';
 
@@ -701,22 +699,26 @@ async function runWorkflowsVerification() {
   console.log('  (Authenticated Roles, Isolated Synthetic Seeding, Zero Mutating Regressions)');
   console.log('========================================================================\n');
 
-  // Step 1: Seed synthetic test records so operational workflows have realistic data
-  const testContext = await seedSyntheticWorkflows();
+  // Verify database safety before attempting any seeding or tests
+  assertSafeTestDatabaseEnvironment();
 
-  let browser: Browser;
-  try {
-    browser = await chromium.launch({
-      executablePath: CHROME_PATH,
-      headless: true,
-    });
-  } catch (_err: unknown) {
-    browser = await chromium.launch({ headless: true });
-  }
-
+  let testContext: TestRunContext | null = null;
+  let browser: Browser | null = null;
   const results: Array<{ id: string; name: string; role: string; status: string; details: string }> = [];
 
   try {
+    // Step 1: Seed synthetic test records so operational workflows have realistic data
+    testContext = await seedSyntheticWorkflows();
+
+    try {
+      browser = await chromium.launch({
+        executablePath: CHROME_PATH,
+        headless: true,
+      });
+    } catch (_err: unknown) {
+      browser = await chromium.launch({ headless: true });
+    }
+
     for (const wf of WORKFLOWS) {
       // Create isolated context per workflow to prevent cookie or cache contamination
       const mobileCtx = await browser.newContext({
@@ -760,9 +762,15 @@ async function runWorkflowsVerification() {
       }
     }
   } finally {
-    await browser.close();
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
     // Step 2: Clean up synthetic records to ensure isolated test hygiene
-    await cleanupSyntheticWorkflows(testContext);
+    if (testContext) {
+      await cleanupSyntheticWorkflows(testContext).catch((cleanupErr) => {
+        console.error('Error during cleanupSyntheticWorkflows in finally block:', cleanupErr);
+      });
+    }
   }
 
   const total = results.length;
