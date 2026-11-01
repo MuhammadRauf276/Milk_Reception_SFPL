@@ -62,10 +62,97 @@ The primary operational mandate of Phase 3 is:
 | **DEF-10** | **P1 (High)** | `src/app/api/health/route.ts` | Unhandled promise rejection on probe timeout: Database query timeout re-rejected after response was sent, triggering uncaught rejection warnings. | Replaced with detached promise suppression (`.catch(() => {})`) and explicit HTTP 503 status code differentiation. | Verified via `scripts/verify-network-stability.ts` |
 | **DEF-11** | **P2 (Medium)** | `src/frontend/lib/apiClient.ts` | Abort vs Timeout race condition: If caller aborted right as timeout fired, client could classify the error as a 408 timeout rather than `REQUEST_ABORTED`. | Explicitly check `options.signal?.aborted` first to prioritize caller cancellation over timer expiry. | Verified via `src/frontend/lib/__tests__/apiClientTimeout.test.ts` |
 | **DEF-12** | **P2 (Medium)** | `WeighbridgeSecondWeightPanel.tsx`, `WeighbridgeUnifiedStation.tsx`, `SecurityGatewayWorkspace.tsx` | Raw `fetch()` mutation calls: Frontend panels performed direct unshielded `fetch()` calls without in-flight deduplication, timeout lifecycle, or stable operation identity. | Replaced all raw `fetch()` calls with `apiClient.post` utilizing stable React refs (`activeTareOpIdRef`, `activeWeighOpIdRef`, `activeEntryOpIdRef`, `activeExitOpIdRef`). | Verified via component and network stability suites |
+| **DEF-13** | **P2 (Medium)** | `src/frontend/modules/mot/journey/resolveJourney.ts` | Missing eager pre-caching of MOT Shop Policy and Available Sources: During online journey preparation, shop policy and procurement sources were not eagerly cached in localStorage/IndexedDB until the collection modal was opened. If connectivity was lost immediately after preparation, offline collection lacked fresh policy snapshots. | Eagerly fetch and cache `motShopPolicy` and `availableSources` concurrently upon successful journey preparation in `resolveCurrentJourney()`. | Verified via `motOfflineAcceptance.test.ts` (ACC-01) |
+| **DEF-14** | **P2 (Medium)** | `src/frontend/modules/mot/journey/resolveJourney.ts` | Multi-user cache isolation gap: `getPreparedCachedJourney()` validated preparation expiry and journey matching but did not verify whether `preparation.userId` matched the active signed-in user (`getActiveOwnerUserId()`). A different user logging in offline on a shared device could access another officer's cached journey. | Added active owner user ID verification in `getPreparedCachedJourney()`. Non-matching user returns `null` with explicit re-preparation prompt. | Verified via `motOfflineAcceptance.test.ts` (ACC-04) |
 
 ---
 
-## 3. Six-Endpoint Server Idempotency Matrix
+## 3. MOT Offline Architecture, Complete Data Lifecycle & Acceptance Matrix
+
+Field operations require Mobile Tester (MOT) officers to prepare journeys while connected to depot/ZMCC Wi-Fi, travel across rural collection routes without cellular data or internet, record shop milk collections, evaluate quality tests, capture evidence photos, buffer GPS breadcrumbs, and synchronize all transactions once network connectivity returns.
+
+### 3.1 MOT Offline Data Flow & Lifecycle Architecture
+
+```mermaid
+flowchart TD
+  subgraph PhaseA["1. Online Preparation (Depot / ZMCC Wi-Fi)"]
+    A1["GET /api/zmcc/mot/journeys/current"] --> A2["IndexedDB: active_journey\n(Route, Shops, Geofences)"]
+    A3["POST /api/zmcc/mot/journeys/current/offline-preparation"] --> A4["IndexedDB: offline_preparation\n(8-hr Signed Receipt, User Binding)"]
+    A5["GET /api/zmcc/mot/shop-policy"] --> A6["localStorage: mot_cached_shop_policy\n(Quality Test Thresholds, Photo Rules)"]
+    A7["GET /api/sources/available"] --> A8["localStorage: mot_cached_available_sources\n(Authorized ERP Milk Sources)"]
+  end
+
+  subgraph PhaseB["2. Offline Route Execution & Milk Collection (Zero Connectivity)"]
+    B1["resolveCurrentJourney()"] --> B2{"Validates Receipt,\nExpiry & Active User"}
+    B2 -->|Valid| B3["Render Journey & Stops"]
+    B2 -->|Expired / Mismatched| B4["Reject: Re-preparation Required"]
+    B3 --> B5["Stop Selection & Wizard Opening"]
+    B5 --> B6["Autosave Draft to IndexedDB:\ncollection_drafts (${owner}:${stop})"]
+    B7["useMotGpsStream\n(watchPosition + WakeLock)"] --> B8["IndexedDB: gps_queue\n(Chronological Buffer)"]
+    B9["Camera Capture (LR & FAT Photos)"] --> B10["IndexedDB: milk_reception_lab_photos\n(Blob keyed by captureId)"]
+    B11["Submit Shop Collection"] --> B12["Enqueue with stable client_event_id\nIndexedDB: collection_queue / milk_sync"]
+    B12 -.-> B13["Delete Draft from collection_drafts"]
+  end
+
+  subgraph PhaseC["3. Network Reconnection & Server Synchronization"]
+    C1["Online Event / 30s Polling / Manual Sync"] --> C2["syncAll() / runSyncOnce()"]
+    C2 --> C3["POST /api/zmcc/mot/journeys/current/collections\nor /api/sync/batch"]
+    C3 --> C4{"Server Idempotency Check\n(Unique client_event_id)"}
+    C4 -->|New Record| C5["Atomic Commit:\nMotShopCollection + SMS Outbox"]
+    C4 -->|Exact Replay| C6["Return HTTP 200 with Existing Receipt\n(is_replay: true)"]
+    C4 -->|Changed Payload| C7["HTTP 409 Conflict\n(Flag as CONFLICT, Preserve Local)"]
+    C5 --> C8["Server Ack: SAVED + entity_id"]
+    C8 --> C9["Update Status to SYNCED & Clean Collection Queue"]
+    C8 --> C10["Upload Photos via POST /api/photos\n(Entity ID Attached)"]
+    C10 --> C11["Confirmed: deleteCapturedPhoto() from Phone"]
+  end
+```
+
+### 3.2 Storage Artifacts & Persistence Lifecycle Matrix
+
+| Artifact / Entity | Storage Engine | Key / Partition Scheme | Survives Refresh? | Survives App Close / Reboot? | User Isolation Boundary | Failure / Boundary Handling |
+| :--- | :--- | :--- | :---: | :---: | :--- | :--- |
+| **Active Journey** | IndexedDB (`active_journey`) | `id: string` (`journey.id`) | **YES** | **YES** | Cleared on logout via `clearMotSessionCache()` | If missing offline, prompts re-preparation |
+| **Offline Preparation Token** | IndexedDB (`offline_preparation`) | `id: 'current'` | **YES** | **YES** | Bound to `preparation.userId` and checked against `getActiveOwnerUserId()` | 8-hour cryptographic expiry; fails closed if expired |
+| **MOT Shop Policy** | `localStorage` (`mot_cached_shop_policy`) | Single JSON string | **YES** | **YES** | Shared device cache (read-only standard rules) | Reverts to server fetch when online |
+| **Available ERP Sources** | `localStorage` (`mot_cached_available_sources`) | Single JSON string | **YES** | **YES** | ZMCC-scoped ERP sources | Reverts to server fetch when online |
+| **Collection Drafts** | IndexedDB (`collection_drafts`) | `${owner_user_id}:${stop_id}` | **YES** | **YES** | Partitioned strictly by user ID and stop ID | Deleted immediately upon queue submission |
+| **Queued Collections** | IndexedDB (`collection_queue` / `milk_sync`) | `client_event_id: string` (UUID) | **YES** | **YES** | Carries `owner_user_id`; never deleted on logout | Retried on network error; flagged on 409 conflict |
+| **GPS Breadcrumbs** | IndexedDB (`gps_queue`) | Auto-increment `id: number` | **YES** | **YES** | Bound to `journey_id` and `owner_user_id` | Chunked in batches of 50-200 points oldest first |
+| **Captured Test Photos** | IndexedDB (`milk_reception_lab_photos`) | `captureId: string` | **YES** | **YES** | Linked to collection `clientUuid` | Two-phase commit: deleted ONLY after server photo confirmation |
+
+### 3.3 Critical Edge Cases & Technical Boundaries
+
+1. **Browser Background GPS Limitations & Screen Sleep:**
+   - **Mechanism:** `useMotGpsStream.tsx` initiates `navigator.geolocation.watchPosition` with high accuracy and acquires a Screen Wake Lock via `navigator.wakeLock.request('screen')`.
+   - **Browser Constraint:** When a user locks their device screen or switches tabs, mobile operating systems (Android/iOS) automatically release the screen wake lock and throttle or suspend browser execution to preserve battery. Stationary or background browser tabs will experience GPS fix gaps.
+   - **Architectural Resolution:** This is an inherent browser/PWA platform constraint. For true continuous, unthrottled background route tracking with the screen locked in pockets, a native Android Foreground Service with a sticky notification is required (assigned to Phase 4 native Android development).
+2. **Device Storage Quota & Browser Eviction:**
+   - **Mechanism:** The application calls `requestPersistentStorage()` via `navigator.storage.persist()`.
+   - **Behavior:** Ensures the browser categorizes IndexedDB data as "persistent" rather than "best-effort", preventing eviction under storage pressure. If device storage is 100% full, IndexedDB writes reject and inform the user before attempting further collections.
+3. **Unexpected Process Termination & Phone Reboot:**
+   - **Mechanism:** All mutations (`saveDraft`, `queueCollection`, `queueGpsLocation`, `saveCapturedPhoto`) use atomic IndexedDB transactions that resolve only after the `tx.oncomplete` event fires.
+   - **Behavior:** If the battery dies or the browser process is killed midway, completed transactions survive in persistent storage. Incomplete operations roll back cleanly without partial corruption.
+4. **Session Boundary & Multi-User Logout Safety:**
+   - **Mechanism:** When a user logs out (`logoutUser()` in `logout.ts`), `clearMotSessionCache()` explicitly clears only `active_journey` and `offline_preparation`.
+   - **Unsent Work Safety:** `collection_queue`, `gps_queue`, `milk_sync`, and `milk_reception_lab_photos` are **NEVER** touched on logout. Unsent work remains safely quarantined on the physical device until network connectivity permits synchronization.
+
+### 3.4 MOT Offline Acceptance Test Matrix
+
+Verified via dedicated integration suite `src/frontend/modules/mot/__tests__/motOfflineAcceptance.test.ts`:
+
+| Test ID | Scenario / Verification Scope | Expected Behavior | Actual Behavior | Result |
+| :---: | :--- | :--- | :--- | :---: |
+| **ACC-01** | Online preparation & multi-artifact persistence | Caches active journey, stops, geofences, shop policy, available sources, and 8-hour signed receipt | All 6 artifacts stored and retrievable offline | **PASS** |
+| **ACC-02** | Expired & unprepared offline journey handling | Fails closed with explicit error message if preparation is absent or expired past 8 hours | Rejects offline access; returns clear reconnect instruction | **PASS** |
+| **ACC-03** | Offline collection draft & queue lifecycle | Draft saved under `${owner}:${stop}`, deleted on queue submission; queue item receives stable `client_event_id`, GPS coords, and metrics | Draft lifecycle verified; canonical request body matches | **PASS** |
+| **ACC-04** | Multi-user isolation boundary | User B cannot view or access User A's cached offline journey on shared device | User B request returns `null` with re-preparation error | **PASS** |
+| **ACC-05** | Logout session cache cleanup vs unsent work | Logout wipes `active_journey` and `offline_preparation` but strictly preserves queued unsent collections and GPS | Session cache cleared; unsent collections intact | **PASS** |
+| **ACC-06** | Sync lifecycle state machine & deduplication | State transitions: `QUEUED` -> `SYNCING` -> `SYNCED`; 409 moves to `CONFLICT`; network error moves to `FAILED_RETRYABLE` | State machine verified across all sync outcomes | **PASS** |
+
+---
+
+## 4. Six-Endpoint Server Idempotency Matrix
 
 All six operational write endpoints implement the unified Phase 3 idempotency contract, verified by route-level integration tests in `src/backend/services/__tests__/apiRouteIdempotencyIntegration.test.ts`:
 
@@ -80,7 +167,7 @@ All six operational write endpoints implement the unified Phase 3 idempotency co
 
 ---
 
-## 4. 19-Role Verification Matrix
+## 5. 19-Role Verification Matrix
 
 The system dynamically verifies access control, session tokens, home routes, and capability boundaries across all **19 Canonical Operational Roles** in `src/backend/services/__tests__/canonicalRolesMatrix.test.ts`:
 
@@ -112,7 +199,7 @@ The system dynamically verifies access control, session tokens, home routes, and
 
 ---
 
-## 5. Operational Workflow Real Transaction Evidence
+## 6. Operational Workflow Real Transaction Evidence
 
 The integration suite in `src/backend/services/__tests__/operationalTransactions.test.ts` executes real database mutations and verifies audit trail persistence:
 
@@ -160,7 +247,7 @@ The integration suite in `src/backend/services/__tests__/operationalTransactions
 
 ---
 
-## 6. Clear Categorization of Verification Disciplines
+## 7. Clear Categorization of Verification Disciplines
 
 To avoid ambiguity regarding verification depth and test nature, tests are explicitly categorized into six distinct disciplines:
 
@@ -173,7 +260,7 @@ To avoid ambiguity regarding verification depth and test nature, tests are expli
 
 ---
 
-## 7. Documented Technical Limitations & Remaining Risks
+## 8. Documented Technical Limitations & Remaining Risks
 
 1. **Prisma / PostgreSQL Driver Query Cancellation Limitation:**
    - When a client or server-side probe aborts a request due to timeout (e.g. 2.5s health probe or 15s mutation timeout), the Node.js HTTP abort signal terminates the HTTP connection.
@@ -186,7 +273,7 @@ To avoid ambiguity regarding verification depth and test nature, tests are expli
 
 ---
 
-## 8. Master Automated Verification Execution Table
+## 9. Master Automated Verification Execution Table
 
 All ten verification commands were executed and passed with exit code 0:
 
@@ -195,7 +282,7 @@ All ten verification commands were executed and passed with exit code 0:
 | **1. TypeScript Validation** | `npm run typecheck` | Whole project (`tsc --noEmit`) | **PASS** (0 errors) | `0` |
 | **2. ESLint Static Analysis** | `npm run lint` | Zero-warning policy (`--max-warnings=0`) | **PASS** (0 warnings) | `0` |
 | **3. UI Copy & Typography** | `npm run check:ui-text` | SFPL text guidelines | **PASS** (0 violations) | `0` |
-| **4. Unit & Integration Suite** | `npm run test:unit` | 111 tests in 1 suite (Idempotency, 19 Roles, Transactions, Timeouts, ZMCC, SOP) | **PASS** (111/111) | `0` |
+| **4. Unit & Integration Suite** | `npm run test:unit` | 119 tests in 2 suites (Idempotency, 19 Roles, MOT Offline Acceptance, Transactions, Timeouts, ZMCC, SOP) | **PASS** (119/119) | `0` |
 | **5. Component Primitives** | `npm run test:components` | 6 interactive components (MobileNumberInput, Drawer, TableWrapper, etc.) | **PASS** (6/6) | `0` |
 | **6. Network Stability & Replay** | `npm run test:network` | 12 reliability checks (NET-01 through NET-12) | **PASS** (12/12) | `0` |
 | **7. Operational Workflows** | `npm run test:workflows` | 19 operational workflow screens with isolated synthetic data | **PASS** (19/19) | `0` |
@@ -205,7 +292,7 @@ All ten verification commands were executed and passed with exit code 0:
 
 ---
 
-## 9. Final Completion Status
+## 10. Final Completion Status
 
 ### Decision: **TECHNICALLY COMPLETE & PRODUCTION READY — P1/P2 SCOPE CLOSED**
 - **Branch:** `feature/phase-3-network-stability`
