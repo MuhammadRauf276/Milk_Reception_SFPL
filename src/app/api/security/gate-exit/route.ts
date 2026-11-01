@@ -115,13 +115,10 @@ export async function POST(req: Request) {
     });
 
     if (existingVisit && existingVisit.current_status === 'COMPLETED' && existingVisit.gate_log?.exit_timestamp) {
-      return NextResponse.json({
-        success: true,
-        idempotent: true,
-        is_replay: true,
-        visit_id: visitId.toString(),
-        exit_timestamp: existingVisit.gate_log.exit_timestamp.toISOString(),
-      });
+      return NextResponse.json(
+        { error: `Conflict: Gate exit has already been completed for vehicle ${existingVisit.vehicle_number}.` },
+        { status: 409 }
+      );
     }
 
     const result = await prisma.$transaction(async (tx) => {

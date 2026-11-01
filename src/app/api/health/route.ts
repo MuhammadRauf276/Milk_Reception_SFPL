@@ -8,10 +8,14 @@ export const revalidate = 0;
  * Health check endpoint for client-side API reachability and database availability probing.
  * Tests DB connectivity with a strict 2.5-second timeout boundary.
  *
- * NOTE / KNOWN LIMITATION: Prisma client and pg driver do not support runtime cancellation
- * tokens for in-flight queries. A query that times out cannot be forcibly cancelled at the driver
- * level; its promise rejection is safely handled to prevent unhandled rejections, and PostgreSQL's
- * server-side statement_timeout governs eventual execution cancellation on the backend.
+ * NOTE / DOCUMENTED DRIVER LIMITATION:
+ * Promise.race() does NOT cancel the underlying Prisma query or close its PostgreSQL socket
+ * when the timeout branch wins. In the Node.js pg driver / Prisma engine, in-flight queries
+ * continue running on the server until completion or until cancelled by the server-side
+ * PostgreSQL `statement_timeout`. Detached promise error suppression (.catch(() => {}))
+ * is attached to the in-flight query promise to ensure that subsequent query settlement or
+ * connection failure does not cause an unhandled promise rejection at process level.
+ * We do NOT claim driver-level query cancellation.
  */
 export async function GET() {
   type DbCheckResult =

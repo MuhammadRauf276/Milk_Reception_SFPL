@@ -109,28 +109,10 @@ export async function POST(req: Request) {
     });
 
     if (existingVisit && existingVisit.weight_ticket && existingVisit.weight_ticket.tare_weight_kg) {
-      if (Number(existingVisit.weight_ticket.tare_weight_kg) === Number(tareWeightKg)) {
-        return NextResponse.json({
-          success: true,
-          idempotent: true,
-          is_replay: true,
-          ticketNumber: existingVisit.weight_ticket.ticket_number,
-          tareWeightKg: Number(existingVisit.weight_ticket.tare_weight_kg),
-          netWeightKg: Number(existingVisit.weight_ticket.net_weight_kg),
-          receiptCreated: true,
-          isPendingFinalReceipt: false,
-          finalPhysicalLiters: null,
-          finalAt13TSLiters: null,
-          targetSiloCode: null,
-          reason: null,
-          message: `Second Weight (Tare: ${tareWeightKg} kg) already recorded.`,
-        });
-      } else {
-        return NextResponse.json(
-          { error: `Conflict: Tare weight already recorded as ${existingVisit.weight_ticket.tare_weight_kg} kg under Ticket #${existingVisit.weight_ticket.ticket_number}.` },
-          { status: 409 }
-        );
-      }
+      return NextResponse.json(
+        { error: `Conflict: Tare weight already recorded as ${existingVisit.weight_ticket.tare_weight_kg} kg under Ticket #${existingVisit.weight_ticket.ticket_number}.` },
+        { status: 409 }
+      );
     }
 
     const result = await prisma.$transaction(async (tx) => {

@@ -111,28 +111,14 @@ export async function POST(req: Request) {
     // 2. Check if visit already has gross weight recorded
     const existingVisit = await prisma.vehicleVisit.findUnique({
       where: { id: visitId },
-      include: { weight_ticket: true, portions: true },
+      include: { weight_ticket: true },
     });
 
     if (existingVisit && existingVisit.weight_ticket && existingVisit.weight_ticket.gross_weight_kg) {
-      if (Number(existingVisit.weight_ticket.gross_weight_kg) === Number(grossWeightKg)) {
-        const isMultiPortion = (existingVisit.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED').length > 1;
-        return NextResponse.json({
-          success: true,
-          idempotent: true,
-          is_replay: true,
-          ticketNumber: existingVisit.weight_ticket.ticket_number,
-          grossWeightKg: Number(existingVisit.weight_ticket.gross_weight_kg),
-          isPortionWise: isMultiPortion,
-          isMultiPortion,
-          message: `First Weight (Gross: ${grossWeightKg} kg) recorded successfully. Vehicle is ready for unloading.`,
-        });
-      } else {
-        return NextResponse.json(
-          { error: `Conflict: Gross weight already recorded as ${existingVisit.weight_ticket.gross_weight_kg} kg under Ticket #${existingVisit.weight_ticket.ticket_number}.` },
-          { status: 409 }
-        );
-      }
+      return NextResponse.json(
+        { error: `Conflict: Gross weight already recorded as ${existingVisit.weight_ticket.gross_weight_kg} kg under Ticket #${existingVisit.weight_ticket.ticket_number}.` },
+        { status: 409 }
+      );
     }
 
     const result = await prisma.$transaction(async (tx) => {

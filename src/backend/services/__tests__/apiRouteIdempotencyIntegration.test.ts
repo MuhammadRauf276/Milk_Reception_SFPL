@@ -533,6 +533,97 @@ test('apiRouteIdempotencyIntegration: QA Complete canonical payload hashing, exa
     assert.equal(resConflict.status, 409, 'Altered test results under same operation ID must return 409 Conflict');
     const bodyConflict = await resConflict.json();
     assert.ok(bodyConflict.error?.includes('conflict') || bodyConflict.error?.includes('Idempotency'));
+
+    // 4. Concurrent QA Complete requests under same completionClientEventId
+    const concOpId = `CONC-QA-${Date.now()}`;
+    const concVisit = await prisma.vehicleVisit.create({
+      data: {
+        visit_number: `V-CQA-${Date.now()}`,
+        vehicle_number: `T-CQA-${Date.now()}`,
+        current_status: 'PLANT_QA',
+        operational_date: new Date(),
+        test_mode: 'PORTION_WISE',
+        portions: {
+          create: {
+            portion_number: 1,
+            current_status: 'UNDER_TEST',
+            plant_decision: 'PENDING',
+          },
+        },
+      },
+      include: { portions: true },
+    });
+    const concPortion = concVisit.portions[0];
+
+    const concSession = await prisma.qATestingSession.create({
+      data: {
+        visit: { connect: { id: concVisit.id } },
+        starter: { connect: { id: qaUser.id } },
+        started_at: new Date(Date.now() - 60000),
+        status: 'IN_PROGRESS',
+      },
+    });
+
+    const concAssignedTests = await getOrAssignPlantQATests(prisma, concVisit.id);
+    const concTestResults = concAssignedTests
+      .filter((t) => t.result_type_snapshot !== 'CALCULATED')
+      .map((t) => {
+        const options = (t.result_options_snapshot as any[] | null) || null;
+        const isOptions = Array.isArray(options) && options.length > 0;
+        const selectedOption = isOptions
+          ? (options.find((o) => (o.value || o.label)?.toUpperCase() === 'OK')?.value ||
+             options.find((o) => (o.value || o.label)?.toUpperCase() === 'NEGATIVE')?.value ||
+             options[0]?.value || 'OK')
+          : null;
+        return {
+          testId: t.test_id.toString(),
+          performanceStatus: 'PERFORMED' as const,
+          numericValue: isOptions ? null : t.test_code_snapshot === 'FAT' ? 4.5 : t.test_code_snapshot === 'LR' ? 29.0 : 1.0,
+          textValue: isOptions ? selectedOption : null,
+          photoUrl: 'https://storage.milk.test/sample.jpg',
+        };
+      });
+
+    try {
+      const concPayload = {
+        completionClientEventId: concOpId,
+        decision: 'ACCEPTED',
+        action: 'DECIDE_NOW',
+        sealNumber: 'SEAL-CONC-99',
+        operationalTimestamp: new Date().toISOString(),
+        results: concTestResults,
+      };
+
+      const [cResA, cResB] = await Promise.all([
+        qaCompleteHandler(new Request(`http://localhost:3000/api/qa/vehicle-visits/${concVisit.id}/portions/${concPortion.id}/complete`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify(concPayload),
+        }), { params: Promise.resolve({ visitId: concVisit.id.toString(), portionId: concPortion.id.toString() }) }),
+        qaCompleteHandler(new Request(`http://localhost:3000/api/qa/vehicle-visits/${concVisit.id}/portions/${concPortion.id}/complete`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify(concPayload),
+        }), { params: Promise.resolve({ visitId: concVisit.id.toString(), portionId: concPortion.id.toString() }) }),
+      ]);
+
+      const cBodyA = await cResA.json();
+      const cBodyB = await cResB.json();
+
+      assert.equal(cResA.status, 200, `cResA must be 200: ${JSON.stringify(cBodyA)}`);
+      assert.equal(cResB.status, 200, `cResB must be 200: ${JSON.stringify(cBodyB)}`);
+      assert.ok(cBodyA.is_replay || cBodyB.is_replay);
+
+      const concOpCount = await prisma.operationIdempotencyRecord.count({ where: { key: concOpId } });
+      assert.equal(concOpCount, 1, 'Exactly one idempotency record must be committed');
+    } finally {
+      await prisma.operationIdempotencyRecord.deleteMany({ where: { key: concOpId } });
+      await prisma.plantLabResult.deleteMany({ where: { portion_id: concPortion.id } });
+      await prisma.auditLog.deleteMany({ where: { record_id: concPortion.id } });
+      await prisma.visitPortion.deleteMany({ where: { visit_id: concVisit.id } });
+      await prisma.qATestingSession.deleteMany({ where: { visit_id: concVisit.id } });
+      await prisma.vehicleVisit.delete({ where: { id: concVisit.id } });
+    }
   } finally {
     await prisma.operationIdempotencyRecord.deleteMany({ where: { key: completionOpId } });
     await prisma.plantLabResult.deleteMany({ where: { portion_id: portion.id } });

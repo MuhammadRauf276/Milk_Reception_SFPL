@@ -95,20 +95,22 @@ export async function findOperationRecord(
 /**
  * Wait for a concurrent operation to commit and write its idempotency record.
  * Polls every `pollIntervalMs` up to `maxWaitMs`.
+ * Always uses the root prisma client to ensure polling executes outside
+ * any failed, rolled-back, or lock-holding transaction clients.
  */
 export async function waitForOperationRecord(
   key: string,
   maxWaitMs = 2500,
   pollIntervalMs = 50,
-  client: PrismaClientOrTx = prisma
+  _client?: PrismaClientOrTx
 ): Promise<OperationIdempotencyRecordData | null> {
   const startTime = Date.now();
   while (Date.now() - startTime < maxWaitMs) {
-    const record = await findOperationRecord(key, client);
+    const record = await findOperationRecord(key, prisma);
     if (record) return record;
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
   }
-  return findOperationRecord(key, client);
+  return findOperationRecord(key, prisma);
 }
 
 /**
@@ -227,6 +229,14 @@ export function verifyReplay(
     };
   }
 
+  // Stored record must have a completed response payload
+  if (record.response_payload === null || record.response_payload === undefined) {
+    return {
+      isMatch: false,
+      reason: 'Idempotency conflict: Stored operation record has no completed response payload.',
+    };
+  }
+
   return { isMatch: true };
 }
 
@@ -237,12 +247,21 @@ export function verifyReplay(
 export function validateReplayPayload(
   storedPayload: any,
   incomingPayload: any,
-  _criticalFields?: string[]
+  criticalFields?: string[]
 ): boolean {
   if (storedPayload === undefined && incomingPayload === undefined) return true;
   if (storedPayload === null && incomingPayload === null) return true;
   if (storedPayload === null || storedPayload === undefined || incomingPayload === null || incomingPayload === undefined) {
     return false;
+  }
+  if (Array.isArray(criticalFields) && criticalFields.length > 0) {
+    for (const field of criticalFields) {
+      const v1 = storedPayload[field];
+      const v2 = incomingPayload[field];
+      if (canonicalizeJson(v1) !== canonicalizeJson(v2)) {
+        return false;
+      }
+    }
   }
   const hash1 = computePayloadHash(storedPayload);
   const hash2 = computePayloadHash(incomingPayload);
@@ -273,9 +292,17 @@ export async function checkOperationReplay(
     );
   }
 
+  const rawResponse = existingOp.response_payload;
+  if (!rawResponse || typeof rawResponse !== 'object' || Array.isArray(rawResponse)) {
+    return NextResponse.json(
+      { error: 'Idempotency error: Stored operation record has an invalid response payload shape.' },
+      { status: 500 }
+    );
+  }
+
   return NextResponse.json(
     {
-      ...existingOp.response_payload,
+      ...(rawResponse as Record<string, unknown>),
       idempotent: true,
       is_replay: true,
     },
@@ -294,10 +321,9 @@ export async function handleConcurrentReplayOrConflict(
     entityType: string;
     entityId: bigint | string | number;
     incomingPayload: unknown;
-  },
-  client: PrismaClientOrTx = prisma
+  }
 ): Promise<NextResponse | null> {
-  const record = await waitForOperationRecord(key, 2500, 50, client);
+  const record = await waitForOperationRecord(key, 2500, 50);
   if (!record) return null;
 
   const verification = verifyReplay(record, params);
@@ -308,9 +334,17 @@ export async function handleConcurrentReplayOrConflict(
     );
   }
 
+  const rawResponse = record.response_payload;
+  if (!rawResponse || typeof rawResponse !== 'object' || Array.isArray(rawResponse)) {
+    return NextResponse.json(
+      { error: 'Idempotency error: Stored operation record has an invalid response payload shape.' },
+      { status: 500 }
+    );
+  }
+
   return NextResponse.json(
     {
-      ...record.response_payload,
+      ...(rawResponse as Record<string, unknown>),
       idempotent: true,
       is_replay: true,
     },

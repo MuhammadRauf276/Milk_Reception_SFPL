@@ -100,6 +100,7 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       // Switch mobile operational tabs
       const tabs = page.getByRole('tab');
+      await tabs.first().waitFor({ state: 'visible', timeout: 8000 });
       const tabCount = await tabs.count();
       assert(tabCount >= 2, 'MDO station must offer mobile operational tabs');
 
@@ -131,6 +132,7 @@ const WORKFLOWS: WorkflowSpec[] = [
       assert(await heading.isVisible(), 'PHE Station heading must be visible');
 
       const tabs = page.getByRole('tab');
+      await tabs.first().waitFor({ state: 'visible', timeout: 8000 });
       const tabCount = await tabs.count();
       assert(tabCount >= 2, 'PHE station must offer mobile operational tabs');
 
@@ -203,6 +205,7 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       // Switch tabs between Waiting Entry, Inside Plant, and Ready Exit
       const tabs = page.getByRole('tab');
+      await tabs.first().waitFor({ state: 'visible', timeout: 8000 });
       const tabCount = await tabs.count();
       assert(tabCount >= 2, 'Security station must provide multi-status tabs');
 
@@ -373,6 +376,7 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       // Test mobile segmented tabs switching (Ready vs Unloading vs Silo Issue)
       const tabs = page.getByRole('tab');
+      await tabs.first().waitFor({ state: 'visible', timeout: 8000 });
       const tabCount = await tabs.count();
       if (tabCount >= 2) {
         const unloadingTab = page.getByRole('tab', { name: /Unloading/i }).first();
@@ -605,6 +609,7 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       // Test SegmentedTabs / view switching (e.g. Fleet Radar vs Hierarchy vs Reports)
       const tabs = page.getByRole('tab');
+      await tabs.first().waitFor({ state: 'visible', timeout: 8000 });
       const tabCount = await tabs.count();
       if (tabCount >= 2) {
         const secondTab = tabs.nth(1);
@@ -705,6 +710,7 @@ const WORKFLOWS: WorkflowSpec[] = [
 
       // Test view switching
       const tabs = page.getByRole('tab');
+      await tabs.first().waitFor({ state: 'visible', timeout: 8000 });
       const tabCount = await tabs.count();
       if (tabCount >= 2) {
         const secondTab = tabs.nth(1);

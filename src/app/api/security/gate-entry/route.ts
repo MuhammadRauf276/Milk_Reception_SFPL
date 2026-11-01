@@ -97,29 +97,10 @@ export async function POST(req: Request) {
     });
 
     if (existingVisit && existingVisit.gate_log && existingVisit.gate_log.entry_timestamp) {
-      if (existingVisit.token_number === validated.tokenNumber) {
-        return NextResponse.json({
-          success: true,
-          idempotent: true,
-          is_replay: true,
-          visitId: existingVisit.id.toString(),
-          tokenNumber: existingVisit.token_number,
-          identifiers: paperLinkedIdentity(
-            {
-              entity: 'vehicle_visit',
-              id: existingVisit.id.toString(),
-              number: existingVisit.visit_number,
-            },
-            [{ type: 'PLANT_GATE_TOKEN', value: existingVisit.token_number }]
-          ),
-          message: `Token ${existingVisit.token_number} issued. Vehicle ${existingVisit.vehicle_number} entered gate.`,
-        });
-      } else {
-        return NextResponse.json(
-          { error: `Conflict: Gate entry already recorded with token "${existingVisit.token_number}".` },
-          { status: 409 }
-        );
-      }
+      return NextResponse.json(
+        { error: `Conflict: Gate entry already recorded with token "${existingVisit.token_number}".` },
+        { status: 409 }
+      );
     }
 
     // Perform atomic transaction
