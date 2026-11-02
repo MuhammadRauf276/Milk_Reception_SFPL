@@ -1,13 +1,14 @@
 Write-Host "==============================================" -ForegroundColor Cyan
-Write-Host " Milk Reception App - Automated VM Update" -ForegroundColor Cyan
+Write-Host " Milk Reception App - Automated VM Update (Branch 4.4)" -ForegroundColor Cyan
 Write-Host "==============================================" -ForegroundColor Cyan
 
 Set-Location "C:\app"
 
-Write-Host "`n[1/4] Force-syncing latest code from GitHub main..." -ForegroundColor Yellow
-git checkout -f main
-git fetch origin main
-git reset --hard origin/main
+Write-Host "`n[1/4] Force-syncing latest code from GitHub branch 4.4..." -ForegroundColor Yellow
+git fetch origin 4.4
+git checkout -B 4.4 origin/4.4
+git reset --hard origin/4.4
+git branch -f main 4.4
 git clean -fd -e .env -e .env.production -e .env.local
 
 Write-Host "`n[2/4] Syncing Database Schema and Migrations..." -ForegroundColor Yellow
@@ -33,7 +34,7 @@ if ($LASTEXITCODE -ne 0) {
 pm2 save
 
 Write-Host "`n==============================================" -ForegroundColor Green
-Write-Host " Update Complete! Everything is ONLINE." -ForegroundColor Green
+Write-Host " Update Complete! Everything is ONLINE on branch 4.4." -ForegroundColor Green
 Write-Host " Please do a Hard Refresh (Ctrl + Shift + R)" -ForegroundColor Green
 Write-Host " in your browser to view the latest changes." -ForegroundColor Green
 Write-Host "==============================================" -ForegroundColor Green

@@ -12,24 +12,27 @@ echo [1/3] Staging changes...
 git add -A
 
 set /p msg="Enter commit message (or press ENTER for default): "
-if "!msg!"=="" set msg=feat(production): center login form, remove station accounts, relax permissions policy, add camera fallback
+if "!msg!"=="" set msg=feat(phase-4.4): production dispatch to plant updates
 
 echo.
 echo [2/3] Committing changes...
 git commit -m "!msg!"
 
 echo.
-echo [3/3] Pushing to GitHub...
-for /f "tokens=*" %%i in ('git rev-parse --abbrev-ref HEAD') do set CURRENT_BRANCH=%%i
-echo Current branch: !CURRENT_BRANCH!
-git push origin !CURRENT_BRANCH!
+echo [3/3] Pushing to GitHub (4.4, feature/phase-4.4, and main)...
+git branch -f 4.4 HEAD
+git branch -f feature/phase-4.4 HEAD
+git branch -f main HEAD
 
-echo Promoting !CURRENT_BRANCH! to main...
-git branch -f main !CURRENT_BRANCH!
+echo Pushing branch 4.4...
+git push origin 4.4 --force
+echo Pushing branch feature/phase-4.4...
+git push origin feature/phase-4.4 --force
+echo Pushing branch main...
 git push origin main --force
 
 echo ==============================================
-echo  Pushed to GitHub Successfully!
+echo  Pushed to GitHub Successfully (4.4, feature/phase-4.4, and main)!
 echo.
 echo  NEXT STEP ON VIRTUAL MACHINE:
 echo  1. Connect to VM desktop.
