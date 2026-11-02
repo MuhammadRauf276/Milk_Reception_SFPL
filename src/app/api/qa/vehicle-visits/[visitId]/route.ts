@@ -89,7 +89,8 @@ export async function GET(
           displayOrder: t.displayOrder,
           resultOptions: t.resultOptions || null,
         }))
-    ).map((t) => ({ ...t, rule: ruleFor(t.id) }));
+    ).map((t) => ({ ...t, rule: ruleFor(t.id) }))
+     .sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999) || (a.testCode || '').localeCompare(b.testCode || ''));
 
     // Determine overall visit decision summary
     const portions = visit.portions || [];

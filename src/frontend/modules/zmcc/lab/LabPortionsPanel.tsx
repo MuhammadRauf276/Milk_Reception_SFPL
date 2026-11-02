@@ -404,9 +404,10 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
   const sortedTests = useMemo(
     () =>
       [...(state?.policy.tests ?? [])].sort((a, b) => {
-        if (a.testMode === 'COMPULSORY' && b.testMode !== 'COMPULSORY') return -1;
-        if (a.testMode !== 'COMPULSORY' && b.testMode === 'COMPULSORY') return 1;
-        return a.testName.localeCompare(b.testName);
+        const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
+        const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.testCode || '').localeCompare(b.testCode || '');
       }),
     [state?.policy.tests]
   );

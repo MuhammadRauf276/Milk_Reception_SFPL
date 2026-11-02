@@ -137,6 +137,10 @@ async function main() {
       ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "phone" VARCHAR(50);
       ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "cnic" VARCHAR(50);
 
+      -- lab_test table (Phase 4.4 / System parameter flags)
+      ALTER TABLE IF EXISTS "lab_test" ADD COLUMN IF NOT EXISTS "is_system" BOOLEAN DEFAULT false;
+      ALTER TABLE IF EXISTS "lab_test" ADD COLUMN IF NOT EXISTS "system_key" VARCHAR(50);
+
       -- zmcc_tank table
       ALTER TABLE IF EXISTS "zmcc_tank" ADD COLUMN IF NOT EXISTS "current_volume_liters" DECIMAL(12,3) DEFAULT 0;
       ALTER TABLE IF EXISTS "zmcc_tank" ADD COLUMN IF NOT EXISTS "capacity_liters" DECIMAL(12,3) DEFAULT 0;
@@ -323,7 +327,7 @@ async function main() {
 
       -- Clean up SNF to Fat Ratio (LT-000009): ensure CALCULATED with 0 - 2.35 pass range
       UPDATE lab_test
-      SET result_type = 'CALCULATED'
+      SET result_type = 'CALCULATED', is_system = true, system_key = 'AUTO_RATIO', display_order = 9
       WHERE (test_name ILIKE '%ratio%' AND (test_name ILIKE '%snf%' OR test_name ILIKE '%fat%')) OR test_code = 'LT-000009';
 
       UPDATE lab_test_rule
@@ -333,10 +337,75 @@ async function main() {
         SELECT id FROM lab_test WHERE (test_name ILIKE '%ratio%' AND (test_name ILIKE '%snf%' OR test_name ILIKE '%fat%')) OR test_code = 'LT-000009'
       );
 
-      -- Clean up SYS-SNF and SYS-TS if present
+      -- System Core Parameters: LR at 20 Celsius and Fat
+      UPDATE lab_test SET is_system = true, system_key = 'CORE_LR', display_order = 8 WHERE test_code = 'LT-000008';
+      UPDATE lab_test SET is_system = true, system_key = 'CORE_FAT', display_order = 26 WHERE test_code = 'LT-000026';
+
+      -- Ensure SYS-SNF exists with display_order 31 and system flags
+      INSERT INTO lab_test (test_code, test_name, result_type, unit, test_scope, is_required, is_active, display_order, is_system, system_key, created_at, updated_at)
+      SELECT 'SYS-SNF', 'Solids-Not-Fat (SNF)', 'CALCULATED', '%', 'BOTH', false, true, 31, true, 'AUTO_SNF', NOW(), NOW()
+      WHERE NOT EXISTS (
+        SELECT 1 FROM lab_test WHERE test_code = 'SYS-SNF' OR (test_name ILIKE '%Solids-Not-Fat%' AND result_type = 'CALCULATED') OR (test_name = 'SNF' AND result_type = 'CALCULATED')
+      );
+
       UPDATE lab_test
-      SET result_type = 'CALCULATED'
-      WHERE test_code IN ('SYS-SNF', 'SYS-TS') OR test_name IN ('SNF', 'TS');
+      SET display_order = 31, is_system = true, system_key = 'AUTO_SNF', result_type = 'CALCULATED'
+      WHERE test_code = 'SYS-SNF' OR (test_name ILIKE '%Solids-Not-Fat%' AND result_type = 'CALCULATED') OR (test_name = 'SNF' AND result_type = 'CALCULATED');
+
+      -- Ensure SYS-TS exists with display_order 32 and system flags
+      INSERT INTO lab_test (test_code, test_name, result_type, unit, test_scope, is_required, is_active, display_order, is_system, system_key, created_at, updated_at)
+      SELECT 'SYS-TS', 'Total Solids (TS)', 'CALCULATED', '%', 'BOTH', false, true, 32, true, 'AUTO_TS', NOW(), NOW()
+      WHERE NOT EXISTS (
+        SELECT 1 FROM lab_test WHERE test_code = 'SYS-TS' OR (test_name ILIKE '%Total Solids%' AND result_type = 'CALCULATED') OR (test_name = 'TS' AND result_type = 'CALCULATED')
+      );
+
+      UPDATE lab_test
+      SET display_order = 32, is_system = true, system_key = 'AUTO_TS', result_type = 'CALCULATED'
+      WHERE test_code = 'SYS-TS' OR (test_name ILIKE '%Total Solids%' AND result_type = 'CALCULATED') OR (test_name = 'TS' AND result_type = 'CALCULATED');
+
+      -- Ensure canonical sequential display_order 1 to 30 for LT-000001 through LT-000030
+      UPDATE lab_test SET display_order = 1 WHERE test_code = 'LT-000001';
+      UPDATE lab_test SET display_order = 2 WHERE test_code = 'LT-000002';
+      UPDATE lab_test SET display_order = 3 WHERE test_code = 'LT-000003';
+      UPDATE lab_test SET display_order = 4 WHERE test_code = 'LT-000004';
+      UPDATE lab_test SET display_order = 5 WHERE test_code = 'LT-000005';
+      UPDATE lab_test SET display_order = 6 WHERE test_code = 'LT-000006';
+      UPDATE lab_test SET display_order = 7 WHERE test_code = 'LT-000007';
+      UPDATE lab_test SET display_order = 8 WHERE test_code = 'LT-000008';
+      UPDATE lab_test SET display_order = 9 WHERE test_code = 'LT-000009';
+      UPDATE lab_test SET display_order = 10 WHERE test_code = 'LT-000010';
+      UPDATE lab_test SET display_order = 11 WHERE test_code = 'LT-000011';
+      UPDATE lab_test SET display_order = 12 WHERE test_code = 'LT-000012';
+      UPDATE lab_test SET display_order = 13 WHERE test_code = 'LT-000013';
+      UPDATE lab_test SET display_order = 14 WHERE test_code = 'LT-000014';
+      UPDATE lab_test SET display_order = 15 WHERE test_code = 'LT-000015';
+      UPDATE lab_test SET display_order = 16 WHERE test_code = 'LT-000016';
+      UPDATE lab_test SET display_order = 17 WHERE test_code = 'LT-000017';
+      UPDATE lab_test SET display_order = 18 WHERE test_code = 'LT-000018';
+      UPDATE lab_test SET display_order = 19 WHERE test_code = 'LT-000019';
+      UPDATE lab_test SET display_order = 20 WHERE test_code = 'LT-000020';
+      UPDATE lab_test SET display_order = 21 WHERE test_code = 'LT-000021';
+      UPDATE lab_test SET display_order = 22 WHERE test_code = 'LT-000022';
+      UPDATE lab_test SET display_order = 23 WHERE test_code = 'LT-000023';
+      UPDATE lab_test SET display_order = 24 WHERE test_code = 'LT-000024';
+      UPDATE lab_test SET display_order = 25 WHERE test_code = 'LT-000025';
+      UPDATE lab_test SET display_order = 26 WHERE test_code = 'LT-000026';
+      UPDATE lab_test SET display_order = 27 WHERE test_code = 'LT-000027';
+      UPDATE lab_test SET display_order = 28 WHERE test_code = 'LT-000028';
+      UPDATE lab_test SET display_order = 29 WHERE test_code = 'LT-000029';
+      UPDATE lab_test SET display_order = 30 WHERE test_code = 'LT-000030';
+
+      -- Synchronize milk_test_policy_assignment display_order to match canonical lab_test display_order
+      UPDATE milk_test_policy_assignment mtpa
+      SET display_order = lt.display_order
+      FROM lab_test lt
+      WHERE mtpa.lab_test_id = lt.id AND mtpa.display_order != lt.display_order;
+
+      -- Synchronize active vehicle visits lab_test_assignment snapshot display_order
+      UPDATE lab_test_assignment lta
+      SET display_order_snapshot = lt.display_order
+      FROM lab_test lt
+      WHERE lta.test_id = lt.id AND lta.display_order_snapshot != lt.display_order;
 
       -- Ensure test_point_policy records exist across all 6 stages for all active tests
       INSERT INTO test_point_policy (lab_test_id, testing_point, test_mode, rule_mode, photo_mode, version, is_active, changed_by, change_reason, created_at)

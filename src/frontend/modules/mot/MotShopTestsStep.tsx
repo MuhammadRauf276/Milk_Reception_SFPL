@@ -80,9 +80,15 @@ function outsideRange(t: MotShopPolicyTest, raw: string): boolean {
 
 /** Tests always on screen: compulsory ones plus the LR / Fat tests. The rest go under "More tests". */
 export function splitMotShopTests(policy: MotShopPolicySnapshot | null) {
-  const active = (policy?.tests ?? []).filter((t) => t.testMode !== 'OFF');
-  const main = active.filter((t) => t.isLr || t.isFat || t.testMode === 'COMPULSORY');
-  const more = active.filter((t) => !main.includes(t));
+  const sortByOrder = (a: MotShopPolicyTest, b: MotShopPolicyTest) => {
+    const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
+    const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
+    if (orderA !== orderB) return orderA - orderB;
+    return (a.testCode || '').localeCompare(b.testCode || '');
+  };
+  const active = (policy?.tests ?? []).filter((t) => t.testMode !== 'OFF').sort(sortByOrder);
+  const main = active.filter((t) => t.isLr || t.isFat || t.testMode === 'COMPULSORY').sort(sortByOrder);
+  const more = active.filter((t) => !main.includes(t)).sort(sortByOrder);
   return { active, main, more };
 }
 

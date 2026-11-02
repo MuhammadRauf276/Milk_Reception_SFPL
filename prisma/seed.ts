@@ -35,6 +35,8 @@ const LAB_TESTS_SEED = [
   { displayOrder: 28, testCode: 'LT-000028', testName: 'Cup Test', resultType: 'POSITIVE_NEGATIVE', unit: null, testScope: 'BOTH', isRequired: true, isActive: true },
   { displayOrder: 29, testCode: 'LT-000029', testName: 'RM Value', resultType: 'NUMERIC', unit: 'Value', testScope: 'BOTH', isRequired: true, isActive: true },
   { displayOrder: 30, testCode: 'LT-000030', testName: 'Aflatoxin Value', resultType: 'NUMERIC', unit: 'ppt', testScope: 'BOTH', isRequired: true, isActive: true },
+  { displayOrder: 31, testCode: 'SYS-SNF', testName: 'Solids-Not-Fat (SNF)', resultType: 'CALCULATED', unit: '%', testScope: 'BOTH', isRequired: false, isActive: true },
+  { displayOrder: 32, testCode: 'SYS-TS', testName: 'Total Solids (TS)', resultType: 'CALCULATED', unit: '%', testScope: 'BOTH', isRequired: false, isActive: true },
 ];
 
 // Contractors (source_type CONTRACTOR) carry the ERP code of their ledger account. ZMCCs have none.

@@ -33,7 +33,12 @@ export function useQADecisionPreview({
   isSuperior,
 }: Args) {
   const displayableTests = React.useMemo(() => {
-    return visitDetail?.active_plant_tests || [];
+    return [...(visitDetail?.active_plant_tests || [])].sort((a, b) => {
+      const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
+      const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
+      if (orderA !== orderB) return orderA - orderB;
+      return (a.testCode || '').localeCompare(b.testCode || '');
+    });
   }, [visitDetail?.active_plant_tests]);
 
   // Authoritative detection of raw observations: LR and Fat

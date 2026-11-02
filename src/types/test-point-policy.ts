@@ -33,6 +33,7 @@ export interface TestPointPolicyCell {
   labTestId: string;
   testCode: string;
   testName: string;
+  displayOrder?: number;
   point: TestPointCode;
   testMode: PolicyTestMode;
   ruleMode: 'APPLY' | 'WARN';

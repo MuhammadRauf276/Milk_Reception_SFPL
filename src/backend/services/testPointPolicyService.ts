@@ -122,15 +122,16 @@ export function defaultModes(testCode: string, point: TestPointCode): { testMode
  * The Super Admin stage-policy screen saves "required" and "photo required" on the test assignment.
  * Use them for the cell unless a saved matrix row (source DB) already decides it.
  */
-export function applyAssignmentToCell<T extends Pick<TestPointPolicyCell, 'testMode' | 'photoMode' | 'source'>>(
+export function applyAssignmentToCell<T extends Pick<TestPointPolicyCell, 'testMode' | 'photoMode' | 'source' | 'displayOrder'>>(
   cell: T,
-  assignment?: { is_required: boolean; is_photo_required: boolean | null } | null
+  assignment?: { is_required: boolean; is_photo_required: boolean | null; display_order?: number | null } | null
 ): T {
   if (!assignment) return cell;
   return {
     ...cell,
     testMode: assignment.is_required ? 'COMPULSORY' : 'OPTIONAL',
     photoMode: assignment.is_photo_required ? 'REQUIRED' : 'NONE',
+    ...(assignment.display_order != null ? { displayOrder: assignment.display_order } : {}),
   };
 }
 
@@ -182,6 +183,7 @@ async function loadMatrix(db: PolicyDb, at: Date, onlyPoint?: TestPointCode) {
           labTestId: String(t.id),
           testCode: t.testCode,
           testName: t.testName,
+          displayOrder: t.displayOrder ?? 999,
           point,
           testMode: asTestMode(row.test_mode),
           ruleMode: asRuleMode(row.rule_mode),
@@ -195,6 +197,7 @@ async function loadMatrix(db: PolicyDb, at: Date, onlyPoint?: TestPointCode) {
           labTestId: String(t.id),
           testCode: t.testCode,
           testName: t.testName,
+          displayOrder: t.displayOrder ?? 999,
           point,
           ...defaultModes(t.testCode, point),
           version: 0,

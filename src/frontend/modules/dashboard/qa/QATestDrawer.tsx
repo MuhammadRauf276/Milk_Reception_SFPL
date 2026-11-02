@@ -219,12 +219,13 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
     return text;
   }, [portion.plant_rejection_reason, isExecutiveUser]);
 
-  // Sort compulsory / required tests first, then alphabetical
+  // Deterministically sort tests by master matrix display order
   const sortedTests = useMemo(() => {
     return [...displayableTests].sort((a, b) => {
-      if (a.isRequired && !b.isRequired) return -1;
-      if (!a.isRequired && b.isRequired) return 1;
-      return a.testName.localeCompare(b.testName);
+      const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
+      const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
+      if (orderA !== orderB) return orderA - orderB;
+      return (a.testCode || '').localeCompare(b.testCode || '');
     });
   }, [displayableTests]);
 
