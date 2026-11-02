@@ -2,7 +2,7 @@ import { formatAcceptedQuantitySummary } from '@/backend/modules/dispatch/quanti
 
 export type WeighbridgeTab = 'FIRST_WEIGHT' | 'SECOND_WEIGHT' | 'PROGRESSIVE';
 
-export type WeighbridgeFilter = 'SCALE_ACTION' | 'AT_SILO' | 'ALL_ACTIVE' | 'COMPLETED_TODAY';
+export type WeighbridgeFilter = 'SCALE_ACTION' | 'AT_SILO' | 'COMPLETED_TODAY';
 
 export interface ProgressiveWeighmentStep {
   step_index: number;

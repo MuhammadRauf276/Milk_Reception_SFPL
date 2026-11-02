@@ -88,13 +88,14 @@ async function runPreLiveCheck() {
   console.log('[TEST 1/2] Verifying Interactive UI Form Login at /login...');
   try {
     const page = await context.newPage();
-    await page.goto('http://127.0.0.1:3000/login', { waitUntil: 'networkidle' });
+    await page.goto('http://127.0.0.1:3000/login', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('input#username-input, input[name="username"]', { timeout: 10000 });
 
-    await page.fill('input#username, input[name="username"]', 'admin.superuser');
-    await page.fill('input#password, input[name="password"]', 'admin123');
+    await page.fill('input#username-input, input[name="username"]', 'admin.superuser');
+    await page.fill('input#password-input, input[name="password"]', 'admin123');
     await page.click('button[type="submit"]');
 
-    await page.waitForURL('**/super-admin**', { timeout: 8000 });
+    await page.waitForURL('**/super-admin**', { timeout: 10000 });
     console.log('  ✓ UI Form Login Succeeded! Redirected to /super-admin cleanly.\n');
     passCount++;
     results.push({ id: 'AUTH-UI', name: 'Interactive UI Form Login', status: 'PASS', note: 'Login form redirects to dashboard' });

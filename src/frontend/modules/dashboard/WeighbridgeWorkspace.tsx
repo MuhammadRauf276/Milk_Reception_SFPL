@@ -23,7 +23,7 @@ export const WeighbridgeWorkspace: React.FC<WeighbridgeWorkspaceProps> = ({
       : activeTab === 'SECOND_WEIGHT'
       ? 'AT_SILO'
       : activeTab === 'PROGRESSIVE'
-      ? 'ALL_ACTIVE'
+      ? 'SCALE_ACTION'
       : activeTab;
 
   return (

@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   ShieldAlert,
   Scale,
-  Layers,
   Tv,
   Receipt,
   PauseCircle,
@@ -564,12 +563,6 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
             label: 'At Silos',
             href: '/department/weighbridge?tab=AT_SILO',
             icon: Building2,
-          },
-          {
-            id: 'all-active',
-            label: 'All Active',
-            href: '/department/weighbridge?tab=ALL_ACTIVE',
-            icon: Layers,
           },
           {
             id: 'completed',

@@ -14,7 +14,6 @@ import {
   Loader2,
   X,
   Search,
-  Layers,
   ArrowRight,
   AlertCircle,
   Building2,
@@ -86,9 +85,7 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
       ? scaleActionVisits
       : filter === 'AT_SILO'
       ? atSiloVisits
-      : filter === 'COMPLETED_TODAY'
-      ? completedVisits
-      : allVisits;
+      : completedVisits;
 
   const totalPages = pageCount(filteredVisits.length);
   const currentPage = Math.min(page, totalPages);
@@ -111,8 +108,6 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
               ? `${scaleActionVisits.length} Waiting on Scale`
               : filter === 'AT_SILO'
               ? `${atSiloVisits.length} at Silos`
-              : filter === 'ALL_ACTIVE'
-              ? `${allVisits.length} Active`
               : `${completedVisits.length} Completed`}
           </span>
         </div>
@@ -136,12 +131,6 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
               label: 'At Silos',
               count: atSiloVisits.length,
               icon: Building2,
-            },
-            {
-              value: 'ALL_ACTIVE',
-              label: 'All Active',
-              count: allVisits.length,
-              icon: Layers,
             },
             {
               value: 'COMPLETED_TODAY',
@@ -182,7 +171,7 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
                 ? 'No tankers currently waiting on scale'
                 : filter === 'AT_SILO'
                 ? 'No tankers currently offloading at silos'
-                : 'No vehicles found in queue'
+                : 'No completed scale tickets found'
             }
             onRefresh={() => queueQuery.refetch()}
             className="md:col-span-2 lg:col-span-3"

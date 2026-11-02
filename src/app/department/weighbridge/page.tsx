@@ -34,8 +34,6 @@ function WeighbridgeDepartmentContent() {
   const resolvedTab: WeighbridgeFilter =
     tabParam === 'AT_SILO' || tabParam === 'SECOND_WEIGHT'
       ? 'AT_SILO'
-      : tabParam === 'ALL_ACTIVE'
-      ? 'ALL_ACTIVE'
       : tabParam === 'COMPLETED_TODAY'
       ? 'COMPLETED_TODAY'
       : 'SCALE_ACTION';
