@@ -59,7 +59,7 @@ object LocationNotificationHelper {
         )
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle("SFPL Milk Tracking • Journey #$journeyId")
+            .setContentTitle("MPDSFPL Tracking • Journey #$journeyId")
             .setContentText(lastFixText)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
