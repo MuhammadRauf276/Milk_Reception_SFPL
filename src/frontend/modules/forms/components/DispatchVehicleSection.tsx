@@ -107,6 +107,9 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
   driverError,
   isLoadingResources = false,
 }) => {
+  const [isManualVehicle, setIsManualVehicle] = React.useState(false);
+  const [isManualEscort, setIsManualEscort] = React.useState(false);
+
   const freeVehiclesCount = availableVehicles.filter((v) => v.is_available).length;
   const freeMotsCount = availableMotProfiles.filter((m) => m.is_available).length;
 
@@ -170,12 +173,29 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 min-w-0">
-          {/* 1. Vehicle Selection (Combobox for ZMCC, text input for Contractor) */}
+          {/* 1. Vehicle Selection (Combobox for ZMCC with manual fallback, text input for Contractor) */}
           <div className="space-y-1 min-w-0">
-            <label htmlFor="vehicle-selection" className="block text-xs font-semibold text-foreground">
-              Vehicle No. *
-            </label>
-            {isZmccSource ? (
+            <div className="flex items-center justify-between">
+              <label htmlFor="vehicle-selection" className="block text-xs font-semibold text-foreground">
+                Vehicle No. *
+              </label>
+              {isZmccSource && availableVehicles.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextMode = !isManualVehicle;
+                    setIsManualVehicle(nextMode);
+                    if (nextMode && onSelectVehicle) {
+                      onSelectVehicle('', vehicleNumber);
+                    }
+                  }}
+                  className="text-[11px] text-primary hover:underline font-medium"
+                >
+                  {isManualVehicle ? '← Select from fleet' : 'Manual Entry →'}
+                </button>
+              )}
+            </div>
+            {isZmccSource && availableVehicles.length > 0 && !isManualVehicle ? (
               <div className="space-y-1">
                 <Combobox
                   id="vehicle-selection"
@@ -211,8 +231,11 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                 id="vehicle-number-input"
                 type="text"
                 value={vehicleNumber}
-                onChange={(e) => onVehicleNumberChange(e.target.value)}
-                placeholder="e.g. KBL-8492"
+                onChange={(e) => {
+                  onVehicleNumberChange(e.target.value);
+                  if (onSelectVehicle) onSelectVehicle('', e.target.value);
+                }}
+                placeholder={isZmccSource ? 'Enter vehicle no. (e.g. LES-1234)' : 'e.g. KBL-8492'}
                 className={`w-full min-w-0 h-11 px-3.5 text-sm tabular-nums font-semibold rounded-xl border bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition ${
                   vehicleNumberError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-border-strong'
                 }`}
@@ -226,13 +249,30 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
             )}
           </div>
 
-          {/* 2. Escort / Driver Person (Combobox for ZMCC MOT, text input for Contractor driver) */}
+          {/* 2. Escort / Driver Person (Combobox for ZMCC MOT with manual fallback, text input for Contractor driver) */}
           <div className="space-y-1 min-w-0">
-            <label htmlFor="escort-person-input" className="block text-xs font-semibold text-foreground flex items-center justify-between">
-              <span>{isZmccSource ? 'MOT Escort *' : 'Contractor Driver *'}</span>
-              <UserCheck className="w-3.5 h-3.5 text-primary shrink-0" />
-            </label>
-            {isZmccSource ? (
+            <div className="flex items-center justify-between">
+              <label htmlFor="escort-person-input" className="block text-xs font-semibold text-foreground flex items-center gap-1">
+                <span>{isZmccSource ? 'MOT Escort *' : 'Contractor Driver *'}</span>
+                <UserCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+              </label>
+              {isZmccSource && availableMotProfiles.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextMode = !isManualEscort;
+                    setIsManualEscort(nextMode);
+                    if (nextMode) {
+                      onSelectMotProfileId?.('');
+                    }
+                  }}
+                  className="text-[11px] text-primary hover:underline font-medium"
+                >
+                  {isManualEscort ? '← Select MOT escort' : 'Manual Entry →'}
+                </button>
+              )}
+            </div>
+            {isZmccSource && availableMotProfiles.length > 0 && !isManualEscort ? (
               <div className="space-y-1">
                 <Combobox
                   id="escort-person-input"
@@ -264,9 +304,9 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                 type="text"
                 value={driverName}
                 onChange={(e) => onDriverNameChange?.(e.target.value)}
-                placeholder="e.g. Muhammad Bilal"
+                placeholder={isZmccSource ? 'Enter escort or driver name' : 'e.g. Muhammad Bilal'}
                 className={`w-full min-w-0 h-11 px-3.5 text-xs font-semibold rounded-xl border bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition ${
-                  driverError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-border-strong'
+                  driverError || motError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-border-strong'
                 }`}
                 required
               />

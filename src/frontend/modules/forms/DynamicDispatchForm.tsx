@@ -673,8 +673,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       setVehicleNumberError('Vehicle number is required.');
       hasError = true;
     }
-    if (!isContractorSource && !selectedMotProfileId) {
-      setMotError('Please select a free MOT escort.');
+    if (!isContractorSource && !selectedMotProfileId && !driverName.trim()) {
+      setMotError('Please select an MOT escort or enter driver/escort name.');
       hasError = true;
     }
     if (isContractorSource && !driverName.trim()) {
@@ -682,7 +682,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       hasError = true;
     }
     if (hasError) {
-      toast.showError('Please select vehicle and escort or driver before proceeding.', 'Required fields');
+      toast.showError('Please provide vehicle number and escort/driver name before proceeding.', 'Required fields');
       return;
     }
     setVehicleNumberError(null);

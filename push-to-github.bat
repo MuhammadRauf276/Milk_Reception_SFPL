@@ -11,12 +11,18 @@ echo.
 echo [1/3] Staging changes...
 git add -A
 
-set /p msg="Enter commit message (or press ENTER for default): "
-if "!msg!"=="" set msg=feat(phase-4.4): production dispatch to plant updates
+set HAS_CHANGES=0
+for /f "tokens=*" %%i in ('git status --porcelain') do set HAS_CHANGES=1
 
-echo.
-echo [2/3] Committing changes...
-git commit -m "!msg!"
+if "!HAS_CHANGES!"=="0" (
+  echo No uncommitted changes detected. Proceeding to push branches...
+) else (
+  set /p msg="Enter commit message (or press ENTER for default): "
+  if "!msg!"=="" set msg=feat(phase-4.4): production db schema sync without dummy data and update bat hardening
+  echo.
+  echo [2/3] Committing changes...
+  git commit -m "!msg!"
+)
 
 echo.
 echo [3/3] Pushing to GitHub (4.4, feature/phase-4.4, and main)...

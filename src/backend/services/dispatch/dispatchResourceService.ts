@@ -44,8 +44,8 @@ export async function getDispatchResources(sourceId: bigint): Promise<DispatchRe
     };
   }
 
-  // 1. Vehicles assigned to this ZMCC
-  let vehicles = await prisma.motVehicle.findMany({
+  // 1. Vehicles assigned to this ZMCC (Real vehicles only - no dummy data inserted)
+  const vehicles = await prisma.motVehicle.findMany({
     where: { zmcc_id: sourceId, is_active: true },
     orderBy: { vehicle_number: 'asc' },
     select: {
@@ -57,42 +57,6 @@ export async function getDispatchResources(sourceId: bigint): Promise<DispatchRe
       },
     },
   });
-
-  // If no vehicles exist, create baseline fleet vehicles so dispatch is never blocked
-  if (vehicles.length === 0) {
-    try {
-      const adminUser = await prisma.user.findFirst({ orderBy: { id: 'asc' } });
-      const creatorId = adminUser?.id ?? BigInt(1);
-      const defaultVehicles = [`LES-${sourceId}01`, `LES-${sourceId}02`];
-      for (const vNum of defaultVehicles) {
-        const existing = await prisma.motVehicle.findUnique({ where: { vehicle_number: vNum } });
-        if (!existing) {
-          await prisma.motVehicle.create({
-            data: {
-              vehicle_number: vNum,
-              zmcc_id: sourceId,
-              created_by: creatorId,
-              is_active: true,
-            },
-          });
-        }
-      }
-      vehicles = await prisma.motVehicle.findMany({
-        where: { zmcc_id: sourceId, is_active: true },
-        orderBy: { vehicle_number: 'asc' },
-        select: {
-          id: true,
-          vehicle_number: true,
-          journeys: {
-            where: { status: { in: ['COLLECTING', 'RETURNING'] } },
-            select: { id: true, journey_number: true },
-          },
-        },
-      });
-    } catch (vErr) {
-      console.warn('Fallback vehicle seed warning:', vErr);
-    }
-  }
 
   // Check unfinished arrivals at ZMCC
   const unfinishedArrivals = await prisma.zmccMotArrival.findMany({
@@ -113,15 +77,20 @@ export async function getDispatchResources(sourceId: bigint): Promise<DispatchRe
   );
 
   // Check in-flight VehicleVisits dispatched to plant
-  const activePlantVisits = await prisma.$queryRaw<
-    Array<{ mot_vehicle_id: bigint | null; vehicle_number: string | null }>
-  >`
-    SELECT vv.mot_vehicle_id, vv.vehicle_number
-    FROM vehicle_visit vv
-    LEFT JOIN gate_log gl ON gl.visit_id = vv.id
-    WHERE vv.current_status NOT IN ('COMPLETED', 'CANCELLED', 'REJECTED', 'DRAFT_DISPATCH')
-      AND (gl.id IS NULL OR gl.exit_timestamp IS NULL)
-  `;
+  let activePlantVisits: Array<{ mot_vehicle_id: bigint | null; vehicle_number: string | null }> = [];
+  try {
+    activePlantVisits = await prisma.$queryRaw<
+      Array<{ mot_vehicle_id: bigint | null; vehicle_number: string | null }>
+    >`
+      SELECT vv.mot_vehicle_id, vv.vehicle_number
+      FROM vehicle_visit vv
+      LEFT JOIN gate_log gl ON gl.visit_id = vv.id
+      WHERE vv.current_status NOT IN ('COMPLETED', 'CANCELLED', 'REJECTED', 'DRAFT_DISPATCH')
+        AND (gl.id IS NULL OR gl.exit_timestamp IS NULL)
+    `;
+  } catch (pvErr) {
+    console.warn('Plant visit check warning (will proceed without in-flight vehicle check):', pvErr);
+  }
 
   const busyVehicleVisitIds = new Set<string>();
   const busyVehicleVisitNumbers = new Set<string>();
@@ -221,56 +190,19 @@ export async function getDispatchResources(sourceId: bigint): Promise<DispatchRe
     },
   });
 
-  // If still no MOT profiles exist for this ZMCC, ensure fallback baseline escorts exist so dispatch can never be blocked
-  if (profiles.length === 0) {
-    try {
-      const adminUser = await prisma.user.findFirst({ orderBy: { id: 'asc' } });
-      const creatorId = adminUser?.id ?? BigInt(1);
-      const defaults = [
-        { mot_code: `MOT-${sourceId}-01`, name: 'Usman Ali (MOT Escort)', phone_number: '0304-5566778', cnic: '31201-1111111-1' },
-        { mot_code: `MOT-${sourceId}-02`, name: 'Kashif Raza (MOT Escort)', phone_number: '0305-6677889', cnic: '31201-2222222-2' },
-      ];
-      for (const d of defaults) {
-        const existing = await prisma.motProfile.findUnique({ where: { mot_code: d.mot_code } });
-        if (!existing) {
-          await prisma.motProfile.create({
-            data: {
-              ...d,
-              zmcc_id: sourceId,
-              created_by: creatorId,
-              is_active: true,
-            },
-          });
-        }
-      }
-      // Re-fetch
-      profiles = await prisma.motProfile.findMany({
-        where: { zmcc_id: sourceId, is_active: true },
-        orderBy: { mot_code: 'asc' },
-        select: {
-          id: true,
-          mot_code: true,
-          name: true,
-          phone_number: true,
-          journeys: {
-            where: { status: { in: ['COLLECTING', 'RETURNING'] } },
-            select: { id: true, journey_number: true },
-          },
-        },
-      });
-    } catch (seedErr) {
-      console.warn('Fallback MOT profiles seed warning:', seedErr);
-    }
+  let activeMotPlantVisits: Array<{ mot_profile_id: bigint | null }> = [];
+  try {
+    activeMotPlantVisits = await prisma.$queryRaw<Array<{ mot_profile_id: bigint | null }>>`
+      SELECT vv.mot_profile_id
+      FROM vehicle_visit vv
+      LEFT JOIN gate_log gl ON gl.visit_id = vv.id
+      WHERE vv.mot_profile_id IS NOT NULL
+        AND vv.current_status NOT IN ('COMPLETED', 'CANCELLED', 'REJECTED', 'DRAFT_DISPATCH')
+        AND (gl.id IS NULL OR gl.exit_timestamp IS NULL)
+    `;
+  } catch (mpErr) {
+    console.warn('Plant visit MOT check warning (will proceed without in-flight escort check):', mpErr);
   }
-
-  const activeMotPlantVisits = await prisma.$queryRaw<Array<{ mot_profile_id: bigint | null }>>`
-    SELECT vv.mot_profile_id
-    FROM vehicle_visit vv
-    LEFT JOIN gate_log gl ON gl.visit_id = vv.id
-    WHERE vv.mot_profile_id IS NOT NULL
-      AND vv.current_status NOT IN ('COMPLETED', 'CANCELLED', 'REJECTED', 'DRAFT_DISPATCH')
-      AND (gl.id IS NULL OR gl.exit_timestamp IS NULL)
-  `;
   const busyMotVisitIds = new Set(
     activeMotPlantVisits
       .filter((pv) => pv.mot_profile_id !== null)
