@@ -82,17 +82,17 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
       }}
     >
       <DrawerContent className="max-h-[90vh]">
-        <div className="border-b border-border px-5 py-3 flex items-center justify-between">
-          <DrawerTitle className="flex items-center gap-2 text-base">
+        <div className="border-b border-border px-4 sm:px-5 py-3 flex items-center justify-between gap-2">
+          <DrawerTitle className="flex items-center gap-2 text-sm sm:text-base min-w-0">
             <History className="h-5 w-5 text-primary shrink-0" />
-            <span>Stock Ledger · {tank.tank_code} ({tank.tank_name})</span>
+            <span className="truncate">Stock Ledger · {tank.tank_code}</span>
           </DrawerTitle>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 px-2 text-xs">
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-9 px-2.5 text-xs shrink-0">
             Close
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-xs">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3.5 sm:py-4 space-y-4 text-xs">
           {/* Tank Summary Header */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-subtle p-3 rounded-xl border border-border text-center">
             <div className="bg-card p-2 rounded-lg border border-border">

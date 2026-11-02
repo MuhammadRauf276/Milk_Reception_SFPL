@@ -28,12 +28,14 @@ export interface Tier1RouteLossResult extends LossMetricResult {
 export interface Tier2ZmccLossResult extends LossMetricResult {
   motInwardGrossLiters: number;
   localInwardGrossLiters: number;
+  adminAdjustmentGrossLiters?: number;
   totalInwardGrossLiters: number;
   dispatchedGrossLiters: number;
   startingTankStockLiters: number;
   endingTankStockLiters: number;
   deltaTankStockLiters: number;
   totalInwardAt13tsLiters: number;
+  adminAdjustmentAt13tsLiters?: number;
   dispatchedAt13tsLiters: number;
 }
 
@@ -265,21 +267,24 @@ export async function computeAndStoreAreaLossTx(
 
 /**
  * Calculates Tier 2 (ZMCC Process & Chilling Loss):
- * ZMCC Loss = (Total MOT Inward + Total HC Inward) - Dispatched Tankers - Delta Tank Stock
+ * ZMCC Loss = (Total MOT Inward + Total HC Inward + Admin Adjustment Inward) - Dispatched Tankers - Delta Tank Stock
  */
 export function calculateTier2ZmccLoss(params: {
   motInwardGrossLiters: number;
   localInwardGrossLiters: number;
+  adminAdjustmentGrossLiters?: number;
   dispatchedGrossLiters: number;
   startingTankStockLiters: number;
   endingTankStockLiters: number;
   motInwardAt13tsLiters?: number;
   localInwardAt13tsLiters?: number;
+  adminAdjustmentAt13tsLiters?: number;
   dispatchedAt13tsLiters?: number;
 }): Tier2ZmccLossResult {
   const motInward = Math.max(0, Number(params.motInwardGrossLiters.toFixed(2)));
   const localInward = Math.max(0, Number(params.localInwardGrossLiters.toFixed(2)));
-  const totalInward = Number((motInward + localInward).toFixed(2));
+  const adminInward = Math.max(0, Number((params.adminAdjustmentGrossLiters ?? 0).toFixed(2)));
+  const totalInward = Number((motInward + localInward + adminInward).toFixed(2));
   const dispatched = Math.max(0, Number(params.dispatchedGrossLiters.toFixed(2)));
   const startStock = Math.max(0, Number(params.startingTankStockLiters.toFixed(2)));
   const endStock = Math.max(0, Number(params.endingTankStockLiters.toFixed(2)));
@@ -296,7 +301,8 @@ export function calculateTier2ZmccLoss(params: {
 
   const mot13ts = Math.max(0, Number((params.motInwardAt13tsLiters ?? 0).toFixed(2)));
   const local13ts = Math.max(0, Number((params.localInwardAt13tsLiters ?? 0).toFixed(2)));
-  const totalInward13ts = Number((mot13ts + local13ts).toFixed(2));
+  const admin13ts = Math.max(0, Number((params.adminAdjustmentAt13tsLiters ?? 0).toFixed(2)));
+  const totalInward13ts = Number((mot13ts + local13ts + admin13ts).toFixed(2));
   const dispatched13ts = Math.max(0, Number((params.dispatchedAt13tsLiters ?? 0).toFixed(2)));
   const signed13tsVar = Number((dispatched13ts - totalInward13ts).toFixed(2));
   const loss13ts = signed13tsVar < 0 ? Math.abs(signed13tsVar) : 0;
@@ -306,12 +312,14 @@ export function calculateTier2ZmccLoss(params: {
   return {
     motInwardGrossLiters: motInward,
     localInwardGrossLiters: localInward,
+    adminAdjustmentGrossLiters: adminInward,
     totalInwardGrossLiters: totalInward,
     dispatchedGrossLiters: dispatched,
     startingTankStockLiters: startStock,
     endingTankStockLiters: endStock,
     deltaTankStockLiters: deltaStock,
     totalInwardAt13tsLiters: totalInward13ts,
+    adminAdjustmentAt13tsLiters: admin13ts,
     dispatchedAt13tsLiters: dispatched13ts,
     lossLiters,
     lossPercent,
@@ -387,7 +395,8 @@ export function calculateTier4TotalLoss(
   const totalGainLiters = Number((tier1.gainLiters + tier2.gainLiters + tier3.gainLiters).toFixed(2));
   const signedGrossVar = Number((totalGainLiters - totalLossLiters).toFixed(2));
 
-  const totalIntakeLiters = Number((tier1.shopGrossLiters + tier2.localInwardGrossLiters).toFixed(2));
+  const adminGross = Math.max(0, Number((tier2.adminAdjustmentGrossLiters ?? 0).toFixed(2)));
+  const totalIntakeLiters = Number((tier1.shopGrossLiters + tier2.localInwardGrossLiters + adminGross).toFixed(2));
   const totalPlantLiters = tier3.plantAcceptedGrossLiters;
 
   const lossPercent = totalIntakeLiters > 0 ? Number(((totalLossLiters / totalIntakeLiters) * 100).toFixed(4)) : 0;
@@ -395,7 +404,8 @@ export function calculateTier4TotalLoss(
   const totalLoss13ts = Number((tier1.at13tsLossLiters + tier2.at13tsLossLiters + tier3.at13tsLossLiters).toFixed(2));
   const totalGain13ts = Number((tier1.at13tsGainLiters + tier2.at13tsGainLiters + tier3.at13tsGainLiters).toFixed(2));
   const signed13tsVar = Number((totalGain13ts - totalLoss13ts).toFixed(2));
-  const totalIntake13ts = Number((tier1.shopAt13tsLiters + tier2.totalInwardAt13tsLiters).toFixed(2));
+  const nonMot13ts = Math.max(0, Number((tier2.totalInwardAt13tsLiters - (tier1.shopGrossLiters > 0 ? tier1.zmccArrivalAt13tsLiters : 0)).toFixed(2)));
+  const totalIntake13ts = Number((tier1.shopAt13tsLiters + (tier1.shopGrossLiters > 0 ? nonMot13ts : tier2.totalInwardAt13tsLiters)).toFixed(2));
   const loss13tsPercent = totalIntake13ts > 0 ? Number(((totalLoss13ts / totalIntake13ts) * 100).toFixed(4)) : 0;
 
   return {
@@ -581,7 +591,7 @@ export async function getSupplyChainLossHierarchy(filters: {
   });
 
   // 2. Query Tier 2 (ZMCC Inward vs Outward Dispatches vs Stock Delta)
-  const [localSupplierSessions, hcNotReceivedPortions, dispatchedVisits] = await Promise.all([
+  const [localSupplierSessions, hcNotReceivedPortions, dispatchedVisits, adminAdjustmentTransactions] = await Promise.all([
     prisma.zmccTankReceipt.findMany({
       where: {
         arrival_type: 'HC',
@@ -618,6 +628,17 @@ export async function getSupplyChainLossHierarchy(filters: {
       },
       orderBy: { created_at: 'desc' },
     }),
+    prisma.zmccTankInventoryTransaction.findMany({
+      where: {
+        transaction_type: 'ADJUSTMENT_IN',
+        operational_timestamp: { gte: startDate, lte: endDate },
+        ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
+      },
+      select: {
+        quantity_liters: true,
+        at_13ts_liters: true,
+      },
+    }),
   ]);
 
   let localInwardGross = 0;
@@ -625,6 +646,13 @@ export async function getSupplyChainLossHierarchy(filters: {
   for (const s of localSupplierSessions) {
     localInwardGross += s.gross_liters ? Number(s.gross_liters) : 0;
     localInward13ts += s.at_13ts_liters ? Number(s.at_13ts_liters) : 0;
+  }
+
+  let adminInwardGross = 0;
+  let adminInward13ts = 0;
+  for (const a of adminAdjustmentTransactions) {
+    adminInwardGross += a.quantity_liters ? Number(a.quantity_liters) : 0;
+    adminInward13ts += a.at_13ts_liters ? Number(a.at_13ts_liters) : 0;
   }
 
   for (const p of hcNotReceivedPortions) {
@@ -759,11 +787,13 @@ export async function getSupplyChainLossHierarchy(filters: {
   const tier2Calc = calculateTier2ZmccLoss({
     motInwardGrossLiters: totalZmccArrivalGrossLiters,
     localInwardGrossLiters: localInwardGross,
+    adminAdjustmentGrossLiters: adminInwardGross,
     dispatchedGrossLiters: totalDispatchedGrossLiters,
     startingTankStockLiters: startStockLiters,
     endingTankStockLiters: endStockLiters,
     motInwardAt13tsLiters: totalZmccArrivalAt13tsLiters,
     localInwardAt13tsLiters: localInward13ts,
+    adminAdjustmentAt13tsLiters: adminInward13ts,
     dispatchedAt13tsLiters: totalDispatchedAt13tsLiters,
   });
 

@@ -113,9 +113,11 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
       open={!!tank}
       onClose={onClose}
       title={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <Milk className="h-5 w-5 text-primary shrink-0" />
-          <span>Manual Milk Intake · {tank.tank_code} ({tank.tank_name})</span>
+          <span className="truncate text-sm sm:text-base">
+            Manual Milk Intake · {tank.tank_code}
+          </span>
         </div>
       }
       busy={mutation.isPending}
@@ -123,24 +125,32 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Tank State Summary Card */}
-        <div className="rounded-xl border border-border bg-subtle p-3.5 space-y-2.5">
+        <div className="rounded-xl border border-border bg-subtle p-3 sm:p-3.5 space-y-2.5">
           <div className="flex justify-between items-center text-xs font-semibold text-foreground">
             <span>Tank Storage State</span>
-            <span className="text-[11px] text-muted-foreground uppercase">{tank.zmcc?.name || 'Assigned ZMCC'}</span>
+            <span className="text-[11px] text-muted-foreground uppercase truncate max-w-[150px]">
+              {tank.zmcc?.name || 'Assigned ZMCC'}
+            </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="bg-card p-2 rounded-lg border border-border">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-center text-xs">
+            <div className="bg-card p-2 rounded-lg border border-border overflow-hidden">
               <span className="text-[10px] text-muted-foreground block uppercase font-medium">Capacity</span>
-              <span className="font-bold text-foreground tabular-nums">{tank.capacity_liters.toLocaleString()} L</span>
+              <span className="font-bold text-foreground tabular-nums block truncate">
+                {tank.capacity_liters.toLocaleString()} L
+              </span>
             </div>
-            <div className="bg-card p-2 rounded-lg border border-border">
+            <div className="bg-card p-2 rounded-lg border border-border overflow-hidden">
               <span className="text-[10px] text-muted-foreground block uppercase font-medium">Current Stock</span>
-              <span className="font-bold text-blue-700 tabular-nums">{tank.current_stock.toLocaleString()} L</span>
+              <span className="font-bold text-blue-700 tabular-nums block truncate">
+                {tank.current_stock.toLocaleString()} L
+              </span>
             </div>
-            <div className="bg-card p-2 rounded-lg border border-border">
+            <div className="bg-card p-2 rounded-lg border border-border overflow-hidden">
               <span className="text-[10px] text-muted-foreground block uppercase font-medium">Available</span>
-              <span className="font-bold text-emerald-700 tabular-nums">{availableCap.toLocaleString()} L</span>
+              <span className="font-bold text-emerald-700 tabular-nums block truncate">
+                {availableCap.toLocaleString()} L
+              </span>
             </div>
           </div>
 
@@ -179,13 +189,13 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
         </div>
 
         {/* Quality Parameters Section */}
-        <div className="rounded-xl border border-border bg-card p-3.5 space-y-3">
-          <div className="flex items-center justify-between">
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-3.5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
               <FlaskConical className="h-4 w-4 text-primary shrink-0" />
               <span>Milk Quality &amp; @13% TS Basis</span>
             </div>
-            <label className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 cursor-pointer">
+            <label className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 cursor-pointer self-start sm:self-auto">
               <input
                 type="checkbox"
                 checked={useCustom13Ts}

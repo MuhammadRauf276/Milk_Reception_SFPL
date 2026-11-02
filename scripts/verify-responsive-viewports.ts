@@ -76,6 +76,7 @@ const SCREENS: ScreenSpec[] = [
   { id: 'SA-03', role: 'SUPER_ADMIN', name: 'Super Admin Procurement Sources', url: 'http://127.0.0.1:3000/super-admin/procurement-sources', username: 'admin.superuser', expectedText: 'Procurement' },
   { id: 'SA-04', role: 'SUPER_ADMIN', name: 'Super Admin Audit Logs', url: 'http://127.0.0.1:3000/super-admin/audit', username: 'admin.superuser', expectedText: 'Audit' },
   { id: 'SA-05', role: 'SUPER_ADMIN', name: 'Super Admin Daily Report', url: 'http://127.0.0.1:3000/super-admin/daily-report', username: 'admin.superuser', expectedText: 'Daily Report' },
+  { id: 'SA-06', role: 'SUPER_ADMIN', name: 'Super Admin ZMCC Tanks', url: 'http://127.0.0.1:3000/super-admin/zmcc-tanks', username: 'admin.superuser', expectedText: 'Tank Storage' },
 
   // 8. Public Transit Display
   { id: 'TV-01', role: 'PUBLIC_DISPLAY', name: 'Public TV Board', url: 'http://127.0.0.1:3000/tv-board', username: 'admin.superuser', expectedText: 'Yard Status Board' },

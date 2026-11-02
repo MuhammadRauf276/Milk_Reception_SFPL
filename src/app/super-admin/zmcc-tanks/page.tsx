@@ -209,17 +209,17 @@ export default function SuperAdminZmccTanksPage() {
           <h1 className="text-xl font-semibold text-foreground">ZMCC Tank Storage &amp; Stock</h1>
           <InfoTip text="Raw milk storage tanks across all ZMCC sources. Directly add milk stock (@13% TS and Gross Liters) when field staff are absent, and monitor dispatch issue deductions." />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
-            className="h-11 shrink-0 px-3.5"
+            className="h-11 shrink-0 px-3.5 flex-1 sm:flex-initial"
             onClick={openCreate}
           >
             <Plus className="h-4 w-4 mr-1.5" />
             <span>Add Tank</span>
           </Button>
           <Button
-            className="h-11 shrink-0 px-4"
+            className="h-11 shrink-0 px-4 flex-1 sm:flex-initial"
             disabled={tanks.filter((t) => t.is_active).length === 0}
             onClick={() => {
               const active = tanks.find((t) => t.is_active);
@@ -233,7 +233,7 @@ export default function SuperAdminZmccTanksPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded-xl border border-border bg-card p-3.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground text-[11px] uppercase font-semibold">
             <span>Active Tanks</span>
@@ -303,8 +303,8 @@ export default function SuperAdminZmccTanksPage() {
       </AnimatePresence>
 
       {/* Filter Bar */}
-      <div className="flex items-center justify-between bg-card p-3 rounded-xl border border-border">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-card p-3 rounded-xl border border-border">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
           <span className="text-xs font-semibold text-muted-foreground uppercase">Filter ZMCC:</span>
           <Combobox
             options={zmccFilterOptions}
@@ -312,16 +312,148 @@ export default function SuperAdminZmccTanksPage() {
             onValueChange={setSelectedZmccId}
             placeholder="All ZMCCs"
             searchPlaceholder="Search ZMCC"
-            className="min-h-10 w-60 text-xs font-semibold"
+            className="min-h-11 w-full sm:w-60 text-xs font-semibold"
           />
         </div>
-        <span className="text-xs text-muted-foreground font-medium">
+        <span className="text-xs text-muted-foreground font-medium self-end sm:self-auto">
           Showing {tanks.length} tank{tanks.length === 1 ? '' : 's'}
         </span>
       </div>
 
-      {/* Tanks Table */}
-      <div className="w-full max-w-full overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
+      {/* Mobile Card List (Visible on phones/small screens < md) */}
+      <div data-testid="mobile-tank-cards" className="block md:hidden space-y-3">
+        {tanksQuery.isPending ? (
+          <div className="p-8 text-center rounded-xl border border-border bg-card text-muted-foreground text-xs">
+            Loading tanks…
+          </div>
+        ) : tanks.length === 0 ? (
+          <div className="p-8 text-center rounded-xl border border-border bg-card text-muted-foreground text-xs">
+            No tanks found for the selected scope.
+          </div>
+        ) : (
+          tanks.map((t) => {
+            const cap = Number(t.capacity_liters) || 0;
+            const gross = Number(t.current_stock) || 0;
+            const fillPct = cap > 0 ? Math.min(100, Math.round((gross / cap) * 100)) : 0;
+
+            return (
+              <div key={t.id} className="rounded-xl border border-border bg-card p-3.5 shadow-2xs space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-bold text-foreground tabular-nums">{t.tank_code}</span>
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                          t.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        {t.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {t.tank_name} · {t.zmcc ? `${t.zmcc.name} (${t.zmcc.code})` : '—'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fill Progress Bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px] text-muted-foreground font-medium">
+                    <span>Fill Level</span>
+                    <span className="tabular-nums font-semibold text-foreground">{fillPct}%</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        fillPct > 90 ? 'bg-amber-500' : fillPct > 70 ? 'bg-blue-600' : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${fillPct}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Metrics Grid */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-subtle p-2.5 rounded-lg border border-border">
+                    <span className="text-[10px] text-muted-foreground block uppercase font-medium">Physical Stock (Gross)</span>
+                    <span className="text-sm font-bold text-blue-700 tabular-nums">
+                      {gross.toLocaleString('en-US', { minimumFractionDigits: 2 })} L
+                    </span>
+                  </div>
+                  <div className="bg-subtle p-2.5 rounded-lg border border-border">
+                    <span className="text-[10px] text-muted-foreground block uppercase font-medium">Stock @13% TS</span>
+                    <span className="text-sm font-bold text-primary tabular-nums">
+                      {t.current_commercial_stock_at_13ts !== null && t.current_commercial_stock_at_13ts !== undefined
+                        ? `${Number(t.current_commercial_stock_at_13ts).toLocaleString('en-US', { minimumFractionDigits: 2 })} L`
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="bg-subtle p-2.5 rounded-lg border border-border">
+                    <span className="text-[10px] text-muted-foreground block uppercase font-medium">Total Capacity</span>
+                    <span className="font-semibold text-foreground tabular-nums">
+                      {cap.toLocaleString('en-US', { minimumFractionDigits: 2 })} L
+                    </span>
+                  </div>
+                  <div className="bg-subtle p-2.5 rounded-lg border border-border">
+                    <span className="text-[10px] text-muted-foreground block uppercase font-medium">Free Space</span>
+                    <span className="font-semibold text-emerald-700 tabular-nums">
+                      {Number(t.available_capacity).toLocaleString('en-US', { minimumFractionDigits: 2 })} L
+                    </span>
+                  </div>
+                </div>
+
+                {/* Mobile Actions with Touch Heights */}
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+                  {t.is_active && (
+                    <Button
+                      size="sm"
+                      className="h-11 flex-1 px-3 text-xs bg-primary hover:bg-primary-hover text-white font-semibold"
+                      onClick={() => setIntakeTank(t)}
+                    >
+                      <Milk className="h-4 w-4 mr-1.5" />
+                      <span>Intake</span>
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-11 flex-1 px-3 text-xs font-semibold"
+                    onClick={() => setLedgerTank(t)}
+                  >
+                    <History className="h-4 w-4 mr-1.5" />
+                    <span>Ledger</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-11 w-11 p-0 shrink-0"
+                    onClick={() => openEdit(t)}
+                    title="Edit tank configuration"
+                  >
+                    <Edit2 className="h-4 w-4 text-slate-700" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`h-11 w-11 p-0 shrink-0 ${
+                      t.is_active
+                        ? 'text-rose-600 border-rose-200 hover:bg-rose-50'
+                        : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'
+                    }`}
+                    onClick={() => toggleMutation.mutate({ id: t.id, isActive: !t.is_active })}
+                    title={t.is_active ? 'Deactivate tank' : 'Activate tank'}
+                  >
+                    <Power className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Tanks Table (Visible on md+ screens) */}
+      <div data-testid="desktop-tanks-table" className="hidden md:block w-full max-w-full overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         <div className="w-full overflow-x-auto">
           <table className="w-full min-w-[750px] text-left text-xs font-sans">
             <thead className="border-b border-border bg-muted/50 text-muted-foreground uppercase font-semibold text-[10px] tracking-wider">
