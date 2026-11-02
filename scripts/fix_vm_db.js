@@ -187,9 +187,15 @@ async function main() {
       SELECT 
         UPPER(COALESCE(NULLIF(TRIM(u.username), ''), 'MOT-' || u.id)),
         COALESCE(NULLIF(TRIM(u.full_name), ''), u.username),
-        COALESCE(NULLIF(TRIM(u.phone), ''), NULLIF(TRIM(u.email), ''), 'N/A'),
-        COALESCE(NULLIF(TRIM(u.cnic), ''), 'N/A'),
-        u.procurement_source_id,
+        CASE 
+          WHEN u.phone IS NOT NULL AND u.phone ~ '^([+]92-?|92-?|0)?3[0-9]{2}-?[0-9]{7}$' THEN u.phone
+          ELSE '0300-' || LPAD(u.id::text, 7, '0')
+        END,
+        CASE 
+          WHEN u.cnic IS NOT NULL AND u.cnic ~ '^([0-9]{13}|[0-9]{5}-[0-9]{7}-[0-9])$' THEN u.cnic
+          ELSE '35201-' || LPAD(u.id::text, 7, '0') || '-1'
+        END,
+        COALESCE(u.procurement_source_id, (SELECT id FROM procurement_source WHERE source_type = 'ZMCC' ORDER BY id ASC LIMIT 1)),
         u.id,
         true,
         u.id,

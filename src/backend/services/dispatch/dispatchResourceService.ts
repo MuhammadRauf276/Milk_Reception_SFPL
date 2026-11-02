@@ -151,12 +151,14 @@ export async function getDispatchResources(sourceId: bigint): Promise<DispatchRe
         where: { OR: [{ user_id: u.id }, { mot_code: candidateCode }] },
       });
       if (!existing) {
+        const validPhone = '0300-' + String(u.id).padStart(7, '0');
+        const validCnic = '35201-' + String(u.id).padStart(7, '0') + '-1';
         await prisma.motProfile.create({
           data: {
             mot_code: candidateCode,
             name: u.full_name || u.username,
-            phone_number: u.email || '0300-0000000',
-            cnic: '31201-0000000-0',
+            phone_number: validPhone,
+            cnic: validCnic,
             zmcc_id: sourceId,
             user_id: u.id,
             is_active: true,
