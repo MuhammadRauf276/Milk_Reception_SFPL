@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="@color/background">
 
-    <!-- Native Status Bar Overlay for Offline & GPS Feedback -->
+    <!-- Native Status Bar Overlay for Background GPS & Offline Synchronization -->
     <LinearLayout
         android:id="@+id/nativeStatusBar"
         android:layout_width="match_parent"
@@ -32,7 +32,7 @@
             android:layout_marginStart="8dp"
             android:textColor="#FFFFFF"
             android:textSize="12sp"
-            android:text="GPS Foreground Tracking Active" />
+            android:text="MPDSFPL Operations Active" />
 
         <TextView
             android:id="@+id/tvOfflineQueueCount"
@@ -48,23 +48,86 @@
             android:text="0 Unsent" />
     </LinearLayout>
 
-    <!-- Embedded High-Performance WebView -->
+    <!-- Top Loading Progress Bar (Horizontal indicator) -->
+    <ProgressBar
+        android:id="@+id/pageProgressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:indeterminate="false"
+        android:max="100"
+        android:progress="0"
+        android:progressBackgroundTint="#047857"
+        android:progressTint="#10B981"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/nativeStatusBar" />
+
+    <!-- Embedded High-Performance WebView Container -->
     <WebView
         android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@id/nativeStatusBar"
+        app:layout_constraintTop_toBottomOf="@id/pageProgressBar"
         app:layout_constraintBottom_toBottomOf="parent" />
 
-    <!-- Progress Indicator on Initial Load -->
+    <!-- Cold Start Loading Spinner -->
     <ProgressBar
         android:id="@+id/loadingSpinner"
         android:layout_width="48dp"
         android:layout_height="48dp"
+        android:indeterminateTint="#047857"
         android:visibility="visible"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Offline Connection Recovery View -->
+    <LinearLayout
+        android:id="@+id/layoutOfflineError"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="24dp"
+        android:background="#0F172A"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/nativeStatusBar"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <ImageView
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:src="@drawable/ic_launcher_foreground"
+            android:contentDescription="MPDSFPL Emblem" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textColor="#F8FAFC"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:text="MPDSFPL Connection Offline" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:textColor="#94A3B8"
+            android:textSize="14sp"
+            android:text="Unable to reach the Shakarganj server.\nPlease check your mobile data or Wi-Fi network.\nOffline collections and saved work remain safely stored on this device." />
+
+        <Button
+            android:id="@+id/btnRetryConnection"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:backgroundTint="#047857"
+            android:textColor="#FFFFFF"
+            android:paddingHorizontal="28dp"
+            android:text="Retry Connection" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

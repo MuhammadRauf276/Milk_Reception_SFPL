@@ -8,14 +8,20 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.shakarganj.milkreception.mot"
+        applicationId "com.shakarganj.mpdsfpl"
         minSdk 24
         targetSdk 34
-        versionCode 10004
-        versionName "1.0.0-p4"
+        versionCode 10005
+        versionName "1.0.0-mpdsfpl"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "MPDSFPL-${variant.buildType.name}.apk"
+        }
     }
 
     signingConfigs {
@@ -25,7 +31,7 @@ android {
             if (file(keystorePath).exists()) {
                 storeFile file(keystorePath)
                 storePassword System.getenv("SFPL_KEYSTORE_PASSWORD") ?: "Shakarganj2026!"
-                keyAlias System.getenv("SFPL_KEY_ALIAS") ?: "sfpl-mot-key"
+                keyAlias System.getenv("SFPL_KEY_ALIAS") ?: "sfpl-mpd-key"
                 keyPassword System.getenv("SFPL_KEY_PASSWORD") ?: "Shakarganj2026!"
             }
             v1SigningEnabled true
