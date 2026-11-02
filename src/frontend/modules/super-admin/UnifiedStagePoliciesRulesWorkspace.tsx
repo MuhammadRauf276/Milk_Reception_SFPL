@@ -109,7 +109,7 @@ function WorkspaceInner({
     return defaultTestingPoint === 'CATALOG' ? 'ALL' : defaultTestingPoint;
   }, [paramStage, defaultTestingPoint]);
 
-  const [stageFilter, setStageFilter] = useState<string>(initialStage);
+  const stageFilter = 'ALL';
   const [catalogSearch, setCatalogSearch] = useState('');
   const [catalogStatus, setCatalogStatus] = useState('');
   const [catalogPage, setCatalogPage] = useState(1);
@@ -290,41 +290,20 @@ function WorkspaceInner({
 
       {/* Unified Master Catalog Workspace */}
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
-        {/* Stage Filter Pills Bar */}
-        <div className="border-b border-slate-200 bg-slate-100/90 p-2.5">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mr-1">View:</span>
-            {STAGE_FILTERS.map((s) => {
-              const isSelected = stageFilter === s.id;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    setStageFilter(s.id);
-                    setCatalogPage(1);
-                    resetNotices();
-                  }}
-                  className={`flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-all ${
-                    isSelected
-                      ? 'bg-primary text-white shadow-xs'
-                      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <span>{s.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Active Stage Context Info */}
-          {stageFilter !== 'ALL' && 'unit' in activeStageInfo && (
-            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-slate-700">
-              <span className="font-bold text-slate-900">{activeStageInfo.label}:</span>
-              <span className="text-slate-500">{activeStageInfo.unit}</span>
-              <InfoTip text={activeStageInfo.desc} />
+        {/* Master Matrix Workspace Header */}
+        <div className="border-b border-slate-200 bg-slate-100/90 p-3 sm:px-4 sm:py-3.5">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Master Test Matrix (All 6 Stages)</h2>
+              <p className="text-xs text-slate-500">
+                Authoritative dairy specifications & test mode policies across MOT Shop, ZMCC MC, ZMCC HC, ZMCC Dispatch, Contractor Dispatch, and Plant QA Reception.
+              </p>
             </div>
-          )}
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg px-2.5 py-1">
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
+              <span>All 6 Stages Active</span>
+            </div>
+          </div>
         </div>
 
         {/* Toolbar: Search, Status Filter & Add Lab Test */}
@@ -332,7 +311,7 @@ function WorkspaceInner({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-slate-900">
-                {stageFilter === 'ALL' ? 'Master Matrix' : `${activeStageInfo.label} Tests`}
+                Master Matrix
               </span>
               <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-700">
                 {catalogPagination?.totalRecords ?? catalogTests.length} tests
@@ -341,7 +320,7 @@ function WorkspaceInner({
             {canEdit && (
               <button
                 type="button"
-                onClick={() => setCatalogDrawer({ kind: 'create', initialStage: stageFilter !== 'ALL' ? stageFilter : undefined })}
+                onClick={() => setCatalogDrawer({ kind: 'create' })}
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-white shadow-2xs transition-colors hover:bg-primary-hover"
               >
                 <Plus className="h-4 w-4" />
@@ -389,10 +368,8 @@ function WorkspaceInner({
           </div>
         </div>
 
-        {/* Master Catalog Table: Master Matrix vs Single Stage */}
+        {/* Master Catalog Table: Master Matrix (All 6 Stages Side-by-Side) */}
         <div className="w-full overflow-x-auto">
-          {stageFilter === 'ALL' ? (
-            /* MASTER MATRIX VIEW (All 6 Stages Side-by-Side) */
             <table className="w-full min-w-[1250px] text-left text-xs">
               <thead className="border-b border-slate-200 bg-slate-100/90 text-slate-700">
                 <tr>
@@ -557,181 +534,6 @@ function WorkspaceInner({
                 )}
               </tbody>
             </table>
-          ) : (
-            /* SINGLE STAGE FOCUSED VIEW */
-            <table className="w-full min-w-[1100px] text-left text-xs">
-              <thead className="border-b border-slate-200 bg-slate-100/80 text-slate-700">
-                <tr>
-                  <th className="w-12 p-3 text-center font-bold">#</th>
-                  <th className="p-3 font-bold">Code</th>
-                  <th className="p-3 font-bold">Name</th>
-                  <th className="p-3 font-bold">Type</th>
-                  <th className="p-3 font-bold">Category</th>
-                  <th className="p-3 font-bold">Pass Range</th>
-                  <th className="p-3 font-bold">Warning Hold</th>
-                  <th className="p-3 font-bold">Fail Reject</th>
-                  <th className="p-3 font-bold">Requirement</th>
-                  <th className="p-3 font-bold">Photo</th>
-                  <th className="p-3 font-bold">Status</th>
-                  {canEdit && <th className="sticky right-0 bg-slate-100 p-3 text-right font-bold">Actions</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200/70 font-medium">
-                {catalogQuery.isPending ? (
-                  <tr>
-                    <td colSpan={12} className="p-8 text-center font-semibold text-slate-400">
-                      Loading…
-                    </td>
-                  </tr>
-                ) : catalogTests.length === 0 ? (
-                  <tr>
-                    <td colSpan={12} className="p-8 text-center text-slate-400">
-                      No tests found for this stage.
-                    </td>
-                  </tr>
-                ) : (
-                  catalogTests.map((t) => (
-                    <tr key={t.id} className="transition-colors hover:bg-slate-50">
-                      <td className="p-3 text-center font-semibold tabular-nums text-slate-400">
-                        {t.displayOrder}
-                      </td>
-                      <td className="p-3 font-mono font-bold text-slate-900 tabular-nums">
-                        {t.testCode}
-                      </td>
-                      <td className="p-3 font-bold text-slate-900">
-                        {t.testName}
-                      </td>
-                      <td className="p-3">
-                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
-                          <span>{t.resultType}</span>
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        {t.category === 'MONITORING' ? (
-                          <span className="rounded bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
-                            Monitoring Norm
-                          </span>
-                        ) : (
-                          <span className="rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
-                            Complete SOP
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 font-bold tabular-nums text-emerald-800 whitespace-nowrap">
-                        <span className="inline-flex items-center rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 border border-emerald-200 shadow-2xs">
-                          {t.passRangeText || '—'}
-                        </span>
-                      </td>
-                      <td className="p-3 font-bold tabular-nums text-amber-800 whitespace-nowrap">
-                        {t.warningHoldText && t.warningHoldText !== '—' ? (
-                          <span className="inline-flex items-center rounded-md bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 border border-amber-200 shadow-2xs">
-                            {t.warningHoldText}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-slate-400 font-normal">None (Strict)</span>
-                        )}
-                      </td>
-                      <td className="p-3 font-bold tabular-nums text-rose-800 whitespace-nowrap">
-                        {t.category === 'MONITORING' ? (
-                          <span className="inline-flex items-center rounded-md bg-purple-50 px-2.5 py-1 text-xs font-bold text-purple-700 border border-purple-200">
-                            None (Norm)
-                          </span>
-                        ) : t.failRejectText && t.failRejectText !== '—' ? (
-                          <span className="inline-flex items-center rounded-md bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-800 border border-rose-200 shadow-2xs">
-                            {t.failRejectText}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-slate-400 font-normal">—</span>
-                        )}
-                      </td>
-                      {/* 1-Click Interactive Requirement Toggle */}
-                      <td className="p-3">
-                        <button
-                          type="button"
-                          disabled={!canEdit || toggleRequiredMutation.isPending}
-                          onClick={() => {
-                            resetNotices();
-                            toggleRequiredMutation.mutate({
-                              test: t,
-                              targetRequired: !t.isRequired,
-                            });
-                          }}
-                          className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition ${
-                            t.isRequired
-                              ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
-                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
-                          } ${!canEdit ? 'cursor-default' : 'cursor-pointer'}`}
-                        >
-                          <span className={`inline-block size-2 rounded-full ${t.isRequired ? 'bg-primary' : 'bg-slate-400'}`} />
-                          <span>{t.isRequired ? 'Compulsory' : 'Optional'}</span>
-                        </button>
-                      </td>
-
-                      {/* 1-Click Interactive Photo Requirement Toggle */}
-                      <td className="p-3">
-                        <button
-                          type="button"
-                          disabled={!canEdit || togglePhotoMutation.isPending}
-                          onClick={() => {
-                            resetNotices();
-                            togglePhotoMutation.mutate({
-                              test: t,
-                              targetPhoto: !t.isPhotoRequired,
-                            });
-                          }}
-                          className={`inline-flex min-h-10 items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition ${
-                            t.isPhotoRequired
-                              ? 'border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200'
-                              : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-100'
-                          } ${!canEdit ? 'cursor-default' : 'cursor-pointer'}`}
-                        >
-                          <Camera className={`h-3.5 w-3.5 ${t.isPhotoRequired ? 'text-slate-700' : 'text-slate-400'}`} />
-                          <span>{t.isPhotoRequired ? 'Photo Req' : 'No Photo'}</span>
-                        </button>
-                      </td>
-
-                      {/* Status */}
-                      <td className="p-3">
-                        <button
-                          type="button"
-                          disabled={!canEdit || toggleActiveMutation.isPending}
-                          onClick={() => {
-                            resetNotices();
-                            toggleActiveMutation.mutate({ test: t, targetActive: !t.isActive });
-                          }}
-                          className={`inline-flex min-h-10 items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition ${
-                            t.isActive
-                              ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
-                              : 'border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200'
-                          } ${!canEdit ? 'cursor-default' : 'cursor-pointer'}`}
-                        >
-                          <Check className="h-3 w-3" />
-                          <span>{t.isActive ? 'Active' : 'Inactive'}</span>
-                        </button>
-                      </td>
-
-                      {/* Actions */}
-                      {canEdit && (
-                        <td className="sticky right-0 bg-white p-3 text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              resetNotices();
-                              setCatalogDrawer({ kind: 'edit', test: t });
-                            }}
-                            className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800 transition hover:bg-slate-200"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                            <span>Edit</span>
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          )}
         </div>
 
         {/* Pagination */}

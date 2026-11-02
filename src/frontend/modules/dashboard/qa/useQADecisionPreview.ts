@@ -36,12 +36,13 @@ export function useQADecisionPreview({
     return visitDetail?.active_plant_tests || [];
   }, [visitDetail?.active_plant_tests]);
 
-  // Find LR and Fat for auto-calculated tests (Richmond SNF, Total Solids, Ratio)
+  // Authoritative detection of raw observations: LR and Fat
   const lrTest = React.useMemo(() => {
     return displayableTests.find((t) => {
       const c = (t.testCode || '').toUpperCase();
       const n = (t.testName || '').toUpperCase();
-      return c.includes('LR') || n.includes('LR') || n.includes('LACTOMETER');
+      if (n.includes('RATIO') || n.includes('SNF') || n.includes('SODIUM') || n.includes('CLOT')) return false;
+      return c === 'LR' || c === 'LT_LR' || c === 'LT-000008' || c === 'LT-000027' || n.startsWith('LR') || n.includes('LACTOMETER') || (n.includes('LR') && !n.includes('RATIO'));
     });
   }, [displayableTests]);
 
@@ -49,7 +50,8 @@ export function useQADecisionPreview({
     return displayableTests.find((t) => {
       const c = (t.testCode || '').toUpperCase();
       const n = (t.testName || '').toUpperCase();
-      return c.includes('FAT') || n.includes('FAT') || n.includes('GERBER');
+      if (n.includes('RATIO') || c.includes('RATIO') || n.includes('SNF') || c.includes('SNF')) return false;
+      return c === 'FAT' || c === 'LT_FAT' || c === 'LT-000026' || n === 'FAT' || n.startsWith('FAT') || n.includes('GERBER') || n.includes('FAT %');
     });
   }, [displayableTests]);
 
@@ -101,18 +103,37 @@ export function useQADecisionPreview({
       const state = testInputs[test.id];
       const codeUpper = (test.testCode || '').toUpperCase();
       const nameUpper = (test.testName || '').toUpperCase();
-      const isLR = codeUpper.includes('LR') || nameUpper.includes('LR') || nameUpper.includes('LACTOMETER');
-      const isFAT = codeUpper.includes('FAT') || nameUpper.includes('FAT') || nameUpper.includes('GERBER');
-      const isCalculated = test.resultType === 'CALCULATED' || codeUpper === 'LT-000010' || codeUpper === 'LT-000011' || codeUpper === 'SNF' || codeUpper.includes('RATIO');
+      const isLR = (codeUpper === 'LR' || codeUpper === 'LT_LR' || codeUpper === 'LT-000008' || codeUpper === 'LT-000027' || nameUpper.startsWith('LR') || nameUpper.includes('LACTOMETER')) && !nameUpper.includes('RATIO') && !nameUpper.includes('SNF');
+      const isFAT = (codeUpper === 'FAT' || codeUpper === 'LT_FAT' || codeUpper === 'LT-000026' || nameUpper === 'FAT' || nameUpper.startsWith('FAT') || nameUpper.includes('GERBER')) && !nameUpper.includes('RATIO') && !nameUpper.includes('SNF');
+      
+      const isCategorical = test.resultType === 'POSITIVE_NEGATIVE' || test.resultType === 'OK_NOT_OK' || test.resultType === 'BOOLEAN';
+      const isCalculated = !isCategorical && (
+        test.resultType === 'CALCULATED' ||
+        Boolean((test as any).formulaId) ||
+        codeUpper === 'SYS-SNF' ||
+        codeUpper === 'SYS-TS' ||
+        codeUpper === 'SNF' ||
+        codeUpper === 'TS' ||
+        codeUpper === 'RATIO' ||
+        nameUpper === 'SNF' ||
+        nameUpper.includes('SOLIDS-NOT-FAT') ||
+        nameUpper.includes('SNF TO FAT RATIO') ||
+        nameUpper.includes('RATIO SNF/FAT') ||
+        nameUpper === 'TOTAL SOLIDS'
+      );
       const photoRequired = (isLR || isFAT || Boolean(test.isPhotoRequired)) && !isCalculated;
       const hasPhoto = Boolean(activePhotos[test.id]);
 
       // If it is an auto-calculated test:
       if (isCalculated) {
         let calcVal: number | null = null;
-        if (codeUpper === 'LT-000010' || codeUpper.includes('SNF')) calcVal = autoCalculations.SNF_CANONICAL;
-        else if (codeUpper === 'LT-000011' || codeUpper.includes('SOLIDS')) calcVal = autoCalculations.TOTAL_SOLIDS;
-        else if (codeUpper.includes('RATIO')) calcVal = autoCalculations.RATIO_SNF_FAT;
+        if (nameUpper.includes('RATIO') || codeUpper.includes('RATIO') || codeUpper === 'LT-000009') {
+          calcVal = autoCalculations.RATIO_SNF_FAT ?? autoCalculations['LT-000011'];
+        } else if (nameUpper.includes('SOLIDS') || nameUpper === 'TS' || codeUpper === 'SYS-TS' || codeUpper === 'LT-TOTAL-SOLIDS') {
+          calcVal = autoCalculations.TOTAL_SOLIDS;
+        } else if (nameUpper.includes('SNF') || codeUpper === 'SYS-SNF' || codeUpper === 'LT-000010') {
+          calcVal = autoCalculations.SNF_CANONICAL;
+        }
 
         if (calcVal != null) {
           rows.push({
@@ -223,13 +244,32 @@ export function useQADecisionPreview({
     // Check tests
     for (const test of requiredManualPlantTests) {
       const codeUpper = (test.testCode || '').toUpperCase();
-      const isCalculated = test.resultType === 'CALCULATED' || codeUpper === 'LT-000010' || codeUpper === 'LT-000011' || codeUpper === 'SNF' || codeUpper.includes('RATIO');
+      const nameUpper = (test.testName || '').toUpperCase();
+      const isCategorical = test.resultType === 'POSITIVE_NEGATIVE' || test.resultType === 'OK_NOT_OK' || test.resultType === 'BOOLEAN';
+      const isCalculated = !isCategorical && (
+        test.resultType === 'CALCULATED' ||
+        Boolean((test as any).formulaId) ||
+        codeUpper === 'SYS-SNF' ||
+        codeUpper === 'SYS-TS' ||
+        codeUpper === 'SNF' ||
+        codeUpper === 'TS' ||
+        codeUpper === 'RATIO' ||
+        nameUpper === 'SNF' ||
+        nameUpper.includes('SOLIDS-NOT-FAT') ||
+        nameUpper.includes('SNF TO FAT RATIO') ||
+        nameUpper.includes('RATIO SNF/FAT') ||
+        nameUpper === 'TOTAL SOLIDS'
+      );
 
       if (isCalculated) {
         let calcVal: number | null = null;
-        if (codeUpper === 'LT-000010' || codeUpper.includes('SNF')) calcVal = autoCalculations.SNF_CANONICAL;
-        else if (codeUpper === 'LT-000011' || codeUpper.includes('SOLIDS')) calcVal = autoCalculations.TOTAL_SOLIDS;
-        else if (codeUpper.includes('RATIO')) calcVal = autoCalculations.RATIO_SNF_FAT;
+        if (nameUpper.includes('RATIO') || codeUpper.includes('RATIO') || codeUpper === 'LT-000009') {
+          calcVal = autoCalculations.RATIO_SNF_FAT ?? autoCalculations['LT-000011'];
+        } else if (nameUpper.includes('SOLIDS') || nameUpper === 'TS' || codeUpper === 'SYS-TS' || codeUpper === 'LT-TOTAL-SOLIDS') {
+          calcVal = autoCalculations.TOTAL_SOLIDS;
+        } else if (nameUpper.includes('SNF') || codeUpper === 'SYS-SNF' || codeUpper === 'LT-000010') {
+          calcVal = autoCalculations.SNF_CANONICAL;
+        }
 
         if (calcVal == null) {
           missingCompulsory.push(test.testCode);
@@ -279,10 +319,9 @@ export function useQADecisionPreview({
         }
       }
 
-      const nameUpper = (test.testName || '').toUpperCase();
-      const isLR = codeUpper.includes('LR') || nameUpper.includes('LR') || nameUpper.includes('LACTOMETER');
-      const isFAT = codeUpper.includes('FAT') || nameUpper.includes('FAT') || nameUpper.includes('GERBER');
-      if ((isLR || isFAT || Boolean(test.isPhotoRequired)) && !activePhotos[test.id]) {
+      const isLRTest = (codeUpper === 'LR' || codeUpper === 'LT_LR' || codeUpper === 'LT-000008' || codeUpper === 'LT-000027' || nameUpper.startsWith('LR') || nameUpper.includes('LACTOMETER')) && !nameUpper.includes('RATIO') && !nameUpper.includes('SNF');
+      const isFATTest = (codeUpper === 'FAT' || codeUpper === 'LT_FAT' || codeUpper === 'LT-000026' || nameUpper === 'FAT' || nameUpper.startsWith('FAT') || nameUpper.includes('GERBER')) && !nameUpper.includes('RATIO') && !nameUpper.includes('SNF');
+      if ((isLRTest || isFATTest || Boolean(test.isPhotoRequired)) && !activePhotos[test.id]) {
         missingPhotos.push(test.testCode);
       }
     }

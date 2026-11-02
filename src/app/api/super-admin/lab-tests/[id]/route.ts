@@ -25,19 +25,24 @@ export async function PATCH(
     }
 
     // RESULT_TYPE IMMUTABILITY PROTECTION ENFORCEMENT
+    // Switching between NUMERIC and CALCULATED is always safe because both represent numbers/floating-point evaluations.
     if (body.resultType && body.resultType !== targetTest.resultType) {
-      const dispatchCount = await prisma.dispatchLabResult.count({ where: { test_id: testId } });
-      const plantCount = await prisma.plantLabResult.count({ where: { test_id: testId } });
-      const zmccCount = await prisma.zmccLabResult.count({ where: { test_id: testId } });
-      const totalCount = dispatchCount + plantCount + zmccCount;
+      const isNumericPair = (body.resultType === 'NUMERIC' && targetTest.resultType === 'CALCULATED') ||
+                            (body.resultType === 'CALCULATED' && targetTest.resultType === 'NUMERIC');
+      if (!isNumericPair) {
+        const dispatchCount = await prisma.dispatchLabResult.count({ where: { test_id: testId } });
+        const plantCount = await prisma.plantLabResult.count({ where: { test_id: testId } });
+        const zmccCount = await prisma.zmccLabResult.count({ where: { test_id: testId } });
+        const totalCount = dispatchCount + plantCount + zmccCount;
 
-      if (totalCount > 0) {
-        return NextResponse.json(
-          {
-            error: `Result type change rejected. Cannot change resultType from "${targetTest.resultType}" to "${body.resultType}" for Lab Test "${targetTest.testCode}" (${targetTest.testName}) because ${totalCount} historical result records already exist.`,
-          },
-          { status: 400 }
-        );
+        if (totalCount > 0) {
+          return NextResponse.json(
+            {
+              error: `Result type change rejected. Cannot change resultType from "${targetTest.resultType}" to "${body.resultType}" for Lab Test "${targetTest.testCode}" (${targetTest.testName}) because ${totalCount} historical result records already exist.`,
+            },
+            { status: 400 }
+          );
+        }
       }
     }
 
@@ -85,6 +90,7 @@ export async function PATCH(
         where: { id: testId },
         data: {
           testName: body.testName !== undefined ? body.testName.trim() : targetTest.testName,
+          resultType: body.resultType !== undefined ? body.resultType : targetTest.resultType,
           unit: body.unit !== undefined ? (body.unit ? body.unit.trim() : null) : targetTest.unit,
           testScope: body.testScope !== undefined ? body.testScope : targetTest.testScope,
           displayOrder: body.displayOrder !== undefined ? Number(body.displayOrder) : targetTest.displayOrder,
@@ -234,6 +240,47 @@ export async function PATCH(
                 },
               });
             }
+          }
+        }
+
+        // 3. Synchronize modern 6-stage test_point_policies
+        const ALL_MATRIX_POINTS = ['MOT_SHOP', 'ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'ZMCC_DISPATCH', 'CONTRACTOR_DISPATCH', 'PLANT_QA'];
+        for (const pt of ALL_MATRIX_POINTS) {
+          const isAssigned = body.assignedStages.includes(pt) || (pt === 'ZMCC_DISPATCH' && body.assignedStages.includes('DISPATCH')) || (pt === 'CONTRACTOR_DISPATCH' && body.assignedStages.includes('DISPATCH'));
+          const mode = effectiveType === 'CALCULATED'
+            ? 'AUTO'
+            : isAssigned
+            ? (effectiveRequired ? 'COMPULSORY' : 'APPLIED')
+            : 'NOT_APPLIED';
+
+          const existingPolicy = await tx.testPointPolicy.findFirst({
+            where: { lab_test_id: testId, testing_point: pt, is_active: true },
+          });
+
+          if (existingPolicy) {
+            await tx.testPointPolicy.update({
+              where: { id: existingPolicy.id },
+              data: {
+                test_mode: mode,
+                photo_mode: body.isPhotoRequired !== undefined ? (body.isPhotoRequired ? 'REQUIRED' : 'NONE') : existingPolicy.photo_mode,
+                changed_by: adminUser?.id ?? BigInt(1),
+                change_reason: `Super Admin updated test policies for ${targetTest.testCode}`,
+              },
+            });
+          } else {
+            await tx.testPointPolicy.create({
+              data: {
+                lab_test_id: testId,
+                testing_point: pt,
+                test_mode: mode,
+                rule_mode: 'APPLY',
+                photo_mode: body.isPhotoRequired ? 'REQUIRED' : 'NONE',
+                version: 1,
+                is_active: true,
+                changed_by: adminUser?.id ?? BigInt(1),
+                change_reason: `Initial policy creation on edit for ${targetTest.testCode}`,
+              },
+            });
           }
         }
       }

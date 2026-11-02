@@ -25,13 +25,14 @@ export const CALCULATED_FORMULA_REGISTRY: Record<string, CalculatedFormulaDef> =
     formulaId: 'SNF_CANONICAL',
     name: 'Solids-Not-Fat (SNF %)',
     description: 'Canonical dairy SNF formula: (LR / 4) + 0.22 * Fat + 0.72',
-    targetTestCode: 'LT-000010',
-    dependencies: ['LT-000008', 'LT-000009'], // LR @ 20°C, Fat %
+    targetTestCode: 'SYS-SNF',
+    dependencies: ['LR', 'FAT'],
     displayFormula: '(LR / 4) + (0.22 × Fat) + 0.72',
     calculate: (inputs) => {
-      // Look up by test code or friendly key
-      const lrRaw = inputs['LT-000008'] ?? inputs['LT-000027'] ?? inputs['LR'];
-      const fatRaw = inputs['LT-000009'] ?? inputs['LT-000026'] ?? inputs['FAT'];
+      // Look up by test code or friendly key: LR @ 20°C (LT-000008 or LT-000027 or LR)
+      const lrRaw = inputs['LR'] ?? inputs['LT_LR'] ?? inputs['LT-000008'] ?? inputs['LT-000027'];
+      // Look up Fat (LT-000026 or FAT) - never LT-000009 which is ratio!
+      const fatRaw = inputs['FAT'] ?? inputs['LT_FAT'] ?? inputs['LT-000026'];
 
       const lr = lrRaw !== null && lrRaw !== undefined ? Number(lrRaw) : null;
       const fat = fatRaw !== null && fatRaw !== undefined ? Number(fatRaw) : null;
@@ -47,19 +48,17 @@ export const CALCULATED_FORMULA_REGISTRY: Record<string, CalculatedFormulaDef> =
     formulaId: 'RATIO_SNF_FAT',
     name: 'SNF to Fat Ratio',
     description: 'Ratio of SNF divided by Fat: SNF / Fat',
-    targetTestCode: 'LT-000011',
-    dependencies: ['LT-000010', 'LT-000009'], // SNF, Fat
+    targetTestCode: 'LT-000009',
+    dependencies: ['SNF', 'FAT'],
     displayFormula: 'SNF / Fat',
     calculate: (inputs) => {
-      // If SNF is not directly provided in inputs, attempt to compute SNF from LR and Fat first
-      let snfRaw = inputs['LT-000010'] ?? inputs['SNF'];
-      const fatRaw = inputs['LT-000009'] ?? inputs['LT-000026'] ?? inputs['FAT'];
-
+      const fatRaw = inputs['FAT'] ?? inputs['LT_FAT'] ?? inputs['LT-000026'];
       const fat = fatRaw !== null && fatRaw !== undefined ? Number(fatRaw) : null;
       if (fat === null || isNaN(fat) || !isFinite(fat) || fat <= 0) {
         return null;
       }
 
+      let snfRaw = inputs['SNF'] ?? inputs['SYS-SNF'];
       if (snfRaw === null || snfRaw === undefined || isNaN(Number(snfRaw))) {
         snfRaw = CALCULATED_FORMULA_REGISTRY.SNF_CANONICAL.calculate(inputs);
       }
@@ -77,12 +76,12 @@ export const CALCULATED_FORMULA_REGISTRY: Record<string, CalculatedFormulaDef> =
     formulaId: 'TOTAL_SOLIDS',
     name: 'Total Solids (TS %)',
     description: 'Total Solids in milk: Fat + SNF',
-    targetTestCode: 'LT-TOTAL-SOLIDS',
-    dependencies: ['LT-000009', 'LT-000010'], // Fat, SNF
+    targetTestCode: 'SYS-TS',
+    dependencies: ['FAT', 'SNF'],
     displayFormula: 'Fat + SNF',
     calculate: (inputs) => {
-      const fatRaw = inputs['LT-000009'] ?? inputs['LT-000026'] ?? inputs['FAT'];
-      let snfRaw = inputs['LT-000010'] ?? inputs['SNF'];
+      const fatRaw = inputs['FAT'] ?? inputs['LT_FAT'] ?? inputs['LT-000026'];
+      let snfRaw = inputs['SNF'] ?? inputs['SYS-SNF'];
 
       const fat = fatRaw !== null && fatRaw !== undefined ? Number(fatRaw) : null;
       if (fat === null || isNaN(fat) || !isFinite(fat) || fat <= 0) {
@@ -129,6 +128,13 @@ export function evaluateAllCalculatedTests(
     results[formula.targetTestCode] = val;
     results[formula.formulaId] = val;
   }
+  // Canonical friendly aliases
+  results['SNF'] = results['SNF_CANONICAL'];
+  results['SYS-SNF'] = results['SNF_CANONICAL'];
+  results['RATIO'] = results['RATIO_SNF_FAT'];
+  results['LT-000009'] = results['RATIO_SNF_FAT'];
+  results['TS'] = results['TOTAL_SOLIDS'];
+  results['SYS-TS'] = results['TOTAL_SOLIDS'];
   return results;
 }
 

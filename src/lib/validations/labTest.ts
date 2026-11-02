@@ -40,6 +40,10 @@ export const createLabTestSchema = z.object({
   isActive: z.boolean().default(true),
   displayOrder: z.number().int().min(0, 'Display order must be a non-negative integer').default(0),
   resultOptions: resultOptionsArraySchema.nullable().optional(),
+  category: z.enum(['RELEASE', 'MONITORING']).optional(),
+  formulaId: z.string().nullable().optional(),
+  warningHoldText: z.string().nullable().optional(),
+  failRejectText: z.string().nullable().optional(),
 });
 
 export const updateLabTestSchema = z.object({
@@ -57,6 +61,10 @@ export const updateLabTestSchema = z.object({
   isActive: z.boolean().optional(),
   displayOrder: z.number().int().min(0).optional(),
   resultOptions: resultOptionsArraySchema.nullable().optional(),
+  category: z.enum(['RELEASE', 'MONITORING']).optional(),
+  formulaId: z.string().nullable().optional(),
+  warningHoldText: z.string().nullable().optional(),
+  failRejectText: z.string().nullable().optional(),
 });
 
 export type CreateLabTestInput = z.infer<typeof createLabTestSchema>;

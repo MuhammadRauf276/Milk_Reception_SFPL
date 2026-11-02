@@ -62,13 +62,23 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
   const codeUpper = (test.testCode || '').toUpperCase();
   const nameUpper = (test.testName || '').toUpperCase();
 
+  const isCategorical = test.resultType === 'POSITIVE_NEGATIVE' || test.resultType === 'OK_NOT_OK' || test.resultType === 'BOOLEAN';
   const isCalculated =
-    Boolean(isCalculatedProp) ||
-    test.resultType === 'CALCULATED' ||
-    codeUpper === 'LT-000010' ||
-    codeUpper === 'LT-000011' ||
-    codeUpper === 'SNF' ||
-    codeUpper.includes('RATIO');
+    !isCategorical && (
+      Boolean(isCalculatedProp) ||
+      test.resultType === 'CALCULATED' ||
+      Boolean((test as any).formulaId) ||
+      codeUpper === 'SYS-SNF' ||
+      codeUpper === 'SYS-TS' ||
+      codeUpper === 'SNF' ||
+      codeUpper === 'TS' ||
+      codeUpper === 'RATIO' ||
+      nameUpper === 'SNF' ||
+      nameUpper.includes('SOLIDS-NOT-FAT') ||
+      nameUpper.includes('SNF TO FAT RATIO') ||
+      nameUpper.includes('RATIO SNF/FAT') ||
+      nameUpper === 'TOTAL SOLIDS'
+    );
 
   const isAppliedOnly = !test.isRequired;
 

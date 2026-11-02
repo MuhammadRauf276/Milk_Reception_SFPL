@@ -306,6 +306,72 @@ async function main() {
     `);
     console.log('✓ CQRS views verified.');
 
+    // 8. Canonical Dairy Test & Master Matrix Policy Normalization
+    console.log('[8/8] Normalizing canonical dairy lab tests & 6-stage matrix policies...');
+    await client.query(`
+      -- Clean up Starch (LT-000011): ensure POSITIVE_NEGATIVE and remove corrupted numeric boundaries
+      UPDATE lab_test
+      SET result_type = 'POSITIVE_NEGATIVE'
+      WHERE test_name ILIKE '%starch%' OR test_code = 'LT-000011';
+
+      UPDATE lab_test_rule
+      SET min_value = NULL, max_value = NULL, warning_trigger = NULL,
+          acceptable_option = 'Negative', decision_consequence = 'Positive'
+      WHERE lab_test_id IN (
+        SELECT id FROM lab_test WHERE test_name ILIKE '%starch%' OR test_code = 'LT-000011'
+      );
+
+      -- Clean up SNF to Fat Ratio (LT-000009): ensure CALCULATED with 0 - 2.35 pass range
+      UPDATE lab_test
+      SET result_type = 'CALCULATED'
+      WHERE (test_name ILIKE '%ratio%' AND (test_name ILIKE '%snf%' OR test_name ILIKE '%fat%')) OR test_code = 'LT-000009';
+
+      UPDATE lab_test_rule
+      SET min_value = 0.00, max_value = 2.35, warning_trigger = NULL,
+          decision_consequence = '> 2.35', acceptable_option = NULL
+      WHERE lab_test_id IN (
+        SELECT id FROM lab_test WHERE (test_name ILIKE '%ratio%' AND (test_name ILIKE '%snf%' OR test_name ILIKE '%fat%')) OR test_code = 'LT-000009'
+      );
+
+      -- Clean up SYS-SNF and SYS-TS if present
+      UPDATE lab_test
+      SET result_type = 'CALCULATED'
+      WHERE test_code IN ('SYS-SNF', 'SYS-TS') OR test_name IN ('SNF', 'TS');
+
+      -- Ensure test_point_policy records exist across all 6 stages for all active tests
+      INSERT INTO test_point_policy (lab_test_id, testing_point, test_mode, rule_mode, photo_mode, version, is_active, changed_by, change_reason, created_at)
+      SELECT
+        lt.id,
+        pt.stage,
+        CASE
+          WHEN lt.result_type = 'CALCULATED' THEN 'AUTO'
+          WHEN lt.is_required = true THEN 'COMPULSORY'
+          ELSE 'APPLIED'
+        END,
+        'APPLY',
+        CASE WHEN lt.is_photo_required = true THEN 'REQUIRED' ELSE 'NONE' END,
+        1,
+        true,
+        COALESCE((SELECT id FROM users WHERE role = 'SUPER_ADMIN' ORDER BY id ASC LIMIT 1), 1),
+        'Canonical 6-stage test point policy initialization',
+        NOW()
+      FROM lab_test lt
+      CROSS JOIN (
+        VALUES
+          ('MOT_SHOP'),
+          ('ZMCC_LAB_MC'),
+          ('ZMCC_LAB_HC'),
+          ('ZMCC_DISPATCH'),
+          ('CONTRACTOR_DISPATCH'),
+          ('PLANT_QA')
+      ) AS pt(stage)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM test_point_policy tpp
+        WHERE tpp.lab_test_id = lt.id AND tpp.testing_point = pt.stage AND tpp.is_active = true
+      );
+    `);
+    console.log('✓ Canonical tests and Master Matrix policies normalized.');
+
     console.log('\n======================================================');
     console.log('  Database Schema Synchronized Successfully!          ');
     console.log('  All tables, columns, indexes and views are ready.   ');

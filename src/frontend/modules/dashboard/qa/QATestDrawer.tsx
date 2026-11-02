@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
-import { LiveCameraCapture } from '@/components/camera/LiveCameraCapture';
+import { LiveCamera } from '@/components/camera/LiveCamera';
 import { cn } from '@/lib/utils';
 import { evaluate3ZoneTest } from '@/lib/sop-evaluation';
 import type { LabTestDef, TestInputState, VisitDetail, VisitDetailPortion } from './qaTypes';
@@ -181,12 +181,13 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
       ['SUPER_ADMIN', 'DATA_EXECUTIVE', 'EXECUTIVE_MANAGEMENT', 'HEAD_OF_MPD', 'QA_HEAD'].includes(currentUser.role)
   );
 
-  // Compute live auto-calculations from LR and Fat
+  // Authoritative detection of raw observations: LR and Fat
   const lrTest = useMemo(() => {
     return displayableTests.find((t) => {
       const c = (t.testCode || '').toUpperCase();
       const n = (t.testName || '').toUpperCase();
-      return c.includes('LR') || n.includes('LR') || n.includes('LACTOMETER');
+      if (n.includes('RATIO') || n.includes('SNF') || n.includes('SODIUM') || n.includes('CLOT')) return false;
+      return c === 'LR' || c === 'LT_LR' || c === 'LT-000008' || c === 'LT-000027' || n.startsWith('LR') || n.includes('LACTOMETER') || (n.includes('LR') && !n.includes('RATIO'));
     });
   }, [displayableTests]);
 
@@ -194,7 +195,8 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
     return displayableTests.find((t) => {
       const c = (t.testCode || '').toUpperCase();
       const n = (t.testName || '').toUpperCase();
-      return c.includes('FAT') || n.includes('FAT') || n.includes('GERBER');
+      if (n.includes('RATIO') || c.includes('RATIO') || n.includes('SNF') || c.includes('SNF')) return false;
+      return c === 'FAT' || c === 'LT_FAT' || c === 'LT-000026' || n === 'FAT' || n.startsWith('FAT') || n.includes('GERBER') || n.includes('FAT %');
     });
   }, [displayableTests]);
 
@@ -398,18 +400,34 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                         textValue: '',
                       };
                       const codeUpper = (t.testCode || '').toUpperCase();
-                      const isCalculated =
+                      const nameUpper = (t.testName || '').toUpperCase();
+
+                      // Categorical tests (Starch, Sugar, Alcohol, etc.) can NEVER be calculated
+                      const isCategorical = t.resultType === 'POSITIVE_NEGATIVE' || t.resultType === 'OK_NOT_OK' || t.resultType === 'BOOLEAN';
+                      const isCalculated = !isCategorical && (
                         t.resultType === 'CALCULATED' ||
-                        codeUpper === 'LT-000010' ||
-                        codeUpper === 'LT-000011' ||
+                        Boolean((t as any).formulaId) ||
+                        codeUpper === 'SYS-SNF' ||
+                        codeUpper === 'SYS-TS' ||
                         codeUpper === 'SNF' ||
-                        codeUpper.includes('RATIO');
+                        codeUpper === 'TS' ||
+                        codeUpper === 'RATIO' ||
+                        nameUpper === 'SNF' ||
+                        nameUpper.includes('SOLIDS-NOT-FAT') ||
+                        nameUpper.includes('SNF TO FAT RATIO') ||
+                        nameUpper.includes('RATIO SNF/FAT') ||
+                        nameUpper === 'TOTAL SOLIDS'
+                      );
 
                       let calcVal: number | null = null;
                       if (isCalculated) {
-                        if (codeUpper === 'LT-000010' || codeUpper.includes('SNF')) calcVal = autoCalculations.SNF_CANONICAL;
-                        else if (codeUpper === 'LT-000011' || codeUpper.includes('SOLIDS')) calcVal = autoCalculations.TOTAL_SOLIDS;
-                        else if (codeUpper.includes('RATIO')) calcVal = autoCalculations.RATIO_SNF_FAT;
+                        if (nameUpper.includes('RATIO') || codeUpper.includes('RATIO') || codeUpper === 'LT-000009') {
+                          calcVal = autoCalculations.RATIO_SNF_FAT ?? autoCalculations['LT-000011'];
+                        } else if (nameUpper.includes('SOLIDS') || nameUpper === 'TS' || codeUpper === 'SYS-TS' || codeUpper === 'LT-TOTAL-SOLIDS') {
+                          calcVal = autoCalculations.TOTAL_SOLIDS;
+                        } else if (nameUpper.includes('SNF') || codeUpper === 'SYS-SNF' || codeUpper === 'LT-000010') {
+                          calcVal = autoCalculations.SNF_CANONICAL;
+                        }
                       }
 
                       const range = labSopRangeText(t.rule);
@@ -492,7 +510,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                                   <input
                                     type="text"
                                     readOnly
-                                    value={calcVal != null ? `${calcVal.toFixed(2)} ${t.unit || '%'}` : 'Awaiting LR'}
+                                    value={calcVal != null ? `${calcVal.toFixed(2)} ${t.unit || '%'}` : !lrNum && !fatNum ? 'Awaiting LR & Fat' : !lrNum ? 'Awaiting LR' : 'Awaiting Fat'}
                                     aria-label={t.testName}
                                     className="min-h-11 h-10 w-32 rounded-lg border border-purple-300 bg-purple-50/50 px-2 text-xs font-bold text-purple-950 tabular-nums focus:outline-hidden"
                                   />
@@ -714,40 +732,53 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
         </DrawerContent>
       </Drawer>
 
-      {/* Camera Capture Dialog */}
+      {/* Camera Capture - Fullscreen LiveCamera matching Dispatch to Plant form */}
       {cameraTest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b">
-              <h3 className="text-sm font-bold text-slate-900">
-                Evidence Photo: {cameraTest.testName}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setCameraTest(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
-              ><X className="w-4 h-4" /></button>
-            </div>
-            <LiveCameraCapture
-              variant="form"
-              testType={cameraTest.testCode}
-              testName={cameraTest.testName}
-              stageName="Plant QA Reception"
-              tokenNo={visitDetail.token_number}
-              vehicleNo={visitDetail.vehicle_number}
-              currentPhotoUrl={photoStates[cameraTest.id] || null}
-              onPhotoCaptured={(url) => {
-                onPhotoChange(cameraTest.id, url);
-                setCameraTest(null);
-              }}
-              onPhotoCleared={() => {
-                onPhotoChange(cameraTest.id, null);
-                setCameraTest(null);
-              }}
-              isRequired={cameraTest.isRequired}
-            />
-          </div>
-        </div>
+        <LiveCamera
+          stamp={{
+            employeeCode: currentUser?.username || 'QA-OPERATOR',
+            roleLabel: currentUser?.role || 'Plant QA Reception',
+            actingAsLabel: null,
+            pointLabel: `Plant QA - ${cameraTest.testName}`,
+            vehicleNo: visitDetail.vehicle_number || null,
+          }}
+          onCapture={async (res) => {
+            const currentTest = cameraTest;
+            setCameraTest(null);
+            try {
+              const form = new FormData();
+              form.append('file', res.blob, `${res.captureId}.jpg`);
+              form.append(
+                'metadata',
+                JSON.stringify({
+                  captureId: res.captureId,
+                  sha256: res.sha256,
+                  stage: 'PLANT_QA',
+                  testId: currentTest.id,
+                  tokenNo: visitDetail.token_number,
+                  vehicleNo: visitDetail.vehicle_number,
+                  photoKind: 'TEST_RESULT',
+                  deviceCapturedAt: res.capturedAt,
+                  latitude: res.gps?.lat ?? null,
+                  longitude: res.gps?.lng ?? null,
+                  gpsAccuracyM: res.gps?.accuracyM ?? null,
+                  width: res.width,
+                  height: res.height,
+                })
+              );
+              const r = await fetch('/api/photos', { method: 'POST', body: form });
+              const d = await r.json().catch(() => ({}));
+              const localPreview = URL.createObjectURL(res.blob);
+              const url = d.url || d.fileUrl || localPreview;
+              onPhotoChange(currentTest.id, url);
+            } catch (err) {
+              console.error('Failed to upload photo:', err);
+              const localPreview = URL.createObjectURL(res.blob);
+              onPhotoChange(currentTest.id, localPreview);
+            }
+          }}
+          onCancel={() => setCameraTest(null)}
+        />
       )}
     </>
   );
