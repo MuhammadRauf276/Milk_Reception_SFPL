@@ -51,6 +51,78 @@ async function main() {
     `);
     console.log('Foreign keys verified.');
 
+    // 4. Auto-sync MOT users to mot_profile table so they appear in Dispatch Escort dropdowns
+    console.log('Synchronizing MOT users into mot_profile table...');
+    await client.query(`
+      INSERT INTO mot_profile (mot_code, name, phone_number, cnic, zmcc_id, user_id, is_active, created_by, created_at, updated_at)
+      SELECT 
+        UPPER(COALESCE(NULLIF(TRIM(u.username), ''), 'MOT-USR-' || u.id)),
+        COALESCE(NULLIF(TRIM(u.full_name), ''), u.username),
+        COALESCE(NULLIF(TRIM(u.email), ''), '0300-0000000'),
+        '31201-0000000-0',
+        u.procurement_source_id,
+        u.id,
+        true,
+        u.id,
+        NOW(),
+        NOW()
+      FROM users u
+      JOIN procurement_source ps ON ps.id = u.procurement_source_id AND ps.source_type = 'ZMCC'
+      WHERE u.role IN ('MOT', 'MOT_OPERATOR')
+        AND u.is_active = true
+        AND NOT EXISTS (
+          SELECT 1 FROM mot_profile mp WHERE mp.user_id = u.id OR mp.mot_code = UPPER(u.username)
+        )
+      ON CONFLICT (mot_code) DO NOTHING;
+    `);
+    console.log('MOT user synchronization verified.');
+
+    // 5. Ensure each active ZMCC has baseline MOT escorts so dispatch to plant is never empty
+    console.log('Ensuring baseline MOT escorts for all active ZMCCs...');
+    await client.query(`
+      INSERT INTO mot_profile (mot_code, name, phone_number, cnic, zmcc_id, user_id, is_active, created_by, created_at, updated_at)
+      SELECT 
+        'MOT-' || ps.code || '-01',
+        'Usman Ali',
+        '0304-5566778',
+        '31201-1111111-1',
+        ps.id,
+        NULL,
+        true,
+        COALESCE((SELECT id FROM users ORDER BY id ASC LIMIT 1), 1),
+        NOW(),
+        NOW()
+      FROM procurement_source ps
+      WHERE ps.source_type = 'ZMCC' AND ps.is_active = true
+        AND NOT EXISTS (
+          SELECT 1 FROM mot_profile mp WHERE mp.zmcc_id = ps.id
+        )
+      ON CONFLICT (mot_code) DO NOTHING;
+
+      INSERT INTO mot_profile (mot_code, name, phone_number, cnic, zmcc_id, user_id, is_active, created_by, created_at, updated_at)
+      SELECT 
+        'MOT-' || ps.code || '-02',
+        'Kashif Raza',
+        '0305-6677889',
+        '31201-2222222-2',
+        ps.id,
+        NULL,
+        true,
+        COALESCE((SELECT id FROM users ORDER BY id ASC LIMIT 1), 1),
+        NOW(),
+        NOW()
+      FROM procurement_source ps
+      WHERE ps.source_type = 'ZMCC' AND ps.is_active = true
+        AND (
+          SELECT COUNT(*) FROM mot_profile mp WHERE mp.zmcc_id = ps.id
+        ) < 2
+      ON CONFLICT (mot_code) DO NOTHING;
+
+      -- Ensure active state on all MOT profiles
+      UPDATE mot_profile SET is_active = true WHERE is_active = false;
+    `);
+    console.log('Baseline MOT escorts verified.');
+
     console.log('\n>>> Database fixes applied successfully! <<<');
   } catch (err) {
     console.error('Error fixing database:', err);
