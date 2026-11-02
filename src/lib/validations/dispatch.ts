@@ -67,6 +67,9 @@ export const createDispatchSchema = z
     vehicleFat: z.number().nonnegative().nullable().optional(),
     rawMilkDispatchNoteNumber: z.string().nullable().optional(),
     raw_milk_dispatch_note_number: z.string().nullable().optional(),
+    motVehicleId: z.string().nullable().optional(),
+    motProfileId: z.string().nullable().optional(),
+    driverName: z.string().trim().max(150).nullable().optional(),
     portions: z.array(dispatchPortionSchema).min(1, 'At least one portion is required'),
     // Phase 4c (Stage 3): explicit test mode, Submit vs Send request, person decision, lab report photo.
     testMode: z.enum(['COMPOSITE', 'PORTION_WISE']).optional(),

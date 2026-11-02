@@ -48,6 +48,8 @@ function ProductionDepartmentContent() {
 
   if (!user) return null;
 
+  const isSupervisor = canActAs(user.role, 'PRODUCTION_HEAD');
+
   return (
     <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
       <Header
@@ -68,13 +70,31 @@ function ProductionDepartmentContent() {
 
       <main className="flex-1 w-full min-w-0 max-w-full p-3 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <PageTransition>
-        <ProductionUnloadingWorkspace
-          currentUser={user}
-          activeTab={resolvedTab}
-          onTabChange={(tab) => {
-            router.push(`/department/production?tab=${tab}`);
-          }}
-        />
+          {isSupervisor && (
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs sm:text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-primary">Supervisor Oversight:</span>
+                <span className="text-muted-foreground">
+                  You are viewing Silo Unloading in hands-on operator mode.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push('/department/production-head')}
+                className="font-semibold text-primary hover:underline flex items-center gap-1 self-start sm:self-auto shrink-0"
+              >
+                <span>Production Command Hub &rarr;</span>
+              </button>
+            </div>
+          )}
+
+          <ProductionUnloadingWorkspace
+            currentUser={user}
+            activeTab={resolvedTab}
+            onTabChange={(tab) => {
+              router.push(`/department/production?tab=${tab}`);
+            }}
+          />
         </PageTransition>
       </main>
     </div>

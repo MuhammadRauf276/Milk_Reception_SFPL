@@ -696,7 +696,8 @@ export async function POST(
             portion.visit.procurement_source_id,
             warningTestCodes,
             userIdBigInt,
-            targetOpTs
+            targetOpTs,
+            tx
           );
         }
 
@@ -768,7 +769,7 @@ export async function POST(
       }
 
       return responseData;
-    });
+    }, { timeout: 30000, maxWait: 15000 });
 
     return NextResponse.json(result);
   } catch (error) {

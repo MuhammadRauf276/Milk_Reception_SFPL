@@ -2,6 +2,8 @@ import React from 'react';
 import { User } from '@core/types';
 import { isZmccFieldOfficer } from '@core/roles/hierarchy';
 import {
+  Factory,
+  Activity,
   ClipboardList,
   FlaskConical,
   History,
@@ -858,6 +860,32 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
   // 14. Production Head: own function is approvals; silo/weighbridge are covered stations (Team Stations)
   if (role === 'PRODUCTION_HEAD') {
     return [
+      {
+        id: 'production-head-hub',
+        label: 'Production Command',
+        icon: Factory,
+        href: '/department/production-head',
+        children: [
+          {
+            id: 'prod-overview',
+            label: 'Live Stations',
+            href: '/department/production-head?tab=OVERVIEW',
+            icon: Activity,
+          },
+          {
+            id: 'prod-silos',
+            label: 'Plant Silos',
+            href: '/department/production-head?tab=SILOS',
+            icon: Database,
+          },
+          {
+            id: 'prod-history',
+            label: 'Subordinate History',
+            href: '/department/production-head?tab=HISTORY',
+            icon: History,
+          },
+        ],
+      },
       {
         id: 'production-approvals',
         label: 'Approval Inbox',

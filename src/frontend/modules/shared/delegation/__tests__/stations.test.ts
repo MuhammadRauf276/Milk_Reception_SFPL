@@ -197,7 +197,7 @@ test('resolveDelegationContext: PRODUCTION_HEAD on /department/weighbridge', () 
   assert.equal(ctx.isDelegated, true);
   assert.equal(ctx.actingAs, 'WEIGHBRIDGE_OPERATOR');
   assert.equal(ctx.subordinateRoleLabel, 'Weighbridge Operator');
-  assert.equal(ctx.homeRoute, '/approvals');
+  assert.equal(ctx.homeRoute, '/department/production-head');
 });
 
 test('resolveDelegationContext: Field operator doing own work is NOT delegated', () => {

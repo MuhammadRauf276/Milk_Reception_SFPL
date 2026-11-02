@@ -36,6 +36,9 @@ const startDispatchSchema = z.object({
   vehicleNumber: z.string().optional(),
   procurementSourceId: z.string().optional(),
   operationalDate: z.string().optional(),
+  motVehicleId: z.string().optional().nullable(),
+  motProfileId: z.string().optional().nullable(),
+  driverName: z.string().optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -169,8 +172,11 @@ export async function POST(req: Request) {
           vehicle_number: (validated.vehicleNumber || 'DRAFT').toUpperCase().trim(),
           operational_date: null,
           current_status: 'DRAFT_DISPATCH',
-          created_by: userId,
-          procurement_source_id: resolvedSourceId,
+          creator: { connect: { id: userId } },
+          procurement_source: resolvedSourceId ? { connect: { id: resolvedSourceId } } : undefined,
+          mot_vehicle: validated.motVehicleId ? { connect: { id: BigInt(validated.motVehicleId) } } : undefined,
+          mot_profile: validated.motProfileId ? { connect: { id: BigInt(validated.motProfileId) } } : undefined,
+          driver_name: validated.driverName?.trim() || null,
         },
       });
 

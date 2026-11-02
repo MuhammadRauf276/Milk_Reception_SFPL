@@ -95,6 +95,8 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
             // default tab
           } else if (leafPath === '/department/production' && key === 'tab' && val === 'READY') {
             // default tab
+          } else if (leafPath === '/department/production-head' && key === 'tab' && val === 'OVERVIEW') {
+            // default tab
           } else if (leafPath === '/contractor/manager' && key === 'tab' && (val === 'APPROVALS' || val === 'OVERVIEW')) {
             // default tab
           } else if (leafPath === '/mpd/zmcc-manager' && key === 'tab' && val === 'OVERVIEW') {
@@ -173,7 +175,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
             isActive={isActive}
             caption={caption}
             footer={footer}
-            defaultExpanded={['weighbridge', 'security', 'qa-lab', 'production', 'team-stations', 'HISTORY', 'MASTER_DATA', 'MOT_JOURNEYS', 'PLANT_TRANSIT', 'REPORTS', 'arrivals', 'suppliers', 'mot']}
+            defaultExpanded={['weighbridge', 'security', 'qa-lab', 'production', 'production-head-hub', 'team-stations', 'HISTORY', 'MASTER_DATA', 'MOT_JOURNEYS', 'PLANT_TRANSIT', 'REPORTS', 'arrivals', 'suppliers', 'mot']}
           />
         </aside>
       ) : null}
@@ -184,7 +186,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
           isActive={isActive}
           caption={caption}
           footer={footer}
-          defaultExpanded={['weighbridge', 'security', 'qa-lab', 'production', 'team-stations', 'HISTORY', 'MASTER_DATA', 'MOT_JOURNEYS', 'PLANT_TRANSIT', 'REPORTS', 'arrivals', 'suppliers', 'mot']}
+          defaultExpanded={['weighbridge', 'security', 'qa-lab', 'production', 'production-head-hub', 'team-stations', 'HISTORY', 'MASTER_DATA', 'MOT_JOURNEYS', 'PLANT_TRANSIT', 'REPORTS', 'arrivals', 'suppliers', 'mot']}
           showClose
           onNavigate={() => handleOpenChange(false)}
         />

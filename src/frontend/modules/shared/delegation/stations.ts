@@ -4,6 +4,7 @@ import { canActAs, getAncestorRoles, getDescendantRoles, isCanonicalRole } from 
 import { resolveRoleHome } from '@/lib/role-routing';
 import type { RoleNavLeaf } from '../navigation/roleNavConfig';
 import {
+  Factory,
   FlaskConical,
   ClipboardList,
   Truck,
@@ -152,6 +153,18 @@ export const CANONICAL_STATIONS: readonly CanonicalStation[] = [
     group: 'Plant Operations',
     targetSourceType: null,
     plantFacilityName: 'Plant Silo Reception',
+  },
+  {
+    id: 'production-head-workspace',
+    label: 'Production Head',
+    href: '/department/production-head',
+    basePath: '/department/production-head',
+    primaryRole: 'PRODUCTION_HEAD',
+    subordinateRoleLabel: 'Production Head',
+    icon: Factory,
+    group: 'Plant Operations',
+    targetSourceType: null,
+    plantFacilityName: 'Production & Weighbridge',
   },
   {
     id: 'plant-qa',

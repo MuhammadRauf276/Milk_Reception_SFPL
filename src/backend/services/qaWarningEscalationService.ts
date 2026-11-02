@@ -1,4 +1,5 @@
 import { prisma } from '@core/db';
+import { Prisma } from '@prisma/client';
 import { canActAs } from '@/backend/core/roles/hierarchy';
 
 export const DEFAULT_MTD_WARNING_THRESHOLD = 4;
@@ -183,12 +184,13 @@ export class QaWarningEscalationService {
     sourceId: bigint,
     warningTestCodes: string[],
     userId: bigint,
-    opTs: Date = new Date()
+    opTs: Date = new Date(),
+    tx: Prisma.TransactionClient | typeof prisma = prisma
   ): Promise<void> {
     if (warningTestCodes.length === 0) return;
 
     // Check if warning already logged for this visit to maintain deduplication
-    const existing = await prisma.qAWarning.findFirst({
+    const existing = await tx.qAWarning.findFirst({
       where: {
         visit_id: visitId,
         procurement_source_id: sourceId,
@@ -200,7 +202,7 @@ export class QaWarningEscalationService {
 
     if (existing) {
       // Update existing record
-      await prisma.qAWarning.update({
+      await tx.qAWarning.update({
         where: { id: existing.id },
         data: {
           portion_id: portionId,
@@ -210,7 +212,7 @@ export class QaWarningEscalationService {
       });
     } else {
       // Create single vehicle warning record
-      await prisma.qAWarning.create({
+      await tx.qAWarning.create({
         data: {
           procurement_source_id: sourceId,
           visit_id: visitId,

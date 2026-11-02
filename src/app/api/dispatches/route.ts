@@ -56,6 +56,8 @@ function dispatchSourceFailureResponse(code: DispatchSourceFailure) {
 const dispatchListInclude = {
   creator: true,
   procurement_source: true,
+  mot_vehicle: true,
+  mot_profile: true,
   portions: {
     include: {
       dispatch_info: true,
@@ -139,6 +141,11 @@ function serializeDispatch(visit: DispatchListVisit) {
     procurement_source_id: visit.procurement_source_id ? visit.procurement_source_id.toString() : null,
     zonal_contractor_name: visit.procurement_source?.name || 'Source unavailable',
     procurement_source_type: visit.procurement_source?.source_type || 'UNKNOWN',
+    mot_vehicle_id: visit.mot_vehicle_id ? visit.mot_vehicle_id.toString() : null,
+    mot_profile_id: visit.mot_profile_id ? visit.mot_profile_id.toString() : null,
+    mot_name: visit.mot_profile?.name || null,
+    mot_code: visit.mot_profile?.mot_code || null,
+    driver_name: visit.driver_name || visit.mot_profile?.name || null,
     zonal_contractor_dispatch_time: firstDispatchInfo?.dispatch_timestamp
       ? new Date(firstDispatchInfo.dispatch_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
       : null,
@@ -667,6 +674,36 @@ export async function POST(req: Request) {
       testingReason = sourceType === 'CONTRACTOR' ? 'Contract Vehicle' : 'No dispatch testing provided';
     }
 
+    let effectiveMotVehicleId: bigint | null = null;
+    let effectiveMotProfileId: bigint | null = null;
+    let effectiveDriverName: string | null = validated.driverName?.trim() || null;
+
+    if (sourceType === 'ZMCC') {
+      if (validated.motVehicleId) {
+        effectiveMotVehicleId = BigInt(validated.motVehicleId);
+      } else {
+        const foundV = await prisma.motVehicle.findFirst({
+          where: {
+            zmcc_id: resolvedSourceId,
+            vehicle_number: { equals: validated.vehicleNumber, mode: 'insensitive' },
+          },
+          select: { id: true },
+        });
+        if (foundV) effectiveMotVehicleId = foundV.id;
+      }
+
+      if (validated.motProfileId) {
+        effectiveMotProfileId = BigInt(validated.motProfileId);
+        const motP = await prisma.motProfile.findUnique({
+          where: { id: effectiveMotProfileId },
+          select: { name: true },
+        });
+        if (motP && !effectiveDriverName) {
+          effectiveDriverName = motP.name;
+        }
+      }
+    }
+
     // 5. Atomic Transaction: Persist Dispatch & Issue Tank if ZMCC
     const result = await prisma.$transaction(async (tx) => {
       const now = new Date();
@@ -690,6 +727,9 @@ export async function POST(req: Request) {
           operational_date: null,
           current_status: nextStatus,
           procurement_source_id: resolvedSourceId,
+          mot_vehicle_id: effectiveMotVehicleId,
+          mot_profile_id: effectiveMotProfileId,
+          driver_name: effectiveDriverName,
           vehicle_dispatch_quantity_value: new Prisma.Decimal(vehicleQtyVal.toFixed(2)),
           vehicle_dispatch_quantity_unit: vehicleQtyUnit,
           vehicle_dispatch_quantity_basis: vehicleQtyBasis,

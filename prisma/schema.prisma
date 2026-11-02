@@ -199,11 +199,16 @@ model VehicleVisit {
   dispatch_submitted_is_delegated Boolean   @default(false) @map("dispatch_submitted_is_delegated")
   dispatch_submitted_at           DateTime? @map("dispatch_submitted_at") @db.Timestamp(6)
   dispatch_version                Int       @default(0) @map("dispatch_version")
+  mot_vehicle_id                  BigInt?   @map("mot_vehicle_id")
+  mot_profile_id                  BigInt?   @map("mot_profile_id")
+  driver_name                     String?   @map("driver_name") @db.VarChar(150)
 
   // Relations
   procurement_source       ProcurementSource?              @relation("VisitSource", fields: [procurement_source_id], references: [id], onDelete: SetNull)
   creator                  User?                           @relation("CreatedBy", fields: [created_by], references: [id])
   last_corrected_by        User?                           @relation("VehicleVisitLastCorrectedBy", fields: [last_corrected_by_user_id], references: [id], onDelete: SetNull)
+  mot_vehicle              MotVehicle?                     @relation("VisitMotVehicle", fields: [mot_vehicle_id], references: [id], onDelete: SetNull)
+  mot_profile              MotProfile?                     @relation("VisitMotProfile", fields: [mot_profile_id], references: [id], onDelete: SetNull)
   portions                 VisitPortion[]
   gate_log                 GateLog?
   weight_ticket            WeightTicket?
@@ -223,6 +228,8 @@ model VehicleVisit {
   @@index([procurement_source_id, created_at])
   @@index([raw_milk_dispatch_note_number])
   @@index([approval_status, approver_role])
+  @@index([mot_vehicle_id])
+  @@index([mot_profile_id])
   @@map("vehicle_visit")
 }
 
@@ -1148,6 +1155,7 @@ model MotProfile {
   updater         User?               @relation("MotProfileUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
   journeys        MotJourney[]
   mot_collections MotShopCollection[] @relation("MotProfileCollections")
+  plant_visits    VehicleVisit[]      @relation("VisitMotProfile")
 
   @@unique([id, zmcc_id])
   @@index([zmcc_id])
@@ -1170,6 +1178,7 @@ model MotVehicle {
   updater         User?               @relation("MotVehicleUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
   journeys        MotJourney[]
   mot_collections MotShopCollection[] @relation("MotVehicleCollections")
+  plant_visits    VehicleVisit[]      @relation("VisitMotVehicle")
 
   @@unique([id, zmcc_id])
   @@index([zmcc_id])

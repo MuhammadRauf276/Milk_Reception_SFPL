@@ -282,6 +282,16 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const [dispatchOpDatetime, setDispatchOpDatetime] = useState<string>(toDatetimeLocalInput(new Date()));
   const [rawMilkDispatchNoteNumber, setRawMilkDispatchNoteNumber] = useState<string>('');
 
+  // ZMCC & Contractor Resource States
+  const [availableVehicles, setAvailableVehicles] = useState<Array<{ id: string; vehicle_number: string; is_available: boolean; busy_reason?: string }>>([]);
+  const [availableMotProfiles, setAvailableMotProfiles] = useState<Array<{ id: string; mot_code: string; name: string; phone_number: string; is_available: boolean; busy_reason?: string }>>([]);
+  const [selectedMotVehicleId, setSelectedMotVehicleId] = useState<string>('');
+  const [selectedMotProfileId, setSelectedMotProfileId] = useState<string>('');
+  const [motError, setMotError] = useState<string | null>(null);
+  const [driverName, setDriverName] = useState<string>('');
+  const [driverError, setDriverError] = useState<string | null>(null);
+  const [isLoadingResources, setIsLoadingResources] = useState<boolean>(false);
+
   // Authoritative Vehicle Quantity State
   const [vehicleQuantity, setVehicleQuantity] = useState<QuantityState>({
     value: '',
@@ -366,9 +376,14 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           const res = await fetch('/api/super-admin/procurement-sources');
           const data = await res.json();
           if (data.sources) {
+            const normalized = data.sources.map((s: { id: string; name: string; sourceType?: string; source_type?: string }) => ({
+              id: s.id,
+              name: s.name,
+              source_type: s.sourceType || s.source_type || '',
+            }));
             const list = sourceType
-              ? data.sources.filter((s: { source_type: string }) => s.source_type === sourceType)
-              : data.sources;
+              ? normalized.filter((s: { source_type: string }) => s.source_type === sourceType)
+              : normalized;
             setAvailableSources(list);
             // Requirement A: Leave selectedSourceId empty initially; do NOT auto-select first source
           }
@@ -379,6 +394,39 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
     loadSources();
   }, [isSourceBound, currentUser?.role, sourceType]);
+
+  // Load available vehicles and MOT profiles for ZMCC
+  useEffect(() => {
+    if (!effectiveSourceId || isContractorSource) {
+      setAvailableVehicles([]);
+      setAvailableMotProfiles([]);
+      setSelectedMotVehicleId('');
+      setSelectedMotProfileId('');
+      return;
+    }
+    let alive = true;
+    setIsLoadingResources(true);
+    fetch(`/api/dispatches/resources?sourceId=${effectiveSourceId}`)
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Failed to load dispatch resources');
+        return d;
+      })
+      .then((data) => {
+        if (!alive) return;
+        setAvailableVehicles(data.vehicles || []);
+        setAvailableMotProfiles(data.motProfiles || []);
+      })
+      .catch((err) => {
+        console.error('Failed to load dispatch resources:', err);
+      })
+      .finally(() => {
+        if (alive) setIsLoadingResources(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [effectiveSourceId, isContractorSource]);
 
   // Tests, rules and picture needs for this dispatch point.
   useEffect(() => {
@@ -582,6 +630,56 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     if (vehicleNumberError && val.trim().length > 0) {
       setVehicleNumberError(null);
     }
+  };
+
+  const handleSelectVehicle = (vId: string, vNum: string) => {
+    setSelectedMotVehicleId(vId);
+    setVehicleNumber(vNum);
+    if (vehicleNumberError) {
+      setVehicleNumberError(null);
+    }
+  };
+
+  const handleSelectMotProfile = (pId: string) => {
+    setSelectedMotProfileId(pId);
+    if (motError) {
+      setMotError(null);
+    }
+    const found = availableMotProfiles.find((p) => p.id === pId);
+    if (found && !driverName) {
+      setDriverName(found.name);
+    }
+  };
+
+  const handleDriverNameChange = (name: string) => {
+    setDriverName(name);
+    if (driverError && name.trim().length > 0) {
+      setDriverError(null);
+    }
+  };
+
+  const handleNextToPortions = () => {
+    let hasError = false;
+    if (!vehicleNumber.trim()) {
+      setVehicleNumberError('Vehicle number is required.');
+      hasError = true;
+    }
+    if (!isContractorSource && !selectedMotProfileId) {
+      setMotError('Please select a free MOT escort.');
+      hasError = true;
+    }
+    if (isContractorSource && !driverName.trim()) {
+      setDriverError('Contractor driver name is required.');
+      hasError = true;
+    }
+    if (hasError) {
+      toast.showError('Please select vehicle and escort or driver before proceeding.', 'Required fields');
+      return;
+    }
+    setVehicleNumberError(null);
+    setMotError(null);
+    setDriverError(null);
+    setFormStep(1);
   };
 
   const handleVehicleQuantityValueChange = (val: string) => {
@@ -1105,6 +1203,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           vehicleLr: finalVehicleLr && !isNaN(Number(finalVehicleLr)) ? Number(finalVehicleLr) : undefined,
           vehicleFat: finalVehicleFat && !isNaN(Number(finalVehicleFat)) ? Number(finalVehicleFat) : undefined,
           rawMilkDispatchNoteNumber: rawMilkDispatchNoteNumber.trim() || undefined,
+          motVehicleId: selectedMotVehicleId || undefined,
+          motProfileId: selectedMotProfileId || undefined,
+          driverName: driverName.trim() || undefined,
           testMode,
           action: effectiveAction,
           personDecision: effectivePersonDecision,
@@ -1430,7 +1531,13 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                 key={label}
                 type="button"
                 aria-current={formStep === i ? 'step' : undefined}
-                onClick={() => setFormStep(i as 0 | 1)}
+                onClick={() => {
+                  if (i === 1 && formStep === 0) {
+                    handleNextToPortions();
+                  } else {
+                    setFormStep(i as 0 | 1);
+                  }
+                }}
                 className={`min-h-11 rounded-xl border text-sm font-semibold transition ${
                   formStep === i ? 'border-primary-hover bg-blue-50 text-primary-hover' : 'border-border text-slate-600 hover:bg-muted'
                 }`}
@@ -1469,6 +1576,18 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             onResetVehicleQualityAuto={handleResetVehicleQualityAuto}
             rawMilkDispatchNoteNumber={rawMilkDispatchNoteNumber}
             onRawMilkDispatchNoteNumberChange={setRawMilkDispatchNoteNumber}
+            isZmccSource={!isContractorSource}
+            availableVehicles={availableVehicles}
+            selectedVehicleId={selectedMotVehicleId}
+            onSelectVehicle={handleSelectVehicle}
+            availableMotProfiles={availableMotProfiles}
+            selectedMotProfileId={selectedMotProfileId}
+            onSelectMotProfileId={handleSelectMotProfile}
+            motError={motError}
+            driverName={driverName}
+            onDriverNameChange={handleDriverNameChange}
+            driverError={driverError}
+            isLoadingResources={isLoadingResources}
           />
 
           </div>
@@ -1653,7 +1772,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           )}
           <button
             type="button"
-            onClick={() => (formStep === 0 ? setFormStep(1) : handleOpenDecide())}
+            onClick={() => (formStep === 0 ? handleNextToPortions() : handleOpenDecide())}
             className={cn(
               'min-h-14 w-full rounded-xl text-base font-semibold text-white shadow-xs transition flex items-center justify-center gap-2',
               formStep === 0

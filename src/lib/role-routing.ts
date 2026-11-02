@@ -20,8 +20,10 @@ export function resolveRoleHome(role?: string | null | unknown): string {
 
     case 'FINANCE_ACCOUNTS':
     case 'ADMIN_HEAD':
-    case 'PRODUCTION_HEAD':
       return '/approvals';
+
+    case 'PRODUCTION_HEAD':
+      return '/department/production-head';
 
     case 'EXECUTIVE_MANAGEMENT':
     case 'HEAD_OF_MPD':
