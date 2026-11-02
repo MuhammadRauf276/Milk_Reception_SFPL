@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { prisma } from '@/backend/core/db';
+import { Prisma } from '@prisma/client';
 import { createSessionToken } from '@/backend/core/auth';
 import type { Role } from '@/backend/core/types';
 import { POST as startDispatchHandler } from '@/app/api/dispatches/start/route';
@@ -43,6 +44,15 @@ test('ZMCC Dispatch to Plant Gate Reception & Resource Release Complete Lifecycl
 
   const runId = `E2E-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   const tokenNumber = `TOK-${runId}`;
+
+  // Free any previous test in-flight dispatches so resources are available
+  await prisma.vehicleVisit.updateMany({
+    where: {
+      current_status: { notIn: ['COMPLETED', 'REJECTED'] },
+      mot_profile_id: { not: null },
+    },
+    data: { current_status: 'COMPLETED' },
+  });
 
   // 1. Verify Hasilpur dispatch resources and find an available vehicle & MOT escort
   const initialResources = await getDispatchResources(BigInt(1));
@@ -156,6 +166,26 @@ test('ZMCC Dispatch to Plant Gate Reception & Resource Release Complete Lifecycl
     });
   }
 
+  // Ensure source 1 active tank has enough milk for test dispatch
+  const activeTank = await prisma.zmccTank.findFirst({
+    where: { zmcc_id: BigInt(1), is_active: true },
+  });
+  if (activeTank && zmccUser) {
+    await prisma.zmccTankInventoryTransaction.create({
+      data: {
+        tank_id: activeTank.id,
+        zmcc_id: BigInt(1),
+        transaction_type: 'RECEIPT',
+        quantity_liters: new Prisma.Decimal('100000.00'),
+        at_13ts_liters: new Prisma.Decimal('100000.00'),
+        reference_type: 'TEST_INTAKE',
+        reference_id: `REF-${runId}`,
+        performed_by_user_id: zmccUser.id,
+        idempotency_key: `TEST-REFILL-${runId}`,
+      },
+    });
+  }
+
   // 3. STEP A: Start ZMCC Dispatch Draft
   const startReq = new Request('http://localhost:3000/api/dispatches/start', {
     method: 'POST',
@@ -196,7 +226,7 @@ test('ZMCC Dispatch to Plant Gate Reception & Resource Release Complete Lifecycl
       action: 'SEND_REQUEST',
       decisionRemarks: 'Dispatched for test under manager approval',
       vehicleQuantity: {
-        value: 12000,
+        value: 10000,
         unit: 'KG',
         basis: 'MEASURED',
       },
@@ -206,7 +236,7 @@ test('ZMCC Dispatch to Plant Gate Reception & Resource Release Complete Lifecycl
         {
           portionNumber: 1,
           quantity: {
-            value: 12000,
+            value: 10000,
             unit: 'KG',
             basis: 'MEASURED',
             lr: 28.5,
