@@ -165,10 +165,10 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 stagger-children">
           <StatCard
-            label="Current tank stock"
+            label="Current tank stock (@13% TS)"
             icon={Milk}
             tone="info"
-            value={zmccTankStock != null ? `${zmccTankStock.toLocaleString()} L` : '—'}
+            value={zmccTankStock != null ? `${zmccTankStock.toLocaleString()} L @13% TS` : '—'}
           />
           <StatCard
             label="Accepted intake today"

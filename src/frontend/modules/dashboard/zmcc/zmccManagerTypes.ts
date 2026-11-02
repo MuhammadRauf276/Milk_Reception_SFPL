@@ -360,10 +360,12 @@ export interface HistoryTransactionItem {
 
   // Weights & Quantities
   dispatchGrossLiters: number | null;
+  dispatch13TsLiters: number | null;
   firstWeightKg: number | null;
   secondWeightKg: number | null;
   netMilkWeightKg: number | null;
   physicalReceivedLiters: number | null;
+  plant13TsLiters: number | null;
   destinationSilo: string | null;
 
   // Timestamps

@@ -9,6 +9,7 @@ import { getErrorCode, getErrorMessage, getErrorMeta } from '@/lib/errors';
 import type { ActingContext } from '@/types/acting';
 import { assertResourceInScope, primaryActorFields, asRoleFields } from '@/backend/core/acting-context';
 import { isZmccFieldOfficer, canActAs } from '@/backend/core/roles/hierarchy';
+import { canViewZmcc13TsLiters, isBlindOperationalRole } from '@/lib/role-visibility';
 import { MOT_CALCULATION_VERSION } from '@/backend/utils/milkFormulas';
 import {
   calculatePortionReceived,
@@ -33,16 +34,18 @@ export interface ZmccTankAuthContext {
   effectiveZmccId: bigint | null;
 }
 
+export type ZmccAuthInput = Request | User | { id: bigint | string; role: Role | string; [key: string]: unknown };
+
 /**
  * Resolve actor authentication & role boundaries for ZMCC Tank operations
  */
 export async function resolveZmccTankAuth(
-  reqOrUser?: Request | User,
-  action: 'READ' | 'MUTATE_MASTER' | 'RECEIVE_HISTORICAL' = 'READ'
+  reqOrUser?: ZmccAuthInput,
+  action: 'READ' | 'MUTATE_MASTER' | 'RECEIVE_HISTORICAL' | 'INTAKE_STOCK' = 'READ'
 ): Promise<{ auth?: ZmccTankAuthContext; errorResponse?: ServiceResult<never> }> {
-  let authUser: User | null = null;
+  let authUser: { id: bigint | string; role: Role | string } | null = null;
   if (reqOrUser && 'role' in reqOrUser && 'id' in reqOrUser) {
-    authUser = reqOrUser as User;
+    authUser = reqOrUser;
   } else if (reqOrUser) {
     const req = reqOrUser as Request;
     authUser = await getCurrentUser(req);
@@ -76,9 +79,9 @@ export async function resolveZmccTankAuth(
     return { errorResponse: { status: 403, error: 'Forbidden. Insufficient permissions for ZMCC Tank operations.' } };
   }
 
-  // Master mutation is strictly SUPER_ADMIN or DATA_EXECUTIVE only
-  if (action === 'MUTATE_MASTER' && !isSuperAdmin && !isDataExecutive) {
-    return { errorResponse: { status: 403, error: 'Forbidden. Only Super Admin or Data Executive can modify ZMCC Tank Master configuration.' } };
+  // Master mutation and stock intake are strictly SUPER_ADMIN or DATA_EXECUTIVE only
+  if ((action === 'MUTATE_MASTER' || action === 'INTAKE_STOCK') && !isSuperAdmin && !isDataExecutive) {
+    return { errorResponse: { status: 403, error: 'Forbidden. Only Super Admin or Data Executive can modify ZMCC Tank Master configuration or perform stock intake.' } };
   }
 
   // Historical receipt is restricted to ZMCC_LAB_ATTENDANT (own ZMCC) or SUPER_ADMIN (global)
@@ -194,6 +197,39 @@ export async function getTankPhysicalStock(
   }
 
   /**
+   * Batch calculates current commercial stock (@13TS Liters) across multiple tanks.
+   * Returns a Map of tankId string -> commercial stock number (@13TS).
+   */
+  export async function getBatchTankCommercialStock(
+    tankIds: bigint[],
+    tx?: Prisma.TransactionClient
+  ): Promise<Map<string, number>> {
+    const stockMap = new Map<string, number>();
+    if (tankIds.length === 0) return stockMap;
+
+    const client = tx || prisma;
+    const rows: Array<{ tank_id: bigint | string; sum_commercial: string | number | null }> = await client.$queryRaw`
+      SELECT tank_id, COALESCE(
+        SUM(
+          CASE 
+            WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN at_13ts_liters
+            WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -at_13ts_liters
+            ELSE 0
+          END
+        ), 0
+      ) as sum_commercial
+      FROM zmcc_tank_inventory_transaction
+      WHERE tank_id IN (${Prisma.join(tankIds)})
+      GROUP BY tank_id
+    `;
+
+    for (const row of rows) {
+      stockMap.set(row.tank_id.toString(), Number(row.sum_commercial || 0));
+    }
+    return stockMap;
+  }
+
+  /**
    * Calculates current commercial stock (@13TS Liters) of a tank strictly from immutable ledger transactions.
    * Current Tank Commercial Stock (@13TS) = SUM(RECEIPT) + SUM(ADJUSTMENT_IN) - SUM(ISSUE) - SUM(ADJUSTMENT_OUT)
    *
@@ -275,7 +311,8 @@ export async function getTankPhysicalStock(
     tank: SerializableTank,
     stockOrSummary?:
       | { physicalStockGrossLiters: number; commercialStockAt13Ts: number | null; commercialBalanceComplete: boolean }
-      | number
+      | number,
+    callerRole?: string | null
   ) {
     let physicalStock = 0;
     let commercialStock: number | null = null;
@@ -295,20 +332,24 @@ export async function getTankPhysicalStock(
       }
     }
 
+    const canSee13Ts = callerRole === undefined || canViewZmcc13TsLiters(callerRole);
+    const isBlind = callerRole !== undefined && isBlindOperationalRole(callerRole);
+
     const cap = Number(tank.capacity_liters);
     return {
       id: tank.id.toString(),
       zmcc_id: tank.zmcc_id.toString(),
       tank_code: tank.tank_code,
       tank_name: tank.tank_name,
-      capacity_liters: cap,
-      current_stock: Number(physicalStock.toFixed(2)),
-      current_physical_stock_gross_liters: Number(physicalStock.toFixed(2)),
-      current_commercial_stock_at_13ts: commercialStock !== null ? Number(commercialStock.toFixed(2)) : null,
-      commercial_balance_complete: commercialComplete,
-      available_capacity: Number(Math.max(0, cap - physicalStock).toFixed(2)),
+      capacity_liters: isBlind ? null : cap,
+      current_stock: isBlind ? null : Number(physicalStock.toFixed(2)),
+      current_physical_stock_gross_liters: isBlind ? null : Number(physicalStock.toFixed(2)),
+      current_commercial_stock_at_13ts: !isBlind && canSee13Ts && commercialStock !== null ? Number(commercialStock.toFixed(2)) : null,
+      current_stock_at_13ts: !isBlind && canSee13Ts && commercialStock !== null ? Number(commercialStock.toFixed(2)) : null,
+      commercial_balance_complete: !isBlind && canSee13Ts ? commercialComplete : false,
+      available_capacity: isBlind ? null : Number(Math.max(0, cap - physicalStock).toFixed(2)),
       is_active: tank.is_active,
-      created_by_user_id: tank.created_by_user_id.toString(),
+      created_by_user_id: tank.created_by_user_id ? tank.created_by_user_id.toString() : null,
       updated_by_user_id: tank.updated_by_user_id ? tank.updated_by_user_id.toString() : null,
       created_at: tank.created_at instanceof Date ? tank.created_at.toISOString() : tank.created_at,
       updated_at: tank.updated_at instanceof Date ? tank.updated_at.toISOString() : tank.updated_at,
@@ -405,7 +446,7 @@ export async function listZmccTanks(
       const serialized = await Promise.all(
         tanks.map(async (t) => {
           const stockSummary = await getTankStockSummary(t.id);
-          return serializeTank(t, stockSummary);
+          return serializeTank(t, stockSummary, auth.role);
         })
       );
       return { status: 200, data: { tanks: serialized } };
@@ -433,7 +474,7 @@ export async function listZmccTanks(
   const serialized = await Promise.all(
     tanks.map(async (t) => {
       const stockSummary = await getTankStockSummary(t.id);
-      return serializeTank(t, stockSummary);
+      return serializeTank(t, stockSummary, auth.role);
     })
   );
 
@@ -476,7 +517,7 @@ export async function getZmccTankById(
   }
 
   const stockSummary = await getTankStockSummary(tank.id);
-  return { status: 200, data: { tank: serializeTank(tank, stockSummary) } };
+  return { status: 200, data: { tank: serializeTank(tank, stockSummary, auth.role) } };
 }
 
 export interface CreateTankPayload {
@@ -887,6 +928,246 @@ export async function toggleZmccTankActive(
     console.error('toggleZmccTankActive error:', err);
     return { status: 500, error: 'Internal server error while updating tank status.' };
   }
+}
+
+export interface IntakeZmccTankStockPayload {
+  gross_liters: number;
+  at_13ts_liters?: number | null;
+  fat?: number | null;
+  lr?: number | null;
+  snf?: number | null;
+  ts?: number | null;
+  notes?: string | null;
+  operational_timestamp?: string | Date | null;
+}
+
+/**
+ * Super Admin manual milk intake into a ZMCC Tank.
+ * Designed for scenarios where field staff (MOT / collection / supplier attendants) are unavailable for several days.
+ * Strictly checks capacity, records an ADJUSTMENT_IN transaction with both gross liters and @13% TS liters,
+ * and maintains immutable ledger transparency and audit logs.
+ */
+export async function intakeZmccTankStock(
+  reqOrUser: ZmccAuthInput,
+  tankIdParam: string | number | bigint,
+  payload: IntakeZmccTankStockPayload
+): Promise<ServiceResult<unknown>> {
+  const { auth, errorResponse } = await resolveZmccTankAuth(reqOrUser, 'INTAKE_STOCK');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  let tankId: bigint;
+  try {
+    tankId = BigInt(String(tankIdParam).trim());
+  } catch {
+    return { status: 400, error: 'Invalid tank ID format.' };
+  }
+
+  const grossLiters = Number(payload.gross_liters);
+  if (isNaN(grossLiters) || grossLiters <= 0) {
+    return { status: 400, error: 'Gross liters must be a positive number greater than 0.' };
+  }
+
+  let finalAt13tsLiters = payload.at_13ts_liters !== null && payload.at_13ts_liters !== undefined ? Number(payload.at_13ts_liters) : null;
+  const fat = payload.fat !== null && payload.fat !== undefined ? Number(payload.fat) : null;
+  const lr = payload.lr !== null && payload.lr !== undefined ? Number(payload.lr) : null;
+  let snf = payload.snf !== null && payload.snf !== undefined ? Number(payload.snf) : null;
+  let ts = payload.ts !== null && payload.ts !== undefined ? Number(payload.ts) : null;
+
+  if (finalAt13tsLiters === null || isNaN(finalAt13tsLiters) || finalAt13tsLiters <= 0) {
+    // Derive from fat and lr or ts
+    if (fat !== null && lr !== null && !isNaN(fat) && !isNaN(lr) && fat >= 0 && lr >= 0) {
+      if (snf === null || isNaN(snf)) {
+        snf = Number(((lr / 4) + (0.22 * fat) + 0.72).toFixed(2));
+      }
+      if (ts === null || isNaN(ts)) {
+        ts = Number((fat + snf).toFixed(2));
+      }
+      finalAt13tsLiters = Number(((grossLiters * ts) / 13).toFixed(2));
+    } else if (ts !== null && !isNaN(ts) && ts > 0) {
+      finalAt13tsLiters = Number(((grossLiters * ts) / 13).toFixed(2));
+    } else {
+      return {
+        status: 400,
+        error: 'Either @13% TS liters or quality parameters (Fat and LR) must be provided to determine commercial volume.',
+      };
+    }
+  }
+
+  if (finalAt13tsLiters <= 0 || isNaN(finalAt13tsLiters)) {
+    return { status: 400, error: 'Invalid calculated or provided @13% TS liters.' };
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const locked: Array<{ id: bigint; zmcc_id: bigint; capacity_liters: Prisma.Decimal; is_active: boolean }> =
+        await tx.$queryRaw`SELECT id, zmcc_id, capacity_liters, is_active FROM zmcc_tank WHERE id = ${tankId} FOR UPDATE`;
+      if (!locked.length) {
+        throw new Error('ZMCC Tank not found.');
+      }
+      if (!locked[0].is_active) {
+        throw new Error('This tank is inactive. Activate the tank before adding milk stock.');
+      }
+
+      const currentStock = await getTankPhysicalStock(tankId, tx);
+      const capacity = Number(locked[0].capacity_liters);
+      const available = Math.max(0, capacity - currentStock);
+      if (grossLiters > available + 0.001) {
+        throw new Error(`Tank capacity exceeded. ${available.toFixed(2)} L free; ${grossLiters.toFixed(2)} L attempted.`);
+      }
+
+      const now = payload.operational_timestamp ? new Date(payload.operational_timestamp) : new Date();
+      const idempotencyKey = `ZMCC_TANK_INTAKE:ADMIN:${tankId}:${Date.now()}`;
+      const referenceId = `ADMIN-INTAKE-${Date.now()}`;
+
+      const invTx = await tx.zmccTankInventoryTransaction.create({
+        data: {
+          tank_id: tankId,
+          zmcc_id: locked[0].zmcc_id,
+          transaction_type: 'ADJUSTMENT_IN',
+          quantity_liters: new Prisma.Decimal(grossLiters.toFixed(2)),
+          at_13ts_liters: new Prisma.Decimal(finalAt13tsLiters.toFixed(2)),
+          reference_type: 'SUPER_ADMIN_MANUAL_INTAKE',
+          reference_id: referenceId,
+          idempotency_key: idempotencyKey,
+          operational_timestamp: now,
+          performed_by_user_id: auth.actorUserId,
+          notes: (payload.notes || 'Direct tank intake by Super Admin').trim(),
+        },
+      });
+
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_tank',
+        recordId: tankId,
+        action: 'SUPER_ADMIN_MANUAL_INTAKE',
+        newValues: {
+          transaction_id: invTx.id.toString(),
+          gross_liters: grossLiters,
+          at_13ts_liters: finalAt13tsLiters,
+          fat,
+          lr,
+          snf,
+          ts,
+          operational_timestamp: now.toISOString(),
+          notes: payload.notes,
+        },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
+      });
+
+      const [updatedPhysicalStock, updatedCommercialStock] = await Promise.all([
+        getTankPhysicalStock(tankId, tx),
+        getTankCommercialStock(tankId, tx),
+      ]);
+
+      return {
+        transaction_id: invTx.id.toString(),
+        tank_id: tankId.toString(),
+        gross_liters_added: grossLiters,
+        at_13ts_liters_added: finalAt13tsLiters,
+        new_physical_stock_gross_liters: updatedPhysicalStock,
+        new_commercial_stock_at_13ts: updatedCommercialStock.stockAt13Ts,
+        available_capacity: Math.max(0, capacity - updatedPhysicalStock),
+        capacity_liters: capacity,
+      };
+    });
+
+    return { status: 200, data: result };
+  } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    console.error('intakeZmccTankStock error:', err);
+    return { status: 400, error: err.message || 'Failed to add milk stock to tank.' };
+  }
+}
+
+/**
+ * Fetch transaction history / ledger for a specific ZMCC Tank.
+ */
+export async function getTankTransactions(
+  reqOrUser: Request | User,
+  tankIdParam: string | number | bigint,
+  page = 1,
+  pageSize = 20
+): Promise<ServiceResult<unknown>> {
+  const { auth, errorResponse } = await resolveZmccTankAuth(reqOrUser, 'READ');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  let tankId: bigint;
+  try {
+    tankId = BigInt(String(tankIdParam).trim());
+  } catch {
+    return { status: 400, error: 'Invalid tank ID format.' };
+  }
+
+  const tank = await prisma.zmccTank.findUnique({
+    where: { id: tankId },
+    include: { zmcc: true },
+  });
+
+  if (!tank) {
+    return { status: 404, error: 'ZMCC Tank not found.' };
+  }
+
+  if (!auth.isSuperAdmin && auth.effectiveZmccId && tank.zmcc_id !== auth.effectiveZmccId) {
+    return { status: 403, error: 'Forbidden. Tank belongs to another ZMCC.' };
+  }
+
+  const offset = (Math.max(1, page) - 1) * pageSize;
+  const [total, rows] = await Promise.all([
+    prisma.zmccTankInventoryTransaction.count({ where: { tank_id: tankId } }),
+    prisma.zmccTankInventoryTransaction.findMany({
+      where: { tank_id: tankId },
+      orderBy: { operational_timestamp: 'desc' },
+      skip: offset,
+      take: pageSize,
+      include: {
+        performer: { select: { id: true, username: true, full_name: true, role: true } },
+      },
+    }),
+  ]);
+
+  const [physicalStock, commercialStock] = await Promise.all([
+    getTankPhysicalStock(tankId),
+    getTankCommercialStock(tankId),
+  ]);
+
+  return {
+    status: 200,
+    data: {
+      tank: {
+        id: tank.id.toString(),
+        tank_code: tank.tank_code,
+        tank_name: tank.tank_name,
+        capacity_liters: Number(tank.capacity_liters),
+        current_physical_stock_gross_liters: physicalStock,
+        current_commercial_stock_at_13ts: commercialStock.stockAt13Ts,
+        available_capacity: Math.max(0, Number(tank.capacity_liters) - physicalStock),
+        is_active: tank.is_active,
+        zmcc: tank.zmcc ? { id: tank.zmcc.id.toString(), code: tank.zmcc.code, name: tank.zmcc.name } : null,
+      },
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+      transactions: rows.map((r) => ({
+        id: r.id.toString(),
+        transaction_type: r.transaction_type,
+        quantity_liters: Number(r.quantity_liters),
+        at_13ts_liters: r.at_13ts_liters !== null ? Number(r.at_13ts_liters) : null,
+        reference_type: r.reference_type,
+        reference_id: r.reference_id,
+        operational_timestamp: r.operational_timestamp.toISOString(),
+        notes: r.notes,
+        performer: r.performer ? {
+          id: r.performer.id.toString(),
+          username: r.performer.username,
+          full_name: r.performer.full_name,
+          role: r.performer.role,
+        } : null,
+      })),
+    },
+  };
 }
 
 /**

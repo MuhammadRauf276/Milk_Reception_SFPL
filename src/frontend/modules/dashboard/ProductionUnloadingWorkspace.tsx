@@ -84,7 +84,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
     );
     setSelectedIssueSiloId((prev) => {
       if (prev && activeSilos.some((s) => s.id === prev)) return prev;
-      const eligible = (activeSilos ?? []).filter((s) => s.current_stock_liters > 0);
+      const eligible = (activeSilos ?? []).filter((s) => (s.current_stock_liters ?? 0) > 0);
       return eligible.length > 0 ? eligible[0].id : activeSilos.length > 0 ? activeSilos[0].id : null;
     });
   }, [readyQuery.data, readyVisits, activeSilos]);
@@ -250,9 +250,10 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
                 {activeSilos.slice(0, 6).map((silo) => {
-                  const cap = silo.capacity_liters || 200000;
-                  const stock = silo.current_stock_liters || 0;
-                  const pct = Math.min(100, Math.round((stock / cap) * 100));
+                  const cap = silo.capacity_liters;
+                  const stock13Ts = silo.current_stock_at_13ts;
+                  const stock = silo.current_stock_liters;
+                  const pct = cap && stock != null ? Math.min(100, Math.round((stock / cap) * 100)) : null;
 
                   return (
                     <div
@@ -261,16 +262,28 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                     >
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-bold tabular-nums text-foreground">{silo.silo_code}</span>
-                        <span className="tabular-nums font-semibold text-xs text-foreground">
-                          {stock.toLocaleString()} L <span className="text-muted-foreground font-normal text-[10px]">({pct}%)</span>
-                        </span>
+                        {stock13Ts != null ? (
+                          <span className="tabular-nums font-semibold text-xs text-foreground">
+                            {stock13Ts.toLocaleString()} L @13% TS {pct != null && <span className="text-muted-foreground font-normal text-[10px]">({pct}%)</span>}
+                          </span>
+                        ) : stock != null ? (
+                          <span className="tabular-nums font-semibold text-xs text-foreground">
+                            {stock.toLocaleString()} L {pct != null && <span className="text-muted-foreground font-normal text-[10px]">({pct}%)</span>}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            Available
+                          </span>
+                        )}
                       </div>
-                      <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full bg-primary rounded-full transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
+                      {pct != null && (
+                        <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full bg-primary rounded-full transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}

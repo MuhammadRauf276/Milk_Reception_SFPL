@@ -255,7 +255,7 @@ export function useMasterRecordForm({ activeTab, isSuperAdmin, selectedZmccId, c
   };
 
   return {
-    successMsg, modalType, activeRecord, modalError, isSubmitting, formData, setFormData,
+    successMsg, setSuccessMsg, modalType, activeRecord, modalError, isSubmitting, formData, setFormData,
     closeModal, openCreate, openEdit, openToggle, submit,
   };
 }

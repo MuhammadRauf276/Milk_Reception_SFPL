@@ -98,7 +98,8 @@ export default function SuperAdminSilosPage() {
                 <th className="p-3">Code</th>
                 <th className="p-3">Name</th>
                 <th className="p-3">Capacity</th>
-                <th className="p-3">Stock Level</th>
+                <th className="p-3">Stock @13% TS</th>
+                <th className="p-3">Physical Stock</th>
                 <th className="p-3">Reserved</th>
                 <th className="p-3">Status</th>
                 <th className="p-3 text-right">Actions</th>
@@ -107,13 +108,13 @@ export default function SuperAdminSilosPage() {
             <tbody className="divide-y divide-border/60 font-semibold text-foreground">
               {query.isPending ? (
                 <tr>
-                  <td colSpan={7} className="p-6 text-center tabular-nums text-muted-foreground">
+                  <td colSpan={8} className="p-6 text-center tabular-nums text-muted-foreground">
                     Loading silos…
                   </td>
                 </tr>
               ) : silos.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                  <td colSpan={8} className="p-6 text-center text-muted-foreground">
                     No silos found.
                   </td>
                 </tr>
@@ -125,6 +126,16 @@ export default function SuperAdminSilosPage() {
                       <td className="p-3 font-bold tabular-nums text-foreground">{s.siloCode}</td>
                       <td className="p-3 font-semibold text-foreground">{s.siloName}</td>
                       <td className="p-3 tabular-nums text-muted-foreground">{s.capacityLiters.toLocaleString()} L</td>
+                      <td className="p-3 tabular-nums font-bold text-foreground">
+                        {s.currentStockAt13Ts !== null && s.currentStockAt13Ts !== undefined
+                          ? `${s.currentStockAt13Ts.toLocaleString()} L`
+                          : '—'}
+                        {s.compositeTsPercent !== null && s.compositeTsPercent !== undefined && (
+                          <span className="block text-[10px] text-muted-foreground font-normal">
+                            Avg TS: {s.compositeTsPercent}%
+                          </span>
+                        )}
+                      </td>
                       <td className="p-3 tabular-nums">
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-xs font-bold text-foreground">

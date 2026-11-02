@@ -749,6 +749,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
               href: '/super-admin/procurement-sources',
             },
             {
+              id: 'zmcc-tanks',
+              label: 'ZMCC Tanks',
+              icon: Building2,
+              href: '/super-admin/zmcc-tanks',
+            },
+            {
               id: 'weighing-policy',
               label: 'Weighing policy',
               icon: FileCheck2,

@@ -120,9 +120,11 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
 
                   <div className="mt-3">
                     <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-slate-600 font-medium">Tank stock</span>
+                      <span className="text-slate-600 font-medium">Tank stock (@13% TS)</span>
                       <span className="tabular-nums font-semibold text-slate-800">
-                        {z.siloStockLiters.toLocaleString()} L ({formatMetric(z.siloCapacityPercent, '%')})
+                        {z.siloStockAt13tsLiters != null
+                          ? `${z.siloStockAt13tsLiters.toLocaleString()} L @13% TS (${formatMetric(z.siloCapacityPercent, '%')})`
+                          : `${z.siloStockLiters.toLocaleString()} L (${formatMetric(z.siloCapacityPercent, '%')})`}
                       </span>
                     </div>
                     <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">

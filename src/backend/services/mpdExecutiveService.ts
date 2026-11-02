@@ -3,7 +3,7 @@ import { writeAuditLog } from '@/backend/core/audit';
 import { prisma } from '@core/db';
 import { getSupplyChainLossHierarchy } from './lossCalculationService';
 import { listZmccExitOutcomes } from './zmccManagerOverviewService';
-import { getTankPhysicalStock, getBatchTankPhysicalStock } from './zmccTankService';
+import { getTankPhysicalStock, getBatchTankPhysicalStock, getBatchTankCommercialStock } from './zmccTankService';
 import { getPakistanCalendarDate } from '@core/business-day';
 import { isFatTestCandidate, isLrTestCandidate } from '@/backend/utils/milkTestResolvers';
 import { jsonRecord, jsonString } from '@/lib/json';
@@ -82,6 +82,8 @@ export interface MpdExecutiveTelemetry {
     intakeLiters: number;
     /** Current physical stock across the ZMCC's active tanks (inventory ledger). */
     siloStockLiters: number;
+    /** Current commercial stock @13TS across the ZMCC's active tanks. */
+    siloStockAt13tsLiters: number;
     siloCapacityPercent: number | null;
     avgFatPercent: number | null;
     avgLr: number | null;
@@ -513,7 +515,10 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
   // ZMCC centers
   const zmccSources = activeSources.filter((s) => s.source_type === 'ZMCC');
   const allTankIds = zmccSources.flatMap((z) => z.zmcc_tanks.map((t) => t.id));
-  const tankStocks = await getBatchTankPhysicalStock(allTankIds);
+  const [tankStocks, tankCommercialStocks] = await Promise.all([
+    getBatchTankPhysicalStock(allTankIds),
+    getBatchTankCommercialStock(allTankIds),
+  ]);
 
   const zmccCenters = zmccSources.map((zmcc) => {
     const received = tankReceipts.filter((r) => r.zmcc_id === zmcc.id);
@@ -523,6 +528,7 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
       lr: toNumber(v.vehicle_dispatch_lr),
     }));
     const stock = zmcc.zmcc_tanks.reduce((sum, t) => sum + (tankStocks.get(t.id.toString()) ?? 0), 0);
+    const commercialStock = zmcc.zmcc_tanks.reduce((sum, t) => sum + (tankCommercialStocks.get(t.id.toString()) ?? 0), 0);
     const capacity = zmcc.zmcc_tanks.reduce((sum, t) => sum + (toNumber(t.capacity_liters) ?? 0), 0);
 
     return {
@@ -531,6 +537,7 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
       name: zmcc.name,
       intakeLiters: round(received.reduce((sum, r) => sum + (toNumber(r.gross_liters) ?? 0), 0)),
       siloStockLiters: round(stock),
+      siloStockAt13tsLiters: round(commercialStock),
       siloCapacityPercent: capacity > 0 ? Math.round((stock / capacity) * 100) : null,
       avgFatPercent: weightedMean(dispatched.map((d) => [d.fat, d.liters])),
       avgLr: weightedMean(dispatched.map((d) => [d.lr, d.liters])),

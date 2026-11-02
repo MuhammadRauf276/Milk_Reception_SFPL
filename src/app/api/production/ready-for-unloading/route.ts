@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@core/db';
 import { getCurrentUser } from '@core/auth';
-import { getSiloActiveReservedLiters, getSiloStockVolumeState } from '@/backend/services/siloInventoryService';
+import { getSiloStockSummary } from '@/backend/services/siloInventoryService';
+import { canViewPlant13TsLiters, isBlindOperationalRole } from '@/lib/role-visibility';
 import { aggregateAcceptedPortionQuantities } from '@/lib/portion-quantity-aggregator';
 import {
   calculateSNF,
@@ -19,6 +20,9 @@ export async function GET(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const isPlantManager = canViewPlant13TsLiters(user.role);
+    const isBlind = isBlindOperationalRole(user.role);
 
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search')?.trim().toUpperCase() || '';
@@ -141,24 +145,24 @@ export async function GET(req: NextRequest) {
         return {
           id: String(p.id),
           portion_number: p.portion_number,
-          dispatch_quantity_value: dispatchQuantityValue,
-          dispatch_quantity_unit: dispatchQuantityUnit,
-          dispatch_quantity_basis: p.dispatch_quantity_basis || null,
+          dispatch_quantity_value: isBlind ? null : dispatchQuantityValue,
+          dispatch_quantity_unit: isBlind ? null : dispatchQuantityUnit,
+          dispatch_quantity_basis: isBlind ? null : (p.dispatch_quantity_basis || null),
           plant_decision: p.plant_decision || 'PENDING',
           plant_rejection_reason: p.plant_rejection_reason || null,
           current_status: p.current_status,
-          first_weight_kg: p.first_weight_kg !== null && p.first_weight_kg !== undefined ? Number(p.first_weight_kg) : null,
+          first_weight_kg: isBlind ? null : (p.first_weight_kg !== null && p.first_weight_kg !== undefined ? Number(p.first_weight_kg) : null),
           first_weight_at: p.first_weight_at ? p.first_weight_at.toISOString() : null,
-          second_weight_kg: p.second_weight_kg !== null && p.second_weight_kg !== undefined ? Number(p.second_weight_kg) : null,
+          second_weight_kg: isBlind ? null : (p.second_weight_kg !== null && p.second_weight_kg !== undefined ? Number(p.second_weight_kg) : null),
           second_weight_at: p.second_weight_at ? p.second_weight_at.toISOString() : null,
-          net_weight_kg: p.net_weight_kg !== null && p.net_weight_kg !== undefined ? Number(p.net_weight_kg) : null,
+          net_weight_kg: isBlind ? null : (p.net_weight_kg !== null && p.net_weight_kg !== undefined ? Number(p.net_weight_kg) : null),
           lr: plantLrVal,
           fat: plantFatVal,
           snf: snfVal !== null ? Math.round(snfVal * 1000) / 1000 : null,
           ts: tsVal !== null ? Math.round(tsVal * 1000) / 1000 : null,
           snf_fat_ratio: ratioVal !== null ? Math.round(ratioVal * 1000) / 1000 : null,
-          expected_physical_liters: provisionalPhysicalLiters !== null ? Math.round(provisionalPhysicalLiters) : null,
-          expected_at13_ts_liters: at13TSLiters !== null ? Math.round(at13TSLiters) : null,
+          expected_physical_liters: isBlind ? null : (provisionalPhysicalLiters !== null ? Math.round(provisionalPhysicalLiters) : null),
+          expected_at13_ts_liters: isPlantManager && at13TSLiters !== null ? Math.round(at13TSLiters) : null,
           unloading_log: p.unloading_log
             ? {
                 id: String(p.unloading_log.id),
@@ -204,19 +208,19 @@ export async function GET(req: NextRequest) {
         token_number: v.token_number,
         identifiers: vehicleVisitPaperIdentity(v),
         current_status: v.current_status,
-        gross_weight_kg: activeFirstWeight,
+        gross_weight_kg: isBlind ? null : activeFirstWeight,
         gross_timestamp: v.weight_ticket?.gross_timestamp ? v.weight_ticket.gross_timestamp.toISOString() : null,
         portion_count: v.portions.length,
         accepted_portion_count: acceptedPortions.length,
         rejected_portion_count: rejectedPortions.length,
-        // Double-Blind Operator Entry: Mask dispatch values and expected liters from Production Operator
+        // Double-blind segregation: strictly masked for operational staff; @13 TS Liters presented to plant managers
         vehicle_dispatch_quantity_value: null,
         vehicle_dispatch_quantity_unit: null,
         vehicle_dispatch_quantity_basis: null,
         total_accepted_dispatch_value: null,
         total_accepted_dispatch_unit: null,
         total_accepted_physical_liters: null,
-        total_accepted_at13_ts_liters: null,
+        total_accepted_at13_ts_liters: isPlantManager && allAcceptedHaveAt13TS ? Math.round(totalAcceptedAt13TSLiters) : null,
         waiting_minutes: waitingMinutes,
         test_mode: v.test_mode || 'COMPOSITE',
         is_portion_wise: isPortionWise,
@@ -228,7 +232,7 @@ export async function GET(req: NextRequest) {
           dispatch_quantity_unit: null,
           provisional_physical_liters: null,
           expected_physical_liters: null,
-          expected_at_13ts_liters: null,
+          expected_at_13ts_liters: isPlantManager ? p.expected_at13_ts_liters : null,
         })),
       };
     });
@@ -242,23 +246,39 @@ export async function GET(req: NextRequest) {
     const activeSilos = await Promise.all(
       allSilosInDb.map(async (silo) => {
         const capacity = Number(silo.capacity_liters);
-        const stockState = await getSiloStockVolumeState(silo.id);
-        const activeReservedLiters = await getSiloActiveReservedLiters(silo.id);
+        let currentStockLiters: number | null = null;
+        let currentStockAt13Ts: number | null = null;
+        let compositeTsPercent: number | null = null;
         let provisionalAvailable: number | null = null;
-        if (stockState.isComplete) {
-          provisionalAvailable = Math.max(0, capacity - stockState.knownLiters - activeReservedLiters);
+        let activeReservedLiters: number | null = null;
+        let isStockComplete = true;
+        let unknownVolumeCount = 0;
+
+        if (!isBlind) {
+          const summary = await getSiloStockSummary(silo.id);
+          currentStockLiters = Math.round(summary.currentStockLiters);
+          currentStockAt13Ts = summary.currentStockAt13Ts;
+          compositeTsPercent = summary.compositeTsPercent;
+          activeReservedLiters = Math.round(summary.activeReservationsLiters);
+          isStockComplete = summary.isComplete;
+          unknownVolumeCount = summary.unknownVolumeTransactionCount;
+          if (summary.isComplete) {
+            provisionalAvailable = Math.max(0, capacity - summary.currentStockLiters - summary.activeReservationsLiters);
+          }
         }
 
         return {
           id: String(silo.id),
           silo_code: silo.silo_code,
           silo_name: silo.silo_name,
-          capacity_liters: capacity,
-          current_stock_liters: Math.round(stockState.knownLiters),
-          is_stock_complete: stockState.isComplete,
-          unknown_volume_transaction_count: stockState.unknownVolumeTransactionCount,
-          active_reserved_liters: Math.round(activeReservedLiters),
-          provisional_available_liters: provisionalAvailable !== null ? Math.round(provisionalAvailable) : null,
+          capacity_liters: isBlind ? null : capacity,
+          current_stock_liters: isBlind ? null : currentStockLiters,
+          current_stock_at_13ts: isPlantManager ? currentStockAt13Ts : null,
+          composite_ts_percent: isPlantManager ? compositeTsPercent : null,
+          is_stock_complete: isStockComplete,
+          unknown_volume_transaction_count: unknownVolumeCount,
+          active_reserved_liters: isBlind ? null : activeReservedLiters,
+          provisional_available_liters: isBlind ? null : (provisionalAvailable !== null ? Math.round(provisionalAvailable) : null),
           is_active: silo.is_active,
         };
       })

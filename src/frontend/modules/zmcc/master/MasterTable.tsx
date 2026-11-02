@@ -31,6 +31,7 @@ interface Props<T extends { id: string; is_active: boolean }> {
   canEdit: boolean;
   /** Tanks hide the whole Actions column for read-only users; other tabs show a "Read-only" label. */
   hideActionsWhenReadOnly?: boolean;
+  renderExtraActions?: (row: T) => React.ReactNode;
   onEdit: (row: T) => void;
   onToggle: (row: T) => void;
 }
@@ -43,6 +44,7 @@ export function MasterTable<T extends { id: string; is_active: boolean }>({
   entity,
   canEdit,
   hideActionsWhenReadOnly: _hideActionsWhenReadOnly,
+  renderExtraActions,
   onEdit,
   onToggle,
 }: Props<T>) {
@@ -80,6 +82,7 @@ export function MasterTable<T extends { id: string; is_active: boolean }>({
                   <td className="py-3 px-4 text-right">
                     {canEdit && (
                       <div className="flex items-center justify-end gap-1.5">
+                        {renderExtraActions && renderExtraActions(r)}
                         <button
                           type="button"
                           onClick={() => onEdit(r)}

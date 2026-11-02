@@ -221,6 +221,8 @@ export interface TankStorageRow {
   name: string;
   capacityLiters: number;
   currentStock: number;
+  currentStockAt13Ts: number | null;
+  compositeTsPercent: number | null;
   currentTempC: number | null;
   lastCipAt: string | null;
   todayReceiptsLiters: number;

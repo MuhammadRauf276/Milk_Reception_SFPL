@@ -467,7 +467,8 @@ export function ZMCCComprehensiveReportsScreen({
                     <th className="p-3">Tank Code</th>
                     <th className="p-3">Tank Name</th>
                     <th className="p-3">Capacity (L)</th>
-                    <th className="p-3">Current Stock (L)</th>
+                    <th className="p-3">Stock @13% TS (L)</th>
+                    <th className="p-3">Composite TS %</th>
                     <th className="p-3">Fill %</th>
                     <th className="p-3">Temperature</th>
                     <th className="p-3">Today Receipts</th>
@@ -482,7 +483,12 @@ export function ZMCCComprehensiveReportsScreen({
                       <td className="p-3 font-semibold text-foreground">{tank.name}</td>
                       <td className="p-3 tabular-nums text-slate-700">{tank.capacityLiters.toLocaleString()} L</td>
                       <td className="p-3 tabular-nums font-semibold text-foreground">
-                        {tank.currentStock.toLocaleString()} L
+                        {tank.currentStockAt13Ts !== null
+                          ? `${tank.currentStockAt13Ts.toLocaleString()} L`
+                          : '—'}
+                      </td>
+                      <td className="p-3 tabular-nums font-semibold text-blue-800">
+                        {tank.compositeTsPercent !== null ? `${tank.compositeTsPercent}%` : '—'}
                       </td>
                       <td className="p-3 tabular-nums">
                         <div className="flex items-center gap-2">

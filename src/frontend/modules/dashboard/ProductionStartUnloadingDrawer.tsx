@@ -188,7 +188,9 @@ export const ProductionStartUnloadingDrawer: React.FC<{
                       .filter((s) => s.is_active)
                       .map((s) => ({
                         value: s.id,
-                        label: `${s.silo_code} · ${s.silo_name} · ${s.provisional_available_liters.toLocaleString()} L free`,
+                        label: s.provisional_available_liters !== null
+                          ? `${s.silo_code} · ${s.silo_name} · ${s.provisional_available_liters.toLocaleString()} L free`
+                          : `${s.silo_code} · ${s.silo_name} (Operational)`,
                         keywords: `${s.silo_code} ${s.silo_name}`,
                       }))}
                   />

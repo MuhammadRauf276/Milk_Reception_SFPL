@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Milk, History } from 'lucide-react';
 import { MasterTable, StatusPill, type MasterCol } from './MasterTable';
 import type {
   AreaItem,
@@ -27,6 +28,8 @@ interface Props {
   chillerOwnerships: ChillerOwnershipItem[];
   shops: ShopItem[];
   tanks: TankItem[];
+  onIntakeTank?: (tank: TankItem) => void;
+  onViewLedger?: (tank: TankItem) => void;
   onEdit: (r: MasterRecord) => void;
   onToggle: (r: MasterRecord) => void;
 }
@@ -100,6 +103,14 @@ const tankCols: MasterCol<TankItem>[] = [
   { header: 'Tank Name', tdClass: 'font-semibold text-foreground', cell: (t) => t.tank_name },
   { header: 'Capacity (L)', align: 'right', tdClass: 'tabular-nums font-semibold', cell: (t) => `${Number(t.capacity_liters).toFixed(2)} L` },
   { header: 'Current Stock (L)', align: 'right', tdClass: 'tabular-nums font-semibold text-blue-700', cell: (t) => `${Number(t.current_stock).toFixed(2)} L` },
+  {
+    header: 'Stock @13% TS (L)',
+    align: 'right',
+    tdClass: 'tabular-nums font-semibold text-primary',
+    cell: (t) => t.current_commercial_stock_at_13ts !== null && t.current_commercial_stock_at_13ts !== undefined
+      ? `${Number(t.current_commercial_stock_at_13ts).toFixed(2)} L`
+      : '—',
+  },
   { header: 'Available Capacity (L)', align: 'right', tdClass: 'tabular-nums font-semibold text-emerald-700', cell: (t) => `${Number(t.available_capacity).toFixed(2)} L` },
   status<TankItem>(),
 ];
@@ -128,7 +139,42 @@ export const MasterTables: React.FC<Props> = (p) => {
     case 'SHOPS':
       return <MasterTable {...common} cols={shopCols} rows={p.shops} entity="Shop" emptyText="No shops." />;
     case 'TANKS':
-      return <MasterTable {...common} cols={tankCols} rows={p.tanks} entity="Tank" hideActionsWhenReadOnly emptyText="No tanks." />;
+      return (
+        <MasterTable
+          {...common}
+          cols={tankCols}
+          rows={p.tanks}
+          entity="Tank"
+          hideActionsWhenReadOnly
+          emptyText="No tanks."
+          renderExtraActions={(tank) => (
+            <>
+              {tank.is_active && p.onIntakeTank && (
+                <button
+                  type="button"
+                  onClick={() => p.onIntakeTank!(tank)}
+                  className="p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition"
+                  title="Intake Milk Stock (@13% TS and Gross Liters)"
+                  aria-label="Intake Milk Stock"
+                >
+                  <Milk className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {p.onViewLedger && (
+                <button
+                  type="button"
+                  onClick={() => p.onViewLedger!(tank)}
+                  className="p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-border hover:bg-slate-100 text-slate-700 transition"
+                  title="View Stock Ledger"
+                  aria-label="View Stock Ledger"
+                >
+                  <History className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </>
+          )}
+        />
+      );
     default:
       return null;
   }

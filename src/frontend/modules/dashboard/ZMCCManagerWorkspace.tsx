@@ -256,8 +256,13 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
         | null;
       const tanks = Array.isArray(td) ? td : td?.tanks || td?.items;
       if (Array.isArray(tanks) && tanks.length === 1) {
-        const stock = Number(tanks[0].current_stock);
-        tankStock = Number.isFinite(stock) ? Number(stock.toFixed(2)) : null;
+        const stock13Ts = Number((tanks[0] as Record<string, unknown>).current_stock_at_13ts);
+        const stock = Number((tanks[0] as Record<string, unknown>).current_stock);
+        tankStock = Number.isFinite(stock13Ts)
+          ? Number(stock13Ts.toFixed(2))
+          : Number.isFinite(stock)
+          ? Number(stock.toFixed(2))
+          : null;
       }
       return {
         tankStock,

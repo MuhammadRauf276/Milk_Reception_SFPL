@@ -2,10 +2,12 @@ export interface SiloOption {
   id: string;
   silo_code: string;
   silo_name: string;
-  capacity_liters: number;
-  current_stock_liters: number;
-  active_reserved_liters: number;
-  provisional_available_liters: number;
+  capacity_liters: number | null;
+  current_stock_liters: number | null;
+  current_stock_at_13ts?: number | null;
+  composite_ts_percent?: number | null;
+  active_reserved_liters: number | null;
+  provisional_available_liters: number | null;
   is_active: boolean;
 }
 

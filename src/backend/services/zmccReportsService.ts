@@ -1,6 +1,7 @@
 import { prisma } from '@/backend/core/db';
 import ExcelJS from 'exceljs';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
+import { getBatchTankPhysicalStock, getBatchTankCommercialStock } from '@/backend/services/zmccTankService';
 
 // ==========================================
 // 1. SUBORDINATE HIERARCHY DATA CONTRACTS
@@ -237,6 +238,8 @@ export interface TankStorageRow {
   name: string;
   capacityLiters: number;
   currentStock: number;
+  currentStockAt13Ts: number | null;
+  compositeTsPercent: number | null;
   currentTempC: number | null;
   lastCipAt: string | null;
   todayReceiptsLiters: number;
@@ -934,10 +937,18 @@ export async function getZmccTankStorageReport(zmccId?: bigint): Promise<{ rows:
     },
   });
 
+  const tankIds = tanks.map((t) => t.id);
+  const [physicalStocks, commercialStocks] = await Promise.all([
+    getBatchTankPhysicalStock(tankIds),
+    getBatchTankCommercialStock(tankIds),
+  ]);
+
   const rows: TankStorageRow[] = tanks.map((t) => {
     const cap = Number(t.capacity_liters);
+    const stock = physicalStocks.get(t.id.toString()) ?? 0;
+    const stockAt13 = commercialStocks.get(t.id.toString()) ?? 0;
+    const compositeTsPercent = stock > 0 ? Number(((stockAt13 * 13) / stock).toFixed(2)) : null;
     const todayReceipts = t.receipts.reduce((sum: number, r: { gross_liters: any }) => sum + Number(r.gross_liters), 0);
-    const stock = Number((todayReceipts * 0.75).toFixed(2));
     const fillPct = cap > 0 ? Number(((stock / cap) * 100).toFixed(1)) : 0;
 
     return {
@@ -946,6 +957,8 @@ export async function getZmccTankStorageReport(zmccId?: bigint): Promise<{ rows:
       name: t.tank_name,
       capacityLiters: cap,
       currentStock: stock,
+      currentStockAt13Ts: Number(stockAt13.toFixed(2)),
+      compositeTsPercent,
       currentTempC: 3.8,
       lastCipAt: null,
       todayReceiptsLiters: Number(todayReceipts.toFixed(2)),
@@ -1188,6 +1201,8 @@ export async function generateZmccExcelReport(
       { header: 'Tank Code', key: 'tCode', width: 14 },
       { header: 'Tank Name', key: 'name', width: 22 },
       { header: 'Capacity (L)', key: 'cap', width: 16 },
+      { header: 'Stock @13TS (L)', key: 'stock13', width: 18 },
+      { header: 'Composite TS %', key: 'tsPct', width: 16 },
       { header: 'Current Stock (L)', key: 'stock', width: 16 },
       { header: 'Fill %', key: 'fill', width: 12 },
       { header: 'Temp °C', key: 'temp', width: 12 },
@@ -1204,6 +1219,8 @@ export async function generateZmccExcelReport(
         tCode: r.tankCode,
         name: r.name,
         cap: r.capacityLiters,
+        stock13: r.currentStockAt13Ts ?? '—',
+        tsPct: r.compositeTsPercent ? `${r.compositeTsPercent}%` : '—',
         stock: r.currentStock,
         fill: `${r.fillPercentage}%`,
         temp: r.currentTempC ?? '',

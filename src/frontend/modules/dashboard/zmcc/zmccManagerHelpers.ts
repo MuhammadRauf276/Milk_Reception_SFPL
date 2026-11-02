@@ -1379,10 +1379,12 @@ export function deriveHistoryTransactionItems(groups: VehicleVisitGroup[]): Hist
 
       // Scale & Quantities
       dispatchGrossLiters: g.totalDispatchGrossLiters,
+      dispatch13TsLiters: g.totalDispatch13TsLiters,
       firstWeightKg: g.firstWeightKg,
       secondWeightKg: g.secondWeightKg,
       netMilkWeightKg: g.netMilkWeightKg,
       physicalReceivedLiters: g.physicalReceivedLiters,
+      plant13TsLiters: g.plant13TsLiters,
       destinationSilo: g.destinationSilo,
 
       // Timestamps
@@ -1495,10 +1497,12 @@ export function generateHistoryCsv(items: HistoryTransactionItem[], _sourceName:
     'Portion Count',
     'Portion QA Summary',
     'Dispatch Gross Liters',
+    'Dispatch @13TS Liters',
     'First Weight (kg)',
     'Second Weight (kg)',
     'Net Milk Weight (kg)',
     'Physical Received Liters',
+    'Plant Received @13TS Liters',
     'Destination Silo',
     'Final Receipt Date/Time',
   ];
@@ -1520,10 +1524,12 @@ export function generateHistoryCsv(items: HistoryTransactionItem[], _sourceName:
     escapeCsv(item.portionCount),
     escapeCsv(item.portionQASummaryText),
     escapeCsv(item.dispatchGrossLiters),
+    escapeCsv(item.dispatch13TsLiters),
     escapeCsv(item.firstWeightKg),
     escapeCsv(item.secondWeightKg),
     escapeCsv(item.netMilkWeightKg),
     escapeCsv(item.physicalReceivedLiters),
+    escapeCsv(item.plant13TsLiters),
     escapeCsv(item.destinationSilo),
     escapeCsv(item.finalReceiptTimestamp ? formatOperationalDatetime(item.finalReceiptTimestamp) : '—'),
   ]);

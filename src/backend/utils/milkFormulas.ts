@@ -159,6 +159,69 @@ export function computeCanonicalMilkMetrics(
   };
 }
 
+export interface WeightedMilkBatch {
+  grossLiters: number;
+  lr?: number | null;
+  fat?: number | null;
+  snf?: number | null;
+  ts?: number | null;
+  at13tsLiters?: number | null;
+}
+
+export interface WeightedCompositeMetrics {
+  totalGrossLiters: number;
+  weightedLr: number | null;
+  weightedFat: number | null;
+  weightedSnf: number | null;
+  weightedTs: number | null;
+  weightedDensity: number | null;
+  totalAt13tsLiters: number;
+}
+
+/**
+ * Computes authoritative weighted averages and @13 TS Liters across multiple portions/batches
+ * for a tanker or storage tank using the volume-weighted formula.
+ */
+export function computeWeightedMilkMetrics(batches: WeightedMilkBatch[]): WeightedCompositeMetrics {
+  let totalGross = 0;
+  let lrSum = 0;
+  let lrQty = 0;
+  let fatSum = 0;
+  let fatQty = 0;
+
+  for (const b of batches) {
+    if (b.grossLiters <= 0 || isNaN(b.grossLiters)) continue;
+    totalGross += b.grossLiters;
+    if (b.lr !== null && b.lr !== undefined && !isNaN(b.lr) && b.lr > 0) {
+      lrSum += b.lr * b.grossLiters;
+      lrQty += b.grossLiters;
+    }
+    if (b.fat !== null && b.fat !== undefined && !isNaN(b.fat) && b.fat >= 0) {
+      fatSum += b.fat * b.grossLiters;
+      fatQty += b.grossLiters;
+    }
+  }
+
+  const weightedLr = lrQty > 0 ? Number((lrSum / lrQty).toFixed(2)) : null;
+  const weightedFat = fatQty > 0 ? Number((fatSum / fatQty).toFixed(2)) : null;
+  const weightedDensity = weightedLr !== null ? Number(calculateDensity(weightedLr).toFixed(4)) : null;
+  const weightedSnf = weightedLr !== null && weightedFat !== null ? Number(calculateSNF(weightedLr, weightedFat).toFixed(2)) : null;
+  const weightedTs = weightedFat !== null && weightedSnf !== null ? Number(calculateTS(weightedFat, weightedSnf).toFixed(2)) : null;
+  const totalAt13tsLiters = weightedTs !== null && totalGross > 0
+    ? Number(calculateAt13TSLiters(totalGross, weightedTs).toFixed(2))
+    : 0;
+
+  return {
+    totalGrossLiters: Number(totalGross.toFixed(2)),
+    weightedLr,
+    weightedFat,
+    weightedSnf,
+    weightedTs,
+    weightedDensity,
+    totalAt13tsLiters,
+  };
+}
+
 /**
  * Formats a shop collection SMS notification body.
  * Summarizes shop, references, vehicle, MOT, and milk quality metrics.

@@ -37,10 +37,13 @@ import {
   type MasterDataTab,
   type RouteItem,
   type ZmccSource,
+  type TankItem,
 } from './master/masterTypes';
 import { useMasterRecordForm } from './master/useMasterRecordForm';
 import { MasterTables } from './master/MasterTables';
 import { MasterRecordDrawer } from './master/MasterRecordDrawer';
+import { ZmccTankIntakeDrawer } from '@/frontend/modules/super-admin/zmcc-tanks/ZmccTankIntakeDrawer';
+import { ZmccTankLedgerDrawer } from '@/frontend/modules/super-admin/zmcc-tanks/ZmccTankLedgerDrawer';
 import { ZmccPager } from './shared/ZmccDrawer';
 
 export type { MasterDataTab };
@@ -106,6 +109,8 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
 
   const [internalTab, setInternalTab] = useState<MasterDataTab>(controlledTab || initialTab || 'LOCAL_SUPPLIERS');
   const activeTab = controlledTab || internalTab;
+  const [intakeTank, setIntakeTank] = useState<TankItem | null>(null);
+  const [ledgerTank, setLedgerTank] = useState<TankItem | null>(null);
 
   const setActiveTab = (tab: MasterDataTab) => {
     setInternalTab(tab);
@@ -379,16 +384,28 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                   )}
                 </div>
 
-                {canAdd && (
-                  <button
-                    type="button"
-                    onClick={form.openCreate}
-                    className="flex items-center justify-center gap-2 px-4 py-2 min-h-[44px] bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary-hover transition shadow-2xs shrink-0"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>{ADD_LABEL[activeTab]}</span>
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {activeTab === 'TANKS' && (isSuperAdmin || isDataExecutive) && itemsFor('TANKS').some((t) => t.is_active) && (
+                    <button
+                      type="button"
+                      onClick={() => setIntakeTank(itemsFor('TANKS').find((t) => t.is_active) || null)}
+                      className="flex items-center justify-center gap-2 px-4 py-2 min-h-[44px] bg-emerald-700 text-white rounded-xl text-xs font-semibold hover:bg-emerald-800 transition shadow-2xs shrink-0"
+                    >
+                      <Milk className="w-4 h-4" />
+                      <span>Intake Milk Stock</span>
+                    </button>
+                  )}
+                  {canAdd && (
+                    <button
+                      type="button"
+                      onClick={form.openCreate}
+                      className="flex items-center justify-center gap-2 px-4 py-2 min-h-[44px] bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary-hover transition shadow-2xs shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>{ADD_LABEL[activeTab]}</span>
+                    </button>
+                  )}
+                </div>
 
               </div>
 
@@ -412,6 +429,8 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                       chillerOwnerships={itemsFor('CHILLER_OWNERSHIP')}
                       shops={itemsFor('SHOPS')}
                       tanks={itemsFor('TANKS')}
+                      onIntakeTank={setIntakeTank}
+                      onViewLedger={setLedgerTank}
                       onEdit={form.openEdit}
                       onToggle={form.openToggle}
                     />
@@ -437,6 +456,20 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
         helperRoutes={helperRoutes}
         helperAreas={helperAreas}
         helperChillers={helperChillers}
+      />
+
+      <ZmccTankIntakeDrawer
+        tank={intakeTank}
+        onClose={() => setIntakeTank(null)}
+        onSaved={(msg) => {
+          form.setSuccessMsg(msg);
+          loadData();
+        }}
+      />
+
+      <ZmccTankLedgerDrawer
+        tank={ledgerTank}
+        onClose={() => setLedgerTank(null)}
       />
     </div>
   );

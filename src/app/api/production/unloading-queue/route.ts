@@ -11,6 +11,7 @@ import {
 import { isPlantLrTest, isPlantFatTest } from '@/backend/services/vehicleQuantityService';
 import { aggregateAcceptedPortionQuantities } from '@/lib/portion-quantity-aggregator';
 import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
+import { canViewPlant13TsLiters, isBlindOperationalRole } from '@/lib/role-visibility';
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,6 +19,9 @@ export async function GET(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const isPlantManager = canViewPlant13TsLiters(user.role);
+    const isBlind = isBlindOperationalRole(user.role);
 
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search')?.trim().toUpperCase() || '';
@@ -131,36 +135,36 @@ export async function GET(req: NextRequest) {
         }
 
         if (p.unloading_log?.pump_start_timestamp) {
-          const pStartTime = p.unloading_log.pump_start_timestamp;
-          if (!earliestStartTime || pStartTime < earliestStartTime) {
-            earliestStartTime = pStartTime;
+          const pumpStart = new Date(p.unloading_log.pump_start_timestamp);
+          if (!earliestStartTime || pumpStart < earliestStartTime) {
+            earliestStartTime = pumpStart;
           }
-          if (!starterName && p.unloading_log.starter) {
-            starterName = p.unloading_log.starter.full_name || p.unloading_log.starter.username;
-          }
+        }
+        if (p.unloading_log?.starter) {
+          starterName = p.unloading_log.starter.full_name || p.unloading_log.starter.username;
         }
 
         return {
           id: String(p.id),
           portion_number: p.portion_number,
-          dispatch_quantity_value: dispatchQuantityValue,
-          dispatch_quantity_unit: dispatchQuantityUnit,
-          dispatch_quantity_basis: p.dispatch_quantity_basis || null,
+          dispatch_quantity_value: isBlind ? null : dispatchQuantityValue,
+          dispatch_quantity_unit: isBlind ? null : dispatchQuantityUnit,
+          dispatch_quantity_basis: isBlind ? null : (p.dispatch_quantity_basis || null),
           plant_decision: p.plant_decision || 'PENDING',
           plant_rejection_reason: p.plant_rejection_reason || null,
           current_status: p.current_status,
-          first_weight_kg: p.first_weight_kg !== null && p.first_weight_kg !== undefined ? Number(p.first_weight_kg) : null,
+          first_weight_kg: isBlind ? null : (p.first_weight_kg !== null && p.first_weight_kg !== undefined ? Number(p.first_weight_kg) : null),
           first_weight_at: p.first_weight_at ? p.first_weight_at.toISOString() : null,
-          second_weight_kg: p.second_weight_kg !== null && p.second_weight_kg !== undefined ? Number(p.second_weight_kg) : null,
+          second_weight_kg: isBlind ? null : (p.second_weight_kg !== null && p.second_weight_kg !== undefined ? Number(p.second_weight_kg) : null),
           second_weight_at: p.second_weight_at ? p.second_weight_at.toISOString() : null,
-          net_weight_kg: p.net_weight_kg !== null && p.net_weight_kg !== undefined ? Number(p.net_weight_kg) : null,
+          net_weight_kg: isBlind ? null : (p.net_weight_kg !== null && p.net_weight_kg !== undefined ? Number(p.net_weight_kg) : null),
           lr: plantLrVal,
           fat: plantFatVal,
           snf: snfVal !== null ? Math.round(snfVal * 1000) / 1000 : null,
           ts: tsVal !== null ? Math.round(tsVal * 1000) / 1000 : null,
           snf_fat_ratio: ratioVal !== null ? Math.round(ratioVal * 1000) / 1000 : null,
-          expected_physical_liters: provisionalPhysicalLiters !== null ? Math.round(provisionalPhysicalLiters) : null,
-          expected_at13_ts_liters: at13TSLiters !== null ? Math.round(at13TSLiters) : null,
+          expected_physical_liters: isBlind ? null : (provisionalPhysicalLiters !== null ? Math.round(provisionalPhysicalLiters) : null),
+          expected_at13_ts_liters: isPlantManager && at13TSLiters !== null ? Math.round(at13TSLiters) : null,
           unloading_log: p.unloading_log
             ? {
                 id: String(p.unloading_log.id),
@@ -201,18 +205,18 @@ export async function GET(req: NextRequest) {
         token_number: v.token_number,
         identifiers: vehicleVisitPaperIdentity(v),
         current_status: v.current_status,
-        gross_weight_kg: v.weight_ticket?.gross_weight_kg ? Number(v.weight_ticket.gross_weight_kg) : null,
+        gross_weight_kg: isBlind ? null : (v.weight_ticket?.gross_weight_kg ? Number(v.weight_ticket.gross_weight_kg) : null),
         portion_count: v.portions.length,
         accepted_portion_count: acceptedPortions.length,
         rejected_portion_count: rejectedPortions.length,
-        // Double-Blind Operator Entry: Mask dispatch values and expected liters from Production Operator
+        // Double-blind segregation: strictly masked for operational staff; @13 TS Liters presented to plant managers
         vehicle_dispatch_quantity_value: null,
         vehicle_dispatch_quantity_unit: null,
         vehicle_dispatch_quantity_basis: null,
         total_accepted_dispatch_value: null,
         total_accepted_dispatch_unit: null,
         total_accepted_physical_liters: null,
-        total_accepted_at13_ts_liters: null,
+        total_accepted_at13_ts_liters: isPlantManager && allAcceptedHaveAt13TS ? Math.round(totalAcceptedAt13TSLiters) : null,
         started_at: earliestStartTime ? (earliestStartTime as Date).toISOString() : null,
         started_by_name: starterName || 'Operator',
         elapsed_minutes: elapsedMinutes,
@@ -225,7 +229,7 @@ export async function GET(req: NextRequest) {
           dispatch_quantity_unit: null,
           provisional_physical_liters: null,
           expected_physical_liters: null,
-          expected_at_13ts_liters: null,
+          expected_at_13ts_liters: isPlantManager ? p.expected_at13_ts_liters : null,
         })),
       };
     });

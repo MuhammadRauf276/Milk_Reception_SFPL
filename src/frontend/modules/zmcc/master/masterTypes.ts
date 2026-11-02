@@ -35,6 +35,9 @@ export interface TankItem {
   tank_name: string;
   capacity_liters: number;
   current_stock: number;
+  current_physical_stock_gross_liters?: number;
+  current_commercial_stock_at_13ts?: number | null;
+  commercial_balance_complete?: boolean;
   available_capacity: number;
   is_active: boolean;
   created_at: string;

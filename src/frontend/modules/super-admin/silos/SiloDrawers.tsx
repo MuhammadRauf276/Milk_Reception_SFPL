@@ -14,6 +14,8 @@ export interface Silo {
   siloName: string;
   capacityLiters: number;
   currentStockLiters: number;
+  currentStockAt13Ts?: number | null;
+  compositeTsPercent?: number | null;
   activeReservationsLiters: number;
   isActive: boolean;
   createdAt: string;

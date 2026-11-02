@@ -33,7 +33,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
   const historyLoading = historyQuery.isPending;
 
   const parsedIssueLiters = Number(issueQuantityLiters) || 0;
-  const currentStock = silo.current_stock_liters;
+  const currentStock = silo.current_stock_liters ?? 0;
   const previewRemaining = currentStock - parsedIssueLiters;
   const isOverIssue = parsedIssueLiters > currentStock;
 
@@ -44,7 +44,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
       return;
     }
 
-    if (quantityNum > silo.current_stock_liters) {
+    if (silo.current_stock_liters !== null && quantityNum > silo.current_stock_liters) {
       toast.showError(
         `Issue quantity (${quantityNum.toLocaleString()} L) exceeds available physical stock (${silo.current_stock_liters.toLocaleString()} L).`,
         'Stock Error'
@@ -125,7 +125,9 @@ export const ProductionSiloIssueDrawer: React.FC<{
           <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-xl border text-xs tabular-nums font-semibold">
             <div>
               <span className="text-slate-500 font-sans block text-[10px]">Physical Stock</span>
-              <span className="text-base font-semibold text-primary">{silo.current_stock_liters.toLocaleString()} L</span>
+              <span className="text-base font-semibold text-primary">
+                {silo.current_stock_liters !== null ? `${silo.current_stock_liters.toLocaleString()} L` : '—'}
+              </span>
             </div>
             <div>
               <span className="text-slate-500 font-sans block text-[10px]">After-Issue Stock Preview</span>

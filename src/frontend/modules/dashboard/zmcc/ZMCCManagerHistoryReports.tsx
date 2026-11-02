@@ -306,10 +306,12 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
                 <th className="py-2.5 px-3 font-sans">Current Stage</th>
                 <th className="py-2.5 px-3 font-sans">Portion QA</th>
                 <th className="py-2.5 px-3">Dispatch Gross</th>
+                <th className="py-2.5 px-3">Dispatch @13TS</th>
                 <th className="py-2.5 px-3">First Weight (Loaded Vehicle)</th>
                 <th className="py-2.5 px-3">Second Weight (After Unloading)</th>
                 <th className="py-2.5 px-3">Net Milk Weight</th>
                 <th className="py-2.5 px-3">Physical Received</th>
+                <th className="py-2.5 px-3">Received @13TS</th>
                 <th className="py-2.5 px-3">Silo</th>
                 <th className="py-2.5 px-3 font-sans">Final Receipt Date/Time</th>
                 <th className="py-2.5 px-3 text-right font-sans">Actions</th>
@@ -350,6 +352,9 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
                   <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
                     {item.dispatchGrossLiters != null ? `${item.dispatchGrossLiters.toLocaleString()} L` : '—'}
                   </td>
+                  <td className="py-2.5 px-3 font-semibold text-blue-900 whitespace-nowrap">
+                    {item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : '—'}
+                  </td>
                   <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
                     {item.firstWeightKg != null ? `${item.firstWeightKg.toLocaleString()} kg` : '—'}
                   </td>
@@ -361,6 +366,9 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
                   </td>
                   <td className="py-2.5 px-3 font-semibold text-emerald-800 whitespace-nowrap">
                     {item.physicalReceivedLiters != null ? `${item.physicalReceivedLiters.toLocaleString()} L` : '—'}
+                  </td>
+                  <td className="py-2.5 px-3 font-semibold text-emerald-900 whitespace-nowrap">
+                    {item.plant13TsLiters != null ? `${item.plant13TsLiters.toLocaleString()} L` : '—'}
                   </td>
                   <td className="py-2.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
                     {item.destinationSilo || '—'}

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
-import { getSiloCurrentStockLiters, getSiloActiveReservedLiters } from '@/backend/services/siloInventoryService';
+import { getSiloCurrentStockLiters, getSiloActiveReservedLiters, getSiloStockSummary } from '@/backend/services/siloInventoryService';
+import { canViewPlant13TsLiters } from '@/lib/role-visibility';
 import { getErrorCode, getErrorName } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
@@ -10,8 +11,8 @@ export async function GET(req: Request) {
   if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
   }
-  if (authUser.role !== 'SUPER_ADMIN') {
-    return NextResponse.json({ error: 'Unauthorized. Super Admin authorization required.' }, { status: 403 });
+  if (!canViewPlant13TsLiters(authUser.role)) {
+    return NextResponse.json({ error: 'Unauthorized. Plant management authorization required.' }, { status: 403 });
   }
 
   try {
@@ -22,16 +23,22 @@ export async function GET(req: Request) {
     const serialized = await Promise.all(
       silos.map(async (s) => {
         let currentStockLiters = 0;
+        let currentStockAt13Ts: number | null = null;
+        let compositeTsPercent: number | null = null;
         let activeReservationsLiters = 0;
         try {
-          currentStockLiters = await getSiloCurrentStockLiters(s.id, undefined, { allowIncomplete: true });
+          const summary = await getSiloStockSummary(s.id);
+          currentStockLiters = summary.currentStockLiters;
+          currentStockAt13Ts = summary.currentStockAt13Ts;
+          compositeTsPercent = summary.compositeTsPercent;
+          activeReservationsLiters = summary.activeReservationsLiters;
         } catch (_e) {
-          currentStockLiters = 0;
-        }
-        try {
-          activeReservationsLiters = await getSiloActiveReservedLiters(s.id);
-        } catch (_e) {
-          activeReservationsLiters = 0;
+          try {
+            currentStockLiters = await getSiloCurrentStockLiters(s.id, undefined, { allowIncomplete: true });
+            activeReservationsLiters = await getSiloActiveReservedLiters(s.id);
+          } catch (_e2) {
+            // zero fallback
+          }
         }
 
         return {
@@ -40,6 +47,8 @@ export async function GET(req: Request) {
           siloName: s.silo_name,
           capacityLiters: Number(s.capacity_liters),
           currentStockLiters,
+          currentStockAt13Ts,
+          compositeTsPercent,
           activeReservationsLiters,
           isActive: s.is_active,
           createdAt: s.created_at.toISOString(),
@@ -163,6 +172,8 @@ export async function POST(req: Request) {
           siloName: newSilo.silo_name,
           capacityLiters: Number(newSilo.capacity_liters),
           currentStockLiters: 0,
+          currentStockAt13Ts: null,
+          compositeTsPercent: null,
           activeReservationsLiters: 0,
           isActive: newSilo.is_active,
         },

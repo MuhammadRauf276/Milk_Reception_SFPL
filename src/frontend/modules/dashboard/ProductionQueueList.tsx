@@ -116,8 +116,16 @@ export const ProductionQueueList: React.FC<{
                       <span>{v.gross_weight_kg ? `${v.gross_weight_kg.toLocaleString()} kg` : 'N/A'}</span>
                     </div>
                     <div>
-                      <span className="font-sans block text-[10px] opacity-75">Expected Volume</span>
-                      <span>{v.total_accepted_physical_liters !== null ? `~${v.total_accepted_physical_liters.toLocaleString()} L` : 'N/A'}</span>
+                      <span className="font-sans block text-[10px] opacity-75">
+                        {v.total_accepted_at13_ts_liters !== null ? 'Volume (@13% TS)' : 'Expected Volume'}
+                      </span>
+                      <span>
+                        {v.total_accepted_at13_ts_liters !== null
+                          ? `~${v.total_accepted_at13_ts_liters.toLocaleString()} L @13% TS`
+                          : v.total_accepted_physical_liters !== null
+                          ? `~${v.total_accepted_physical_liters.toLocaleString()} L`
+                          : 'Double-Blind (Masked)'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -154,8 +162,16 @@ export const ProductionQueueList: React.FC<{
 
                   <div className={statsClass(isSelected)}>
                     <div>
-                      <span className="font-sans block text-[10px] opacity-75">Unloading Volume</span>
-                      <span>{v.total_accepted_physical_liters !== null ? `~${v.total_accepted_physical_liters.toLocaleString()} L` : 'N/A'}</span>
+                      <span className="font-sans block text-[10px] opacity-75">
+                        {v.total_accepted_at13_ts_liters !== null ? 'Volume (@13% TS)' : 'Unloading Volume'}
+                      </span>
+                      <span>
+                        {v.total_accepted_at13_ts_liters !== null
+                          ? `~${v.total_accepted_at13_ts_liters.toLocaleString()} L @13% TS`
+                          : v.total_accepted_physical_liters !== null
+                          ? `~${v.total_accepted_physical_liters.toLocaleString()} L`
+                          : 'Double-Blind (Masked)'}
+                      </span>
                     </div>
                     <div>
                       <span className="font-sans block text-[10px] opacity-75">Started By</span>
@@ -198,12 +214,18 @@ export const ProductionQueueList: React.FC<{
 
                 <div className={statsClass(isSelected)}>
                   <div>
-                    <span className="font-sans block text-[10px] opacity-75">Physical Stock</span>
-                    <span className="text-sm font-semibold">{silo.current_stock_liters.toLocaleString()} L</span>
+                    <span className="font-sans block text-[10px] opacity-75">{silo.current_stock_at_13ts != null ? 'Stock (@13% TS)' : silo.current_stock_liters != null ? 'Physical Stock' : 'State'}</span>
+                    <span className="text-sm font-semibold">
+                      {silo.current_stock_at_13ts != null
+                        ? `${silo.current_stock_at_13ts.toLocaleString()} L`
+                        : silo.current_stock_liters != null
+                        ? `${silo.current_stock_liters.toLocaleString()} L`
+                        : 'Operational'}
+                    </span>
                   </div>
                   <div>
                     <span className="font-sans block text-[10px] opacity-75">Capacity</span>
-                    <span>{silo.capacity_liters.toLocaleString()} L</span>
+                    <span>{silo.capacity_liters != null ? `${silo.capacity_liters.toLocaleString()} L` : 'Allocated Bay'}</span>
                   </div>
                 </div>
               </div>

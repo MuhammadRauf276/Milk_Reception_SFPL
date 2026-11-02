@@ -22,6 +22,7 @@ import {
   Smartphone,
   Scale,
   FileSpreadsheet,
+  Building2,
 } from 'lucide-react';
 import { User } from '@core/types';
 import { Sheet } from '@/components/ui/sheet';
@@ -93,6 +94,7 @@ export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/approvals', label: 'Approval Inbox', icon: ShieldCheck },
   { href: '/command', label: 'Command Center', icon: Activity },
   { href: '/super-admin/silos', label: 'Silos', icon: Database },
+  { href: '/super-admin/zmcc-tanks', label: 'ZMCC Tanks', icon: Building2 },
   { href: '/super-admin/weighing-policy', label: 'Weighing Policy', icon: Scale },
   { href: '/super-admin/test-policies', label: 'Lab Policies', icon: FlaskConical },
   {
@@ -123,6 +125,7 @@ export const DATA_EXECUTIVE_NAV_ITEMS: AdminNavItem[] = [
     children: REPORTS_GOVERNANCE_CHILDREN,
   },
   { href: '/super-admin/zmcc-master-data', label: 'Master Data', icon: Store, children: MASTER_DATA_CHILDREN },
+  { href: '/super-admin/zmcc-tanks', label: 'ZMCC Tanks', icon: Building2 },
   { href: '/super-admin/mot-operations', label: 'Mobile Tester Operations', icon: Navigation, children: MC_OPS_CHILDREN },
   { href: '/super-admin/fleet', label: 'Fleet', icon: Truck },
   { href: '/sources', label: 'Sources', icon: Milk, children: SOURCES_CHILDREN_OWNER },

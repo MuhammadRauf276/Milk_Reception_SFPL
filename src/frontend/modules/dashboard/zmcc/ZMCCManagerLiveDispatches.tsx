@@ -315,9 +315,11 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
 
                   <div className="grid grid-cols-2 gap-2 text-[11px] tabular-nums pt-2 border-t border-border/80 bg-subtle/40 -mx-5 -mb-3.5 p-3 rounded-b-xl">
                     <div>
-                      <span className="text-[10px] text-slate-500 block">Dispatch Qty:</span>
+                      <span className="text-[10px] text-slate-500 block">Dispatch (@13 TS):</span>
                       <span className="font-semibold text-foreground">
-                        {group.vehicleDispatchQuantityValue != null
+                        {group.totalDispatch13TsLiters != null
+                          ? `${group.totalDispatch13TsLiters.toLocaleString()} L @13% TS`
+                          : group.vehicleDispatchQuantityValue != null
                           ? `${group.vehicleDispatchQuantityValue.toLocaleString()} ${group.vehicleDispatchQuantityUnit || ''}`
                           : group.totalDispatchGrossLiters != null
                           ? `${group.totalDispatchGrossLiters.toLocaleString()} L`

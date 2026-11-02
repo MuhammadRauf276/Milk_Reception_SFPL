@@ -126,10 +126,12 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
                 <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
-                  Dispatch Quantity
+                  Dispatch Quantity (@13% TS)
                 </span>
                 <span className="text-sm font-semibold text-primary">
-                  {log.vehicle_dispatch_quantity_value != null
+                  {log.vehicle_dispatch_at_13ts_liters != null
+                    ? `${Number(log.vehicle_dispatch_at_13ts_liters).toLocaleString()} L @13% TS`
+                    : log.vehicle_dispatch_quantity_value != null
                     ? `${log.vehicle_dispatch_quantity_value.toLocaleString()} ${log.vehicle_dispatch_quantity_unit || ''}`
                     : log.vehicle_dispatch_gross_liters != null
                     ? `${log.vehicle_dispatch_gross_liters.toLocaleString()} L`
@@ -204,10 +206,12 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
                 <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
-                  Received Quantity
+                  Received Quantity (@13% TS)
                 </span>
                 <span className="text-sm font-semibold text-emerald-800">
-                  {log.authoritative_final_liters != null
+                  {log.plant_final_at_13ts_liters != null
+                    ? `${Number(log.plant_final_at_13ts_liters).toLocaleString()} L @13% TS`
+                    : log.authoritative_final_liters != null
                     ? `${log.authoritative_final_liters.toLocaleString()} L`
                     : log.final_receipt_exists
                     ? 'Not recorded'

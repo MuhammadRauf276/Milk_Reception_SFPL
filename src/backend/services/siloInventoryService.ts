@@ -145,6 +145,80 @@ export async function getSiloCurrentStockLiters(
   return stockState.knownLiters;
 }
 
+export interface SiloStockSummaryState {
+  currentStockLiters: number;
+  currentStockAt13Ts: number | null;
+  compositeTsPercent: number | null;
+  activeReservationsLiters: number;
+  isComplete: boolean;
+  unknownVolumeTransactionCount: number;
+}
+
+/**
+ * Calculates current stock summary for a plant silo: physical liters, @13TS commercial liters, and composite TS %.
+ * Purely derived from immutable silo inventory ledger transactions.
+ */
+export async function getSiloStockSummary(
+  siloIdInput: bigint | string,
+  txPrisma?: Prisma.TransactionClient
+): Promise<SiloStockSummaryState> {
+  const db = txPrisma || prisma;
+  const siloId = typeof siloIdInput === 'string' ? BigInt(siloIdInput) : siloIdInput;
+
+  const [volumeState, receiptsAgg, activeReservationsLiters] = await Promise.all([
+    getSiloStockVolumeState(siloId, db),
+    db.siloInventoryTransaction.aggregate({
+      where: {
+        silo_id: siloId,
+        transaction_type: SiloTransactionType.RECEIPT,
+      },
+      _sum: {
+        quantity_liters: true,
+        plant_final_at_13ts_liters: true,
+      },
+    }),
+    getSiloActiveReservedLiters(siloId, db),
+  ]);
+
+  const currentLiters = volumeState.knownLiters;
+  if (currentLiters <= 0) {
+    return {
+      currentStockLiters: 0,
+      currentStockAt13Ts: 0,
+      compositeTsPercent: null,
+      activeReservationsLiters,
+      isComplete: volumeState.isComplete,
+      unknownVolumeTransactionCount: volumeState.unknownVolumeTransactionCount,
+    };
+  }
+
+  const totalReceiptLiters = receiptsAgg._sum.quantity_liters ? Number(receiptsAgg._sum.quantity_liters) : 0;
+  const totalReceipt13Ts = receiptsAgg._sum.plant_final_at_13ts_liters ? Number(receiptsAgg._sum.plant_final_at_13ts_liters) : 0;
+
+  if (totalReceiptLiters <= 0 || totalReceipt13Ts <= 0) {
+    return {
+      currentStockLiters: currentLiters,
+      currentStockAt13Ts: null,
+      compositeTsPercent: null,
+      activeReservationsLiters,
+      isComplete: false,
+      unknownVolumeTransactionCount: volumeState.unknownVolumeTransactionCount,
+    };
+  }
+
+  const compositeTsPercent = Number(((totalReceipt13Ts * 13) / totalReceiptLiters).toFixed(2));
+  const currentStockAt13Ts = Number(calculateAt13TSLiters(currentLiters, compositeTsPercent).toFixed(2));
+
+  return {
+    currentStockLiters: currentLiters,
+    currentStockAt13Ts,
+    compositeTsPercent,
+    activeReservationsLiters,
+    isComplete: volumeState.isComplete,
+    unknownVolumeTransactionCount: volumeState.unknownVolumeTransactionCount,
+  };
+}
+
 /**
  * Legacy mass compatibility helper for current stock in kg.
  */
