@@ -39,6 +39,7 @@ function getGpsOnce(): Promise<LiveCameraResult['gps']> {
 
 export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCancel }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const gpsRef = useRef<Promise<LiveCameraResult['gps']> | null>(null);
   const [phase, setPhase] = useState<Phase>('starting');
@@ -58,7 +59,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
 
     async function start() {
       if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        setErrorText('This phone or browser cannot use the camera. Please open the app on the work phone.');
+        setErrorText('This phone or browser cannot use the WebRTC camera. You can use your device native camera below.');
         setPhase('error');
         return;
       }
@@ -88,8 +89,8 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
         const name = (err as { name?: string } | null)?.name;
         setErrorText(
           name === 'NotAllowedError' || name === 'SecurityError'
-            ? 'Camera is blocked. Please allow the camera for this app, then press Try again.'
-            : 'No camera found or the camera is busy. Close other apps that use the camera, then press Try again.'
+            ? 'Camera is blocked by browser or system permissions.'
+            : 'No camera found or the camera is busy. Close other camera apps, then press Try again.'
         );
         setPhase('error');
       }
@@ -126,6 +127,32 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
     }
   };
 
+  const handleFileCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhase('working');
+    try {
+      const gps = (await gpsRef.current) ?? null;
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load image file'));
+        img.src = objectUrl;
+      });
+      const res = await captureFrame(img, { ...stamp, offline }, gps);
+      URL.revokeObjectURL(objectUrl);
+      stopStream();
+      setResult(res);
+      setPreviewUrl(URL.createObjectURL(res.blob));
+      setPhase('review');
+    } catch {
+      setErrorText('Could not process photo file. Please try again.');
+      setPhase('error');
+    }
+  };
+
   const handleRetake = () => {
     setResult(null);
     setPreviewUrl(null);
@@ -139,42 +166,77 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/15"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors"
           aria-label="Close camera"
         >
           <X className="h-5 w-5" />
         </button>
       </div>
 
-      <div className="relative flex min-h-0 flex-1 items-center justify-center">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center p-4">
         <video
           ref={videoRef}
           playsInline
           muted
-          className={`max-h-full max-w-full object-contain ${phase === 'live' || phase === 'working' ? '' : 'hidden'}`}
+          className={`max-h-full max-w-full object-contain rounded-lg ${phase === 'live' || phase === 'working' ? '' : 'hidden'}`}
         />
         {phase === 'review' && previewUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={previewUrl} alt="Photo you just took" className="max-h-full max-w-full object-contain" />
+          <img src={previewUrl} alt="Photo you just took" className="max-h-full max-w-full object-contain rounded-lg shadow-lg" />
         )}
         {phase === 'starting' && (
           <div className="flex flex-col items-center gap-3 px-6 text-center">
-            <Loader2 className="h-8 w-8 animate-spin" />
-            <p className="text-base">Starting camera. If asked, press Allow.</p>
+            <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
+            <p className="text-base font-medium">Starting camera… If prompted, press Allow.</p>
+          </div>
+        )}
+        {phase === 'working' && (
+          <div className="flex flex-col items-center gap-3 px-6 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+            <p className="text-base font-medium">Applying security stamp and hashing photo…</p>
           </div>
         )}
         {phase === 'error' && (
-          <div className="flex flex-col items-center gap-4 px-6 text-center">
+          <div className="flex flex-col items-center gap-4 px-6 text-center max-w-md">
             <TriangleAlert className="h-10 w-10 text-amber-400" />
-            <p className="text-base">{errorText}</p>
-            <button
-              type="button"
-              onClick={() => setAttempt((n) => n + 1)}
-              className="inline-flex h-14 items-center gap-2 rounded-xl bg-card px-6 text-base font-bold text-slate-900"
-            >
-              <Undo2 className="h-5 w-5" />
-              Try again
-            </button>
+            <p className="text-base font-semibold text-rose-300">{errorText}</p>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-4 text-xs text-left space-y-2 text-slate-300 w-full shadow-inner">
+              <p className="font-semibold text-amber-300">How to unblock permissions in Chrome:</p>
+              <ol className="list-decimal pl-4 space-y-1.5 text-slate-300 text-[11px] leading-relaxed">
+                <li>Click the <strong>Tune / Padlock</strong> icon on the left of the URL bar (next to <code className="text-emerald-400">mpd.sfpl.com.pk</code>).</li>
+                <li>Set <strong>Camera</strong> to <strong>Allow</strong>.</li>
+                <li>Set <strong>Location</strong> to <strong>Allow</strong>.</li>
+                <li>In Windows Settings &rarr; Privacy &rarr; Verify <em>&quot;Let desktop apps access your camera/location&quot;</em> is <strong>ON</strong>.</li>
+              </ol>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+              <button
+                type="button"
+                onClick={() => setAttempt((n) => n + 1)}
+                className="inline-flex h-12 w-full flex-1 items-center justify-center gap-2 rounded-xl bg-card px-4 text-sm font-bold text-slate-900 shadow hover:bg-slate-100 transition-colors"
+              >
+                <Undo2 className="h-4 w-4" />
+                Try again
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex h-12 w-full flex-1 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-sm font-bold text-white shadow hover:bg-sky-500 transition-colors"
+              >
+                <Camera className="h-4 w-4" />
+                Device Camera / Upload
+              </button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleFileCapture}
+            />
           </div>
         )}
       </div>
@@ -185,7 +247,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             type="button"
             onClick={() => void handleTake()}
             disabled={phase === 'working'}
-            className="inline-flex h-14 min-w-[220px] items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 text-lg font-bold text-white disabled:opacity-60"
+            className="inline-flex h-14 min-w-[220px] items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 text-lg font-bold text-white shadow-lg disabled:opacity-60 hover:bg-emerald-600 transition-colors"
           >
             {phase === 'working' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
             {phase === 'working' ? 'Please wait' : 'Take photo'}
@@ -196,7 +258,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             <button
               type="button"
               onClick={handleRetake}
-              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-card/15 px-4 text-base font-bold"
+              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-white/15 px-4 text-base font-bold hover:bg-white/25 transition-colors"
             >
               <Undo2 className="h-5 w-5" />
               Retake
@@ -204,7 +266,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             <button
               type="button"
               onClick={() => onCapture(result)}
-              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-base font-bold text-white"
+              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-base font-bold text-white shadow-lg hover:bg-emerald-600 transition-colors"
             >
               <Check className="h-5 w-5" />
               Use this photo

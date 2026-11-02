@@ -1,4 +1,4 @@
-// Draws a video frame plus the stamp band (below the photo) to a canvas and exports a hashed JPEG. Browser only.
+// Draws a video frame or image element plus the stamp band (below the photo) to a canvas and exports a hashed JPEG. Browser only.
 import type { LiveCameraResult, StampInfo } from '@/types/captured-photo';
 import { layoutStampBand } from './stampBand';
 
@@ -13,12 +13,13 @@ export async function sha256Hex(blob: Blob): Promise<string> {
 }
 
 export async function captureFrame(
-  video: HTMLVideoElement,
+  source: HTMLVideoElement | HTMLImageElement,
   stamp: Omit<StampInfo, 'captureId'>,
   gps: LiveCameraResult['gps']
 ): Promise<LiveCameraResult> {
-  const srcW = video.videoWidth;
-  const srcH = video.videoHeight;
+  const isVideo = 'videoWidth' in source;
+  const srcW = isVideo ? (source as HTMLVideoElement).videoWidth : ((source as HTMLImageElement).naturalWidth || (source as HTMLImageElement).width);
+  const srcH = isVideo ? (source as HTMLVideoElement).videoHeight : ((source as HTMLImageElement).naturalHeight || (source as HTMLImageElement).height);
   if (!srcW || !srcH) throw new Error('Camera is not ready yet.');
 
   const scale = Math.min(1, MAX_LONG_SIDE / Math.max(srcW, srcH));
@@ -35,7 +36,7 @@ export async function captureFrame(
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Could not prepare the photo.');
 
-  ctx.drawImage(video, 0, 0, width, height);
+  ctx.drawImage(source, 0, 0, width, height);
 
   ctx.fillStyle = '#0f172a';
   ctx.fillRect(0, layout.bandTop, width, layout.bandHeight);
