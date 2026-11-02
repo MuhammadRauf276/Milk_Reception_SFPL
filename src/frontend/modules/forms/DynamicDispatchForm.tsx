@@ -152,36 +152,45 @@ async function startDispatchWorkItem(
     ? sessionStorage.getItem(scopedKey)
     : null;
 
-  let res = await fetch('/api/dispatches/start', {
+  // Silent stale draft resumption: if resuming an existing draft fails for ANY reason,
+  // purge the stale draft key immediately and gracefully create a fresh work item.
+  if (savedDraftId) {
+    try {
+      const res = await fetch('/api/dispatches/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visitId: savedDraftId,
+          procurementSourceId: targetSourceId,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.visitId) {
+        return data as StartedDispatchWorkItem;
+      }
+      if (scopedKey && typeof window !== 'undefined') {
+        sessionStorage.removeItem(scopedKey);
+      }
+    } catch {
+      if (scopedKey && typeof window !== 'undefined') {
+        sessionStorage.removeItem(scopedKey);
+      }
+    }
+  }
+
+  // Create clean fresh draft
+  const res = await fetch('/api/dispatches/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      visitId: savedDraftId || undefined,
       procurementSourceId: targetSourceId,
     }),
   });
-
-  let data = await res.json();
-
-  // Stale draft recovery: if saved draft is invalid (404/400/403), remove stale key and create fresh draft
-  if (!res.ok && savedDraftId && (res.status === 404 || res.status === 400 || res.status === 403)) {
-    if (scopedKey && typeof window !== 'undefined') {
-      sessionStorage.removeItem(scopedKey);
-    }
-    res = await fetch('/api/dispatches/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        procurementSourceId: targetSourceId,
-      }),
-    });
-    data = await res.json();
-  }
-
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data.error || 'Failed to start dispatch work item');
   }
-  return data;
+  return data as StartedDispatchWorkItem;
 }
 
 interface DispatchTotals {

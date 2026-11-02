@@ -73,8 +73,9 @@ export async function resolveSourceQuantityPolicy(
   if (source.dispatch_quantity_policy !== null && source.dispatch_quantity_policy !== undefined) {
     try {
       return validateQuantityPolicy(source.dispatch_quantity_policy);
-    } catch {
-      throw new DispatchQuantityPolicyInvalidError();
+    } catch (err) {
+      console.warn(`[QuantityPolicy] Invalid quantity policy on procurement source ${parsedSourceId}, falling back to DEFAULT_DISPATCH_QUANTITY_POLICY:`, err);
+      return DEFAULT_DISPATCH_QUANTITY_POLICY;
     }
   }
 

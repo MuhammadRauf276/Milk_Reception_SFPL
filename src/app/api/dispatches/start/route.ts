@@ -150,21 +150,40 @@ export async function POST(req: Request) {
 
     // 3. Create persistent DRAFT_DISPATCH work item with frozen assignment and quantity policy
     const result = await prisma.$transaction(async (tx) => {
-      const latestToday = await tx.vehicleVisit.findFirst({
+      const todayVisits = await tx.vehicleVisit.findMany({
         where: {
           visit_number: { startsWith: `VV-${dateCode}` },
         },
-        orderBy: { visit_number: 'desc' },
         select: { visit_number: true },
       });
 
-      let seq = 1;
-      if (latestToday?.visit_number) {
-        const parts = latestToday.visit_number.split('-');
-        const lastSeq = parseInt(parts[parts.length - 1], 10);
-        if (!isNaN(lastSeq)) seq = lastSeq + 1;
+      let maxSeq = 0;
+      for (const v of todayVisits) {
+        if (v.visit_number) {
+          const parts = v.visit_number.split('-');
+          const num = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
+          }
+        }
       }
-      const visitNumber = `VV-${dateCode}-${String(seq).padStart(4, '0')}`;
+
+      let seq = maxSeq + 1;
+      let visitNumber = `VV-${dateCode}-${String(seq).padStart(4, '0')}`;
+
+      // In case of concurrent drafts or race conditions, ensure uniqueness
+      let exists = await tx.vehicleVisit.findUnique({
+        where: { visit_number: visitNumber },
+        select: { id: true },
+      });
+      while (exists) {
+        seq++;
+        visitNumber = `VV-${dateCode}-${String(seq).padStart(4, '0')}`;
+        exists = await tx.vehicleVisit.findUnique({
+          where: { visit_number: visitNumber },
+          select: { id: true },
+        });
+      }
 
       const visit = await tx.vehicleVisit.create({
         data: {
