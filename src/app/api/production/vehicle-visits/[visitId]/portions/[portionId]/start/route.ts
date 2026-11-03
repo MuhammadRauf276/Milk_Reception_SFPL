@@ -190,21 +190,21 @@ export async function POST(
         // Resolve authoritative plant LR (check this portion first, then any performed plant LR on this visit, then dispatch LR, then fallback to 28)
         let resolvedLr: number | null = null;
         const performedPlantLr = portion.plant_lab_results.filter(
-          (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+          (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName, r.lab_test?.systemRole) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
         );
         if (performedPlantLr.length > 0 && Number(performedPlantLr[0].numeric_value) > 0) {
           resolvedLr = Number(performedPlantLr[0].numeric_value);
         } else {
           // Check other portions on the vehicle (e.g. for COMPOSITE mode where tests were performed on Portion 1)
           const otherPortionLr = visit.portions.flatMap((p) => p.plant_lab_results).find(
-            (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null && Number(r.numeric_value) > 0
+            (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName, r.lab_test?.systemRole) && r.performance_status === 'PERFORMED' && r.numeric_value !== null && Number(r.numeric_value) > 0
           );
           if (otherPortionLr) {
             resolvedLr = Number(otherPortionLr.numeric_value);
           } else {
             // Check dispatch lab results
             const dispatchLr = visit.portions.flatMap((p) => p.dispatch_lab_results).find(
-              (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.numeric_value !== null && Number(r.numeric_value) > 0
+              (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName, r.lab_test?.systemRole) && r.numeric_value !== null && Number(r.numeric_value) > 0
             );
             if (dispatchLr) {
               resolvedLr = Number(dispatchLr.numeric_value);

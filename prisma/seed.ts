@@ -66,7 +66,15 @@ const MC_VEHICLES_SEED = [
 ];
 
 // Permanent roles for the tests the milk formulas depend on (found by role, never by code/name/order).
-const SYSTEM_ROLE_BY_CODE: Record<string, string> = { 'LT-000008': 'LR', 'LT-000026': 'FAT', 'LT-000009': 'SNF_FAT_RATIO' };
+// SYS-SNF / SYS-TS are the calculated SNF and Total Solids tests of the master catalog (master-lab-tests-data.ts); they only
+// get a role here if a seed row with that code exists.
+const SYSTEM_ROLE_BY_CODE: Record<string, string> = {
+  'LT-000008': 'LR',
+  'LT-000026': 'FAT',
+  'LT-000009': 'SNF_FAT_RATIO',
+  'SYS-SNF': 'SNF',
+  'SYS-TS': 'TOTAL_SOLIDS',
+};
 
 async function main() {
   await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS lab_test_code_seq START WITH 100 INCREMENT BY 1;');
@@ -75,6 +83,13 @@ async function main() {
   console.log('Seeding 30 Laboratory Tests in PostgreSQL...');
 
   for (const test of LAB_TESTS_SEED) {
+    // A role is given only when the test is first created and no other test already holds it (unique index on system_role).
+    let roleForCreate: string | null = null;
+    const mappedRole = SYSTEM_ROLE_BY_CODE[test.testCode];
+    if (mappedRole && !(await prisma.labTest.findUnique({ where: { testCode: test.testCode }, select: { id: true } }))) {
+      const holder = await prisma.labTest.findFirst({ where: { systemRole: mappedRole }, select: { id: true } });
+      roleForCreate = holder ? null : mappedRole;
+    }
     const defaultOptions = (
       test.resultType === 'OK_NOT_OK'
         ? [{ value: 'OK', label: 'OK', isPassing: true }, { value: 'NOT_OK', label: 'Not OK', isPassing: false }]
@@ -94,7 +109,7 @@ async function main() {
         isActive: test.isActive,
         displayOrder: test.displayOrder,
         resultOptions: defaultOptions,
-        systemRole: SYSTEM_ROLE_BY_CODE[test.testCode] ?? null,
+        // systemRole is set only when the test is first created: re-seeding must never move or clear a role the admin set.
       },
       create: {
         testCode: test.testCode,
@@ -106,9 +121,19 @@ async function main() {
         isActive: test.isActive,
         displayOrder: test.displayOrder,
         resultOptions: defaultOptions,
-        systemRole: SYSTEM_ROLE_BY_CODE[test.testCode] ?? null,
+        systemRole: roleForCreate,
       },
     });
+  }
+
+  // SYS-SNF / SYS-TS are not part of LAB_TESTS_SEED, but databases that already have them get their role here.
+  // Only an existing test with no role is touched, and only when no other test holds that role (never overwrites).
+  for (const [code, role] of Object.entries(SYSTEM_ROLE_BY_CODE)) {
+    if (!code.startsWith('SYS-')) continue;
+    const existing = await prisma.labTest.findUnique({ where: { testCode: code }, select: { id: true, systemRole: true } });
+    if (!existing || existing.systemRole) continue;
+    const holder = await prisma.labTest.findFirst({ where: { systemRole: role }, select: { id: true } });
+    if (!holder) await prisma.labTest.update({ where: { id: existing.id }, data: { systemRole: role } });
   }
 
   console.log('Seeding Procurement Sources in PostgreSQL...');

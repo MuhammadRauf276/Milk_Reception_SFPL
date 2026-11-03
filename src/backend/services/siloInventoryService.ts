@@ -327,7 +327,7 @@ export async function getSiloActiveReservedLiters(
     } else if (declUnit === 'KG') {
       // Primary: Plant QA LR (only genuine PERFORMED, no dispatch/fake fallback)
       const performedPlantLr = log.portion.plant_lab_results.filter(
-        (r) => isPlantLrTest(r.lab_test.testCode, r.lab_test.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+        (r) => isPlantLrTest(r.lab_test.testCode, r.lab_test.testName, r.lab_test.systemRole) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
       );
       if (performedPlantLr.length === 1 && Number(performedPlantLr[0].numeric_value) > 0) {
         const lrVal = Number(performedPlantLr[0].numeric_value);
@@ -456,6 +456,7 @@ async function executeFinalizeSiloReceiptForVisit(
     plantLabResults: (p.plant_lab_results || []).map((r) => ({
       testCode: r.lab_test?.testCode || null,
       testName: r.lab_test?.testName || null,
+      systemRole: r.lab_test?.systemRole ?? null,
       numericValue: r.numeric_value !== null && r.numeric_value !== undefined ? Number(r.numeric_value) : null,
       performanceStatus: r.performance_status || null,
     })),
@@ -562,10 +563,10 @@ async function executeFinalizeSiloReceiptForVisit(
       const pNetKg = Number(p.net_weight_kg);
 
       const performedLr = p.plant_lab_results.find(
-        (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+        (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName, r.lab_test?.systemRole) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
       );
       const performedFat = p.plant_lab_results.find(
-        (r) => isPlantFatTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+        (r) => isPlantFatTest(r.lab_test?.testCode, r.lab_test?.testName, r.lab_test?.systemRole) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
       );
 
       const pLr = performedLr ? Number(performedLr.numeric_value) : calcResult.internalCalculationBasis.averagePlantLr;

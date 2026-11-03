@@ -193,9 +193,8 @@ export const DISPATCH_APPROVAL_READ_ROLES = ['ZMCC_MANAGER', 'CONTRACTOR_MANAGER
 
 /**
  * "If you can approve it, you can decide it": the actor may answer a dispatch request of this
- * source type. Data Executive never decides.
+ * source type. Super Admin and Data Executive (its right hand) decide everything below them.
  */
 export function canDecideDispatch(actorRole: string, sourceType: 'ZMCC' | 'CONTRACTOR'): boolean {
-  if (actorRole === 'DATA_EXECUTIVE') return false;
   return canActAs(actorRole, dispatchApproverRoleFor(sourceType));
 }

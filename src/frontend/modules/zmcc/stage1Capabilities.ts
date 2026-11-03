@@ -22,7 +22,7 @@ export function canAssignJourney(role: string): boolean {
 }
 
 export function canDecideMotException(role: string): boolean {
-  return role !== 'DATA_EXECUTIVE' && canActAs(role, 'ZMCC_MANAGER');
+  return canActAs(role, 'ZMCC_MANAGER');
 }
 
 export function canCoverMotWork(role: string): boolean {

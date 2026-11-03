@@ -14,8 +14,9 @@ import type { VisitPortion } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import type { QualityEvaluationSnapshot } from '@/backend/services/qualityRuleService';
 import { toJsonInput } from '@/lib/json';
+import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
-import { isPlantLrTest, isPlantFatTest } from '@/backend/services/vehicleQuantityService';
+import { MilkTestPolicyService } from '@/backend/services/milkTestPolicyService';
 import { recordRejectedMilkForDisposition } from '@/backend/services/rejectedMilkDispositionService';
 import { QaWarningEscalationService } from '@/backend/services/qaWarningEscalationService';
 import {
@@ -60,10 +61,11 @@ export async function POST(
     );
   }
 
-  const isSuperior = dbUser.role === 'SUPER_ADMIN' || canActAs(dbUser.role, 'QA_HEAD');
   const requestedAsHeader = req.headers.get('x-acting-as')?.trim() || null;
   const effectiveRole = requestedAsHeader && canActAs(dbUser.role, requestedAsHeader) ? requestedAsHeader : dbUser.role;
   const isDelegated = effectiveRole !== dbUser.role && !['SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(dbUser.role);
+  // Super Admin, Data Executive and AVP-QA or above decide on the spot, whatever station they work from.
+  const isSuperior = dbUser.role === 'SUPER_ADMIN' || canActAs(dbUser.role, 'QA_HEAD');
 
   const resolvedParams = await params;
   const visitIdStr = resolvedParams.visitId;
@@ -184,6 +186,10 @@ export async function POST(
     // Load assigned Plant QA test snapshot for this visit
     const assignedPlantTests = await getOrAssignPlantQATests(prisma, visitId);
 
+    // Photo requirement comes from the Super Admin matrix (same source the plant form uses), never from a hard-coded test code.
+    const plantPolicyForPhotos = await MilkTestPolicyService.getEffectivePolicy('PLANT_QA');
+    const photoRequiredById = new Map(plantPolicyForPhotos.map((t) => [String(t.id), Boolean(t.isPhotoRequired)]));
+
     // Separate manual (non-CALCULATED) from CALCULATED tests using snapshot metadata
     const manualPlantTests = assignedPlantTests.filter((t) => t.result_type_snapshot !== 'CALCULATED');
     const requiredManualTests = manualPlantTests.filter((t) => t.is_required_snapshot);
@@ -254,6 +260,27 @@ export async function POST(
     }
 
     const assignedTestMap = new Map(assignedPlantTests.map((t) => [t.test_id.toString(), t]));
+
+    // SNF, Total Solids and the ratio are worked out here from the submitted LR and Fat (tests found by stored system
+    // role); a client-sent value for a calculated test is never saved.
+    const plantRoleRows = await prisma.labTest.findMany({
+      where: { id: { in: assignedPlantTests.map((t) => t.test_id) } },
+      select: { id: true, systemRole: true },
+    });
+    const plantRoleById = new Map(plantRoleRows.map((r) => [r.id.toString(), r.systemRole]));
+    const serverCalculated = calculatedValuesForPortion(
+      assignedPlantTests.map((t) => ({
+        labTestId: t.test_id.toString(),
+        testCode: t.test_code_snapshot,
+        testName: t.test_name_snapshot,
+        resultType: t.result_type_snapshot,
+        systemRole: plantRoleById.get(t.test_id.toString()) ?? null,
+      })),
+      (t) => {
+        const submitted = submittedResultMap.get(t.labTestId);
+        return submitted && (submitted.performanceStatus || 'PERFORMED') === 'PERFORMED' ? submitted.numericValue : null;
+      }
+    );
     const now = new Date();
     const targetOpTs = body.operationalTimestamp ? new Date(body.operationalTimestamp) : (body.opTimestamp ? new Date(body.opTimestamp) : now);
 
@@ -349,11 +376,12 @@ export async function POST(
         const notPerfReason = perfStatus === 'NOT_PERFORMED' ? (res.notPerformedReason?.trim() || null) : null;
         const photoUrl = resPhotoMap.get(res.testId) || null;
 
-        if (perfStatus === 'NOT_PERFORMED') {
+        const isServerCalculated = res.testId in serverCalculated;
+        if (perfStatus === 'NOT_PERFORMED' || (isServerCalculated && serverCalculated[res.testId] === null)) {
           evaluationEntries.push({
             testId: BigInt(res.testId),
             performanceStatus: 'NOT_PERFORMED',
-            notPerformedReason: notPerfReason,
+            notPerformedReason: notPerfReason ?? (isServerCalculated ? 'Prerequisite tests (Fat / LR) not performed' : null),
             numericValue: null,
             textValue: null,
             appliedRuleId: null,
@@ -365,8 +393,10 @@ export async function POST(
           continue;
         }
 
-        const numVal = res.numericValue !== undefined && res.numericValue !== null ? res.numericValue : null;
-        const textVal = res.textValue ? res.textValue.trim() : null;
+        const numVal = isServerCalculated
+          ? serverCalculated[res.testId]
+          : res.numericValue !== undefined && res.numericValue !== null ? res.numericValue : null;
+        const textVal = isServerCalculated ? null : res.textValue ? res.textValue.trim() : null;
         const activeRule = activeRulesMap.get(res.testId) || null;
         const snapshotOptions = (testDef?.result_options_snapshot as LabTestResultOption[] | null) || null;
 
@@ -429,11 +459,8 @@ export async function POST(
         }
         if (entry.performanceStatus === 'PERFORMED') {
           const photo = resPhotoMap.get(entry.testId.toString());
-          if (isPlantLrTest(testDef?.test_code_snapshot, testDef?.test_name_snapshot) && !photo) {
-            exceptionReasonsList.push('PICTURE_MISSING:LR');
-          }
-          if (isPlantFatTest(testDef?.test_code_snapshot, testDef?.test_name_snapshot) && !photo) {
-            exceptionReasonsList.push('PICTURE_MISSING:FAT');
+          if (photoRequiredById.get(entry.testId.toString()) && !photo) {
+            exceptionReasonsList.push(`PICTURE_MISSING:${testDef?.test_code_snapshot || entry.testId}`);
           }
         }
       }
@@ -571,10 +598,13 @@ export async function POST(
       // 8. Determine Portion Decision & AVP-QA Review Escalation per Workflow 06 (§3 & §7)
       // True exceptions: Attendant Mismatch, Missing Photo, or Seal Mismatch
       const hasException = exceptionReasonsList.length > 0;
-      const isDecideNow = isSuperior || validated.action === 'DECIDE_NOW';
+      const isDecideNow = isSuperior;
       const fullExceptionReasons = [...exceptionReasonsList, ...ruleFailReasons.filter((r) => !exceptionReasonsList.includes(r))];
 
       if (hasException && !isDecideNow) {
+        if (rejectionReasonInput.length < 3) {
+          throw new RouteError('Remarks are required when sending a request to AVP QA Reception Lab (at least 3 characters).', 400);
+        }
         // Normal QAE: Exception routes directly to AVP-QA (QA_HEAD)
         finalPlantDecision = 'PENDING';
         finalManagerReviewStatus = 'PENDING';

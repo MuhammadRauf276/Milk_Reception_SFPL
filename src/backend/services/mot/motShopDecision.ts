@@ -1,5 +1,6 @@
 // Builds the Stage 1 shop decision from the policy snapshot (pure: NO db imports, runs in the browser too).
 import { evaluateDecision } from '@/backend/services/decision/decisionRule';
+import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 import type {
   DecisionResult,
   ExceptionReason,
@@ -61,9 +62,31 @@ export function buildMotShopDecision(
   const warnings: string[] = [];
   const rows: MotShopDecisionDetails['tests'] = [];
 
+  // SNF, Total Solids and the ratio are computed here from LR and Fat; a client value is never used.
+  const calculated = calculatedValuesForPortion(
+    p.tests.filter((t) => t.testMode !== 'OFF'),
+    (t) => valueOf(t, i.tests.find((x) => x.labTestId === t.labTestId), i).value
+  );
   for (const t of p.tests) {
     if (t.testMode === 'OFF') continue;
     const input = i.tests.find((x) => x.labTestId === t.labTestId);
+    if (t.labTestId in calculated) {
+      const calcValue = calculated[t.labTestId];
+      if (calcValue === null && t.testMode === 'COMPULSORY') missingCompulsory.push(t.testName);
+      rows.push({
+        labTestId: t.labTestId,
+        testCode: t.testCode,
+        testName: t.testName,
+        value: calcValue,
+        textValue: null,
+        testMode: t.testMode,
+        ruleMode: t.ruleMode,
+        photoMode: t.photoMode,
+        outcome: calcValue !== null ? 'PASS' : 'NOT_TESTED',
+        photoCaptureId: null,
+      });
+      continue;
+    }
     const { value, textValue } = valueOf(t, input, i);
     const tested = value !== null || textValue !== null;
     const photo = i.photos.find((x) => x.labTestId === t.labTestId);

@@ -82,13 +82,13 @@ export async function GET(req: NextRequest) {
 
         // Extract Plant LR (genuine PERFORMED only, no Dispatch or fake fallback)
         const performedPlantLr = p.plant_lab_results.filter(
-          (r) => isPlantLrTest(r.lab_test.testCode, r.lab_test.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+          (r) => isPlantLrTest(r.lab_test.testCode, r.lab_test.testName, r.lab_test.systemRole) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
         );
         const plantLrVal = performedPlantLr.length === 1 && Number(performedPlantLr[0].numeric_value) > 0 ? Number(performedPlantLr[0].numeric_value) : null;
 
         // Extract Plant Fat (genuine PERFORMED only, no Dispatch or fake fallback)
         const performedPlantFat = p.plant_lab_results.filter(
-          (r) => isPlantFatTest(r.lab_test.testCode, r.lab_test.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+          (r) => isPlantFatTest(r.lab_test.testCode, r.lab_test.testName, r.lab_test.systemRole) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
         );
         const plantFatVal = performedPlantFat.length === 1 && Number(performedPlantFat[0].numeric_value) >= 0 ? Number(performedPlantFat[0].numeric_value) : null;
 

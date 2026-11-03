@@ -131,10 +131,10 @@ test('Applied (non-compulsory) mode does not enforce system rules', () => {
   assert.ok(res.message.includes('Not under SOP'));
 });
 
-test('Master 30 Lab Tests catalog contains 30 items matching Excel', () => {
-  assert.equal(MASTER_30_LAB_TESTS.length, 30);
+test('Master lab test catalog contains 32 items (30 Excel tests + 2 system calculated tests)', () => {
+  assert.equal(MASTER_30_LAB_TESTS.length, 32);
   const temp = getMasterSpec('LT-000001');
   assert.ok(temp);
   assert.equal(temp?.passRange, '0 – 10');
-  assert.equal(temp?.failReject, '≥ 11');
+  assert.equal(temp?.failReject, '< 0 or > 10');
 });

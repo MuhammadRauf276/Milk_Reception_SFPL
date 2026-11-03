@@ -93,7 +93,7 @@ export async function GET(req: Request) {
             provLiters = dVal;
           } else if (dUnit === 'KG') {
             const plantLrRes = p.plant_lab_results?.find(
-              (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+              (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName, r.lab_test?.systemRole) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
             );
             if (plantLrRes && Number(plantLrRes.numeric_value) > 0) {
               provLiters = calculatePhysicalLiters(dVal, Number(plantLrRes.numeric_value));

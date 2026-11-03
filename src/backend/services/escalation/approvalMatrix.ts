@@ -216,17 +216,6 @@ export function canDecideApproval(
     };
   }
 
-  // 1. Data Executive can view and audit all queues but can NEVER decide.
-  if (actor.role === 'DATA_EXECUTIVE') {
-    return {
-      allowed: false,
-      disabledReason: 'Data Executive can view and audit all queues but cannot decide approvals.',
-      isSelfApproval: false,
-      isEscalated: false,
-      targetApproverRole: def.defaultApproverRole,
-    };
-  }
-
   // 2. Resolve authoritative approver role with supervisor auto-escalation.
   const { approverRole: targetApproverRole, isEscalated } = resolveAuthoritativeApproverRole(
     item.approvalType,

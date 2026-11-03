@@ -17,6 +17,17 @@ export interface TestSnapshotLike {
   resultType?: string | null;
   numeric_value?: number | string | Prisma.Decimal | null;
   numericValue?: number | string | Prisma.Decimal | null;
+  /** Stored lab test role (LR / FAT / ...), when the caller has it. */
+  systemRole?: string | null;
+}
+
+/** Stored roles by lab test id (loadSystemRoles). Snapshot rows carry only the test id, so roles are looked up here. */
+export type StoredRoleLookup = ReadonlyMap<string, string | null>;
+
+function storedRoleOf(r: TestSnapshotLike, roles?: StoredRoleLookup): string | null {
+  if (r.systemRole) return r.systemRole;
+  const id = r.test_id ?? r.testId;
+  return id !== undefined && id !== null && roles ? (roles.get(String(id)) ?? null) : null;
 }
 
 /**
@@ -144,7 +155,8 @@ export type ValidateCoreMilkTestCandidatesResult<T = unknown> =
  * and exactly one Fat candidate, without requiring numeric values yet (e.g. for policy pre-flight).
  */
 export function validateCoreMilkTestCandidates<T extends TestSnapshotLike>(
-  tests: T[]
+  tests: T[],
+  roles?: StoredRoleLookup
 ): ValidateCoreMilkTestCandidatesResult<T> {
   if (!Array.isArray(tests) || tests.length === 0) {
     return {
@@ -153,12 +165,18 @@ export function validateCoreMilkTestCandidates<T extends TestSnapshotLike>(
     };
   }
 
-  const lrCandidates = tests.filter((r) => {
-    const code = r.test_code_snapshot ?? r.testCode;
-    const name = r.test_name_snapshot ?? r.testName;
-    const type = r.result_type_snapshot ?? r.resultType;
-    return isLrTestCandidate(code, name, type);
-  });
+  // A stored role is authoritative: when one of the tests holds the LR role, only that test is LR. Only when no test
+  // holds the role does the older code/name match decide (so databases without stored roles behave as before).
+  const storedLr = tests.filter((r) => storedRoleOf(r, roles) === 'LR');
+  const lrCandidates =
+    storedLr.length > 0
+      ? storedLr
+      : tests.filter((r) => {
+          const code = r.test_code_snapshot ?? r.testCode;
+          const name = r.test_name_snapshot ?? r.testName;
+          const type = r.result_type_snapshot ?? r.resultType;
+          return isLrTestCandidate(code, name, type);
+        });
 
   if (lrCandidates.length === 0) {
     return {
@@ -173,12 +191,16 @@ export function validateCoreMilkTestCandidates<T extends TestSnapshotLike>(
     };
   }
 
-  const fatCandidates = tests.filter((r) => {
-    const code = r.test_code_snapshot ?? r.testCode;
-    const name = r.test_name_snapshot ?? r.testName;
-    const type = r.result_type_snapshot ?? r.resultType;
-    return isFatTestCandidate(code, name, type);
-  });
+  const storedFat = tests.filter((r) => storedRoleOf(r, roles) === 'FAT');
+  const fatCandidates =
+    storedFat.length > 0
+      ? storedFat
+      : tests.filter((r) => {
+          const code = r.test_code_snapshot ?? r.testCode;
+          const name = r.test_name_snapshot ?? r.testName;
+          const type = r.result_type_snapshot ?? r.resultType;
+          return isFatTestCandidate(code, name, type);
+        });
 
   if (fatCandidates.length === 0) {
     return {
@@ -201,9 +223,10 @@ export function validateCoreMilkTestCandidates<T extends TestSnapshotLike>(
 }
 
 export function resolveCoreMilkTestResults<T extends TestSnapshotLike>(
-  results: T[]
+  results: T[],
+  roles?: StoredRoleLookup
 ): ResolveCoreMilkTestResult<T> {
-  const candidateValidation = validateCoreMilkTestCandidates(results);
+  const candidateValidation = validateCoreMilkTestCandidates(results, roles);
   if (!candidateValidation.valid) {
     return {
       success: false,

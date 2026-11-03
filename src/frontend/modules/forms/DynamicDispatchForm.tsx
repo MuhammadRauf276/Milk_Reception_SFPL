@@ -40,6 +40,8 @@ import {
 } from './components/DispatchPortionEditor';
 import { DispatchSummaryPanel } from './components/DispatchSummaryPanel';
 import { toPhotoState, type DispatchPhotoState } from './components/DispatchPolicyTests';
+import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
+import { isCalculatedTest } from '@/lib/lab-test-roles';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { LabReportPhotoCard } from './components/LabReportPhotoCard';
 import { DecisionRulePanel, exceptionReasonText } from '@/frontend/modules/shared/decision/DecisionRulePanel';
@@ -65,16 +67,16 @@ interface DynamicDispatchFormProps {
 }
 
 /** Vehicle LR & Fat from the portions: quantity-weighted average, else a simple average, else ''. */
-function computeAutoVehicleQuality(portions: PortionFormState[], labTests: LabTestDef[]): { lr: string; fat: string } {
-  const lrTest = labTests.find(
-    (t) => t.testName.toLowerCase().includes('lactometer') || t.testName.toLowerCase().includes('lr')
-  );
-  const fatTest = labTests.find(
-    (t) =>
-      t.testName.toLowerCase().includes('fat') &&
-      !t.testName.toLowerCase().includes('ratio') &&
-      !t.testName.toLowerCase().includes('snf')
-  );
+function computeAutoVehicleQuality(
+  portions: PortionFormState[],
+  labTests: LabTestDef[],
+  policyTests: DispatchPolicyTest[]
+): { lr: string; fat: string } {
+  // LR and Fat are the policy tests the server flagged (by stored role), never found by name text.
+  const lrId = policyTests.find((t) => t.isLr)?.labTestId;
+  const fatId = policyTests.find((t) => t.isFat)?.labTestId;
+  const lrTest = lrId ? labTests.find((t) => t.testId === lrId) : undefined;
+  const fatTest = fatId ? labTests.find((t) => t.testId === fatId) : undefined;
 
   let totalQty = 0;
   let weightedLrSum = 0;
@@ -345,10 +347,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       : null;
   const approverLabel = isContractorSource ? 'Contractor Manager' : 'Zonal Manager';
   const roleLabel = currentUser?.role ?? 'unknown';
-  // Preview only: the server decides again. Superiors decide on the same screen (Super Admin / Data Executive are outside the rule).
-  const deciderCanApprove = isContractorSource
+  // Preview only: the server decides again. Superiors decide on the same screen; Super Admin does everything below it.
+  const deciderCanApprove = roleLabel === 'SUPER_ADMIN' || (isContractorSource
     ? roleLabel === 'CONTRACTOR_MANAGER' || roleLabel === 'HEAD_OF_MPD'
-    : roleLabel === 'ZMCC_MANAGER' || roleLabel === 'HEAD_OF_MPD';
+    : roleLabel === 'ZMCC_MANAGER' || roleLabel === 'HEAD_OF_MPD');
 
   const policyTests = useMemo<DispatchPolicyTest[]>(
     () => (policy?.tests ?? []).filter((t) => t.testMode !== 'OFF' && t.testCode !== LAB_REPORT_TEST_CODE),
@@ -749,7 +751,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   };
 
   // Automated Vehicle LR & Fat Calculation from Portions (Volume-Weighted Average)
-  const autoVehicleQuality = isVehicleQualityAuto ? computeAutoVehicleQuality(portions, labTests) : null;
+  const autoVehicleQuality = isVehicleQualityAuto ? computeAutoVehicleQuality(portions, labTests, policyTests) : null;
   const vehicleLr = autoVehicleQuality ? autoVehicleQuality.lr : manualVehicleLr;
   const vehicleFat = autoVehicleQuality ? autoVehicleQuality.fat : manualVehicleFat;
 
@@ -988,7 +990,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
   const getPortionProgress = (portion: PortionFormState) => {
     const compulsory = policyTests.filter((t) => t.testMode === 'COMPULSORY');
-    const done = compulsory.filter((t) => isFilled(portion, t)).length;
+    // A calculated test counts as done once its LR and Fat are in; the others once they are filled.
+    const calculated = calculatedValuesForPortion(policyTests, (t) => portion.results[t.labTestId]?.numericValue);
+    const done = compulsory.filter((t) => (t.labTestId in calculated ? calculated[t.labTestId] !== null : isFilled(portion, t))).length;
     return {
       label: `${done}/${compulsory.length} must-do tests done`,
       accounted: done,
@@ -1106,7 +1110,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       },
       dispatchTimestamp: isoDispatchTimestamp,
       results: [] as unknown[],
+      // Calculated tests (SNF, TS, ratio) are not sent: the server does not recompute them for the dispatch decision.
       test_results: policyTests
+        .filter((t) => !isCalculatedTest(t))
         .map((t) => {
           const r = p.results[t.labTestId];
           const numeric = isNumericTest(t) && r && r.numericValue !== '' ? Number(r.numericValue) : null;
@@ -1176,14 +1182,14 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       const payloadPortions = buildPayloadPortions(isoDispatchTimestamp);
       const anyTested = payloadPortions.some((p) => p.test_results.length > 0);
       const allTested = policyTests
-        .filter((t) => t.testMode === 'COMPULSORY')
+        .filter((t) => t.testMode === 'COMPULSORY' && !isCalculatedTest(t))
         .every((t) => payloadPortions.every((p) => p.test_results.some((x) => x.lab_test_id === t.labTestId)));
       const dispatchTestingMode: 'FULL' | 'PARTIAL' | 'NOT_PERFORMED' = !anyTested ? 'NOT_PERFORMED' : allTested ? 'FULL' : 'PARTIAL';
 
       let finalVehicleLr = vehicleLr;
       let finalVehicleFat = vehicleFat;
       if (!finalVehicleLr || !finalVehicleFat) {
-        const auto = computeAutoVehicleQuality(portions, labTests);
+        const auto = computeAutoVehicleQuality(portions, labTests, policyTests);
         if (!finalVehicleLr && auto.lr) finalVehicleLr = auto.lr;
         if (!finalVehicleFat && auto.fat) finalVehicleFat = auto.fat;
       }

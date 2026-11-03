@@ -77,6 +77,77 @@ export function pickRoleTest<T extends RoleSubject & { id?: string | number | bi
   })[0];
 }
 
+// ─── Calculated tests (SNF, Total Solids, SNF/Fat ratio) ────────────────────────────────────────────────────────
+export type CalcKind = 'SNF' | 'TOTAL_SOLIDS' | 'RATIO';
+
+export interface CalcSubject extends RoleSubject {
+  resultType?: string | null;
+  formulaId?: unknown;
+}
+
+const CALC_ROLE_KIND: Record<string, CalcKind> = { SNF: 'SNF', TOTAL_SOLIDS: 'TOTAL_SOLIDS', SNF_FAT_RATIO: 'RATIO' };
+
+/**
+ * Which calculated test this is. A stored role decides first; only tests with no stored calculated role use the
+ * older code/name match. (The legacy name match is deliberately not shared with roleOf: "Whey Protein Ratio" is a
+ * lab test, not the SNF/Fat ratio.)
+ */
+export function calcKindOf(t: RoleSubject): CalcKind | null {
+  if (typeof t.systemRole === 'string' && CALC_ROLE_KIND[t.systemRole]) return CALC_ROLE_KIND[t.systemRole];
+  const code = (t.testCode || '').toUpperCase();
+  const name = (t.testName || '').toUpperCase();
+  if (name.includes('RATIO') || code.includes('RATIO') || code === 'LT-000009') return 'RATIO';
+  if (name.includes('SNF') || name.includes('SOLIDS-NOT-FAT') || code === 'SYS-SNF') return 'SNF';
+  if (name.includes('SOLIDS') || name === 'TS' || code === 'SYS-TS' || code === 'LT-TOTAL-SOLIDS') return 'TOTAL_SOLIDS';
+  return null;
+}
+
+/**
+ * True when this is the temperature test. There is no TEMPERATURE role (and none is added): a test that holds a stored
+ * role is never temperature; otherwise the name "Temperature" or a code containing TEMP identifies it. The seeded
+ * LT-000001 "Temperature" is covered by the name.
+ */
+export function isTemperatureTest(t: RoleSubject): boolean {
+  if (isLabTestRole(t.systemRole)) return false;
+  const name = (t.testName || '').trim().toLowerCase();
+  const code = (t.testCode || '').toUpperCase();
+  return name === 'temperature' || code.includes('TEMP');
+}
+
+/** True when the form must fill this test automatically instead of asking the operator. */
+export function isCalculatedTest(t: CalcSubject): boolean {
+  const type = t.resultType || '';
+  // Categorical tests (Starch, Sugar, Alcohol, ...) can never be calculated.
+  if (type === 'POSITIVE_NEGATIVE' || type === 'OK_NOT_OK' || type === 'BOOLEAN') return false;
+  if (typeof t.systemRole === 'string' && CALC_ROLE_KIND[t.systemRole]) return true;
+  const code = (t.testCode || '').toUpperCase();
+  const name = (t.testName || '').toUpperCase();
+  return (
+    type === 'CALCULATED' ||
+    Boolean(t.formulaId) ||
+    code === 'SYS-SNF' ||
+    code === 'SYS-TS' ||
+    code === 'SNF' ||
+    code === 'TS' ||
+    code === 'RATIO' ||
+    name === 'SNF' ||
+    name.includes('SOLIDS-NOT-FAT') ||
+    name.includes('SNF TO FAT RATIO') ||
+    name.includes('RATIO SNF/FAT') ||
+    name === 'TOTAL SOLIDS'
+  );
+}
+
+/** The value `evaluateAllCalculatedTests` worked out for this calculated test, or null. */
+export function calculatedValueFor(
+  t: RoleSubject,
+  calcs: Record<string, number | null | undefined>
+): number | null {
+  const kind = calcKindOf(t);
+  const value = kind === 'RATIO' ? calcs.RATIO_SNF_FAT : kind === 'TOTAL_SOLIDS' ? calcs.TOTAL_SOLIDS : kind === 'SNF' ? calcs.SNF_CANONICAL : null;
+  return value === undefined ? null : value;
+}
+
 /** Why a test cannot be switched off / made optional, or null when it is free to change. */
 export function lockedReason(t: RoleSubject): string | null {
   const r = roleOf(t);

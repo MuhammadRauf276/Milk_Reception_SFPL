@@ -29,9 +29,9 @@ export const CALCULATED_FORMULA_REGISTRY: Record<string, CalculatedFormulaDef> =
     dependencies: ['LT-000008', 'LT-000009'], // LR @ 20°C, Fat %
     displayFormula: '(LR / 4) + (0.22 × Fat) + 0.72',
     calculate: (inputs) => {
-      // Look up by test code or friendly key
-      const lrRaw = inputs['LT-000008'] ?? inputs['LT-000027'] ?? inputs['LR'];
-      const fatRaw = inputs['LT-000009'] ?? inputs['LT-000026'] ?? inputs['FAT'];
+      // Inputs are keyed by role (LR / FAT / SNF), never by test code: the caller finds the tests by their stored role.
+      const lrRaw = inputs['LR'];
+      const fatRaw = inputs['FAT'];
 
       const lr = lrRaw !== null && lrRaw !== undefined ? Number(lrRaw) : null;
       const fat = fatRaw !== null && fatRaw !== undefined ? Number(fatRaw) : null;
@@ -52,8 +52,8 @@ export const CALCULATED_FORMULA_REGISTRY: Record<string, CalculatedFormulaDef> =
     displayFormula: 'SNF / Fat',
     calculate: (inputs) => {
       // If SNF is not directly provided in inputs, attempt to compute SNF from LR and Fat first
-      let snfRaw = inputs['LT-000010'] ?? inputs['SNF'];
-      const fatRaw = inputs['LT-000009'] ?? inputs['LT-000026'] ?? inputs['FAT'];
+      let snfRaw = inputs['SNF'];
+      const fatRaw = inputs['FAT'];
 
       const fat = fatRaw !== null && fatRaw !== undefined ? Number(fatRaw) : null;
       if (fat === null || isNaN(fat) || !isFinite(fat) || fat <= 0) {
@@ -81,8 +81,8 @@ export const CALCULATED_FORMULA_REGISTRY: Record<string, CalculatedFormulaDef> =
     dependencies: ['LT-000009', 'LT-000010'], // Fat, SNF
     displayFormula: 'Fat + SNF',
     calculate: (inputs) => {
-      const fatRaw = inputs['LT-000009'] ?? inputs['LT-000026'] ?? inputs['FAT'];
-      let snfRaw = inputs['LT-000010'] ?? inputs['SNF'];
+      const fatRaw = inputs['FAT'];
+      let snfRaw = inputs['SNF'];
 
       const fat = fatRaw !== null && fatRaw !== undefined ? Number(fatRaw) : null;
       if (fat === null || isNaN(fat) || !isFinite(fat) || fat <= 0) {

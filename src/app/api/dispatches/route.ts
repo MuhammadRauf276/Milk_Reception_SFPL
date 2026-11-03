@@ -8,8 +8,9 @@ import { evaluateLabResult } from '@/lib/lab-rules';
 import { generateReceptionNumber } from '@/lib/reception-number';
 import { validateRequiredString } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
-import { calculateSNF, calculateRatio, calculateDensity, calculateGrossLiters, computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
+import { calculateDensity, calculateGrossLiters, computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
 import { getOrAssignDispatchTests } from '@/backend/services/labTestAssignmentService';
+import { storedCalculatedValue } from '@/backend/services/dispatch/calculatedResultValue';
 import { getOrFreezeDispatchQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
 import { validateDispatchQuantities, QuantityMeasurementError } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
@@ -35,6 +36,7 @@ import {
   type DispatchSourceFailure,
 } from '@/backend/services/dispatchScope';
 import { writeAuditLog } from '@/backend/core/audit';
+import { pickVehicleLrFat } from '@/backend/services/dispatch/vehicleQuality';
 import {
   buildDispatchDecision,
   loadDispatchPolicy,
@@ -533,33 +535,19 @@ export async function POST(req: Request) {
     );
 
     // 4. Resolve Authoritative Quality & Milk Metrics (Server Calculated)
-    let authoritativeVehicleLr: number | null = null;
-    if (validated.vehicleLr !== undefined && validated.vehicleLr !== null && !isNaN(validated.vehicleLr) && validated.vehicleLr > 0) {
-      authoritativeVehicleLr = Number(validated.vehicleLr);
-    } else if (validated.vehicleQuantity?.lr !== undefined && validated.vehicleQuantity?.lr !== null && !isNaN(validated.vehicleQuantity.lr) && validated.vehicleQuantity.lr > 0) {
-      authoritativeVehicleLr = Number(validated.vehicleQuantity.lr);
-    } else if (totals.weightedLr > 0) {
-      authoritativeVehicleLr = totals.weightedLr;
-    } else if (validated.portions.length === 1) {
-      const p1 = details.portions[0];
-      if (p1 && p1.lr !== null && p1.lr > 0) {
-        authoritativeVehicleLr = p1.lr;
-      }
-    }
-
-    let authoritativeVehicleFat: number | null = null;
-    if (validated.vehicleFat !== undefined && validated.vehicleFat !== null && !isNaN(validated.vehicleFat) && validated.vehicleFat >= 0) {
-      authoritativeVehicleFat = Number(validated.vehicleFat);
-    } else if (validated.vehicleQuantity?.fat !== undefined && validated.vehicleQuantity?.fat !== null && !isNaN(validated.vehicleQuantity.fat) && validated.vehicleQuantity.fat >= 0) {
-      authoritativeVehicleFat = Number(validated.vehicleQuantity.fat);
-    } else if (totals.weightedFat > 0) {
-      authoritativeVehicleFat = totals.weightedFat;
-    } else if (validated.portions.length === 1) {
-      const p1 = details.portions[0];
-      if (p1 && p1.fat !== null && p1.fat >= 0) {
-        authoritativeVehicleFat = p1.fat;
-      }
-    }
+    // The server-computed values (from the lab results found by stored LR / Fat role) come first; client-sent
+    // vehicle LR / Fat are only a fallback when the server has no test values.
+    const p1 = validated.portions.length === 1 ? details.portions[0] : undefined;
+    const picked = pickVehicleLrFat({
+      serverWeightedLr: totals.weightedLr,
+      serverWeightedFat: totals.weightedFat,
+      singlePortionLr: p1?.lr ?? null,
+      singlePortionFat: p1?.fat ?? null,
+      clientLr: [validated.vehicleLr, validated.vehicleQuantity?.lr],
+      clientFat: [validated.vehicleFat, validated.vehicleQuantity?.fat],
+    });
+    const authoritativeVehicleLr: number | null = picked.lr;
+    const authoritativeVehicleFat: number | null = picked.fat;
 
     const vehicleQtyVal = Number(validatedQuantities.vehicleQuantity.value);
     const vehicleQtyUnit = validatedQuantities.vehicleQuantity.unit;
@@ -801,6 +789,13 @@ export async function POST(req: Request) {
         });
       }
 
+      // Stored system roles of the assigned tests (the frozen assignment snapshot does not carry them).
+      const assignedRoles = await tx.labTest.findMany({
+        where: { id: { in: assignedDispatchTests.map((t) => t.test_id) } },
+        select: { id: true, systemRole: true },
+      });
+      const systemRoleByTestId = new Map(assignedRoles.map((r) => [r.id.toString(), r.systemRole]));
+
       // Create portions, dispatchInfo, and lab results
       const createdPortions = [];
       for (const portionInput of validated.portions) {
@@ -872,12 +867,22 @@ export async function POST(req: Request) {
           let perfStatus = 'NOT_PERFORMED';
           let notPerfReason: string | null = null;
 
-          if (testDef.result_type_snapshot === 'CALCULATED') {
-            if (submittedFat !== null && submittedLr !== null) {
-              const snf = calculateSNF(submittedLr, submittedFat);
-              const ratio = calculateRatio(snf, submittedFat);
-              numVal = ratio;
-              textVal = ratio.toFixed(3);
+          // Each calculated test is stored with ITS OWN server-computed value (SNF, Total Solids or ratio) from the
+          // portion's LR and Fat; a client-sent value is ignored. Found by stored system role, not by code or name.
+          const calculated = storedCalculatedValue(
+            {
+              testCode: testDef.test_code_snapshot,
+              testName: testDef.test_name_snapshot,
+              resultType: testDef.result_type_snapshot,
+              systemRole: systemRoleByTestId.get(testIdStr) ?? null,
+            },
+            submittedLr,
+            submittedFat
+          );
+          if (calculated) {
+            if (calculated.value !== null) {
+              numVal = calculated.value;
+              textVal = calculated.value.toFixed(2);
               perfStatus = 'PERFORMED';
               notPerfReason = null;
             } else {

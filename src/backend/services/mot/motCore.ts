@@ -237,7 +237,7 @@ export async function resolveMotAuth(
       effectiveZmccId,
       acting,
       isSystemScope,
-      canDecideStage1: role !== 'DATA_EXECUTIVE' && canActAs(role, 'ZMCC_MANAGER'),
+      canDecideStage1: canActAs(role, 'ZMCC_MANAGER'),
       isMdoOrAbove: canActAs(role, 'MDO'),
     },
   };

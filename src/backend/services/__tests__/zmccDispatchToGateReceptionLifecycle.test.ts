@@ -500,6 +500,25 @@ test('ZMCC Dispatch to Plant Gate Reception & Resource Release Complete Lifecycl
 
     console.log(`[E2E] SUCCESS: Complete lifecycle executed! Vehicle ${selectedVehicle.vehicle_number} and MOT Escort ${selectedMot.name} are released and available.`);
   } finally {
+    // Clean up everything this run created, so repeated runs leave the dummy data as it was:
+    // notifications, idempotency keys, tank ledger rows (refill + dispatch issue), reconciliation / silo receipt (RESTRICT FKs), the visit.
+    const portionIds = (await prisma.visitPortion.findMany({ where: { visit_id: visitId }, select: { id: true } })).map((p) => p.id.toString());
+    await prisma.notification.deleteMany({
+      where: { OR: [{ source_type: 'VEHICLE_DISPATCH', source_id: visitId.toString() }, { source_type: 'PLANT_QA_PORTION', source_id: { in: portionIds } }] },
+    }).catch(() => {});
+    await prisma.operationIdempotencyRecord.deleteMany({ where: { key: { contains: runId } } }).catch(() => {});
+    await prisma.plantFinalDualReconciliation.deleteMany({ where: { visit_id: visitId } }).catch(() => {});
+    await prisma.siloInventoryTransaction.deleteMany({ where: { visit_id: visitId } }).catch(() => {});
+    await prisma.zmccTankInventoryTransaction.deleteMany({
+      where: { OR: [{ idempotency_key: `TEST-REFILL-${runId}` }, { reference_type: 'DISPATCH', reference_id: visitId.toString() }] },
+    }).catch(() => {});
+    // Audit rows are keyed by the child record ids (gate log, weight ticket, portion); qa_warning is SET NULL on visit delete.
+    const gateIds = (await prisma.gateLog.findMany({ where: { visit_id: visitId }, select: { id: true } })).map((g) => g.id);
+    const ticketIds = (await prisma.weightTicket.findMany({ where: { visit_id: visitId }, select: { id: true } })).map((t) => t.id);
+    await prisma.auditLog.deleteMany({
+      where: { OR: [{ table_name: 'gate_log', record_id: { in: gateIds } }, { table_name: 'weight_ticket', record_id: { in: ticketIds } }, { record_id: { in: portionIds.map((id) => BigInt(id)) } }] },
+    }).catch(() => {});
+    await prisma.qAWarning.deleteMany({ where: { visit_id: visitId } }).catch(() => {});
     // Clean up test records
     await prisma.auditLog.deleteMany({
       where: {
@@ -509,5 +528,6 @@ test('ZMCC Dispatch to Plant Gate Reception & Resource Release Complete Lifecycl
         ],
       },
     }).catch(() => {});
+    await prisma.vehicleVisit.delete({ where: { id: visitId } }).catch((e) => console.error('[E2E] visit cleanup failed:', e.message));
   }
 });

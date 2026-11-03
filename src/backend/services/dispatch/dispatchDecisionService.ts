@@ -6,7 +6,8 @@ import { writeAuditLog, type AuditActor } from '@/backend/core/audit';
 import type { User } from '@/backend/core/types';
 import { evaluateDecision } from '@/backend/services/decision/decisionRule';
 import { isLr, isFat } from '@/lib/lab-test-roles';
-import { applyAssignmentToCell, withFormulaInputs, lockFormulaInput, getEffectivePolicy, LAB_REPORT_TEST_CODE, LAB_REPORT_TEST_NAME, type PolicyDb } from '@/backend/services/testPointPolicyService';
+import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
+import { resolveStageCells, relaxContractorDefaults, getEffectivePolicy, LAB_REPORT_TEST_CODE, LAB_REPORT_TEST_NAME, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { getTankPhysicalStock } from '@/backend/services/zmccTankService';
 import { calculateDensity, calculateGrossLiters, computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
@@ -97,27 +98,12 @@ export async function loadDispatchPolicy(point: DispatchPoint, at: Date = new Da
 
   const assignmentMap = new Map(dispatchAssignments.map((a) => [a.lab_test_id.toString(), a]));
 
-  // Only tests Super Admin assigned (and switched on) for this point are shown. LR and Fat are always carried
-  // (exactly one of each, locked compulsory) because the milk formulas need them.
-  const matrixOrAssignment = policy.cells.filter((c) => {
-    if (c.testCode.toUpperCase() === LAB_REPORT_TEST_CODE) return c.testMode !== 'OFF';
-    const assignment = assignmentMap.get(c.labTestId);
-    return assignment ? assignment.is_active : false;
-  });
-  const cells = withFormulaInputs(matrixOrAssignment, policy.cells)
-    .map((c) => applyAssignmentToCell(c, assignmentMap.get(c.labTestId)))
-    .map(lockFormulaInput)
-    // Workflow document (Stage 3): tests are not compulsory for a Contractor, whatever Super Admin sets
-    // (the DISPATCH assignment is shared with ZMCC dispatch). Pictures and the lab report become optional too.
-    .map((c) =>
-      point === 'CONTRACTOR_DISPATCH'
-        ? {
-            ...c,
-            testMode: c.testMode === 'COMPULSORY' ? ('OPTIONAL' as const) : c.testMode,
-            photoMode: c.photoMode === 'REQUIRED' ? ('OPTIONAL' as const) : c.photoMode,
-          }
-        : c
-    );
+  // One rule for every stage: the saved Master Matrix row decides; an assignment only covers cells the matrix never
+  // saved. A never-configured cell stays hidden, except the hand-written lab report (its default is compulsory).
+  // LR and Fat (found by stored role) are always carried exactly once.
+  // Contractor dispatch has its own Master Matrix column (its defaults are optional); it follows that column like every stage.
+  // Contractor vehicles going to the plant keep their relaxation for cells Super Admin never saved; a saved row wins.
+  const cells = relaxContractorDefaults(point, resolveStageCells(policy.cells, assignmentMap, (c) => c.testCode.toUpperCase() === LAB_REPORT_TEST_CODE));
 
   const ids = cells.map((c) => BigInt(c.labTestId));
   const [labTests, pointRules, legacyRules] = await Promise.all([
@@ -355,8 +341,28 @@ export function buildDispatchDecision(
     let lr: number | null = null;
     let fat: number | null = null;
     const rows: DispatchPortionDetails['tests'] = [];
+    // SNF, Total Solids and the ratio are computed here from the portion's LR and Fat; a client value is never used.
+    const calculated = calculatedValuesForPortion(portionTests, (t) => cleanNumber(portion.tests.find((x) => x.labTestId === t.labTestId)?.value));
     for (const t of portionTests) {
       const input = portion.tests.find((x) => x.labTestId === t.labTestId);
+      if (t.labTestId in calculated) {
+        const calcValue = calculated[t.labTestId];
+        if (calcValue === null && t.testMode === 'COMPULSORY') missingCompulsory.push(label(portion.portionNumber, t.testName));
+        rows.push({
+          labTestId: t.labTestId,
+          testCode: t.testCode,
+          testName: t.testName,
+          unit: t.unit,
+          value: calcValue,
+          textValue: null,
+          testMode: t.testMode,
+          ruleMode: t.ruleMode,
+          photoMode: t.photoMode,
+          outcome: calcValue !== null ? 'PASS' : 'NOT_TESTED',
+          photoCaptureId: null,
+        });
+        continue;
+      }
       const value = t.resultType === 'NUMERIC' ? cleanNumber(input?.value) : null;
       const text = t.resultType === 'NUMERIC' ? '' : (input?.textValue ?? '').trim();
       const textValue = text ? text : null;
@@ -752,7 +758,6 @@ export async function decideDispatchApproval(
   id: bigint,
   i: { verdict: 'OKAY' | 'NO'; remarks?: string | null; version: number }
 ): Promise<ServiceResult<{ item: DispatchApprovalItem; tankRemainingLiters: number | null }>> {
-  if (user.role === 'DATA_EXECUTIVE') return { status: 403, error: 'You cannot decide this.', code: 'FORBIDDEN' };
   if (i.verdict !== 'OKAY' && i.verdict !== 'NO') return { status: 400, error: 'Choose OKAY or NO.' };
   if (!Number.isInteger(i.version)) return { status: 400, error: 'Version is required.' };
   const remarks = (i.remarks ?? '').trim();

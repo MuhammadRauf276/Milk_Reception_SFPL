@@ -27,6 +27,7 @@ import type {
   TestInputState,
 } from './qaTypes';
 import { useQADecisionPreview } from './useQADecisionPreview';
+import { pickRoleTest } from '@/lib/lab-test-roles';
 import { QAPortionTabs } from './QAPortionTabs';
 import { QAWaitingVisitCard, QAHeldVisitCard } from './QAVisitStatusCards';
 import { QATestDrawer } from './QATestDrawer';
@@ -240,6 +241,8 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
       p.manager_review_status === 'PENDING' ||
       (p.exception_reasons && p.exception_reasons.length > 0 && p.plant_decision === 'PENDING')
   );
+  // "Composite Sample" only while the whole tanker is one portion; with two or more it is Portion 1, Portion 2 ...
+  const isSingleComposite = visitDetail?.test_mode === 'COMPOSITE' && portions.length === 1;
   const isAlreadyRoutedToExit = visitDetail?.current_status === 'READY_FOR_GATE_EXIT';
   const isAlreadyRoutedToGross = visitDetail?.current_status === 'READY_FOR_GROSS';
   const showFinishedBanner = isAllDecided || hasEscalation || isAlreadyRoutedToExit || isAlreadyRoutedToGross;
@@ -267,7 +270,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                   Testing Active
                 </span>
                 <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase bg-muted text-foreground border border-border">
-                  {visitDetail.test_mode === 'COMPOSITE' ? 'Composite' : 'Portion-Wise'}
+                  {isSingleComposite ? 'Composite' : 'Portion-Wise'}
                 </span>
               </div>
               <p className="text-xs text-slate-600 font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
@@ -337,14 +340,14 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
             <div>
               <h4 className="text-sm font-bold leading-tight">
                 {hasEscalation
-                  ? 'Rule breach detected'
+                  ? 'Waiting for AVP QA Reception Lab'
                   : allRejected || isAlreadyRoutedToExit
                   ? 'All portions rejected'
                   : 'Quality passed'}
               </h4>
               <p className="text-xs font-medium text-slate-700 mt-0.5">
                 {hasEscalation
-                  ? 'Quality exception · AVP QA review required'
+                  ? 'Request sent · this vehicle stays here until the AVP decides every pending portion'
                   : allRejected || isAlreadyRoutedToExit
                   ? 'Vehicle rejected · Ready for checkout'
                   : `${acceptedCount} portion(s) accepted, ${rejectedCount} rejected · Ready for scale`}
@@ -365,7 +368,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                 ) : (
                   <AlertTriangle className="w-4 h-4" />
                 )}
-                <span>Escalate to AVP QA</span>
+                <span>Send Request to AVP QA Reception Lab</span>
               </button>
             )}
 
@@ -385,7 +388,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               </button>
             )}
 
-            {hasAccepted && !hasEscalation && !allRejected && !isAlreadyRoutedToExit && onRouteVehicle && (
+            {hasAccepted && isAllDecided && !hasEscalation && !allRejected && !isAlreadyRoutedToExit && onRouteVehicle && (
               <button
                 type="button"
                 disabled={isRoutingVehicle}
@@ -423,34 +426,19 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
             const isSelected = activePortionIndex === idx;
             const _portionQty = formatDispatchQty(p);
 
-            const lrResult = p.plant_results?.find(
-              (r) => r.testName?.toUpperCase().includes('LR') || r.testCode?.toUpperCase().includes('LR')
-            );
-            const fatResult = p.plant_results?.find(
-              (r) => r.testName?.toUpperCase().includes('FAT') || r.testCode?.toUpperCase().includes('FAT')
-            );
-            const activeLr = isSelected
-              ? displayableTests.find(
-                  (t) => t.testName?.toUpperCase().includes('LR') || t.testCode?.toUpperCase().includes('LR')
-                )?.id
-                ? testInputs[
-                    displayableTests.find(
-                      (t) => t.testName?.toUpperCase().includes('LR') || t.testCode?.toUpperCase().includes('LR')
-                    )!.id
-                  ]?.numericValue
-                : null
-              : null;
-            const activeFat = isSelected
-              ? displayableTests.find(
-                  (t) => t.testName?.toUpperCase().includes('FAT') || t.testCode?.toUpperCase().includes('FAT')
-                )?.id
-                ? testInputs[
-                    displayableTests.find(
-                      (t) => t.testName?.toUpperCase().includes('FAT') || t.testCode?.toUpperCase().includes('FAT')
-                    )!.id
-                  ]?.numericValue
-                : null
-              : null;
+            // LR and Fat are found by stored role (never by a "LR"/"FAT" text match, which also hits the SNF/Fat ratio).
+            const roleByTestId = new Map(displayableTests.map((t) => [t.id, t.systemRole ?? null]));
+            const savedResults = (p.plant_results ?? []).map((r) => ({
+              ...r,
+              id: r.testId,
+              systemRole: roleByTestId.get(r.testId) ?? null,
+            }));
+            const lrResult = pickRoleTest(savedResults, 'LR');
+            const fatResult = pickRoleTest(savedResults, 'FAT');
+            const lrDef = pickRoleTest(displayableTests, 'LR');
+            const fatDef = pickRoleTest(displayableTests, 'FAT');
+            const activeLr = isSelected && lrDef ? testInputs[lrDef.id]?.numericValue : null;
+            const activeFat = isSelected && fatDef ? testInputs[fatDef.id]?.numericValue : null;
             const displayLr = activeLr || (lrResult?.numericValue != null ? String(lrResult.numericValue) : null);
             const displayFat = activeFat || (fatResult?.numericValue != null ? String(fatResult.numericValue) : null);
 
@@ -465,7 +453,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                 <div className="space-y-2.5">
                   <header className="flex items-center justify-between gap-2 border-b border-border pb-2">
                     <h4 className="text-sm font-bold text-slate-900">
-                      {visitDetail.test_mode === 'COMPOSITE' ? 'Composite Sample' : `Portion #${p.portion_number}`}
+                      {isSingleComposite ? 'Composite Sample' : `Portion #${p.portion_number}`}
                     </h4>
                     <span
                       className={cn(
@@ -547,7 +535,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
 
       {currentPortion ? (
         <div className="space-y-5">
-          {visitDetail.test_mode === 'COMPOSITE' && (
+          {isSingleComposite && (
             <div className="bg-card border-border p-3.5 border rounded-xl text-purple-950 text-xs font-medium flex items-center gap-2.5 shadow-2xs">
               <AlertCircle className="w-4 h-4 text-purple-600 shrink-0" />
               <span>

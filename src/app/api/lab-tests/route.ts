@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@core/db';
+import { getCurrentUser } from '@core/auth';
 import type { LabTest } from '@prisma/client';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -18,6 +19,11 @@ function serializeLabTest(test: LabTest) {
 }
 
 export async function GET(req: Request) {
+  const authUser = await getCurrentUser(req);
+  if (!authUser) {
+    return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const scopeParam = searchParams.get('scope');
   const scope = (scopeParam || 'DISPATCH').trim().toUpperCase();

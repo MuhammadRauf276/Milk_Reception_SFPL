@@ -1,6 +1,8 @@
 // Stage 2 (ZMCC lab) per-portion decision: pure, NO db imports, so the browser can show the same result as the server.
+import type { EffectivePolicyTest } from '@/types/milk-test-policy';
 import { evaluateDecision } from '@/backend/services/decision/decisionRule';
 import { evaluate3ZoneTest } from '@/lib/sop-evaluation';
+import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 import type { DecisionResult, ExceptionReason, FinalDecision, PersonDecision, ReviewStatus } from '@/types/stage1-decision';
 import type { TestPointPolicyCell } from '@/types/test-point-policy';
 
@@ -144,9 +146,32 @@ export function buildLabPortionDecision(
   let lr: number | null = null;
   let fat: number | null = null;
 
+  // SNF, Total Solids and the ratio are computed here from LR and Fat; a client value is never used.
+  const calculated = calculatedValuesForPortion(
+    p.tests.filter((t) => t.testMode !== 'OFF'),
+    (t) => cleanNumber(i.tests.find((x) => x.labTestId === t.labTestId)?.value)
+  );
   for (const t of p.tests) {
     if (t.testMode === 'OFF') continue;
     const input = i.tests.find((x) => x.labTestId === t.labTestId);
+    if (t.labTestId in calculated) {
+      const calcValue = calculated[t.labTestId];
+      if (calcValue === null && t.testMode === 'COMPULSORY') missingCompulsory.push(t.testName);
+      rows.push({
+        labTestId: t.labTestId,
+        testCode: t.testCode,
+        testName: t.testName,
+        unit: t.unit,
+        value: calcValue,
+        textValue: null,
+        testMode: t.testMode,
+        ruleMode: t.ruleMode,
+        photoMode: t.photoMode,
+        outcome: calcValue !== null ? 'PASS' : 'NOT_TESTED',
+        photoCaptureId: null,
+      });
+      continue;
+    }
     const value = t.resultType === 'NUMERIC' ? cleanNumber(input?.value) : null;
     const text = t.resultType === 'NUMERIC' ? '' : (input?.textValue ?? '').trim();
     const textValue = text ? text : null;
@@ -227,4 +252,25 @@ export function summarizePortions(portions: Array<{ finalDecision: FinalDecision
     rejected,
     pending,
   };
+}
+
+/**
+ * The lab policy as the session-start code (and the frozen result snapshot) expects it: one entry per test the
+ * Master Matrix puts on this point. Same cells, same order and flags as loadLabPolicy, so session start and decision agree.
+ */
+export function labPolicyToEffectiveTests(policy: LabPolicySnapshot): EffectivePolicyTest[] {
+  return policy.tests.map((t) => ({
+    id: t.labTestId,
+    policyAssignmentId: `matrix-${t.labTestId}`,
+    testCode: t.testCode,
+    testName: t.testName,
+    resultType: t.resultType,
+    unit: t.unit,
+    resultOptions: t.resultOptions ?? null,
+    isRequired: t.testMode === 'COMPULSORY',
+    isPhotoRequired: t.photoMode === 'REQUIRED',
+    displayOrder: t.displayOrder,
+    isActive: true,
+    testingPoint: policy.point,
+  }));
 }

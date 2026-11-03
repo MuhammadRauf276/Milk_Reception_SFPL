@@ -10,6 +10,7 @@ import { AlertTriangle, Camera, CheckCircle2, Undo2, Trash2 } from 'lucide-react
 import { LiveCamera } from '@/components/camera/LiveCamera';
 import { cn } from '@/lib/utils';
 import type { LiveCameraResult } from '@/types/captured-photo';
+import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 import { isNumericTest, type DispatchPolicyTest } from '../dispatchDecisionPreview';
 
 export interface DispatchPhotoState {
@@ -95,13 +96,15 @@ export function DispatchPolicyTests({
 }: DispatchPolicyTestsProps) {
   const [cameraFor, setCameraFor] = useState<DispatchPolicyTest | null>(null);
   const active = tests.filter((t) => t.testMode !== 'OFF');
+  // SNF, Total Solids and the ratio are worked out from this portion's LR and Fat, never typed.
+  const calculated = calculatedValuesForPortion(active, (t) => values[t.labTestId]?.numericValue);
 
   if (active.length === 0) {
     return <p className="rounded-lg border border-border bg-subtle px-3 py-2 text-sm text-slate-600">No tests needed.</p>;
   }
 
   const photoBlock = (t: DispatchPolicyTest) => {
-    if (t.photoMode === 'NONE') return null;
+    if (t.photoMode === 'NONE' || t.labTestId in calculated) return null;
     const photo = photos[t.labTestId];
     const required = t.photoMode === 'REQUIRED';
     if (photo) {
@@ -162,7 +165,9 @@ export function DispatchPolicyTests({
     const range = sopRangeText(t);
     const numeric = isNumericTest(t);
     const isOut = numeric ? outsideRange(t, v.numericValue) : isDisallowedOption(t, v.textValue);
-    const isRequired = t.testMode === 'COMPULSORY';
+    const isCalc = t.labTestId in calculated;
+    const calcValue = isCalc ? calculated[t.labTestId] : null;
+    const isRequired = t.testMode === 'COMPULSORY' && !isCalc;
 
     return (
       <div
@@ -181,7 +186,7 @@ export function DispatchPolicyTests({
                 isRequired ? 'bg-primary text-white shadow-2xs' : 'bg-slate-100 text-slate-600'
               )}
             >
-              {isRequired ? 'Required *' : 'Optional'}
+              {isCalc ? 'Auto' : isRequired ? 'Required *' : 'Optional'}
             </span>
           </label>
           {range && (
@@ -200,7 +205,18 @@ export function DispatchPolicyTests({
           <p className="text-xs text-slate-500">No rule.</p>
         )}
 
-        {numeric ? (
+        {isCalc ? (
+          <input
+            id={inputId}
+            type="text"
+            readOnly
+            disabled
+            aria-readonly="true"
+            value={calcValue !== null ? calcValue.toFixed(2) : ''}
+            placeholder="Auto"
+            className={cn('min-h-11', INPUT_CLASS, 'border-border bg-muted text-slate-600 cursor-not-allowed')}
+          />
+        ) : numeric ? (
           <input
             id={inputId}
             type="number"

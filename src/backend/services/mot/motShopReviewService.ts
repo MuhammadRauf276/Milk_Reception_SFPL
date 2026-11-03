@@ -148,7 +148,6 @@ export async function reviewMotShopException(
   id: bigint,
   i: { verdict: 'OKAY' | 'NO'; remarks?: string | null; version: number }
 ): Promise<ServiceResult<MotShopExceptionItem>> {
-  if (ctx.actorRole === 'DATA_EXECUTIVE') return { status: 403, error: 'You cannot decide this.' };
   if (i.verdict !== 'OKAY' && i.verdict !== 'NO') return { status: 400, error: 'Choose OKAY or NO.' };
   if (!Number.isInteger(i.version)) return { status: 400, error: 'Version is required.' };
   const remarks = (i.remarks ?? '').trim();

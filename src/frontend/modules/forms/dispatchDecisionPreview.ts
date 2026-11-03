@@ -2,6 +2,7 @@
 import { evaluateDecision } from '@/backend/services/decision/decisionRule';
 import type { DecisionResult, ExceptionReason, MotShopPolicyTest, PersonDecision } from '@/types/stage1-decision';
 import type { DecisionRuleTestRow } from '@/frontend/modules/shared/decision/DecisionRulePanel';
+import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 
 export type DispatchTestMode = 'COMPOSITE' | 'PORTION_WISE';
 export type DispatchPolicyTest = MotShopPolicyTest;
@@ -64,8 +65,23 @@ export function buildDispatchPreview(input: {
 
   for (const p of input.portions) {
     const prefix = multi ? `P${p.portionNumber} ` : '';
-    for (const t of input.tests) {
-      if (t.testMode === 'OFF') continue;
+    const activeTests = input.tests.filter((t) => t.testMode !== 'OFF');
+    const calculated = calculatedValuesForPortion(activeTests, (t) => p.values[t.labTestId]?.value);
+    for (const t of activeTests) {
+      // SNF, Total Solids and the ratio are filled from LR and Fat: never typed, never need a picture, and only
+      // "missing" when LR or Fat is missing and the matrix makes the test compulsory.
+      if (t.labTestId in calculated) {
+        const calcValue = calculated[t.labTestId];
+        if (calcValue === null && t.testMode === 'COMPULSORY') missingCompulsory.push(`${prefix}${t.testName}`);
+        rows.push({
+          key: `${p.portionNumber}:${t.labTestId}`,
+          name: `${prefix}${t.testName}`,
+          outcome: calcValue !== null ? 'PASS' : 'NOT_TESTED',
+          valueText: calcValue !== null ? calcValue.toFixed(2) : null,
+          note: calcValue === null && t.testMode === 'COMPULSORY' ? 'Must be done' : null,
+        });
+        continue;
+      }
       const v = p.values[t.labTestId] ?? { value: '', text: '' };
       const num = isNumericTest(t) && v.value.trim() !== '' && Number.isFinite(Number(v.value)) ? Number(v.value) : null;
       const text = !isNumericTest(t) && v.text.trim() !== '' ? v.text.trim() : null;

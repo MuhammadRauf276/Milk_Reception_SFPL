@@ -64,7 +64,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
   const [selectedWaitingVisitId, setSelectedWaitingVisitId] = useState<string | null>(null);
   const [selectedTestingVisitId, setSelectedTestingVisitId] = useState<string | null>(null);
   const [selectedHeldVisitId, setSelectedHeldVisitId] = useState<string | null>(null);
-  const isSuperior = ['QA_HEAD', 'SUPER_ADMIN'].includes(currentUser?.role || '');
+  const isSuperior = ['QA_HEAD', 'DATA_EXECUTIVE', 'SUPER_ADMIN'].includes(currentUser?.role || '');
 
   const queryClient = useQueryClient();
   const debouncedSearch = useDebouncedValue(searchQuery);

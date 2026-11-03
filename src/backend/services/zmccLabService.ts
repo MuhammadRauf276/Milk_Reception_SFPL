@@ -11,6 +11,7 @@ import {
   type LabPolicySnapshot,
   type LabPortionView,
   type LabTestMode,
+  labPolicyToEffectiveTests,
 } from '@/backend/services/zmcc/labPortionDecision';
 import {
   auditActorOf,
@@ -48,7 +49,7 @@ import { validateCategoricalOption } from '@/lib/lab-rules';
 import { isValidDateOnly } from '@/lib/datetime-utils';
 import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
 import { resolveCoreMilkTestResults, validateCoreMilkTestCandidates } from '@/backend/utils/milkTestResolvers';
-import { MilkTestPolicyService } from '@/backend/services/milkTestPolicyService';
+import { loadSystemRoles, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { QualityRuleService, type QualityResultEvaluation } from '@/backend/services/qualityRuleService';
 import { TestingPoint } from '@/types/milk-test-policy';
 import { getTankPhysicalStock, serializeTankReceipt } from '@/backend/services/zmccTankService';
@@ -239,7 +240,7 @@ export async function resolveZmccLabAuth(
       isZmccLabAttendant,
       effectiveZmccId,
       acting,
-      deciderCanApprove: role !== 'DATA_EXECUTIVE' && canActAs(role, 'ZMCC_MANAGER'),
+      deciderCanApprove: canActAs(role, 'ZMCC_MANAGER'),
     },
   };
 }
@@ -918,7 +919,9 @@ export async function startOrResumeSession(
 
   // Canonical milk test policy by arrival type
   const testingPoint: TestingPoint = arrival_type === 'MOT' ? 'ZMCC_LAB_MC' : 'ZMCC_LAB_HC';
-  const effectiveTests = await MilkTestPolicyService.getEffectivePolicy(testingPoint);
+  // Matrix-first, the same source the portion decision uses (loadLabPolicy -> resolveStageCells): a test turned OFF or ON
+  // only in the Master Matrix is handled identically at session start and at decision time.
+  const effectiveTests = labPolicyToEffectiveTests(await loadLabPolicy(testingPoint));
   const effectiveRulePoint = testingPoint;
 
   if (!effectiveTests || effectiveTests.length === 0) {
@@ -942,7 +945,10 @@ export async function startOrResumeSession(
   }
 
   // Pre-flight validate that policy contains exactly one LR and one Fat candidate
-  const candidateValidation = validateCoreMilkTestCandidates(effectiveTests);
+  const candidateValidation = validateCoreMilkTestCandidates(
+    effectiveTests.map((t) => ({ ...t, testId: t.id })),
+    await loadSystemRoles(prisma as unknown as PolicyDb)
+  );
   if (!candidateValidation.valid) {
     return {
       status: 400,
@@ -1344,7 +1350,10 @@ export async function updateDraftResults(
     let previewVersion: string | null = null;
 
     if (effectiveQty && effectiveQty > 0 && effectiveUnit && ['KG', 'LITER'].includes(effectiveUnit)) {
-      const resolved = resolveCoreMilkTestResults(Array.from(updatedDraftResultsMap.values()));
+      const resolved = resolveCoreMilkTestResults(
+        Array.from(updatedDraftResultsMap.values()),
+        await loadSystemRoles(tx as unknown as PolicyDb)
+      );
       if (resolved.success) {
         try {
           const m = computeCanonicalMilkMetrics(effectiveQty, effectiveUnit, resolved.lr, resolved.fat);
@@ -1749,7 +1758,7 @@ export async function completeSession(
     };
   });
 
-  const resolvedCore = resolveCoreMilkTestResults(mergedSnapshots);
+  const resolvedCore = resolveCoreMilkTestResults(mergedSnapshots, await loadSystemRoles(prisma as unknown as PolicyDb));
   if (!resolvedCore.success) {
     return { status: resolvedCore.statusCode, error: resolvedCore.error };
   }
@@ -2823,7 +2832,10 @@ export async function correctCompletedSession(
       let newCalcVersion: string | null = session.calculation_version;
 
       if (effectiveQty && effectiveQty > 0 && effectiveUnit && ['KG', 'LITER'].includes(effectiveUnit)) {
-        const resolved = resolveCoreMilkTestResults(Array.from(mergedResultsMap.values()));
+        const resolved = resolveCoreMilkTestResults(
+          Array.from(mergedResultsMap.values()),
+          await loadSystemRoles(tx as unknown as PolicyDb)
+        );
         if (resolved.success) {
           const m = computeCanonicalMilkMetrics(effectiveQty, effectiveUnit, resolved.lr, resolved.fat);
           newDensity = new Prisma.Decimal(m.density.toFixed(4));
@@ -2924,7 +2936,10 @@ export async function correctCompletedSession(
         }
 
         // Update ZmccTankReceipt quality & metric snapshot
-        const resolvedCoreAfter = resolveCoreMilkTestResults(Array.from(mergedResultsMap.values()));
+        const resolvedCoreAfter = resolveCoreMilkTestResults(
+          Array.from(mergedResultsMap.values()),
+          await loadSystemRoles(tx as unknown as PolicyDb)
+        );
         await tx.zmccTankReceipt.update({
           where: { id: receiptRow.id },
           data: {
@@ -2960,7 +2975,10 @@ export async function correctCompletedSession(
         const targetTankId = activeTanks[0].id;
 
         // Never fabricate fake LR/Fat fallbacks (Item B)
-        const resolvedCorePending = resolveCoreMilkTestResults(Array.from(mergedResultsMap.values()));
+        const resolvedCorePending = resolveCoreMilkTestResults(
+          Array.from(mergedResultsMap.values()),
+          await loadSystemRoles(tx as unknown as PolicyDb)
+        );
         if (!resolvedCorePending.success) {
           throw new Error(`MISSING_CORE_TESTS:${resolvedCorePending.error || 'Authoritative LR and Fat test results are missing or ambiguous. Cannot create tank receipt.'}`);
         }

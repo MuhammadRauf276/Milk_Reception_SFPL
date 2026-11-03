@@ -32,6 +32,15 @@ function assertTestDatabaseSafety() {
   }
 }
 
+/** Weight tickets and the audit rows written for them (audit rows are keyed by the ticket id, not the visit id). */
+async function deleteWeightTicketsWithAudits(visitId: bigint) {
+  const tickets = await prisma.weightTicket.findMany({ where: { visit_id: visitId }, select: { id: true } });
+  if (tickets.length > 0) {
+    await prisma.auditLog.deleteMany({ where: { table_name: 'weight_ticket', record_id: { in: tickets.map((t) => t.id) } } });
+  }
+  await prisma.weightTicket.deleteMany({ where: { visit_id: visitId } });
+}
+
 test('apiRouteIdempotencyIntegration: Gate Entry replay, lost response retry, and 409 conflict', async () => {
   assertTestDatabaseSafety();
 
@@ -378,6 +387,7 @@ test('apiRouteIdempotencyIntegration: QA Portion Creation idempotency, audit log
     const portions = await prisma.visitPortion.findMany({ where: { visit_id: visit.id } });
     for (const p of portions) {
       await prisma.auditLog.deleteMany({ where: { record_id: p.id } });
+      await prisma.notification.deleteMany({ where: { source_type: 'PLANT_QA_PORTION', source_id: p.id.toString() } });
     }
     await prisma.visitPortion.deleteMany({ where: { visit_id: visit.id } });
     await prisma.vehicleVisit.delete({ where: { id: visit.id } });
@@ -620,6 +630,7 @@ test('apiRouteIdempotencyIntegration: QA Complete canonical payload hashing, exa
       await prisma.operationIdempotencyRecord.deleteMany({ where: { key: concOpId } });
       await prisma.plantLabResult.deleteMany({ where: { portion_id: concPortion.id } });
       await prisma.auditLog.deleteMany({ where: { record_id: concPortion.id } });
+      await prisma.notification.deleteMany({ where: { source_type: 'PLANT_QA_PORTION', source_id: concPortion.id.toString() } });
       await prisma.visitPortion.deleteMany({ where: { visit_id: concVisit.id } });
       await prisma.qATestingSession.deleteMany({ where: { visit_id: concVisit.id } });
       await prisma.vehicleVisit.delete({ where: { id: concVisit.id } });
@@ -628,6 +639,7 @@ test('apiRouteIdempotencyIntegration: QA Complete canonical payload hashing, exa
     await prisma.operationIdempotencyRecord.deleteMany({ where: { key: completionOpId } });
     await prisma.plantLabResult.deleteMany({ where: { portion_id: portion.id } });
     await prisma.auditLog.deleteMany({ where: { record_id: portion.id } });
+    await prisma.notification.deleteMany({ where: { source_type: 'PLANT_QA_PORTION', source_id: portion.id.toString() } });
     await prisma.visitPortion.deleteMany({ where: { visit_id: visit.id } });
     await prisma.qATestingSession.deleteMany({ where: { visit_id: visit.id } });
     await prisma.vehicleVisit.delete({ where: { id: visit.id } });
@@ -905,14 +917,14 @@ test('apiRouteIdempotencyIntegration: Gate Exit replay, 409 conflict, and concur
     } finally {
       await prisma.operationIdempotencyRecord.deleteMany({ where: { key: concKey } });
       await prisma.auditLog.deleteMany({ where: { record_id: concVisit.id } });
-      await prisma.weightTicket.deleteMany({ where: { visit_id: concVisit.id } });
+      await deleteWeightTicketsWithAudits(concVisit.id);
       await prisma.gateLog.deleteMany({ where: { visit_id: concVisit.id } });
       await prisma.vehicleVisit.delete({ where: { id: concVisit.id } });
     }
   } finally {
     await prisma.operationIdempotencyRecord.deleteMany({ where: { key } });
     await prisma.auditLog.deleteMany({ where: { record_id: visit.id } });
-    await prisma.weightTicket.deleteMany({ where: { visit_id: visit.id } });
+    await deleteWeightTicketsWithAudits(visit.id);
     await prisma.gateLog.deleteMany({ where: { visit_id: visit.id } });
     await prisma.vehicleVisit.delete({ where: { id: visit.id } });
   }
@@ -1072,14 +1084,14 @@ test('apiRouteIdempotencyIntegration: Gross Weight replay, 409 conflict, and con
       assert.equal(concOpCount, 1);
     } finally {
       await prisma.operationIdempotencyRecord.deleteMany({ where: { key: concKey } });
-      await prisma.weightTicket.deleteMany({ where: { visit_id: concVisit.id } });
+      await deleteWeightTicketsWithAudits(concVisit.id);
       await prisma.visitPortion.deleteMany({ where: { visit_id: concVisit.id } });
       await prisma.gateLog.deleteMany({ where: { visit_id: concVisit.id } });
       await prisma.vehicleVisit.delete({ where: { id: concVisit.id } });
     }
   } finally {
     await prisma.operationIdempotencyRecord.deleteMany({ where: { key } });
-    await prisma.weightTicket.deleteMany({ where: { visit_id: visit.id } });
+    await deleteWeightTicketsWithAudits(visit.id);
     await prisma.visitPortion.deleteMany({ where: { visit_id: visit.id } });
     await prisma.gateLog.deleteMany({ where: { visit_id: visit.id } });
     await prisma.vehicleVisit.delete({ where: { id: visit.id } });
@@ -1255,14 +1267,14 @@ test('apiRouteIdempotencyIntegration: Tare Weight atomic transaction, replay, 40
     } finally {
       await prisma.operationIdempotencyRecord.deleteMany({ where: { key: concKey } });
       await prisma.auditLog.deleteMany({ where: { record_id: concVisit.id } });
-      await prisma.weightTicket.deleteMany({ where: { visit_id: concVisit.id } });
+      await deleteWeightTicketsWithAudits(concVisit.id);
       await prisma.visitPortion.deleteMany({ where: { visit_id: concVisit.id } });
       await prisma.vehicleVisit.delete({ where: { id: concVisit.id } });
     }
   } finally {
     await prisma.operationIdempotencyRecord.deleteMany({ where: { key } });
     await prisma.auditLog.deleteMany({ where: { record_id: visit.id } });
-    await prisma.weightTicket.deleteMany({ where: { visit_id: visit.id } });
+    await deleteWeightTicketsWithAudits(visit.id);
     await prisma.visitPortion.deleteMany({ where: { visit_id: visit.id } });
     await prisma.vehicleVisit.delete({ where: { id: visit.id } });
   }

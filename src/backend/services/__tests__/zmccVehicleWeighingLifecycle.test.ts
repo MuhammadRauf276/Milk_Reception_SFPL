@@ -103,6 +103,10 @@ describe('10-Vehicle Permutations & Lifecycle Suite', () => {
         });
         if (arr) {
           if (arr.lab_session) {
+            // Audit rows written for the session and its portions would otherwise be left behind.
+            await prisma.auditLog.deleteMany({
+              where: { OR: [{ table_name: 'zmcc_lab_session', record_id: arr.lab_session.id }, { table_name: 'zmcc_lab_portion', record_id: { in: arr.lab_session.portions.map((p) => p.id) } }] },
+            });
             await prisma.zmccLabPortion.deleteMany({ where: { lab_session_id: arr.lab_session.id } });
             await prisma.zmccLabSession.delete({ where: { id: arr.lab_session.id } });
           }

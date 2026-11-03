@@ -5,6 +5,7 @@ import { User, Role } from '@core/types';
 import { Prisma, type ZmccTank, type ZmccTankReceipt, type ZmccTankInventoryTransaction } from '@prisma/client';
 import type { NumericLike, SourceRef, UserRef } from '@/backend/core/serializable';
 import { resolveCoreMilkTestResults } from '@/backend/utils/milkTestResolvers';
+import { loadSystemRoles, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { getErrorCode, getErrorMessage, getErrorMeta } from '@/lib/errors';
 import type { ActingContext } from '@/types/acting';
 import { assertResourceInScope, primaryActorFields, asRoleFields } from '@/backend/core/acting-context';
@@ -1241,7 +1242,10 @@ export async function receiveHistoricalSession(
   }
 
   // Resolve core LR and Fat strictly from session results
-  const resolvedCore = resolveCoreMilkTestResults(session.results || []);
+  const resolvedCore = resolveCoreMilkTestResults(
+    session.results || [],
+    await loadSystemRoles(prisma as unknown as PolicyDb)
+  );
   if (!resolvedCore.success) {
     return {
       status: 400,

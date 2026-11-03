@@ -5,6 +5,7 @@ export type MpdTabId =
   | 'HIERARCHY'
   | 'MOT_JOURNEYS'
   | 'REPORTS'
+  | 'DISPATCH_VS_PLANT'
   | 'SOURCES'
   | 'QUALITY_FUNNEL'
   | 'LOSS_DIAGNOSTICS'

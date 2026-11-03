@@ -15,6 +15,7 @@ import {
   Route as RouteIcon,
   FileSpreadsheet,
   TrendingUp,
+  Scale,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MpdTabId, MpdExecutiveTelemetryData } from './types';
@@ -25,6 +26,7 @@ import { MpdQualityScreen } from './screens/MpdQualityScreen';
 import { MpdLossScreen } from './screens/MpdLossScreen';
 import { MpdGovernanceScreen } from './screens/MpdGovernanceScreen';
 import { MpdPolicyScreen } from './screens/MpdPolicyScreen';
+import { MpdDispatchVsPlantScreen } from './screens/MpdDispatchVsPlantScreen';
 import { ZMCCSubordinateHierarchyScreen } from '@/frontend/modules/dashboard/zmcc/ZMCCSubordinateHierarchyScreen';
 import { ZMCCOperationalJourneysScreen } from '@/frontend/modules/dashboard/zmcc/ZMCCOperationalJourneysScreen';
 import { ZMCCComprehensiveReportsScreen } from '@/frontend/modules/dashboard/zmcc/ZMCCComprehensiveReportsScreen';
@@ -53,6 +55,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
     'HIERARCHY',
     'MOT_JOURNEYS',
     'REPORTS',
+    'DISPATCH_VS_PLANT',
     'SOURCES',
     'QUALITY_FUNNEL',
     'LOSS_DIAGNOSTICS',
@@ -141,6 +144,11 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
       count: telemetry ? telemetry.motRoutes.length : undefined,
     },
     {
+      id: 'DISPATCH_VS_PLANT',
+      label: 'Dispatch vs Plant',
+      icon: <Scale className="w-4 h-4" />,
+    },
+    {
       id: 'REPORTS',
       label: 'Reports',
       icon: <FileSpreadsheet className="w-4 h-4" />,
@@ -220,7 +228,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
       </div>
 
       {/* Multi-Facility ZMCC Selector for Scoped Views */}
-      {['HIERARCHY', 'MOT_JOURNEYS', 'REPORTS', 'ANALYTICS'].includes(activeTab) && (
+      {['HIERARCHY', 'MOT_JOURNEYS', 'REPORTS', 'DISPATCH_VS_PLANT', 'ANALYTICS'].includes(activeTab) && (
         <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-3 rounded-xl shadow-xs animate-panel-in">
           <div className="flex items-center gap-2.5">
             <Building2 className="w-4 h-4 text-primary shrink-0" />
@@ -301,6 +309,9 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
                 currentUser={currentUser ?? null}
                 targetZmccId={selectedZmccId || undefined}
               />
+            )}
+            {activeTab === 'DISPATCH_VS_PLANT' && (
+              <MpdDispatchVsPlantScreen zmccId={selectedZmccId || undefined} onOpenTab={(tab) => setActiveTab(tab)} />
             )}
             {activeTab === 'REPORTS' && (
               <div className="space-y-6">

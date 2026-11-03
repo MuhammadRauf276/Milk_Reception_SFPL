@@ -76,28 +76,21 @@ test('approval authority: Authorized roles can decide within their domain and sc
   assert.equal(superAdminCheck.allowed, true, 'Super Admin can decide');
 });
 
-test('approval authority: DATA_EXECUTIVE is read-only auditor across all stages and cannot decide', () => {
+test('approval authority: DATA_EXECUTIVE is the right hand of Super Admin and can decide at every stage', () => {
   const stage1Item = {
     approvalType: 'STAGE_1_SHOP_EXCEPTION' as const,
     submittedByUserId: 'user-mot-1',
     submitterRole: 'MOT',
     zmccId: 'zmcc-101',
   };
-  const dataExecCheck = canDecideApproval(
-    { userId: 'user-de-1', role: 'DATA_EXECUTIVE' },
-    stage1Item
-  );
-  assert.equal(dataExecCheck.allowed, false, 'Data Executive cannot decide Stage 1');
-  assert.match(dataExecCheck.disabledReason || '', /Data Executive can view and audit/i);
+  const dataExecCheck = canDecideApproval({ userId: 'user-de-1', role: 'DATA_EXECUTIVE' }, stage1Item);
+  assert.equal(dataExecCheck.allowed, true, 'Data Executive can decide Stage 1');
 
   const stage4Item = {
     approvalType: 'STAGE_4_PORTION_EXCEPTION' as const,
     submittedByUserId: 'user-qae-1',
     submitterRole: 'QA_LAB_ATTENDANT',
   };
-  const dataExecStage4Check = canDecideApproval(
-    { userId: 'user-de-1', role: 'DATA_EXECUTIVE' },
-    stage4Item
-  );
-  assert.equal(dataExecStage4Check.allowed, false, 'Data Executive cannot decide Stage 4');
+  const dataExecStage4Check = canDecideApproval({ userId: 'user-de-1', role: 'DATA_EXECUTIVE' }, stage4Item);
+  assert.equal(dataExecStage4Check.allowed, true, 'Data Executive can decide Stage 4');
 });

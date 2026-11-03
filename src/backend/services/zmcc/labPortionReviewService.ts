@@ -4,7 +4,7 @@ import { prisma } from '@core/db';
 import { assertResourceInScope, asRoleFields } from '@/backend/core/acting-context';
 import { writeAuditLog, type AuditActor } from '@/backend/core/audit';
 import { isLr, isFat } from '@/lib/lab-test-roles';
-import { applyAssignmentToCell, withFormulaInputs, lockFormulaInput, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
+import { resolveStageCells, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { recordRejectedMilkForDisposition } from '@/backend/services/rejectedMilkDispositionService';
 import {
@@ -61,17 +61,8 @@ export async function loadLabPolicy(point: LabPoint, at: Date = new Date(), db: 
 
   const assignmentMap = new Map(stageAssignments.map((a) => [a.lab_test_id.toString(), a]));
 
-  // 1. A test with a stage assignment follows that assignment's is_active flag.
-  // 2. Otherwise the Master Test Matrix mode decides (OFF / NOT_APPLIED hides it).
-  // 3. LR and Fat are always carried (exactly one of each, locked compulsory): the milk formulas depend on them.
-  const matrixOrAssignment = policy.cells.filter((c) => {
-    const assignment = assignmentMap.get(c.labTestId);
-    if (assignment) return assignment.is_active;
-    return c.testMode !== 'OFF' && c.testMode !== 'NOT_APPLIED';
-  });
-  const cells = withFormulaInputs(matrixOrAssignment, policy.cells)
-    .map((c) => applyAssignmentToCell(c, assignmentMap.get(c.labTestId)))
-    .map(lockFormulaInput);
+  // One rule for every stage: the saved Master Matrix row decides; an assignment only covers cells the matrix never saved.
+  const cells = resolveStageCells(policy.cells, assignmentMap);
 
   const ids = cells.map((c) => BigInt(c.labTestId));
   const [labTests, rules] = await Promise.all([
@@ -384,7 +375,6 @@ export async function reviewPortionException(
     version: number;
   }
 ): Promise<ServiceResult<{ item: LabPortionExceptionItem; rollUp: LabSessionRollUp }>> {
-  if (ctx.actorRole === 'DATA_EXECUTIVE') return { status: 403, error: 'You cannot decide this.' };
   if (i.verdict !== 'OKAY' && i.verdict !== 'NO') return { status: 400, error: 'Choose OKAY or NO.' };
   if (!Number.isInteger(i.version)) return { status: 400, error: 'Version is required.' };
   const remarks = (i.remarks ?? '').trim();

@@ -109,14 +109,14 @@ function isCurrentCode(code: string): boolean {
 }
 
 /** Default modes when no DB row exists for the cell. */
-export function defaultModes(testCode: string, point: TestPointCode): { testMode: TestMode; ruleMode: RuleMode; photoMode: PhotoMode } {
+export function defaultModes(testCode: string, point: TestPointCode, systemRole?: string | null): { testMode: TestMode; ruleMode: RuleMode; photoMode: PhotoMode } {
   const code = testCode.toUpperCase();
   if (code === LAB_REPORT_TEST_CODE) {
     return DISPATCH_POINTS.has(point)
       ? { testMode: 'COMPULSORY', ruleMode: 'APPLY', photoMode: 'REQUIRED' }
       : { testMode: 'OFF', ruleMode: 'APPLY', photoMode: 'NONE' };
   }
-  if (isInputRole({ testCode, testName: '' })) {
+  if (isInputRole({ testCode, testName: '', systemRole })) {
     const isContractor = point === 'CONTRACTOR_DISPATCH';
     return { testMode: 'OPTIONAL', ruleMode: 'APPLY', photoMode: isContractor ? 'OPTIONAL' : 'REQUIRED' };
   }
@@ -242,6 +242,59 @@ export function lockFormulaInput<T extends TestPointPolicyCell>(cell: T): T {
   return { ...cell, testMode: 'COMPULSORY' };
 }
 
+export interface StageAssignmentRow {
+  is_active: boolean;
+  is_required: boolean;
+  is_photo_required?: boolean | null;
+}
+
+/**
+ * The one loader rule for the ZMCC lab, MOT shop and dispatch forms (Plant QA uses selectStageCells, same rule):
+ * 1. A saved Master Matrix row (source DB) decides everything: OFF / NOT_APPLIED hides the test, and the matrix
+ *    test mode, rule mode, photo mode and order are used as they are. A stage assignment never overrides them.
+ * 2. Only a cell nobody saved in the matrix falls back to its stage assignment (inactive hides it, active uses the
+ *    assignment's required / photo flags), or, when `showUnconfigured` allows it, to the default cell.
+ * 3. LR and Fat (found by stored role) are always carried exactly once and locked compulsory.
+ * Order is never taken from the assignment.
+ */
+export function resolveStageCells(
+  all: TestPointPolicyCell[],
+  assignments: Map<string, StageAssignmentRow>,
+  showUnconfigured: (cell: TestPointPolicyCell) => boolean = () => true
+): TestPointPolicyCell[] {
+  const chosen: TestPointPolicyCell[] = [];
+  for (const cell of all) {
+    const mode = normalizeTestMode(cell.testMode);
+    if (cell.source === 'DB') {
+      if (mode !== 'OFF') chosen.push(cell);
+      continue;
+    }
+    const assignment = assignments.get(cell.labTestId);
+    if (assignment) {
+      if (assignment.is_active) {
+        chosen.push({ ...cell, testMode: assignment.is_required ? 'COMPULSORY' : 'OPTIONAL', photoMode: assignment.is_photo_required ? 'REQUIRED' : 'NONE' });
+      }
+      continue;
+    }
+    if (mode !== 'OFF' && showUnconfigured(cell)) chosen.push(cell);
+  }
+  return withFormulaInputs(chosen, all).map(lockFormulaInput);
+}
+
+/**
+ * Contractor vehicles going to the plant keep their relaxation: a Contractor cell Super Admin never saved
+ * (source DEFAULT) is optional with an optional photo, so a contract vehicle with no tests and no lab-report photo can
+ * still be submitted. A saved matrix row (source DB) always wins and stays enforced. Other points are never relaxed.
+ */
+export function relaxContractorDefaults(point: TestPointCode, cells: TestPointPolicyCell[]): TestPointPolicyCell[] {
+  if (point !== 'CONTRACTOR_DISPATCH') return cells;
+  return cells.map((c) =>
+    c.source === 'DEFAULT' && (c.testMode === 'COMPULSORY' || c.photoMode === 'REQUIRED')
+      ? { ...c, testMode: 'OPTIONAL' as const, photoMode: 'OPTIONAL' as const }
+      : c
+  );
+}
+
 function asTestMode(v: string): TestMode {
   return (TEST_MODES as readonly string[]).includes(v) ? (v as TestMode) : 'OPTIONAL';
 }
@@ -274,9 +327,22 @@ export async function loadSystemRoles(db: PolicyDb): Promise<Map<string, string>
       select: { id: true, systemRole: true },
     })) as unknown as Array<{ id: bigint; systemRole: string | null }>;
     return new Map(rows.filter((r) => r.systemRole).map((r) => [String(r.id), r.systemRole as string]));
-  } catch {
+  } catch (err) {
+    // A missing system_role column (older database) is expected and silent. Anything else is logged, but the legacy
+    // code/name fallback still serves the request, so nothing starts failing.
+    if (!isMissingSystemRoleColumn(err)) {
+      console.error(`[loadSystemRoles] could not read stored lab test roles, using legacy matching: ${err instanceof Error ? err.message : String(err)}`);
+    }
     return new Map();
   }
+}
+
+/** Postgres 42703 (undefined_column), Prisma P2022 (column missing), or an error text naming system_role. */
+export function isMissingSystemRoleColumn(err: unknown): boolean {
+  const e = err as { code?: unknown; message?: unknown } | null;
+  const code = typeof e?.code === 'string' ? e.code : '';
+  const message = typeof e?.message === 'string' ? e.message : '';
+  return code === '42703' || code === 'P2022' || message.includes('system_role');
 }
 
 async function loadMatrix(db: PolicyDb, at: Date, onlyPoint?: TestPointCode) {
@@ -325,7 +391,7 @@ async function loadMatrix(db: PolicyDb, at: Date, onlyPoint?: TestPointCode) {
           displayOrder: t.displayOrder ?? 999,
           systemRole: roles.get(String(t.id)) ?? null,
           point,
-          ...defaultModes(t.testCode, point),
+          ...defaultModes(t.testCode, point, roles.get(String(t.id)) ?? null),
           version: 0,
           effectiveFrom: EPOCH_ISO,
           source: 'DEFAULT',

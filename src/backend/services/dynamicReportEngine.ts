@@ -3,6 +3,8 @@ import type { User } from '@core/types';
 import { canActAs } from '@core/roles/hierarchy';
 import { getPakistanCalendarDate } from '@core/business-day';
 import ExcelJS from 'exceljs';
+import { isTemperatureTest } from '@/lib/lab-test-roles';
+import { loadSystemRoles, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import type {
   ReportDomain,
   ReportFieldDefinition,
@@ -320,7 +322,7 @@ export async function executeDynamicReportQuery(
               gross_liters: true,
               density: true,
               snf: true,
-              results: { select: { test_code_snapshot: true, numeric_value: true } },
+              results: { select: { test_id: true, test_code_snapshot: true, test_name_snapshot: true, numeric_value: true } },
             },
           },
           rmr_issuance: {
@@ -331,6 +333,9 @@ export async function executeDynamicReportQuery(
     ]);
 
     totalCount = count;
+    const roles = await loadSystemRoles(prisma as unknown as PolicyDb);
+    const hasFatRole = [...roles.values()].includes('FAT');
+    const hasLrRole = [...roles.values()].includes('LR');
     rawRows = records.map((a) => {
       let fatVal: number | null = null;
       let lrVal: number | null = null;
@@ -338,12 +343,13 @@ export async function executeDynamicReportQuery(
 
       if (a.lab_session?.results) {
         for (const res of a.lab_session.results) {
-          const code = res.test_code_snapshot.toUpperCase();
-          const num = res.numeric_value ? Number(res.numeric_value) : null;
-          if (code.includes('FAT')) fatVal = num;
-          else if (code.includes('LR') || code.includes('CLR')) lrVal = num;
-          else if (code.includes('TEMP')) tempVal = num;
-        }
+        const code = res.test_code_snapshot.toUpperCase();
+        const num = res.numeric_value ? Number(res.numeric_value) : null;
+        const role = roles.get(String(res.test_id));
+        if (role === 'FAT' || (!hasFatRole && code.includes('FAT'))) fatVal = num;
+        else if (role === 'LR' || (!hasLrRole && (code.includes('LR') || code.includes('CLR')))) lrVal = num;
+        else if (isTemperatureTest({ testCode: code, testName: res.test_name_snapshot, systemRole: role })) tempVal = num;
+      }
       }
 
       const rmrStr = a.rmr_issuance

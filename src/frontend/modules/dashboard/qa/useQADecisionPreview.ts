@@ -6,7 +6,7 @@ import { evaluateDecision } from '@/backend/services/decision/decisionRule';
 import type { DecisionResult, ExceptionReason, PersonDecision } from '@/types/stage1-decision';
 import type { LabTestDef, TestInputState, VisitDetail, VisitDetailPortion } from './qaTypes';
 import { evaluateAllCalculatedTests } from '@/lib/calculated-tests';
-import { pickRoleTest } from '@/lib/lab-test-roles';
+import { pickRoleTest, isCalculatedTest, calculatedValueFor } from '@/lib/lab-test-roles';
 import { evaluate3ZoneTest } from '@/lib/sop-evaluation';
 
 interface Args {
@@ -87,36 +87,13 @@ export function useQADecisionPreview({
     // Test rows
     for (const test of displayableTests) {
       const state = testInputs[test.id];
-      const codeUpper = (test.testCode || '').toUpperCase();
-      const nameUpper = (test.testName || '').toUpperCase();
-      const isCategorical = test.resultType === 'POSITIVE_NEGATIVE' || test.resultType === 'OK_NOT_OK' || test.resultType === 'BOOLEAN';
-      const isCalculated = !isCategorical && (
-        test.resultType === 'CALCULATED' ||
-        Boolean((test as any).formulaId) ||
-        codeUpper === 'SYS-SNF' ||
-        codeUpper === 'SYS-TS' ||
-        codeUpper === 'SNF' ||
-        codeUpper === 'TS' ||
-        codeUpper === 'RATIO' ||
-        nameUpper === 'SNF' ||
-        nameUpper.includes('SOLIDS-NOT-FAT') ||
-        nameUpper.includes('SNF TO FAT RATIO') ||
-        nameUpper.includes('RATIO SNF/FAT') ||
-        nameUpper === 'TOTAL SOLIDS'
-      );
+      const isCalculated = isCalculatedTest(test as LabTestDef & { formulaId?: unknown });
       const photoRequired = Boolean(test.isPhotoRequired) && !isCalculated;
       const hasPhoto = Boolean(activePhotos[test.id]);
 
-      // If it is an auto-calculated test:
+      // If it is an auto-calculated test (found by stored role first):
       if (isCalculated) {
-        let calcVal: number | null = null;
-        if (nameUpper.includes('RATIO') || codeUpper.includes('RATIO') || codeUpper === 'LT-000009') {
-          calcVal = autoCalculations.RATIO_SNF_FAT ?? autoCalculations['LT-000011'];
-        } else if (nameUpper.includes('SOLIDS') || nameUpper === 'TS' || codeUpper === 'SYS-TS' || codeUpper === 'LT-TOTAL-SOLIDS') {
-          calcVal = autoCalculations.TOTAL_SOLIDS;
-        } else if (nameUpper.includes('SNF') || codeUpper === 'SYS-SNF' || codeUpper === 'LT-000010') {
-          calcVal = autoCalculations.SNF_CANONICAL;
-        }
+        const calcVal = calculatedValueFor(test, autoCalculations);
 
         if (calcVal != null) {
           rows.push({
@@ -226,33 +203,10 @@ export function useQADecisionPreview({
 
     // Check tests
     for (const test of requiredManualPlantTests) {
-      const codeUpper = (test.testCode || '').toUpperCase();
-      const nameUpper = (test.testName || '').toUpperCase();
-      const isCategorical = test.resultType === 'POSITIVE_NEGATIVE' || test.resultType === 'OK_NOT_OK' || test.resultType === 'BOOLEAN';
-      const isCalculated = !isCategorical && (
-        test.resultType === 'CALCULATED' ||
-        Boolean((test as any).formulaId) ||
-        codeUpper === 'SYS-SNF' ||
-        codeUpper === 'SYS-TS' ||
-        codeUpper === 'SNF' ||
-        codeUpper === 'TS' ||
-        codeUpper === 'RATIO' ||
-        nameUpper === 'SNF' ||
-        nameUpper.includes('SOLIDS-NOT-FAT') ||
-        nameUpper.includes('SNF TO FAT RATIO') ||
-        nameUpper.includes('RATIO SNF/FAT') ||
-        nameUpper === 'TOTAL SOLIDS'
-      );
+      const isCalculated = isCalculatedTest(test as LabTestDef & { formulaId?: unknown });
 
       if (isCalculated) {
-        let calcVal: number | null = null;
-        if (nameUpper.includes('RATIO') || codeUpper.includes('RATIO') || codeUpper === 'LT-000009') {
-          calcVal = autoCalculations.RATIO_SNF_FAT ?? autoCalculations['LT-000011'];
-        } else if (nameUpper.includes('SOLIDS') || nameUpper === 'TS' || codeUpper === 'SYS-TS' || codeUpper === 'LT-TOTAL-SOLIDS') {
-          calcVal = autoCalculations.TOTAL_SOLIDS;
-        } else if (nameUpper.includes('SNF') || codeUpper === 'SYS-SNF' || codeUpper === 'LT-000010') {
-          calcVal = autoCalculations.SNF_CANONICAL;
-        }
+        const calcVal = calculatedValueFor(test, autoCalculations);
 
         if (calcVal == null) {
           missingCompulsory.push(test.testCode);

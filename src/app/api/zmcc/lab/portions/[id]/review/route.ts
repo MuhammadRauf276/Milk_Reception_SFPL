@@ -7,10 +7,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const guard = await requireRoles(req, ['ZMCC_MANAGER']);
     if ('response' in guard) return guard.response;
-    // Data Executive is outside approval rules.
-    if (guard.acting.actorRole === 'DATA_EXECUTIVE') {
-      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
-    }
 
     const { id } = await params;
     if (!/^\d{1,18}$/.test(id)) return NextResponse.json({ error: 'Invalid portion id.' }, { status: 400 });

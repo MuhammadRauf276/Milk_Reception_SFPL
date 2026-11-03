@@ -5,7 +5,8 @@ import { getSupplyChainLossHierarchy } from './lossCalculationService';
 import { listZmccExitOutcomes } from './zmccManagerOverviewService';
 import { getTankPhysicalStock, getBatchTankPhysicalStock, getBatchTankCommercialStock } from './zmccTankService';
 import { getPakistanCalendarDate } from '@core/business-day';
-import { isFatTestCandidate, isLrTestCandidate } from '@/backend/utils/milkTestResolvers';
+import { findRoleResult, isRoleTest } from '@/backend/utils/roleAwareMatch';
+import { loadSystemRoles, type PolicyDb } from './testPointPolicyService';
 import { jsonRecord, jsonString } from '@/lib/json';
 
 /**
@@ -210,13 +211,15 @@ function percentOf(part: number, whole: number): number | null {
   return whole > 0 ? round((part / whole) * 100) : null;
 }
 
-type TestLike = { testCode: string; testName: string; resultType: string };
+type TestLike = { testCode: string; testName: string; resultType: string; systemRole?: string | null };
 
 function numericResultFor(
   results: Array<{ numeric_value: Numeric; lab_test: TestLike }>,
-  isCandidate: (code?: string | null, name?: string | null, type?: string | null) => boolean
+  role: 'LR' | 'FAT',
+  roleHeld: boolean
 ): number | null {
-  const match = results.find((r) => isCandidate(r.lab_test.testCode, r.lab_test.testName, r.lab_test.resultType));
+  // The test holding the stored role wins; the older name/code match only applies while no test holds the role.
+  const match = findRoleResult(results, role, roleHeld);
   return match ? toNumber(match.numeric_value) : null;
 }
 
@@ -234,15 +237,15 @@ function portionLiters(
   return null;
 }
 
-type IncidentKind = 'formalin' | 'urea' | 'waterLowLr' | 'cobPositive';
+export type IncidentKind = 'formalin' | 'urea' | 'waterLowLr' | 'cobPositive';
 
 /** Maps a failed test to the incident category it counts toward, if any. */
-function incidentKind(test: TestLike): IncidentKind | null {
+export function incidentKind(test: TestLike, lrRoleHeld = false): IncidentKind | null {
   const name = test.testName.trim().toLowerCase();
   if (name.includes('formalin')) return 'formalin';
   if (name === 'urea') return 'urea';
   if (name.includes('clot on boiling')) return 'cobPositive';
-  if (isLrTestCandidate(test.testCode, test.testName, test.resultType)) return 'waterLowLr';
+  if (isRoleTest(test, 'LR', lrRoleHeld)) return 'waterLowLr';
   return null;
 }
 
@@ -417,6 +420,10 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
   const todayEnd = new Date(`${calendarDate}T23:59:59.999Z`);
   const today = { gte: todayStart, lte: todayEnd };
   const substituteSince = new Date(Date.now() - GOVERNANCE_WINDOW_DAYS * 86400000);
+  // Whether any lab test holds the stored LR / Fat role (then look-alike tests no longer count as LR / Fat).
+  const storedRoles = [...(await loadSystemRoles(prisma as unknown as PolicyDb)).values()];
+  const lrRoleHeld = storedRoles.includes('LR');
+  const fatRoleHeld = storedRoles.includes('FAT');
 
   const [
     activeSources,
@@ -588,8 +595,8 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
       code: c.code,
       name: c.name,
       deliveredLiters: round(c.visits.reduce((sum, v) => sum + (toNumber(v.vehicle_dispatch_gross_liters) ?? 0), 0)),
-      avgFatPercent: weightedMean(portions.map((p) => [numericResultFor(p.plant_lab_results, isFatTestCandidate), toNumber(p.dispatch_quantity_value) ?? 1])),
-      avgLr: weightedMean(portions.map((p) => [numericResultFor(p.plant_lab_results, isLrTestCandidate), toNumber(p.dispatch_quantity_value) ?? 1])),
+      avgFatPercent: weightedMean(portions.map((p) => [numericResultFor(p.plant_lab_results, 'FAT', fatRoleHeld), toNumber(p.dispatch_quantity_value) ?? 1])),
+      avgLr: weightedMean(portions.map((p) => [numericResultFor(p.plant_lab_results, 'LR', lrRoleHeld), toNumber(p.dispatch_quantity_value) ?? 1])),
       qualityPassRatePercent: percentOf(decided.filter((p) => p.plant_decision === 'ACCEPTED').length, decided.length),
     };
   });
@@ -675,7 +682,7 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
 
   const incidents = { formalinCount: 0, ureaCount: 0, waterLowLrCount: 0, cobPositiveCount: 0 };
   for (const result of failedResultsToday.flat()) {
-    const kind = incidentKind(result.lab_test);
+    const kind = incidentKind(result.lab_test, lrRoleHeld);
     if (kind === 'formalin') incidents.formalinCount++;
     else if (kind === 'urea') incidents.ureaCount++;
     else if (kind === 'waterLowLr') incidents.waterLowLrCount++;

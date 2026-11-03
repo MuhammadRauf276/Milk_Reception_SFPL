@@ -416,7 +416,7 @@ test('operationalTransactions: Full plant vehicle reception lifecycle commits re
   } finally {
     // Comprehensive synthetic test cleanup
     await prisma.operationIdempotencyRecord.deleteMany({
-      where: { key: { startsWith: runId } },
+      where: { key: { contains: runId } }, // keys carry a prefix (e.g. EXIT-<runId>), so match anywhere
     });
     await prisma.auditLog.deleteMany({
       where: {
@@ -431,7 +431,12 @@ test('operationalTransactions: Full plant vehicle reception lifecycle commits re
       await prisma.unloadingLog.deleteMany({ where: { portion_id: p.id } });
       await prisma.plantLabResult.deleteMany({ where: { portion_id: p.id } });
       await prisma.auditLog.deleteMany({ where: { record_id: p.id } });
+      await prisma.notification.deleteMany({ where: { source_type: 'PLANT_QA_PORTION', source_id: p.id.toString() } });
     }
+    // Final-receipt reconciliation (ON DELETE RESTRICT on the visit and on the silo receipt) and the silo receipt itself
+    // are created by the unloading flow; remove them first, otherwise the visit cannot be deleted and test rows are left behind.
+    await prisma.plantFinalDualReconciliation.deleteMany({ where: { visit_id: visit.id } });
+    await prisma.siloInventoryTransaction.deleteMany({ where: { visit_id: visit.id } });
     await prisma.visitPortion.deleteMany({ where: { visit_id: visit.id } });
     await prisma.qATestingSession.deleteMany({ where: { visit_id: visit.id } });
     await prisma.weightTicket.deleteMany({ where: { visit_id: visit.id } });

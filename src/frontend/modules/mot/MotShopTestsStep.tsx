@@ -11,6 +11,7 @@ import { AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { LiveCamera } from '@/components/camera/LiveCamera';
 import { PhotoEvidenceSlot } from '@/frontend/modules/shared/photo/PhotoEvidenceSlot';
 import { cn } from '@/lib/utils';
+import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 import type { LiveCameraResult } from '@/types/captured-photo';
 import type { MotShopPolicySnapshot, MotShopPolicyTest } from '@/types/stage1-decision';
 
@@ -118,8 +119,13 @@ export function MotShopTestsStep({
     else onValueChange(t.labTestId, { value: v });
   };
 
+  // SNF, Total Solids and the ratio are worked out from the LR and Fat above, never typed.
+  const calculated = calculatedValuesForPortion(active, valueOf);
+
   const testCard = (t: MotShopPolicyTest) => {
-    const required = t.testMode === 'COMPULSORY' || t.isLr || t.isFat;
+    const isCalc = t.labTestId in calculated;
+    const calcValue = isCalc ? calculated[t.labTestId] : null;
+    const required = !isCalc && (t.testMode === 'COMPULSORY' || t.isLr || t.isFat);
     const range = sopRangeText(t);
     const text = values[t.labTestId]?.text ?? '';
     const numeric = isNumeric(t);
@@ -137,7 +143,7 @@ export function MotShopTestsStep({
                 required ? 'bg-primary text-white shadow-2xs' : 'bg-slate-100 text-slate-600'
               )}
             >
-              {required ? 'Required *' : 'Optional'}
+              {isCalc ? 'Auto' : required ? 'Required *' : 'Optional'}
             </span>
           </label>
           {range && (
@@ -152,7 +158,18 @@ export function MotShopTestsStep({
           )}
         </div>
 
-        {numeric ? (
+        {isCalc ? (
+          <input
+            id={inputId}
+            type="text"
+            readOnly
+            disabled
+            aria-readonly="true"
+            value={calcValue !== null ? calcValue.toFixed(2) : ''}
+            placeholder="Auto"
+            className={cn('min-h-11', INPUT_CLASS, 'border-slate-300 bg-muted text-slate-600 cursor-not-allowed')}
+          />
+        ) : numeric ? (
           <input
             id={inputId}
             type="number"
@@ -201,7 +218,7 @@ export function MotShopTestsStep({
           </p>
         )}
 
-        {t.photoMode !== 'NONE' && (
+        {t.photoMode !== 'NONE' && !isCalc && (
           <PhotoEvidenceSlot
             testName={t.testName}
             required={t.photoMode === 'REQUIRED'}

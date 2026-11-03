@@ -7,6 +7,7 @@ import {
   calculateAt13TSLiters,
   PLANT_CALCULATION_VERSION,
 } from '../utils/milkFormulas';
+import { isLabTestRole } from '../../lib/lab-test-roles';
 
 export type VehicleCalculationFailureReason =
   | 'NO_ACCEPTED_PORTIONS'
@@ -29,6 +30,8 @@ export type VehicleCalculationFailureReason =
 export interface VehicleCalculationPortionLabResult {
   testCode?: string | null;
   testName?: string | null;
+  /** Stored lab test role (LR / FAT / ...). When present it decides which test is LR or Fat, not the test code. */
+  systemRole?: string | null;
   numericValue?: number | null;
   performanceStatus?: string | null;
 }
@@ -84,10 +87,12 @@ export type VehicleCalculationResult = VehicleCalculationSuccessResult | Vehicle
 
 /**
  * Checks whether a lab test represents the authoritative Plant Lactometer Reading (LR).
- * Authoritative Plant LR test code: LT-000008 ("LR at 20 Celsius").
- * LT-000027 ("Lactometer Reading") is distinct and not used as the final received quantity LR authority.
+ * The test's stored role decides first (one test holds the LR role). Only a test with no stored role falls back to the
+ * legacy code: LT-000008 ("LR at 20 Celsius"). LT-000027 ("Lactometer Reading") is distinct and is never the final
+ * received quantity LR authority.
  */
-export function isPlantLrTest(testCode?: string | null, _testName?: string | null): boolean {
+export function isPlantLrTest(testCode?: string | null, _testName?: string | null, systemRole?: string | null): boolean {
+  if (isLabTestRole(systemRole)) return systemRole === 'LR';
   if (testCode) {
     const codeUpper = testCode.trim().toUpperCase();
     if (codeUpper === 'LT-000008') return true;
@@ -97,10 +102,11 @@ export function isPlantLrTest(testCode?: string | null, _testName?: string | nul
 
 /**
  * Checks whether a lab test represents the authoritative Plant Fat Percentage (Fat %).
- * Authoritative Plant Fat test code: LT-000026 ("Fat").
- * LT-000001 / LT-000027 must NEVER be recognized as authoritative Plant Fat.
+ * The test's stored role decides first (one test holds the FAT role). Only a test with no stored role falls back to the
+ * legacy code: LT-000026 ("Fat"). LT-000001 / LT-000027 must NEVER be recognized as authoritative Plant Fat.
  */
-export function isPlantFatTest(testCode?: string | null, _testName?: string | null): boolean {
+export function isPlantFatTest(testCode?: string | null, _testName?: string | null, systemRole?: string | null): boolean {
+  if (isLabTestRole(systemRole)) return systemRole === 'FAT';
   if (testCode) {
     const codeUpper = testCode.trim().toUpperCase();
     if (codeUpper === 'LT-000026') return true;
@@ -181,10 +187,10 @@ export function calculateVehicleReceivedQuantity(input: VehicleCalculationInput)
   if (isComposite) {
     for (const p of acceptedPortions) {
       const lr = (p.plantLabResults || []).filter(
-        (r) => isPlantLrTest(r.testCode, r.testName) && String(r.performanceStatus || '').toUpperCase() === 'PERFORMED' && r.numericValue !== null && Number(r.numericValue) > 0
+        (r) => isPlantLrTest(r.testCode, r.testName, r.systemRole) && String(r.performanceStatus || '').toUpperCase() === 'PERFORMED' && r.numericValue !== null && Number(r.numericValue) > 0
       );
       const fat = (p.plantLabResults || []).filter(
-        (r) => isPlantFatTest(r.testCode, r.testName) && String(r.performanceStatus || '').toUpperCase() === 'PERFORMED' && r.numericValue !== null && Number(r.numericValue) >= 0
+        (r) => isPlantFatTest(r.testCode, r.testName, r.systemRole) && String(r.performanceStatus || '').toUpperCase() === 'PERFORMED' && r.numericValue !== null && Number(r.numericValue) >= 0
       );
       if (lr.length > 0 && sharedLrResults.length === 0) sharedLrResults = lr;
       if (fat.length > 0 && sharedFatResults.length === 0) sharedFatResults = fat;
@@ -202,7 +208,7 @@ export function calculateVehicleReceivedQuantity(input: VehicleCalculationInput)
     const results = Array.isArray(portion.plantLabResults) ? portion.plantLabResults : [];
 
     // Find and Validate Unique Performed Plant LR
-    const matchingLrResults = results.filter((r) => isPlantLrTest(r.testCode, r.testName));
+    const matchingLrResults = results.filter((r) => isPlantLrTest(r.testCode, r.testName, r.systemRole));
     let performedLrResults = matchingLrResults.filter(
       (r) => String(r.performanceStatus || '').toUpperCase() === 'PERFORMED'
     );
@@ -244,7 +250,7 @@ export function calculateVehicleReceivedQuantity(input: VehicleCalculationInput)
     }
 
     // Find and Validate Unique Performed Plant Fat
-    const matchingFatResults = results.filter((r) => isPlantFatTest(r.testCode, r.testName));
+    const matchingFatResults = results.filter((r) => isPlantFatTest(r.testCode, r.testName, r.systemRole));
     let performedFatResults = matchingFatResults.filter(
       (r) => String(r.performanceStatus || '').toUpperCase() === 'PERFORMED'
     );

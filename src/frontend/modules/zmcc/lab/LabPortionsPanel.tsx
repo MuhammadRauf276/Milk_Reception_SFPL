@@ -35,6 +35,7 @@ import type { PersonDecision } from '@/types/stage1-decision';
 import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { evaluate3ZoneTest } from '@/lib/sop-evaluation';
+import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 
 export interface LabPortionsPanelProps {
   sessionId: string;
@@ -433,6 +434,8 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
     ? state?.portions.find((p) => p.id === activePortionModal.id) ?? activePortionModal
     : null;
   const modalDraft = modalPortion ? draftOf(modalPortion.id) : null;
+  // SNF, Total Solids and the ratio are worked out from this portion's LR and Fat, never typed.
+  const modalCalculated = modalDraft ? calculatedValuesForPortion(sortedTests, (t) => modalDraft.values[t.labTestId]) : {};
   const modalOpen =
     modalPortion &&
     modalPortion.finalDecision === 'PENDING' &&
@@ -780,7 +783,9 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                         const photoBusy = busy === `photo:${modalPortion.id}:${t.labTestId}`;
                         const range = labSopRangeText(t);
                         const isNumeric = t.resultType === 'NUMERIC';
-                        const isRequired = t.testMode === 'COMPULSORY';
+                        const isCalc = t.labTestId in modalCalculated;
+                        const calcValue = isCalc ? modalCalculated[t.labTestId] : null;
+                        const isRequired = t.testMode === 'COMPULSORY' && !isCalc;
 
                         const evalRes = evaluate3ZoneTest(
                           {
@@ -821,7 +826,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                                       isRequired ? 'bg-primary text-white shadow-2xs' : 'bg-slate-100 text-slate-600'
                                     )}
                                   >
-                                    {isRequired ? 'Required *' : 'Optional'}
+                                    {isCalc ? 'Auto' : isRequired ? 'Required *' : 'Optional'}
                                   </span>
                                   {range && (
                                     <span
@@ -844,7 +849,18 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                               </div>
 
                               <div className="flex items-center gap-2">
-                                {isNumeric ? (
+                                {isCalc ? (
+                                  <input
+                                    type="text"
+                                    readOnly
+                                    disabled
+                                    aria-readonly="true"
+                                    value={calcValue !== null ? calcValue.toFixed(2) : ''}
+                                    aria-label={t.testName}
+                                    placeholder="Auto"
+                                    className="min-h-11 h-10 w-28 cursor-not-allowed rounded-lg border border-border bg-muted px-2 text-base sm:text-sm font-semibold tabular-nums text-slate-600"
+                                  />
+                                ) : isNumeric ? (
                                   <input
                                     type="number"
                                     inputMode="decimal"
@@ -916,7 +932,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                                   />
                                 )}
 
-                                {t.photoMode !== 'NONE' && (
+                                {t.photoMode !== 'NONE' && !isCalc && (
                                   <button
                                     type="button"
                                     disabled={photoBusy}

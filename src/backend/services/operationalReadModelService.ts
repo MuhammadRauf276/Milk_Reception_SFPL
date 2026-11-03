@@ -17,6 +17,7 @@ import {
 } from './vehicleQuantityService';
 import { Prisma } from '@prisma/client';
 import { operationalReadScopeForUser, type OperationalReadScope } from './dispatchScope';
+import { isConfiguredSnfTest } from '@/backend/utils/roleAwareMatch';
 
 export type RetrievalMode = 'live' | 'recent' | 'search' | 'report';
 
@@ -120,15 +121,15 @@ function extractTestNumericValue(
   results: Array<{
     performance_status?: string | null;
     numeric_value?: Prisma.Decimal | number | string | null;
-    lab_test?: { testCode?: string | null; testName?: string | null } | null;
+    lab_test?: { testCode?: string | null; testName?: string | null; systemRole?: string | null } | null;
   }>,
-  matcher: (code?: string | null, name?: string | null) => boolean
+  matcher: (code?: string | null, name?: string | null, systemRole?: string | null) => boolean
 ): number | null {
   for (const r of results) {
     if (r.performance_status === 'PERFORMED' && r.numeric_value != null) {
       const code = r.lab_test?.testCode;
       const name = r.lab_test?.testName;
-      if (matcher(code, name)) {
+      if (matcher(code, name, r.lab_test?.systemRole)) {
         const val = Number(r.numeric_value);
         if (!isNaN(val)) return val;
       }
@@ -137,27 +138,18 @@ function extractTestNumericValue(
   return null;
 }
 
-function isDispatchLrTest(code?: string | null, name?: string | null): boolean {
-  return isPlantLrTest(code, name);
+function isDispatchLrTest(code?: string | null, name?: string | null, systemRole?: string | null): boolean {
+  return isPlantLrTest(code, name, systemRole);
 }
 
-function isDispatchFatTest(code?: string | null, name?: string | null): boolean {
-  return isPlantFatTest(code, name);
+function isDispatchFatTest(code?: string | null, name?: string | null, systemRole?: string | null): boolean {
+  return isPlantFatTest(code, name, systemRole);
 }
 
+// MBRT has no stored role (LAB_TEST_ROLES has none), so this is code/name based on purpose.
 function isMbrtTest(code?: string | null, name?: string | null): boolean {
   if (code && code.trim().toUpperCase() === 'LT-000025') return true;
   if (name && name.trim().toUpperCase().includes('MBRT')) return true;
-  return false;
-}
-
-function isConfiguredSnfTest(code?: string | null, name?: string | null): boolean {
-  const c = (code || '').trim().toUpperCase();
-  const n = (name || '').trim().toUpperCase();
-  if (c === 'SNF' || c === 'LT-SNF') return true;
-  if (n === 'SNF' || n.includes('SOLIDS-NOT-FAT') || n.includes('SOLIDS NOT FAT')) {
-    if (!n.includes('RATIO')) return true;
-  }
   return false;
 }
 
@@ -185,6 +177,7 @@ export function mapVisitToLogs(
     unit: string | null;
     displayOrder: number;
     isActive: boolean;
+    systemRole?: string | null;
   }>
 ): MilkProcessLog[] {
   const logs: MilkProcessLog[] = [];
@@ -433,6 +426,7 @@ export function mapVisitToLogs(
     }
 
     const portionLabResults: PortionLabTestResult[] = [];
+    let hasSnfTest = false;
 
     for (const t of masterLabTests) {
       const testIdStr = String(t.id);
@@ -445,9 +439,9 @@ export function mapVisitToLogs(
       const isApplicable = t.isActive || Boolean(dRes) || Boolean(pRes);
       if (!isApplicable) continue;
 
-      const isDisFat = isDispatchFatTest(t.testCode, t.testName);
-      const isDisLr = isDispatchLrTest(t.testCode, t.testName);
-      const isDisSnf = isConfiguredSnfTest(t.testCode, t.testName);
+      const isDisFat = isDispatchFatTest(t.testCode, t.testName, t.systemRole);
+      const isDisLr = isDispatchLrTest(t.testCode, t.testName, t.systemRole);
+      const isDisSnf = isConfiguredSnfTest(t.testCode, t.testName, t.systemRole);
       const isDisTs = isConfiguredTsTest(t.testCode, t.testName);
 
       let dNumeric: number | null = null;
@@ -470,11 +464,12 @@ export function mapVisitToLogs(
         (dText != null && dText !== '')
       );
 
-      const isPlFat = isPlantFatTest(t.testCode, t.testName);
-      const isPlLr = isPlantLrTest(t.testCode, t.testName);
+      const isPlFat = isPlantFatTest(t.testCode, t.testName, t.systemRole);
+      const isPlLr = isPlantLrTest(t.testCode, t.testName, t.systemRole);
       const isPlMbrt = isMbrtTest(t.testCode, t.testName);
-      const isPlSnf = isConfiguredSnfTest(t.testCode, t.testName);
+      const isPlSnf = isConfiguredSnfTest(t.testCode, t.testName, t.systemRole);
       const isPlTs = isConfiguredTsTest(t.testCode, t.testName);
+      if (isDisSnf || isPlSnf) hasSnfTest = true;
 
       let pNumeric: number | null = null;
       if (pRes?.numeric_value != null) {
@@ -529,7 +524,7 @@ export function mapVisitToLogs(
     }
 
     // Add calculated SNF and TS if not explicitly represented by configured tests
-    if (!portionLabResults.some((r) => isConfiguredSnfTest(r.test_code, r.test_name))) {
+    if (!hasSnfTest) {
       portionLabResults.push({
         test_code: 'SNF',
         test_name: 'Solids-Not-Fat (SNF)',

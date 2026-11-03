@@ -346,7 +346,7 @@ export class MilkTestPolicyService {
         OR: [
           { testScope: { in: scopeIn } },
           ...(['ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'MOT_SHOP'].includes(testingPoint)
-            ? [{ testCode: { in: ['LT-000008', 'LT-000026', 'LT-000027'] } }]
+            ? [{ systemRole: { in: ['LR', 'FAT'] } }, { testCode: { in: ['LT-000008', 'LT-000026', 'LT-000027'] } }]
             : []),
         ],
       },

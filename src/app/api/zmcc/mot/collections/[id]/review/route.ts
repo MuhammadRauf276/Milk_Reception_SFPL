@@ -9,10 +9,6 @@ export async function POST(
   try {
     const guard = await requireRoles(req, ['ZMCC_MANAGER']);
     if ('response' in guard) return guard.response;
-    // Data Executive is outside approval rules.
-    if (guard.acting.actorRole === 'DATA_EXECUTIVE') {
-      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
-    }
 
     const { id } = await params;
     if (!/^\d+$/.test(id)) return NextResponse.json({ error: 'Invalid collection id.' }, { status: 400 });

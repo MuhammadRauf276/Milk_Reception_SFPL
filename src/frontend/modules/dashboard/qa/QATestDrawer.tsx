@@ -12,8 +12,10 @@ import {
   Send,
   Sparkles,
   Calculator,
+  Info,
 } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import { LiveCamera } from '@/components/camera/LiveCamera';
 import { cn } from '@/lib/utils';
@@ -22,6 +24,7 @@ import type { LabTestDef, TestInputState, VisitDetail, VisitDetailPortion } from
 import type { DecisionResult, PersonDecision } from '@/types/stage1-decision';
 import type { User } from '@core/types';
 import { evaluateAllCalculatedTests } from '@/lib/calculated-tests';
+import { pickRoleTest, isCalculatedTest, calculatedValueFor } from '@/lib/lab-test-roles';
 
 export interface QATestDrawerProps {
   isOpen: boolean;
@@ -172,6 +175,29 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
   const isSealMatched = hasDispatchSeal && currentEnteredSeal.toUpperCase() === dispatchSeal.toUpperCase();
   const isSealMismatch = hasDispatchSeal && Boolean(currentEnteredSeal) && !isSealMatched;
 
+  // The system recommends ACCEPT only when nothing is failing, missing, or waiting for a required photo.
+  const systemRejectReasons = useMemo(() => {
+    if (!liveDecision) return [] as string[];
+    const nameOf = (code: string) => requiredManualPlantTests.find((t) => t.testCode === code)?.testName || code;
+    const reasons: string[] = [];
+    for (const r of liveDecision.exceptionReasons) {
+      if (r.startsWith('RULE_FAIL:')) reasons.push(`${nameOf(r.slice('RULE_FAIL:'.length))} is outside the allowed limit.`);
+      else if (r === 'MISSING_FIELD') reasons.push('A required test result is missing.');
+    }
+    if (hasDispatchSeal && !isSealMatched) reasons.push('Tanker seal does not match the dispatch seal.');
+    for (const t of requiredManualPlantTests) {
+      if (t.isPhotoRequired && !isCalculatedTest(t as LabTestDef & { formulaId?: unknown }) && !photoStates[t.id]) {
+        reasons.push(`Test photo is required for ${t.testName}.`);
+      }
+    }
+    return Array.from(new Set(reasons));
+  }, [liveDecision, requiredManualPlantTests, photoStates, hasDispatchSeal, isSealMatched]);
+  const systemAccepts = liveDecision?.systemOutcome === 'PASS' && systemRejectReasons.length === 0;
+  // Authorized roles decide on the spot; everyone else cannot accept a system-rejected portion, only ask the AVP.
+  // Super Admin and Data Executive (and the heads above QAE) decide on their own account, even on the QAE station.
+  const isAuthorizedToOverride = ['SUPER_ADMIN', 'DATA_EXECUTIVE', 'QA_HEAD'].includes(currentUser?.role || '');
+  const mustRequestAvp = Boolean(liveDecision) && !systemAccepts && !isAuthorizedToOverride;
+
   // Check if executive user for information cloaking
   const isExecutiveUser = Boolean(
     currentUser &&
@@ -179,23 +205,9 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
   );
 
   // Authoritative detection of raw observations: LR and Fat
-  const lrTest = useMemo(() => {
-    return displayableTests.find((t) => {
-      const c = (t.testCode || '').toUpperCase();
-      const n = (t.testName || '').toUpperCase();
-      if (n.includes('RATIO') || n.includes('SNF') || n.includes('SODIUM') || n.includes('CLOT')) return false;
-      return c === 'LR' || c === 'LT_LR' || c === 'LT-000008' || c === 'LT-000027' || n.startsWith('LR') || n.includes('LACTOMETER') || (n.includes('LR') && !n.includes('RATIO'));
-    });
-  }, [displayableTests]);
-
-  const fatTest = useMemo(() => {
-    return displayableTests.find((t) => {
-      const c = (t.testCode || '').toUpperCase();
-      const n = (t.testName || '').toUpperCase();
-      if (n.includes('RATIO') || c.includes('RATIO') || n.includes('SNF') || c.includes('SNF')) return false;
-      return c === 'FAT' || c === 'LT_FAT' || c === 'LT-000026' || n === 'FAT' || n.startsWith('FAT') || n.includes('GERBER') || n.includes('FAT %');
-    });
-  }, [displayableTests]);
+  // Found by stored role (LR / Fat): the same rule the live preview and the server use.
+  const lrTest = useMemo(() => pickRoleTest(displayableTests, 'LR') ?? undefined, [displayableTests]);
+  const fatTest = useMemo(() => pickRoleTest(displayableTests, 'FAT') ?? undefined, [displayableTests]);
 
   const lrNum = lrTest && testInputs[lrTest.id]?.numericValue ? Number(testInputs[lrTest.id]?.numericValue) : null;
   const fatNum = fatTest && testInputs[fatTest.id]?.numericValue ? Number(testInputs[fatTest.id]?.numericValue) : null;
@@ -244,7 +256,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
           <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5 shrink-0">
             <div>
               <DrawerTitle className="text-base font-bold text-slate-900">
-                {visitDetail.test_mode === 'COMPOSITE'
+                {visitDetail.test_mode === 'COMPOSITE' && visitDetail.portions.length === 1
                   ? 'Composite Sample Tests & Decision'
                   : `Portion #${portion.portion_number} Tests & Decision`}
               </DrawerTitle>
@@ -394,36 +406,9 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                         numericValue: '',
                         textValue: '',
                       };
-                      const codeUpper = (t.testCode || '').toUpperCase();
-                      const nameUpper = (t.testName || '').toUpperCase();
-
-                      // Categorical tests (Starch, Sugar, Alcohol, etc.) can NEVER be calculated
-                      const isCategorical = t.resultType === 'POSITIVE_NEGATIVE' || t.resultType === 'OK_NOT_OK' || t.resultType === 'BOOLEAN';
-                      const isCalculated = !isCategorical && (
-                        t.resultType === 'CALCULATED' ||
-                        Boolean((t as any).formulaId) ||
-                        codeUpper === 'SYS-SNF' ||
-                        codeUpper === 'SYS-TS' ||
-                        codeUpper === 'SNF' ||
-                        codeUpper === 'TS' ||
-                        codeUpper === 'RATIO' ||
-                        nameUpper === 'SNF' ||
-                        nameUpper.includes('SOLIDS-NOT-FAT') ||
-                        nameUpper.includes('SNF TO FAT RATIO') ||
-                        nameUpper.includes('RATIO SNF/FAT') ||
-                        nameUpper === 'TOTAL SOLIDS'
-                      );
-
-                      let calcVal: number | null = null;
-                      if (isCalculated) {
-                        if (nameUpper.includes('RATIO') || codeUpper.includes('RATIO') || codeUpper === 'LT-000009') {
-                          calcVal = autoCalculations.RATIO_SNF_FAT ?? autoCalculations['LT-000011'];
-                        } else if (nameUpper.includes('SOLIDS') || nameUpper === 'TS' || codeUpper === 'SYS-TS' || codeUpper === 'LT-TOTAL-SOLIDS') {
-                          calcVal = autoCalculations.TOTAL_SOLIDS;
-                        } else if (nameUpper.includes('SNF') || codeUpper === 'SYS-SNF' || codeUpper === 'LT-000010') {
-                          calcVal = autoCalculations.SNF_CANONICAL;
-                        }
-                      }
+                      // Calculated tests (SNF, Total Solids, ratio) are found by stored role first, never by test id or order.
+                      const isCalculated = isCalculatedTest(t as LabTestDef & { formulaId?: unknown });
+                      const calcVal: number | null = isCalculated ? calculatedValueFor(t, autoCalculations) : null;
 
                       const range = labSopRangeText(t.rule);
                       const isNumeric = t.resultType === 'NUMERIC';
@@ -625,18 +610,41 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                 <div className="rounded-xl border border-border bg-card p-3.5 space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                      QA Officer Decision
+                      Your Decision
                     </span>
                     {liveDecision && (
-                      <span
-                        className={cn(
-                          'rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase',
-                          liveDecision.systemOutcome === 'PASS'
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
-                            : 'bg-rose-50 text-rose-800 border border-rose-300'
+                      <span className="inline-flex items-center gap-1.5">
+                        <span
+                          className={cn(
+                            'rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase',
+                            systemAccepts
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                              : 'bg-rose-50 text-rose-800 border border-rose-300'
+                          )}
+                        >
+                          System: {systemAccepts ? 'ACCEPT' : 'REJECT'}
+                        </span>
+                        {!systemAccepts && systemRejectReasons.length > 0 && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label="Why the system rejects"
+                                className="inline-flex h-5 w-5 items-center justify-center rounded-full text-rose-700 hover:bg-rose-50"
+                              >
+                                <Info className="h-4 w-4" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent align="end" className="w-72 space-y-1.5 p-3 text-xs">
+                              <p className="font-bold text-slate-800">Why the system rejects</p>
+                              <ul className="list-disc space-y-1 pl-4 text-slate-700">
+                                {systemRejectReasons.map((r) => (
+                                  <li key={r}>{r}</li>
+                                ))}
+                              </ul>
+                            </PopoverContent>
+                          </Popover>
                         )}
-                      >
-                        System: {liveDecision.systemOutcome === 'PASS' ? 'ACCEPT' : 'REJECT'}
                       </span>
                     )}
                   </div>
@@ -652,8 +660,8 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       )}
                     >
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>Accept Milk</span>
+                      {mustRequestAvp ? <Send className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                      <span>{mustRequestAvp ? 'Request AVP to Accept' : 'Accept Milk'}</span>
                     </button>
                     <button
                       type="button"
@@ -672,7 +680,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
 
                   <div className="space-y-1.5">
                     <label htmlFor="qa-decision-remarks" className="text-[10px] uppercase font-bold text-slate-500 block">
-                      Decision Remarks / Notes {personDecision === 'REJECT' ? '*' : '(Optional)'}
+                      Decision Remarks / Notes {personDecision === 'REJECT' || mustRequestAvp ? '*' : '(Optional)'}
                     </label>
                     <QuickRemarksChips
                       presets={
@@ -689,7 +697,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                       type="text"
                       value={decisionRemarks}
                       onChange={(e) => onDecisionRemarksChange?.(e.target.value)}
-                      placeholder={personDecision === 'REJECT' ? 'Mandatory rejection reason or tap quick presets' : 'Operational remarks or tap quick presets'}
+                      placeholder={personDecision === 'REJECT' ? 'Mandatory rejection reason or tap quick presets' : mustRequestAvp ? 'Mandatory: tell the AVP why this should be accepted' : 'Operational remarks or tap quick presets'}
                       className="mt-1 w-full min-h-11 rounded-lg border border-border p-2 text-base sm:text-xs focus:border-primary focus:outline-hidden"
                     />
                   </div>
@@ -699,7 +707,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                 <div className="pt-2">
                   <button
                     type="button"
-                    disabled={isSubmitting || !personDecision || (personDecision === 'REJECT' && !decisionRemarks.trim())}
+                    disabled={isSubmitting || !personDecision || ((personDecision === 'REJECT' || mustRequestAvp) && !decisionRemarks.trim())}
                     onClick={handleSubmit}
                     className={cn(
                       'w-full min-h-12 rounded-xl text-white font-bold text-sm shadow-xs transition flex items-center justify-center space-x-2 disabled:opacity-50',
@@ -711,12 +719,16 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                     {isSubmitting ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Submitting Decision…</span>
+                        <span>{mustRequestAvp && personDecision !== 'REJECT' ? 'Sending Request…' : 'Submitting Decision…'}</span>
                       </>
                     ) : (
                       <>
                         <Send className="h-4 w-4" />
-                        <span>Confirm & Complete Portion Decision</span>
+                        <span>
+                          {mustRequestAvp && personDecision !== 'REJECT'
+                            ? 'Send Request to AVP QA Reception Lab'
+                            : 'Confirm & Complete Portion Decision'}
+                        </span>
                       </>
                     )}
                   </button>
