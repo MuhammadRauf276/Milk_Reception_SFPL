@@ -105,17 +105,16 @@ export async function loadDispatchPolicy(point: DispatchPoint, at: Date = new Da
     (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && FAT_CODES.has(c.testCode.toUpperCase()))
   );
 
-  // Only tests Super Admin assigned (and switched on) for this point are shown. LR and Fat stay available because the milk formulas need them.
+  // Only tests Super Admin assigned (and switched on in Master Matrix) for this point are shown.
   const cells = policy.cells
     .filter((c) => {
       const code = c.testCode.toUpperCase();
       const isDoc = code === LAB_REPORT_TEST_CODE;
       if (isDoc) return c.testMode !== 'OFF';
+      if (c.testMode === 'OFF' || c.testMode === 'NOT_APPLIED') return false;
       const assignment = assignmentMap.get(c.labTestId);
       if (assignment) return assignment.is_active;
-      if (!hasAssignedLr && LR_CODES.has(code)) return true;
-      if (!hasAssignedFat && FAT_CODES.has(code)) return true;
-      return false;
+      return true;
     })
     .map((c) => applyAssignmentToCell(c, assignmentMap.get(c.labTestId)))
     // Workflow document (Stage 3): tests are not compulsory for a Contractor, whatever Super Admin sets

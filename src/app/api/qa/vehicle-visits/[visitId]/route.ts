@@ -66,19 +66,24 @@ export async function GET(
       };
     };
 
+    const effectivePlantPolicies = await MilkTestPolicyService.getEffectivePolicy('PLANT_QA');
+    const allowedTestIds = new Set(effectivePlantPolicies.map((p) => p.id));
+
     const activePlantTests = (visit.qa_session
-      ? (await getOrAssignPlantQATests(prisma, visitId)).map((a) => ({
-          id: a.test_id.toString(),
-          testCode: a.test_code_snapshot,
-          testName: a.test_name_snapshot,
-          resultType: a.result_type_snapshot,
-          unit: a.unit_snapshot,
-          testScope: a.test_scope_snapshot || 'BOTH',
-          isRequired: a.is_required_snapshot,
-          displayOrder: a.display_order_snapshot,
-          resultOptions: a.result_options_snapshot || null,
-        }))
-      : (await MilkTestPolicyService.getEffectivePolicy('PLANT_QA')).map((t) => ({
+      ? (await getOrAssignPlantQATests(prisma, visitId))
+          .filter((a) => allowedTestIds.has(a.test_id.toString()))
+          .map((a) => ({
+            id: a.test_id.toString(),
+            testCode: a.test_code_snapshot,
+            testName: a.test_name_snapshot,
+            resultType: a.result_type_snapshot,
+            unit: a.unit_snapshot,
+            testScope: a.test_scope_snapshot || 'BOTH',
+            isRequired: a.is_required_snapshot,
+            displayOrder: a.display_order_snapshot,
+            resultOptions: a.result_options_snapshot || null,
+          }))
+      : effectivePlantPolicies.map((t) => ({
           id: t.id,
           testCode: t.testCode,
           testName: t.testName,

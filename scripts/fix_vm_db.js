@@ -31,6 +31,16 @@ async function main() {
     await client.query(`
       ALTER TABLE IF EXISTS "zmcc_lab_result" DROP CONSTRAINT IF EXISTS "zmcc_lab_result_portion_id_test_id_key";
       ALTER TABLE IF EXISTS "zmcc_milk_source" DROP CONSTRAINT IF EXISTS "zmcc_milk_source_id_zmcc_id_key";
+
+      -- Drop restrictive constraints on mot_profile that block VM updates on legacy accounts
+      ALTER TABLE IF EXISTS "mot_profile" DROP CONSTRAINT IF EXISTS "ck_mot_profile_cnic_format";
+      ALTER TABLE IF EXISTS "mot_profile" DROP CONSTRAINT IF EXISTS "ck_mot_profile_phone_format";
+      ALTER TABLE IF EXISTS "mot_profile" ALTER COLUMN "cnic" DROP NOT NULL;
+      ALTER TABLE IF EXISTS "mot_profile" ALTER COLUMN "phone_number" DROP NOT NULL;
+
+      -- Clean up corrupted CNIC / phone entries in users table
+      UPDATE users SET cnic = NULL WHERE cnic = 'N/A' OR cnic = '' OR cnic !~ '^([0-9]{13}|[0-9]{5}-[0-9]{7}-[0-9])$';
+      UPDATE users SET phone = NULL WHERE phone LIKE '%@%' OR phone = 'N/A' OR phone = '' OR phone !~ '^([+]92-?|92-?|0)?3[0-9]{2}-?[0-9]{7}$';
     `);
     console.log('✓ Legacy constraints verified clean.');
 
@@ -191,14 +201,8 @@ async function main() {
       SELECT 
         UPPER(COALESCE(NULLIF(TRIM(u.username), ''), 'MOT-' || u.id)),
         COALESCE(NULLIF(TRIM(u.full_name), ''), u.username),
-        CASE 
-          WHEN u.phone IS NOT NULL AND u.phone ~ '^([+]92-?|92-?|0)?3[0-9]{2}-?[0-9]{7}$' THEN u.phone
-          ELSE '0300-' || LPAD(u.id::text, 7, '0')
-        END,
-        CASE 
-          WHEN u.cnic IS NOT NULL AND u.cnic ~ '^([0-9]{13}|[0-9]{5}-[0-9]{7}-[0-9])$' THEN u.cnic
-          ELSE '35201-' || LPAD(u.id::text, 7, '0') || '-1'
-        END,
+        u.phone,
+        u.cnic,
         COALESCE(u.procurement_source_id, (SELECT id FROM procurement_source WHERE source_type = 'ZMCC' ORDER BY id ASC LIMIT 1)),
         u.id,
         true,

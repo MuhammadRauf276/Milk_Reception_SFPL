@@ -39,15 +39,13 @@ export async function loadMotShopPolicy(at: Date = new Date(), db?: unknown): Pr
   // Filter cells:
   // If Super Admin assigned tests for MOT_SHOP, respect is_active from assignments.
   // If no assignments exist yet, fall back to testScope (MOT_SHOP, MOT, ALL, or LR/Fat).
-  // Only tests Super Admin assigned (and switched on) for this point are shown. LR and Fat stay available because the milk formulas need them.
+  // Only tests Super Admin assigned (and switched on in Master Matrix) for this point are shown.
   const cells = policy.cells
     .filter((c) => {
-      const code = c.testCode.toUpperCase();
+      if (c.testMode === 'OFF' || c.testMode === 'NOT_APPLIED') return false;
       const assignment = assignmentMap.get(c.labTestId);
       if (assignment) return assignment.is_active;
-      if (!hasAssignedLr && LR_CODES.has(code)) return true;
-      if (!hasAssignedFat && FAT_CODES.has(code)) return true;
-      return false;
+      return true;
     })
     .map((c) => applyAssignmentToCell(c, assignmentMap.get(c.labTestId)));
 

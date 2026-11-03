@@ -288,6 +288,59 @@ export class MilkTestPolicyService {
     }
     const testingPoint = testingPointRaw as TestingPoint;
 
+    // 1. Authoritative resolution: Query Master Matrix (test_point_policy)
+    try {
+      const { getEffectivePolicy: getMasterPolicy, mapLegacyTestPoint } = await import('@/backend/services/testPointPolicyService');
+      const mappedPoint = mapLegacyTestPoint(testingPoint) || (testingPoint === 'DISPATCH' ? 'ZMCC_DISPATCH' : (testingPoint as any));
+      const masterPolicy = await getMasterPolicy(mappedPoint, new Date(), db as any);
+
+      if (masterPolicy && masterPolicy.cells && masterPolicy.cells.length > 0) {
+        // Exclude tests that are turned OFF or NOT_APPLIED by Super Admin for this stage
+        const activeCells = masterPolicy.cells.filter(
+          (c) => c.testMode !== 'OFF' && c.testMode !== 'NOT_APPLIED'
+        );
+
+        if (activeCells.length > 0) {
+          const testIds = activeCells.map((c) => BigInt(c.labTestId));
+          const labTests = await db.labTest.findMany({
+            where: { id: { in: testIds }, isActive: true },
+          });
+          const ltMap = new Map(labTests.map((t) => [t.id.toString(), t]));
+
+          const results: EffectivePolicyTest[] = [];
+          for (const cell of activeCells) {
+            const lt = ltMap.get(cell.labTestId);
+            if (!lt) continue;
+
+            results.push({
+              id: cell.labTestId,
+              policyAssignmentId: `tpp-${cell.labTestId}-${cell.point}`,
+              testCode: cell.testCode,
+              testName: cell.testName,
+              resultType: cell.testMode === 'AUTO' ? 'CALCULATED' : lt.resultType,
+              unit: lt.unit,
+              resultOptions: lt.resultOptions,
+              isRequired: cell.testMode === 'COMPULSORY',
+              isPhotoRequired: cell.photoMode === 'REQUIRED',
+              displayOrder: cell.displayOrder ?? lt.displayOrder ?? 999,
+              isActive: true,
+              testingPoint: testingPoint,
+            });
+          }
+
+          // Deterministically sort by dynamic rank order (displayOrder ASC)
+          results.sort(
+            (a, b) =>
+              (a.displayOrder ?? 999) - (b.displayOrder ?? 999) ||
+              a.testCode.localeCompare(b.testCode)
+          );
+          return results;
+        }
+      }
+    } catch (e) {
+      console.warn('[MilkTestPolicyService] Master matrix query fallback:', e);
+    }
+
     const assignments = await db.milkTestPolicyAssignment.findMany({
       where: {
         testing_point: testingPoint,

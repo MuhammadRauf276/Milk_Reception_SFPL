@@ -595,7 +595,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             />
           </div>
           <div>
-            <label htmlFor="lt-order" className={fieldLabelClass}>Catalog Order</label>
+            <label htmlFor="lt-order" className={fieldLabelClass}>Rank Order (Display Sequence)</label>
             <input
               id="lt-order"
               type="number"
@@ -604,6 +604,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
               onChange={(e) => setDisplayOrder(Number(e.target.value))}
               className={`${fieldInputClass} tabular-nums`}
             />
+            <p className="text-[10px] text-slate-500 mt-1 font-normal">Controls exact position (#) in Master Matrix and all operational user forms.</p>
           </div>
         </div>
 

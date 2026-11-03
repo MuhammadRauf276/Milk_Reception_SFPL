@@ -102,6 +102,19 @@ export async function PATCH(
         },
       });
 
+      if (body.displayOrder !== undefined) {
+        const orderNum = Number(body.displayOrder);
+        await tx.milkTestPolicyAssignment.updateMany({
+          where: {
+            lab_test_id: testId,
+          },
+          data: {
+            display_order: orderNum,
+            updated_by_user_id: adminUser?.id ?? BigInt(1),
+          },
+        });
+      }
+
       if (body.isPhotoRequired !== undefined) {
         const photoVal = Boolean(body.isPhotoRequired);
         await tx.milkTestPolicyAssignment.updateMany({

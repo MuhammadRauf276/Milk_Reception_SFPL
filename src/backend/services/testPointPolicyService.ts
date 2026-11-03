@@ -126,7 +126,7 @@ export function applyAssignmentToCell<T extends Pick<TestPointPolicyCell, 'testM
   cell: T,
   assignment?: { is_required: boolean; is_photo_required: boolean | null; display_order?: number | null } | null
 ): T {
-  if (!assignment) return cell;
+  if (!assignment || cell.source === 'DB') return cell;
   return {
     ...cell,
     testMode: assignment.is_required ? 'COMPULSORY' : 'OPTIONAL',

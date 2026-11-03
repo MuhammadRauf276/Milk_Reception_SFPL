@@ -423,10 +423,10 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                       let calcVal: number | null = null;
                       if (isCalculated) {
                         if (nameUpper.includes('RATIO') || codeUpper.includes('RATIO') || codeUpper === 'LT-000009') {
-                          calcVal = autoCalculations.RATIO_SNF_FAT ?? autoCalculations['LT-000011'];
+                          calcVal = autoCalculations.RATIO_SNF_FAT ?? autoCalculations['LT-000009'];
                         } else if (nameUpper.includes('SOLIDS') || nameUpper === 'TS' || codeUpper === 'SYS-TS' || codeUpper === 'LT-TOTAL-SOLIDS') {
                           calcVal = autoCalculations.TOTAL_SOLIDS;
-                        } else if (nameUpper.includes('SNF') || codeUpper === 'SYS-SNF' || codeUpper === 'LT-000010') {
+                        } else if ((nameUpper.includes('SNF') && !nameUpper.includes('RATIO')) || codeUpper === 'SYS-SNF' || codeUpper === 'SNF') {
                           calcVal = autoCalculations.SNF_CANONICAL;
                         }
                       }
@@ -601,7 +601,12 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                           )}
                           {isCalculated && (
                             <p className="text-[10px] text-purple-700 font-medium flex items-center gap-1">
-                              <Calculator className="h-3 w-3" /> Auto-calculated by Richmond canonical formula
+                              <Calculator className="h-3 w-3" />
+                              {nameUpper.includes('RATIO') || codeUpper.includes('RATIO') || codeUpper === 'LT-000009'
+                                ? 'Auto-calculated: SNF / Fat'
+                                : nameUpper.includes('SOLIDS') || nameUpper === 'TS' || codeUpper === 'SYS-TS'
+                                ? 'Auto-calculated Total Solids: Fat + SNF'
+                                : 'Auto-calculated by Richmond formula: (LR/4) + 0.22×Fat + 0.72'}
                             </p>
                           )}
                           {!isCalculated && !isAppliedOnly && Boolean(isNumeric ? effectiveVal : state.textValue) && (
