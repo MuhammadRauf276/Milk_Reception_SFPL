@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import { LiveCamera } from '@/components/camera/LiveCamera';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { evaluate3ZoneTest } from '@/lib/sop-evaluation';
 import type { LabTestDef, TestInputState, VisitDetail, VisitDetailPortion } from './qaTypes';
 import type { DecisionResult, PersonDecision } from '@/types/stage1-decision';
@@ -343,12 +344,12 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Seal Match
                         </span>
                       ) : isSealMismatch ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-300 flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> Seal Mismatch
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+                          Seal differs (optional)
                         </span>
                       ) : (
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
-                          Verification Required
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">
+                          Seal not entered (optional)
                         </span>
                       )
                     ) : (
@@ -376,10 +377,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                         onChange={(e) => onSealChange(e.target.value)}
                         placeholder="Enter seal number on tanker"
                         className={cn(
-                          'mt-1 w-full min-h-11 rounded-lg border p-2 text-base sm:text-xs font-mono font-bold focus:outline-hidden',
-                          isSealMismatch
-                            ? 'border-rose-400 bg-rose-50 text-rose-900'
-                            : 'border-border focus:border-primary'
+                          'mt-1 w-full min-h-11 rounded-lg border border-border p-2 text-base sm:text-xs font-mono font-bold focus:outline-hidden focus:border-primary'
                         )}
                       />
                     </div>
@@ -754,31 +752,37 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
             try {
               const form = new FormData();
               form.append('file', res.blob, `${res.captureId}.jpg`);
+              // /api/photos reads the details from the `meta` field and needs the record the photo belongs to.
               form.append(
-                'metadata',
+                'meta',
                 JSON.stringify({
                   captureId: res.captureId,
                   sha256: res.sha256,
-                  stage: 'PLANT_QA',
-                  testId: currentTest.id,
-                  tokenNo: visitDetail.token_number,
-                  vehicleNo: visitDetail.vehicle_number,
+                  testingPoint: 'PLANT_QA',
+                  entityType: 'visit_portion',
+                  entityId: portion.id,
+                  labTestId: currentTest.id,
+                  portionNumber: portion.portion_number,
                   photoKind: 'TEST_RESULT',
                   deviceCapturedAt: res.capturedAt,
                   latitude: res.gps?.lat ?? null,
                   longitude: res.gps?.lng ?? null,
                   gpsAccuracyM: res.gps?.accuracyM ?? null,
+                  wasOffline: false,
                   width: res.width,
                   height: res.height,
                 })
               );
               const r = await fetch('/api/photos', { method: 'POST', body: form });
-              const d = await r.json().catch(() => ({}));
-              const url = d.url || d.fileUrl || res.previewUrl;
-              onPhotoChange(currentTest.id, url);
+              if (!r.ok) {
+                const d = await r.json().catch(() => ({}));
+                throw new Error(d.error || 'The photo could not be saved.');
+              }
+              // Only a photo the server saved counts: keep its address, never the phone-only preview.
+              onPhotoChange(currentTest.id, `/api/photos/${res.captureId}`);
             } catch (err) {
               console.error('Failed to upload photo:', err);
-              onPhotoChange(currentTest.id, res.previewUrl ?? null);
+              toast.error(`Photo for ${currentTest.testName} was not saved. Please take it again. ${err instanceof Error ? err.message : ''}`.trim());
             }
           }}
           onCancel={() => setCameraTest(null)}
