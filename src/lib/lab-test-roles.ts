@@ -155,3 +155,43 @@ export function lockedReason(t: RoleSubject): string | null {
   if (r === 'FAT') return 'Fat is needed to calculate SNF and Total Solids, so it stays compulsory at every stage.';
   return null;
 }
+
+/**
+ * Why a Super Admin edit of a test must be refused because of its stored role, or null when it is allowed.
+ * - A test holding a role cannot be switched off (the formulas would lose it; a matrix row on an inactive test cannot be edited).
+ * - A role cannot be given to an inactive test (the Master Matrix only lists active tests, so the role would be stranded).
+ */
+export function roleEditBlock(
+  target: { testName: string; systemRole?: string | null; isActive: boolean },
+  body: { isActive?: unknown; systemRole?: unknown }
+): string | null {
+  const storedRole = target.systemRole ?? null;
+  if (storedRole && body.isActive === false) {
+    return `"${target.testName}" is the ${storedRole} test the milk formulas use, so it cannot be deactivated.`;
+  }
+  if (typeof body.systemRole === 'string' && body.systemRole) {
+    const staysInactive = body.isActive === false || (body.isActive !== true && !target.isActive);
+    if (staysInactive) {
+      return `"${target.testName}" is not an active test, so it cannot hold the ${body.systemRole} role. Activate it first, or give the role to an active test.`;
+    }
+  }
+  return null;
+}
+
+/** Name without a trailing "(Updated) ..." / "(Copy)" marker, lower-cased, for matching a test with its successor. */
+export function lineageName(name: string): string {
+  return (name || '').replace(/\s*\((updated|copy)\b[^)]*\).*$/i, '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/** The active test that took over from an inactive one (same name lineage), or null. Prefers the one holding the same role, then the newest. */
+export function findReplacementTest<T extends RoleSubject & { id: string | number | bigint; isActive: boolean }>(
+  inactive: T,
+  all: readonly T[]
+): T | null {
+  const key = lineageName(inactive.testName);
+  const matches = all.filter((t) => t.isActive && String(t.id) !== String(inactive.id) && lineageName(t.testName) === key);
+  if (matches.length === 0) return null;
+  const sameRole = inactive.systemRole ? matches.filter((t) => t.systemRole === inactive.systemRole) : [];
+  const pool = sameRole.length > 0 ? sameRole : matches;
+  return [...pool].sort((a, b) => Number(b.id) - Number(a.id))[0];
+}

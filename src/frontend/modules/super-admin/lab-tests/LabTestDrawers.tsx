@@ -985,11 +985,14 @@ export function LabTestStatusDrawer({
   action,
   onClose,
   onSaved,
+  onError,
 }: {
   test: LabTest;
   action: 'ACTIVATE' | 'DEACTIVATE';
   onClose: () => void;
   onSaved: (m: string) => void;
+  /** Server refusal (for example a role holder cannot be deactivated); the page shows it in its error banner. */
+  onError?: (m: string) => void;
 }) {
   const isActivate = action === 'ACTIVATE';
   const mutation = useMutation({
@@ -1013,6 +1016,7 @@ export function LabTestStatusDrawer({
           e.preventDefault();
           mutation.mutate(undefined, {
             onSuccess: () => onSaved(`Test "${test.testName}" ${isActivate ? 'activated' : 'deactivated'}.`),
+            onError: (err) => onError?.(getErrorMessage(err) || `Failed to ${isActivate ? 'activate' : 'deactivate'} the test.`),
           });
         }}
         className="space-y-4"

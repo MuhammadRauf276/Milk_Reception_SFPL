@@ -170,8 +170,6 @@ function WorkspaceInner({
               labTestId: testId,
               point,
               testMode: mode,
-              ruleMode: 'APPLY',
-              photoMode: 'NONE',
             },
           ],
         }),
@@ -370,7 +368,7 @@ function WorkspaceInner({
 
         {/* Master Catalog Table: Master Matrix (All 6 Stages Side-by-Side) */}
         <div className="w-full overflow-x-auto">
-            <table className="w-full min-w-[1250px] text-left text-xs">
+            <table className="w-full min-w-[1330px] text-left text-xs">
               <thead className="border-b border-slate-200 bg-slate-100/90 text-slate-700">
                 <tr>
                   <th className="w-10 p-2.5 text-center font-bold">#</th>
@@ -385,19 +383,20 @@ function WorkspaceInner({
                       {ms.shortLabel}
                     </th>
                   ))}
+                  <th className="p-2 text-center font-bold">Status</th>
                   {canEdit && <th className="sticky right-0 bg-slate-100 p-2 text-right font-bold">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 font-medium">
                 {catalogQuery.isPending ? (
                   <tr>
-                    <td colSpan={14} className="p-8 text-center font-semibold text-slate-400">
+                    <td colSpan={15} className="p-8 text-center font-semibold text-slate-400">
                       Loading matrix…
                     </td>
                   </tr>
                 ) : catalogTests.length === 0 ? (
                   <tr>
-                    <td colSpan={14} className="p-8 text-center text-slate-400">
+                    <td colSpan={15} className="p-8 text-center text-slate-400">
                       No tests found.
                     </td>
                   </tr>
@@ -407,7 +406,7 @@ function WorkspaceInner({
                     const stageModes = t.stageModes || {};
 
                     return (
-                      <tr key={t.id} className="transition-colors hover:bg-slate-50">
+                      <tr key={t.id} className={`transition-colors hover:bg-slate-50 ${t.isActive ? '' : 'bg-slate-50/70 text-slate-400'}`}>
                         <td className="p-2.5 text-center font-semibold tabular-nums text-slate-400">
                           {t.displayOrder}
                         </td>
@@ -459,14 +458,15 @@ function WorkspaceInner({
 
                         {/* 6 Stage Matrix Columns */}
                         {MATRIX_STAGES.map((ms) => {
-                          const currentMode = stageModes[ms.code] || 'NOT_APPLIED';
+                          // An inactive test is off at every stage; its stage settings come back when it is made active again.
+                          const currentMode = t.isActive ? stageModes[ms.code] || 'NOT_APPLIED' : 'NOT_APPLIED';
                           const isAuto = currentMode === 'AUTO' || t.resultType === 'CALCULATED';
                           const isCmp = currentMode === 'COMPULSORY';
                           const isAppl = currentMode === 'APPLIED' || currentMode === 'OPTIONAL';
 
                           return (
                             <td key={ms.code} className="p-1.5 text-center">
-                              {canEdit ? (
+                              {canEdit && t.isActive ? (
                                 <select
                                   value={currentMode}
                                   onChange={(e) => {
@@ -511,6 +511,32 @@ function WorkspaceInner({
                             </td>
                           );
                         })}
+
+                        {/* Status: Inactive = off at all stages; Active = only the stages selected above */}
+                        <td className="p-2.5 text-center whitespace-nowrap">
+                          {canEdit ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                resetNotices();
+                                setCatalogDrawer({ kind: 'status', test: t, action: t.isActive ? 'DEACTIVATE' : 'ACTIVATE' });
+                              }}
+                              title={t.isActive ? 'Active: shown at the selected stages. Click to deactivate (off at all stages).' : 'Inactive: off at all stages. Click to activate.'}
+                              className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
+                                t.isActive
+                                  ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                                  : 'border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              }`}
+                            >
+                              <span className={`h-2 w-2 rounded-full ${t.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                              {t.isActive ? 'Active' : 'Inactive'}
+                            </button>
+                          ) : (
+                            <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold ${t.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
+                              {t.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          )}
+                        </td>
 
                         {/* Actions */}
                         {canEdit && (
@@ -573,6 +599,10 @@ function WorkspaceInner({
             setCatalogDrawer(null);
             setSuccessMsg(msg);
             void refreshAll();
+          }}
+          onError={(msg) => {
+            setCatalogDrawer(null);
+            setActionError(msg);
           }}
         />
       )}

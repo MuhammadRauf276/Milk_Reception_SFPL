@@ -1,10 +1,10 @@
 // Test point policy matrix: per (test, testing point) test/rule/photo modes, versioned with effective dates.
 // Records started before a change keep the version that was effective at their start (pass `at`).
 import type { ActingContext } from '@/types/acting';
-import { TEST_POINT_CODES, normalizeTestMode } from '@/types/test-point-policy';
+import { TEST_POINT_CODES, TEST_POINT_LABELS, normalizeTestMode } from '@/types/test-point-policy';
 import type { TestPointCode, TestPointPolicyCell } from '@/types/test-point-policy';
 import { writeAuditLog, type AuditDb } from '@/backend/core/audit';
-import { isInputRole, roleOf, pickRoleTest, lockedReason } from '@/lib/lab-test-roles';
+import { isInputRole, roleOf, pickRoleTest, lockedReason, findReplacementTest } from '@/lib/lab-test-roles';
 
 type TestMode = TestPointPolicyCell['testMode'];
 type RuleMode = TestPointPolicyCell['ruleMode'];
@@ -27,6 +27,11 @@ export class PolicyValidationError extends Error {
     super(message);
     this.name = 'PolicyValidationError';
   }
+}
+
+/** Stage name for messages (the same labels the matrix screen shows). */
+function stageLabel(point: string): string {
+  return (TEST_POINT_LABELS as Record<string, string>)[point] ?? point;
 }
 
 export interface PolicyRow {
@@ -412,7 +417,9 @@ export async function getEffectivePolicy(point: TestPointCode, at: Date = new Da
   return { point, version, cells };
 }
 
-export type PolicyChange = Pick<TestPointPolicyCell, 'labTestId' | 'point' | 'testMode' | 'ruleMode' | 'photoMode'>;
+/** One cell change. testMode / ruleMode / photoMode are optional: a field that is not sent keeps the cell's saved value. */
+export type PolicyChange = Pick<TestPointPolicyCell, 'labTestId' | 'point'> &
+  Partial<Pick<TestPointPolicyCell, 'testMode' | 'ruleMode' | 'photoMode'>>;
 
 /**
  * Maps a TestPointCode to the canonical testing_point string used in MilkTestPolicyAssignment.
@@ -472,13 +479,15 @@ export async function updatePolicyCells(
   if (!Array.isArray(changes) || changes.length === 0) throw new PolicyValidationError('No changes to save.');
   const seen = new Set<string>();
   for (const c of changes) {
-    if (!(TEST_POINT_CODES as readonly string[]).includes(c.point)) throw new PolicyValidationError(`Unknown testing point: ${c.point}`);
-    if (!(TEST_MODES as readonly string[]).includes(c.testMode)) throw new PolicyValidationError('Invalid test mode.');
-    if (!(RULE_MODES as readonly string[]).includes(c.ruleMode)) throw new PolicyValidationError('Invalid rule mode.');
-    if (!(PHOTO_MODES as readonly string[]).includes(c.photoMode)) throw new PolicyValidationError('Invalid photo mode.');
-    if (!/^\d+$/.test(String(c.labTestId))) throw new PolicyValidationError('Invalid test id.');
+    const where = `test ${c.labTestId} at ${stageLabel(String(c.point))}`;
+    if (!(TEST_POINT_CODES as readonly string[]).includes(c.point)) throw new PolicyValidationError(`Unknown testing point: ${c.point} (test ${c.labTestId}).`);
+    if (c.testMode === undefined && c.ruleMode === undefined && c.photoMode === undefined) throw new PolicyValidationError(`Nothing to change for ${where}.`);
+    if (c.testMode !== undefined && !(TEST_MODES as readonly string[]).includes(c.testMode)) throw new PolicyValidationError(`Invalid test mode "${c.testMode}" for ${where}.`);
+    if (c.ruleMode !== undefined && !(RULE_MODES as readonly string[]).includes(c.ruleMode)) throw new PolicyValidationError(`Invalid rule mode "${c.ruleMode}" for ${where}.`);
+    if (c.photoMode !== undefined && !(PHOTO_MODES as readonly string[]).includes(c.photoMode)) throw new PolicyValidationError(`Invalid photo mode "${c.photoMode}" for ${where}.`);
+    if (!/^\d+$/.test(String(c.labTestId))) throw new PolicyValidationError(`Invalid test id "${c.labTestId}" at ${stageLabel(String(c.point))}.`);
     const key = `${c.labTestId}|${c.point}`;
-    if (seen.has(key)) throw new PolicyValidationError('Duplicate cell in changes.');
+    if (seen.has(key)) throw new PolicyValidationError(`Duplicate cell in changes: ${where}.`);
     seen.add(key);
   }
 
@@ -502,16 +511,37 @@ async function runUpdate(database: PolicyDb, ctx: ActingContext, changes: Policy
     for (const ch of changes) {
       const key = `${ch.labTestId}|${ch.point}`;
       const current = cellByKey.get(key);
-      if (!current) throw new PolicyValidationError(`Test ${ch.labTestId} is not an active test.`);
-      if (current.testMode === ch.testMode && current.ruleMode === ch.ruleMode && current.photoMode === ch.photoMode) continue;
+      if (!current) {
+        // Name the test (inactive tests are not in the matrix but still exist) and, when one exists, the active test that replaced it.
+        const allTests = (await tx.labTest.findMany({ select: { id: true, testCode: true, testName: true, isActive: true, systemRole: true } })) as unknown as Array<{ id: bigint; testCode: string; testName: string; isActive: boolean; systemRole: string | null }>;
+        const known = allTests.find((t) => String(t.id) === String(ch.labTestId));
+        if (!known) throw new PolicyValidationError(`Test ${ch.labTestId} does not exist (${stageLabel(ch.point)}).`);
+        const replacement = findReplacementTest(known, allTests);
+        throw new PolicyValidationError(
+          `"${known.testName}" (${known.testCode}) is not an active test, so its setting at ${stageLabel(ch.point)} cannot be changed.` +
+            (replacement
+              ? ` Edit the active test "${replacement.testName}" (${replacement.testCode}) instead.`
+              : ' Make the test active first.') +
+            (known.systemRole ? ` It still holds the ${known.systemRole} role, which must be moved to an active test.` : '')
+        );
+      }
+      // Fields that were not sent keep the saved value of this cell.
+      const next = {
+        testMode: ch.testMode ?? current.testMode,
+        ruleMode: ch.ruleMode ?? current.ruleMode,
+        photoMode: ch.photoMode ?? current.photoMode,
+      };
+      if (current.testMode === next.testMode && current.ruleMode === next.ruleMode && current.photoMode === next.photoMode) continue;
 
       // LR and Fat feed the milk formulas, so the real LR / Fat test cannot be switched off or made optional.
-      if (ch.point !== 'CONTRACTOR_DISPATCH' && current.testMode !== ch.testMode && normalizeTestMode(ch.testMode) !== 'COMPULSORY') {
+      if (ch.point !== 'CONTRACTOR_DISPATCH' && current.testMode !== next.testMode && normalizeTestMode(next.testMode) !== 'COMPULSORY') {
         const reason = lockedReason(cellSubject(current));
         if (reason) {
           const atPoint = cells.filter((c) => c.point === ch.point && isInputRole(cellSubject(c))).map(cellSubject);
           const canonical = pickRoleTest(atPoint, roleOf(cellSubject(current))!);
-          if (canonical && canonical.id === current.labTestId) throw new PolicyValidationError(reason);
+          if (canonical && canonical.id === current.labTestId) {
+            throw new PolicyValidationError(`"${current.testName}" (${current.testCode}) at ${stageLabel(ch.point)}: ${reason}`);
+          }
         }
       }
 
@@ -531,9 +561,9 @@ async function runUpdate(database: PolicyDb, ctx: ActingContext, changes: Policy
         data: {
           lab_test_id: labTestId,
           testing_point: ch.point,
-          test_mode: ch.testMode,
-          rule_mode: ch.ruleMode,
-          photo_mode: ch.photoMode,
+          test_mode: next.testMode,
+          rule_mode: next.ruleMode,
+          photo_mode: next.photoMode,
           version: newVersion,
           effective_from: now,
           effective_to: null,
@@ -549,7 +579,7 @@ async function runUpdate(database: PolicyDb, ctx: ActingContext, changes: Policy
         version: current.version,
         source: current.source,
       };
-      const newValue = { testMode: ch.testMode, ruleMode: ch.ruleMode, photoMode: ch.photoMode, version: newVersion };
+      const newValue = { ...next, version: newVersion };
       const log = await tx.configChangeLog.create({
         data: {
           module: 'TEST_POINT_POLICY',
@@ -578,9 +608,9 @@ async function runUpdate(database: PolicyDb, ctx: ActingContext, changes: Policy
       // table that getEffectivePolicy('PLANT_QA') reads to build the plant testing form.
       const canonicalPoint = canonicalTestingPoint(ch.point);
       if (canonicalPoint) {
-        const isActive = ch.testMode !== 'OFF' && ch.testMode !== 'NOT_APPLIED';
-        const isRequired = ch.testMode === 'COMPULSORY';
-        const isPhotoRequired = ch.photoMode === 'REQUIRED';
+        const isActive = next.testMode !== 'OFF' && next.testMode !== 'NOT_APPLIED';
+        const isRequired = next.testMode === 'COMPULSORY';
+        const isPhotoRequired = next.photoMode === 'REQUIRED';
 
         const existing = await tx.milkTestPolicyAssignment.findUnique({
           where: {

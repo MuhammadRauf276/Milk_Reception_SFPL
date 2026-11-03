@@ -4,7 +4,7 @@ import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { LabTestResultOption, resultOptionsArraySchema, validatePlantQAResultOptions } from '@/lib/validations/labTest';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
-import { isLabTestRole } from '@/lib/lab-test-roles';
+import { isLabTestRole, roleEditBlock } from '@/lib/lab-test-roles';
 import { requireRoles } from '@/backend/core/route-guards';
 import { setPhotoRequiredForTest } from '@/backend/services/testPointPolicyService';
 
@@ -30,13 +30,14 @@ export async function PATCH(
     // Tests the milk formulas depend on (LR, Fat, ...) are protected: they cannot be switched off or change type.
     const storedRole = (targetTest as { systemRole?: string | null }).systemRole ?? null;
     if (storedRole) {
-      if (body.isActive === false) {
-        return NextResponse.json({ error: `"${targetTest.testName}" is the ${storedRole} test the milk formulas use, so it cannot be deactivated.` }, { status: 400 });
-      }
       if (body.resultType && body.resultType !== targetTest.resultType) {
         return NextResponse.json({ error: `"${targetTest.testName}" is the ${storedRole} test the milk formulas use, so its result type cannot change.` }, { status: 400 });
       }
     }
+
+    // A role holder cannot be switched off, and a role cannot be given to an inactive test.
+    const roleBlock = roleEditBlock({ testName: targetTest.testName, systemRole: storedRole, isActive: targetTest.isActive }, body);
+    if (roleBlock) return NextResponse.json({ error: roleBlock }, { status: 400 });
 
     // Assigning / moving a role (Super Admin only). One test per role: the role must be free, or cleared on the other test first.
     if (body.systemRole !== undefined) {
