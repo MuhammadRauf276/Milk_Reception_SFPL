@@ -33,7 +33,9 @@ export interface TestPointPolicyCell {
   labTestId: string;
   testCode: string;
   testName: string;
-  displayOrder?: number;
+  displayOrder: number;
+  /** Stored lab-test role (LR, FAT, SNF…); null for ordinary tests or before the role column exists. */
+  systemRole?: string | null;
   point: TestPointCode;
   testMode: PolicyTestMode;
   ruleMode: 'APPLY' | 'WARN';

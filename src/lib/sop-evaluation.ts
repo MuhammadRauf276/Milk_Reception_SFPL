@@ -95,9 +95,9 @@ export function evaluate3ZoneTest(
 
   if (rawInput === null || rawInput === undefined || String(rawInput).trim() === '') {
     return {
-      verdict: 'PASS',
-      label: 'Pending Entry',
-      message: 'Awaiting observation entry.',
+      verdict: isAppliedOnly ? 'NOT_APPLIED' : 'PASS',
+      label: isAppliedOnly ? 'Optional' : 'Pending Entry',
+      message: isAppliedOnly ? 'Optional test. Observation not recorded.' : 'Awaiting observation entry.',
       isRuleFailure: false,
       isWarning: false,
       isPass: true,
@@ -128,23 +128,7 @@ export function evaluate3ZoneTest(
     };
   }
 
-  // Applied / Non-Compulsory tests do not enforce system failures
-  if (isAppliedOnly) {
-    return {
-      verdict: 'NOT_APPLIED',
-      label: 'Optional Test',
-      message: 'Not under compulsory release SOP. Rules are not enforced.',
-      isRuleFailure: false,
-      isWarning: false,
-      isPass: true,
-      colorClass: {
-        badge: 'bg-slate-100 text-slate-700 border-slate-200',
-        text: 'text-slate-600',
-        border: 'border-slate-200',
-        dot: 'bg-slate-400',
-      },
-    };
-  }
+  // Applied / Non-Compulsory tests are evaluated against SOP rules; violations produce warnings, not rejections.
 
   const rawStr = String(rawInput).trim();
   const numVal = Number(rawStr);
@@ -214,6 +198,23 @@ export function evaluate3ZoneTest(
       ? `< ${warnLow ?? min}${ruleDef.unit ? ` ${ruleDef.unit}` : ''}`
       : 'Outside acceptable limits';
 
+    if (isAppliedOnly) {
+      return {
+        verdict: 'WARN',
+        label: 'Warning (Outside SOP)',
+        message: `Warning: Optional test reading exceeds SOP specification (${rejectDesc}).`,
+        isRuleFailure: false,
+        isWarning: true,
+        isPass: false,
+        colorClass: {
+          badge: 'bg-amber-50 text-amber-900 border-amber-300',
+          text: 'text-amber-800',
+          border: 'border-amber-400',
+          dot: 'bg-amber-500',
+        },
+      };
+    }
+
     return {
       verdict: 'FAIL',
       label: 'Rejection Limit',
@@ -275,6 +276,23 @@ export function evaluate3ZoneTest(
       };
     }
 
+    if (isAppliedOnly) {
+      return {
+        verdict: 'WARN',
+        label: 'Warning (Outside SOP)',
+        message: `Warning: Optional test "${matchedOpt.label || matchedOpt.value}" is outside SOP specification.`,
+        isRuleFailure: false,
+        isWarning: true,
+        isPass: false,
+        colorClass: {
+          badge: 'bg-amber-50 text-amber-900 border-amber-300',
+          text: 'text-amber-800',
+          border: 'border-amber-400',
+          dot: 'bg-amber-500',
+        },
+      };
+    }
+
     return {
       verdict: 'FAIL',
       label: 'Rejection Choice',
@@ -317,6 +335,23 @@ export function evaluate3ZoneTest(
       verdict: 'WARN',
       label: 'Tolerance Warning',
       message: `Result matches warning condition "${ruleDef.warningTrigger}".`,
+      isRuleFailure: false,
+      isWarning: true,
+      isPass: false,
+      colorClass: {
+        badge: 'bg-amber-50 text-amber-900 border-amber-300',
+        text: 'text-amber-800',
+        border: 'border-amber-400',
+        dot: 'bg-amber-500',
+      },
+    };
+  }
+
+  if (isAppliedOnly) {
+    return {
+      verdict: 'WARN',
+      label: 'Warning (Outside SOP)',
+      message: 'Warning: Optional test reading violates acceptable specification.',
       isRuleFailure: false,
       isWarning: true,
       isPass: false,

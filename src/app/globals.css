@@ -348,5 +348,5 @@
 
 /* Sonner sits on the shared layering scale */
 [data-sonner-toaster] {
-  z-index: var(--z-toast) !important;
+  z-index: 99999 !important;
 }

@@ -31,16 +31,6 @@ async function main() {
     await client.query(`
       ALTER TABLE IF EXISTS "zmcc_lab_result" DROP CONSTRAINT IF EXISTS "zmcc_lab_result_portion_id_test_id_key";
       ALTER TABLE IF EXISTS "zmcc_milk_source" DROP CONSTRAINT IF EXISTS "zmcc_milk_source_id_zmcc_id_key";
-
-      -- Drop restrictive constraints on mot_profile that block VM updates on legacy accounts
-      ALTER TABLE IF EXISTS "mot_profile" DROP CONSTRAINT IF EXISTS "ck_mot_profile_cnic_format";
-      ALTER TABLE IF EXISTS "mot_profile" DROP CONSTRAINT IF EXISTS "ck_mot_profile_phone_format";
-      ALTER TABLE IF EXISTS "mot_profile" ALTER COLUMN "cnic" DROP NOT NULL;
-      ALTER TABLE IF EXISTS "mot_profile" ALTER COLUMN "phone_number" DROP NOT NULL;
-
-      -- Clean up corrupted CNIC / phone entries in users table
-      UPDATE users SET cnic = NULL WHERE cnic = 'N/A' OR cnic = '' OR cnic !~ '^([0-9]{13}|[0-9]{5}-[0-9]{7}-[0-9])$';
-      UPDATE users SET phone = NULL WHERE phone LIKE '%@%' OR phone = 'N/A' OR phone = '' OR phone !~ '^([+]92-?|92-?|0)?3[0-9]{2}-?[0-9]{7}$';
     `);
     console.log('✓ Legacy constraints verified clean.');
 
@@ -147,10 +137,6 @@ async function main() {
       ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "phone" VARCHAR(50);
       ALTER TABLE IF EXISTS "users" ADD COLUMN IF NOT EXISTS "cnic" VARCHAR(50);
 
-      -- lab_test table (Phase 4.4 / System parameter flags)
-      ALTER TABLE IF EXISTS "lab_test" ADD COLUMN IF NOT EXISTS "is_system" BOOLEAN DEFAULT false;
-      ALTER TABLE IF EXISTS "lab_test" ADD COLUMN IF NOT EXISTS "system_key" VARCHAR(50);
-
       -- zmcc_tank table
       ALTER TABLE IF EXISTS "zmcc_tank" ADD COLUMN IF NOT EXISTS "current_volume_liters" DECIMAL(12,3) DEFAULT 0;
       ALTER TABLE IF EXISTS "zmcc_tank" ADD COLUMN IF NOT EXISTS "capacity_liters" DECIMAL(12,3) DEFAULT 0;
@@ -158,6 +144,39 @@ async function main() {
       ALTER TABLE IF EXISTS "zmcc_tank" ADD COLUMN IF NOT EXISTS "status" VARCHAR(50) DEFAULT 'AVAILABLE';
     `);
     console.log('✓ Columns verified.');
+
+    // Lab test system roles (LR, FAT, SNF_FAT_RATIO). The app finds the formula tests by this stored role, and the
+    // generated Prisma client reads the column on every lab_test query, so it MUST exist before the new build starts.
+    // Idempotent: safe to repeat, never overwrites a role that is already set, touches no other data.
+    console.log('[4b/7] Ensuring lab test system roles exist...');
+    await client.query(`
+      ALTER TABLE "lab_test" ADD COLUMN IF NOT EXISTS "system_role" VARCHAR(30);
+      CREATE UNIQUE INDEX IF NOT EXISTS "lab_test_system_role_key" ON "lab_test"("system_role");
+
+      UPDATE "lab_test" SET "system_role" = 'LR'
+      WHERE "id" = (
+        SELECT "id" FROM "lab_test"
+        WHERE "test_name" !~* '(ratio|snf|solids|sodium|clot)'
+          AND ("test_code" IN ('LT-000008', 'LT-000027', 'LR') OR "test_name" ~* '(\\mLR\\M|lactometer)')
+        ORDER BY ("test_code" = 'LT-000008') DESC, "id" ASC LIMIT 1
+      ) AND NOT EXISTS (SELECT 1 FROM "lab_test" WHERE "system_role" = 'LR');
+
+      UPDATE "lab_test" SET "system_role" = 'FAT'
+      WHERE "id" = (
+        SELECT "id" FROM "lab_test"
+        WHERE "test_name" !~* '(ratio|snf|solids)'
+          AND ("test_code" IN ('LT-000026', 'FAT') OR "test_name" ~* '(^fat\\M|\\mgerber)')
+        ORDER BY ("test_code" = 'LT-000026') DESC, "id" ASC LIMIT 1
+      ) AND NOT EXISTS (SELECT 1 FROM "lab_test" WHERE "system_role" = 'FAT');
+
+      UPDATE "lab_test" SET "system_role" = 'SNF_FAT_RATIO'
+      WHERE "id" = (
+        SELECT "id" FROM "lab_test"
+        WHERE "test_code" = 'LT-000009' OR "test_name" ~* 'snf to fat ratio'
+        ORDER BY ("test_code" = 'LT-000009') DESC, "id" ASC LIMIT 1
+      ) AND NOT EXISTS (SELECT 1 FROM "lab_test" WHERE "system_role" = 'SNF_FAT_RATIO');
+    `);
+    console.log('✓ Lab test system roles verified.');
 
     // 5. Safely add indexes and foreign keys
     console.log('[5/7] Creating indexes and foreign key constraints...');
@@ -201,8 +220,14 @@ async function main() {
       SELECT 
         UPPER(COALESCE(NULLIF(TRIM(u.username), ''), 'MOT-' || u.id)),
         COALESCE(NULLIF(TRIM(u.full_name), ''), u.username),
-        u.phone,
-        u.cnic,
+        CASE 
+          WHEN u.phone IS NOT NULL AND u.phone ~ '^([+]92-?|92-?|0)?3[0-9]{2}-?[0-9]{7}$' THEN u.phone
+          ELSE '0300-' || LPAD(u.id::text, 7, '0')
+        END,
+        CASE 
+          WHEN u.cnic IS NOT NULL AND u.cnic ~ '^([0-9]{13}|[0-9]{5}-[0-9]{7}-[0-9])$' THEN u.cnic
+          ELSE '35201-' || LPAD(u.id::text, 7, '0') || '-1'
+        END,
         COALESCE(u.procurement_source_id, (SELECT id FROM procurement_source WHERE source_type = 'ZMCC' ORDER BY id ASC LIMIT 1)),
         u.id,
         true,
@@ -313,137 +338,6 @@ async function main() {
       LEFT JOIN local_supplier_rmr_issuance rmr ON rmr.local_supplier_arrival_id = a.id;
     `);
     console.log('✓ CQRS views verified.');
-
-    // 8. Canonical Dairy Test & Master Matrix Policy Normalization
-    console.log('[8/8] Normalizing canonical dairy lab tests & 6-stage matrix policies...');
-    await client.query(`
-      -- Clean up Starch (LT-000011): ensure POSITIVE_NEGATIVE and remove corrupted numeric boundaries
-      UPDATE lab_test
-      SET result_type = 'POSITIVE_NEGATIVE'
-      WHERE test_name ILIKE '%starch%' OR test_code = 'LT-000011';
-
-      UPDATE lab_test_rule
-      SET min_value = NULL, max_value = NULL, warning_trigger = NULL,
-          acceptable_option = 'Negative', decision_consequence = 'Positive'
-      WHERE lab_test_id IN (
-        SELECT id FROM lab_test WHERE test_name ILIKE '%starch%' OR test_code = 'LT-000011'
-      );
-
-      -- Clean up SNF to Fat Ratio (LT-000009): ensure CALCULATED with 0 - 2.35 pass range
-      UPDATE lab_test
-      SET result_type = 'CALCULATED', is_system = true, system_key = 'AUTO_RATIO', display_order = 9
-      WHERE (test_name ILIKE '%ratio%' AND (test_name ILIKE '%snf%' OR test_name ILIKE '%fat%')) OR test_code = 'LT-000009';
-
-      UPDATE lab_test_rule
-      SET min_value = 0.00, max_value = 2.35, warning_trigger = NULL,
-          decision_consequence = '> 2.35', acceptable_option = NULL
-      WHERE lab_test_id IN (
-        SELECT id FROM lab_test WHERE (test_name ILIKE '%ratio%' AND (test_name ILIKE '%snf%' OR test_name ILIKE '%fat%')) OR test_code = 'LT-000009'
-      );
-
-      -- System Core Parameters: LR at 20 Celsius and Fat
-      UPDATE lab_test SET is_system = true, system_key = 'CORE_LR', display_order = 8 WHERE test_code = 'LT-000008';
-      UPDATE lab_test SET is_system = true, system_key = 'CORE_FAT', display_order = 26 WHERE test_code = 'LT-000026';
-
-      -- Ensure SYS-SNF exists with display_order 31 and system flags
-      INSERT INTO lab_test (test_code, test_name, result_type, unit, test_scope, is_required, is_active, display_order, is_system, system_key, created_at, updated_at)
-      SELECT 'SYS-SNF', 'Solids-Not-Fat (SNF)', 'CALCULATED', '%', 'BOTH', false, true, 31, true, 'AUTO_SNF', NOW(), NOW()
-      WHERE NOT EXISTS (
-        SELECT 1 FROM lab_test WHERE test_code = 'SYS-SNF' OR (test_name ILIKE '%Solids-Not-Fat%' AND result_type = 'CALCULATED') OR (test_name = 'SNF' AND result_type = 'CALCULATED')
-      );
-
-      UPDATE lab_test
-      SET display_order = 31, is_system = true, system_key = 'AUTO_SNF', result_type = 'CALCULATED'
-      WHERE test_code = 'SYS-SNF' OR (test_name ILIKE '%Solids-Not-Fat%' AND result_type = 'CALCULATED') OR (test_name = 'SNF' AND result_type = 'CALCULATED');
-
-      -- Ensure SYS-TS exists with display_order 32 and system flags
-      INSERT INTO lab_test (test_code, test_name, result_type, unit, test_scope, is_required, is_active, display_order, is_system, system_key, created_at, updated_at)
-      SELECT 'SYS-TS', 'Total Solids (TS)', 'CALCULATED', '%', 'BOTH', false, true, 32, true, 'AUTO_TS', NOW(), NOW()
-      WHERE NOT EXISTS (
-        SELECT 1 FROM lab_test WHERE test_code = 'SYS-TS' OR (test_name ILIKE '%Total Solids%' AND result_type = 'CALCULATED') OR (test_name = 'TS' AND result_type = 'CALCULATED')
-      );
-
-      UPDATE lab_test
-      SET display_order = 32, is_system = true, system_key = 'AUTO_TS', result_type = 'CALCULATED'
-      WHERE test_code = 'SYS-TS' OR (test_name ILIKE '%Total Solids%' AND result_type = 'CALCULATED') OR (test_name = 'TS' AND result_type = 'CALCULATED');
-
-      -- Ensure canonical sequential display_order 1 to 30 for LT-000001 through LT-000030
-      UPDATE lab_test SET display_order = 1 WHERE test_code = 'LT-000001';
-      UPDATE lab_test SET display_order = 2 WHERE test_code = 'LT-000002';
-      UPDATE lab_test SET display_order = 3 WHERE test_code = 'LT-000003';
-      UPDATE lab_test SET display_order = 4 WHERE test_code = 'LT-000004';
-      UPDATE lab_test SET display_order = 5 WHERE test_code = 'LT-000005';
-      UPDATE lab_test SET display_order = 6 WHERE test_code = 'LT-000006';
-      UPDATE lab_test SET display_order = 7 WHERE test_code = 'LT-000007';
-      UPDATE lab_test SET display_order = 8 WHERE test_code = 'LT-000008';
-      UPDATE lab_test SET display_order = 9 WHERE test_code = 'LT-000009';
-      UPDATE lab_test SET display_order = 10 WHERE test_code = 'LT-000010';
-      UPDATE lab_test SET display_order = 11 WHERE test_code = 'LT-000011';
-      UPDATE lab_test SET display_order = 12 WHERE test_code = 'LT-000012';
-      UPDATE lab_test SET display_order = 13 WHERE test_code = 'LT-000013';
-      UPDATE lab_test SET display_order = 14 WHERE test_code = 'LT-000014';
-      UPDATE lab_test SET display_order = 15 WHERE test_code = 'LT-000015';
-      UPDATE lab_test SET display_order = 16 WHERE test_code = 'LT-000016';
-      UPDATE lab_test SET display_order = 17 WHERE test_code = 'LT-000017';
-      UPDATE lab_test SET display_order = 18 WHERE test_code = 'LT-000018';
-      UPDATE lab_test SET display_order = 19 WHERE test_code = 'LT-000019';
-      UPDATE lab_test SET display_order = 20 WHERE test_code = 'LT-000020';
-      UPDATE lab_test SET display_order = 21 WHERE test_code = 'LT-000021';
-      UPDATE lab_test SET display_order = 22 WHERE test_code = 'LT-000022';
-      UPDATE lab_test SET display_order = 23 WHERE test_code = 'LT-000023';
-      UPDATE lab_test SET display_order = 24 WHERE test_code = 'LT-000024';
-      UPDATE lab_test SET display_order = 25 WHERE test_code = 'LT-000025';
-      UPDATE lab_test SET display_order = 26 WHERE test_code = 'LT-000026';
-      UPDATE lab_test SET display_order = 27 WHERE test_code = 'LT-000027';
-      UPDATE lab_test SET display_order = 28 WHERE test_code = 'LT-000028';
-      UPDATE lab_test SET display_order = 29 WHERE test_code = 'LT-000029';
-      UPDATE lab_test SET display_order = 30 WHERE test_code = 'LT-000030';
-
-      -- Synchronize milk_test_policy_assignment display_order to match canonical lab_test display_order
-      UPDATE milk_test_policy_assignment mtpa
-      SET display_order = lt.display_order
-      FROM lab_test lt
-      WHERE mtpa.lab_test_id = lt.id AND mtpa.display_order != lt.display_order;
-
-      -- Synchronize active vehicle visits lab_test_assignment snapshot display_order
-      UPDATE lab_test_assignment lta
-      SET display_order_snapshot = lt.display_order
-      FROM lab_test lt
-      WHERE lta.test_id = lt.id AND lta.display_order_snapshot != lt.display_order;
-
-      -- Ensure test_point_policy records exist across all 6 stages for all active tests
-      INSERT INTO test_point_policy (lab_test_id, testing_point, test_mode, rule_mode, photo_mode, version, is_active, changed_by, change_reason, created_at)
-      SELECT
-        lt.id,
-        pt.stage,
-        CASE
-          WHEN lt.result_type = 'CALCULATED' THEN 'AUTO'
-          WHEN lt.is_required = true THEN 'COMPULSORY'
-          ELSE 'APPLIED'
-        END,
-        'APPLY',
-        CASE WHEN lt.is_photo_required = true THEN 'REQUIRED' ELSE 'NONE' END,
-        1,
-        true,
-        COALESCE((SELECT id FROM users WHERE role = 'SUPER_ADMIN' ORDER BY id ASC LIMIT 1), 1),
-        'Canonical 6-stage test point policy initialization',
-        NOW()
-      FROM lab_test lt
-      CROSS JOIN (
-        VALUES
-          ('MOT_SHOP'),
-          ('ZMCC_LAB_MC'),
-          ('ZMCC_LAB_HC'),
-          ('ZMCC_DISPATCH'),
-          ('CONTRACTOR_DISPATCH'),
-          ('PLANT_QA')
-      ) AS pt(stage)
-      WHERE NOT EXISTS (
-        SELECT 1 FROM test_point_policy tpp
-        WHERE tpp.lab_test_id = lt.id AND tpp.testing_point = pt.stage AND tpp.is_active = true
-      );
-    `);
-    console.log('✓ Canonical tests and Master Matrix policies normalized.');
 
     console.log('\n======================================================');
     console.log('  Database Schema Synchronized Successfully!          ');

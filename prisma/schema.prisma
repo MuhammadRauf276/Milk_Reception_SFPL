@@ -394,6 +394,8 @@ model LabTest {
   displayOrder    Int      @default(0) @map("display_order")
   resultOptions   Json?    @map("result_options")
   isPhotoRequired Boolean  @default(false) @map("is_photo_required")
+  // Permanent label for the tests the milk formulas depend on: LR, FAT, SNF, TOTAL_SOLIDS, SNF_FAT_RATIO. One test per role.
+  systemRole      String?  @unique @map("system_role") @db.VarChar(30)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

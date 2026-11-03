@@ -2,6 +2,7 @@ import { prisma } from '@core/db';
 import { auditActorFromUser, writeAuditLog } from '@/backend/core/audit';
 import { Prisma } from '@prisma/client';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
+import { getEffectivePolicy as getMatrixPolicy, selectStageCells, keepFormulaTests, type PolicyDb, type StageAssignmentLike } from '@/backend/services/testPointPolicyService';
 
 export class ValidationError extends Error {
   statusCode = 400;
@@ -288,57 +289,10 @@ export class MilkTestPolicyService {
     }
     const testingPoint = testingPointRaw as TestingPoint;
 
-    // 1. Authoritative resolution: Query Master Matrix (test_point_policy)
-    try {
-      const { getEffectivePolicy: getMasterPolicy, mapLegacyTestPoint } = await import('@/backend/services/testPointPolicyService');
-      const mappedPoint = mapLegacyTestPoint(testingPoint) || (testingPoint === 'DISPATCH' ? 'ZMCC_DISPATCH' : (testingPoint as any));
-      const masterPolicy = await getMasterPolicy(mappedPoint, new Date(), db as any);
-
-      if (masterPolicy && masterPolicy.cells && masterPolicy.cells.length > 0) {
-        // Exclude tests that are turned OFF or NOT_APPLIED by Super Admin for this stage
-        const activeCells = masterPolicy.cells.filter(
-          (c) => c.testMode !== 'OFF' && c.testMode !== 'NOT_APPLIED'
-        );
-
-        if (activeCells.length > 0) {
-          const testIds = activeCells.map((c) => BigInt(c.labTestId));
-          const labTests = await db.labTest.findMany({
-            where: { id: { in: testIds }, isActive: true },
-          });
-          const ltMap = new Map(labTests.map((t) => [t.id.toString(), t]));
-
-          const results: EffectivePolicyTest[] = [];
-          for (const cell of activeCells) {
-            const lt = ltMap.get(cell.labTestId);
-            if (!lt) continue;
-
-            results.push({
-              id: cell.labTestId,
-              policyAssignmentId: `tpp-${cell.labTestId}-${cell.point}`,
-              testCode: cell.testCode,
-              testName: cell.testName,
-              resultType: cell.testMode === 'AUTO' ? 'CALCULATED' : lt.resultType,
-              unit: lt.unit,
-              resultOptions: lt.resultOptions,
-              isRequired: cell.testMode === 'COMPULSORY',
-              isPhotoRequired: cell.photoMode === 'REQUIRED',
-              displayOrder: cell.displayOrder ?? lt.displayOrder ?? 999,
-              isActive: true,
-              testingPoint: testingPoint,
-            });
-          }
-
-          // Deterministically sort by dynamic rank order (displayOrder ASC)
-          results.sort(
-            (a, b) =>
-              (a.displayOrder ?? 999) - (b.displayOrder ?? 999) ||
-              a.testCode.localeCompare(b.testCode)
-          );
-          return results;
-        }
-      }
-    } catch (e) {
-      console.warn('[MilkTestPolicyService] Master matrix query fallback:', e);
+    // Plant QA follows the Super Admin matrix (TestPointPolicy) so the plant form shows exactly what was allowed.
+    if (testingPoint === 'PLANT_QA') {
+      const plantTests = await MilkTestPolicyService.resolvePlantPolicy(db);
+      if (plantTests) return plantTests;
     }
 
     const assignments = await db.milkTestPolicyAssignment.findMany({
@@ -413,6 +367,59 @@ export class MilkTestPolicyService {
       isActive: true,
       testingPoint,
     }));
+  }
+
+  /**
+   * Plant QA tests from the Super Admin matrix (the single source of truth), with active stage assignments
+   * as the fallback for tests that have no saved matrix row. See selectStageCells for the exact rule.
+   * Returns null only when Plant QA was never configured at all, so the older scope fallback still applies.
+   */
+  private static async resolvePlantPolicy(
+    db: Prisma.TransactionClient | typeof prisma
+  ): Promise<EffectivePolicyTest[] | null> {
+    const matrix = await getMatrixPolicy('PLANT_QA', new Date(), db as unknown as PolicyDb);
+    const assignments = await db.milkTestPolicyAssignment.findMany({ where: { testing_point: 'PLANT_QA' } });
+    const configured = matrix.cells.some((c) => c.source === 'DB') || assignments.length > 0;
+    if (!configured) return null;
+
+    const activeByTest = new Map<string, StageAssignmentLike>(
+      assignments.filter((a) => a.is_active).map((a): [string, StageAssignmentLike] => [a.lab_test_id.toString(), a])
+    );
+    const assignmentIdByTest = new Map<string, string>(assignments.map((a): [string, string] => [a.lab_test_id.toString(), a.id.toString()]));
+    const selected = keepFormulaTests(selectStageCells(matrix.cells, activeByTest), matrix.cells);
+    if (selected.length === 0) return [];
+
+    const labTests = await db.labTest.findMany({
+      where: { id: { in: selected.map((s) => BigInt(s.cell.labTestId)) }, isActive: true },
+    });
+    const byId = new Map<string, (typeof labTests)[number]>(labTests.map((t): [string, typeof t] => [t.id.toString(), t]));
+
+    const entries: Array<{ test: EffectivePolicyTest; labOrder: number }> = [];
+    for (const s of selected) {
+      const t = byId.get(s.cell.labTestId);
+      if (!t) continue;
+      entries.push({
+        labOrder: t.displayOrder ?? 999,
+        test: {
+          id: t.id.toString(),
+          policyAssignmentId: assignmentIdByTest.get(s.cell.labTestId) ?? `matrix-${s.cell.labTestId}`,
+          testCode: t.testCode,
+          testName: t.testName,
+          resultType: t.resultType,
+          unit: t.unit,
+          resultOptions: t.resultOptions,
+          isRequired: s.isRequired,
+          isPhotoRequired: s.isPhotoRequired,
+          displayOrder: s.displayOrder,
+          isActive: true,
+          testingPoint: 'PLANT_QA',
+        },
+      });
+    }
+    entries.sort(
+      (a, b) => a.test.displayOrder - b.test.displayOrder || a.labOrder - b.labOrder || (BigInt(a.test.id) < BigInt(b.test.id) ? -1 : 1)
+    );
+    return entries.map((e) => e.test);
   }
 
   /**

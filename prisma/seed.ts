@@ -35,8 +35,6 @@ const LAB_TESTS_SEED = [
   { displayOrder: 28, testCode: 'LT-000028', testName: 'Cup Test', resultType: 'POSITIVE_NEGATIVE', unit: null, testScope: 'BOTH', isRequired: true, isActive: true },
   { displayOrder: 29, testCode: 'LT-000029', testName: 'RM Value', resultType: 'NUMERIC', unit: 'Value', testScope: 'BOTH', isRequired: true, isActive: true },
   { displayOrder: 30, testCode: 'LT-000030', testName: 'Aflatoxin Value', resultType: 'NUMERIC', unit: 'ppt', testScope: 'BOTH', isRequired: true, isActive: true },
-  { displayOrder: 31, testCode: 'SYS-SNF', testName: 'Solids-Not-Fat (SNF)', resultType: 'CALCULATED', unit: '%', testScope: 'BOTH', isRequired: false, isActive: true },
-  { displayOrder: 32, testCode: 'SYS-TS', testName: 'Total Solids (TS)', resultType: 'CALCULATED', unit: '%', testScope: 'BOTH', isRequired: false, isActive: true },
 ];
 
 // Contractors (source_type CONTRACTOR) carry the ERP code of their ledger account. ZMCCs have none.
@@ -67,12 +65,14 @@ const MC_VEHICLES_SEED = [
   { vehicleNumber: 'LES-3001', zmcc: 'ZMCC-KABIRWALA' },
 ];
 
+// Permanent roles for the tests the milk formulas depend on (found by role, never by code/name/order).
+const SYSTEM_ROLE_BY_CODE: Record<string, string> = { 'LT-000008': 'LR', 'LT-000026': 'FAT', 'LT-000009': 'SNF_FAT_RATIO' };
+
 async function main() {
   await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS lab_test_code_seq START WITH 100 INCREMENT BY 1;');
   await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS mot_journey_number_seq START WITH 1 INCREMENT BY 1;');
   await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS mot_collection_number_seq START WITH 1 INCREMENT BY 1;');
   console.log('Seeding 30 Laboratory Tests in PostgreSQL...');
-
 
   for (const test of LAB_TESTS_SEED) {
     const defaultOptions = (
@@ -94,6 +94,7 @@ async function main() {
         isActive: test.isActive,
         displayOrder: test.displayOrder,
         resultOptions: defaultOptions,
+        systemRole: SYSTEM_ROLE_BY_CODE[test.testCode] ?? null,
       },
       create: {
         testCode: test.testCode,
@@ -105,6 +106,7 @@ async function main() {
         isActive: test.isActive,
         displayOrder: test.displayOrder,
         resultOptions: defaultOptions,
+        systemRole: SYSTEM_ROLE_BY_CODE[test.testCode] ?? null,
       },
     });
   }

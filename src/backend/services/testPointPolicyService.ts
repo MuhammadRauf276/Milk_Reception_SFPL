@@ -1,9 +1,10 @@
 // Test point policy matrix: per (test, testing point) test/rule/photo modes, versioned with effective dates.
 // Records started before a change keep the version that was effective at their start (pass `at`).
 import type { ActingContext } from '@/types/acting';
-import { TEST_POINT_CODES } from '@/types/test-point-policy';
+import { TEST_POINT_CODES, normalizeTestMode } from '@/types/test-point-policy';
 import type { TestPointCode, TestPointPolicyCell } from '@/types/test-point-policy';
 import { writeAuditLog, type AuditDb } from '@/backend/core/audit';
+import { isInputRole, roleOf, pickRoleTest, lockedReason } from '@/lib/lab-test-roles';
 
 type TestMode = TestPointPolicyCell['testMode'];
 type RuleMode = TestPointPolicyCell['ruleMode'];
@@ -13,8 +14,6 @@ export const LAB_REPORT_TEST_CODE = 'LAB_REPORT_HANDWRITTEN';
 export const LAB_REPORT_TEST_NAME = 'Lab report (hand-written)';
 export const MIN_REASON_LENGTH = 5;
 
-// LR (lactometer) and Fat tests as identified in prisma/seed.ts and milkTestResolvers.
-const LR_FAT_CODES = new Set(['LT-000008', 'LT-000027', 'LT-000026', 'LR', 'FAT']);
 const DISPATCH_POINTS = new Set<TestPointCode>(['ZMCC_DISPATCH', 'CONTRACTOR_DISPATCH']);
 const EPOCH_ISO = new Date(0).toISOString();
 
@@ -59,6 +58,12 @@ export interface PolicyDb {
   labTest: { findMany(args: unknown): Promise<PolicyLabTest[]> };
   configChangeLog: { create(args: unknown): Promise<{ id: bigint }> };
   auditLog: { create(args: never): Promise<{ id: bigint }> };
+  milkTestPolicyAssignment: {
+    findUnique(args: unknown): Promise<{ id: bigint; display_order: number; is_active: boolean; is_required: boolean } | null>;
+    aggregate(args: unknown): Promise<{ _max: { display_order: number | null } }>;
+    create(args: unknown): Promise<{ id: bigint }>;
+    update(args: unknown): Promise<{ id: bigint }>;
+  };
   $transaction<T>(fn: (tx: PolicyDb) => Promise<T>): Promise<T>;
 }
 
@@ -111,7 +116,7 @@ export function defaultModes(testCode: string, point: TestPointCode): { testMode
       ? { testMode: 'COMPULSORY', ruleMode: 'APPLY', photoMode: 'REQUIRED' }
       : { testMode: 'OFF', ruleMode: 'APPLY', photoMode: 'NONE' };
   }
-  if (LR_FAT_CODES.has(code)) {
+  if (isInputRole({ testCode, testName: '' })) {
     const isContractor = point === 'CONTRACTOR_DISPATCH';
     return { testMode: 'OPTIONAL', ruleMode: 'APPLY', photoMode: isContractor ? 'OPTIONAL' : 'REQUIRED' };
   }
@@ -126,13 +131,115 @@ export function applyAssignmentToCell<T extends Pick<TestPointPolicyCell, 'testM
   cell: T,
   assignment?: { is_required: boolean; is_photo_required: boolean | null; display_order?: number | null } | null
 ): T {
-  if (!assignment || cell.source === 'DB') return cell;
+  if (!assignment) return cell;
   return {
     ...cell,
     testMode: assignment.is_required ? 'COMPULSORY' : 'OPTIONAL',
     photoMode: assignment.is_photo_required ? 'REQUIRED' : 'NONE',
     ...(assignment.display_order != null ? { displayOrder: assignment.display_order } : {}),
   };
+}
+
+/** The parts of a stage assignment row the resolver needs (older Super Admin screens still write these). */
+export interface StageAssignmentLike {
+  is_required: boolean;
+  is_photo_required?: boolean | null;
+  display_order?: number | null;
+}
+
+export interface StageTestSelection {
+  cell: TestPointPolicyCell;
+  isRequired: boolean;
+  isPhotoRequired: boolean;
+  displayOrder: number;
+  origin: 'MATRIX' | 'ASSIGNMENT';
+}
+
+/**
+ * Which tests a stage shows, and how. One rule for every stage form:
+ * 1. A saved matrix row (source DB) decides: OFF / NOT_APPLIED hides the test, COMPULSORY makes it required, anything else is optional.
+ * 2. A test with no saved matrix row falls back to its ACTIVE stage assignment (older screens wrote only that).
+ * 3. A cell nobody ever configured (source DEFAULT, no assignment) is hidden.
+ * 4. Order is always the master test order (LabTest.displayOrder); a stage assignment never reorders the form.
+ * `activeAssignments` must contain only is_active rows, keyed by labTestId.
+ */
+export function selectStageCells(
+  cells: TestPointPolicyCell[],
+  activeAssignments: Map<string, StageAssignmentLike>
+): StageTestSelection[] {
+  const out: StageTestSelection[] = [];
+  for (const cell of cells) {
+    const assignment = activeAssignments.get(cell.labTestId);
+    if (cell.source === 'DB') {
+      const mode = normalizeTestMode(cell.testMode);
+      if (mode === 'OFF') continue;
+      out.push({
+        cell,
+        isRequired: mode === 'COMPULSORY',
+        isPhotoRequired: cell.photoMode === 'REQUIRED',
+        displayOrder: cell.displayOrder,
+        origin: 'MATRIX',
+      });
+    } else if (assignment) {
+      out.push({
+        cell,
+        isRequired: assignment.is_required,
+        isPhotoRequired: Boolean(assignment.is_photo_required),
+        displayOrder: cell.displayOrder,
+        origin: 'ASSIGNMENT',
+      });
+    }
+  }
+  return out;
+}
+
+const cellSubject = (c: TestPointPolicyCell) => ({
+  id: c.labTestId,
+  testCode: c.testCode,
+  testName: c.testName,
+  systemRole: c.systemRole ?? null,
+});
+
+function selectionFromCell(cell: TestPointPolicyCell, isRequired: boolean): StageTestSelection {
+  return { cell, isRequired, isPhotoRequired: cell.photoMode === 'REQUIRED', displayOrder: cell.displayOrder, origin: 'MATRIX' };
+}
+
+/**
+ * The milk formulas (SNF, Total Solids, ratio) need LR and Fat, so every stage form carries exactly one LR test and one
+ * Fat test, and both are locked ON and COMPULSORY: Super Admin can still change their photo setting and order, not switch
+ * them off. Which test is LR / Fat comes from lab-test-roles (stored role first), never from order or id.
+ * Any other lactometer / fat test is dropped as a duplicate.
+ */
+export function keepFormulaTests(selected: StageTestSelection[], cells: TestPointPolicyCell[]): StageTestSelection[] {
+  const out = selected.filter((s) => !isInputRole(cellSubject(s.cell)));
+  for (const role of ['LR', 'FAT'] as const) {
+    const candidates = cells.filter((c) => roleOf(cellSubject(c)) === role);
+    const chosen = pickRoleTest(candidates.map(cellSubject), role);
+    if (!chosen) continue;
+    const cell = candidates.find((c) => c.labTestId === chosen.id);
+    if (!cell) continue;
+    const picked = selected.find((s) => s.cell.labTestId === cell.labTestId);
+    out.push({ ...(picked ?? selectionFromCell(cell, true)), isRequired: cell.point !== 'CONTRACTOR_DISPATCH' });
+  }
+  return out;
+}
+
+/** Cell-level version of keepFormulaTests for stage loaders that work on matrix cells: exactly one LR and one Fat cell. */
+export function withFormulaInputs(chosen: TestPointPolicyCell[], all: TestPointPolicyCell[]): TestPointPolicyCell[] {
+  const out = chosen.filter((c) => !isInputRole(cellSubject(c)));
+  for (const role of ['LR', 'FAT'] as const) {
+    const candidates = all.filter((c) => roleOf(cellSubject(c)) === role);
+    const picked = pickRoleTest(candidates.map(cellSubject), role);
+    const cell = picked ? candidates.find((c) => c.labTestId === picked.id) : undefined;
+    if (cell) out.push(chosen.find((c) => c.labTestId === cell.labTestId) ?? cell);
+  }
+  return out.sort((a, b) => a.displayOrder - b.displayOrder || Number(a.labTestId) - Number(b.labTestId));
+}
+
+/** LR and Fat are locked compulsory (Contractor dispatch keeps its own rule: tests are never compulsory there). */
+export function lockFormulaInput<T extends TestPointPolicyCell>(cell: T): T {
+  if (cell.point === 'CONTRACTOR_DISPATCH' || !isInputRole(cellSubject(cell))) return cell;
+  return { ...cell, testMode: 'COMPULSORY' };
 }
 
 function asTestMode(v: string): TestMode {
@@ -156,6 +263,22 @@ function isBetter(a: PolicyRow, b: PolicyRow): boolean {
   return isCurrentCode(a.testing_point) && !isCurrentCode(b.testing_point);
 }
 
+/**
+ * Stored roles (LR, FAT, …) by lab test id. Read on its own and tolerant of an older database, so a missing
+ * system_role column just means "no stored roles yet" and the legacy code/name match in lab-test-roles takes over.
+ */
+export async function loadSystemRoles(db: PolicyDb): Promise<Map<string, string>> {
+  try {
+    const rows = (await db.labTest.findMany({
+      where: { systemRole: { not: null } },
+      select: { id: true, systemRole: true },
+    })) as unknown as Array<{ id: bigint; systemRole: string | null }>;
+    return new Map(rows.filter((r) => r.systemRole).map((r) => [String(r.id), r.systemRole as string]));
+  } catch {
+    return new Map();
+  }
+}
+
 async function loadMatrix(db: PolicyDb, at: Date, onlyPoint?: TestPointCode) {
   const tests = await db.labTest.findMany({
     where: { isActive: true },
@@ -163,6 +286,7 @@ async function loadMatrix(db: PolicyDb, at: Date, onlyPoint?: TestPointCode) {
     select: { id: true, testCode: true, testName: true, displayOrder: true },
   });
   const rows = await db.testPointPolicy.findMany({ orderBy: [{ version: 'asc' }] });
+  const roles = await loadSystemRoles(db);
   const best = new Map<string, PolicyRow>();
   for (const row of rows) {
     if (!isEffective(row, at)) continue;
@@ -184,6 +308,7 @@ async function loadMatrix(db: PolicyDb, at: Date, onlyPoint?: TestPointCode) {
           testCode: t.testCode,
           testName: t.testName,
           displayOrder: t.displayOrder ?? 999,
+          systemRole: roles.get(String(t.id)) ?? null,
           point,
           testMode: asTestMode(row.test_mode),
           ruleMode: asRuleMode(row.rule_mode),
@@ -198,6 +323,7 @@ async function loadMatrix(db: PolicyDb, at: Date, onlyPoint?: TestPointCode) {
           testCode: t.testCode,
           testName: t.testName,
           displayOrder: t.displayOrder ?? 999,
+          systemRole: roles.get(String(t.id)) ?? null,
           point,
           ...defaultModes(t.testCode, point),
           version: 0,
@@ -221,6 +347,50 @@ export async function getEffectivePolicy(point: TestPointCode, at: Date = new Da
 }
 
 export type PolicyChange = Pick<TestPointPolicyCell, 'labTestId' | 'point' | 'testMode' | 'ruleMode' | 'photoMode'>;
+
+/**
+ * Maps a TestPointCode to the canonical testing_point string used in MilkTestPolicyAssignment.
+ * Returns null for points that don't have a MilkTestPolicyAssignment equivalent.
+ */
+function canonicalTestingPoint(point: TestPointCode): string | null {
+  switch (point) {
+    case 'PLANT_QA':
+      return 'PLANT_QA';
+    case 'MOT_SHOP':
+      return 'MOT_SHOP';
+    case 'ZMCC_LAB_MC':
+      return 'ZMCC_LAB_MC';
+    case 'ZMCC_LAB_HC':
+      return 'ZMCC_LAB_HC';
+    case 'ZMCC_DISPATCH':
+    case 'CONTRACTOR_DISPATCH':
+      return 'DISPATCH';
+    default:
+      return null;
+  }
+}
+
+/**
+ * Master "Require camera photo evidence" checkbox: apply it to every stage that already has a saved matrix row
+ * for the test, keeping each stage's test mode and rule mode. Stages with no saved row follow the stage
+ * assignment, which the caller already updates.
+ */
+export async function setPhotoRequiredForTest(
+  ctx: ActingContext,
+  labTestId: bigint | string,
+  photoRequired: boolean,
+  reason = 'Photo evidence changed on the master lab test',
+  db?: PolicyDb
+): Promise<{ applied: number }> {
+  const database = db ?? (await defaultDb());
+  const { cells } = await loadMatrix(database, new Date());
+  const wanted: PhotoMode = photoRequired ? 'REQUIRED' : 'NONE';
+  const changes: PolicyChange[] = cells
+    .filter((c) => c.labTestId === String(labTestId) && c.source === 'DB' && c.photoMode !== wanted)
+    .map((c) => ({ labTestId: c.labTestId, point: c.point, testMode: c.testMode, ruleMode: c.ruleMode, photoMode: wanted }));
+  if (changes.length === 0) return { applied: 0 };
+  return updatePolicyCells(ctx, changes, reason, database);
+}
 
 /** Super Admin matrix change: closes the current row, inserts version+1, writes change log + audit, all in one transaction. */
 export async function updatePolicyCells(
@@ -268,6 +438,16 @@ async function runUpdate(database: PolicyDb, ctx: ActingContext, changes: Policy
       const current = cellByKey.get(key);
       if (!current) throw new PolicyValidationError(`Test ${ch.labTestId} is not an active test.`);
       if (current.testMode === ch.testMode && current.ruleMode === ch.ruleMode && current.photoMode === ch.photoMode) continue;
+
+      // LR and Fat feed the milk formulas, so the real LR / Fat test cannot be switched off or made optional.
+      if (ch.point !== 'CONTRACTOR_DISPATCH' && current.testMode !== ch.testMode && normalizeTestMode(ch.testMode) !== 'COMPULSORY') {
+        const reason = lockedReason(cellSubject(current));
+        if (reason) {
+          const atPoint = cells.filter((c) => c.point === ch.point && isInputRole(cellSubject(c))).map(cellSubject);
+          const canonical = pickRoleTest(atPoint, roleOf(cellSubject(current))!);
+          if (canonical && canonical.id === current.labTestId) throw new PolicyValidationError(reason);
+        }
+      }
 
       const labTestId = BigInt(ch.labTestId);
       const related = allRows.filter((r) => r.lab_test_id === labTestId && pointsForStoredCode(r.testing_point).includes(ch.point));
@@ -324,6 +504,60 @@ async function runUpdate(database: PolicyDb, ctx: ActingContext, changes: Policy
         newValues: { point: ch.point, testCode: current.testCode, ...newValue, reason: cleanReason, configChangeLogId: String(log.id) },
         actor: ctx,
       });
+
+      // ─── Sync MilkTestPolicyAssignment ────────────────────────────────────────
+      // Keep the plant-side form connected to the super-admin matrix. Without this,
+      // changes made via the matrix dropdown (PUT /api/super-admin/test-point-policies)
+      // only updated TestPointPolicy but NOT MilkTestPolicyAssignment, which is the
+      // table that getEffectivePolicy('PLANT_QA') reads to build the plant testing form.
+      const canonicalPoint = canonicalTestingPoint(ch.point);
+      if (canonicalPoint) {
+        const isActive = ch.testMode !== 'OFF' && ch.testMode !== 'NOT_APPLIED';
+        const isRequired = ch.testMode === 'COMPULSORY';
+        const isPhotoRequired = ch.photoMode === 'REQUIRED';
+
+        const existing = await tx.milkTestPolicyAssignment.findUnique({
+          where: {
+            lab_test_id_testing_point: {
+              lab_test_id: labTestId,
+              testing_point: canonicalPoint,
+            },
+          },
+        });
+
+        if (existing) {
+          await tx.milkTestPolicyAssignment.update({
+            where: { id: existing.id },
+            data: {
+              is_active: isActive,
+              is_required: isRequired,
+              is_photo_required: isPhotoRequired,
+              updated_by_user_id: ctx.userId,
+            },
+          });
+        } else if (isActive) {
+          // Only create a new assignment when activating; don't create an inactive ghost row.
+          const maxOrderResult = await tx.milkTestPolicyAssignment.aggregate({
+            where: { testing_point: canonicalPoint },
+            _max: { display_order: true },
+          });
+          const nextOrder = (maxOrderResult._max.display_order ?? 0) + 1;
+          await tx.milkTestPolicyAssignment.create({
+            data: {
+              lab_test_id: labTestId,
+              testing_point: canonicalPoint,
+              is_active: true,
+              is_required: isRequired,
+              is_photo_required: isPhotoRequired,
+              display_order: nextOrder,
+              created_by_user_id: ctx.userId,
+              updated_by_user_id: ctx.userId,
+            },
+          });
+        }
+      }
+      // ─── End MilkTestPolicyAssignment sync ────────────────────────────────────
+
       applied += 1;
     }
     return { applied };

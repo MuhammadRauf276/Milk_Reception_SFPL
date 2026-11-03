@@ -34,7 +34,7 @@ export const MASTER_30_LAB_TESTS: MasterLabTestSpec[] = [
     unit: '°C',
     passRange: '0 – 10',
     warningHold: '—',
-    failReject: '≥ 11',
+    failReject: '< 0 or > 10',
     category: 'RELEASE',
     stages: {
       MOT_SHOP: 'COMPULSORY',
@@ -597,9 +597,6 @@ export const MASTER_30_LAB_TESTS: MasterLabTestSpec[] = [
       PLANT_QA: 'COMPULSORY',
     },
   },
-];
-
-export const SYSTEM_CALCULATED_SPECS: MasterLabTestSpec[] = [
   {
     sr: 31,
     testCode: 'SYS-SNF',
@@ -647,10 +644,9 @@ export function getMasterSpec(testCode?: string | null, testName?: string | null
   const c = (testCode || '').toUpperCase().trim();
   const n = (testName || '').toUpperCase().trim();
 
-  // 1. Direct code lookup across Master 30 and system formulas
+  // 1. Direct code lookup
   if (c) {
-    const match = MASTER_30_LAB_TESTS.find((t) => t.testCode.toUpperCase() === c) ||
-                  SYSTEM_CALCULATED_SPECS.find((t) => t.testCode.toUpperCase() === c);
+    const match = MASTER_30_LAB_TESTS.find((t) => t.testCode.toUpperCase() === c);
     if (match) return match;
   }
 
@@ -661,11 +657,10 @@ export function getMasterSpec(testCode?: string | null, testName?: string | null
     if (n.includes('SALT')) return MASTER_30_LAB_TESTS.find((t) => t.testCode === 'LT-000010');
     if (n === 'FAT' || n.startsWith('FAT') || n.includes('GERBER')) return MASTER_30_LAB_TESTS.find((t) => t.testCode === 'LT-000026');
     if (n.startsWith('LR') || n.includes('LACTOMETER')) return MASTER_30_LAB_TESTS.find((t) => t.testCode === 'LT-000008');
-    if (n === 'SNF' || n.includes('SOLIDS-NOT-FAT')) return SYSTEM_CALCULATED_SPECS.find((t) => t.testCode === 'SYS-SNF');
-    if (n === 'TS' || n.includes('TOTAL SOLIDS')) return SYSTEM_CALCULATED_SPECS.find((t) => t.testCode === 'SYS-TS');
+    if (n === 'SNF' || n.includes('SOLIDS-NOT-FAT')) return MASTER_30_LAB_TESTS.find((t) => t.testCode === 'SYS-SNF');
+    if (n === 'TS' || n.includes('TOTAL SOLIDS')) return MASTER_30_LAB_TESTS.find((t) => t.testCode === 'SYS-TS');
 
-    const byName = MASTER_30_LAB_TESTS.find((t) => t.testName.toUpperCase() === n || n.includes(t.testName.toUpperCase())) ||
-                   SYSTEM_CALCULATED_SPECS.find((t) => t.testName.toUpperCase() === n || n.includes(t.testName.toUpperCase()));
+    const byName = MASTER_30_LAB_TESTS.find((t) => t.testName.toUpperCase() === n || n.includes(t.testName.toUpperCase()));
     if (byName) return byName;
   }
 

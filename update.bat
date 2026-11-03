@@ -46,7 +46,7 @@ if %errorlevel% neq 0 (
 )
 
 REM Run Prisma migrations to ensure migration history alignment
-call node node_modules/prisma/build/index.js migrate deploy || echo [INFO] Prisma migration state up-to-date.
+call node node_modules/prisma/build/index.js migrate deploy
 
 echo.
 echo [4/6] Regenerating Prisma Client with latest schema...

@@ -80,12 +80,9 @@ function isDisallowedLabOption(rule?: { allowed?: string[] | null } | null, val?
   return !allowed.some((a) => a.trim().toUpperCase() === upper);
 }
 
+// Photo evidence follows the Super Admin policy only (no test is hard-coded to need a photo).
 function isPhotoEligible(test: LabTestDef): boolean {
-  const codeUpper = (test.testCode || '').toUpperCase();
-  const nameUpper = (test.testName || '').toUpperCase();
-  const isLR = codeUpper.includes('LR') || nameUpper.includes('LR') || nameUpper.includes('LACTOMETER');
-  const isFAT = codeUpper.includes('FAT') || nameUpper.includes('FAT') || nameUpper.includes('GERBER');
-  return isLR || isFAT || Boolean(test.isPhotoRequired);
+  return Boolean(test.isPhotoRequired);
 }
 
 function getTestOptions(test: LabTestDef): Array<{ value: string; label: string }> {
@@ -219,14 +216,11 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
     return text;
   }, [portion.plant_rejection_reason, isExecutiveUser]);
 
-  // Deterministically sort tests by master matrix display order
+  // Master test order (the catalog order Super Admin sets: 1, 2, 3 ...), never alphabetical or required-first.
   const sortedTests = useMemo(() => {
-    return [...displayableTests].sort((a, b) => {
-      const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
-      const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
-      if (orderA !== orderB) return orderA - orderB;
-      return (a.testCode || '').localeCompare(b.testCode || '');
-    });
+    return [...displayableTests].sort(
+      (a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999) || (a.testCode || '').localeCompare(b.testCode || '')
+    );
   }, [displayableTests]);
 
   const handleSubmit = async () => {
@@ -423,10 +417,10 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                       let calcVal: number | null = null;
                       if (isCalculated) {
                         if (nameUpper.includes('RATIO') || codeUpper.includes('RATIO') || codeUpper === 'LT-000009') {
-                          calcVal = autoCalculations.RATIO_SNF_FAT ?? autoCalculations['LT-000009'];
+                          calcVal = autoCalculations.RATIO_SNF_FAT ?? autoCalculations['LT-000011'];
                         } else if (nameUpper.includes('SOLIDS') || nameUpper === 'TS' || codeUpper === 'SYS-TS' || codeUpper === 'LT-TOTAL-SOLIDS') {
                           calcVal = autoCalculations.TOTAL_SOLIDS;
-                        } else if ((nameUpper.includes('SNF') && !nameUpper.includes('RATIO')) || codeUpper === 'SYS-SNF' || codeUpper === 'SNF') {
+                        } else if (nameUpper.includes('SNF') || codeUpper === 'SYS-SNF' || codeUpper === 'LT-000010') {
                           calcVal = autoCalculations.SNF_CANONICAL;
                         }
                       }
@@ -601,12 +595,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                           )}
                           {isCalculated && (
                             <p className="text-[10px] text-purple-700 font-medium flex items-center gap-1">
-                              <Calculator className="h-3 w-3" />
-                              {nameUpper.includes('RATIO') || codeUpper.includes('RATIO') || codeUpper === 'LT-000009'
-                                ? 'Auto-calculated: SNF / Fat'
-                                : nameUpper.includes('SOLIDS') || nameUpper === 'TS' || codeUpper === 'SYS-TS'
-                                ? 'Auto-calculated Total Solids: Fat + SNF'
-                                : 'Auto-calculated by Richmond formula: (LR/4) + 0.22×Fat + 0.72'}
+                              <Calculator className="h-3 w-3" /> Auto-calculated by Richmond canonical formula
                             </p>
                           )}
                           {!isCalculated && !isAppliedOnly && Boolean(isNumeric ? effectiveVal : state.textValue) && (
@@ -774,13 +763,11 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
               );
               const r = await fetch('/api/photos', { method: 'POST', body: form });
               const d = await r.json().catch(() => ({}));
-              const localPreview = URL.createObjectURL(res.blob);
-              const url = d.url || d.fileUrl || localPreview;
+              const url = d.url || d.fileUrl || res.previewUrl;
               onPhotoChange(currentTest.id, url);
             } catch (err) {
               console.error('Failed to upload photo:', err);
-              const localPreview = URL.createObjectURL(res.blob);
-              onPhotoChange(currentTest.id, localPreview);
+              onPhotoChange(currentTest.id, res.previewUrl ?? null);
             }
           }}
           onCancel={() => setCameraTest(null)}

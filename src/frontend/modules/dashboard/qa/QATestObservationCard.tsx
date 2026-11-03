@@ -104,11 +104,10 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
 
   // System rules are only enforced for compulsory tests!
   const isQualitativeFail =
-    !isAppliedOnly &&
     hasValue &&
     (Boolean(selectedOption && selectedOption.isPassing === false) || isDisallowedOption(ruleTest, state.textValue));
 
-  const isNumericFail = !isAppliedOnly && !isCalculated && hasValue && outsideRange(ruleTest, effectiveNumericVal);
+  const isNumericFail = !isCalculated && hasValue && outsideRange(ruleTest, effectiveNumericVal);
   const isOut = isNumericFail || isQualitativeFail;
   const range = sopRangeText(ruleTest);
   const sopHint = range ? `SOP ${range}` : null;
@@ -210,9 +209,9 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
                 : 'border-border focus:border-primary focus:ring-primary/20'
             )}
           />
-          {isAppliedOnly && (
-            <p className="text-[11px] text-sky-700 font-medium">
-              Not under SOP: Optional test, system rules not applied.
+          {isAppliedOnly && !hasValue && (
+            <p className="text-[11px] text-slate-500 font-medium">
+              Optional test — leave blank if not conducted.
             </p>
           )}
         </div>
@@ -243,9 +242,9 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
               );
             })}
           </div>
-          {isAppliedOnly && (
-            <p className="text-[11px] text-sky-700 font-medium">
-              Not under SOP: Optional test, system rules not applied.
+          {isAppliedOnly && !hasValue && (
+            <p className="text-[11px] text-slate-500 font-medium">
+              Optional test — leave blank if not conducted.
             </p>
           )}
         </div>
@@ -262,9 +261,9 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
               isQualitativeFail ? 'border-rose-400 bg-rose-50/40 text-rose-950' : 'border-border'
             )}
           />
-          {isAppliedOnly && (
-            <p className="text-[11px] text-sky-700 font-medium">
-              Not under SOP: Optional test, system rules not applied.
+          {isAppliedOnly && !hasValue && (
+            <p className="text-[11px] text-slate-500 font-medium">
+              Optional test — leave blank if not conducted.
             </p>
           )}
         </div>

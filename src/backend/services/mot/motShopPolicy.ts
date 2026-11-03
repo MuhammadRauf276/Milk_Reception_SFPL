@@ -1,11 +1,9 @@
 // Server loader for the MOT_SHOP decision policy: matrix cells + active release rules + lab test metadata.
 import type { Prisma } from '@prisma/client';
-import { applyAssignmentToCell, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
+import { applyAssignmentToCell, withFormulaInputs, lockFormulaInput, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
+import { isLr, isFat } from '@/lib/lab-test-roles';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import type { MotShopPolicySnapshot, MotShopPolicyTest } from '@/types/stage1-decision';
-
-const LR_CODES = new Set(['LT-000008', 'LT-000027', 'LR']);
-const FAT_CODES = new Set(['LT-000026', 'FAT']);
 
 function optionValues(raw: unknown): string[] | null {
   if (!Array.isArray(raw)) return null;
@@ -29,25 +27,18 @@ export async function loadMotShopPolicy(at: Date = new Date(), db?: unknown): Pr
     });
 
   const assignmentMap = new Map(motAssignments.map((a) => [a.lab_test_id.toString(), a]));
-  const hasAssignedLr = Array.from(assignmentMap.values()).some(
-    (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && LR_CODES.has(c.testCode.toUpperCase()))
-  );
-  const hasAssignedFat = Array.from(assignmentMap.values()).some(
-    (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && FAT_CODES.has(c.testCode.toUpperCase()))
-  );
 
-  // Filter cells:
-  // If Super Admin assigned tests for MOT_SHOP, respect is_active from assignments.
-  // If no assignments exist yet, fall back to testScope (MOT_SHOP, MOT, ALL, or LR/Fat).
-  // Only tests Super Admin assigned (and switched on in Master Matrix) for this point are shown.
-  const cells = policy.cells
-    .filter((c) => {
-      if (c.testMode === 'OFF' || c.testMode === 'NOT_APPLIED') return false;
-      const assignment = assignmentMap.get(c.labTestId);
-      if (assignment) return assignment.is_active;
-      return true;
-    })
-    .map((c) => applyAssignmentToCell(c, assignmentMap.get(c.labTestId)));
+  // 1. A test with a stage assignment follows that assignment's is_active flag.
+  // 2. Otherwise the Master Test Matrix mode decides (OFF / NOT_APPLIED hides it).
+  // 3. LR and Fat are always carried (exactly one of each, locked compulsory): the milk formulas depend on them.
+  const matrixOrAssignment = policy.cells.filter((c) => {
+    const assignment = assignmentMap.get(c.labTestId);
+    if (assignment) return assignment.is_active;
+    return c.testMode !== 'OFF' && c.testMode !== 'NOT_APPLIED';
+  });
+  const cells = withFormulaInputs(matrixOrAssignment, policy.cells)
+    .map((c) => applyAssignmentToCell(c, assignmentMap.get(c.labTestId)))
+    .map(lockFormulaInput);
 
   const ids = cells.map((c) => BigInt(c.labTestId));
   const [labTests, rules] = await Promise.all([
@@ -60,7 +51,6 @@ export async function loadMotShopPolicy(at: Date = new Date(), db?: unknown): Pr
 
   const tests: MotShopPolicyTest[] = cells.map((c) => {
     const lt = meta.get(c.labTestId);
-    const code = c.testCode.toUpperCase();
     const r = rules.get(c.labTestId);
 
     const opts = (lt?.resultOptions && Array.isArray(lt.resultOptions))
@@ -106,8 +96,8 @@ export async function loadMotShopPolicy(at: Date = new Date(), db?: unknown): Pr
     return {
       ...c,
       resultType: lt?.resultType ?? 'NUMERIC',
-      isLr: LR_CODES.has(code),
-      isFat: FAT_CODES.has(code),
+      isLr: isLr(c),
+      isFat: isFat(c),
       options: optionValues(lt?.resultOptions),
       rule,
     };

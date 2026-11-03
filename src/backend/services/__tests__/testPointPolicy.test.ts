@@ -1,16 +1,19 @@
-import test from 'node:test';
+﻿import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   getEffectivePolicy,
   getPolicyMatrix,
   mapLegacyTestPoint,
   updatePolicyCells,
+  selectStageCells,
+  keepFormulaTests, withFormulaInputs, lockFormulaInput,
   PolicyValidationError,
   PolicyConflictError,
   type PolicyDb,
   type PolicyRow,
 } from '../testPointPolicyService';
 import type { ActingContext } from '@/types/acting';
+import type { TestPointPolicyCell } from '@/types/test-point-policy';
 
 const LR = { id: BigInt(1), testCode: 'LT-000008', testName: 'LR at 20 Celsius', displayOrder: 1 };
 const FAT = { id: BigInt(2), testCode: 'LT-000026', testName: 'Fat', displayOrder: 2 };
@@ -54,6 +57,12 @@ function makeDb(initial: PolicyRow[] = []) {
         audits.push((args as { data: Record<string, unknown> }).data);
         return { id: BigInt(audits.length) };
       },
+    },
+    milkTestPolicyAssignment: {
+      async findUnique(_args: unknown) { return null; },
+      async aggregate(_args: unknown) { return { _max: { display_order: null } }; },
+      async create(_args: unknown) { return { id: BigInt(0) }; },
+      async update(_args: unknown) { return { id: BigInt(0) }; },
     },
     async $transaction<T>(fn: (tx: PolicyDb) => Promise<T>) {
       return fn(db);
@@ -223,4 +232,119 @@ test('unique violation becomes PolicyConflictError', async () => {
     updatePolicyCells(ctx, [{ labTestId: '3', point: 'PLANT_QA', testMode: 'OFF', ruleMode: 'APPLY', photoMode: 'NONE' }], 'Some reason', db),
     PolicyConflictError
   );
+});
+
+function stageCell(id: string, testMode: TestPointPolicyCell['testMode'], source: 'DB' | 'DEFAULT', photoMode: TestPointPolicyCell['photoMode'] = 'NONE'): TestPointPolicyCell {
+  return {
+    labTestId: id,
+    testCode: `T${id}`,
+    testName: `Test ${id}`,
+    displayOrder: 10,
+    point: 'PLANT_QA',
+    testMode,
+    ruleMode: 'APPLY',
+    photoMode,
+    version: source === 'DB' ? 1 : 0,
+    effectiveFrom: new Date(0).toISOString(),
+    source,
+  };
+}
+
+test('selectStageCells: saved matrix row decides required, photo and visibility', () => {
+  const cells = [
+    stageCell('1', 'COMPULSORY', 'DB', 'REQUIRED'),
+    stageCell('2', 'APPLIED', 'DB'),
+    stageCell('3', 'NOT_APPLIED', 'DB'),
+    stageCell('4', 'OFF', 'DB'),
+    stageCell('5', 'AUTO', 'DB'),
+  ];
+  const out = selectStageCells(cells, new Map());
+  assert.deepEqual(out.map((s) => s.cell.labTestId), ['1', '2', '5']);
+  assert.equal(out[0].isRequired, true);
+  assert.equal(out[0].isPhotoRequired, true);
+  assert.equal(out[1].isRequired, false);
+  assert.equal(out[2].isRequired, false);
+  assert.ok(out.every((s) => s.origin === 'MATRIX'));
+});
+
+test('selectStageCells: never-configured cells are hidden, active assignment is the fallback', () => {
+  const cells = [stageCell('1', 'OPTIONAL', 'DEFAULT'), stageCell('2', 'OPTIONAL', 'DEFAULT')];
+  const out = selectStageCells(cells, new Map([['2', { is_required: true, is_photo_required: true, display_order: 3 }]]));
+  assert.equal(out.length, 1);
+  assert.equal(out[0].cell.labTestId, '2');
+  assert.equal(out[0].origin, 'ASSIGNMENT');
+  assert.equal(out[0].isRequired, true);
+  assert.equal(out[0].isPhotoRequired, true);
+  assert.equal(out[0].displayOrder, 10); // master order, not the assignment's 3
+});
+
+test('selectStageCells: a saved OFF row beats an active assignment; the form keeps master order', () => {
+  const cells = [stageCell('1', 'OFF', 'DB'), stageCell('2', 'COMPULSORY', 'DB')];
+  const out = selectStageCells(
+    cells,
+    new Map([
+      ['1', { is_required: true, display_order: 1 }],
+      ['2', { is_required: false, display_order: 7 }],
+    ])
+  );
+  assert.deepEqual(out.map((s) => s.cell.labTestId), ['2']);
+  assert.equal(out[0].isRequired, true);
+  assert.equal(out[0].displayOrder, 10); // master order, not the assignment's 7
+});
+
+function named(id: string, code: string, name: string, testMode: TestPointPolicyCell['testMode'], source: 'DB' | 'DEFAULT'): TestPointPolicyCell {
+  return { ...stageCell(id, testMode, source), testCode: code, testName: name };
+}
+
+test('keepFormulaTests: keeps LR at 20, drops the duplicate lactometer test, adds missing Fat as compulsory', () => {
+  const lr20 = named('1', 'LT-000008', 'LR at 20 Celsius', 'COMPULSORY', 'DB');
+  const lactometer = named('2', 'LT-000027', 'Lactometer Reading', 'APPLIED', 'DB');
+  const fat = named('3', 'LT-000026', 'Fat', 'OPTIONAL', 'DEFAULT');
+  const salt = named('4', 'LT-000010', 'Salt', 'APPLIED', 'DB');
+  const cells = [lr20, lactometer, fat, salt];
+  const out = keepFormulaTests(selectStageCells(cells, new Map()), cells);
+  const ids = out.map((s) => s.cell.labTestId).sort();
+  assert.deepEqual(ids, ['1', '3', '4']);
+  assert.equal(out.find((s) => s.cell.labTestId === '1')?.isRequired, true);
+  assert.equal(out.find((s) => s.cell.labTestId === '3')?.isRequired, true);
+});
+
+test('keepFormulaTests: LR and Fat are locked ON and compulsory even when the matrix turned them off', () => {
+  const lr20 = named('1', 'LT-000008', 'LR at 20 Celsius', 'OFF', 'DB');
+  const fat = named('3', 'LT-000026', 'Fat', 'NOT_APPLIED', 'DB');
+  const cells = [lr20, fat];
+  const out = keepFormulaTests(selectStageCells(cells, new Map()), cells);
+  assert.deepEqual(out.map((s) => s.cell.labTestId).sort(), ['1', '3']);
+  assert.ok(out.every((s) => s.isRequired === true));
+});
+
+test('keepFormulaTests: LR and Fat are found by stored role, whatever their name, code, order or id', () => {
+  const lr = { ...named('90', 'MY-LACTO', 'Lactometer 20C custom', 'OPTIONAL', 'DB'), displayOrder: 5, systemRole: 'LR' } as TestPointPolicyCell;
+  const fat = { ...named('12', 'X-F', 'Butterfat', 'OFF', 'DB'), displayOrder: 99, systemRole: 'FAT' } as TestPointPolicyCell;
+  const other = named('7', 'LT-000010', 'Salt', 'COMPULSORY', 'DB');
+  const cells = [lr, fat, other];
+  const out = keepFormulaTests(selectStageCells(cells, new Map()), cells);
+  assert.deepEqual(out.map((s) => s.cell.labTestId).sort(), ['12', '7', '90']);
+  assert.ok(out.filter((s) => s.cell.labTestId !== '7').every((s) => s.isRequired));
+});
+
+test('keepFormulaTests: a renamed LR with a stored role wins over a look-alike duplicate', () => {
+  const real = { ...named('50', 'ZZ-1', 'Reading A', 'COMPULSORY', 'DB'), systemRole: 'LR' } as TestPointPolicyCell;
+  const lookAlike = named('51', 'LT-000008', 'LR at 20 Celsius', 'COMPULSORY', 'DB');
+  const fat = named('3', 'LT-000026', 'Fat', 'COMPULSORY', 'DB');
+  const cells = [real, lookAlike, fat];
+  const out = keepFormulaTests(selectStageCells(cells, new Map()), cells);
+  assert.deepEqual(out.map((s) => s.cell.labTestId).sort(), ['3', '50']);
+});
+
+test('withFormulaInputs / lockFormulaInput: one LR, one Fat, locked compulsory (not at contractor dispatch)', () => {
+  const lr = named('1', 'LT-000008', 'LR at 20 Celsius', 'OFF', 'DB');
+  const dup = named('2', 'LT-000027', 'Lactometer Reading', 'COMPULSORY', 'DB');
+  const fat = named('3', 'LT-000026', 'Fat', 'OFF', 'DB');
+  const all = [lr, dup, fat];
+  const picked = withFormulaInputs([dup], all);
+  assert.deepEqual(picked.map((c) => c.labTestId).sort(), ['1', '3']);
+  assert.ok(picked.map(lockFormulaInput).every((c) => c.testMode === 'COMPULSORY'));
+  const contractor = { ...fat, point: 'CONTRACTOR_DISPATCH' as const };
+  assert.equal(lockFormulaInput(contractor).testMode, 'OFF');
 });

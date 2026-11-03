@@ -5,6 +5,7 @@ import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentSer
 import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { MilkTestPolicyService } from '@/backend/services/milkTestPolicyService';
+import { loadSystemRoles, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { getErrorMessage } from '@/lib/errors';
 
 export async function GET(
@@ -66,24 +67,28 @@ export async function GET(
       };
     };
 
-    const effectivePlantPolicies = await MilkTestPolicyService.getEffectivePolicy('PLANT_QA');
-    const allowedTestIds = new Set(effectivePlantPolicies.map((p) => p.id));
+    // Photo rule per test comes from the live Plant QA policy (the visit snapshot does not store it).
+    // Test order and required flags also come from the same policy, in master test order.
+    const plantPolicy = await MilkTestPolicyService.getEffectivePolicy('PLANT_QA');
+    const photoRequiredById = new Map(plantPolicy.map((t) => [t.id, Boolean(t.isPhotoRequired)]));
+
+    // Stored role (LR / FAT ...) per test, so the form finds the formula inputs by role, not by name.
+    const systemRoles = await loadSystemRoles(prisma as unknown as PolicyDb);
 
     const activePlantTests = (visit.qa_session
-      ? (await getOrAssignPlantQATests(prisma, visitId))
-          .filter((a) => allowedTestIds.has(a.test_id.toString()))
-          .map((a) => ({
-            id: a.test_id.toString(),
-            testCode: a.test_code_snapshot,
-            testName: a.test_name_snapshot,
-            resultType: a.result_type_snapshot,
-            unit: a.unit_snapshot,
-            testScope: a.test_scope_snapshot || 'BOTH',
-            isRequired: a.is_required_snapshot,
-            displayOrder: a.display_order_snapshot,
-            resultOptions: a.result_options_snapshot || null,
-          }))
-      : effectivePlantPolicies.map((t) => ({
+      ? (await getOrAssignPlantQATests(prisma, visitId)).map((a) => ({
+          id: a.test_id.toString(),
+          testCode: a.test_code_snapshot,
+          testName: a.test_name_snapshot,
+          resultType: a.result_type_snapshot,
+          unit: a.unit_snapshot,
+          testScope: a.test_scope_snapshot || 'BOTH',
+          isRequired: a.is_required_snapshot,
+          isPhotoRequired: photoRequiredById.get(a.test_id.toString()) ?? false,
+          displayOrder: a.display_order_snapshot,
+          resultOptions: a.result_options_snapshot || null,
+        }))
+      : (await MilkTestPolicyService.getEffectivePolicy('PLANT_QA')).map((t) => ({
           id: t.id,
           testCode: t.testCode,
           testName: t.testName,
@@ -91,10 +96,11 @@ export async function GET(
           unit: t.unit,
           testScope: 'BOTH',
           isRequired: t.isRequired,
+          isPhotoRequired: Boolean(t.isPhotoRequired),
           displayOrder: t.displayOrder,
           resultOptions: t.resultOptions || null,
         }))
-    ).map((t) => ({ ...t, rule: ruleFor(t.id) }))
+    ).map((t) => ({ ...t, systemRole: systemRoles.get(t.id) ?? null, rule: ruleFor(t.id) }))
      .sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999) || (a.testCode || '').localeCompare(b.testCode || ''));
 
     // Determine overall visit decision summary

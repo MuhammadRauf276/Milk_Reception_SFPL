@@ -4,6 +4,8 @@ export interface LabTestDef {
   id: string;
   testCode: string;
   testName: string;
+  /** Stored role (LR, FAT, SNF…) when the database has one. */
+  systemRole?: string | null;
   resultType: 'NUMERIC' | 'TEXT' | 'QUALITATIVE' | 'BOOLEAN' | 'OK_NOT_OK' | 'POSITIVE_NEGATIVE' | 'CALCULATED' | string;
   unit: string | null;
   testScope: string;

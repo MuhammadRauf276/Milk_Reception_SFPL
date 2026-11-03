@@ -1,4 +1,4 @@
-// Live-camera photo contract: capture metadata sent with uploads, upload result, stamp band content and camera result (client-safe).
+﻿// Live-camera photo contract: capture metadata sent with uploads, upload result, stamp band content and camera result (client-safe).
 import type { TestPointCode } from './test-point-policy';
 
 export interface CapturedPhotoMeta {
@@ -50,4 +50,6 @@ export interface LiveCameraResult {
   height: number;
   capturedAt: string;
   gps: { lat: number; lng: number; accuracyM: number } | null;
+  /** Local object URL for the captured image, used as a fallback when the upload API is unavailable. */
+  previewUrl?: string;
 }

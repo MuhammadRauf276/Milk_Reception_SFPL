@@ -4,6 +4,9 @@ import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { LabTestResultOption, resultOptionsArraySchema, validatePlantQAResultOptions } from '@/lib/validations/labTest';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
+import { isLabTestRole } from '@/lib/lab-test-roles';
+import { requireRoles } from '@/backend/core/route-guards';
+import { setPhotoRequiredForTest } from '@/backend/services/testPointPolicyService';
 
 export async function PATCH(
   req: Request,
@@ -24,25 +27,50 @@ export async function PATCH(
       return NextResponse.json({ error: 'Target Lab Test record not found.' }, { status: 404 });
     }
 
-    // RESULT_TYPE IMMUTABILITY PROTECTION ENFORCEMENT
-    // Switching between NUMERIC and CALCULATED is always safe because both represent numbers/floating-point evaluations.
-    if (body.resultType && body.resultType !== targetTest.resultType) {
-      const isNumericPair = (body.resultType === 'NUMERIC' && targetTest.resultType === 'CALCULATED') ||
-                            (body.resultType === 'CALCULATED' && targetTest.resultType === 'NUMERIC');
-      if (!isNumericPair) {
-        const dispatchCount = await prisma.dispatchLabResult.count({ where: { test_id: testId } });
-        const plantCount = await prisma.plantLabResult.count({ where: { test_id: testId } });
-        const zmccCount = await prisma.zmccLabResult.count({ where: { test_id: testId } });
-        const totalCount = dispatchCount + plantCount + zmccCount;
+    // Tests the milk formulas depend on (LR, Fat, ...) are protected: they cannot be switched off or change type.
+    const storedRole = (targetTest as { systemRole?: string | null }).systemRole ?? null;
+    if (storedRole) {
+      if (body.isActive === false) {
+        return NextResponse.json({ error: `"${targetTest.testName}" is the ${storedRole} test the milk formulas use, so it cannot be deactivated.` }, { status: 400 });
+      }
+      if (body.resultType && body.resultType !== targetTest.resultType) {
+        return NextResponse.json({ error: `"${targetTest.testName}" is the ${storedRole} test the milk formulas use, so its result type cannot change.` }, { status: 400 });
+      }
+    }
 
-        if (totalCount > 0) {
-          return NextResponse.json(
-            {
-              error: `Result type change rejected. Cannot change resultType from "${targetTest.resultType}" to "${body.resultType}" for Lab Test "${targetTest.testCode}" (${targetTest.testName}) because ${totalCount} historical result records already exist.`,
-            },
-            { status: 400 }
-          );
+    // Assigning / moving a role (Super Admin only). One test per role: the role must be free, or cleared on the other test first.
+    if (body.systemRole !== undefined) {
+      if (authUser.role !== 'SUPER_ADMIN') {
+        return NextResponse.json({ error: 'Only Super Admin can assign a system role.' }, { status: 403 });
+      }
+      if (body.systemRole !== null && !isLabTestRole(body.systemRole)) {
+        return NextResponse.json({ error: 'Unknown system role.' }, { status: 400 });
+      }
+      if (body.systemRole !== null) {
+        if ((body.systemRole === 'LR' || body.systemRole === 'FAT') && targetTest.resultType !== 'NUMERIC') {
+          return NextResponse.json({ error: 'LR and Fat must be numeric tests.' }, { status: 400 });
         }
+        const holder = await prisma.labTest.findFirst({ where: { systemRole: body.systemRole, NOT: { id: testId } }, select: { testCode: true, testName: true } });
+        if (holder) {
+          return NextResponse.json({ error: `${body.systemRole} is already set on "${holder.testName}" (${holder.testCode}). Clear it there first.` }, { status: 409 });
+        }
+      }
+    }
+
+    // RESULT_TYPE IMMUTABILITY PROTECTION ENFORCEMENT
+    if (body.resultType && body.resultType !== targetTest.resultType) {
+      const dispatchCount = await prisma.dispatchLabResult.count({ where: { test_id: testId } });
+      const plantCount = await prisma.plantLabResult.count({ where: { test_id: testId } });
+      const zmccCount = await prisma.zmccLabResult.count({ where: { test_id: testId } });
+      const totalCount = dispatchCount + plantCount + zmccCount;
+
+      if (totalCount > 0) {
+        return NextResponse.json(
+          {
+            error: `Result type change rejected. Cannot change resultType from "${targetTest.resultType}" to "${body.resultType}" for Lab Test "${targetTest.testCode}" (${targetTest.testName}) because ${totalCount} historical result records already exist.`,
+          },
+          { status: 400 }
+        );
       }
     }
 
@@ -90,30 +118,17 @@ export async function PATCH(
         where: { id: testId },
         data: {
           testName: body.testName !== undefined ? body.testName.trim() : targetTest.testName,
-          resultType: body.resultType !== undefined ? body.resultType : targetTest.resultType,
           unit: body.unit !== undefined ? (body.unit ? body.unit.trim() : null) : targetTest.unit,
           testScope: body.testScope !== undefined ? body.testScope : targetTest.testScope,
           displayOrder: body.displayOrder !== undefined ? Number(body.displayOrder) : targetTest.displayOrder,
           isActive: body.isActive !== undefined ? Boolean(body.isActive) : targetTest.isActive,
           isPhotoRequired: body.isPhotoRequired !== undefined ? Boolean(body.isPhotoRequired) : targetTest.isPhotoRequired,
+          ...(body.systemRole !== undefined ? { systemRole: body.systemRole } : {}),
           resultOptions: parsedResultOptions !== undefined
             ? (parsedResultOptions === null ? Prisma.DbNull : (parsedResultOptions as unknown as Prisma.InputJsonValue))
             : undefined,
         },
       });
-
-      if (body.displayOrder !== undefined) {
-        const orderNum = Number(body.displayOrder);
-        await tx.milkTestPolicyAssignment.updateMany({
-          where: {
-            lab_test_id: testId,
-          },
-          data: {
-            display_order: orderNum,
-            updated_by_user_id: adminUser?.id ?? BigInt(1),
-          },
-        });
-      }
 
       if (body.isPhotoRequired !== undefined) {
         const photoVal = Boolean(body.isPhotoRequired);
@@ -255,47 +270,6 @@ export async function PATCH(
             }
           }
         }
-
-        // 3. Synchronize modern 6-stage test_point_policies
-        const ALL_MATRIX_POINTS = ['MOT_SHOP', 'ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'ZMCC_DISPATCH', 'CONTRACTOR_DISPATCH', 'PLANT_QA'];
-        for (const pt of ALL_MATRIX_POINTS) {
-          const isAssigned = body.assignedStages.includes(pt) || (pt === 'ZMCC_DISPATCH' && body.assignedStages.includes('DISPATCH')) || (pt === 'CONTRACTOR_DISPATCH' && body.assignedStages.includes('DISPATCH'));
-          const mode = effectiveType === 'CALCULATED'
-            ? 'AUTO'
-            : isAssigned
-            ? (effectiveRequired ? 'COMPULSORY' : 'APPLIED')
-            : 'NOT_APPLIED';
-
-          const existingPolicy = await tx.testPointPolicy.findFirst({
-            where: { lab_test_id: testId, testing_point: pt, is_active: true },
-          });
-
-          if (existingPolicy) {
-            await tx.testPointPolicy.update({
-              where: { id: existingPolicy.id },
-              data: {
-                test_mode: mode,
-                photo_mode: body.isPhotoRequired !== undefined ? (body.isPhotoRequired ? 'REQUIRED' : 'NONE') : existingPolicy.photo_mode,
-                changed_by: adminUser?.id ?? BigInt(1),
-                change_reason: `Super Admin updated test policies for ${targetTest.testCode}`,
-              },
-            });
-          } else {
-            await tx.testPointPolicy.create({
-              data: {
-                lab_test_id: testId,
-                testing_point: pt,
-                test_mode: mode,
-                rule_mode: 'APPLY',
-                photo_mode: body.isPhotoRequired ? 'REQUIRED' : 'NONE',
-                version: 1,
-                is_active: true,
-                changed_by: adminUser?.id ?? BigInt(1),
-                change_reason: `Initial policy creation on edit for ${targetTest.testCode}`,
-              },
-            });
-          }
-        }
       }
 
       await writeAuditLog(tx, {
@@ -321,6 +295,13 @@ export async function PATCH(
 
       return updated;
     });
+
+    // The stage forms read the Master Test Matrix first, so the photo checkbox must be written there too.
+    if (body.isPhotoRequired !== undefined) {
+      const guard = await requireRoles(req, ['SUPER_ADMIN', 'DATA_EXECUTIVE'], { delegation: 'none', requestedAs: null });
+      if ('response' in guard) return guard.response;
+      await setPhotoRequiredForTest(guard.acting, testId, Boolean(body.isPhotoRequired));
+    }
 
     return NextResponse.json({
       success: true,

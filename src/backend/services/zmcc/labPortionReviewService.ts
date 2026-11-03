@@ -3,7 +3,8 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@core/db';
 import { assertResourceInScope, asRoleFields } from '@/backend/core/acting-context';
 import { writeAuditLog, type AuditActor } from '@/backend/core/audit';
-import { applyAssignmentToCell, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
+import { isLr, isFat } from '@/lib/lab-test-roles';
+import { applyAssignmentToCell, withFormulaInputs, lockFormulaInput, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { recordRejectedMilkForDisposition } from '@/backend/services/rejectedMilkDispositionService';
 import {
@@ -25,8 +26,6 @@ interface ServiceResult<T> {
 
 export const LAB_PORTION_PHOTO_ENTITY = 'zmcc_lab_portion';
 
-const LR_CODES = new Set(['LT-000008', 'LT-000027', 'LR']);
-const FAT_CODES = new Set(['LT-000026', 'FAT']);
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -50,14 +49,6 @@ function optionValues(raw: unknown): string[] | null {
   return out.length > 0 ? out : null;
 }
 
-function looksLikeLr(code: string, name: string) {
-  return LR_CODES.has(code) || /\bLR\b|LACTOMETER/.test(name);
-}
-
-function looksLikeFat(code: string, name: string) {
-  return FAT_CODES.has(code) || /\bFAT\b|GERBER/.test(name);
-}
-
 /** Effective test policy for a ZMCC lab point: matrix cells (not OFF) + active RELEASE rules + lab test metadata. */
 export async function loadLabPolicy(point: LabPoint, at: Date = new Date(), db: Db = prisma): Promise<LabPolicySnapshot> {
   const policy = await getEffectivePolicy(point, at, db as unknown as PolicyDb);
@@ -69,22 +60,18 @@ export async function loadLabPolicy(point: LabPoint, at: Date = new Date(), db: 
     });
 
   const assignmentMap = new Map(stageAssignments.map((a) => [a.lab_test_id.toString(), a]));
-  const hasAssignedLr = Array.from(assignmentMap.values()).some(
-    (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && LR_CODES.has(c.testCode.toUpperCase()))
-  );
-  const hasAssignedFat = Array.from(assignmentMap.values()).some(
-    (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && FAT_CODES.has(c.testCode.toUpperCase()))
-  );
 
-  // Only tests Super Admin assigned (and switched on in Master Matrix) for this point are shown.
-  const cells = policy.cells
-    .filter((c) => {
-      if (c.testMode === 'OFF' || c.testMode === 'NOT_APPLIED') return false;
-      const assignment = assignmentMap.get(c.labTestId);
-      if (assignment) return assignment.is_active;
-      return true;
-    })
-    .map((c) => applyAssignmentToCell(c, assignmentMap.get(c.labTestId)));
+  // 1. A test with a stage assignment follows that assignment's is_active flag.
+  // 2. Otherwise the Master Test Matrix mode decides (OFF / NOT_APPLIED hides it).
+  // 3. LR and Fat are always carried (exactly one of each, locked compulsory): the milk formulas depend on them.
+  const matrixOrAssignment = policy.cells.filter((c) => {
+    const assignment = assignmentMap.get(c.labTestId);
+    if (assignment) return assignment.is_active;
+    return c.testMode !== 'OFF' && c.testMode !== 'NOT_APPLIED';
+  });
+  const cells = withFormulaInputs(matrixOrAssignment, policy.cells)
+    .map((c) => applyAssignmentToCell(c, assignmentMap.get(c.labTestId)))
+    .map(lockFormulaInput);
 
   const ids = cells.map((c) => BigInt(c.labTestId));
   const [labTests, rules] = await Promise.all([
@@ -100,8 +87,6 @@ export async function loadLabPolicy(point: LabPoint, at: Date = new Date(), db: 
 
   const tests: LabPolicyTest[] = cells.map((c) => {
     const lt = meta.get(c.labTestId);
-    const code = c.testCode.toUpperCase();
-    const name = c.testName.toUpperCase();
     const r = rules.get(c.labTestId);
 
     const opts = (lt?.resultOptions && Array.isArray(lt.resultOptions))
@@ -143,8 +128,8 @@ export async function loadLabPolicy(point: LabPoint, at: Date = new Date(), db: 
       ...c,
       resultType: lt?.resultType ?? 'NUMERIC',
       unit: lt?.unit ?? null,
-      isLr: looksLikeLr(code, name),
-      isFat: looksLikeFat(code, name),
+      isLr: isLr(c),
+      isFat: isFat(c),
       options: optionValues(lt?.resultOptions),
       resultOptions: lt?.resultOptions as any,
       rule,

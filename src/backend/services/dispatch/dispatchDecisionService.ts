@@ -5,7 +5,8 @@ import { assertResourceInScope, asRoleFields, resolveActingContext } from '@/bac
 import { writeAuditLog, type AuditActor } from '@/backend/core/audit';
 import type { User } from '@/backend/core/types';
 import { evaluateDecision } from '@/backend/services/decision/decisionRule';
-import { applyAssignmentToCell, getEffectivePolicy, LAB_REPORT_TEST_CODE, LAB_REPORT_TEST_NAME, type PolicyDb } from '@/backend/services/testPointPolicyService';
+import { isLr, isFat } from '@/lib/lab-test-roles';
+import { applyAssignmentToCell, withFormulaInputs, lockFormulaInput, getEffectivePolicy, LAB_REPORT_TEST_CODE, LAB_REPORT_TEST_NAME, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { getTankPhysicalStock } from '@/backend/services/zmccTankService';
 import { calculateDensity, calculateGrossLiters, computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
@@ -74,9 +75,6 @@ export interface DispatchPolicySnapshot {
   tests: DispatchPolicyTest[];
 }
 
-const LR_CODES = new Set(['LT-000008', 'LT-000027', 'LR']);
-const FAT_CODES = new Set(['LT-000026', 'FAT']);
-
 function optionValues(raw: unknown): string[] | null {
   if (!Array.isArray(raw)) return null;
   const out: string[] = [];
@@ -98,25 +96,17 @@ export async function loadDispatchPolicy(point: DispatchPoint, at: Date = new Da
     });
 
   const assignmentMap = new Map(dispatchAssignments.map((a) => [a.lab_test_id.toString(), a]));
-  const hasAssignedLr = Array.from(assignmentMap.values()).some(
-    (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && LR_CODES.has(c.testCode.toUpperCase()))
-  );
-  const hasAssignedFat = Array.from(assignmentMap.values()).some(
-    (a) => a.is_active && policy.cells.some((c) => c.labTestId === a.lab_test_id.toString() && FAT_CODES.has(c.testCode.toUpperCase()))
-  );
 
-  // Only tests Super Admin assigned (and switched on in Master Matrix) for this point are shown.
-  const cells = policy.cells
-    .filter((c) => {
-      const code = c.testCode.toUpperCase();
-      const isDoc = code === LAB_REPORT_TEST_CODE;
-      if (isDoc) return c.testMode !== 'OFF';
-      if (c.testMode === 'OFF' || c.testMode === 'NOT_APPLIED') return false;
-      const assignment = assignmentMap.get(c.labTestId);
-      if (assignment) return assignment.is_active;
-      return true;
-    })
+  // Only tests Super Admin assigned (and switched on) for this point are shown. LR and Fat are always carried
+  // (exactly one of each, locked compulsory) because the milk formulas need them.
+  const matrixOrAssignment = policy.cells.filter((c) => {
+    if (c.testCode.toUpperCase() === LAB_REPORT_TEST_CODE) return c.testMode !== 'OFF';
+    const assignment = assignmentMap.get(c.labTestId);
+    return assignment ? assignment.is_active : false;
+  });
+  const cells = withFormulaInputs(matrixOrAssignment, policy.cells)
     .map((c) => applyAssignmentToCell(c, assignmentMap.get(c.labTestId)))
+    .map(lockFormulaInput)
     // Workflow document (Stage 3): tests are not compulsory for a Contractor, whatever Super Admin sets
     // (the DISPATCH assignment is shared with ZMCC dispatch). Pictures and the lab report become optional too.
     .map((c) =>
@@ -146,7 +136,6 @@ export async function loadDispatchPolicy(point: DispatchPoint, at: Date = new Da
   const tests: DispatchPolicyTest[] = cells.map((c) => {
     const lt = meta.get(c.labTestId);
     const code = c.testCode.toUpperCase();
-    const name = c.testName.toUpperCase();
     const specific = pointRules.get(c.labTestId);
     const r = specific && specific.testing_point === point ? specific : legacyRules.get(c.labTestId) ?? specific;
 
@@ -185,8 +174,8 @@ export async function loadDispatchPolicy(point: DispatchPoint, at: Date = new Da
       ...c,
       resultType: lt?.resultType ?? 'NUMERIC',
       unit: lt?.unit ?? null,
-      isLr: LR_CODES.has(code) || /\bLR\b|LACTOMETER/.test(name),
-      isFat: FAT_CODES.has(code) || /\bFAT\b|GERBER/.test(name),
+      isLr: isLr(c),
+      isFat: isFat(c),
       isLabReport: code === LAB_REPORT_TEST_CODE,
       options: optionValues(lt?.resultOptions),
       rule,

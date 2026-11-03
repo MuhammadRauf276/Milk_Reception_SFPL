@@ -139,7 +139,7 @@ export async function GET(req: Request) {
       const stageAssignment = isStageFilterActive
         ? policyAssignments.find((pa) => pa.lab_test_id === t.id && pa.testing_point === stage)
         : null;
-      const spec = getMasterSpec(t.testCode, t.testName);
+      const spec = getMasterSpec(t.testCode);
       const dbPolicyMap = policiesByTestId.get(t.id.toString()) || {};
       const defaultStages = spec?.stages || {
         MOT_SHOP: 'NOT_APPLIED',
@@ -187,7 +187,7 @@ export async function GET(req: Request) {
         warningHold: rule?.warning_trigger || spec?.warningHold || '',
         failReject: rule?.decision_consequence || spec?.failReject || '',
         stageModes: finalStageModes,
-        formulaId: t.resultType === 'CALCULATED' ? (spec?.formulaId || 'SNF_CANONICAL') : null,
+        formulaId: spec?.formulaId || null,
       };
     });
 
@@ -352,29 +352,6 @@ export async function POST(req: Request) {
             is_active: true,
             version: 1,
             created_by: adminUser?.id ?? BigInt(1),
-          },
-        });
-      }
-
-      // Initialize test_point_policies across all 6 stages for immediate Master Matrix visibility
-      const ALL_MATRIX_POINTS = ['MOT_SHOP', 'ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'ZMCC_DISPATCH', 'CONTRACTOR_DISPATCH', 'PLANT_QA'];
-      for (const pt of ALL_MATRIX_POINTS) {
-        const mode = validated.resultType === 'CALCULATED'
-          ? 'AUTO'
-          : stagesToSeed.includes(pt) || (pt === 'ZMCC_DISPATCH' && stagesToSeed.includes('DISPATCH')) || (pt === 'CONTRACTOR_DISPATCH' && stagesToSeed.includes('DISPATCH'))
-          ? (validated.isRequired ? 'COMPULSORY' : 'APPLIED')
-          : 'NOT_APPLIED';
-        await tx.testPointPolicy.create({
-          data: {
-            lab_test_id: newTest.id,
-            testing_point: pt,
-            test_mode: mode,
-            rule_mode: 'APPLY',
-            photo_mode: validated.isPhotoRequired ? 'REQUIRED' : 'NONE',
-            version: 1,
-            is_active: true,
-            changed_by: adminUser?.id ?? BigInt(1),
-            change_reason: `Initial policy assignment for new test ${newTest.testCode}`,
           },
         });
       }

@@ -191,7 +191,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
       ),
   });
   const busy = mutation.isPending;
-  const effectiveType = resultType;
+  const effectiveType = isEdit ? test!.resultType : resultType;
   const isCategorical = CATEGORICAL_TYPES.includes(effectiveType);
   const isNumeric = effectiveType === 'NUMERIC';
   const isCalculated = effectiveType === 'CALCULATED';
@@ -467,7 +467,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
       warningHoldText: computedSopRules.warnText,
       failRejectText: computedSopRules.rejectText,
       acceptableOption: isCategorical ? (acceptableOption.trim() || passingOption) : computedSopRules.passText,
-      resultType: effectiveType,
+      ...(isEdit ? {} : { resultType }),
       ...(isCategorical ? { resultOptions: options } : {}),
       ...(finalMin !== null ? { minValue: finalMin } : { minValue: null }),
       ...(finalMax !== null ? { maxValue: finalMax } : { maxValue: null }),
@@ -494,9 +494,9 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
     >
       <form onSubmit={submit} className="space-y-4">
         {isEdit && (
-          <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3 text-xs text-slate-700">
+          <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-3 text-xs text-slate-700">
             <div>
-              Current Type: <strong className="tabular-nums text-slate-900">{test!.resultType}</strong>
+              Result Type: <strong className="tabular-nums text-slate-900">{test!.resultType}</strong> (Locked)
             </div>
             <div>
               Historical Records: <strong className="tabular-nums text-slate-900">{test!.historicalResultsCount}</strong>
@@ -550,39 +550,41 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <span className={fieldLabelClass}>Result Type *</span>
-            <div role="group" aria-label="Result type" className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-              {RESULT_TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  aria-pressed={resultType === t.value}
-                  onClick={() => {
-                    setResultType(t.value);
-                    if (t.value === 'POSITIVE_NEGATIVE') {
-                      setOptions([
-                        { value: 'NEGATIVE', label: 'Negative', isPassing: true },
-                        { value: 'POSITIVE', label: 'Positive', isPassing: false },
-                      ]);
-                    } else if (t.value === 'OK_NOT_OK') {
-                      setOptions([
-                        { value: 'OK', label: 'OK', isPassing: true },
-                        { value: 'NOT_OK', label: 'Not OK', isPassing: false },
-                      ]);
-                    } else if (CATEGORICAL_TYPES.includes(t.value) && options.length === 0) {
-                      setOptions(defaultOptions());
-                    }
-                  }}
-                  className={`h-11 rounded-xl border px-2 text-xs font-semibold ${
-                    resultType === t.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-white text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+          {!isEdit && (
+            <div className="sm:col-span-2">
+              <span className={fieldLabelClass}>Result Type *</span>
+              <div role="group" aria-label="Result type" className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                {RESULT_TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    aria-pressed={resultType === t.value}
+                    onClick={() => {
+                      setResultType(t.value);
+                      if (t.value === 'POSITIVE_NEGATIVE') {
+                        setOptions([
+                          { value: 'NEGATIVE', label: 'Negative', isPassing: true },
+                          { value: 'POSITIVE', label: 'Positive', isPassing: false },
+                        ]);
+                      } else if (t.value === 'OK_NOT_OK') {
+                        setOptions([
+                          { value: 'OK', label: 'OK', isPassing: true },
+                          { value: 'NOT_OK', label: 'Not OK', isPassing: false },
+                        ]);
+                      } else if (CATEGORICAL_TYPES.includes(t.value) && options.length === 0) {
+                        setOptions(defaultOptions());
+                      }
+                    }}
+                    className={`h-11 rounded-xl border px-2 text-xs font-semibold ${
+                      resultType === t.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
           <div>
             <label htmlFor="lt-unit" className={fieldLabelClass}>Unit</label>
             <input
@@ -595,7 +597,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             />
           </div>
           <div>
-            <label htmlFor="lt-order" className={fieldLabelClass}>Rank Order (Display Sequence)</label>
+            <label htmlFor="lt-order" className={fieldLabelClass}>Catalog Order</label>
             <input
               id="lt-order"
               type="number"
@@ -604,7 +606,6 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
               onChange={(e) => setDisplayOrder(Number(e.target.value))}
               className={`${fieldInputClass} tabular-nums`}
             />
-            <p className="text-[10px] text-slate-500 mt-1 font-normal">Controls exact position (#) in Master Matrix and all operational user forms.</p>
           </div>
         </div>
 

@@ -89,7 +89,17 @@ export async function getOrAssignPlantQATests(
 ): Promise<LabTestAssignment[]> {
   const existing = await getAssignedPlantQATests(db, visitId);
   if (existing) {
-    return existing;
+    // Until the first result is saved, keep the frozen list in step with the Super Admin policy.
+    const savedResults = await db.plantLabResult.count({ where: { visit_id: visitId } });
+    if (savedResults > 0) return existing;
+    const wanted = await MilkTestPolicyService.getEffectivePolicy('PLANT_QA', db);
+    const signature = (rows: Array<{ id: string; required: boolean; order: number }>) =>
+      rows.map((r) => `${r.id}:${r.required ? 1 : 0}:${r.order}`).sort().join('|');
+    const sameAsPolicy =
+      signature(existing.map((a) => ({ id: a.test_id.toString(), required: a.is_required_snapshot, order: a.display_order_snapshot }))) ===
+      signature(wanted.map((t) => ({ id: t.id, required: t.isRequired, order: t.displayOrder })));
+    if (sameAsPolicy) return existing;
+    await db.labTestAssignment.deleteMany({ where: { visit_id: visitId, workflow: 'PLANT_QA' } });
   }
 
   // Check for legacy in-progress results on this visit
