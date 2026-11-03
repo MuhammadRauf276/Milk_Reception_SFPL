@@ -206,11 +206,25 @@ test('operationalTransactions: Full plant vehicle reception lifecycle commits re
     });
 
     const completeOpId = `QA-COMP-${runId}`;
+    // DECIDE_NOW is honoured only for roles that may decide at Plant QA, so complete as one.
+    const deciderUser =
+      (await prisma.user.findFirst({ where: { role: 'QA_HEAD', is_active: true } })) ??
+      (await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } }));
+    assert.ok(deciderUser, 'Active QA_HEAD or SUPER_ADMIN required to decide');
+    const deciderToken = await createSessionToken({
+      id: deciderUser.id.toString(),
+      username: deciderUser.username,
+      name: deciderUser.full_name || deciderUser.username,
+      role: deciderUser.role as Role,
+      department: 'QA',
+      scope_type: 'DEPARTMENT',
+    });
+
     const qaCompleteReq = new Request(`http://localhost:3000/api/qa/vehicle-visits/${visit.id}/portions/${portionId}/complete`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${qaToken}`,
+        authorization: `Bearer ${deciderToken}`,
       },
       body: JSON.stringify({
         decision: 'ACCEPTED',

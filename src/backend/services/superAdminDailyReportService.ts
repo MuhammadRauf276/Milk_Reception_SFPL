@@ -417,6 +417,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
   let plantRejected = 0;
   let plantMtdEscalations = 0;
   const uniqueTankers = new Set<string>();
+  const escalationCache = new Map<string, ReturnType<typeof QaWarningEscalationService.evaluateWarningEscalation>>();
 
   for (const p of plantPortionsRaw) {
     const grossLiters = Number(p.dispatch_quantity_value || 0);
@@ -439,13 +440,20 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       plantAccepted++;
     }
 
-    // Evaluate MTD threshold
-    const escalation = await QaWarningEscalationService.evaluateWarningEscalation(
-      p.visit.procurement_source_id,
-      isWarning,
-      p.plant_decided_as_role || 'QA_LAB_ATTENDANT',
-      startOfDay
-    );
+    // Evaluate MTD threshold (same source, warning flag and role give the same answer on this day, so ask once)
+    const escalationRole = p.plant_decided_as_role || 'QA_LAB_ATTENDANT';
+    const escalationKey = `${p.visit.procurement_source_id ?? ''}|${isWarning}|${escalationRole}`;
+    let escalationPromise = escalationCache.get(escalationKey);
+    if (!escalationPromise) {
+      escalationPromise = QaWarningEscalationService.evaluateWarningEscalation(
+        p.visit.procurement_source_id,
+        isWarning,
+        escalationRole,
+        startOfDay
+      );
+      escalationCache.set(escalationKey, escalationPromise);
+    }
+    const escalation = await escalationPromise;
 
     if (escalation.requiresAvpEscalation) {
       plantMtdEscalations++;

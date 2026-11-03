@@ -158,17 +158,15 @@ export async function POST(
       return NextResponse.json({ error: 'Portion testing has already been completed and finalized.' }, { status: 409 });
     }
     let sealMatch: boolean | null = null;
-    let sealMismatchException = false;
+    // The seal check is informational at Plant QA: it is recorded, but a missing or different seal never raises an
+    // exception, never blocks a decision and never changes the system recommendation (dispatch could not always write it).
+    const sealMismatchException = false;
 
     if (portion.seal_number) {
       if (!enteredSeal) {
-        sealMismatchException = true;
         sealMatch = false;
       } else {
         sealMatch = portion.seal_number.trim().toUpperCase() === enteredSeal.toUpperCase();
-        if (!sealMatch) {
-          sealMismatchException = true;
-        }
       }
     }
 
@@ -213,7 +211,7 @@ export async function POST(
 
       if (performedResults.length === 0 && !sealMismatchException) {
         return NextResponse.json(
-          { error: 'At least 1 actual PERFORMED test result (or seal mismatch) is required to reject a portion.' },
+          { error: 'At least 1 actual PERFORMED test result is required to reject a portion.' },
           { status: 400 }
         );
       }
@@ -598,6 +596,8 @@ export async function POST(
       // 8. Determine Portion Decision & AVP-QA Review Escalation per Workflow 06 (§3 & §7)
       // True exceptions: Attendant Mismatch, Missing Photo, or Seal Mismatch
       const hasException = exceptionReasonsList.length > 0;
+      // Only the server-side role check grants the right to decide. The client-sent action
+      // 'DECIDE_NOW' is still accepted (old clients) but is ignored for anyone who may not decide.
       const isDecideNow = isSuperior;
       const fullExceptionReasons = [...exceptionReasonsList, ...ruleFailReasons.filter((r) => !exceptionReasonsList.includes(r))];
 

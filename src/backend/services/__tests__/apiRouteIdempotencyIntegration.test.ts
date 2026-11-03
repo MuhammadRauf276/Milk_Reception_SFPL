@@ -476,6 +476,8 @@ test('apiRouteIdempotencyIntegration: QA Complete canonical payload hashing, exa
       completionClientEventId: completionOpId,
       sealNumber: 'SEAL-12345',
       operationalTimestamp: new Date().toISOString(),
+      // Photos are not attached here, so this is an exception request to AVP QA, which needs remarks.
+      exceptionReason: 'Test photos not available in this idempotency test',
       results: testResults,
     };
 
@@ -595,6 +597,21 @@ test('apiRouteIdempotencyIntegration: QA Complete canonical payload hashing, exa
       });
 
     try {
+      // DECIDE_NOW is honoured only for roles that may decide at Plant QA, so complete as one.
+      const deciderUser =
+        (await prisma.user.findFirst({ where: { role: 'QA_HEAD', is_active: true } })) ??
+        (await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } }));
+      assert.ok(deciderUser, 'Active QA_HEAD or SUPER_ADMIN required to decide');
+      const deciderToken = await createSessionToken({
+        id: deciderUser.id.toString(),
+        username: deciderUser.username,
+        name: deciderUser.full_name || deciderUser.username,
+        role: deciderUser.role as Role,
+        department: 'QA',
+        scope_type: 'DEPARTMENT',
+      });
+
+
       const concPayload = {
         completionClientEventId: concOpId,
         decision: 'ACCEPTED',
@@ -607,12 +624,12 @@ test('apiRouteIdempotencyIntegration: QA Complete canonical payload hashing, exa
       const [cResA, cResB] = await Promise.all([
         qaCompleteHandler(new Request(`http://localhost:3000/api/qa/vehicle-visits/${concVisit.id}/portions/${concPortion.id}/complete`, {
           method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${deciderToken}` },
           body: JSON.stringify(concPayload),
         }), { params: Promise.resolve({ visitId: concVisit.id.toString(), portionId: concPortion.id.toString() }) }),
         qaCompleteHandler(new Request(`http://localhost:3000/api/qa/vehicle-visits/${concVisit.id}/portions/${concPortion.id}/complete`, {
           method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${deciderToken}` },
           body: JSON.stringify(concPayload),
         }), { params: Promise.resolve({ visitId: concVisit.id.toString(), portionId: concPortion.id.toString() }) }),
       ]);
@@ -640,6 +657,106 @@ test('apiRouteIdempotencyIntegration: QA Complete canonical payload hashing, exa
     await prisma.plantLabResult.deleteMany({ where: { portion_id: portion.id } });
     await prisma.auditLog.deleteMany({ where: { record_id: portion.id } });
     await prisma.notification.deleteMany({ where: { source_type: 'PLANT_QA_PORTION', source_id: portion.id.toString() } });
+    await prisma.visitPortion.deleteMany({ where: { visit_id: visit.id } });
+    await prisma.qATestingSession.deleteMany({ where: { visit_id: visit.id } });
+    await prisma.vehicleVisit.delete({ where: { id: visit.id } });
+  }
+});
+
+test('apiRouteIdempotencyIntegration: A Plant QA user sending DECIDE_NOW still gets the AVP-QA request flow', async () => {
+  assertTestDatabaseSafety();
+
+  const runId = `QADN-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+  const completionOpId = `qa-dn-${runId}`;
+
+  const qaUser = await prisma.user.findFirst({ where: { role: 'QA_LAB_ATTENDANT', is_active: true } });
+  assert.ok(qaUser);
+  const token = await createSessionToken({
+    id: qaUser.id.toString(),
+    username: qaUser.username,
+    name: qaUser.full_name || qaUser.username,
+    role: qaUser.role as Role,
+    department: 'QA',
+    scope_type: 'DEPARTMENT',
+  });
+
+  const visit = await prisma.vehicleVisit.create({
+    data: {
+      visit_number: `V-QA-${runId}`,
+      vehicle_number: `TEST-QA-${runId}`,
+      current_status: 'GATE_ENTERED',
+      operational_date: new Date(),
+    },
+  });
+  const portion = await prisma.visitPortion.create({
+    data: {
+      visit_id: visit.id,
+      portion_number: 1,
+      current_status: 'UNDER_TEST',
+      plant_decision: 'PENDING',
+      manager_review_status: 'NONE',
+    },
+  });
+  await prisma.qATestingSession.create({
+    data: {
+      visit: { connect: { id: visit.id } },
+      starter: { connect: { id: qaUser.id } },
+      started_at: new Date(Date.now() - 60000),
+      status: 'IN_PROGRESS',
+    },
+  });
+
+  const assignedTests = await getOrAssignPlantQATests(prisma, visit.id);
+  assert.ok(assignedTests.length > 0, 'Plant tests must be assigned');
+  // No photos are attached, so this portion has an exception that needs a decision.
+  const testResults = assignedTests
+    .filter((t) => t.result_type_snapshot !== 'CALCULATED')
+    .map((t) => {
+      const options = (t.result_options_snapshot as any[] | null) || null;
+      const isOptions = Array.isArray(options) && options.length > 0;
+      const selectedOption = isOptions
+        ? (options.find((o) => (o.value || o.label)?.toUpperCase() === 'OK')?.value ||
+           options.find((o) => (o.value || o.label)?.toUpperCase() === 'NEGATIVE')?.value ||
+           options[0]?.value || 'OK')
+        : null;
+      return {
+        testId: t.test_id.toString(),
+        performanceStatus: 'PERFORMED' as const,
+        numericValue: isOptions ? null : t.test_code_snapshot === 'FAT' ? 4.5 : t.test_code_snapshot === 'LR' ? 29.0 : 1.0,
+        textValue: isOptions ? selectedOption : null,
+        photoUrl: null,
+      };
+    });
+
+  try {
+    const res = await qaCompleteHandler(
+      new Request(`http://localhost:3000/api/qa/vehicle-visits/${visit.id}/portions/${portion.id}/complete`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          decision: 'ACCEPTED',
+          action: 'DECIDE_NOW',
+          completionClientEventId: completionOpId,
+          sealNumber: 'SEAL-DN-1',
+          operationalTimestamp: new Date().toISOString(),
+          exceptionReason: 'Photos not available for this test',
+          results: testResults,
+        }),
+      }),
+      { params: Promise.resolve({ visitId: visit.id.toString(), portionId: portion.id.toString() }) },
+    );
+    const body = await res.json();
+    assert.equal(res.status, 200, `Request must succeed: ${JSON.stringify(body)}`);
+
+    const after = await prisma.visitPortion.findUnique({ where: { id: portion.id } });
+    assert.equal(after?.plant_decision, 'PENDING', 'A client-sent DECIDE_NOW must not let a Plant QA user decide');
+    assert.equal(after?.manager_review_status, 'PENDING', 'Portion must go to AVP-QA review');
+    assert.equal(after?.manager_review_requested_by_user_id, qaUser.id);
+  } finally {
+    await prisma.operationIdempotencyRecord.deleteMany({ where: { key: completionOpId } });
+    await prisma.plantLabResult.deleteMany({ where: { portion_id: portion.id } });
+    await prisma.auditLog.deleteMany({ where: { record_id: portion.id } });
+    await prisma.notification.deleteMany({ where: { source_id: { startsWith: portion.id.toString() } } });
     await prisma.visitPortion.deleteMany({ where: { visit_id: visit.id } });
     await prisma.qATestingSession.deleteMany({ where: { visit_id: visit.id } });
     await prisma.vehicleVisit.delete({ where: { id: visit.id } });

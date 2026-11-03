@@ -64,16 +64,15 @@ export function useQADecisionPreview({
     // Seal row
     if (hasDispatchSeal) {
       let outcome: DecisionTestOutcome = 'NOT_TESTED';
-      let note: string | null = 'Seal verification required';
+      // Optional: the seal is shown for information and never fails or warns the decision.
+      let note: string | null = 'Seal number is optional';
       if (isSealMatched) {
         outcome = 'PASS';
         note = 'Matches dispatch seal';
       } else if (isSealMismatch) {
-        outcome = 'FAIL';
-        note = 'Mismatch with dispatch seal';
+        note = 'Different from dispatch seal (optional, does not block)';
       } else if (isSealMissing) {
-        outcome = 'WARN';
-        note = 'Seal number pending entry';
+        note = 'Seal number not entered (optional)';
       }
       rows.push({
         key: 'seal-verification',
@@ -195,11 +194,7 @@ export function useQADecisionPreview({
     const missingPhotos: string[] = [];
     const extraReasons: ExceptionReason[] = [];
 
-    // Check seal
-    if (hasDispatchSeal && !isSealMatched) {
-      ruleFailures.push('SEAL');
-      extraReasons.push('MISMATCH');
-    }
+    // The seal is optional at Plant QA: it is not part of the system decision.
 
     // Check tests
     for (const test of requiredManualPlantTests) {

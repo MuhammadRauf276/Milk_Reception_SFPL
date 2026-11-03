@@ -19,10 +19,10 @@ export async function GET(req: Request) {
     },
   });
 
-  const allowedRoles = ['QA_HEAD', 'SUPER_ADMIN'];
+  const allowedRoles = ['QA_HEAD', 'SUPER_ADMIN', 'DATA_EXECUTIVE'];
   if (!dbUser || !allowedRoles.includes(dbUser.role)) {
     return NextResponse.json(
-      { error: 'Unauthorized. QA Head or Super Admin role required.' },
+      { error: 'Unauthorized. QA Head, Super Admin or Data Executive role required.' },
       { status: 403 }
     );
   }
@@ -37,7 +37,6 @@ export async function GET(req: Request) {
           include: {
             procurement_source: true,
             gate_log: true,
-            weight_tickets: true,
           },
         },
         plant_lab_results: {

@@ -184,7 +184,6 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
       if (r.startsWith('RULE_FAIL:')) reasons.push(`${nameOf(r.slice('RULE_FAIL:'.length))} is outside the allowed limit.`);
       else if (r === 'MISSING_FIELD') reasons.push('A required test result is missing.');
     }
-    if (hasDispatchSeal && !isSealMatched) reasons.push('Tanker seal does not match the dispatch seal.');
     for (const t of requiredManualPlantTests) {
       if (t.isPhotoRequired && !isCalculatedTest(t as LabTestDef & { formulaId?: unknown }) && !photoStates[t.id]) {
         reasons.push(`Test photo is required for ${t.testName}.`);
@@ -368,7 +367,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                     </div>
                     <div>
                       <label htmlFor="qa-entered-seal" className="text-[10px] uppercase font-bold text-slate-500 block">
-                        Observed Tanker Seal *
+                        Observed Tanker Seal (optional)
                       </label>
                       <input
                         id="qa-entered-seal"

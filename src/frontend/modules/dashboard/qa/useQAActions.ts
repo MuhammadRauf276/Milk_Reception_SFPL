@@ -228,10 +228,9 @@ export function useQAActions({
 
     const resultsPayload = buildResultsPayload(portionPhotos, true, effectiveReason);
 
-    // At least one PERFORMED result is required to reject (unless seal mismatch)
+    // At least one PERFORMED result is required to reject (the seal is optional and is not rejection evidence)
     const performedResults = resultsPayload.filter((r) => r.performanceStatus === 'PERFORMED');
-    const sealMismatch = currentPortion.seal_number && enteredSeal && enteredSeal.toUpperCase() !== currentPortion.seal_number.toUpperCase();
-    if (performedResults.length === 0 && !sealMismatch) {
+    if (performedResults.length === 0) {
       toast.showError(
         'At least one PERFORMED Plant QA test result must be recorded before rejecting. NOT_PERFORMED alone is not sufficient rejection evidence.',
         'Validation Error'

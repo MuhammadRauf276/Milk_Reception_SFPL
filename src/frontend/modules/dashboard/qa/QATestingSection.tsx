@@ -585,7 +585,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               </div>
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-700 block uppercase">
-                  Received seal *
+                  Received seal (optional)
                 </label>
                 <input
                   type="text"
