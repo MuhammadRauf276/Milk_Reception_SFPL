@@ -36,6 +36,8 @@ import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { evaluate3ZoneTest } from '@/lib/sop-evaluation';
 import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
+import { buildSopChipText } from '@/lib/sop-chip';
+import { useServerDraft } from '@/frontend/hooks/useServerDraft';
 
 export interface LabPortionsPanelProps {
   sessionId: string;
@@ -79,17 +81,15 @@ function portionBadge(p: LabPortionView) {
   return <DecisionStatusBadge status="EXCEPTION" label="Testing" />;
 }
 
-function fmt(n: number): string {
-  return Number.isInteger(n) ? n.toFixed(1) : String(n);
-}
-
-function labSopRangeText(t: LabPolicyTest): string | null {
-  const min = t.rule?.min ?? null;
-  const max = t.rule?.max ?? null;
-  if (min != null && max != null) return `${fmt(min)} – ${fmt(max)}`;
-  if (min != null) return `≥ ${fmt(min)}`;
-  if (max != null) return `≤ ${fmt(max)}`;
-  return null;
+function labSopChipText(t: LabPolicyTest): string | null {
+  const accepted = t.rule?.allowed?.length ? t.rule.allowed : t.rule?.acceptableOption ? [t.rule.acceptableOption] : null;
+  return buildSopChipText({
+    resultType: t.resultType,
+    min: t.rule?.min,
+    max: t.rule?.max,
+    allowed: accepted,
+    options: t.resultOptions?.length ? t.resultOptions : t.options,
+  });
 }
 
 function outsideLabRange(t: LabPolicyTest, raw: string): boolean {
@@ -444,6 +444,48 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
   const modalPreview = modalPortion && modalOpen ? preview(modalPortion) : null;
   const modalPhotos = modalPortion ? photos[modalPortion.id] ?? {} : {};
 
+  // Private server draft of the open portion: the same login continues on any device. The decision is never drafted.
+  const draftPortionId = modalOpen && modalPortion ? modalPortion.id : null;
+  const draftContent = useMemo(
+    () => ({
+      values: { ...(modalDraft?.values ?? {}), qty: modalDraft?.quantity ?? '', unit: modalDraft?.unit ?? 'KG' },
+      photos: Object.fromEntries(Object.entries(modalPhotos).filter(([, id]) => Boolean(id))) as Record<string, string>,
+      remarks: modalDraft?.remarks ?? '',
+    }),
+    [modalDraft, modalPhotos]
+  );
+  useServerDraft({
+    // Same rule as labPointForArrival on the server: MOT milk is tested at MC, direct supplier milk at HC.
+    formType: arrivalType === 'MOT' ? 'ZMCC_LAB_MC' : 'ZMCC_LAB_HC',
+    scopeId: sessionId,
+    portionKey: draftPortionId,
+    content: draftContent,
+    onRemote: (remote, reason) => {
+      if (!draftPortionId) return;
+      const take = (local: string | undefined, incoming: string | undefined) =>
+        incoming && incoming.trim() !== '' && (reason === 'stale' || !local || local.trim() === '') ? incoming : local ?? '';
+      setDrafts((d) => {
+        const cur = d[draftPortionId] ?? emptyDraft();
+        const { qty, unit, ...rest } = remote.values;
+        const values = { ...cur.values };
+        for (const [k, v] of Object.entries(rest)) values[k] = take(values[k], v);
+        return {
+          ...d,
+          [draftPortionId]: {
+            ...cur,
+            values,
+            quantity: take(cur.quantity, qty),
+            unit: (unit === 'LITER' || unit === 'KG') && !cur.quantity ? unit : cur.unit,
+            remarks: take(cur.remarks, remote.remarks),
+          },
+        };
+      });
+      if (Object.keys(remote.photos).length > 0) {
+        setPhotos((p) => ({ ...p, [draftPortionId]: { ...remote.photos, ...(p[draftPortionId] ?? {}) } }));
+      }
+    },
+  });
+
   return (
     <section className="space-y-4" aria-label="Laboratory tests">
       {/* Session Header Card */}
@@ -781,7 +823,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                       {sortedTests.map((t) => {
                         const v = modalDraft.values[t.labTestId] ?? '';
                         const photoBusy = busy === `photo:${modalPortion.id}:${t.labTestId}`;
-                        const range = labSopRangeText(t);
+                        const chip = labSopChipText(t);
                         const isNumeric = t.resultType === 'NUMERIC';
                         const isCalc = t.labTestId in modalCalculated;
                         const calcValue = isCalc ? modalCalculated[t.labTestId] : null;
@@ -828,7 +870,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                                   >
                                     {isCalc ? 'Auto' : isRequired ? 'Required *' : 'Optional'}
                                   </span>
-                                  {range && (
+                                  {chip && (
                                     <span
                                       className={cn(
                                         'rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums',
@@ -839,7 +881,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                                             : 'border-slate-300 bg-slate-50 text-slate-700'
                                       )}
                                     >
-                                      SOP {range}
+                                      {chip}
                                     </span>
                                   )}
                                 </div>

@@ -41,6 +41,8 @@ import {
 import { DispatchSummaryPanel } from './components/DispatchSummaryPanel';
 import { toPhotoState, type DispatchPhotoState } from './components/DispatchPolicyTests';
 import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
+import { useServerDraft, type DraftFormType } from '@/frontend/hooks/useServerDraft';
+import { applyDraftToExtras, applyDraftToPortions, dispatchDraftFromForm } from '@/lib/dispatch-draft';
 import { isCalculatedTest } from '@/lib/lab-test-roles';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { LabReportPhotoCard } from './components/LabReportPhotoCard';
@@ -634,6 +636,22 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       isSaved: false,
     };
   };
+
+  // Private server draft of the typed values, so this login continues on any device. Never a result.
+  const draftFormType: DraftFormType = isContractorSource ? 'CONTRACTOR_DISPATCH' : effectiveSource?.source_type === 'ZMCC' ? 'ZMCC_DISPATCH' : 'DISPATCH';
+  useServerDraft({
+    formType: draftFormType,
+    scopeId: result ? null : draftVisitId,
+    portionKey: 'form',
+    content: dispatchDraftFromForm(portions, { vehicleNumber, rawMilkDispatchNoteNumber, remarks: dispatchTestingRemarks }),
+    onRemote: (content, reason) => {
+      setPortions((prev) => applyDraftToPortions(prev, content, reason, createFreshPortion));
+      const extras = applyDraftToExtras({ vehicleNumber, rawMilkDispatchNoteNumber, remarks: dispatchTestingRemarks }, content, reason);
+      setVehicleNumber(extras.vehicleNumber);
+      setRawMilkDispatchNoteNumber(extras.rawMilkDispatchNoteNumber);
+      setDispatchTestingRemarks(extras.remarks);
+    },
+  });
 
   // --- Handlers for Vehicle Quantity ---
   const handleVehicleNumberChange = (val: string) => {

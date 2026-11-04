@@ -4,7 +4,7 @@ import React from 'react';
 import { AlertTriangle, Calculator } from 'lucide-react';
 import { LiveCameraCapture } from '@/components/camera/LiveCameraCapture';
 import { cn } from '@/lib/utils';
-import { isDisallowedOption, outsideRange, sopRangeText } from '@/frontend/modules/forms/components/DispatchPolicyTests';
+import { isDisallowedOption, outsideRange, sopChipText, sopRangeText } from '@/frontend/modules/forms/components/DispatchPolicyTests';
 import type { DispatchPolicyTest } from '@/frontend/modules/forms/dispatchDecisionPreview';
 import type { LabTestDef, TestInputState, TestPerformanceStatus } from './qaTypes';
 
@@ -100,7 +100,11 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
     ? test.resultOptions.find((o) => o.value === state.textValue)
     : null;
 
-  const ruleTest = { rule: test.rule ?? null } as DispatchPolicyTest;
+  const ruleTest = {
+    rule: test.rule ?? null,
+    resultType: test.resultType,
+    options: Array.isArray(test.resultOptions) ? test.resultOptions.map((o) => o.value) : null,
+  } as DispatchPolicyTest;
 
   // System rules are only enforced for compulsory tests!
   const isQualitativeFail =
@@ -110,7 +114,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
   const isNumericFail = !isCalculated && hasValue && outsideRange(ruleTest, effectiveNumericVal);
   const isOut = isNumericFail || isQualitativeFail;
   const range = sopRangeText(ruleTest);
-  const sopHint = range ? `SOP ${range}` : null;
+  const sopHint = sopChipText(ruleTest);
 
   return (
     <div
@@ -273,7 +277,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
       {isOut && (
         <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-700">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-          {isQualitativeFail ? 'Does not meet the acceptable specification.' : `Outside SOP range${sopHint ? ` (${sopHint.replace('SOP ', '')})` : ''}`}
+          {isQualitativeFail ? 'Does not meet the acceptable specification.' : `Outside SOP range${range ? ` (${range})` : ''}`}
         </p>
       )}
 

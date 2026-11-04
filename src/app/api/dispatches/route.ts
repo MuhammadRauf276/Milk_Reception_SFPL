@@ -36,6 +36,7 @@ import {
   type DispatchSourceFailure,
 } from '@/backend/services/dispatchScope';
 import { writeAuditLog } from '@/backend/core/audit';
+import { alreadyDecidedMessage, clearDraftsForScope, DISPATCH_DRAFT_TYPES, type DraftDb } from '@/backend/services/formDraftService';
 import { pickVehicleLrFat } from '@/backend/services/dispatch/vehicleQuality';
 import {
   buildDispatchDecision,
@@ -417,9 +418,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Referenced dispatch draft visit not found.', code: 'DRAFT_NOT_FOUND' }, { status: 404 });
     }
     if (existingVisit.current_status !== 'DRAFT_DISPATCH' && existingVisit.current_status !== 'REOPENED') {
+      const submitter = existingVisit.dispatch_submitted_by
+        ? await prisma.user.findUnique({ where: { id: existingVisit.dispatch_submitted_by }, select: { full_name: true, username: true } })
+        : null;
       return NextResponse.json(
-        { error: `Cannot submit dispatch for vehicle in status ${existingVisit.current_status}.`, code: 'DRAFT_ALREADY_PROGRESSED' },
-        { status: 400 }
+        {
+          error: alreadyDecidedMessage(submitter ? submitter.full_name || submitter.username : null, existingVisit.dispatch_submitted_at),
+          code: 'DRAFT_ALREADY_PROGRESSED',
+        },
+        { status: 409 }
       );
     }
     // Validate draft ownership
@@ -944,6 +951,9 @@ export async function POST(req: Request) {
 
       return { visit, createdPortions, tankRemainingLiters };
     });
+
+    // The dispatch is final now: the typed-values draft is no longer needed.
+    await clearDraftsForScope(prisma as unknown as DraftDb, DISPATCH_DRAFT_TYPES, result.visit.id).catch(() => undefined);
 
     return NextResponse.json(
       {

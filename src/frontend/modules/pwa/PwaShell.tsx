@@ -1,12 +1,17 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useReducer, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Download, ShieldAlert, Loader2 } from 'lucide-react';
 import { useIsClient, useOnlineStatus } from '@/frontend/hooks/useOnlineStatus';
 import { startSyncEngine } from './syncEngine';
 import { getActiveOwnerUserId, getDeviceUid, requestPersistentStorage, setActiveOwnerUserId } from './deviceIdentity';
 import { logDeviceEvent, startDeviceDiary } from './diary';
+import {
+  AUTH_BANNER_AUTO_DISMISS_MS,
+  authBannerReducer,
+  INITIAL_AUTH_BANNER_STATE,
+} from './authBanner';
 
 // Once per page load (React StrictMode runs effects twice in development).
 let appOpenLogged = false;
@@ -29,7 +34,8 @@ export function PwaShell() {
   const online = useOnlineStatus();
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [authExpired, setAuthExpired] = useState(false);
+  const [authBanner, dispatchAuthBanner] = useReducer(authBannerReducer, INITIAL_AUTH_BANNER_STATE);
+  const authExpired = authBanner.visible;
   const [userId, setUserId] = useState<string | null>(null);
 
   // Who is signed in: /api/auth/me when reachable, else the last known user on this phone.
@@ -92,10 +98,21 @@ export function PwaShell() {
   useEffect(() => {
     const sync = (event: Event) =>
       setSyncing(Boolean((event as CustomEvent<{ syncing?: boolean }>).detail?.syncing));
-    const expired = () => setAuthExpired(true);
+    const expired = () => dispatchAuthBanner({ type: 'EXPIRED', online: navigator.onLine });
+    const signedIn = () => dispatchAuthBanner({ type: 'SIGNED_IN' });
+    // Connection is back: clear the message only if the session turns out to be valid.
+    const backOnline = () => {
+      fetch('/api/auth/me', { credentials: 'same-origin' })
+        .then((res) => {
+          if (res.ok) dispatchAuthBanner({ type: 'ONLINE_SESSION_VALID' });
+        })
+        .catch(() => undefined);
+    };
 
     window.addEventListener('milk-sync-state', sync);
     window.addEventListener('milk-auth-expired', expired);
+    window.addEventListener('milk-auth-restored', signedIn);
+    window.addEventListener('online', backOnline);
 
     const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     const isLoginPage = typeof window !== 'undefined' && isPublicPath(window.location.pathname);
@@ -169,9 +186,18 @@ export function PwaShell() {
     return () => {
       window.removeEventListener('milk-sync-state', sync);
       window.removeEventListener('milk-auth-expired', expired);
+      window.removeEventListener('milk-auth-restored', signedIn);
+      window.removeEventListener('online', backOnline);
       window.removeEventListener('milk-user-logged-out', handleLoggedOut);
     };
   }, []);
+
+  // Auto-hide so the message never lingers.
+  useEffect(() => {
+    if (!authBanner.visible) return;
+    const t = setTimeout(() => dispatchAuthBanner({ type: 'TIMEOUT' }), AUTH_BANNER_AUTO_DISMISS_MS);
+    return () => clearTimeout(t);
+  }, [authBanner.visible]);
 
   if (!mounted) {
     return null;
@@ -184,6 +210,15 @@ export function PwaShell() {
       tone: 'border-rose-200 bg-rose-50 text-rose-900',
       icon: <ShieldAlert className="h-4 w-4 text-rose-600" />,
       message: 'Your session expired while offline. Reconnect and sign in again before saving data.',
+      action: (
+        <button
+          type="button"
+          className="shrink-0 rounded-md bg-rose-100 min-h-11 px-3 py-1 text-xs font-medium transition-colors hover:bg-rose-200"
+          onClick={() => dispatchAuthBanner({ type: 'DISMISSED' })}
+        >
+          Dismiss
+        </button>
+      ),
     });
   }
   if (syncing) {

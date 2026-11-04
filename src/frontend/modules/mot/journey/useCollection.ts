@@ -14,6 +14,8 @@ import {
   type CachedAvailableSource,
 } from '../offlineStore';
 import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
+import { useServerDraft } from '@/frontend/hooks/useServerDraft';
+import { applyMotDraft, motDraftFromForm } from '@/lib/mot-draft';
 import { getErrorMessage } from '@/lib/errors';
 import { acquireRobustGps } from '@/lib/gps';
 import type { TrackedPoint } from '@/lib/gpsTracker';
@@ -87,6 +89,25 @@ export function useCollection({
   const [submittingCollection, setSubmittingCollection] = useState(false);
   // Immediate post-collection WhatsApp receipt
   const [completedReceiptModal, setCompletedReceiptModal] = useState<CompletedReceipt | null>(null);
+
+  // Private server draft of the typed values, so this login continues on any device. Never a result.
+  useServerDraft({
+    formType: 'MOT_SHOP',
+    scopeId: activeStop && !isCovering ? String(activeStop.id) : null,
+    portionKey: 'form',
+    content: motDraftFromForm({ shopRmrNumber, quantity, unit, lr, fat, notes, selectedSourceId, testValues }),
+    onRemote: (content, reason) => {
+      const next = applyMotDraft({ shopRmrNumber, quantity, unit, lr, fat, notes, selectedSourceId, testValues }, content, reason);
+      setShopRmrNumber(next.shopRmrNumber);
+      setQuantity(next.quantity);
+      setUnit(next.unit);
+      setLr(next.lr);
+      setFat(next.fat);
+      setNotes(next.notes);
+      setSelectedSourceId(next.selectedSourceId);
+      setTestValues(next.testValues);
+    },
+  });
 
   // MOT_SHOP test rules: fetched with TanStack Query and cached (offline-first)
   const policyQuery = useQuery({

@@ -25,6 +25,7 @@ import type { LabTestDef, TestInputState, VisitDetail, VisitDetailPortion } from
 import type { DecisionResult, PersonDecision } from '@/types/stage1-decision';
 import type { User } from '@core/types';
 import { evaluateAllCalculatedTests } from '@/lib/calculated-tests';
+import { buildSopChipText } from '@/lib/sop-chip';
 import { pickRoleTest, isCalculatedTest, calculatedValueFor } from '@/lib/lab-test-roles';
 
 export interface QATestDrawerProps {
@@ -52,19 +53,6 @@ export interface QATestDrawerProps {
   onRejectSubmit?: () => Promise<void> | void;
   isSubmitting: boolean;
   currentUser?: User | null;
-}
-
-function fmt(n: number): string {
-  return Number.isInteger(n) ? n.toFixed(1) : String(n);
-}
-
-function labSopRangeText(rule?: { min?: number | null; max?: number | null } | null): string | null {
-  const min = rule?.min ?? null;
-  const max = rule?.max ?? null;
-  if (min != null && max != null) return `${fmt(min)} – ${fmt(max)}`;
-  if (min != null) return `≥ ${fmt(min)}`;
-  if (max != null) return `≤ ${fmt(max)}`;
-  return null;
 }
 
 function outsideLabRange(rule?: { min?: number | null; max?: number | null } | null, raw?: string): boolean {
@@ -407,9 +395,15 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                       const isCalculated = isCalculatedTest(t as LabTestDef & { formulaId?: unknown });
                       const calcVal: number | null = isCalculated ? calculatedValueFor(t, autoCalculations) : null;
 
-                      const range = labSopRangeText(t.rule);
                       const isNumeric = t.resultType === 'NUMERIC';
                       const options = getTestOptions(t);
+                      const chip = buildSopChipText({
+                        resultType: t.resultType,
+                        min: t.rule?.min,
+                        max: t.rule?.max,
+                        allowed: t.rule?.allowed,
+                        options: Array.isArray(t.resultOptions) ? t.resultOptions : null,
+                      });
                       const hasOptions = !isNumeric && options.length > 0;
                       const isAppliedOnly = !t.isRequired;
 
@@ -463,7 +457,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                                 >
                                   {isCalculated ? 'AUTO' : t.isRequired ? 'REQUIRED *' : 'OPTIONAL'}
                                 </span>
-                                {range && (
+                                {chip && (
                                   <span
                                     className={cn(
                                       'rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums',
@@ -472,7 +466,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                                         : 'border-slate-300 bg-slate-50 text-slate-700'
                                     )}
                                   >
-                                    SOP {range}
+                                    {chip}
                                   </span>
                                 )}
                               </div>

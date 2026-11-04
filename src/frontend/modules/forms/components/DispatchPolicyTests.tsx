@@ -11,6 +11,7 @@ import { LiveCamera } from '@/components/camera/LiveCamera';
 import { cn } from '@/lib/utils';
 import type { LiveCameraResult } from '@/types/captured-photo';
 import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
+import { buildSopChipText, numericSopRange } from '@/lib/sop-chip';
 import { isNumericTest, type DispatchPolicyTest } from '../dispatchDecisionPreview';
 
 export interface DispatchPhotoState {
@@ -52,18 +53,14 @@ export interface DispatchPolicyTestsProps {
 const INPUT_CLASS =
   'w-full min-w-0 min-h-[48px] rounded-xl border bg-subtle p-2.5 text-base font-semibold focus:ring-2 focus:ring-primary focus:outline-none';
 
-function fmt(n: number): string {
-  return Number.isInteger(n) ? n.toFixed(1) : String(n);
-}
-
 /** SOP range text from policy rule, e.g. "26.0 – 32.0", "≥ 3.5". */
 export function sopRangeText(t: DispatchPolicyTest): string | null {
-  const min = t.rule?.min ?? null;
-  const max = t.rule?.max ?? null;
-  if (min != null && max != null) return `${fmt(min)} – ${fmt(max)}`;
-  if (min != null) return `≥ ${fmt(min)}`;
-  if (max != null) return `≤ ${fmt(max)}`;
-  return null;
+  return numericSopRange({ resultType: t.resultType, min: t.rule?.min, max: t.rule?.max });
+}
+
+/** Chip text: numeric range for numeric tests, accepted option for categorical ones, null when not configured. */
+export function sopChipText(t: DispatchPolicyTest): string | null {
+  return buildSopChipText({ resultType: t.resultType, min: t.rule?.min, max: t.rule?.max, allowed: t.rule?.allowed, options: t.options });
 }
 
 export function outsideRange(t: DispatchPolicyTest, raw: string): boolean {
@@ -163,6 +160,7 @@ export function DispatchPolicyTests({
     const err = errors[t.labTestId];
     const inputId = `${idPrefix}-${t.labTestId}`;
     const range = sopRangeText(t);
+    const chip = sopChipText(t);
     const numeric = isNumericTest(t);
     const isOut = numeric ? outsideRange(t, v.numericValue) : isDisallowedOption(t, v.textValue);
     const isCalc = t.labTestId in calculated;
@@ -189,14 +187,14 @@ export function DispatchPolicyTests({
               {isCalc ? 'Auto' : isRequired ? 'Required *' : 'Optional'}
             </span>
           </label>
-          {range && (
+          {chip && (
             <span
               className={cn(
                 'rounded-full border px-2.5 py-0.5 text-xs font-semibold tabular-nums',
                 isOut ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-slate-300 bg-slate-50 text-slate-700'
               )}
             >
-              SOP {range}
+              {chip}
             </span>
           )}
         </div>

@@ -16,6 +16,7 @@ import type { QualityEvaluationSnapshot } from '@/backend/services/qualityRuleSe
 import { toJsonInput } from '@/lib/json';
 import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
+import { alreadyDecidedMessage, clearDraftsForPortion, type DraftDb } from '@/backend/services/formDraftService';
 import { MilkTestPolicyService } from '@/backend/services/milkTestPolicyService';
 import { recordRejectedMilkForDisposition } from '@/backend/services/rejectedMilkDispositionService';
 import { QaWarningEscalationService } from '@/backend/services/qaWarningEscalationService';
@@ -155,7 +156,13 @@ export async function POST(
           plantDecision: portion.plant_decision,
         });
       }
-      return NextResponse.json({ error: 'Portion testing has already been completed and finalized.' }, { status: 409 });
+      const decider = portion.plant_decided_by
+        ? await prisma.user.findUnique({ where: { id: portion.plant_decided_by }, select: { full_name: true, username: true } })
+        : null;
+      return NextResponse.json(
+        { error: alreadyDecidedMessage(decider ? decider.full_name || decider.username : null, portion.plant_decided_at) },
+        { status: 409 }
+      );
     }
     let sealMatch: boolean | null = null;
     // The seal check is informational at Plant QA: it is recorded, but a missing or different seal never raises an
@@ -315,7 +322,13 @@ export async function POST(
             message: `Portion #${lockedPortion.portion_number} testing completed. Decision: ${lockedPortion.plant_decision}.`,
           };
         }
-        throw new RouteError('Portion testing has already been completed and finalized.', 409);
+        const decider = lockedPortion.plant_decided_by
+          ? await tx.user.findUnique({ where: { id: lockedPortion.plant_decided_by }, select: { full_name: true, username: true } })
+          : null;
+        throw new RouteError(
+          alreadyDecidedMessage(decider ? decider.full_name || decider.username : null, lockedPortion.plant_decided_at),
+          409
+        );
       }
 
       lockedPortionRecord = lockedPortion;
@@ -800,6 +813,9 @@ export async function POST(
 
       return responseData;
     }, { timeout: 30000, maxWait: 15000 });
+
+    // The portion is decided: nobody's draft for it is needed. Best effort, never affects the response.
+    await clearDraftsForPortion(prisma as unknown as DraftDb, 'PLANT_QA', visitId, portionId.toString()).catch(() => 0);
 
     return NextResponse.json(result);
   } catch (error) {

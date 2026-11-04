@@ -11,6 +11,7 @@ import { AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { LiveCamera } from '@/components/camera/LiveCamera';
 import { PhotoEvidenceSlot } from '@/frontend/modules/shared/photo/PhotoEvidenceSlot';
 import { cn } from '@/lib/utils';
+import { buildSopChipText, numericSopRange } from '@/lib/sop-chip';
 import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 import type { LiveCameraResult } from '@/types/captured-photo';
 import type { MotShopPolicySnapshot, MotShopPolicyTest } from '@/types/stage1-decision';
@@ -56,18 +57,14 @@ function isNumeric(t: MotShopPolicyTest): boolean {
   return rt === '' || rt === 'NUMERIC' || rt === 'NUMBER' || rt === 'DECIMAL';
 }
 
-function fmt(n: number): string {
-  return Number.isInteger(n) ? n.toFixed(1) : String(n);
-}
-
 /** SOP range text from the policy rule, e.g. "26.0 – 32.0", "≥ 3.5". */
 export function sopRangeText(t: MotShopPolicyTest): string | null {
-  const min = t.rule?.min ?? null;
-  const max = t.rule?.max ?? null;
-  if (min != null && max != null) return `${fmt(min)} – ${fmt(max)}`;
-  if (min != null) return `≥ ${fmt(min)}`;
-  if (max != null) return `≤ ${fmt(max)}`;
-  return null;
+  return numericSopRange({ resultType: t.resultType, min: t.rule?.min, max: t.rule?.max });
+}
+
+/** Chip text: numeric range for numeric tests, accepted option for categorical ones, null when not configured. */
+export function sopChipText(t: MotShopPolicyTest): string | null {
+  return buildSopChipText({ resultType: t.resultType, min: t.rule?.min, max: t.rule?.max, allowed: t.rule?.allowed, options: t.options });
 }
 
 function outsideRange(t: MotShopPolicyTest, raw: string): boolean {
@@ -126,7 +123,7 @@ export function MotShopTestsStep({
     const isCalc = t.labTestId in calculated;
     const calcValue = isCalc ? calculated[t.labTestId] : null;
     const required = !isCalc && (t.testMode === 'COMPULSORY' || t.isLr || t.isFat);
-    const range = sopRangeText(t);
+    const chip = sopChipText(t);
     const text = values[t.labTestId]?.text ?? '';
     const numeric = isNumeric(t);
     const out = numeric && outsideRange(t, valueOf(t));
@@ -146,14 +143,14 @@ export function MotShopTestsStep({
               {isCalc ? 'Auto' : required ? 'Required *' : 'Optional'}
             </span>
           </label>
-          {range && (
+          {chip && (
             <span
               className={cn(
                 'rounded-full border px-2.5 py-1 text-xs font-semibold tabular-nums',
                 out ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-slate-300 bg-slate-50 text-slate-700'
               )}
             >
-              SOP {range}
+              {chip}
             </span>
           )}
         </div>

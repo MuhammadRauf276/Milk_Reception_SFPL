@@ -1,5 +1,6 @@
 import { prisma } from '@core/db';
 import { writeAuditLog } from '@/backend/core/audit';
+import { clearDraftsForPortion, type DraftDb } from '@/backend/services/formDraftService';
 import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
 import {
   Prisma,
@@ -3240,6 +3241,9 @@ export async function submitShopCollection(
             : {}),
         },
       });
+
+      // The shop is recorded: nobody's typed-values draft for this stop is needed any more.
+      await clearDraftsForPortion(tx as unknown as DraftDb, 'MOT_SHOP', stop.id, 'form');
 
       // Create initial MotJourneyLocation (MOT_DEVICE)
       await tx.motJourneyLocation.create({

@@ -1,4 +1,5 @@
 import { prisma } from '@core/db';
+import { clearDraftsForPortion, type DraftDb } from '@/backend/services/formDraftService';
 import { writeAuditLog } from '@/backend/core/audit';
 import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
 import { canActAs } from '@/backend/core/roles/hierarchy';
@@ -3897,6 +3898,8 @@ export async function submitPortionDecision(
       const fresh = await tx.zmccLabPortion.findUniqueOrThrow({ where: { id: portionId } });
       return { portion: toPortionView(fresh, photoMap.get(portionId.toString()) ?? []), route: decision.route, rollUp };
     });
+    // Decided: nobody's draft for this portion is needed any more. Best effort, never affects the result.
+    await clearDraftsForPortion(prisma as unknown as DraftDb, labPointForArrival(portion.lab_session.arrival_type), sessionId, portionId.toString()).catch(() => 0);
     return { status: 200, data: result };
   } catch (err) {
     if (getErrorMessage(err) === 'VERSION_CONFLICT') return { status: 409, error: 'This portion was changed by someone else. Reload.' };

@@ -134,6 +134,7 @@ model User {
   gate_wash_checked_by             GateLog[]                 @relation("GateWashedCheckedBy")
   visit_portions_first_weighed     VisitPortion[]            @relation("VisitPortionFirstWeighedBy")
   visit_portions_second_weighed    VisitPortion[]            @relation("VisitPortionSecondWeighedBy")
+  form_drafts                      FormDraft[]
 
   @@map("users")
 }
@@ -2252,4 +2253,25 @@ model OperationIdempotencyRecord {
 
   @@index([operation_type, entity_id])
   @@map("operation_idempotency_record")
+}
+
+/// Private work-in-progress for a stage form: field values and photo ids only, never a result or decision.
+/// One row per user per portion, so the same user sees it on every device and two users never share one.
+model FormDraft {
+  id          BigInt   @id @default(autoincrement())
+  form_type   String   @map("form_type") @db.VarChar(40)
+  scope_id    BigInt   @map("scope_id") // visit id, or lab session id for the ZMCC lab forms
+  portion_key String   @map("portion_key") @db.VarChar(64) // portion row id (stable when portions are renumbered)
+  user_id     BigInt   @map("user_id")
+  content     Json
+  version     Int      @default(1)
+  created_at  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at  DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([form_type, scope_id, portion_key, user_id])
+  @@index([form_type, scope_id, portion_key])
+  @@index([updated_at])
+  @@map("form_draft")
 }

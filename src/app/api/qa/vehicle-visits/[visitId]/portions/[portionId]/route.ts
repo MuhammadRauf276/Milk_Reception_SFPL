@@ -4,6 +4,7 @@ import { prisma } from '@core/db';
 import { canActAs } from '@/backend/core/roles/hierarchy';
 import { getErrorMessage } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
+import { planRenumberAfterRemoval } from '@/lib/portion-numbering';
 
 export async function DELETE(
   req: Request,
@@ -90,6 +91,28 @@ export async function DELETE(
         where: { id: portionId },
       });
 
+      // Close the numbering gap so the screen shows Portion 1..N. Only when no later portion
+      // already has a decision, weight or seal check (those numbers are referenced elsewhere).
+      const plan = planRenumberAfterRemoval(
+        visit.portions.map((p) => ({
+          id: p.id.toString(),
+          portionNumber: p.portion_number,
+          locked:
+            (p.plant_decision !== null && p.plant_decision !== 'PENDING') ||
+            p.manager_review_status !== 'NONE' ||
+            p.seal_checked_at !== null ||
+            p.first_weight_at !== null ||
+            p.second_weight_at !== null,
+        })),
+        portionId.toString(),
+      );
+      for (const u of plan.updates) {
+        await tx.visitPortion.update({
+          where: { id: BigInt(u.id) },
+          data: { portion_number: u.portionNumber },
+        });
+      }
+
       if (visit.qa_session && visit.qa_session.status === 'IN_PROGRESS') {
         await tx.qATestingSessionEvent.create({
           data: {
@@ -110,6 +133,7 @@ export async function DELETE(
           visit_id: visitId.toString(),
           portion_number: portion.portion_number,
         },
+        newValues: { renumbered: plan.updates.map((u) => ({ portion_id: u.id, portion_number: u.portionNumber })) },
         actor: auditActorFromUser(dbUser),
       });
     });

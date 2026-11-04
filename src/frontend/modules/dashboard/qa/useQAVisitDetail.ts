@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useEffectEvent } from 'react';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { apiClient } from '@/frontend/lib/apiClient';
 import { useToast } from '@/frontend/context/ToastContext';
+import { useServerDraft } from '@/frontend/hooks/useServerDraft';
 import { getErrorMessage } from '@/lib/errors';
 import type { PersonDecision } from '@/types/stage1-decision';
 import {
@@ -236,6 +237,58 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
 
   // Active portion scoped accessors
   const activePortion = visitDetail?.portions?.[activePortionIndex] ?? null;
+
+  // Private server draft of the open portion: the same login continues on any device. Never a result.
+  const draftPortionId = activePortion?.id ?? null;
+  const draftContent = useMemo(() => {
+    const values: Record<string, string> = {};
+    for (const [testId, st] of Object.entries(testInputs)) {
+      values[`n:${testId}`] = st.numericValue;
+      values[`t:${testId}`] = st.textValue;
+      values[`r:${testId}`] = st.notPerformedReason;
+      if (st.performanceStatus !== 'PERFORMED') values[`s:${testId}`] = st.performanceStatus;
+    }
+    if (draftPortionId) values.seal = enteredSealMap[draftPortionId] ?? '';
+    const photos: Record<string, string> = {};
+    for (const [testId, url] of Object.entries(draftPortionId ? photoStatesMap[draftPortionId] ?? {} : {})) {
+      if (url && !url.startsWith('data:') && url.length <= 2000) photos[testId] = url;
+    }
+    return { values, photos, remarks: draftPortionId ? decisionRemarksMap[draftPortionId] ?? '' : '' };
+  }, [testInputs, enteredSealMap, photoStatesMap, decisionRemarksMap, draftPortionId]);
+  useServerDraft({
+    formType: 'PLANT_QA',
+    scopeId: visitDetail?.id ?? null,
+    portionKey: draftPortionId,
+    content: draftContent,
+    onRemote: (remote, reason) => {
+      if (!draftPortionId) return;
+      // Opening: fill only what is still empty. Another device saved: its typed values win, nothing typed here is blanked.
+      const take = (local: string | undefined, incoming: string | undefined) =>
+        incoming && incoming.trim() !== '' && (reason === 'stale' || !local || local.trim() === '') ? incoming : local ?? '';
+      setTestInputs((prev) => {
+        const next = { ...prev };
+        for (const testId of Object.keys(prev)) {
+          const cur = prev[testId];
+          next[testId] = {
+            performanceStatus: (remote.values[`s:${testId}`] as TestPerformanceStatus) || cur.performanceStatus,
+            notPerformedReason: take(cur.notPerformedReason, remote.values[`r:${testId}`]),
+            numericValue: take(cur.numericValue, remote.values[`n:${testId}`]),
+            textValue: take(cur.textValue, remote.values[`t:${testId}`]),
+          };
+        }
+        return next;
+      });
+      if (remote.values.seal) {
+        setEnteredSealMap((prev) => ({ ...prev, [draftPortionId]: take(prev[draftPortionId], remote.values.seal) }));
+      }
+      if (Object.keys(remote.photos).length > 0) {
+        setPhotoStatesMap((prev) => ({ ...prev, [draftPortionId]: { ...remote.photos, ...(prev[draftPortionId] ?? {}) } }));
+      }
+      if (remote.remarks) {
+        setDecisionRemarksMap((prev) => ({ ...prev, [draftPortionId]: take(prev[draftPortionId], remote.remarks) }));
+      }
+    },
+  });
 
   return {
     visitDetail,
