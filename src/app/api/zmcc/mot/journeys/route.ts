@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import { resolveMotAuth, listMotJourneys } from '@/backend/services/motService';
 
 export async function GET(req: Request) {
-  const { auth, errorResponse } = await resolveMotAuth(req, 'READ');
+  // A superior covering MOT work picks a journey here. A real MOT is still refused, by its own role.
+  const coveringMot = req.headers.get('x-acting-as') === 'MOT';
+  const { auth, errorResponse } = await resolveMotAuth(req, 'READ', coveringMot ? { requestedAs: null } : {});
   if (errorResponse) {
     return NextResponse.json({ error: errorResponse.error }, { status: errorResponse.status });
   }

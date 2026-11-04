@@ -34,6 +34,8 @@ const ALLOWED_PATCH_FIELDS = new Set([
   'procurementSourceId',
   'isActive',
   'email',
+  'phone',
+  'cnic',
 ]);
 
 export async function PATCH(

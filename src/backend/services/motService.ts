@@ -2,3 +2,4 @@
 // All MOT services are being migrated to src/backend/services/mot/
 export * from './mot/motCore';
 export * from './mot/motFleetService';
+export * from './mot/motVehicleChangeService';

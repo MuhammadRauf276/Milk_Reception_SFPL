@@ -677,10 +677,10 @@ export async function getArrivalsQueue(
   // MOT arrivals condition:
   // 1. zmcc_id matches (if scoped)
   // 2. lab_session is null OR lab_session.status = 'IN_PROGRESS'
-  // 3. journey.status = 'COMPLETED'
+  // 3. the vehicle has reached the ZMCC (COMPLETED on journeys from before ARRIVED existed)
   const motWhere: Prisma.ZmccMotArrivalWhereInput = {
     ...(effectiveZmccId ? { zmcc_id: effectiveZmccId } : {}),
-    journey: { status: 'COMPLETED' },
+    journey: { status: { in: ['ARRIVED', 'COMPLETED'] } },
     OR: [
       { lab_session: null },
       { lab_session: { status: 'IN_PROGRESS' } },
@@ -868,8 +868,8 @@ export async function startOrResumeSession(
       return { status: 403, error: 'Forbidden. Arrival record belongs to another ZMCC.' };
     }
 
-    if (arrival.journey.status !== 'COMPLETED') {
-      return { status: 400, error: 'Cannot start lab session for MOT journey that is not COMPLETED.' };
+    if (arrival.journey.status !== 'ARRIVED' && arrival.journey.status !== 'COMPLETED') {
+      return { status: 400, error: 'Cannot start lab session before the MOT journey reaches the ZMCC.' };
     }
 
     arrivalZmccId = arrival.zmcc_id;

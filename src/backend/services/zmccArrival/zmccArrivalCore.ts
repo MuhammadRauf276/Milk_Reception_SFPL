@@ -1,3 +1,4 @@
+import { clearHandledNotifications } from '@/backend/services/notificationService';
 import { writeAuditLog } from '@/backend/core/audit';
 import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
 import { prisma } from '@core/db';
@@ -936,7 +937,8 @@ export async function submitMotArrival(
       await tx.motJourney.update({
         where: { id: journey.id },
         data: {
-          status: 'COMPLETED',
+          // Still open: it ends when the lab rejects everything or the final receipt is given.
+          status: 'ARRIVED',
           ended_at: arrivalDate,
           final_mot_gps_at: latestDeviceLoc ? latestDeviceLoc.device_recorded_at : null,
           final_mot_latitude: latestDeviceLoc ? latestDeviceLoc.latitude : null,
@@ -944,6 +946,8 @@ export async function submitMotArrival(
           final_mot_gps_accuracy: latestDeviceLoc ? latestDeviceLoc.gps_accuracy : null,
         },
       });
+
+      await clearHandledNotifications(tx, ['MOT_RETURNING_TO_ZMCC'], journey.id);
 
       const summary = await createInitialMotJourneySummaryTx(tx, journey.id, arrivalDate, auth.actorUserId);
 
@@ -968,11 +972,11 @@ export async function submitMotArrival(
       await writeAuditLog(tx, {
         tableName: 'mot_journey',
         recordId: journey.id,
-        action: 'MOT_JOURNEY_COMPLETED_AT_ZMCC',
-        oldValues: { status: 'COLLECTING' },
+        action: 'MOT_JOURNEY_ARRIVED_AT_ZMCC',
+        oldValues: { status: journey.status },
         newValues: {
           journey_number: journey.journey_number,
-          status: 'COMPLETED',
+          status: 'ARRIVED',
           ended_at: arrivalDate.toISOString(),
           zmcc_token: zmccToken,
           arrival_id: arrival.id.toString(),
@@ -984,7 +988,7 @@ export async function submitMotArrival(
         ...arrival,
         journey: {
           ...arrival.journey,
-          status: 'COMPLETED',
+          status: 'ARRIVED',
           ended_at: arrivalDate,
           summary,
         },

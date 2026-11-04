@@ -41,8 +41,8 @@ export function useMotJourney(currentUser: User | null, isOnline: boolean) {
 
   // Journeys a superior can cover (collecting, own ZMCC; the server applies scope).
   const coverUrl = zmccId
-    ? `/api/zmcc/mot/journeys?status=COLLECTING&zmcc_id=${encodeURIComponent(zmccId)}`
-    : '/api/zmcc/mot/journeys?status=COLLECTING';
+    ? `/api/zmcc/mot/journeys?status=COLLECTING,RETURNING&zmcc_id=${encodeURIComponent(zmccId)}`
+    : '/api/zmcc/mot/journeys?status=COLLECTING,RETURNING';
 
   const coverQuery = useQuery({
     queryKey: ['mot', 'cover-journeys', zmccId],
@@ -67,6 +67,7 @@ export function useMotJourney(currentUser: User | null, isOnline: boolean) {
     setJourney,
     loadingJourney,
     journeyError,
+    reloadJourney: loadCurrentJourney,
     isCovering,
     coverJourneyId,
     coverJourneys,

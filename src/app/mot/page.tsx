@@ -1,7 +1,10 @@
 'use client';
 
+import { GpsRequiredCard } from '@/frontend/modules/mot/journey/GpsRequiredCard';
+import { LIVE_CONFIG_CHANGED_EVENT } from '@/frontend/modules/shared/LiveUpdateWatcher';
+import { useVehicleRequests, VehicleProblem } from '@/frontend/modules/mot/journey/VehicleProblem';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { User } from '@core/types';
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
@@ -41,6 +44,7 @@ export default function MotPage() {
     setJourney,
     loadingJourney,
     journeyError,
+    reloadJourney,
     isCovering,
     coverJourneyId,
     coverJourneys,
@@ -48,7 +52,7 @@ export default function MotPage() {
     selectCoverJourney,
   } = useMotJourney(currentUser, isOnline);
 
-  const { deviceGps, latestFixRef, gpsBadge } = useMotGpsStream({
+  const { deviceGps, latestFixRef, gpsBadge, gpsProblem, retryGps } = useMotGpsStream({
     journeyId: journey?.id ?? null,
     recordRoute: (journey?.status === 'COLLECTING' || journey?.status === 'RETURNING') && currentUser?.role === 'MOT',
     refreshUnsynced: sync.refreshUnsynced,
@@ -74,6 +78,62 @@ export default function MotPage() {
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [isSubmittingReturn, setIsSubmittingReturn] = useState(false);
 
+  // Keep the journey current. Never while work is waiting to send: the server copy does not have it yet.
+  const unsyncedCount = sync.unsyncedCount;
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'hidden' || !navigator.onLine || unsyncedCount > 0) return;
+      void reloadJourney();
+    };
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener(LIVE_CONFIG_CHANGED_EVENT, refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener(LIVE_CONFIG_CHANGED_EVENT, refresh);
+    };
+  }, [reloadJourney, unsyncedCount]);
+
+  // A waiting vehicle request holds the work back until the manager answers.
+  const vehicleRequests = useVehicleRequests(journey?.id ?? null, isCovering, isCovering ? COVER_HEADERS : undefined);
+  const workLocked = vehicleRequests.pending && journey?.status === 'COLLECTING';
+  const [vehicleSheetOpen, setVehicleSheetOpen] = useState(false);
+  const openCollection = collection.handleOpenCollectionModal;
+  const guardedRecord = useCallback<typeof openCollection>(
+    async (...args) => {
+      if (workLocked) {
+        toast.error('Wait for the Zonal Manager to answer your request.');
+        return;
+      }
+      return openCollection(...args);
+    },
+    [workLocked, openCollection]
+  );
+
+  // "Send Request" in the sidebar lands here with ?request=vehicle.
+  const searchParams = useSearchParams();
+  const wantsVehicleRequest = searchParams?.get('request') === 'vehicle';
+  useEffect(() => {
+    if (!wantsVehicleRequest || loadingJourney) return;
+    if (!journey || journey.status !== 'COLLECTING') {
+      toast.error('You can send a request only during an active journey.');
+    } else if (workLocked) {
+      toast.error('Your request is already with the Zonal Manager.');
+    } else {
+      setVehicleSheetOpen(true);
+    }
+    const next = new URLSearchParams(searchParams?.toString() ?? '');
+    next.delete('request');
+    const query = next.toString();
+    router.replace(query ? `/mot?${query}` : '/mot');
+  }, [wantsVehicleRequest, loadingJourney, journey, workLocked, searchParams, router]);
+
+  const handleVehicleChanged = useCallback(
+    (vehicle: { id: string; vehicle_number: string }) => {
+      setJourney((prev) => (prev ? { ...prev, mot_vehicle: vehicle } : prev));
+    },
+    [setJourney]
+  );
+
   const handleReturnToPhe = useCallback(async () => {
     if (!journey) return;
     setIsSubmittingReturn(true);
@@ -96,7 +156,7 @@ export default function MotPage() {
         setJourney((prev) => (prev ? { ...prev, status: 'RETURNING' } : null));
       }
       setReturnModalOpen(false);
-      toast.success('Journey marked as returning to PHE. PHE operator has been notified.');
+      toast.success('Returning to PHE. The PHE Operator, MDO and Zonal Manager have been told.');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to return to PHE.';
       toast.error(msg);
@@ -207,6 +267,8 @@ export default function MotPage() {
               onManualSync={sync.triggerSync}
             />
 
+            {!isCovering && gpsProblem && <GpsRequiredCard problem={gpsProblem} onRetry={retryGps} />}
+
             {isCovering && (
               <CoveringBanner
                 role={currentUser.role}
@@ -218,7 +280,18 @@ export default function MotPage() {
               />
             )}
 
-            {isCovering && (!isOnline || !coverJourneyId) ? null : loadingJourney ? (
+            {journey && (
+              <VehicleProblem
+                journey={journey}
+                vehicleRequests={vehicleRequests}
+                coverHeaders={isCovering ? COVER_HEADERS : undefined}
+                open={vehicleSheetOpen}
+                onClose={() => setVehicleSheetOpen(false)}
+                onVehicleChanged={handleVehicleChanged}
+              />
+            )}
+
+            {(isCovering && (!isOnline || !coverJourneyId)) || (!isCovering && gpsProblem) ? null : loadingJourney ? (
               <div className="p-12 text-center text-xs font-semibold text-slate-500 bg-card rounded-xl border border-border">
                 <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
                 Checking assigned route…
@@ -236,7 +309,7 @@ export default function MotPage() {
                 <h2 className="text-base font-semibold text-foreground">No active journey</h2>
                 <button
                   type="button"
-                  onClick={() => router.refresh()}
+                  onClick={() => void reloadJourney()}
                   className="min-h-11 px-4 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
                 >
                   Check again
@@ -246,15 +319,17 @@ export default function MotPage() {
               <div className="space-y-4">
                 <JourneyCard
                   journey={journey}
-                  onRecord={collection.handleOpenCollectionModal}
-                  onReturnToPhe={() => setReturnModalOpen(true)}
+                  onRecord={guardedRecord}
+                  locked={workLocked}
+                  onReturnToPhe={workLocked ? undefined : () => setReturnModalOpen(true)}
                   onResumeCollection={handleResumeCollection}
                   isSubmittingReturn={isSubmittingReturn}
                 />
                 <StopsList
                   journey={journey}
                   deviceGps={deviceGps}
-                  onRecord={collection.handleOpenCollectionModal}
+                  locked={workLocked}
+                  onRecord={guardedRecord}
                   onRequestShop={() => setShopRequestOpen(true)}
                 />
               </div>

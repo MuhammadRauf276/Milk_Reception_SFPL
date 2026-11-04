@@ -2187,6 +2187,22 @@ export async function updateShop(
       },
     });
 
+    const shopArea = await tx.zmccArea.findUnique({
+      where: { id: targetAreaId },
+      select: { area_code: true, name: true },
+    });
+    await tx.motJourneyStop.updateMany({
+      where: { shop_id: shopId, status: 'PENDING', journey: { status: { in: ['COLLECTING', 'RETURNING'] } } },
+      data: {
+        shop_name_snapshot: shop_name,
+        owner_name_snapshot: owner_name,
+        phone_number_snapshot: phone_number,
+        planned_latitude_snapshot: targetLat,
+        planned_longitude_snapshot: targetLng,
+        ...(shopArea ? { area_code_snapshot: shopArea.area_code, area_name_snapshot: shopArea.name } : {}),
+      },
+    });
+
     await writeAuditLog(tx, {
       tableName: 'zmcc_shop',
       recordId: shopId,

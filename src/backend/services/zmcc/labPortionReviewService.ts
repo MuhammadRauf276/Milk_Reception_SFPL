@@ -1,4 +1,5 @@
 // Stage 2 (ZMCC lab) portions: policy loader, portion view, vehicle roll-up / auto-close, and the Zonal Manager exception review.
+import { closeArrivedJourneyTx } from '@/backend/services/mot/motJourneyClose';
 import { clearHandledNotifications } from '@/backend/services/notificationService';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@core/db';
@@ -271,6 +272,7 @@ export async function rollUpLabSessionTx(tx: Tx, sessionId: bigint, ctx: ActingC
 
   if (sum.allRejected && session.mot_arrival) {
     // Stage 2 ends with "journey closed": nothing left to weigh or put in the tank.
+    await closeArrivedJourneyTx(tx, session.mot_arrival.journey_id);
     await writeAuditLog(tx, {
       tableName: 'mot_journey',
       recordId: session.mot_arrival.journey_id,

@@ -135,6 +135,8 @@ const ALLOWED_POST_FIELDS = new Set([
   'password',
   'role',
   'procurementSourceId',
+  'phone',
+  'cnic',
 ]);
 
 export async function POST(req: Request) {

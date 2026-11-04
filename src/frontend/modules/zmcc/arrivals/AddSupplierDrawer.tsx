@@ -1,5 +1,6 @@
 'use client';
 
+import { typePakistaniCnic, typePakistaniMobile } from '@/lib/pakistani-identity';
 import React from 'react';
 import { UserPlus } from 'lucide-react';
 import { ZmccDrawer, ZmccErrorBanner, zmccGhostBtn, zmccInputClass, zmccLabelClass } from '../shared/ZmccDrawer';
@@ -34,7 +35,7 @@ export const AddSupplierDrawer: React.FC<{ s: ReturnType<typeof useAddHcSupplier
           type="text"
           required
           value={s.phone}
-          onChange={(e) => s.setPhone(e.target.value)}
+          onChange={(e) => s.setPhone(typePakistaniMobile(e.target.value))}
           placeholder="e.g. 0300-1234567"
           maxLength={50}
           className={`${zmccInputClass} tabular-nums`}
@@ -46,7 +47,7 @@ export const AddSupplierDrawer: React.FC<{ s: ReturnType<typeof useAddHcSupplier
           type="text"
           required
           value={s.cnic}
-          onChange={(e) => s.setCnic(e.target.value)}
+          onChange={(e) => s.setCnic(typePakistaniCnic(e.target.value))}
           placeholder="e.g. 35201-1234567-1"
           maxLength={50}
           className={`${zmccInputClass} tabular-nums`}

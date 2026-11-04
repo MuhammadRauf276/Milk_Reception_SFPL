@@ -1,5 +1,6 @@
 'use client';
 
+import { typePakistaniCnic, typePakistaniMobile } from '@/lib/pakistani-identity';
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -38,8 +39,8 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState(user?.email || '');
   const [name, setName] = useState(user?.name || '');
-  const [phone, setPhone] = useState(user?.phone || '');
-  const [cnic, setCnic] = useState(user?.cnic || '');
+  const [phone, setPhone] = useState(typePakistaniMobile(user?.phone || ''));
+  const [cnic, setCnic] = useState(typePakistaniCnic(user?.cnic || ''));
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<CreatableRole>(initialRole);
   const [sourceId, setSourceId] = useState(user?.procurementSourceId || '');
@@ -229,9 +230,9 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               inputMode="tel"
               required={!isEdit}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(typePakistaniMobile(e.target.value))}
               className={fieldInputClass}
-              placeholder="e.g. 03001234567"
+              placeholder="e.g. 0300-1234567"
               disabled={busy}
             />
           </div>
@@ -245,7 +246,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               inputMode="numeric"
               required={!isEdit}
               value={cnic}
-              onChange={(e) => setCnic(e.target.value)}
+              onChange={(e) => setCnic(typePakistaniCnic(e.target.value))}
               className={fieldInputClass}
               placeholder="e.g. 35201-1234567-1"
               disabled={busy}

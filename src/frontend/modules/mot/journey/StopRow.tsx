@@ -9,9 +9,10 @@ interface Props {
   stop: StopDetail;
   journey: CurrentJourney;
   onRecord: (stop: StopDetail) => void;
+  locked?: boolean;
 }
 
-export const StopRow = React.memo(function StopRow({ stop, journey, onRecord }: Props) {
+export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, locked = false }: Props) {
   const shopName = stop.shop_name || stop.shop?.shop_name || 'Shop';
   const shopCode = stop.shop_code || stop.shop?.shop_code || '—';
   const ownerName = stop.owner_name || stop.shop?.owner_name || '—';
@@ -122,13 +123,13 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord }: 
 
                             {isPending && (
                               <div className="flex items-center space-x-2 self-end sm:self-center">
-                                <button
+                                {!locked && (<button
                                   type="button"
                                   onClick={() => onRecord(stop)}
                                   className="min-h-[44px] px-3.5 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-primary"
                                 >
                                   Record Collection
-                                </button>
+                                </button>)}
                               </div>
                             )}
                           </div>

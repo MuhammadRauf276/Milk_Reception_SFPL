@@ -1,3 +1,4 @@
+import { closeArrivedJourneyTx } from '@/backend/services/mot/motJourneyClose';
 import { clearHandledNotifications } from '@/backend/services/notificationService';
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
@@ -408,6 +409,11 @@ export async function decideCloseWithoutUnloading(
           exit_outcome: outcome,
         },
       });
+      const closedArrival = await tx.zmccMotArrival.findFirst({
+        where: { lab_session: { id: sessionId } },
+        select: { journey_id: true },
+      });
+      if (closedArrival) await closeArrivedJourneyTx(tx, closedArrival.journey_id);
       await clearHandledNotifications(tx, ['ZMCC_CLOSE_REQUEST_PENDING'], sessionId);
       await writeAuditLog(tx, {
         tableName: 'zmcc_lab_session',

@@ -1,5 +1,6 @@
 'use client';
 
+import { typePakistaniCnic, typePakistaniMobile } from '@/lib/pakistani-identity';
 import React from 'react';
 import { Combobox } from '@/components/ui/combobox';
 import type { MasterFormProps } from './masterFormProps';
@@ -43,8 +44,8 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                         required
                         maxLength={50}
                         value={formData.phone || ''}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="03001234567"
+                        onChange={(e) => setFormData({ ...formData, phone: typePakistaniMobile(e.target.value) })}
+                        placeholder="0300-1234567"
                         className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
@@ -57,7 +58,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                         required
                         maxLength={50}
                         value={formData.cnic || ''}
-                        onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, cnic: typePakistaniCnic(e.target.value) })}
                         placeholder="35201-1234567-1"
                         className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                       />

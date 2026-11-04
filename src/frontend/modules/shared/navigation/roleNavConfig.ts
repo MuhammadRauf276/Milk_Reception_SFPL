@@ -469,6 +469,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         href: '/mot',
       },
       {
+        id: 'mot-send-request',
+        label: 'Send Request',
+        icon: AlertTriangle,
+        href: '/mot?request=vehicle',
+      },
+      {
         id: 'tv-board',
         label: 'Yard Board',
         icon: Tv,

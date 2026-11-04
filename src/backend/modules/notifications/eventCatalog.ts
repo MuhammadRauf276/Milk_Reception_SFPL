@@ -1,4 +1,6 @@
 export type NotificationEventKey =
+  | 'MOT_RETURNING_TO_ZMCC'
+  | 'MOT_VEHICLE_PROBLEM_PENDING'
   | 'ZMCC_LAB_EXCEPTION_PENDING'
   | 'ZMCC_EXIT_WITHOUT_UNLOADING'
   | 'ZMCC_CLOSE_REQUEST_PENDING'
@@ -19,6 +21,7 @@ export type NotificationEventKey =
   | 'PLANT_QA_WARNING_LOGGED';
 
 export type NotificationRecipientRole =
+  | 'PHE_OPERATOR'
   | 'ZMCC_MANAGER'
   | 'CONTRACTOR_MANAGER'
   | 'MDO'
@@ -35,6 +38,8 @@ export interface NotificationEventDefinition {
 }
 
 export const notificationEventCatalog: Record<NotificationEventKey, NotificationEventDefinition> = {
+  MOT_RETURNING_TO_ZMCC: { recipients: ['PHE_OPERATOR', 'MDO', 'ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'MOT_JOURNEY' },
+  MOT_VEHICLE_PROBLEM_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'HIGH', sourceType: 'MOT_VEHICLE_CHANGE_REQUEST' },
   ZMCC_LAB_EXCEPTION_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'HIGH', sourceType: 'ZMCC_LAB_SESSION' },
   ZMCC_EXIT_WITHOUT_UNLOADING: { recipients: ['ZMCC_MANAGER'], priority: 'HIGH', sourceType: 'ZMCC_LAB_SESSION' },
   ZMCC_CLOSE_REQUEST_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'HIGH', sourceType: 'ZMCC_LAB_SESSION' },

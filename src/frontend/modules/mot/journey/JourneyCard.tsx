@@ -11,6 +11,8 @@ interface Props {
   onReturnToPhe?: () => void;
   onResumeCollection?: () => void;
   isSubmittingReturn?: boolean;
+  /** A vehicle request is waiting for the manager: no more shops until it is answered. */
+  locked?: boolean;
 }
 
 /** Journey header, totals and the next pending stop. */
@@ -20,6 +22,7 @@ export function JourneyCard({
   onReturnToPhe,
   onResumeCollection,
   isSubmittingReturn = false,
+  locked = false,
 }: Props) {
   const visitedStops = journey.stops.filter((s) => s.status === 'VISITED');
   const skippedStops = journey.stops.filter((s) => s.status === 'SKIPPED');
@@ -202,7 +205,7 @@ export function JourneyCard({
             </div>
           </div>
 
-          <div className="w-full sm:w-auto">
+          <div className={locked ? 'hidden' : 'w-full sm:w-auto'}>
             <button
               type="button"
               onClick={() => onRecord(nextPendingStop)}

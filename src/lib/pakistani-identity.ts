@@ -51,3 +51,19 @@ export function formatPakistaniMobile(canonicalPhone: string): string {
     : canonicalPhone;
 }
 
+/** Shapes a mobile number while it is typed: 0317-6826604. A pasted +92 number becomes the same. */
+export function typePakistaniMobile(input: string): string {
+  let digits = input.replace(/\D/g, '');
+  if (digits.startsWith('92')) digits = `0${digits.slice(2)}`;
+  else if (digits.startsWith('3')) digits = `0${digits}`;
+  digits = digits.slice(0, 11);
+  return digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits;
+}
+
+/** Shapes a CNIC while it is typed: 33100-4222603-9. */
+export function typePakistaniCnic(input: string): string {
+  const digits = input.replace(/\D/g, '').slice(0, 13);
+  if (digits.length <= 5) return digits;
+  if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+  return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+}

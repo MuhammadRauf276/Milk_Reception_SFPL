@@ -1,3 +1,4 @@
+import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
 import { prisma } from '@core/db';
 import { writeAuditLog } from '@/backend/core/audit';
 import { ensureMotProfilesForUsers, type MotProfileSyncDb } from '@/backend/services/mot/motProfileSync';
@@ -37,7 +38,7 @@ import { loadMotShopPolicy } from '@/backend/services/mot/motShopPolicy';
 import { buildMotShopDecision } from '@/backend/services/mot/motShopDecision';
 import { evaluateGeofence, DEFAULT_SHOP_GEOFENCE_M } from '@/backend/services/mot/geofence';
 import type { PersonDecision } from '@/types/stage1-decision';
-import { createNotificationsForEvent } from '@/backend/services/notificationService';
+import { clearHandledNotifications, createNotificationsForEvent } from '@/backend/services/notificationService';
 import { getErrorCode, getErrorMessage, getErrorMetaTarget } from '@/lib/errors';
 import { requireZmccScope } from '@/backend/core/scope';
 import { toJsonInput } from '@/lib/json';
@@ -81,7 +82,9 @@ export type MotAction =
   | 'CORRECT_COLLECTION'
   | 'SKIP_STOP'
   | 'RETURN_TO_PHE'
-  | 'RESUME_COLLECTION';
+  | 'RESUME_COLLECTION'
+  | 'REQUEST_VEHICLE_CHANGE'
+  | 'DECIDE_VEHICLE_CHANGE';
 
 export interface ServiceResult<T> {
   status: number;
@@ -114,9 +117,13 @@ export const MOT_ACTION_ROLES: Record<MotAction, { roles: readonly string[]; del
   CORRECT_COLLECTION: { roles: ['DATA_EXECUTIVE', 'SUPER_ADMIN'], delegation: 'none' },
   RETURN_TO_PHE: { roles: ['MOT'], delegation: 'ancestors' },
   RESUME_COLLECTION: { roles: ['MOT'], delegation: 'ancestors' },
+  REQUEST_VEHICLE_CHANGE: { roles: ['MOT'], delegation: 'ancestors' },
+  DECIDE_VEHICLE_CHANGE: { roles: ['ZMCC_MANAGER'], delegation: 'ancestors' },
 };
 
 const MOT_FORBIDDEN_MESSAGE: Record<MotAction, string> = {
+  REQUEST_VEHICLE_CHANGE: 'Forbidden. Only an MOT (or a manager covering MOT work) can report a vehicle problem.',
+  DECIDE_VEHICLE_CHANGE: 'Forbidden. Only a Zonal Manager can give a new vehicle.',
   READ: 'Forbidden. You do not have permission to see MOT work.',
   READ_MAP: 'Forbidden. You do not have permission to see MOT tracking.',
   READ_SMS_OUTBOX: 'Forbidden. You do not have permission to see MOT messages.',
@@ -152,6 +159,26 @@ export function isInMotScope(auth: MotAuthContext, zmccId: bigint | null | undef
  * Server-side Authorization & Scope Resolver for MOT Operations.
  * Uses the acting context: a superior can do the work of any role below them, own ZMCC only.
  */
+const VEHICLE_REQUEST_WAITING = 'Your vehicle request is waiting for the Zonal Manager. Please wait for the answer.';
+
+/** A waiting vehicle request holds the journey's work back until the manager answers. */
+function findWaitingVehicleRequest(journeyId: bigint) {
+  return prisma.motVehicleChangeRequest.findFirst({
+    where: { journey_id: journeyId, status: 'PENDING' },
+    select: { id: true, requested_at: true },
+  });
+}
+
+function storedMobile(phone: string): string {
+  const result = normalizePakistaniMobile(phone);
+  return result.ok ? result.value : phone;
+}
+
+function storedCnic(cnic: string): string {
+  const result = normalizePakistaniCnic(cnic);
+  return result.ok ? result.value : cnic;
+}
+
 export async function resolveMotAuth(
   reqOrUser?: Request | User,
   action: MotAction = 'READ',
@@ -542,8 +569,8 @@ export async function createMotProfile(
       data: {
         mot_code,
         name,
-        phone_number,
-        cnic,
+        phone_number: storedMobile(phone_number),
+        cnic: storedCnic(cnic),
         zmcc_id: targetZmccId,
         user_id: linkedUserId,
         is_active: true,
@@ -672,14 +699,14 @@ export async function updateMotProfile(
     const phone = payload.phone_number.trim();
     if (!phone) return { status: 400, error: 'Phone number cannot be empty.' };
     if (!validatePhone(phone)) return { status: 400, error: 'Invalid Pakistani phone number format.' };
-    updateData.phone_number = phone;
+    updateData.phone_number = storedMobile(phone);
   }
 
   if (payload.cnic !== undefined) {
     const cnic = payload.cnic.trim();
     if (!cnic) return { status: 400, error: 'CNIC cannot be empty.' };
     if (!validateCnic(cnic)) return { status: 400, error: 'Invalid CNIC format.' };
-    updateData.cnic = cnic;
+    updateData.cnic = storedCnic(cnic);
   }
 
   if (payload.is_active !== undefined) {
@@ -1936,6 +1963,23 @@ export async function cancelMotJourney(
         );
       }
 
+      const waiting = await tx.motVehicleChangeRequest.findMany({
+        where: { journey_id: journeyId, status: 'PENDING' },
+        select: { id: true },
+      });
+      for (const request of waiting) {
+        await tx.motVehicleChangeRequest.update({
+          where: { id: request.id },
+          data: {
+            status: 'REJECTED',
+            decided_by: auth.actorUserId,
+            decided_at: new Date(),
+            decision_note: 'Journey cancelled.',
+          },
+        });
+        await clearHandledNotifications(tx, ['MOT_VEHICLE_PROBLEM_PENDING'], request.id);
+      }
+
       await writeAuditLog(tx, {
         tableName: 'mot_journey',
         recordId: journeyId,
@@ -2009,7 +2053,7 @@ export async function listMotJourneys(
   }
 
   if (filters?.status && filters.status !== 'all') {
-    where.status = filters.status;
+    where.status = filters.status.includes(',') ? { in: filters.status.split(',') } : filters.status;
   }
 
   if (filters?.operational_date) {
@@ -2333,6 +2377,10 @@ export async function returnMotJourneyToPhe(
     };
   }
 
+  if (await findWaitingVehicleRequest(journey.id)) {
+    return { status: 409, error: VEHICLE_REQUEST_WAITING };
+  }
+
   const updated = await prisma.$transaction(async (tx) => {
     const res = await tx.motJourney.update({
       where: { id: journey.id },
@@ -2362,6 +2410,16 @@ export async function returnMotJourneyToPhe(
       oldValues: { status: 'COLLECTING' },
       newValues: { status: 'RETURNING' },
       actor: { userId: auth.actorUserId, actorRole: auth.role },
+    });
+
+    await createNotificationsForEvent(tx, {
+      eventKey: 'MOT_RETURNING_TO_ZMCC',
+      sourceId: journey.id.toString(),
+      sourceZmccId: journey.zmcc_id,
+      title: 'MOT coming to ZMCC',
+      body: `${res.mot_vehicle?.vehicle_number ?? 'Vehicle'} (${res.mot_profile?.name ?? 'MOT'}) is returning. Journey #${res.journey_number}.`,
+      deepLink: '/zmcc',
+      dedupeSuffix: `${journey.id}:${Date.now()}`,
     });
 
     return res;
@@ -2478,6 +2536,7 @@ export async function resumeMotJourneyCollection(
       },
     });
 
+    await clearHandledNotifications(tx, ['MOT_RETURNING_TO_ZMCC'], journey.id);
     await writeAuditLog(tx, {
       tableName: 'mot_journey',
       recordId: journey.id,
@@ -3018,6 +3077,12 @@ export async function submitShopCollection(
       status: 409,
       error: `Journey stop #${stop.planned_sequence} has already been visited or recorded.`,
     };
+  }
+
+  // Milk recorded offline before the request was sent still goes through.
+  const waitingRequest = await findWaitingVehicleRequest(stop.journey_id);
+  if (waitingRequest && deviceCollectedAt.getTime() > waitingRequest.requested_at.getTime()) {
+    return { status: 409, error: VEHICLE_REQUEST_WAITING };
   }
 
   // Validate shop_rmr_number against operational policy for pending stop
@@ -4475,6 +4540,10 @@ export async function skipJourneyStop(
       status: 400,
       error: `Cannot skip stop for journey in '${stop.journey.status}' status. Only active COLLECTING journeys allow skipping stops.`,
     };
+  }
+
+  if (await findWaitingVehicleRequest(stop.journey_id)) {
+    return { status: 409, error: VEHICLE_REQUEST_WAITING };
   }
 
   // Validates stop not already collected

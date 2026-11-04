@@ -25,6 +25,8 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
                 {[
                   ['all', 'All'],
                   ['COLLECTING', 'Collecting'],
+                  ['RETURNING', 'Returning'],
+                  ['ARRIVED', 'At ZMCC'],
                   ['COMPLETED', 'Completed'],
                   ['CANCELLED', 'Cancelled'],
                 ].map(([v, l]) => (
@@ -84,6 +86,8 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
                           className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
                             j.status === 'COLLECTING'
                               ? 'bg-blue-100 text-blue-800'
+                              : j.status === 'RETURNING' || j.status === 'ARRIVED'
+                              ? 'bg-amber-100 text-amber-800'
                               : j.status === 'COMPLETED'
                               ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-rose-100 text-rose-800'

@@ -53,7 +53,7 @@ export async function getDispatchResources(sourceId: bigint): Promise<DispatchRe
       id: true,
       vehicle_number: true,
       journeys: {
-        where: { status: { in: ['COLLECTING', 'RETURNING'] } },
+        where: { status: { in: ['COLLECTING', 'RETURNING', 'ARRIVED'] } },
         select: { id: true, journey_number: true },
       },
     },

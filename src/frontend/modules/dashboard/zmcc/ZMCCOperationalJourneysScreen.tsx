@@ -29,6 +29,7 @@ import { toast } from '@/frontend/lib/appToast';
 import { useDispatchForm, useDispatchGps } from '@/frontend/modules/mot/workspace/useDispatch';
 import { DispatchTab } from '@/frontend/modules/mot/workspace/DispatchTab';
 import { RouteRequestSheet } from '@/frontend/modules/mot/workspace/RouteRequestSheet';
+import { VehicleRequestsPanel } from './VehicleRequestsPanel';
 import { CancelJourneySheet } from '@/frontend/modules/mot/workspace/CancelJourneySheet';
 import { canAssignJourney, canCreateRoute, routeNeedsApproval } from '@/frontend/modules/zmcc/stage1Capabilities';
 import type { MotProfileItem, MotVehicleItem, RouteOption, JourneyItem } from '@/frontend/modules/mot/workspace/types';
@@ -136,7 +137,7 @@ export function ZMCCOperationalJourneysScreen({
   const activeJourneysQuery = useQuery({
     queryKey: ['zmcc', 'mot-journeys', 'active', facilityId],
     queryFn: async ({ signal }) => {
-      const params = new URLSearchParams({ status: 'COLLECTING' });
+      const params = new URLSearchParams({ status: 'COLLECTING,RETURNING' });
       if (facilityId) params.append('zmcc_id', facilityId);
       const json = await fetchJson<{ journeys?: JourneyRecord[] }>(`/api/zmcc/mot/journeys?${params.toString()}`, { signal });
       return json.journeys ?? [];
@@ -297,6 +298,14 @@ export function ZMCCOperationalJourneysScreen({
           tone={historyJourneys.some((j) => j.status === 'CANCELLED') ? 'warning' : 'default'}
         />
       </div>
+
+      <VehicleRequestsPanel
+        facilityId={facilityId}
+        onDecided={() => {
+          activeJourneysQuery.refetch();
+          dispatchDataQuery.refetch();
+        }}
+      />
 
       {/* Segmented Subtabs */}
       <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border w-fit">
@@ -469,6 +478,12 @@ export function ZMCCOperationalJourneysScreen({
                             <MapPin className="w-3.5 h-3.5" />
                             <span>View Trail & Map</span>
                           </button>
+                          {j.status === 'RETURNING' && (
+                            <span className="min-h-9 px-3 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold inline-flex items-center">
+                              Coming to ZMCC
+                            </span>
+                          )}
+                          {j.status === 'COLLECTING' && (
                           <button
                             type="button"
                             onClick={() => setCancelSheetJourney(j as unknown as JourneyItem)}
@@ -477,6 +492,7 @@ export function ZMCCOperationalJourneysScreen({
                             <Ban className="w-3.5 h-3.5" />
                             <span>Cancel</span>
                           </button>
+                          )}
                         </td>
                       </tr>
                     ))}

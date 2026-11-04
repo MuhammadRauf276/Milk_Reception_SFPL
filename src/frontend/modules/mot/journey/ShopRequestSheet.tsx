@@ -1,5 +1,6 @@
 'use client';
 
+import { typePakistaniCnic, typePakistaniMobile } from '@/lib/pakistani-identity';
 import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
@@ -14,6 +15,12 @@ interface Props {
   deviceGps: { latitude: number; longitude: number } | null;
   gpsBadge: React.ReactNode;
   onClose: () => void;
+}
+
+function shapeIdentity(key: string, value: string): string {
+  if (key === 'phone_number') return typePakistaniMobile(value);
+  if (key === 'cnic') return typePakistaniCnic(value);
+  return value;
 }
 
 /** Asks for a new shop met in the field. Queued on the phone, so it works offline. */
@@ -91,7 +98,7 @@ export function ShopRequestSheet({ routeId, routeName, deviceGps, gpsBadge, onCl
         type="text"
         required
         value={form[key]}
-        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+        onChange={(e) => setForm({ ...form, [key]: shapeIdentity(key, e.target.value) })}
         placeholder={placeholder}
         className={sheetInputClass}
       />
@@ -111,7 +118,7 @@ export function ShopRequestSheet({ routeId, routeName, deviceGps, gpsBadge, onCl
         {field('shop_name', 'Shop Name', 'e.g. Al-Madina Dairy')}
         {field('owner_name', 'Owner Name', 'e.g. Shop Owner')}
         <div className="grid grid-cols-2 gap-2">
-          {field('phone_number', 'Mobile Phone', '03XXXXXXXXX')}
+          {field('phone_number', 'Mobile Phone', '0300-1234567')}
           {field('cnic', 'CNIC', '35201-1234567-1')}
         </div>
         <div className="bg-card border-border flex items-center justify-between rounded-xl border p-2.5 text-[11px] text-slate-600">

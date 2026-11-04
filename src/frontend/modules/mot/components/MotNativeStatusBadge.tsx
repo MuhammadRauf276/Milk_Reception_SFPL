@@ -46,23 +46,13 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
   const unsentCount = (summary?.unsyncedCollections ?? 0) + (summary?.unsyncedGps ?? 0);
   const fixAgeMs = gpsStatus?.lastFixTimestamp ? Date.now() - gpsStatus.lastFixTimestamp : null;
 
+  if (!isNative) return null;
+
   return (
     <div className="w-full flex flex-col gap-2 p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200">
       {/* Top Row: Network & GPS Status */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          {/* Online/Offline Indicator */}
-          <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold text-[11px] ${
-              online
-                ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60'
-                : 'bg-amber-950/80 text-amber-300 border border-amber-800/60'
-            }`}
-          >
-            <span className={`w-2 h-2 rounded-full ${online ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-            {online ? 'Online' : 'Offline · Saved Locally'}
-          </span>
-
           {/* Native vs Web GPS Indicator */}
           {isNative ? (
             <span

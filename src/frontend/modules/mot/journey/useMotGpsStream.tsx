@@ -12,6 +12,8 @@ import { androidBridge } from '../native/androidBridge';
  * When running in native Android, seamlessly engages the Android Foreground Service
  * for continuous background tracking even when the screen is locked.
  */
+export type GpsProblem = 'denied' | 'off' | null;
+
 export function useMotGpsStream(opts: {
   journeyId: string | null;
   recordRoute: boolean;
@@ -22,6 +24,8 @@ export function useMotGpsStream(opts: {
   const [deviceGps, setDeviceGps] = useState<{ latitude: number; longitude: number } | null>(null);
   const [lastFixAt, setLastFixAt] = useState<number | null>(null);
   const [gpsClock, setGpsClock] = useState<number>(() => Date.now());
+  const [gpsProblem, setGpsProblem] = useState<GpsProblem>(null);
+  const [gpsRetry, setGpsRetry] = useState(0);
 
   useEffect(() => {
     const t = setInterval(() => setGpsClock(Date.now()), 15000);
@@ -110,6 +114,7 @@ export function useMotGpsStream(opts: {
         heading: pos.coords.heading,
       };
       latestFixRef.current = point;
+      setGpsProblem(null);
       setDeviceGps({ latitude: point.latitude, longitude: point.longitude });
       setLastFixAt(pos.timestamp);
 
@@ -138,7 +143,16 @@ export function useMotGpsStream(opts: {
       })();
     };
 
-    const watchId = navigator.geolocation.watchPosition(onPosition, () => {}, {
+    // The Android app tracks through its own service. A page without https can never get location, so it is not asked to.
+    const canAsk = window.isSecureContext && !androidBridge.isNativeAndroid();
+    const onGpsError = (err: GeolocationPositionError) => {
+      if (!canAsk) return;
+      // A slow fix is not a problem: only "not allowed" and "switched off" stop the work.
+      if (err.code === err.PERMISSION_DENIED) setGpsProblem('denied');
+      else if (err.code === err.POSITION_UNAVAILABLE) setGpsProblem('off');
+    };
+
+    const watchId = navigator.geolocation.watchPosition(onPosition, onGpsError, {
       enableHighAccuracy: true,
       maximumAge: 0,
       timeout: 20000,
@@ -178,13 +192,32 @@ export function useMotGpsStream(opts: {
       document.addEventListener('visibilitychange', onVisible);
     }
 
+    // Back from the phone's settings: look again straight away.
+    const onReturn = () => {
+      if (document.visibilityState === 'visible') setGpsRetry((n) => n + 1);
+    };
+    const recheck = canAsk
+      ? setInterval(() => {
+          navigator.geolocation.getCurrentPosition(onPosition, onGpsError, { maximumAge: 0, timeout: 20000 });
+        }, 30_000)
+      : null;
+    document.addEventListener('visibilitychange', onReturn);
+
     return () => {
       navigator.geolocation.clearWatch(watchId);
       if (heartbeat) clearInterval(heartbeat);
+      if (recheck) clearInterval(recheck);
+      document.removeEventListener('visibilitychange', onReturn);
       document.removeEventListener('visibilitychange', onVisible);
       void wakeLock?.release().catch(() => undefined);
     };
-  }, [recordRoute, journeyId]);
+  }, [recordRoute, journeyId, gpsRetry]);
 
-  return { deviceGps, latestFixRef, gpsBadge: gpsBadge as React.ReactNode };
+  return {
+    deviceGps,
+    latestFixRef,
+    gpsBadge: gpsBadge as React.ReactNode,
+    gpsProblem,
+    retryGps: () => setGpsRetry((n) => n + 1),
+  };
 }

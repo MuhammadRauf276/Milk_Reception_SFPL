@@ -1,3 +1,4 @@
+import { closeArrivedJourneyTx } from '@/backend/services/mot/motJourneyClose';
 import { prisma } from '@core/db';
 import { writeAuditLog } from '@/backend/core/audit';
 import { getCurrentUser } from '@core/auth';
@@ -2224,6 +2225,7 @@ export async function closeJourneyIfDoneTx(
   });
 
   if (session.mot_arrival?.journey_id) {
+    await closeArrivedJourneyTx(tx, session.mot_arrival.journey_id);
     await computeAndStoreAreaLossTx(tx, { journeyId: session.mot_arrival.journey_id, sessionId, actor: acting });
   }
   return true;

@@ -1,5 +1,6 @@
 'use client';
 
+import { typePakistaniCnic, typePakistaniMobile } from '@/lib/pakistani-identity';
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getErrorMessage } from '@/lib/errors';
@@ -7,6 +8,12 @@ import { MotSheet, sheetInputClass, sheetLabelClass, sheetPrimaryButtonClass } f
 import { SheetError } from './SheetError';
 import { sendJson } from './mutationUtils';
 import { MOT_TAB_DATA_KEY, type MotProfileItem } from './types';
+
+function shapeIdentity(key: string, value: string): string {
+  if (key === 'phone_number') return typePakistaniMobile(value);
+  if (key === 'cnic') return typePakistaniCnic(value);
+  return value;
+}
 
 interface Props {
   editing: MotProfileItem | null;
@@ -23,8 +30,8 @@ export function ProfileSheet({ editing, defaultZmccId, isCentralRole, onClose, o
   const [form, setForm] = useState({
     mot_code: editing?.mot_code ?? '',
     name: editing?.name ?? '',
-    phone_number: editing?.phone_number ?? '',
-    cnic: editing?.cnic ?? '',
+    phone_number: typePakistaniMobile(editing?.phone_number ?? ''),
+    cnic: typePakistaniCnic(editing?.cnic ?? ''),
     user_id: editing?.user_id ?? '',
     zmcc_id: editing?.zmcc_id ?? defaultZmccId ?? '',
   });
@@ -51,7 +58,7 @@ export function ProfileSheet({ editing, defaultZmccId, isCentralRole, onClose, o
         id={`profile-${key}`}
         type="text"
         value={form[key]}
-        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+        onChange={(e) => setForm({ ...form, [key]: shapeIdentity(key, e.target.value) })}
         placeholder={placeholder}
         className={sheetInputClass}
         required

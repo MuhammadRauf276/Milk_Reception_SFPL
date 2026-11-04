@@ -14,10 +14,11 @@ interface Props {
   deviceGps: { latitude: number; longitude: number } | null;
   onRecord: (stop: StopDetail) => void;
   onRequestShop: () => void;
+  locked?: boolean;
 }
 
 /** Planned stops, nearest first when GPS is known (max 6 per screen). */
-export function StopsList({ journey, deviceGps, onRecord, onRequestShop }: Props) {
+export function StopsList({ journey, deviceGps, onRecord, onRequestShop, locked = false }: Props) {
   const [stopsPage, setStopsPage] = useState<number>(1);
   const stopsPerPage = STOPS_PER_PAGE;
   const visitedCount = journey.stops.filter((s) => s.status === 'VISITED').length;
@@ -66,6 +67,7 @@ export function StopsList({ journey, deviceGps, onRecord, onRequestShop }: Props
                           <span className="text-[11px] font-medium text-slate-500">
                             {visitedCount} of {journey.stops.length} completed
                           </span>
+                          {!locked && (
                           <button
                             type="button"
                             onClick={onRequestShop}
@@ -74,6 +76,7 @@ export function StopsList({ journey, deviceGps, onRecord, onRequestShop }: Props
                             <Plus className="w-3.5 h-3.5" />
                             <span>Request Shop</span>
                           </button>
+                          )}
                         </div>
                       </div>
 
@@ -83,7 +86,7 @@ export function StopsList({ journey, deviceGps, onRecord, onRequestShop }: Props
 
                     <div className="divide-y divide-border">
                       {pagedStops.map((stop) => (
-                        <StopRow key={stop.id} stop={stop} journey={journey} onRecord={onRecord} />
+                        <StopRow key={stop.id} stop={stop} journey={journey} onRecord={onRecord} locked={locked} />
                       ))}
 
                       {totalStopsPages > 1 && (
