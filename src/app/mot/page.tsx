@@ -95,18 +95,19 @@ export default function MotPage() {
 
   // A waiting vehicle request holds the work back until the manager answers.
   const vehicleRequests = useVehicleRequests(journey?.id ?? null, isCovering, isCovering ? COVER_HEADERS : undefined);
-  const workLocked = vehicleRequests.pending && journey?.status === 'COLLECTING';
+  const atZmcc = journey?.status === 'ARRIVED';
+  const workLocked = (vehicleRequests.pending && journey?.status === 'COLLECTING') || atZmcc;
   const [vehicleSheetOpen, setVehicleSheetOpen] = useState(false);
   const openCollection = collection.handleOpenCollectionModal;
   const guardedRecord = useCallback<typeof openCollection>(
     async (...args) => {
       if (workLocked) {
-        toast.error('Wait for the Zonal Manager to answer your request.');
+        toast.error(atZmcc ? 'This journey has reached the ZMCC.' : 'Wait for the Zonal Manager to answer your request.');
         return;
       }
       return openCollection(...args);
     },
-    [workLocked, openCollection]
+    [workLocked, atZmcc, openCollection]
   );
 
   // "Send Request" in the sidebar lands here with ?request=vehicle.

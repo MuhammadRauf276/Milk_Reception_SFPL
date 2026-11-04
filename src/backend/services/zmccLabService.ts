@@ -929,19 +929,18 @@ export async function startOrResumeSession(
     return { status: 400, error: `No active milk test policy is configured for ${testingPoint}.` };
   }
 
-  // A required test without exactly one effective RELEASE rule must never enter
-  // an operational session. This avoids collecting evidence that cannot later
-  // receive a valid final decision.
+  // A required test with no usable rule must never enter an operational session: its evidence could not
+  // receive a valid final decision. A MONITORING rule is usable (Fat and LR warn and never reject on their own).
   const activeRules = await QualityRuleService.resolveActiveRulesForTestingPoint(effectiveRulePoint);
   const invalidRequiredTest = effectiveTests.find((test) => {
     if (!test.isRequired || test.resultType === 'CALCULATED') return false;
     const rule = activeRules.get(test.id);
-    return !rule || rule.isConfigurationError || rule.rule_category !== 'RELEASE';
+    return !rule || rule.isConfigurationError;
   });
   if (invalidRequiredTest) {
     return {
       status: 422,
-      error: `Required test ${invalidRequiredTest.testCode} has no valid active RELEASE rule for ${effectiveRulePoint}. QA Head configuration is required.`,
+      error: `${invalidRequiredTest.testName} (${invalidRequiredTest.testCode}) has no usable rule for ${testingPoint === 'ZMCC_LAB_MC' ? 'Mobile Tester milk' : 'HC milk'}. Please ask the QA Head to set it in Lab Policies.`,
     };
   }
 

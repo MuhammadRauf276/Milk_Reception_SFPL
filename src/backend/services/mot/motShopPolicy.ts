@@ -1,6 +1,6 @@
 // Server loader for the MOT_SHOP decision policy: matrix cells + active release rules + lab test metadata.
 import type { Prisma } from '@prisma/client';
-import { resolveStageCells, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
+import { resolveAllowedStageCells, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { isLr, isFat } from '@/lib/lab-test-roles';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import type { MotShopPolicySnapshot, MotShopPolicyTest } from '@/types/stage1-decision';
@@ -28,8 +28,8 @@ export async function loadMotShopPolicy(at: Date = new Date(), db?: unknown): Pr
 
   const assignmentMap = new Map(motAssignments.map((a) => [a.lab_test_id.toString(), a]));
 
-  // One rule for every stage: the saved Master Matrix row decides; an assignment only covers cells the matrix never saved.
-  const cells = resolveStageCells(policy.cells, assignmentMap);
+  // Only what the Super Admin allowed for this stage.
+  const cells = resolveAllowedStageCells(policy.cells, assignmentMap);
 
   const ids = cells.map((c) => BigInt(c.labTestId));
   const [labTests, rules] = await Promise.all([

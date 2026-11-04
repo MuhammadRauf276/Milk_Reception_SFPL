@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useRef, useCallback, useSyncExternalStore, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useSyncExternalStore, useState } from 'react';
+import { isZmccFieldOfficer } from '@core/roles/hierarchy';
 import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { Tv, LogIn, CheckCircle2, Scale, Building2, FlaskConical, Clock } from 'lucide-react';
@@ -55,6 +56,11 @@ export default function PublicYardTVBoardPage() {
   const activeVehicles = boardQuery.data?.vehicles ?? NO_VEHICLES;
   const currentMinute = useCurrentMinute();
   const { currentUser: user } = useCurrentUser();
+  // The wall display stays open without a login; these field roles have no use for it.
+  const barredHome = user?.role === 'MOT' ? '/mot' : user && isZmccFieldOfficer(user.role) ? '/phe' : null;
+  useEffect(() => {
+    if (barredHome) window.location.replace(barredHome);
+  }, [barredHome]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -65,6 +71,8 @@ export default function PublicYardTVBoardPage() {
   }, []);
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
+  if (barredHome) return null;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">

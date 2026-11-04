@@ -2189,11 +2189,28 @@ export async function getMotJourneyById(
 // MOT CURRENT ACTIVE JOURNEY (FOR MOT DRIVER)
 // =============================================================
 
+/** The journey plus what the Mobile Tester sees once the vehicle is at the ZMCC. */
+function withArrival(
+  journey: Parameters<typeof serializeJourney>[0] & {
+    mot_arrival?: { zmcc_token: string; lab_session: { status: string } | null } | null;
+  }
+) {
+  return {
+    ...serializeJourney(journey),
+    arrival: journey.mot_arrival
+      ? { zmcc_token: journey.mot_arrival.zmcc_token, lab_status: journey.mot_arrival.lab_session?.status ?? null }
+      : null,
+  };
+}
+
 export async function getCurrentMotJourney(
   auth: MotAuthContext,
   opts: { journeyId?: bigint } = {}
 ): Promise<ServiceResult<{ journey: ReturnType<typeof serializeJourney> | null; message?: string }>> {
   const include = {
+    mot_arrival: {
+      select: { zmcc_token: true, lab_session: { select: { status: true } } },
+    },
     zmcc: { select: { id: true, code: true, name: true } },
     route: { select: { id: true, route_code: true, name: true } },
     mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
@@ -2225,10 +2242,10 @@ export async function getCurrentMotJourney(
         return { status: 403, error: 'Forbidden. This journey is not assigned to you.' };
       }
     }
-    if (journey.status !== 'COLLECTING' && journey.status !== 'RETURNING') {
+    if (journey.status !== 'COLLECTING' && journey.status !== 'RETURNING' && journey.status !== 'ARRIVED') {
       return { status: 200, data: { journey: null, message: 'This journey is not active any more.' } };
     }
-    return { status: 200, data: { journey: serializeJourney(journey) } };
+    return { status: 200, data: { journey: withArrival(journey) } };
   }
 
   // Find MOT Profile linked to this user
@@ -2249,13 +2266,20 @@ export async function getCurrentMotJourney(
   }
 
   // Find active COLLECTING or RETURNING journey
-  const activeJourney = await prisma.motJourney.findFirst({
-    where: {
-      mot_profile_id: motProfile.id,
-      status: { in: ['COLLECTING', 'RETURNING'] },
-    },
-    include,
-  });
+  // A journey is open until the lab rejects everything or the final receipt is given, so one at the ZMCC still shows.
+  const activeJourney =
+    (await prisma.motJourney.findFirst({
+      where: {
+        mot_profile_id: motProfile.id,
+        status: { in: ['COLLECTING', 'RETURNING'] },
+      },
+      include,
+    })) ??
+    (await prisma.motJourney.findFirst({
+      where: { mot_profile_id: motProfile.id, status: 'ARRIVED' },
+      orderBy: { ended_at: 'desc' },
+      include,
+    }));
 
   if (!activeJourney) {
     return {
@@ -2267,7 +2291,7 @@ export async function getCurrentMotJourney(
     };
   }
 
-  return { status: 200, data: { journey: serializeJourney(activeJourney) } };
+  return { status: 200, data: { journey: withArrival(activeJourney) } };
 }
 
 export async function returnMotJourneyToPhe(

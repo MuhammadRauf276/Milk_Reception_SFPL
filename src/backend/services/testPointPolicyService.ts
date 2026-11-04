@@ -65,6 +65,7 @@ export interface PolicyDb {
   configChangeLog: { create(args: unknown): Promise<{ id: bigint }> };
   auditLog: { create(args: never): Promise<{ id: bigint }> };
   milkTestPolicyAssignment: {
+    findMany?(args: unknown): Promise<Array<StageAssignmentRow & { lab_test_id: bigint; testing_point: string }>>;
     findUnique(args: unknown): Promise<{ id: bigint; display_order: number; is_active: boolean; is_required: boolean; is_photo_required?: boolean | null } | null>;
     aggregate(args: unknown): Promise<{ _max: { display_order: number | null } }>;
     create(args: unknown): Promise<{ id: bigint }>;
@@ -292,6 +293,68 @@ export function resolveStageCells(
  * (source DEFAULT) is optional with an optional photo, so a contract vehicle with no tests and no lab-report photo can
  * still be submitted. A saved matrix row (source DB) always wins and stays enforced. Other points are never relaxed.
  */
+/** Stages whose form follows the Super Admin's list of allowed tests. */
+const STAGE_LIST_POINTS: ReadonlySet<string> = new Set(['MOT_SHOP', 'ZMCC_LAB_MC', 'ZMCC_LAB_HC']);
+
+/** A cell as the stage list says: not on the list, or switched off there, means OFF. */
+function applyStageList<T extends TestPointPolicyCell>(cell: T, assignment?: StageAssignmentRow): T {
+  if (!assignment?.is_active) return { ...cell, testMode: 'OFF' };
+  const required: TestMode = assignment.is_required ? 'COMPULSORY' : 'OPTIONAL';
+  return {
+    ...cell,
+    testMode: normalizeTestMode(cell.testMode) === 'AUTO' ? cell.testMode : required,
+    photoMode:
+      assignment.is_photo_required === null || assignment.is_photo_required === undefined
+        ? cell.photoMode
+        : assignment.is_photo_required
+          ? 'REQUIRED'
+          : 'NONE',
+  };
+}
+
+/**
+ * The Mobile Tester and ZMCC lab forms show only what the Super Admin allowed, on either screen of Lab Policies: the
+ * stage list holds the latest choice, because a Master Matrix save copies into it (runUpdate). Old matrix rows
+ * nobody chose, such as those that switched every test on, do not add tests. LR and Fat stay, locked compulsory.
+ * A stage with no list at all keeps the matrix rule.
+ */
+export function resolveAllowedStageCells(
+  all: TestPointPolicyCell[],
+  assignments: Map<string, StageAssignmentRow>
+): TestPointPolicyCell[] {
+  if (assignments.size === 0) return resolveStageCells(all, assignments);
+  const chosen = all
+    .map((cell) => applyStageList(cell, assignments.get(cell.labTestId)))
+    .filter((cell) => normalizeTestMode(cell.testMode) !== 'OFF');
+  return withFormulaInputs(chosen, all).map(lockFormulaInput);
+}
+
+/** The matrix as the forms really behave, so the Master Matrix tab and the stage tabs show the same answer. */
+function withStageLists(
+  cells: TestPointPolicyCell[],
+  rows: Array<StageAssignmentRow & { lab_test_id: bigint; testing_point: string }>
+): TestPointPolicyCell[] {
+  const byPoint = new Map<string, Map<string, StageAssignmentRow>>();
+  for (const row of rows) {
+    if (!byPoint.has(row.testing_point)) byPoint.set(row.testing_point, new Map());
+    byPoint.get(row.testing_point)!.set(String(row.lab_test_id), row);
+  }
+  return cells.map((cell) => {
+    const list = byPoint.get(cell.point);
+    if (!STAGE_LIST_POINTS.has(cell.point) || !list || isInputRole(cellSubject(cell))) return cell;
+    return applyStageList(cell, list.get(cell.labTestId));
+  });
+}
+
+async function loadShownMatrix(db: PolicyDb, at: Date) {
+  const matrix = await loadMatrix(db, at);
+  const rows = await db.milkTestPolicyAssignment.findMany?.({
+    where: { testing_point: { in: [...STAGE_LIST_POINTS] } },
+    select: { lab_test_id: true, testing_point: true, is_active: true, is_required: true, is_photo_required: true },
+  });
+  return rows ? { ...matrix, cells: withStageLists(matrix.cells, rows) } : matrix;
+}
+
 export function relaxContractorDefaults(point: TestPointCode, cells: TestPointPolicyCell[]): TestPointPolicyCell[] {
   if (point !== 'CONTRACTOR_DISPATCH') return cells;
   return cells.map((c) =>
@@ -409,7 +472,7 @@ async function loadMatrix(db: PolicyDb, at: Date, onlyPoint?: TestPointCode) {
 }
 
 export async function getPolicyMatrix(at: Date = new Date(), db?: PolicyDb) {
-  return loadMatrix(db ?? (await defaultDb()), at);
+  return loadShownMatrix(db ?? (await defaultDb()), at);
 }
 
 export async function getEffectivePolicy(point: TestPointCode, at: Date = new Date(), db?: PolicyDb) {
@@ -610,7 +673,8 @@ export async function updatePolicyCells(
 async function runUpdate(database: PolicyDb, ctx: ActingContext, changes: PolicyChange[], cleanReason: string, photoOnly: boolean): Promise<{ applied: number }> {
   return database.$transaction(async (tx) => {
     const now = new Date();
-    const { cells } = await loadMatrix(tx, now);
+    // Compared with what the screen showed, so switching on a test the list had off is a real change.
+    const { cells } = await loadShownMatrix(tx, now);
     const cellByKey = new Map(cells.map((c) => [`${c.labTestId}|${c.point}`, c]));
     const allRows = await tx.testPointPolicy.findMany({ orderBy: [{ version: 'asc' }] });
     let applied = 0;

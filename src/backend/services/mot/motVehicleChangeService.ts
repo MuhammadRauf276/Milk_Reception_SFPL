@@ -64,7 +64,8 @@ async function findTargetJourney(auth: MotAuthContext, journeyId?: string | null
   const profile = await prisma.motProfile.findUnique({ where: { user_id: auth.actorUserId }, select: { id: true } });
   if (!profile) return null;
   return prisma.motJourney.findFirst({
-    where: { mot_profile_id: profile.id, status: { in: ['COLLECTING', 'RETURNING'] } },
+    where: { mot_profile_id: profile.id, status: { in: ['COLLECTING', 'RETURNING', 'ARRIVED'] } },
+    orderBy: { assigned_at: 'desc' },
   });
 }
 

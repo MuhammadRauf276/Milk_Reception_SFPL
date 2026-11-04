@@ -234,12 +234,6 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
             },
           ]
         : []),
-      {
-        id: 'tv-board',
-        label: 'Yard Board',
-        icon: Tv,
-        href: '/tv-board',
-      },
     ];
   }
 
@@ -473,12 +467,6 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         label: 'Send Request',
         icon: AlertTriangle,
         href: '/mot?request=vehicle',
-      },
-      {
-        id: 'tv-board',
-        label: 'Yard Board',
-        icon: Tv,
-        href: '/tv-board',
       },
     ];
   }

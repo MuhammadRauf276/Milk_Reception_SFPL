@@ -90,4 +90,6 @@ export interface CurrentJourney {
   assigned_by_name: string | null;
   assigned_at: string;
   stops: StopDetail[];
+  /** Set once the vehicle has reached the ZMCC. */
+  arrival?: { zmcc_token: string; lab_status: string | null } | null;
 }

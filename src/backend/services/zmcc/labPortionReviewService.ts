@@ -6,7 +6,7 @@ import { prisma } from '@core/db';
 import { assertResourceInScope, asRoleFields } from '@/backend/core/acting-context';
 import { writeAuditLog, type AuditActor } from '@/backend/core/audit';
 import { isLr, isFat } from '@/lib/lab-test-roles';
-import { resolveStageCells, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
+import { resolveAllowedStageCells, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
 import { recordRejectedMilkForDisposition } from '@/backend/services/rejectedMilkDispositionService';
 import {
@@ -63,8 +63,8 @@ export async function loadLabPolicy(point: LabPoint, at: Date = new Date(), db: 
 
   const assignmentMap = new Map(stageAssignments.map((a) => [a.lab_test_id.toString(), a]));
 
-  // One rule for every stage: the saved Master Matrix row decides; an assignment only covers cells the matrix never saved.
-  const cells = resolveStageCells(policy.cells, assignmentMap);
+  // Only what the Super Admin allowed for this stage.
+  const cells = resolveAllowedStageCells(policy.cells, assignmentMap);
 
   const ids = cells.map((c) => BigInt(c.labTestId));
   const [labTests, rules] = await Promise.all([
