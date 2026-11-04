@@ -639,7 +639,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
   // Private server draft of the typed values, so this login continues on any device. Never a result.
   const draftFormType: DraftFormType = isContractorSource ? 'CONTRACTOR_DISPATCH' : effectiveSource?.source_type === 'ZMCC' ? 'ZMCC_DISPATCH' : 'DISPATCH';
-  useServerDraft({
+  const serverDraft = useServerDraft({
     formType: draftFormType,
     scopeId: result ? null : draftVisitId,
     portionKey: 'form',
@@ -1317,6 +1317,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         });
       }
 
+      serverDraft.discard();
       const t = asRecord(data.totals);
       setResult({
         dispatchNumber,

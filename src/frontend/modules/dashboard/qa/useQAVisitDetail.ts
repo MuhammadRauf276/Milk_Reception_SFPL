@@ -255,7 +255,7 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
     }
     return { values, photos, remarks: draftPortionId ? decisionRemarksMap[draftPortionId] ?? '' : '' };
   }, [testInputs, enteredSealMap, photoStatesMap, decisionRemarksMap, draftPortionId]);
-  useServerDraft({
+  const serverDraft = useServerDraft({
     formType: 'PLANT_QA',
     scopeId: visitDetail?.id ?? null,
     portionKey: draftPortionId,
@@ -289,6 +289,12 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
       }
     },
   });
+  // Once the open portion is decided its draft is no longer needed: stop saving and remove the phone's copy.
+  const portionDecided = activePortion?.plant_decision === 'ACCEPTED' || activePortion?.plant_decision === 'REJECTED';
+  useEffect(() => {
+    if (portionDecided) serverDraft.discard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portionDecided, draftPortionId]);
 
   return {
     visitDetail,

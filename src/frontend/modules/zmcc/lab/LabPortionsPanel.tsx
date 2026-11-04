@@ -388,6 +388,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
           timeoutMs: 20_000,
         }
       );
+      serverDraft.discard();
       await load();
       setActivePortionModal(null);
     } catch (err) {
@@ -421,14 +422,6 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
     }
   }, [finished, onFinished]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-12 text-xs font-semibold text-slate-500">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" /> Loading…
-      </div>
-    );
-  }
-
   // Active portion currently open in modal
   const modalPortion = activePortionModal
     ? state?.portions.find((p) => p.id === activePortionModal.id) ?? activePortionModal
@@ -442,7 +435,8 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
     modalPortion.reviewStatus !== 'PENDING' &&
     !finished;
   const modalPreview = modalPortion && modalOpen ? preview(modalPortion) : null;
-  const modalPhotos = modalPortion ? photos[modalPortion.id] ?? {} : {};
+  const modalPortionId = modalPortion?.id ?? null;
+  const modalPhotos = useMemo(() => (modalPortionId ? photos[modalPortionId] ?? {} : {}), [modalPortionId, photos]);
 
   // Private server draft of the open portion: the same login continues on any device. The decision is never drafted.
   const draftPortionId = modalOpen && modalPortion ? modalPortion.id : null;
@@ -454,7 +448,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
     }),
     [modalDraft, modalPhotos]
   );
-  useServerDraft({
+  const serverDraft = useServerDraft({
     // Same rule as labPointForArrival on the server: MOT milk is tested at MC, direct supplier milk at HC.
     formType: arrivalType === 'MOT' ? 'ZMCC_LAB_MC' : 'ZMCC_LAB_HC',
     scopeId: sessionId,
@@ -485,6 +479,14 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
       }
     },
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12 text-xs font-semibold text-slate-500">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" /> Loading…
+      </div>
+    );
+  }
 
   return (
     <section className="space-y-4" aria-label="Laboratory tests">

@@ -14,7 +14,7 @@ import {
   type CachedAvailableSource,
 } from '../offlineStore';
 import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
-import { useServerDraft } from '@/frontend/hooks/useServerDraft';
+import { hasLocalDraft, useServerDraft } from '@/frontend/hooks/useServerDraft';
 import { applyMotDraft, motDraftFromForm } from '@/lib/mot-draft';
 import { getErrorMessage } from '@/lib/errors';
 import { acquireRobustGps } from '@/lib/gps';
@@ -91,7 +91,7 @@ export function useCollection({
   const [completedReceiptModal, setCompletedReceiptModal] = useState<CompletedReceipt | null>(null);
 
   // Private server draft of the typed values, so this login continues on any device. Never a result.
-  useServerDraft({
+  const serverDraft = useServerDraft({
     formType: 'MOT_SHOP',
     scopeId: activeStop && !isCovering ? String(activeStop.id) : null,
     portionKey: 'form',
@@ -200,9 +200,45 @@ export function useCollection({
 
   // Handle open collection modal
   const handleOpenCollectionModal = async (stop: StopDetail) => {
-    setActiveStop(stop);
     setFormError(null);
     void refreshAvailableSources(journey?.zmcc?.id);
+
+    // Start from a clean form BEFORE the stop opens. The draft hook fills it from the phone's own draft (and the
+    // server's) once the stop is active, so nothing it loads can be wiped by a later reset.
+    setTestValues({});
+    setTestPhotos((prev) => {
+      Object.values(prev).forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      return {};
+    });
+    setPersonDecision(null);
+    setDecisionRemarks('');
+    setShopRmrNumber('');
+    setSelectedSourceId('');
+    setQuantity('');
+    setUnit('LITER');
+    setLr('');
+    setFat('');
+    setNotes('');
+
+    // Older "Save draft" copies (device store) are used only when the phone has no local-first draft for this stop.
+    try {
+      const currentUserId = currentUser?.id ? String(currentUser.id) : undefined;
+      if (!hasLocalDraft(currentUserId ?? null, 'MOT_SHOP', String(stop.id), 'form')) {
+        const draft = await getDraft(stop.id, currentUserId);
+        if (draft) {
+          setShopRmrNumber(draft.shop_rmr_number || '');
+          setSelectedSourceId(draft.milk_source_id || '');
+          setQuantity(draft.quantity || '');
+          setUnit(draft.unit || 'LITER');
+          setLr(draft.lr || '');
+          setFat(draft.fat || '');
+          setNotes(draft.notes || '');
+        }
+      }
+    } catch {
+      // the form stays blank; the phone's own draft still loads
+    }
+    setActiveStop(stop);
 
     // Acquire GPS for collection event with offline fallback
     setCollectionGps({ latitude: null, longitude: null, accuracy: null, status: 'ACQUIRING' });
@@ -240,45 +276,6 @@ export function useCollection({
       setCollectionGps({ latitude: null, longitude: null, accuracy: null, status: 'UNAVAILABLE' });
     }
 
-    // Reset decision states
-    setTestValues({});
-    setTestPhotos((prev) => {
-      Object.values(prev).forEach((p) => URL.revokeObjectURL(p.previewUrl));
-      return {};
-    });
-    setPersonDecision(null);
-    setDecisionRemarks('');
-
-    // Check for existing draft
-    try {
-      const currentUserId = currentUser?.id ? String(currentUser.id) : undefined;
-      const draft = await getDraft(stop.id, currentUserId);
-      if (draft) {
-        setShopRmrNumber(draft.shop_rmr_number || '');
-        setSelectedSourceId(draft.milk_source_id || '');
-        setQuantity(draft.quantity || '');
-        setUnit(draft.unit || 'LITER');
-        setLr(draft.lr || '');
-        setFat(draft.fat || '');
-        setNotes(draft.notes || '');
-      } else {
-        setShopRmrNumber('');
-        setSelectedSourceId('');
-        setQuantity('');
-        setUnit('LITER');
-        setLr('');
-        setFat('');
-        setNotes('');
-      }
-    } catch {
-      setShopRmrNumber('');
-      setSelectedSourceId('');
-      setQuantity('');
-      setUnit('LITER');
-      setLr('');
-      setFat('');
-      setNotes('');
-    }
   };
 
   // Shop geofence preview (the server checks again with the saved shop location).
@@ -543,6 +540,7 @@ export function useCollection({
         if (picturesWait) setSyncFeedback('Pictures will send after the phone is set up.');
       }
 
+      serverDraft.discard();
       setActiveStop(null);
       await refreshUnsynced();
 
