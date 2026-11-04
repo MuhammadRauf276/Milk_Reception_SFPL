@@ -859,7 +859,7 @@ export async function checkAndTriggerTransitLossAlertTx(
       sourceZmccId: params.zmccId || undefined,
       title: 'High Road Transit Loss Alert (>1.0%)',
       body: `Vehicle ${params.vehicleNumber} (Visit #${params.visitNumber}) arrived with ${params.transitLossPercent.toFixed(2)}% loss (${lossLiters.toFixed(2)} L). Inspection required.`,
-      deepLink: `/department/qa-head?visitId=${params.visitId.toString()}`,
+      deepLink: '/mpd/zmcc-manager?tab=PLANT_TRANSIT&view=RECONCILIATION',
       dedupeSuffix: `high-transit-${params.visitId.toString()}`,
     });
     return true;

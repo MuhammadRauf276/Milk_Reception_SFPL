@@ -1,3 +1,4 @@
+import { clearHandledNotifications } from '@/backend/services/notificationService';
 import { prisma } from '@/backend/core/db';
 import { auditActorFromUser, writeAuditLog } from '@/backend/core/audit';
 import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
@@ -214,6 +215,7 @@ export async function rejectCorrectionRequest(
   }
 
   const reviewerId = BigInt(reviewerUser.id);
+  await clearHandledNotifications(prisma, ['CORRECTION_ESCALATED'], requestId);
   const updated = await prisma.correctionRequest.update({
     where: { id: requestId },
     data: {
@@ -252,6 +254,7 @@ export async function approveCorrectionRequest(
   if (!req) throw new Error('Correction request not found.');
   if (req.status !== 'REQUESTED') throw new Error(`Cannot approve correction request in status: ${req.status}`);
 
+  await clearHandledNotifications(prisma, ['CORRECTION_ESCALATED'], requestId);
   const updated = await prisma.correctionRequest.update({
     where: { id: requestId },
     data: {

@@ -11,9 +11,21 @@ import { reviewMotShopException } from '@/backend/services/mot/motShopReviewServ
 import { reviewPortionException } from '@/backend/services/zmcc/labPortionReviewService';
 import { decideDispatchApproval } from '@/backend/services/dispatch/dispatchDecisionService';
 import {
-  resolveNotificationsForSource,
+  clearHandledNotifications,
   emitSelfApprovalReviewNotification,
 } from '@/backend/services/notificationService';
+
+/** The bell items each approval type answers. */
+const EVENTS_BY_APPROVAL_TYPE: Partial<Record<ApprovalType, string[]>> = {
+  STAGE_1_SHOP_EXCEPTION: ['MOT_SHOP_EXCEPTION_PENDING'],
+  STAGE_1_NEW_ROUTE: ['NEW_ROUTE_PENDING'],
+  STAGE_1_NEW_SHOP: ['NEW_SHOP_PENDING'],
+  STAGE_2_PORTION_EXCEPTION: ['ZMCC_LAB_EXCEPTION_PENDING'],
+  STAGE_2_NEW_HC: ['NEW_HC_PENDING', 'HC_APPROVAL_PENDING'],
+  STAGE_3_ZMCC_DISPATCH_EXCEPTION: ['DISPATCH_APPROVAL_PENDING'],
+  STAGE_3_CONTRACTOR_DISPATCH_EXCEPTION: ['DISPATCH_APPROVAL_PENDING'],
+  STAGE_4_PORTION_EXCEPTION: ['PLANT_QA_EXCEPTION_PENDING'],
+};
 
 export async function POST(
   req: Request,
@@ -390,9 +402,7 @@ export async function POST(
     // ---------------------------------------------------------------------------------------------
     // Post-decision notification handling
     // ---------------------------------------------------------------------------------------------
-    await resolveNotificationsForSource(prisma, {
-      sourceId: numericId.toString(),
-    });
+    await clearHandledNotifications(prisma, EVENTS_BY_APPROVAL_TYPE[approvalType] ?? [], numericId);
 
     if (decisionCheck.isSelfApproval) {
       await emitSelfApprovalReviewNotification(prisma, {

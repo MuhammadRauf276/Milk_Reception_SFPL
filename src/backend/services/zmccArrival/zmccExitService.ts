@@ -1,3 +1,4 @@
+import { clearHandledNotifications } from '@/backend/services/notificationService';
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { writeAuditLog } from '@/backend/core/audit';
@@ -392,6 +393,7 @@ export async function decideCloseWithoutUnloading(
           newValues: { remarks: decisionRemarks },
           actor: acting,
         });
+        await clearHandledNotifications(tx, ['ZMCC_CLOSE_REQUEST_PENDING'], sessionId);
         return { session_id: sessionId.toString(), approved: false };
       }
 
@@ -406,6 +408,7 @@ export async function decideCloseWithoutUnloading(
           exit_outcome: outcome,
         },
       });
+      await clearHandledNotifications(tx, ['ZMCC_CLOSE_REQUEST_PENDING'], sessionId);
       await writeAuditLog(tx, {
         tableName: 'zmcc_lab_session',
         recordId: sessionId,

@@ -2,8 +2,25 @@
 import type { LiveCameraResult, StampInfo } from '@/types/captured-photo';
 import { layoutStampBand } from './stampBand';
 
-const MAX_LONG_SIDE = 1920;
-const JPEG_QUALITY = 0.85;
+// Evidence photos: sharp enough to read a meter, a seal or the stamp, without filling the phone or the server.
+const MAX_LONG_SIDE = 1600;
+const JPEG_QUALITIES = [0.82, 0.75, 0.68];
+const TARGET_BYTES = 400 * 1024;
+
+/** The first quality that fits the target. A very detailed photo stops at the lowest one rather than losing clarity. */
+export async function encodeWithinTarget(
+  encode: (quality: number) => Promise<Blob>,
+  qualities: readonly number[] = JPEG_QUALITIES,
+  targetBytes: number = TARGET_BYTES
+): Promise<Blob> {
+  let blob: Blob | null = null;
+  for (const quality of qualities) {
+    blob = await encode(quality);
+    if (blob.size <= targetBytes) return blob;
+  }
+  if (!blob) throw new Error('Could not save the photo.');
+  return blob;
+}
 
 export async function sha256Hex(blob: Blob): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
@@ -48,13 +65,13 @@ export async function captureFrame(
     ctx.fillText(line, layout.paddingPx, y, width - layout.paddingPx * 2);
   });
 
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error('Could not save the photo.'))),
-      'image/jpeg',
-      JPEG_QUALITY
-    );
-  });
+  // Hashed after compressing, so the stored photo is exactly the one the hash proves.
+  const blob = await encodeWithinTarget(
+    (quality) =>
+      new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not save the photo.'))), 'image/jpeg', quality);
+      })
+  );
   const sha256 = await sha256Hex(blob);
 
   return {

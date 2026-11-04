@@ -1,4 +1,5 @@
 // Stage 3 (ZMCC / Contractor dispatch): policy, server totals, decision rule, tank issue, approver queue and approver decision.
+import { clearHandledNotifications } from '@/backend/services/notificationService';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@core/db';
 import { assertResourceInScope, asRoleFields, resolveActingContext } from '@/backend/core/acting-context';
@@ -839,6 +840,7 @@ export async function decideDispatchApproval(
         },
       });
       await tx.visitPortion.updateMany({ where: { visit_id: id }, data: { current_status: nextStatus } });
+      await clearHandledNotifications(tx, [DISPATCH_APPROVAL_EVENT_KEY], id);
 
       await writeAuditLog(tx, {
         tableName: 'vehicle_visit',

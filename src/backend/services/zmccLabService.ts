@@ -54,7 +54,7 @@ import { loadSystemRoles, type PolicyDb } from '@/backend/services/testPointPoli
 import { QualityRuleService, type QualityResultEvaluation } from '@/backend/services/qualityRuleService';
 import { TestingPoint } from '@/types/milk-test-policy';
 import { getTankPhysicalStock, serializeTankReceipt } from '@/backend/services/zmccTankService';
-import { createNotificationsForEvent } from '@/backend/services/notificationService';
+import { clearHandledNotifications, createNotificationsForEvent } from '@/backend/services/notificationService';
 import { getErrorCode, getErrorMessage } from '@/lib/errors';
 import { jsonRecord, toJsonInput } from '@/lib/json';
 import type { LabTestResultOption } from '@/lib/validations/labTest';
@@ -2420,6 +2420,7 @@ export async function correctCompletedSession(
       // Record an audit-only review without altering decision to ACCEPTED and without creating tank stock.
       const now = new Date();
       const updated = await prisma.$transaction(async (tx) => {
+        await clearHandledNotifications(tx, ['ZMCC_LAB_EXCEPTION_PENDING'], sessionId);
         const sessionAfter = await tx.zmccLabSession.update({
           where: { id: sessionId },
           data: {
@@ -2650,6 +2651,7 @@ export async function correctCompletedSession(
   // Row-lock correction transaction
   try {
     const correctedSession = await prisma.$transaction(async (tx) => {
+      await clearHandledNotifications(tx, ['ZMCC_LAB_EXCEPTION_PENDING'], sessionId);
       const lockedRows: Array<{ id: bigint; correction_count: number; manager_correction_count: number }> = await tx.$queryRaw`
         SELECT id, correction_count, manager_correction_count FROM zmcc_lab_session WHERE id = ${sessionId} FOR UPDATE
       `;

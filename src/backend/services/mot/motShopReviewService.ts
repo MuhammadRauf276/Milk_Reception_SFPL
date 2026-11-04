@@ -1,4 +1,5 @@
 // Stage 1 (MOT shop) exception review: a Zonal Manager (or above) decides a collection waiting for approval.
+import { clearHandledNotifications } from '@/backend/services/notificationService';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@core/db';
 import { assertResourceInScope, asRoleFields } from '@/backend/core/acting-context';
@@ -190,6 +191,7 @@ export async function reviewMotShopException(
     });
     if (upd.count !== 1) return { status: 409, error: 'Someone already decided this. Reload.' };
 
+    await clearHandledNotifications(tx, ['MOT_SHOP_EXCEPTION_PENDING'], id);
     await tx.motJourneyStop.update({
       where: { id: row.journey_stop_id },
       data: { status: final === 'REJECTED' ? 'REJECTED' : 'VISITED' },

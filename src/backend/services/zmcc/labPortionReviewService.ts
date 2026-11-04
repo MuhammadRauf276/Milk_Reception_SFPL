@@ -1,4 +1,5 @@
 // Stage 2 (ZMCC lab) portions: policy loader, portion view, vehicle roll-up / auto-close, and the Zonal Manager exception review.
+import { clearHandledNotifications } from '@/backend/services/notificationService';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@core/db';
 import { assertResourceInScope, asRoleFields } from '@/backend/core/acting-context';
@@ -444,6 +445,7 @@ export async function reviewPortionException(
         actor: auditActorOf(ctx),
       });
     }
+    await clearHandledNotifications(tx, ['ZMCC_LAB_EXCEPTION_PENDING'], id);
     const rollUp = await rollUpLabSessionTx(tx, row.lab_session_id, ctx);
     const fresh = await tx.zmccLabPortion.findUniqueOrThrow({ where: { id }, include: queueInclude });
     const photos = await loadPortionPhotos(tx, [id]);

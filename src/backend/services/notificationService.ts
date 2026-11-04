@@ -89,6 +89,23 @@ export async function createNotificationsForEvent(
 }
 
 /**
+ * The work behind these items is finished, so they leave everyone's bell. Matches the kind of item as well as the
+ * record, because different records can share the same id number.
+ */
+export async function clearHandledNotifications(
+  db: Db,
+  eventKeys: string[],
+  sourceId: bigint | string
+): Promise<number> {
+  if (eventKeys.length === 0) return 0;
+  const result = await db.notification.updateMany({
+    where: { event_key: { in: eventKeys }, source_id: String(sourceId), read_at: null },
+    data: { read_at: new Date() },
+  });
+  return result.count;
+}
+
+/**
  * Resolves/marks notifications as read for a given source entity upon decision.
  */
 export async function resolveNotificationsForSource(

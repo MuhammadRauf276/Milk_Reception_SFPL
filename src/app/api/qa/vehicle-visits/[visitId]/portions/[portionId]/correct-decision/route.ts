@@ -1,3 +1,4 @@
+import { clearHandledNotifications } from '@/backend/services/notificationService';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
@@ -291,7 +292,9 @@ export async function POST(
           },
         });
 
+        await clearHandledNotifications(tx, ['PLANT_QA_EXCEPTION_PENDING'], portionId);
         if (newVisitStatus !== 'PLANT_QA' && activeSession.status === 'IN_PROGRESS') {
+          await clearHandledNotifications(tx, ['PLANT_QA_EXCEPTION_PENDING'], visitId);
           await tx.qATestingSession.update({
             where: { id: activeSession.id },
             data: {

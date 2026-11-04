@@ -1,5 +1,6 @@
 // MPD Head remarks on milk rejected at the ZMCC (rejected_milk_disposition) or Plant (visit_portion).
 // Queue = rejected ZMCC lab portions and Plant visit portions that have no remarks yet.
+import { clearHandledNotifications } from '@/backend/services/notificationService';
 import { prisma } from '@/backend/core/db';
 import { writeAuditLog, type AuditActor } from '@/backend/core/audit';
 import { requireRoles } from '@/backend/core/route-guards';
@@ -252,6 +253,7 @@ export async function addRejectedMilkRemarks(req: Request): Promise<NextResponse
         });
 
         // Also upsert a RejectedMilkDisposition row for unified reporting
+        await clearHandledNotifications(tx, ['REJECTED_MILK_REMARKS_PENDING'], entityId);
         await tx.rejectedMilkDisposition.upsert({
           where: { entity_type_entity_id: { entity_type: 'PLANT_PORTION', entity_id: entityId } },
           create: {
@@ -307,6 +309,7 @@ export async function addRejectedMilkRemarks(req: Request): Promise<NextResponse
         select: { id: true },
       });
       if (existing) return null;
+      await clearHandledNotifications(tx, ['REJECTED_MILK_REMARKS_PENDING'], entityId);
       const row = await tx.rejectedMilkDisposition.create({
         data: {
           stage: 'ZMCC',

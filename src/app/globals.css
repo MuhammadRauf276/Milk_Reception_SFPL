@@ -320,6 +320,44 @@
     text-overflow: ellipsis;
   }
 
+  /* Phones: text stays the size the layout was built for, even when the phone tries to enlarge it. */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* A long vehicle number or name wraps inside its card instead of pushing out of it. */
+  body {
+    overflow-wrap: break-word;
+  }
+
+  img,
+  video {
+    max-width: 100%;
+  }
+
+  @media (max-width: 640px) {
+    /* A flex or grid child can otherwise refuse to shrink below its content and spill out of its card. */
+    .flex > *,
+    .inline-flex > *,
+    .grid > * {
+      min-width: 0;
+    }
+
+    /* Icons keep their size next to text that wraps. */
+    .flex > svg,
+    .inline-flex > svg {
+      flex-shrink: 0;
+    }
+
+    /* iPhones zoom the whole page when a smaller input is tapped, and the layout then looks broken. */
+    input:not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
