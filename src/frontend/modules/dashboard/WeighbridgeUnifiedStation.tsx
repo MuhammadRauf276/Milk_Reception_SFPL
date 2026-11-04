@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { formatOperationalDatetime, toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
 import { Pager, pageCount, paginate } from './components/Pager';
@@ -329,6 +330,16 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
   const activeStep = visit.steps.find((s) => s.status === 'ACTIVE_INPUT') || null;
   const isGrossStep = activeStep?.stage_type === 'INITIAL_GROSS';
 
+  // What was typed stays on this device until the weighment is recorded.
+  const weighDraft = useLocalFormDraft({
+    formKey: activeStep ? `weighbridge:${visit.id}:${activeStep.step_index}` : null,
+    values: { kg: activeInputKg, time: opDateTimeInput },
+    onRestore: (fields) => {
+      if (fields.kg !== undefined) setActiveInputKg(fields.kg);
+      if (fields.time !== undefined) setOpDateTimeInput(fields.time);
+    },
+  });
+
   const enteredVal = Number(activeInputKg);
   const isValidNum = !isNaN(enteredVal) && enteredVal > 0;
 
@@ -435,6 +446,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
       }
 
       activeWeighOpIdRef.current = null;
+      weighDraft.clear();
       await onSuccess();
     } catch (err) {
       toast.showError(getErrorMessage(err) || 'Failed to record weighment reading', 'Weighbridge Error');

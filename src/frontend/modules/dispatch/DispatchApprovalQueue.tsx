@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState, useEffect, useMemo } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -129,6 +130,13 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
   const [now, setNow] = useState(() => Date.now());
   const [selectedItem, setSelectedItem] = useState<DispatchApprovalItem | null>(null);
   const [remarks, setRemarks] = useState('');
+  const formDraft = useLocalFormDraft({
+    formKey: selectedItem ? `dispatch-approval:${selectedItem.id}` : null,
+    values: { remarks },
+    onRestore: (fields) => {
+      if (fields.remarks !== undefined) setRemarks(fields.remarks);
+    },
+  });
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -204,6 +212,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
         queryClient.invalidateQueries({ queryKey: ['dispatch', 'approvals'] });
         return;
       }
+      formDraft.clear();
       queryClient.invalidateQueries({ queryKey: ['dispatch', 'approvals'] });
       setSelectedItem(null);
     } catch (err) {

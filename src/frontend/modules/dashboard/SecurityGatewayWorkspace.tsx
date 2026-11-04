@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState, useMemo, useRef } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -109,6 +110,24 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
   const [exitOpTimestamp, setExitOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // What was typed stays on this device until the entry or exit is recorded.
+  const entryDraft = useLocalFormDraft({
+    formKey: selectedEntryVisitId ? `gate-entry:${selectedEntryVisitId}` : null,
+    values: { token: tokenNumber, time: entryOpTimestamp },
+    onRestore: (fields) => {
+      if (fields.token !== undefined) setTokenNumber(fields.token);
+      if (fields.time !== undefined) setEntryOpTimestamp(fields.time);
+    },
+  });
+  const exitDraft = useLocalFormDraft({
+    formKey: selectedExitVisitId ? `gate-exit:${selectedExitVisitId}` : null,
+    values: { washed: tankerWashed === null ? '' : String(tankerWashed), time: exitOpTimestamp },
+    onRestore: (fields) => {
+      if (fields.washed === 'true' || fields.washed === 'false') setTankerWashed(fields.washed === 'true');
+      if (fields.time !== undefined) setExitOpTimestamp(fields.time);
+    },
+  });
   const activeEntryOpIdRef = useRef<string | null>(null);
   const activeExitOpIdRef = useRef<string | null>(null);
   const [_msg, setMsg] = useState<{ text: string; isError: boolean } | null>(null);
@@ -193,6 +212,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
 
       activeEntryOpIdRef.current = null;
       const successMsgText = `Gate Entry recorded. Token ${data.visit?.token_number || tokenNumber} issued successfully.`;
+      entryDraft.clear();
       toast.showSuccess(successMsgText, 'Gate Entry Recorded');
       setTokenNumber(suggestTokenNumber());
       setSelectedEntryVisitId(null);
@@ -234,6 +254,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
 
       activeExitOpIdRef.current = null;
       const successMsgText = `Gate Exit completed successfully for vehicle ${selectedExitVisit.vehicle_number}.`;
+      exitDraft.clear();
       toast.showSuccess(successMsgText, 'Gate Exit Completed');
       setSelectedExitVisitId(null);
       setTankerWashed(null);

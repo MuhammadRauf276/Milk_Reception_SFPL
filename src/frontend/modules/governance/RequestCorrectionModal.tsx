@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle2, ShieldAlert, X } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
@@ -40,6 +41,15 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
   const [selectedField, setSelectedField] = useState<string>(availableFields[0]?.field || '');
   const [proposedValue, setProposedValue] = useState<string>('');
   const [reason, setReason] = useState<string>('');
+  const formDraft = useLocalFormDraft({
+    formKey: isOpen ? `correction:${module}:${recordId}` : null,
+    values: { field: selectedField, proposed: proposedValue, reason },
+    onRestore: (fields) => {
+      if (fields.field !== undefined) setSelectedField(fields.field);
+      if (fields.proposed !== undefined) setProposedValue(fields.proposed);
+      if (fields.reason !== undefined) setReason(fields.reason);
+    },
+  });
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -93,6 +103,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
       });
       void queryClient.invalidateQueries({ queryKey: ['corrections'] });
 
+      formDraft.clear();
       setSuccessMsg(data.message || 'Correction request sent. Follow it under My correction requests.');
       if (onSuccess && data.requestId) {
         onSuccess(data.requestId);

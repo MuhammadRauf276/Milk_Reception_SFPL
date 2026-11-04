@@ -14,6 +14,8 @@ export interface UserItem {
   role: string;
   department: string;
   scopeType: string;
+  phone?: string | null;
+  cnic?: string | null;
   procurementSourceId: string | null;
   procurementSource: UserSource | null;
   isActive: boolean;

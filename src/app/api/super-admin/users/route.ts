@@ -7,6 +7,7 @@ import { getRoleAssignmentPolicy } from '@/lib/user-assignment-policy';
 import { validateAndNormalizeEmail, classifyUniqueError } from '@/lib/email-validator';
 import { getErrorCode, getErrorMessage } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
+import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
 
 // Fixed documented PostgreSQL transaction-level advisory lock key used across
 // all user creation (POST) and mutation (PATCH) transactions to serialize
@@ -51,6 +52,8 @@ export async function GET(req: Request) {
           username: true,
           full_name: true,
           email: true,
+          phone: true,
+          cnic: true,
           role: true,
           department: true,
           scope_type: true,
@@ -70,6 +73,8 @@ export async function GET(req: Request) {
       username: u.username,
       name: u.full_name || u.username,
       email: u.email,
+      phone: u.phone,
+      cnic: u.cnic,
       role: u.role,
       department: u.department || '-',
       scopeType: u.scope_type,
@@ -180,6 +185,11 @@ export async function POST(req: Request) {
     }
     const normalizedEmail = emailValidation.normalizedEmail!;
 
+    const phoneResult = normalizePakistaniMobile(payload.phone);
+    if (!phoneResult.ok) return NextResponse.json({ error: phoneResult.error }, { status: 400 });
+    const cnicResult = normalizePakistaniCnic(payload.cnic);
+    if (!cnicResult.ok) return NextResponse.json({ error: cnicResult.error }, { status: 400 });
+
     if (typeof payload.password !== 'string' || payload.password.length < 8) {
       return NextResponse.json({ error: 'Password must be at least 8 characters long.' }, { status: 400 });
     }
@@ -245,6 +255,10 @@ export async function POST(req: Request) {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${USER_MUTATION_ADVISORY_LOCK_KEY})`;
 
       // 2. Source row lock (if source-bound)
+      if (await tx.user.findFirst({ where: { cnic: cnicResult.value }, select: { id: true } })) {
+        throw new ValidationError('This CNIC is already registered to another user.');
+      }
+
       if (policy.requiresSource && candidatePsId !== null) {
         // Use SELECT ... FOR UPDATE on procurement_source before validating it
         const lockedRows = await tx.$queryRaw<Array<{ id: bigint }>>`
@@ -294,6 +308,8 @@ export async function POST(req: Request) {
           username,
           full_name: fullName,
           email: normalizedEmail,
+          phone: phoneResult.value,
+          cnic: cnicResult.value,
           password_hash: passHash,
           role: policy.role,
           department: policy.department,
@@ -311,6 +327,8 @@ export async function POST(req: Request) {
         newValues: {
           username,
           email: normalizedEmail,
+          phone: phoneResult.value,
+          cnic: cnicResult.value,
           role: policy.role,
           department: policy.department,
           scope_type: policy.scopeType,
@@ -329,6 +347,8 @@ export async function POST(req: Request) {
         username: newUser.username,
         name: newUser.full_name,
         email: newUser.email,
+        phone: newUser.phone,
+        cnic: newUser.cnic,
         role: newUser.role,
         department: newUser.department,
         scopeType: newUser.scope_type,

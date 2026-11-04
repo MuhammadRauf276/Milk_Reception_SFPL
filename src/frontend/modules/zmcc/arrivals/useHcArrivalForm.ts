@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useCallback, useState } from 'react';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
@@ -20,6 +21,16 @@ export function useHcArrivalForm(onRecorded: () => void) {
   const [submitting, setSubmitting] = useState(false);
   const [successResult, setSuccessResult] = useState<HcArrivalRow | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const formDraft = useLocalFormDraft({
+    formKey: formOpen ? 'hc-arrival' : null,
+    values: { supplier: selectedLocalSupplierId, token: rawMilkTokenNumber, vehicle: vehicleNumber, time: arrivalTimestamp },
+    onRestore: (fields) => {
+      if (fields.supplier !== undefined) setSelectedLocalSupplierId(fields.supplier);
+      if (fields.token !== undefined) setRawMilkTokenNumber(fields.token);
+      if (fields.vehicle !== undefined) setVehicleNumber(fields.vehicle);
+      if (fields.time !== undefined) setArrivalTimestamp(fields.time);
+    },
+  });
 
   const reset = useCallback(() => {
     setSelectedLocalSupplierId('');
@@ -99,6 +110,7 @@ export function useHcArrivalForm(onRecorded: () => void) {
         exit_recorded_by_user_id: null,
         exit_client_event_id: null,
       } as unknown as HcArrivalRow;
+      formDraft.clear();
       setSuccessResult(offlineResult);
       setFormOpen(false);
       onRecorded();
@@ -125,6 +137,7 @@ export function useHcArrivalForm(onRecorded: () => void) {
       if (!res.ok) {
         setError(data.error || 'Failed to record HC arrival.');
       } else {
+        formDraft.clear();
         setSuccessResult(data);
         setFormOpen(false);
         onRecorded();

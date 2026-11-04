@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useCallback, useState } from 'react';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
@@ -26,6 +27,14 @@ export function useMcArrivalForm(policyMode: PolicyMode, onRecorded: () => void)
   const [submitting, setSubmitting] = useState(false);
   const [successResult, setSuccessResult] = useState<McArrivalRow | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const formDraft = useLocalFormDraft({
+    formKey: formOpen && selectedJourney ? `mc-arrival:${selectedJourney.id}` : null,
+    values: { token: rawMilkTokenNumber, time: arrivalTimestamp },
+    onRestore: (fields) => {
+      if (fields.token !== undefined) setRawMilkTokenNumber(fields.token);
+      if (fields.time !== undefined) setArrivalTimestamp(fields.time);
+    },
+  });
 
   const reset = useCallback(() => {
     setSelectedJourney(null);
@@ -109,6 +118,7 @@ export function useMcArrivalForm(policyMode: PolicyMode, onRecorded: () => void)
           status: 'ARRIVED',
         } as unknown as McArrivalRow['journey'],
       } as unknown as McArrivalRow;
+      formDraft.clear();
       setSuccessResult(offlineResult);
       setFormOpen(false);
       onRecorded();
@@ -134,6 +144,7 @@ export function useMcArrivalForm(policyMode: PolicyMode, onRecorded: () => void)
           timeoutMs: 15_000,
         }
       );
+      formDraft.clear();
       setSuccessResult(data);
       setFormOpen(false);
       onRecorded();

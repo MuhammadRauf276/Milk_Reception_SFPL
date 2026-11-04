@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState } from 'react';
 import { Ban } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -18,12 +19,20 @@ interface Props {
 export function CancelJourneySheet({ journey, onClose, onDone }: Props) {
   const queryClient = useQueryClient();
   const [reason, setReason] = useState('');
+  const formDraft = useLocalFormDraft({
+    formKey: `journey-cancel:${journey.id}`,
+    values: { reason },
+    onRestore: (fields) => {
+      if (fields.reason !== undefined) setReason(fields.reason);
+    },
+  });
   const [error, setError] = useState<string | null>(null);
 
   const cancelMutation = useMutation({
     mutationFn: (text: string) =>
       sendJson(`/api/zmcc/mot/journeys/${journey.id}/cancel`, 'POST', { reason: text }, 'Failed to cancel journey.'),
     onSuccess: () => {
+      formDraft.clear();
       queryClient.invalidateQueries({ queryKey: MOT_TAB_DATA_KEY });
       onDone(`Journey #${journey.journey_number} cancelled successfully.`);
     },

@@ -6,6 +6,7 @@ import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 import {
   LAST_USER_KEY,
   decideOnOpen,
+  draftFingerprint,
   hasDraftContent,
   localDraftKey,
   readLocalDraft,
@@ -26,6 +27,8 @@ export type DraftFormType = 'PLANT_QA' | 'ZMCC_LAB_MC' | 'ZMCC_LAB_HC' | 'DISPAT
 export const DRAFT_AUTOSAVE_DELAY_MS = 1500;
 /** A failed send is tried again after this long while the phone still says it is online. */
 export const DRAFT_RETRY_MS = 15_000;
+/** While a form is open and in front, it checks for what the same login typed on another device this often. */
+export const DRAFT_LIVE_CHECK_MS = 5000;
 
 interface UseServerDraftArgs {
   formType: DraftFormType;
@@ -111,7 +114,7 @@ export function useServerDraft({ formType, scopeId, portionKey, content, onRemot
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const saveRef = useRef<(keepalive?: boolean, retried?: boolean) => void>(() => undefined);
-  const syncRef = useRef<() => void>(() => undefined);
+  const syncRef = useRef<(quiet?: boolean) => void>(() => undefined);
   const targetKeyRef = useRef<string | null>(targetKey);
   const colleaguesShown = useRef<Set<string>>(new Set());
   const lastSyncAt = useRef<number | null>(null);
@@ -144,7 +147,7 @@ export function useServerDraft({ formType, scopeId, portionKey, content, onRemot
     writeLocalDraft(storage, storageKey, {
       content: body,
       baseVersion: versionRef.current,
-      dirty: JSON.stringify(body) !== lastSent.current,
+      dirty: draftFingerprint(body) !== lastSent.current,
       updatedAt: new Date().toISOString(),
     });
   };
@@ -154,7 +157,7 @@ export function useServerDraft({ formType, scopeId, portionKey, content, onRemot
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
     if (sending.current && !keepalive) return;
     const body = latest.current;
-    const json = JSON.stringify(body);
+    const json = draftFingerprint(body);
     if (json === lastSent.current) return;
     if (versionRef.current === null && !hasDraftContent(body)) return;
     const savingFor = targetKey;
@@ -175,7 +178,7 @@ export function useServerDraft({ formType, scopeId, portionKey, content, onRemot
           lastSent.current = json;
           writeLocal();
           // Typing went on while this was in flight: send that too.
-          if (JSON.stringify(latest.current) !== json) scheduleServer();
+          if (draftFingerprint(latest.current) !== json) scheduleServer();
         } else if (res.status === 409 && data.code === 'DRAFT_STALE' && data.current) {
           // The phone wins: take the server's version number, fill only empty fields from its values, send again.
           versionRef.current = data.current.version;
@@ -202,7 +205,7 @@ export function useServerDraft({ formType, scopeId, portionKey, content, onRemot
   });
 
   /** Asks the server for its copy and reconciles it with the phone's. Runs on open and again when the signal returns. */
-  const syncWithServer = () => {
+  const syncWithServer = (quiet = false) => {
     if (!target || !targetKey) return;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
     lastSyncAt.current = Date.now();
@@ -219,9 +222,9 @@ export function useServerDraft({ formType, scopeId, portionKey, content, onRemot
         const decision = decideOnOpen(local, data.draft);
         versionRef.current = decision.baseVersion;
         // In sync with the server unless the phone has edits to send.
-        lastSent.current = data.draft && !decision.push ? JSON.stringify(data.draft.content) : '';
+        lastSent.current = data.draft && !decision.push ? draftFingerprint(data.draft.content) : '';
         if (data.draft && decision.apply) onRemoteRef.current(data.draft.content, decision.apply === 'server-wins' ? 'stale' : 'load');
-        if (decision.keptPhone) toastRef.current.showInfo('Kept what you typed on this phone.', 'Draft Updated');
+        if (decision.keptPhone && !quiet) toastRef.current.showInfo('Kept what you typed on this phone.', 'Draft Updated');
         if (data.closedMessage) closedKey.current = forKey;
         if (!colleaguesShown.current.has(forKey)) {
           colleaguesShown.current.add(forKey);
@@ -251,7 +254,7 @@ export function useServerDraft({ formType, scopeId, portionKey, content, onRemot
     const local = storageKey ? readLocalDraft(browserStorage(), storageKey) : null;
     if (local && hasDraftContent(local.content)) {
       versionRef.current = local.baseVersion;
-      lastSent.current = local.dirty ? '' : JSON.stringify(local.content);
+      lastSent.current = local.dirty ? '' : draftFingerprint(local.content);
       onRemoteRef.current(local.content, 'load');
     }
     syncRef.current();
@@ -271,6 +274,19 @@ export function useServerDraft({ formType, scopeId, portionKey, content, onRemot
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentJson, targetKey]);
+
+  // While the form is open, pick up what this login types on another device. Skipped while this device has unsent
+  // edits: those go to the server first, and the other device then picks them up.
+  useEffect(() => {
+    if (!targetKey) return;
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'hidden' || navigator.onLine === false) return;
+      if (syncedKey.current !== targetKey || closedKey.current === targetKey || sending.current) return;
+      if (draftFingerprint(latest.current) !== lastSent.current) return;
+      syncRef.current(true);
+    }, DRAFT_LIVE_CHECK_MS);
+    return () => clearInterval(timer);
+  }, [targetKey]);
 
   // Signal back, tab hidden or page left: write now and send what is waiting.
   useEffect(() => {

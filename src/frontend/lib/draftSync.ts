@@ -43,6 +43,18 @@ export function hasDraftContent(c: DraftContent): boolean {
   );
 }
 
+/**
+ * The same draft always gives the same text, whatever order its fields are in and whether blank fields are present.
+ * Two devices compare this, so applying each other's copy never looks like a new edit to send back.
+ */
+export function draftFingerprint(c: DraftContent): string {
+  const filled = (record: Record<string, string>) =>
+    Object.entries(record)
+      .filter(([, value]) => value.trim() !== '')
+      .sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify([filled(c.values), filled(c.photos), c.remarks.trim()]);
+}
+
 /** One key per user, so a shared phone never shows another user's draft. */
 export function localDraftKey(userId: string, formType: string, scopeId: string, portionKey: string): string {
   return `${PREFIX}:${userId}:${formType}:${scopeId}:${portionKey}`;

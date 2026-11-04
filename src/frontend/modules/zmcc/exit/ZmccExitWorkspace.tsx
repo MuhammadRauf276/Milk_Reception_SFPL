@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Clock, DoorOpen, Loader2, Truck } from 'lucide-react';
@@ -87,6 +88,14 @@ const ExitDrawer: React.FC<{ kind: 'exit' | 'close'; item: ExitQueueItem; onClos
 }) => {
   const [code, setCode] = useState('');
   const [remarks, setRemarks] = useState('');
+  const formDraft = useLocalFormDraft({
+    formKey: `zmcc-exit:${kind}:${item.session_id}`,
+    values: { code, remarks },
+    onRestore: (fields) => {
+      if (fields.code !== undefined) setCode(fields.code);
+      if (fields.remarks !== undefined) setRemarks(fields.remarks);
+    },
+  });
   const [error, setError] = useState<string | null>(null);
   const reasonRequired = kind === 'close' || item.needs_reason;
 
@@ -115,6 +124,7 @@ const ExitDrawer: React.FC<{ kind: 'exit' | 'close'; item: ExitQueueItem; onClos
     setError(null);
     try {
       await mutation.mutateAsync();
+      formDraft.clear();
       onDone(kind === 'exit' ? 'Exit recorded.' : 'Request sent to the ZMCC Manager.');
     } catch (err) {
       setError(getErrorMessage(err) || 'Could not save. Please try again.');

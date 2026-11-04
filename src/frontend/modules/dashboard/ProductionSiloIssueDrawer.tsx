@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MinusCircle, X } from 'lucide-react';
@@ -22,6 +23,18 @@ export const ProductionSiloIssueDrawer: React.FC<{
   const [issueFlowMeterRef, setIssueFlowMeterRef] = useState<string>('');
   const [issueOpTimestamp, setIssueOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
   const [actionLoading, setActionLoading] = useState(false);
+
+  // What was typed stays on this device until the issue is recorded.
+  const issueDraft = useLocalFormDraft({
+    formKey: `silo-issue:${silo.silo_code}`,
+    values: { quantity: issueQuantityLiters, purpose: issuePurpose, flowMeter: issueFlowMeterRef, time: issueOpTimestamp },
+    onRestore: (fields) => {
+      if (fields.quantity !== undefined) setIssueQuantityLiters(fields.quantity);
+      if (fields.purpose !== undefined) setIssuePurpose(fields.purpose);
+      if (fields.flowMeter !== undefined) setIssueFlowMeterRef(fields.flowMeter);
+      if (fields.time !== undefined) setIssueOpTimestamp(fields.time);
+    },
+  });
 
   const historyQuery = useQuery({
     queryKey: ['production', 'silo-issue-history', silo.id],
@@ -74,6 +87,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
           `Milk issue of ${quantityNum.toLocaleString()} L recorded from ${silo.silo_code}.`,
           'Silo Issue Recorded'
         );
+        issueDraft.clear();
         setIssueQuantityLiters('');
         setIssueFlowMeterRef('');
         queryClient.invalidateQueries({ queryKey: ['production', 'silo-issue-history'] });

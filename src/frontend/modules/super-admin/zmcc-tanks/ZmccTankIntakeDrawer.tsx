@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState, useMemo } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Calculator, CheckCircle2, FlaskConical, Milk } from 'lucide-react';
@@ -23,6 +24,18 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
   const [useCustom13Ts, setUseCustom13Ts] = useState<boolean>(false);
   const [notes, setNotes] = useState<string>('Direct intake by Super Admin - staff unavailable');
   const [error, setError] = useState<string | null>(null);
+  const formDraft = useLocalFormDraft({
+    formKey: tank ? `tank-intake:${tank.id}` : null,
+    values: { gross: grossLiters, fat, lr, custom: custom13Ts, useCustom: String(useCustom13Ts), notes },
+    onRestore: (fields) => {
+      if (fields.gross !== undefined) setGrossLiters(fields.gross);
+      if (fields.fat !== undefined) setFat(fields.fat);
+      if (fields.lr !== undefined) setLr(fields.lr);
+      if (fields.custom !== undefined) setCustom13Ts(fields.custom);
+      if (fields.useCustom !== undefined) setUseCustom13Ts(fields.useCustom === 'true');
+      if (fields.notes !== undefined) setNotes(fields.notes);
+    },
+  });
 
   // Derived calculations following canonical formulas
   const numGross = parseFloat(grossLiters) || 0;
@@ -96,6 +109,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
       },
       {
         onSuccess: () => {
+          formDraft.clear();
           onSaved(`Added ${numGross.toLocaleString('en-US', { minimumFractionDigits: 2 })} L (${final13Ts.toLocaleString('en-US', { minimumFractionDigits: 2 })} L @13% TS) to tank "${tank.tank_code}".`);
           onClose();
         },

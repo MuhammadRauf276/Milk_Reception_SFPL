@@ -38,6 +38,8 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState(user?.email || '');
   const [name, setName] = useState(user?.name || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [cnic, setCnic] = useState(user?.cnic || '');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<CreatableRole>(initialRole);
   const [sourceId, setSourceId] = useState(user?.procurementSourceId || '');
@@ -91,6 +93,8 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
       if (!trimmedUsername) return setError('Username is required.');
       const trimmedEmail = email.trim();
       if (!trimmedEmail) return setError('Email address is required.');
+      if (!phone.trim()) return setError('Mobile number is required.');
+      if (!cnic.trim()) return setError('CNIC is required.');
       if (!password || password.length < 8) return setError('Password must be at least 8 characters long.');
       if (policy.requiresSource && !effectiveSourceId)
         return setError(`Please select an active ${policy.allowedSourceType} source for ${policy.label}.`);
@@ -98,6 +102,8 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
         {
           username: trimmedUsername,
           email: trimmedEmail,
+          phone: phone.trim(),
+          cnic: cnic.trim(),
           name: name.trim(),
           password,
           role,
@@ -113,6 +119,8 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
 
     const trimmedEmail = email.trim();
     if (user!.email && !trimmedEmail) return setError('Email address cannot be cleared.');
+    if (user!.phone && !phone.trim()) return setError('Mobile number cannot be cleared.');
+    if (user!.cnic && !cnic.trim()) return setError('CNIC cannot be cleared.');
     if (policy.requiresSource && !effectiveSourceId)
       return setError(`Please select an active ${policy.allowedSourceType} source for ${policy.label}.`);
     mutation.mutate(
@@ -121,6 +129,8 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
         role,
         procurementSourceId: policy.requiresSource ? effectiveSourceId : null,
         ...(trimmedEmail ? { email: trimmedEmail } : {}),
+        ...(phone.trim() ? { phone: phone.trim() } : {}),
+        ...(cnic.trim() ? { cnic: cnic.trim() } : {}),
       },
       {
         onSuccess: () => onSaved(`User "${user!.username}" updated successfully.`),
@@ -206,6 +216,38 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               onChange={(e) => setName(e.target.value)}
               className={fieldInputClass}
               placeholder="e.g. John Doe"
+              disabled={busy}
+            />
+          </div>
+          <div>
+            <label htmlFor={`${p}-phone`} className={fieldLabelClass}>
+              Mobile Number {!isEdit && <span className="text-primary">*</span>}
+            </label>
+            <input
+              id={`${p}-phone`}
+              type="tel"
+              inputMode="tel"
+              required={!isEdit}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={fieldInputClass}
+              placeholder="e.g. 03001234567"
+              disabled={busy}
+            />
+          </div>
+          <div>
+            <label htmlFor={`${p}-cnic`} className={fieldLabelClass}>
+              CNIC {!isEdit && <span className="text-primary">*</span>}
+            </label>
+            <input
+              id={`${p}-cnic`}
+              type="text"
+              inputMode="numeric"
+              required={!isEdit}
+              value={cnic}
+              onChange={(e) => setCnic(e.target.value)}
+              className={fieldInputClass}
+              placeholder="e.g. 35201-1234567-1"
               disabled={busy}
             />
           </div>

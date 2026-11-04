@@ -6,6 +6,8 @@ interface UnlinkedMotUser {
   username: string | null;
   full_name: string | null;
   procurement_source_id: bigint | null;
+  phone?: string | null;
+  cnic?: string | null;
 }
 
 export interface MotProfileSyncDb {
@@ -18,9 +20,9 @@ export interface MotProfileSyncDb {
 
 /**
  * Mobile Tester lists read mot_profile, but creating a user makes only a user. This gives each active Mobile Tester
- * bound to a ZMCC the profile they need, so they appear without another step. The user form has no phone or CNIC, so
- * those start as placeholders, and can be corrected on the Mobile Tester profile. One user's failure never stops the
- * others or the list.
+ * bound to a ZMCC the profile they need, so they appear without another step. It uses the user's phone and CNIC; an
+ * older user with neither gets placeholders until those are filled in. One user's failure never stops the others or
+ * the list.
  */
 export async function ensureMotProfilesForUsers(db: MotProfileSyncDb, sourceId?: bigint | null): Promise<void> {
   const users = await db.user.findMany({
@@ -31,7 +33,7 @@ export async function ensureMotProfilesForUsers(db: MotProfileSyncDb, sourceId?:
       procurement_source_id: sourceId ?? { not: null },
       procurement_source: { source_type: 'ZMCC' },
     },
-    select: { id: true, username: true, full_name: true, procurement_source_id: true },
+    select: { id: true, username: true, full_name: true, procurement_source_id: true, phone: true, cnic: true },
   });
 
   for (const user of users) {
@@ -46,8 +48,8 @@ export async function ensureMotProfilesForUsers(db: MotProfileSyncDb, sourceId?:
         data: {
           mot_code,
           name: user.full_name || user.username || mot_code,
-          phone_number: `0300-${String(user.id).padStart(7, '0')}`,
-          cnic: `35201-${String(user.id).padStart(7, '0')}-1`,
+          phone_number: user.phone || `0300-${String(user.id).padStart(7, '0')}`,
+          cnic: user.cnic || `35201-${String(user.id).padStart(7, '0')}-1`,
           zmcc_id: user.procurement_source_id,
           user_id: user.id,
           is_active: true,

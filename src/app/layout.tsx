@@ -7,6 +7,7 @@ import { PwaShell } from '@/frontend/modules/pwa/PwaShell';
 import { NetworkStatusBar } from '@/components/ui/NetworkStatusBar';
 import { ReAuthModal } from '@/components/auth/ReAuthModal';
 import { QueryProvider } from '@/lib/query/QueryProvider';
+import { LiveUpdateWatcher } from '@/frontend/modules/shared/LiveUpdateWatcher';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { MotionProvider } from '@/components/motion/motion-provider';
 
@@ -49,7 +50,10 @@ export default function RootLayout({
             <ToastProvider>
               <NetworkStatusBar />
               <ReAuthModal />
-              <QueryProvider>{children}</QueryProvider>
+              <QueryProvider>
+                {children}
+                <LiveUpdateWatcher />
+              </QueryProvider>
               <PwaShell />
             </ToastProvider>
           </TooltipProvider>

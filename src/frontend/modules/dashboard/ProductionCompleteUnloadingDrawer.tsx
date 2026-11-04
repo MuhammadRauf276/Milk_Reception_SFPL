@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState } from 'react';
 import { X, Layers } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
@@ -18,6 +19,13 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
   const toast = useToast();
   const [completeOpTimestamp, setCompleteOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
   const [actionLoading, setActionLoading] = useState(false);
+  const formDraft = useLocalFormDraft({
+    formKey: `unload-complete:${visit.id}`,
+    values: { time: completeOpTimestamp },
+    onRestore: (fields) => {
+      if (fields.time !== undefined) setCompleteOpTimestamp(fields.time);
+    },
+  });
   const acceptedPortions = (visit.portions ?? []).filter((p) => p.plant_decision === 'ACCEPTED');
   const isMultiPortion = acceptedPortions.length > 1;
   const isPortionWise = isMultiPortion || visit.test_mode === 'PORTION_WISE';
@@ -50,6 +58,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
         }
       );
 
+      formDraft.clear();
       toast.showSuccess(
         isPortionWise && activePortion
           ? `Unloading completed for Portion #${activePortion.portion_number}. Vehicle ready for Scale 2 second weight.`

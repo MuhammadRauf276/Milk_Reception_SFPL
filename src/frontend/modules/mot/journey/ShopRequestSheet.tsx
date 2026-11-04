@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
@@ -19,6 +20,11 @@ interface Props {
 export function ShopRequestSheet({ routeId, routeName, deviceGps, gpsBadge, onClose }: Props) {
   const [form, setForm] = useState({ shop_name: '', owner_name: '', phone_number: '', cnic: '' });
   const [submitting, setSubmitting] = useState(false);
+  const formDraft = useLocalFormDraft({
+    formKey: `shop-request:${routeId}`,
+    values: form,
+    onRestore: (fields) => setForm((prev) => ({ ...prev, ...fields })),
+  });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,6 +70,7 @@ export function ShopRequestSheet({ routeId, routeName, deviceGps, gpsBadge, onCl
         syncPendingShopRequests().catch(() => {});
       }
 
+      formDraft.clear();
       setSuccess('Shop request queued successfully. It will be added to your journey once approved.');
       setForm({ shop_name: '', owner_name: '', phone_number: '', cnic: '' });
       closeTimer.current = setTimeout(onClose, 1500);

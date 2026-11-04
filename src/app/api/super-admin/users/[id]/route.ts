@@ -5,6 +5,7 @@ import { getRoleAssignmentPolicy, isCreatableRole } from '@/lib/user-assignment-
 import { validateAndNormalizeEmail, classifyUniqueError } from '@/lib/email-validator';
 import { getErrorCode, getErrorMessage } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
+import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
 
 // Fixed documented PostgreSQL transaction-level advisory lock key used across
 // all user creation (POST) and mutation (PATCH) transactions to serialize
@@ -114,6 +115,20 @@ export async function PATCH(
         return NextResponse.json({ error: emailValidation.error }, { status: 400 });
       }
       normalizedEmail = emailValidation.normalizedEmail!;
+    }
+
+    // Older users may have neither yet; once given, a value can be changed but not cleared.
+    let normalizedPhone: string | undefined;
+    if ('phone' in payload) {
+      const result = normalizePakistaniMobile(payload.phone);
+      if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+      normalizedPhone = result.value;
+    }
+    let normalizedCnic: string | undefined;
+    if ('cnic' in payload) {
+      const result = normalizePakistaniCnic(payload.cnic);
+      if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+      normalizedCnic = result.value;
     }
 
     const adminUser = await prisma.user.findFirst({ where: { username: authUser.username } });
@@ -365,9 +380,18 @@ export async function PATCH(
           ? 'USER_ACTIVATED'
           : 'USER_UPDATED';
 
+      if (
+        normalizedCnic &&
+        (await tx.user.findFirst({ where: { cnic: normalizedCnic, NOT: { id: targetUserId } }, select: { id: true } }))
+      ) {
+        throw new ValidationError('This CNIC is already registered to another user.');
+      }
+
       const user = await tx.user.update({
         where: { id: targetUserId },
         data: {
+          ...(normalizedPhone !== undefined ? { phone: normalizedPhone } : {}),
+          ...(normalizedCnic !== undefined ? { cnic: normalizedCnic } : {}),
           full_name: newFullName,
           role: policy.role,
           department: policy.department,
@@ -378,6 +402,17 @@ export async function PATCH(
         },
       });
 
+      // A Mobile Tester's profile carries the same phone and CNIC.
+      if (normalizedPhone !== undefined || normalizedCnic !== undefined) {
+        await tx.motProfile.updateMany({
+          where: { user_id: targetUserId },
+          data: {
+            ...(normalizedPhone !== undefined ? { phone_number: normalizedPhone } : {}),
+            ...(normalizedCnic !== undefined ? { cnic: normalizedCnic } : {}),
+          },
+        });
+      }
+
       await writeAuditLog(tx, {
         tableName: 'users',
         recordId: targetUserId,
@@ -385,6 +420,8 @@ export async function PATCH(
         oldValues: {
           username: targetUser.username,
           email: targetUser.email,
+          phone: targetUser.phone,
+          cnic: targetUser.cnic,
           role: targetUser.role,
           department: targetUser.department,
           scope_type: targetUser.scope_type,
@@ -394,6 +431,8 @@ export async function PATCH(
         newValues: {
           username: user.username,
           email: user.email,
+          phone: user.phone,
+          cnic: user.cnic,
           role: user.role,
           department: user.department,
           scope_type: user.scope_type,
@@ -426,6 +465,8 @@ export async function PATCH(
         username: updatedUser.username,
         name: updatedUser.full_name,
         email: updatedUser.email,
+        phone: updatedUser.phone,
+        cnic: updatedUser.cnic,
         role: updatedUser.role,
         department: updatedUser.department,
         scopeType: updatedUser.scope_type,

@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getErrorMessage } from '@/lib/errors';
@@ -19,6 +20,11 @@ export function RouteRequestSheet({ zmccId, needsZonalApproval, onClose, onDone 
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', origin: '', destination: '', initial_area_name: '', description: '' });
+  const formDraft = useLocalFormDraft({
+    formKey: `route-request:${zmccId ?? 'none'}`,
+    values: form,
+    onRestore: (fields) => setForm((prev) => ({ ...prev, ...fields })),
+  });
 
   const requestMutation = useMutation({
     mutationFn: () =>
@@ -36,6 +42,7 @@ export function RouteRequestSheet({ zmccId, needsZonalApproval, onClose, onDone 
         'Failed to request route.'
       ),
     onSuccess: () => {
+      formDraft.clear();
       queryClient.invalidateQueries({ queryKey: MOT_TAB_DATA_KEY });
       onDone(
         needsZonalApproval

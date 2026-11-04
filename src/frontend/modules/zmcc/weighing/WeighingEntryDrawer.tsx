@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Scale, Warehouse } from 'lucide-react';
@@ -60,6 +61,22 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
   const [tankId, setTankId] = useState(myTanks.length === 1 ? myTanks[0].id : '');
   const [sourceId, setSourceId] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const formDraft = useLocalFormDraft({
+    formKey: `zmcc-weighing:${session.session_id}`,
+    values: { weights: JSON.stringify(weights), tank: tankId, source: sourceId },
+    onRestore: (fields) => {
+      if (fields.tank !== undefined) setTankId(fields.tank);
+      if (fields.source !== undefined) setSourceId(fields.source);
+      if (fields.weights !== undefined) {
+        try {
+          const saved: unknown = JSON.parse(fields.weights);
+          if (Array.isArray(saved) && saved.every((x) => typeof x === 'string')) setWeights(saved as string[]);
+        } catch {
+          // A damaged draft is ignored.
+        }
+      }
+    },
+  });
 
   const liveNets: Array<number | null> = useMemo(() => {
     if (mode === 'MANUAL') return manual.map((m) => toNum(m.value));
@@ -116,6 +133,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
     setError(null);
     try {
       await saveMutation.mutateAsync();
+      formDraft.clear();
       onChanged('Values saved. Nothing is in the tank yet. Tap "Unload to ZMCC tank" when the milk is poured.');
     } catch (err) {
       setError(getErrorMessage(err) || 'Could not save. Please try again.');
@@ -126,6 +144,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
     try {
       await saveMutation.mutateAsync();
       await unloadMutation.mutateAsync();
+      formDraft.clear();
       onChanged('Milk unloaded to the tank.');
     } catch (err) {
       setError(getErrorMessage(err) || 'Could not unload. Please try again.');

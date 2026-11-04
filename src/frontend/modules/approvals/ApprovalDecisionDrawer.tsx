@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState } from 'react';
 import { CheckCircle2, ShieldAlert, XCircle } from 'lucide-react';
 import type { User } from '@/backend/core/types';
@@ -27,6 +28,13 @@ export function ApprovalDecisionDrawer({
   onDecided: () => void;
 }) {
   const [decisionRemarks, setDecisionRemarks] = useState('');
+  const formDraft = useLocalFormDraft({
+    formKey: `approval:${item.id}:${verdict}`,
+    values: { remarks: decisionRemarks },
+    onRestore: (fields) => {
+      if (fields.remarks !== undefined) setDecisionRemarks(fields.remarks);
+    },
+  });
   const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
 
@@ -64,6 +72,7 @@ export function ApprovalDecisionDrawer({
           version: item.version,
         },
       });
+      formDraft.clear();
       onDecided();
     } catch (err: unknown) {
       setDecisionError(getErrorMessage(err) || 'Error submitting decision.');

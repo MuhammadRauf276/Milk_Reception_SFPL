@@ -335,6 +335,23 @@ export function ZMCCOperationalJourneysScreen({
       {/* 0. ASSIGN & DISPATCH VIEW */}
       {activeTab === 'DISPATCH' && (
         <div className="space-y-4">
+          {!facilityId && (
+            <div className="max-w-4xl mx-auto rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-800" role="status">
+              Select a ZMCC at the top of the page to load its routes, testers and vehicles.
+            </div>
+          )}
+          {dispatchDataQuery.isError && (
+            <div className="max-w-4xl mx-auto rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs font-semibold text-rose-800 flex items-center justify-between gap-2" role="alert">
+              <span>Could not load routes, testers and vehicles: {dispatchDataQuery.error.message}</span>
+              <button
+                type="button"
+                onClick={() => void dispatchDataQuery.refetch()}
+                className="shrink-0 min-h-9 px-3 rounded-lg border border-rose-300 text-rose-800 hover:bg-rose-100"
+              >
+                Retry
+              </button>
+            </div>
+          )}
           {dispatchError && (
             <div className="max-w-4xl mx-auto rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs font-semibold text-rose-800 flex items-center justify-between">
               <span>{dispatchError}</span>

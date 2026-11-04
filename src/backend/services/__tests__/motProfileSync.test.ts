@@ -54,6 +54,13 @@ test('the placeholder phone and CNIC match the formats the profile accepts', asy
   assert.match(String(created[0].cnic), /^\d{5}-\d{7}-\d$/);
 });
 
+test("a user's real phone and CNIC are used when given", async () => {
+  const { db, created } = fakeDb([{ ...ashraf, phone: '+923001234567', cnic: '35201-1234567-1' }]);
+  await ensureMotProfilesForUsers(db);
+  assert.equal(created[0].phone_number, '+923001234567');
+  assert.equal(created[0].cnic, '35201-1234567-1');
+});
+
 test('a code already in use gets the user id, so the user still appears', async () => {
   const { db, created } = fakeDb([ashraf], ['ASHRAF']);
   await ensureMotProfilesForUsers(db);

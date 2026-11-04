@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader2, ShieldCheck, X, XCircle } from 'lucide-react';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -19,6 +20,14 @@ export const ZMCCManagerReviewDrawer: React.FC<{
     session.decision === 'REJECTED' ? 'ACCEPTED' : 'REJECTED'
   );
   const [reviewReason, setReviewReason] = useState<string>('');
+  const formDraft = useLocalFormDraft({
+    formKey: `lab-review:${session.id}`,
+    values: { decision: reviewDecision, reason: reviewReason },
+    onRestore: (fields) => {
+      if (fields.decision === 'ACCEPTED' || fields.decision === 'REJECTED') setReviewDecision(fields.decision);
+      if (fields.reason !== undefined) setReviewReason(fields.reason);
+    },
+  });
   const [reviewSubmitting, setReviewSubmitting] = useState<boolean>(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
 
@@ -42,6 +51,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
         }),
       });
 
+      formDraft.clear();
       const isReviewExited = data.manager_review_status === 'REVIEWED_EXITED';
       onSubmitted(
         isReviewExited

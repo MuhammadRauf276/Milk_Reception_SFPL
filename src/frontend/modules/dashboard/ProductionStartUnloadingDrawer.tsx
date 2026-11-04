@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState } from 'react';
 import { Play, X, Layers, CheckCircle } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
@@ -43,6 +44,13 @@ export const ProductionStartUnloadingDrawer: React.FC<{
 
   const [startOpTimestamp, setStartOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
   const [actionLoading, setActionLoading] = useState(false);
+  const formDraft = useLocalFormDraft({
+    formKey: `unload-start:${visit.id}`,
+    values: { time: startOpTimestamp },
+    onRestore: (fields) => {
+      if (fields.time !== undefined) setStartOpTimestamp(fields.time);
+    },
+  });
 
   const minTimestamp = isPortionWise && activePortion?.first_weight_at
     ? activePortion.first_weight_at
@@ -81,6 +89,7 @@ export const ProductionStartUnloadingDrawer: React.FC<{
         }
       );
 
+      formDraft.clear();
       toast.showSuccess(
         isPortionWise && activePortion
           ? `Unloading started for Portion #${activePortion.portion_number} (${visit.vehicle_number}).`

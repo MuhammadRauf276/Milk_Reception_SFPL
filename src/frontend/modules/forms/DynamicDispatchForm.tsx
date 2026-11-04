@@ -42,6 +42,7 @@ import { DispatchSummaryPanel } from './components/DispatchSummaryPanel';
 import { toPhotoState, type DispatchPhotoState } from './components/DispatchPolicyTests';
 import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 import { useServerDraft, type DraftFormType } from '@/frontend/hooks/useServerDraft';
+import { LIVE_CONFIG_CHANGED_EVENT } from '@/frontend/modules/shared/LiveUpdateWatcher';
 import { applyDraftToExtras, applyDraftToPortions, dispatchDraftFromForm } from '@/lib/dispatch-draft';
 import { isCalculatedTest } from '@/lib/lab-test-roles';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
@@ -442,6 +443,13 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   }, [effectiveSourceId, isContractorSource]);
 
   // Tests, rules and picture needs for this dispatch point.
+  const [policyRefreshTick, setPolicyRefreshTick] = useState(0);
+  useEffect(() => {
+    const refresh = () => setPolicyRefreshTick((tick) => tick + 1);
+    window.addEventListener(LIVE_CONFIG_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(LIVE_CONFIG_CHANGED_EVENT, refresh);
+  }, []);
+
   useEffect(() => {
     if (!policyPoint || !effectiveSourceId) return;
     let alive = true;
@@ -467,7 +475,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     return () => {
       alive = false;
     };
-  }, [policyPoint, effectiveSourceId]);
+  }, [policyPoint, effectiveSourceId, policyRefreshTick]);
 
   const buildInitialPortionResults = (tests: LabTestDef[]): Record<string, TestResultState> => {
     const res: Record<string, TestResultState> = {};

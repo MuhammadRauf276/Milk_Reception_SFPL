@@ -378,7 +378,10 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           {/* 3. MOT JOURNEYS & RADAR */}
           {activeTab === 'MOT_JOURNEYS' && (
             <div id="tabpanel-MOT_JOURNEYS" role="tabpanel" aria-labelledby="tab-MOT_JOURNEYS" className="space-y-6 animate-panel-in">
-              <ZMCCOperationalJourneysScreen currentUser={currentUser} />
+              <ZMCCOperationalJourneysScreen
+                currentUser={currentUser}
+                targetZmccId={searchParams?.get('zmccId') || searchParams?.get('zmcc_id') || undefined}
+              />
             </div>
           )}
 

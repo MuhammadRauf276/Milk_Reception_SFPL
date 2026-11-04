@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState, useCallback, useMemo } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -116,6 +117,13 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
     name: string;
   } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const formDraft = useLocalFormDraft({
+    formKey: rejectingItem ? `approval-reject:${rejectingItem.type}:${rejectingItem.id}` : null,
+    values: { reason: rejectReason },
+    onRestore: (fields) => {
+      if (fields.reason !== undefined) setRejectReason(fields.reason);
+    },
+  });
   const [submittingAction, setSubmittingAction] = useState(false);
 
   const [routesQ, shopsQ, hcsQ] = useQueries({
@@ -198,6 +206,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
       if (!res.ok) {
         throw new Error(data.error || 'Failed to reject request.');
       }
+      formDraft.clear();
       setActionSuccess(`${typeLabel(rejectingItem.type)} request rejected.`);
       setRejectingItem(null);
       setRejectReason('');
