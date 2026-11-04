@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import React, { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -33,6 +34,7 @@ export default function SuperAdminZmccTanksPage() {
   const [editTank, setEditTank] = useState<TankItem | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  useAutoClearMessage(successMsg, setSuccessMsg);
   const [actionError, setActionError] = useState<string | null>(null);
 
   // Form state for Create / Edit Tank

@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StatCard } from '@/components/ui/stat-card';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 import { CompactColumnPopover } from './components/CompactColumnPopover';
 import { DynamicFilterBar } from './components/DynamicFilterBar';
 import { DynamicReportTable } from './components/DynamicReportTable';

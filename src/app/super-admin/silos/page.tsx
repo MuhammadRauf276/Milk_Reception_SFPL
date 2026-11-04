@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -17,6 +18,7 @@ export default function SuperAdminSilosPage() {
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  useAutoClearMessage(successMsg, setSuccessMsg);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const query = useQuery({

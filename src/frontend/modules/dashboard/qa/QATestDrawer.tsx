@@ -19,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import { LiveCamera } from '@/components/camera/LiveCamera';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 import { evaluate3ZoneTest } from '@/lib/sop-evaluation';
 import type { LabTestDef, TestInputState, VisitDetail, VisitDetailPortion } from './qaTypes';
 import type { DecisionResult, PersonDecision } from '@/types/stage1-decision';

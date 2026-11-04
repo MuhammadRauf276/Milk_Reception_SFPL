@@ -118,6 +118,12 @@ export function useServerDraft({ formType, scopeId, portionKey, content, onRemot
   const targetKeyRef = useRef<string | null>(targetKey);
   const colleaguesShown = useRef<Set<string>>(new Set());
   const lastSyncAt = useRef<number | null>(null);
+  const restoredShown = useRef<string | null>(null);
+  const showRestored = () => {
+    if (restoredShown.current === targetKeyRef.current) return;
+    restoredShown.current = targetKeyRef.current;
+    toastRef.current.showToast('INFO', 'Your saved work was restored.', undefined, 3000);
+  };
 
   useEffect(() => {
     latest.current = content;
@@ -224,6 +230,7 @@ export function useServerDraft({ formType, scopeId, portionKey, content, onRemot
         // In sync with the server unless the phone has edits to send.
         lastSent.current = data.draft && !decision.push ? draftFingerprint(data.draft.content) : '';
         if (data.draft && decision.apply) onRemoteRef.current(data.draft.content, decision.apply === 'server-wins' ? 'stale' : 'load');
+        if (data.draft && decision.apply && hasDraftContent(data.draft.content) && !quiet) showRestored();
         if (decision.keptPhone && !quiet) toastRef.current.showInfo('Kept what you typed on this phone.', 'Draft Updated');
         if (data.closedMessage) closedKey.current = forKey;
         if (!colleaguesShown.current.has(forKey)) {
@@ -256,6 +263,7 @@ export function useServerDraft({ formType, scopeId, portionKey, content, onRemot
       versionRef.current = local.baseVersion;
       lastSent.current = local.dirty ? '' : draftFingerprint(local.content);
       onRemoteRef.current(local.content, 'load');
+      showRestored();
     }
     syncRef.current();
     // The target is fully described by targetKey and storageKey.

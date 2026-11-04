@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   Loader2,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 import { fetchJson } from '@/lib/fetch-json';
 import type { SupplyChainLossSummary } from '@/backend/services/lossCalculationService';
 

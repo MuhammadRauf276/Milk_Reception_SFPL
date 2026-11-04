@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState, useCallback, useMemo } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
@@ -104,6 +105,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
   const queryClient = useQueryClient();
   const [localError, setError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  useAutoClearMessage(actionSuccess, setActionSuccess);
 
   const [routesPage, setRoutesPage] = useState(1);
   const [shopsPage, setShopsPage] = useState(1);

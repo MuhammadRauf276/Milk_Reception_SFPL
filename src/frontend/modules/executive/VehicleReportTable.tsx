@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Eye, Truck } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 import type { MilkProcessLog } from '@backend/core/types';
 import { getPakistanCalendarDate } from '@backend/core/business-day';
 import { fetchJson } from '@/lib/query/fetchJson';

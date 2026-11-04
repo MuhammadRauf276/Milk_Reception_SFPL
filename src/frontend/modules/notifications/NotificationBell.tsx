@@ -47,16 +47,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
     retry: false,
     // Paused automatically while the tab is hidden (refetchIntervalInBackground defaults to false).
     refetchInterval: 60_000,
+    // A failed check leaves the last list and unread count in place; the next check tries again.
     queryFn: async ({ signal }) => {
-      try {
-        const data = await fetchJson<{ notifications?: NotificationItem[]; unreadCount?: number }>('/api/notifications', { signal });
-        return { notifications: data?.notifications || [], unreadCount: Number(data?.unreadCount || 0) };
-      } catch (err) {
-        if (signal.aborted) throw err;
-        // Ignore network/auth errors during polling; keep an empty feed.
-        return { notifications: [], unreadCount: 0 };
-      }
+      const data = await fetchJson<{ notifications?: NotificationItem[]; unreadCount?: number }>('/api/notifications', { signal });
+      return { notifications: data?.notifications || [], unreadCount: Number(data?.unreadCount || 0) };
     },
+    refetchOnReconnect: true,
   });
   const notifications = feedQuery.data?.notifications ?? EMPTY_FEED;
   const unreadCount = feedQuery.data?.unreadCount ?? 0;
@@ -75,7 +71,6 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
     if (!feedQuery.data) return;
     const next = feedQuery.data.unreadCount;
     if (unreadRef.current !== null && next > unreadRef.current) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRingKey((key) => key + 1);
     }
     unreadRef.current = next;

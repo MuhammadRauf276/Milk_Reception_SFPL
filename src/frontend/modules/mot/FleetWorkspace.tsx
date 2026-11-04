@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import React, { useMemo, useState } from 'react';
 import { History, Plus, Truck } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -60,6 +61,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  useAutoClearMessage(message, setMessage);
   const [vehicleSheet, setVehicleSheet] = useState<{ editing: MotVehicleItem | null } | null>(null);
   const [transferVehicle, setTransferVehicle] = useState<MotVehicleItem | null>(null);
   const [historyRow, setHistoryRow] = useState<FleetRow | null>(null);

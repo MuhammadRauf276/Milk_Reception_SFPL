@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Truck,
@@ -125,6 +126,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
 
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  useAutoClearMessage(successMessage, setSuccessMessage);
 
   // A parent-driven tab change clears the previous tab's messages.
   const [previousControlledTab, setPreviousControlledTab] = useState(controlledTab);

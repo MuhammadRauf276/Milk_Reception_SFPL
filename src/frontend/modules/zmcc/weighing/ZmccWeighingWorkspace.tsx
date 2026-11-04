@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -173,6 +174,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState<string>('');
   const [donePage, setDonePage] = useState(1);
   const [notice, setNotice] = useState<string | null>(null);
+  useAutoClearMessage(notice, setNotice);
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {

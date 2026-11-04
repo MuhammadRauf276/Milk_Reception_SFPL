@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import { InfoTip } from '@/components/ui/info-tip';
 import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,6 +27,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
   const [enabled, setEnabled] = useState(false);
   const [units, setUnits] = useState<Units>('BOTH');
   const [notice, setNotice] = useState<string | null>(null);
+  useAutoClearMessage(notice, setNotice);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const query = useQuery({

@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -178,6 +179,7 @@ export const ZmccExitWorkspace: React.FC = () => {
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  useAutoClearMessage(notice, setNotice);
 
   const query = useQuery({
     queryKey: ['zmcc', 'exit', 'queue'],

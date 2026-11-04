@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Mail, Send, X, ExternalLink, MessageSquare, Check, Sparkles, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import type { DailyReportData } from '@/backend/services/superAdminDailyReportService';

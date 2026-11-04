@@ -22,7 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 
 type ReportView = 'ROUTE_COLLECTIONS' | 'HC_SUPPLIERS' | 'TANK_STORAGE';
 

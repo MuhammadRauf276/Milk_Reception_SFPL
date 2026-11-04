@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import React, { useState, useMemo } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -75,6 +76,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
   // Modal Review State
   const [reviewModalSession, setReviewModalSession] = useState<ZmccLabSessionItem | null>(null);
   const [reviewSuccessMsg, setReviewSuccessMsg] = useState<string | null>(null);
+  useAutoClearMessage(reviewSuccessMsg, setReviewSuccessMsg);
 
   // ZMCC lab history: lazy (only for the lab view), debounced search, keeps previous rows while filtering.
   const queryClient = useQueryClient();

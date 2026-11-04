@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import { InfoTip } from '@/components/ui/info-tip';
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -52,6 +53,7 @@ export default function SuperAdminUsersPage() {
   const [page, setPage] = useState(1);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  useAutoClearMessage(successMsg, setSuccessMsg);
 
   const q = useDebouncedValue(search.trim(), 300);
   const filters = useMemo(() => ({ q, role: roleFilter, status: statusFilter, page }), [q, roleFilter, statusFilter, page]);

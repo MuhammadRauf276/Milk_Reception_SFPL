@@ -25,7 +25,7 @@ import { buildJourneyOverlays, type JourneyOverlayData } from '@/frontend/module
 import { PageLoader } from '@/components/ui/spinner';
 import { StatCard } from '@/components/ui/stat-card';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 import { useDispatchForm, useDispatchGps } from '@/frontend/modules/mot/workspace/useDispatch';
 import { DispatchTab } from '@/frontend/modules/mot/workspace/DispatchTab';
 import { RouteRequestSheet } from '@/frontend/modules/mot/workspace/RouteRequestSheet';

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 import { Toaster } from '@/components/ui/sonner';
 
 export type ToastType = 'SUCCESS' | 'WARNING' | 'ERROR' | 'INFO';

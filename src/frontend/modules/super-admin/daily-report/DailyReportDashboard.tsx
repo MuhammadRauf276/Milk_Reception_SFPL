@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Calendar, ChevronLeft, ChevronRight, Download, Share2, Search, Filter, CheckCircle2, AlertTriangle, XCircle, Clock, Layers, Truck, FlaskConical, Store, ShieldAlert, ShieldCheck, TrendingDown, Info, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import type { DailyReportData } from '@/backend/services/superAdminDailyReportService';

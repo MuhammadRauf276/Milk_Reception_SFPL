@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import { InfoTip } from '@/components/ui/info-tip';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Camera, CheckCircle2, CircleSlash, Lock, MinusCircle, Save, ShieldCheck, X } from 'lucide-react';
@@ -60,6 +61,7 @@ export function TestPointPolicyMatrix() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  useAutoClearMessage(notice, setNotice);
   const [showReason, setShowReason] = useState(false);
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);

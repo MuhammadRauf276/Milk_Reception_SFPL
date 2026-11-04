@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
+import { useToast } from '@/frontend/context/ToastContext';
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 import type { DraftStorage } from '@/frontend/lib/draftSync';
 import { changedFields, localFormDraftKey, readLocalFormDraft, writeLocalFormDraft } from '@/frontend/lib/localFormDraft';
@@ -26,6 +27,7 @@ export function useLocalFormDraft({
   values: Record<string, string>;
   onRestore: (fields: Record<string, string>) => void;
 }): { clear: () => void } {
+  const toast = useToast();
   const { currentUser } = useCurrentUser();
   const userId = currentUser?.id ? String(currentUser.id) : null;
   const storageKey = formKey && userId ? localFormDraftKey(userId, formKey) : null;
@@ -33,9 +35,9 @@ export function useLocalFormDraft({
   const initial = useRef<Record<string, string>>({});
   const openedKey = useRef<string | null>(null);
   const clearedKey = useRef<string | null>(null);
-  const latest = useRef({ values, onRestore });
+  const latest = useRef({ values, onRestore, toast });
   useEffect(() => {
-    latest.current = { values, onRestore };
+    latest.current = { values, onRestore, toast };
   });
 
   useEffect(() => {
@@ -44,7 +46,10 @@ export function useLocalFormDraft({
     if (!storageKey) return;
     initial.current = latest.current.values;
     const saved = readLocalFormDraft(browserStorage(), storageKey);
-    if (saved) latest.current.onRestore(saved);
+    if (saved) {
+      latest.current.onRestore(saved);
+      latest.current.toast.showToast('INFO', 'Your saved work was restored.', undefined, 3000);
+    }
   }, [storageKey]);
 
   const valuesJson = JSON.stringify(values);

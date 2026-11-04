@@ -22,7 +22,7 @@ import { StopsList } from '@/frontend/modules/mot/journey/StopsList';
 import { CollectionModal } from '@/frontend/modules/mot/journey/CollectionModal';
 import { ReceiptModal } from '@/frontend/modules/mot/journey/ReceiptModal';
 import { ReturnToPheModal } from '@/frontend/modules/mot/journey/ReturnToPheModal';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 import { COVER_HEADERS } from '@/frontend/modules/mot/journey/types';
 import { saveCachedJourney } from '@/frontend/modules/mot/offlineStore';
 import { ShopRequestSheet } from '@/frontend/modules/mot/journey/ShopRequestSheet';

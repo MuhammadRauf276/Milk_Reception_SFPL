@@ -16,7 +16,7 @@ import {
   Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 
 interface SavedTemplateManagerProps {
   domain: ReportDomain;

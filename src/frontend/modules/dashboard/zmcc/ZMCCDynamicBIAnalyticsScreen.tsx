@@ -27,7 +27,7 @@ import {
   Clock,
   Filter,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 
 type HorizonPreset = 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_14' | 'LAST_30' | 'MTD' | 'CUSTOM';
 

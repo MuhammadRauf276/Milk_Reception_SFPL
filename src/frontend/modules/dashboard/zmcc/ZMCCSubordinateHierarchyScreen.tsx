@@ -30,7 +30,7 @@ import {
 import { StatCard } from '@/components/ui/stat-card';
 import { PageLoader } from '@/components/ui/spinner';
 import { getErrorMessage } from '@/lib/errors';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 
 interface ZMCCSubordinateHierarchyScreenProps {
   currentUser: User | null;

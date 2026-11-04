@@ -17,7 +17,7 @@ import {
   TrendingUp,
   Scale,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/frontend/lib/appToast';
 import type { MpdTabId, MpdExecutiveTelemetryData } from './types';
 import { MpdExecutiveKpiRibbon } from './components/MpdExecutiveKpiRibbon';
 import { MpdFleetRadarScreen } from './screens/MpdFleetRadarScreen';

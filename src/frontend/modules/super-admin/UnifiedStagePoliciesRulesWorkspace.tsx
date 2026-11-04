@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import { InfoTip } from '@/components/ui/info-tip';
 import React, { Suspense, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -117,6 +118,7 @@ function WorkspaceInner({
   // Notices
   const [actionError, setActionError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  useAutoClearMessage(successMsg, setSuccessMsg);
 
   // Drawers
   const [catalogDrawer, setCatalogDrawer] = useState<CatalogDrawer>(null);

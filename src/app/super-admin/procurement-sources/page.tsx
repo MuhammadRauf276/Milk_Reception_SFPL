@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -76,6 +77,7 @@ function ProcurementSourcesContent() {
   const [page, setPage] = useState(1);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  useAutoClearMessage(successMsg, setSuccessMsg);
 
   const q = useDebouncedValue(search.trim(), 300);
   const filters = useMemo(() => ({ q, type, status, page }), [q, type, status, page]);

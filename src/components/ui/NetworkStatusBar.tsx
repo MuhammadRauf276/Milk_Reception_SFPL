@@ -13,7 +13,8 @@ export function NetworkStatusBar() {
 
   useEffect(() => {
     const prev = previousStatusRef.current;
-    if (prev !== 'ONLINE' && status === 'ONLINE') {
+    previousStatusRef.current = status;
+    if (status === 'ONLINE' && prev !== 'ONLINE') {
       // Transitioned back to online from a degraded state
       setShowRestored(true);
       const timer = setTimeout(() => {
@@ -21,7 +22,6 @@ export function NetworkStatusBar() {
       }, 3500);
       return () => clearTimeout(timer);
     }
-    previousStatusRef.current = status;
   }, [status]);
 
   const handleRetry = async () => {
@@ -33,15 +33,18 @@ export function NetworkStatusBar() {
     }
   };
 
+  // "Restored" only ever shows while actually online, even if the connection drops again during those seconds.
+  const restoredVisible = showRestored && status === 'ONLINE';
+
   // Do not render anything if system is completely healthy and not showing restored banner
-  if (isOnline && !showRestored) {
+  if (isOnline && !restoredVisible) {
     return null;
   }
 
   return (
     <aside aria-label="Network status" className="fixed top-0 inset-x-0 z-[100] pointer-events-none flex justify-center px-2 pt-1 sm:pt-2">
       <AnimatePresence mode="wait">
-        {showRestored ? (
+        {restoredVisible ? (
           <motion.div
             key="status-restored"
             role="status"
