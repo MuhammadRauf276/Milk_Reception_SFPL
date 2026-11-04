@@ -5,6 +5,7 @@ import { getSiloProvisionalAvailableCapacity } from '@/backend/services/siloInve
 import { calculatePhysicalLiters } from '@/backend/utils/milkFormulas';
 import { isPlantLrTest } from '@/backend/services/vehicleQuantityService';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
+import { formatOperationalDatetime } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
@@ -98,7 +99,7 @@ export async function POST(
 
       // 3. Operational time bound check vs Gross timestamp
       if (predTs && opTimestamp.getTime() < predTs.getTime()) {
-        throw new Error(`Start timestamp (${opTimestamp.toISOString()}) cannot be earlier than previous weighment timestamp (${predTs.toISOString()}).`);
+        throw new Error(`Start time (${formatOperationalDatetime(opTimestamp)}) cannot be earlier than the previous weighment (${formatOperationalDatetime(predTs)}).`);
       }
 
       // 4. Atomic claim for READY_FOR_UNLOADING status

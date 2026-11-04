@@ -8,6 +8,8 @@
  * 3. Predecessor timestamps are fetched authoritatively from database by backend.
  */
 
+import { formatOperationalDatetime } from '@/lib/datetime-utils';
+
 export interface ChronologyResult {
   isValid: boolean;
   error?: string;
@@ -38,7 +40,7 @@ export function validateOperationalTimestamp(
 
   // Rule 2: eventTimestamp >= predecessorTimestamp (Strict equality or later allowed, earlier rejected)
   if (predecessorTimestamp && opDate.getTime() < predecessorTimestamp.getTime()) {
-    const predFormatted = predecessorTimestamp.toISOString();
+    const predFormatted = formatOperationalDatetime(predecessorTimestamp);
     return {
       isValid: false,
       error: `${eventName} time cannot be earlier than ${predecessorName} (${predFormatted}).`,

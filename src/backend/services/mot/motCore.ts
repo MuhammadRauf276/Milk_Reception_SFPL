@@ -1,5 +1,6 @@
 import { prisma } from '@core/db';
 import { writeAuditLog } from '@/backend/core/audit';
+import { ensureMotProfilesForUsers, type MotProfileSyncDb } from '@/backend/services/mot/motProfileSync';
 import { clearDraftsForPortion, type DraftDb } from '@/backend/services/formDraftService';
 import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
 import {
@@ -276,6 +277,16 @@ export async function listMotProfiles(
       { phone_number: { contains: s, mode: 'insensitive' } },
       { cnic: { contains: s, mode: 'insensitive' } },
     ];
+  }
+
+  // A Mobile Tester user created in User Management has no profile yet; without one they would never be listed.
+  try {
+    await ensureMotProfilesForUsers(
+      prisma as unknown as MotProfileSyncDb,
+      typeof where.zmcc_id === 'bigint' ? where.zmcc_id : null
+    );
+  } catch (syncErr) {
+    console.warn('Auto-sync MOT profiles warning:', syncErr);
   }
 
   const profiles = await prisma.motProfile.findMany({

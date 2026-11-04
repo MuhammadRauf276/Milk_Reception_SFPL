@@ -8,7 +8,7 @@ import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
 import { useToast } from '@/frontend/context/ToastContext';
 import { Search, CheckCircle2, Clock, Loader2, X } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
-import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
+import { formatOperationalDatetime, toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
 import { Pager, pageCount, paginate } from './components/Pager';
@@ -162,7 +162,7 @@ const FirstWeightDrawer: React.FC<{
       const minAllowed = new Date(visit.min_allowed_timestamp);
       if (selectedOpDate.getTime() < minAllowed.getTime() - 5000) {
         toast.showError(
-          `First weight timestamp cannot be earlier than QA approval (${minAllowed.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}).`,
+          `First weight timestamp cannot be earlier than QA approval (${formatOperationalDatetime(minAllowed)}).`,
           'Chronology Error'
         );
         return;

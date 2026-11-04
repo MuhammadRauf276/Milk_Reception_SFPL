@@ -5,7 +5,7 @@ import { validateOperationalTimestamp } from '@/backend/services/chronology-vali
 import { requireCapability } from '@/backend/modules/access-control/serverGuard';
 import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
 import { getOperationalBusinessDate } from '@/backend/core/business-day';
-import { parseStrictDateOnly } from '@/lib/datetime-utils';
+import { formatOperationalDatetime, parseStrictDateOnly } from '@/lib/datetime-utils';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
 import {
   findOperationRecord,
@@ -182,7 +182,7 @@ export async function POST(req: Request) {
       if (lowerBounds.length > 0) {
         const minAllowedTimeMs = Math.max(...lowerBounds);
         if (opTimestamp.getTime() < minAllowedTimeMs - 5000) {
-          throw new Error(`Gross weight operational timestamp cannot be earlier than previous workflow event (${new Date(minAllowedTimeMs).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}).`);
+          throw new Error(`Gross weight operational timestamp cannot be earlier than previous workflow event (${formatOperationalDatetime(minAllowedTimeMs)}).`);
         }
       }
 

@@ -19,7 +19,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
-import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
+import { formatOperationalDatetime, toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
 import { Pager, pageCount, paginate } from './components/Pager';
@@ -367,6 +367,14 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
       return;
     }
 
+    if (activeStep.min_allowed_timestamp && new Date(isoTimestamp) < new Date(activeStep.min_allowed_timestamp)) {
+      toast.showError(
+        `Weighment time cannot be earlier than the previous stage (${formatOperationalDatetime(activeStep.min_allowed_timestamp)}).`,
+        'Check the time'
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (!activeWeighOpIdRef.current) {
@@ -668,9 +676,15 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                           <input
                             type="datetime-local"
                             value={opDateTimeInput}
+                            min={activeStep?.min_allowed_timestamp ? toDatetimeLocalInput(activeStep.min_allowed_timestamp) : undefined}
                             onChange={(e) => setOpDateTimeInput(e.target.value)}
                             className="w-full min-h-[40px] px-3 py-1.5 text-xs tabular-nums font-semibold rounded-lg border border-input bg-card text-foreground"
                           />
+                          {activeStep?.min_allowed_timestamp && (
+                            <p className="text-[11px] text-muted-foreground tabular-nums">
+                              Earliest allowed: {formatOperationalDatetime(activeStep.min_allowed_timestamp)}
+                            </p>
+                          )}
                         </div>
 
                         {/* Submit Action */}

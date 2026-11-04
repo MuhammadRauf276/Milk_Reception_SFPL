@@ -126,6 +126,14 @@ export async function GET(req: Request) {
       const tareWeigher = ticket?.tare_recorder?.full_name || ticket?.tare_recorder?.username || 'Weighbridge Operator';
 
       const entryTime = v.gate_log?.entry_timestamp ? new Date(v.gate_log.entry_timestamp) : now;
+      // Same lower bound as /api/scale/gross-weight: the latest of dispatch, gate entry and QA completion.
+      const firstDispatchTs = v.portions.find((p) => p.dispatch_info?.dispatch_timestamp)?.dispatch_info?.dispatch_timestamp;
+      const qaCompletedTs = v.qa_session?.completed_at ?? v.qa_session?.updated_at;
+      const grossMinAllowedMs = Math.max(
+        entryTime.getTime(),
+        firstDispatchTs ? new Date(firstDispatchTs).getTime() : 0,
+        qaCompletedTs ? new Date(qaCompletedTs).getTime() : 0
+      );
       const waitingMinutes = Math.max(0, Math.floor((now.getTime() - entryTime.getTime()) / 60000));
 
       const opDateStr = v.operational_date
@@ -158,7 +166,7 @@ export async function GET(req: Request) {
           recorded_by: grossWeigher,
           status: isGrossRecorded ? 'COMPLETED' : isGrossCurrent ? 'ACTIVE_INPUT' : 'PENDING',
           is_locked: isGrossRecorded,
-          min_allowed_timestamp: entryTime.toISOString(),
+          min_allowed_timestamp: new Date(grossMinAllowedMs).toISOString(),
         });
 
         // Steps 1 to N: Intermediate Tares & Final Tare for Accepted Compartments

@@ -1,3 +1,4 @@
+import { ensureMotProfilesForUsers, type MotProfileSyncDb } from '@/backend/services/mot/motProfileSync';
 import { prisma } from '@core/db';
 
 export interface DispatchVehicleResource {
@@ -134,39 +135,8 @@ export async function getDispatchResources(sourceId: bigint): Promise<DispatchRe
   });
 
   // 2. MOT profiles assigned to this ZMCC
-  // Auto-sync any active users with role MOT or MOT_OPERATOR assigned to this ZMCC who don't have an mot_profile record yet
   try {
-    const unlinkedMotUsers = await prisma.user.findMany({
-      where: {
-        procurement_source_id: sourceId,
-        role: { in: ['MOT', 'MOT_OPERATOR'] },
-        is_active: true,
-        mot_profile: null,
-      },
-    });
-
-    for (const u of unlinkedMotUsers) {
-      const candidateCode = (u.username || `MOT-${u.id}`).toUpperCase().trim();
-      const existing = await prisma.motProfile.findFirst({
-        where: { OR: [{ user_id: u.id }, { mot_code: candidateCode }] },
-      });
-      if (!existing) {
-        const validPhone = '0300-' + String(u.id).padStart(7, '0');
-        const validCnic = '35201-' + String(u.id).padStart(7, '0') + '-1';
-        await prisma.motProfile.create({
-          data: {
-            mot_code: candidateCode,
-            name: u.full_name || u.username,
-            phone_number: validPhone,
-            cnic: validCnic,
-            zmcc_id: sourceId,
-            user_id: u.id,
-            is_active: true,
-            created_by: u.id,
-          },
-        });
-      }
-    }
+    await ensureMotProfilesForUsers(prisma as unknown as MotProfileSyncDb, sourceId);
   } catch (syncErr) {
     console.warn('Auto-sync MOT profiles warning:', syncErr);
   }
