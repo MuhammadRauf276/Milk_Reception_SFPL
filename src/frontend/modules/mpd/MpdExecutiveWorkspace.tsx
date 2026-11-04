@@ -40,6 +40,7 @@ import { Button } from '@/components/ui/button';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { fadeSlide } from '@/components/motion/presets';
+import { canSeeTestPolicies } from '@/lib/test-policy-access';
 
 interface MpdExecutiveWorkspaceProps {
   currentUser?: User | null;
@@ -60,7 +61,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
     'QUALITY_FUNNEL',
     'LOSS_DIAGNOSTICS',
     'GOVERNANCE',
-    'POLICIES',
+    ...(canSeeTestPolicies(currentUser?.role) ? (['POLICIES'] as const) : []),
   ];
   const [activeTab, setActiveTab] = useState<MpdTabId>(
     validViews.includes(urlView as MpdTabId) ? (urlView as MpdTabId) : 'FLEET_RADAR'
@@ -179,11 +180,15 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
           ? telemetry.governanceOverrides.filter((o) => o.status === 'PENDING_AUDIT').length
           : undefined,
     },
-    {
-      id: 'POLICIES',
-      label: 'Testing Policies',
-      icon: <Sliders className="w-4 h-4" />,
-    },
+    ...(canSeeTestPolicies(currentUser?.role)
+      ? [
+          {
+            id: 'POLICIES' as const,
+            label: 'Testing Policies',
+            icon: <Sliders className="w-4 h-4" />,
+          },
+        ]
+      : []),
   ];
 
   return (

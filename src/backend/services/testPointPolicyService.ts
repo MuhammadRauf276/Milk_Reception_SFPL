@@ -2,9 +2,10 @@
 // Records started before a change keep the version that was effective at their start (pass `at`).
 import type { ActingContext } from '@/types/acting';
 import { TEST_POINT_CODES, TEST_POINT_LABELS, normalizeTestMode } from '@/types/test-point-policy';
-import type { TestPointCode, TestPointPolicyCell } from '@/types/test-point-policy';
+import type { StagePhotoState, TestPointCode, TestPointPolicyCell } from '@/types/test-point-policy';
 import { writeAuditLog, type AuditDb } from '@/backend/core/audit';
-import { isInputRole, roleOf, pickRoleTest, lockedReason, findReplacementTest } from '@/lib/lab-test-roles';
+import { isInputRole, isCalculatedTest, roleOf, pickRoleTest, lockedReason, findReplacementTest } from '@/lib/lab-test-roles';
+import { getMasterSpec } from '@/lib/master-lab-tests-data';
 
 type TestMode = TestPointPolicyCell['testMode'];
 type RuleMode = TestPointPolicyCell['ruleMode'];
@@ -64,7 +65,7 @@ export interface PolicyDb {
   configChangeLog: { create(args: unknown): Promise<{ id: bigint }> };
   auditLog: { create(args: never): Promise<{ id: bigint }> };
   milkTestPolicyAssignment: {
-    findUnique(args: unknown): Promise<{ id: bigint; display_order: number; is_active: boolean; is_required: boolean } | null>;
+    findUnique(args: unknown): Promise<{ id: bigint; display_order: number; is_active: boolean; is_required: boolean; is_photo_required?: boolean | null } | null>;
     aggregate(args: unknown): Promise<{ _max: { display_order: number | null } }>;
     create(args: unknown): Promise<{ id: bigint }>;
     update(args: unknown): Promise<{ id: bigint }>;
@@ -443,26 +444,131 @@ function canonicalTestingPoint(point: TestPointCode): string | null {
   }
 }
 
+export const PHOTO_CHANGE_REASON = 'Photo requirement changed from the test edit screen';
+
+export interface TestPhotoStages {
+  labTestId: string;
+  testCode: string;
+  testName: string;
+  /** Worked out automatically (SNF, Total Solids, ratio): never takes a photo. */
+  calculated: boolean;
+  stages: StagePhotoState[];
+}
+
 /**
- * Master "Require camera photo evidence" checkbox: apply it to every stage that already has a saved matrix row
- * for the test, keeping each stage's test mode and rule mode. Stages with no saved row follow the stage
- * assignment, which the caller already updates.
+ * The test and photo mode in force at one stage, the same way the stage forms read them:
+ * 1. A saved Master Matrix row decides.
+ * 2. No saved row: the stage assignment decides (LR and Fat stay on even when it is inactive).
+ * 3. Neither: the master specification the matrix screen shows; LR, Fat and the lab report keep their default cell.
+ * Contractor dispatch keeps its relaxation for cells never saved.
  */
-export async function setPhotoRequiredForTest(
+export function effectiveStageCell(
+  cell: TestPointPolicyCell,
+  assignment: StageAssignmentRow | null,
+  masterMode: TestMode | null
+): TestPointPolicyCell {
+  if (cell.source === 'DB') return cell;
+  const formulaInput = isInputRole(cellSubject(cell));
+  let out = cell;
+  if (assignment && (assignment.is_active || !formulaInput)) {
+    out = {
+      ...cell,
+      testMode: !assignment.is_active ? 'OFF' : assignment.is_required ? 'COMPULSORY' : 'OPTIONAL',
+      photoMode: assignment.is_photo_required ? 'REQUIRED' : 'NONE',
+    };
+  } else if (!assignment && !formulaInput && cell.testCode.toUpperCase() !== LAB_REPORT_TEST_CODE) {
+    out = { ...cell, testMode: masterMode ?? 'NOT_APPLIED' };
+  }
+  return relaxContractorDefaults(cell.point, [lockFormulaInput(out)])[0];
+}
+
+/** What a stage's checkbox saves: ticked is REQUIRED; unticked clears REQUIRED and leaves an OPTIONAL photo as it is. */
+export function photoModeFor(current: PhotoMode, photoRequired: boolean): PhotoMode {
+  if (photoRequired) return 'REQUIRED';
+  return current === 'REQUIRED' ? 'NONE' : current;
+}
+
+async function loadTestStages(database: PolicyDb, labTestId: string) {
+  if (!/^\d+$/.test(labTestId)) throw new PolicyValidationError(`Invalid test id "${labTestId}".`);
+  const found = (await database.labTest.findMany({
+    where: { id: BigInt(labTestId) },
+    select: { id: true, testCode: true, testName: true, isActive: true, systemRole: true, resultType: true },
+  })) as unknown as Array<{ id: bigint; testCode: string; testName: string; isActive: boolean; systemRole: string | null; resultType: string }>;
+  const test = found.find((t) => String(t.id) === labTestId);
+  if (!test) throw new PolicyValidationError(`Test ${labTestId} does not exist.`);
+
+  const spec = getMasterSpec(test.testCode);
+  const { cells } = await loadMatrix(database, new Date());
+  const stages: TestPointPolicyCell[] = [];
+  for (const cell of cells) {
+    if (cell.labTestId !== labTestId) continue;
+    const testingPoint = cell.source === 'DB' ? null : canonicalTestingPoint(cell.point);
+    const assignment = testingPoint
+      ? await database.milkTestPolicyAssignment.findUnique({
+          where: { lab_test_id_testing_point: { lab_test_id: BigInt(labTestId), testing_point: testingPoint } },
+        })
+      : null;
+    stages.push(effectiveStageCell(cell, assignment, spec?.stages[cell.point] ?? null));
+  }
+  return { test, calculated: isCalculatedTest({ ...test, formulaId: spec?.formulaId ?? null }), stages };
+}
+
+/** Per-stage photo state of one test for the test edit screen. An inactive test has no stages: it is off everywhere. */
+export async function getTestPhotoStages(labTestId: bigint | string, db?: PolicyDb): Promise<TestPhotoStages> {
+  const { test, calculated, stages } = await loadTestStages(db ?? (await defaultDb()), String(labTestId));
+  return {
+    labTestId: String(test.id),
+    testCode: test.testCode,
+    testName: test.testName,
+    calculated,
+    stages: stages.map((c) => ({ point: c.point, testMode: c.testMode, photoMode: c.photoMode, source: c.source })),
+  };
+}
+
+/**
+ * Test edit screen: sets the photo requirement of the listed stages only, each from its own saved value.
+ * Test mode and rule mode keep their saved values. A stage with no saved row gets one holding the test mode in force,
+ * so the first photo change cannot move it to the default mode.
+ */
+export async function setStagePhotoRequired(
   ctx: ActingContext,
   labTestId: bigint | string,
-  photoRequired: boolean,
-  reason = 'Photo evidence changed on the master lab test',
+  requested: Array<{ point: TestPointCode; photoRequired: boolean }>,
+  reason = PHOTO_CHANGE_REASON,
   db?: PolicyDb
 ): Promise<{ applied: number }> {
+  if (!Array.isArray(requested)) throw new PolicyValidationError('A list of stages is required.');
+  const seen = new Set<string>();
+  for (const r of requested) {
+    if (!(TEST_POINT_CODES as readonly string[]).includes(r?.point)) throw new PolicyValidationError(`Unknown testing point: ${r?.point}.`);
+    if (typeof r.photoRequired !== 'boolean') throw new PolicyValidationError(`Say whether a photo is required at ${stageLabel(r.point)}.`);
+    if (seen.has(r.point)) throw new PolicyValidationError(`${stageLabel(r.point)} is listed twice.`);
+    seen.add(r.point);
+  }
+
   const database = db ?? (await defaultDb());
-  const { cells } = await loadMatrix(database, new Date());
-  const wanted: PhotoMode = photoRequired ? 'REQUIRED' : 'NONE';
-  const changes: PolicyChange[] = cells
-    .filter((c) => c.labTestId === String(labTestId) && c.source === 'DB' && c.photoMode !== wanted)
-    .map((c) => ({ labTestId: c.labTestId, point: c.point, testMode: c.testMode, ruleMode: c.ruleMode, photoMode: wanted }));
+  const id = String(labTestId);
+  const { test, calculated, stages } = await loadTestStages(database, id);
+  const name = `"${test.testName}" (${test.testCode})`;
+  if (calculated && requested.length > 0) throw new PolicyValidationError(`${name} is calculated automatically, so it cannot require a photo.`);
+
+  const changes: PolicyChange[] = [];
+  for (const r of requested) {
+    const stage = stages.find((c) => c.point === r.point);
+    // Not in the matrix means an inactive test: updatePolicyCells refuses it and names the active replacement.
+    if (!stage) {
+      changes.push({ labTestId: id, point: r.point, photoMode: r.photoRequired ? 'REQUIRED' : 'NONE' });
+      continue;
+    }
+    if (normalizeTestMode(stage.testMode) === 'OFF') {
+      throw new PolicyValidationError(`${name} is off at ${stageLabel(r.point)}. Turn it on in the Master Matrix to set its photo rule.`);
+    }
+    const photoMode = photoModeFor(stage.photoMode, r.photoRequired);
+    if (photoMode === stage.photoMode) continue;
+    changes.push({ labTestId: id, point: r.point, photoMode, ...(stage.source === 'DB' ? {} : { testMode: stage.testMode }) });
+  }
   if (changes.length === 0) return { applied: 0 };
-  return updatePolicyCells(ctx, changes, reason, database);
+  return updatePolicyCells(ctx, changes, reason, database, { photoOnly: true });
 }
 
 /** Super Admin matrix change: closes the current row, inserts version+1, writes change log + audit, all in one transaction. */
@@ -470,7 +576,8 @@ export async function updatePolicyCells(
   ctx: ActingContext,
   changes: PolicyChange[],
   reason: string,
-  db?: PolicyDb
+  db?: PolicyDb,
+  options: { photoOnly?: boolean } = {}
 ): Promise<{ applied: number }> {
   const cleanReason = (reason ?? '').trim();
   if (cleanReason.length < MIN_REASON_LENGTH) {
@@ -493,14 +600,14 @@ export async function updatePolicyCells(
 
   const database = db ?? (await defaultDb());
   try {
-    return await runUpdate(database, ctx, changes, cleanReason);
+    return await runUpdate(database, ctx, changes, cleanReason, options.photoOnly === true);
   } catch (e) {
     if ((e as { code?: string } | null)?.code === 'P2002') throw new PolicyConflictError();
     throw e;
   }
 }
 
-async function runUpdate(database: PolicyDb, ctx: ActingContext, changes: PolicyChange[], cleanReason: string): Promise<{ applied: number }> {
+async function runUpdate(database: PolicyDb, ctx: ActingContext, changes: PolicyChange[], cleanReason: string, photoOnly: boolean): Promise<{ applied: number }> {
   return database.$transaction(async (tx) => {
     const now = new Date();
     const { cells } = await loadMatrix(tx, now);
@@ -621,7 +728,22 @@ async function runUpdate(database: PolicyDb, ctx: ActingContext, changes: Policy
           },
         });
 
-        if (existing) {
+        if (photoOnly) {
+          // Only the photo flag follows, and only on a row that exists: a new assignment would switch the test on for a
+          // stage reading it. Both dispatch points share the DISPATCH row, so it stays as it is while the other point has
+          // no saved row and still reads it.
+          const sibling = ch.point === 'ZMCC_DISPATCH' ? 'CONTRACTOR_DISPATCH' : ch.point === 'CONTRACTOR_DISPATCH' ? 'ZMCC_DISPATCH' : null;
+          const siblingReadsRow =
+            sibling !== null &&
+            cellByKey.get(`${ch.labTestId}|${sibling}`)?.source !== 'DB' &&
+            !changes.some((o) => o.labTestId === ch.labTestId && o.point === sibling);
+          if (existing && !siblingReadsRow) {
+            await tx.milkTestPolicyAssignment.update({
+              where: { id: existing.id },
+              data: { is_photo_required: isPhotoRequired, updated_by_user_id: ctx.userId },
+            });
+          }
+        } else if (existing) {
           await tx.milkTestPolicyAssignment.update({
             where: { id: existing.id },
             data: {

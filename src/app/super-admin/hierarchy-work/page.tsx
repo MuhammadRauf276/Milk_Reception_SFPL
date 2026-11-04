@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { ArrowLeft, Download, Filter, Search, ShieldAlert, UserCheck, Loader2 } from 'lucide-react';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
+import { canSeeTestPolicies } from '@/lib/test-policy-access';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 
 interface HierarchyWorkItem {
   id: string;
@@ -28,6 +30,7 @@ interface ApiResponse {
 }
 
 export default function HierarchyWorkPage() {
+  const { currentUser } = useCurrentUser();
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
 
@@ -95,13 +98,15 @@ export default function HierarchyWorkPage() {
       {/* Top Breadcrumb & Navigation */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Link
-            href="/super-admin/test-policies"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back to Lab Policies</span>
-          </Link>
+          {canSeeTestPolicies(currentUser?.role) && (
+            <Link
+              href="/super-admin/test-policies"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Lab Policies</span>
+            </Link>
+          )}
           <div>
             <h1 className="text-xl font-bold text-slate-900">Work Done for Lower Roles</h1>
             <p className="text-xs text-slate-500">

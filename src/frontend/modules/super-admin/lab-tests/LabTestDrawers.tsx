@@ -2,9 +2,10 @@
 
 import { InfoTip } from '@/components/ui/info-tip';
 import React, { useMemo, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Calculator, CheckCircle2, Eye, Lock, ShieldCheck, Sparkles, XCircle } from 'lucide-react';
 import { mapScopeCheckboxes } from '@/lib/validations/labTest';
+import { TEST_POINT_LABELS, stagesWithPhotoCheckbox, type StagePhotoState, type TestPointCode } from '@/types/test-point-policy';
 import { Button } from '@/components/ui/button';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
@@ -36,6 +37,11 @@ export interface LabTest {
   failReject?: string;
   stageModes?: Record<string, string>;
   formulaId?: string | null;
+}
+
+interface TestPhotoStages {
+  calculated: boolean;
+  stages: StagePhotoState[];
 }
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
@@ -183,12 +189,39 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
 
   const [error, setError] = useState<string | null>(null);
 
+  // Per-stage photo rule (edit only). Read fresh each time the drawer opens; `photoEdits` holds only what the user touched.
+  const queryClient = useQueryClient();
+  const photoStagesUrl = isEdit ? `/api/super-admin/lab-tests/${test!.id}/photo-stages` : '';
+  const photoStagesQuery = useQuery({
+    queryKey: ['super-admin', 'lab-tests', 'photo-stages', test?.id],
+    queryFn: ({ signal }) => fetchJson<TestPhotoStages>(photoStagesUrl, { signal, cache: 'no-store' }),
+    enabled: isEdit,
+    staleTime: 0,
+    gcTime: 0,
+  });
+  const [photoEdits, setPhotoEdits] = useState<Partial<Record<TestPointCode, boolean>>>({});
+  const photoStages = photoStagesQuery.data ? stagesWithPhotoCheckbox(photoStagesQuery.data.stages, photoStagesQuery.data.calculated) : [];
+  const stagePhotoRequired = (s: StagePhotoState) => photoEdits[s.point] ?? s.photoMode === 'REQUIRED';
+  const changedPhotoStages = photoStages
+    .filter((s) => stagePhotoRequired(s) !== (s.photoMode === 'REQUIRED'))
+    .map((s) => ({ point: s.point, photoRequired: stagePhotoRequired(s) }));
+
   const mutation = useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
-      fetchJson<{ labTest: { testCode: string; testName: string } }>(
+    mutationFn: async (payload: Record<string, unknown>) => {
+      const saved = await fetchJson<{ labTest: { testCode: string; testName: string } }>(
         isEdit ? `/api/super-admin/lab-tests/${test!.id}` : '/api/super-admin/lab-tests',
         { method: isEdit ? 'PATCH' : 'POST', headers: JSON_HEADERS, body: JSON.stringify(payload) }
-      ),
+      );
+      if (changedPhotoStages.length > 0) {
+        try {
+          await fetchJson(photoStagesUrl, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ changes: changedPhotoStages }) });
+        } catch (err) {
+          await queryClient.invalidateQueries({ queryKey: ['super-admin', 'lab-tests'] });
+          throw new Error(`The test details were saved, but the photo rule was not: ${getErrorMessage(err)}`);
+        }
+      }
+      return saved;
+    },
   });
   const busy = mutation.isPending;
   const effectiveType = isEdit ? test!.resultType : resultType;
@@ -461,7 +494,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
       testScope,
       assignedStages,
       displayOrder: Number(displayOrder),
-      isPhotoRequired: photoRequired,
+      ...(isEdit ? {} : { isPhotoRequired: photoRequired }),
       category,
       formulaId: formulaId || null,
       warningHoldText: computedSopRules.warnText,
@@ -888,15 +921,45 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
 
         {/* PHOTO EVIDENCE REQUIREMENT */}
         <div className="rounded-xl border border-border bg-card p-3">
-          <label className="flex min-h-11 cursor-pointer select-none items-center gap-2 text-xs font-semibold text-slate-800">
-            <input
-              type="checkbox"
-              checked={photoRequired}
-              onChange={(e) => setPhotoRequired(e.target.checked)}
-              className="size-5 rounded border-slate-300 text-primary focus:ring-primary"
-            />
-            <span>Require camera photo evidence for this test</span>
-          </label>
+          {!isEdit ? (
+            <label className="flex min-h-11 cursor-pointer select-none items-center gap-2 text-xs font-semibold text-slate-800">
+              <input
+                type="checkbox"
+                checked={photoRequired}
+                onChange={(e) => setPhotoRequired(e.target.checked)}
+                className="size-5 rounded border-slate-300 text-primary focus:ring-primary"
+              />
+              <span>Require camera photo evidence for this test</span>
+            </label>
+          ) : (
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-slate-800">Require camera photo evidence for this test</span>
+              {photoStagesQuery.isPending ? (
+                <p className="text-xs text-slate-500">Loading stages…</p>
+              ) : photoStagesQuery.isError ? (
+                <p role="alert" className="text-xs font-semibold text-rose-800">{getErrorMessage(photoStagesQuery.error) || 'Could not load the photo rules.'}</p>
+              ) : photoStagesQuery.data.calculated ? (
+                <p className="text-xs text-slate-500">Calculated automatically, no photo</p>
+              ) : photoStages.length === 0 ? (
+                <p className="text-xs text-slate-500">Turn the test on for a stage in the Master Matrix to set its photo rule.</p>
+              ) : (
+                photoStages.map((s) => (
+                  <label key={s.point} className="flex min-h-11 cursor-pointer select-none items-center gap-2 text-xs font-semibold text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={stagePhotoRequired(s)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setPhotoEdits((prev) => ({ ...prev, [s.point]: checked }));
+                      }}
+                      className="size-5 rounded border-slate-300 text-primary focus:ring-primary"
+                    />
+                    <span>{TEST_POINT_LABELS[s.point]}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         {/* LIVE RULE SIMULATOR */}

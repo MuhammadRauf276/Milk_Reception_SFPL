@@ -2,7 +2,7 @@ import { prisma } from '@core/db';
 import { auditActorFromUser, writeAuditLog } from '@/backend/core/audit';
 import { Prisma } from '@prisma/client';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
-import { getEffectivePolicy as getMatrixPolicy, selectStageCells, keepFormulaTests, type PolicyDb, type StageAssignmentLike } from '@/backend/services/testPointPolicyService';
+import { getEffectivePolicy as getMatrixPolicy, selectStageCells, keepFormulaTests, defaultModes, mapLegacyTestPoint, type PolicyDb, type StageAssignmentLike } from '@/backend/services/testPointPolicyService';
 
 export class ValidationError extends Error {
   statusCode = 400;
@@ -323,7 +323,7 @@ export class MilkTestPolicyService {
         unit: a.lab_test.unit,
         resultOptions: a.lab_test.resultOptions,
         isRequired: a.is_required,
-        isPhotoRequired: a.is_photo_required ?? a.lab_test.isPhotoRequired ?? false,
+        isPhotoRequired: Boolean(a.is_photo_required),
         displayOrder: a.display_order,
         isActive: a.is_active,
         testingPoint: a.testing_point as TestingPoint,
@@ -353,6 +353,8 @@ export class MilkTestPolicyService {
       orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
     });
 
+    // Never configured for this stage: the stage's default photo mode, not a flag on the test.
+    const defaultPoint = mapLegacyTestPoint(testingPoint);
     return fallbackTests.map((t) => ({
       id: t.id.toString(),
       policyAssignmentId: `fallback-${t.id}`,
@@ -362,7 +364,7 @@ export class MilkTestPolicyService {
       unit: t.unit,
       resultOptions: t.resultOptions,
       isRequired: t.isRequired,
-      isPhotoRequired: t.isPhotoRequired ?? false,
+      isPhotoRequired: defaultPoint ? defaultModes(t.testCode, defaultPoint, t.systemRole).photoMode === 'REQUIRED' : false,
       displayOrder: t.displayOrder,
       isActive: true,
       testingPoint,

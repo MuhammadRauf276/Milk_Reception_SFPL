@@ -209,34 +209,6 @@ function WorkspaceInner({
     onError: (err) => setActionError(getErrorMessage(err) || 'Failed to update requirement status.'),
   });
 
-  // 1-Click Toggle Photo Requirement
-  const togglePhotoMutation = useMutation({
-    mutationFn: ({ test, targetPhoto }: { test: LabTest; targetPhoto: boolean }) => {
-      if (stageFilter && stageFilter !== 'ALL') {
-        return postStage({
-          action: 'togglePhoto',
-          testingPoint: stageFilter,
-          labTestId: test.id,
-          isPhotoRequired: targetPhoto,
-        });
-      }
-      return fetchJson(`/api/super-admin/lab-tests/${test.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isPhotoRequired: targetPhoto }),
-      });
-    },
-    onSuccess: async (_d, { test, targetPhoto }) => {
-      setSuccessMsg(
-        targetPhoto
-          ? `Camera photo required for "${test.testName}"${stageFilter !== 'ALL' ? ` at ${STAGE_NAME_MAP[stageFilter] || stageFilter}` : ''}.`
-          : `Photo requirement disabled for "${test.testName}"${stageFilter !== 'ALL' ? ` at ${STAGE_NAME_MAP[stageFilter] || stageFilter}` : ''}.`
-      );
-      await refreshAll();
-    },
-    onError: (err) => setActionError(getErrorMessage(err) || 'Failed to update photo requirement.'),
-  });
-
   // 1-Click Toggle Active Status
   const toggleActiveMutation = useMutation({
     mutationFn: ({ test, targetActive }: { test: LabTest; targetActive: boolean }) =>

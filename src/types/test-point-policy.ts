@@ -57,3 +57,19 @@ export function normalizeTestMode(mode: string): 'COMPULSORY' | 'OPTIONAL' | 'OF
   if (upper === 'NOT_APPLIED' || upper === 'OFF') return 'OFF';
   return 'OPTIONAL'; // Default or 'APPLIED'
 }
+
+/** One stage of one test as the test edit screen sees it: the modes in force there. */
+export interface StagePhotoState {
+  point: TestPointCode;
+  testMode: PolicyTestMode;
+  photoMode: TestPointPolicyCell['photoMode'];
+  source: TestPointPolicyCell['source'];
+}
+
+/** The stages that get a photo checkbox, in matrix order: every stage where the test is on. A calculated test has none. */
+export function stagesWithPhotoCheckbox<T extends Pick<StagePhotoState, 'point' | 'testMode'>>(stages: readonly T[], calculated: boolean): T[] {
+  if (calculated) return [];
+  return stages
+    .filter((s) => normalizeTestMode(s.testMode) !== 'OFF')
+    .sort((a, b) => TEST_POINT_CODES.indexOf(a.point) - TEST_POINT_CODES.indexOf(b.point));
+}

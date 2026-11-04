@@ -28,6 +28,7 @@ import { User } from '@core/types';
 import { Sheet } from '@/components/ui/sheet';
 import { NavPanel, formatRoleLabel } from '@/frontend/modules/shared/navigation/NavPanel';
 import type { RoleNavSection } from '@/frontend/modules/shared/navigation/roleNavConfig';
+import { canSeeTestPolicies, isTestPolicyPath } from '@/lib/test-policy-access';
 import { getTeamStationsForRole } from '@/frontend/modules/shared/delegation/stations';
 
 export interface SuperAdminSidebarProps {
@@ -165,7 +166,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
   const sections = useMemo<RoleNavSection[]>(() => {
     const role = currentUser?.role;
     const isDataExec = role === 'DATA_EXECUTIVE';
-    const items = isDataExec ? DATA_EXECUTIVE_NAV_ITEMS : SUPER_ADMIN_NAV_ITEMS;
+    const items = (isDataExec ? DATA_EXECUTIVE_NAV_ITEMS : SUPER_ADMIN_NAV_ITEMS).filter((item) => canSeeTestPolicies(role) || !isTestPolicyPath(item.href));
     const baseSections: RoleNavSection[] = items.map(toSection);
 
     const teamStations = getTeamStationsForRole(role, currentSourceId);

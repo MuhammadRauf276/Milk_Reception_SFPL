@@ -5,8 +5,6 @@ import { Prisma } from '@prisma/client';
 import { LabTestResultOption, resultOptionsArraySchema, validatePlantQAResultOptions } from '@/lib/validations/labTest';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
 import { isLabTestRole, roleEditBlock } from '@/lib/lab-test-roles';
-import { requireRoles } from '@/backend/core/route-guards';
-import { setPhotoRequiredForTest } from '@/backend/services/testPointPolicyService';
 
 export async function PATCH(
   req: Request,
@@ -130,19 +128,6 @@ export async function PATCH(
             : undefined,
         },
       });
-
-      if (body.isPhotoRequired !== undefined) {
-        const photoVal = Boolean(body.isPhotoRequired);
-        await tx.milkTestPolicyAssignment.updateMany({
-          where: {
-            lab_test_id: testId,
-          },
-          data: {
-            is_photo_required: photoVal,
-            updated_by_user_id: adminUser?.id ?? BigInt(1),
-          },
-        });
-      }
 
       if (body.isRequired !== undefined) {
         const reqVal = Boolean(body.isRequired);
@@ -296,13 +281,6 @@ export async function PATCH(
 
       return updated;
     });
-
-    // The stage forms read the Master Test Matrix first, so the photo checkbox must be written there too.
-    if (body.isPhotoRequired !== undefined) {
-      const guard = await requireRoles(req, ['SUPER_ADMIN', 'DATA_EXECUTIVE'], { delegation: 'none', requestedAs: null });
-      if ('response' in guard) return guard.response;
-      await setPhotoRequiredForTest(guard.acting, testId, Boolean(body.isPhotoRequired));
-    }
 
     return NextResponse.json({
       success: true,

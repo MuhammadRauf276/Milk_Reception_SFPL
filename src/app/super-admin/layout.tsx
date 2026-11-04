@@ -1,16 +1,18 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { SuperAdminSidebar } from '@/frontend/modules/super-admin/SuperAdminSidebar';
 import { SuperAdminHeader } from '@/frontend/modules/super-admin/SuperAdminHeader';
 import { resolveRoleHome } from '@/lib/role-routing';
+import { canSeeTestPolicies, isTestPolicyPath } from '@/lib/test-policy-access';
 import { PageLoader } from '@/components/ui/spinner';
 import { PageTransition } from '@/components/motion/page-transition';
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { currentUser, loadingUser: loading } = useCurrentUser();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -30,8 +32,9 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
       'PRODUCTION_HEAD',
       'HEAD_OF_MPD',
     ];
+    if (isTestPolicyPath(pathname) && !canSeeTestPolicies(role)) return false;
     return allowedRoles.includes(role);
-  }, [currentUser]);
+  }, [currentUser, pathname]);
 
   useEffect(() => {
     if (loading) return;
