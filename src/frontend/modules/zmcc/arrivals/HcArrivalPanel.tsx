@@ -1,7 +1,9 @@
 'use client';
 
+import { AutoGpsStatusLine } from './AutoGpsStatusLine';
+import type { AutoGpsStatus } from './useGpsCapture';
 import React from 'react';
-import { AlertCircle, CheckCircle2, MapPin, Plus, Search, UserPlus, Users } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Plus, Search, UserPlus, Users } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
 import { ZmccDrawer, zmccInputClass, zmccLabelClass } from '../shared/ZmccDrawer';
 import type { useHcArrivalForm } from './useHcArrivalForm';
@@ -12,7 +14,8 @@ interface Props {
   localSuppliers: HcSupplierRow[];
   loadingLocalSuppliers: boolean;
   onAddSupplier: () => void;
-  onCaptureGps: () => void;
+  gpsStatus: AutoGpsStatus;
+  onRetryGps: () => void;
 }
 
 export const HcArrivalPanel: React.FC<Props> = ({
@@ -20,7 +23,8 @@ export const HcArrivalPanel: React.FC<Props> = ({
   localSuppliers,
   loadingLocalSuppliers,
   onAddSupplier,
-  onCaptureGps,
+  gpsStatus,
+  onRetryGps,
 }) => {
   const localSupplierSuccessResult = form.successResult;
   const supplierSearchTerm = form.supplierSearchTerm;
@@ -204,26 +208,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
                 />
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">PHE GPS Coordinates (Optional)</label>
-                  <button
-                    type="button"
-                    onClick={() => onCaptureGps()}
-                    className="min-h-[44px] px-2 text-xs font-semibold text-emerald-700 hover:underline flex items-center space-x-1 cursor-pointer"
-                  >
-                    <MapPin className="w-3 h-3" />
-                    <span>Capture GPS</span>
-                  </button>
-                </div>
-                <div className="bg-card border-border text-xs text-slate-600 p-2.5 rounded-xl border tabular-nums">
-                  {localSupplierGps.lat != null ? (
-                    <span>Lat: {localSupplierGps.lat}, Lng: {localSupplierGps.lng} (±{localSupplierGps.acc}m)</span>
-                  ) : (
-                    <span className="text-slate-400">GPS not captured yet</span>
-                  )}
-                </div>
-              </div>
+              <AutoGpsStatusLine label="PHE GPS Location" gps={localSupplierGps} status={gpsStatus} onRetry={onRetryGps} />
 
               <button
                 type="submit"

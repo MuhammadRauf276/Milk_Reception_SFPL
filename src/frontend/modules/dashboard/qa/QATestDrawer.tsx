@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import { LiveCamera } from '@/components/camera/LiveCamera';
 import { cn } from '@/lib/utils';
 import { toast } from '@/frontend/lib/appToast';
@@ -673,22 +672,12 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                     <label htmlFor="qa-decision-remarks" className="text-[10px] uppercase font-bold text-slate-500 block">
                       Decision Remarks / Notes {personDecision === 'REJECT' || mustRequestAvp ? '*' : '(Optional)'}
                     </label>
-                    <QuickRemarksChips
-                      presets={
-                        personDecision === 'REJECT'
-                          ? ['Direct Rejection', 'Temperature Above Spec', 'Acidity Test Failed', 'Adulteration Detected', 'Organoleptic Sour / Curdled']
-                          : ['Within Plant Acceptance Limits', 'Organoleptic Normal', 'Acceptable with Concession', 'Verified by Plant QA']
-                      }
-                      value={decisionRemarks}
-                      onChange={(val) => onDecisionRemarksChange?.(val)}
-                      label="Quick remarks:"
-                    />
                     <input
                       id="qa-decision-remarks"
                       type="text"
                       value={decisionRemarks}
                       onChange={(e) => onDecisionRemarksChange?.(e.target.value)}
-                      placeholder={personDecision === 'REJECT' ? 'Mandatory rejection reason or tap quick presets' : mustRequestAvp ? 'Mandatory: tell the AVP why this should be accepted' : 'Operational remarks or tap quick presets'}
+                      placeholder={personDecision === 'REJECT' ? 'Mandatory rejection reason' : mustRequestAvp ? 'Mandatory: tell the AVP why this should be accepted' : 'Operational remarks'}
                       className="mt-1 w-full min-h-11 rounded-lg border border-border p-2 text-base sm:text-xs focus:border-primary focus:outline-hidden"
                     />
                   </div>

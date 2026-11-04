@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { MobileNumberInput } from '@/components/ui/mobile-number-input';
-import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import { CollapsibleDisclosure } from '@/components/ui/collapsible-disclosure';
 import { StickyActionBar } from '@/components/ui/sticky-action-bar';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
@@ -18,9 +17,6 @@ export default function TestPrimitivesClient() {
 
   // 1. MobileNumberInput State
   const [numberVal, setNumberVal] = useState('4.5');
-
-  // 2. QuickRemarksChips State
-  const [remarks, setRemarks] = useState('');
 
   // 3. Drawer State & Trigger Ref for focus restoration
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -59,23 +55,6 @@ export default function TestPrimitivesClient() {
         <div data-testid="number-value-display" className="text-xs font-mono">
           Value: {numberVal}
         </div>
-      </section>
-
-      {/* 2. QuickRemarksChips */}
-      <section className="space-y-2" data-testid="section-quick-remarks">
-        <h2 className="text-sm font-bold">2. QuickRemarksChips</h2>
-        <QuickRemarksChips
-          presets={['Sample In Spec', 'Seal Checked', 'Temp Out of Norm', 'Rinse Complete']}
-          value={remarks}
-          onChange={(updated) => setRemarks(updated)}
-        />
-        <textarea
-          data-testid="remarks-textarea"
-          value={remarks}
-          onChange={(e) => setRemarks(e.target.value)}
-          placeholder="Type or select remarks…"
-          className="w-full min-h-[80px] p-2 text-sm border rounded-lg"
-        />
       </section>
 
       {/* 3. CollapsibleDisclosure */}

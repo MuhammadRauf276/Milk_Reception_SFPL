@@ -11,7 +11,6 @@ import { useVisualViewportHeight } from '@/frontend/hooks/useVisualViewport';
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Combobox } from '@/components/ui/combobox';
-import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import { ArrowLeft, ArrowRight, CheckCircle2, Navigation, Save, Sparkles, X, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MotShopTestsStep, type MotShopTestsStepProps } from '@/frontend/modules/mot/MotShopTestsStep';
@@ -384,18 +383,12 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                   <label htmlFor="mot-notes" className="block text-xs font-semibold text-slate-700">
                     Comments / Field Notes (Optional)
                   </label>
-                  <QuickRemarksChips
-                    presets={['Sample Normal', 'Seal Checked', 'Temp in Spec', 'Can Dented', 'Delayed at Shop']}
-                    value={notes}
-                    onChange={onNotesChange}
-                    label="Quick notes:"
-                  />
                   <textarea
                     id="mot-notes"
                     rows={3}
                     value={notes}
                     onChange={(e) => onNotesChange(e.target.value)}
-                    placeholder="Enter notes or tap quick presets above…"
+                    placeholder="Enter notes…"
                     className="min-h-11 w-full resize-none rounded-xl border border-border bg-white p-2.5 text-base sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                   />
                 </div>

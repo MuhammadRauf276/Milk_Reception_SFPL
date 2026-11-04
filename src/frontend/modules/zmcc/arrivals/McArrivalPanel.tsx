@@ -1,7 +1,9 @@
 'use client';
 
+import { AutoGpsStatusLine } from './AutoGpsStatusLine';
+import type { AutoGpsStatus } from './useGpsCapture';
 import React from 'react';
-import { AlertCircle, Loader2, MapPin, Truck, User } from 'lucide-react';
+import { AlertCircle, Loader2, Truck, User } from 'lucide-react';
 import { onActivateKey } from '@/lib/a11y';
 import { ZmccDrawer, zmccInputClass, zmccLabelClass } from '../shared/ZmccDrawer';
 import { McSuccessCard } from './McSuccessCard';
@@ -14,11 +16,13 @@ interface Props {
   loadingJourneys: boolean;
   onRefresh: () => void;
   policyMode: PolicyMode;
-  onCaptureGps: () => void;
+  gpsStatus: AutoGpsStatus;
+  onRetryGps: () => void;
   isManager?: boolean;
 }
 
-export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourneys, onRefresh, policyMode, onCaptureGps, isManager = false }) => {
+export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourneys, onRefresh, policyMode, gpsStatus,
+  onRetryGps, isManager = false }) => {
   const arrivingJourneys = journeys;
   const selectedJourney = form.selectedJourney;
   const rawMilkTokenPolicyMode = policyMode;
@@ -322,27 +326,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
               />
             </div>
 
-            <div className="bg-card border-border p-3 rounded-xl border text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-600 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" />
-                  Gate GPS Location
-                </span>
-                {motGps.lat && motGps.lng ? (
-                  <span className="text-emerald-700 font-semibold tabular-nums text-[11px]">
-                    {motGps.lat.toFixed(5)}, {motGps.lng.toFixed(5)}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={onCaptureGps}
-                    className="min-h-11 min-w-11 text-primary hover:underline text-xs font-semibold"
-                  >
-                    Capture GPS
-                  </button>
-                )}
-              </div>
-            </div>
+            <AutoGpsStatusLine label="Gate GPS Location" gps={motGps} status={gpsStatus} onRetry={onRetryGps} />
 
             <div className="flex justify-end space-x-2 pt-2">
               <button

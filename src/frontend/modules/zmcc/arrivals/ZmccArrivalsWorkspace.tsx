@@ -12,7 +12,7 @@ import { canActAs } from '@/backend/core/roles/hierarchy';
 import { RequestCorrectionModal, EditableFieldOption, type RequestCorrectionModalProps } from '@/frontend/modules/governance/RequestCorrectionModal';
 import type { HcArrivalRow, MainTab, McArrivalRow } from './arrivalTypes';
 import { useArrivalsData } from './useArrivalsData';
-import { useGpsCapture } from './useGpsCapture';
+import { useAutoGps } from './useGpsCapture';
 import { useMcArrivalForm } from './useMcArrivalForm';
 import { useHcArrivalForm } from './useHcArrivalForm';
 import { useAddHcSupplier } from './useAddHcSupplier';
@@ -111,7 +111,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     historyPageSize: 20,
   });
 
-  const captureGps = useGpsCapture(currentUser?.procurement_source?.code);
   const mcForm = useMcArrivalForm(data.rawMilkTokenPolicyMode, () => {
     void data.fetchArrivingJourneys();
     void data.fetchInsideVehicles();
@@ -121,6 +120,9 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     void data.fetchInsideVehicles();
     void data.fetchHistory();
   });
+  const facilityCode = currentUser?.procurement_source?.code;
+  const mcGps = useAutoGps(mcForm.formOpen && !!mcForm.selectedJourney, mcForm.setGps, facilityCode);
+  const hcGps = useAutoGps(hcForm.formOpen, hcForm.setGps, facilityCode);
   const addSupplier = useAddHcSupplier((supplier) => {
     hcForm.setSupplierSearchTerm('');
     data.addLocalSupplierToCache(supplier);
@@ -155,7 +157,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               loadingJourneys={data.loadingJourneys}
               onRefresh={() => void data.fetchArrivingJourneys()}
               policyMode={data.rawMilkTokenPolicyMode}
-              onCaptureGps={() => captureGps(mcForm.setGps)}
+              gpsStatus={mcGps.status}
+              onRetryGps={mcGps.retry}
               isManager={isManager}
             />
           )}
@@ -176,7 +179,8 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               localSuppliers={data.localSuppliers}
               loadingLocalSuppliers={data.loadingLocalSuppliers}
               onAddSupplier={addSupplier.openDrawer}
-              onCaptureGps={() => captureGps(hcForm.setGps)}
+              gpsStatus={hcGps.status}
+              onRetryGps={hcGps.retry}
             />
           )}
 

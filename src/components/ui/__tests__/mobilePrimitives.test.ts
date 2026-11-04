@@ -38,59 +38,6 @@ test('MobileNumberInput: stepper calculation and min/max clamping logic', () => 
   assert.equal(calculateNextValue('15', 1, 'up', 0, 15), '15');
 });
 
-test('QuickRemarksChips: chip selection, toggle and append behavior', () => {
-  const handleChipSelection = (
-    currentValue: string,
-    preset: string,
-    mode: 'append' | 'replace'
-  ) => {
-    if (mode === 'replace') {
-      return currentValue.trim().toLowerCase() === preset.trim().toLowerCase()
-        ? ''
-        : preset;
-    }
-
-    const trimmed = (currentValue || '').trim();
-    if (!trimmed) {
-      return preset;
-    }
-
-    const parts = trimmed
-      .split(/[,;\n]+/)
-      .map((p) => p.trim())
-      .filter(Boolean);
-
-    const exists = parts.some((p) => p.toLowerCase() === preset.toLowerCase());
-    if (exists) {
-      // Toggle off
-      return parts.filter((p) => p.toLowerCase() !== preset.toLowerCase()).join(', ');
-    } else {
-      // Append
-      return [...parts, preset].join(', ');
-    }
-  };
-
-  // 1. Initial selection into empty textarea
-  assert.equal(handleChipSelection('', 'Seal Intact', 'append'), 'Seal Intact');
-
-  // 2. Append second chip
-  assert.equal(
-    handleChipSelection('Seal Intact', 'Temperature In Spec', 'append'),
-    'Seal Intact, Temperature In Spec'
-  );
-
-  // 3. Toggle off existing chip
-  assert.equal(
-    handleChipSelection('Seal Intact, Temperature In Spec', 'Seal Intact', 'append'),
-    'Temperature In Spec'
-  );
-
-  // 4. Replace mode
-  assert.equal(handleChipSelection('', 'Approved', 'replace'), 'Approved');
-  assert.equal(handleChipSelection('Approved', 'Approved', 'replace'), '');
-  assert.equal(handleChipSelection('Approved', 'Rejected', 'replace'), 'Rejected');
-});
-
 test('CollapsibleDisclosure: visibility state and desktop force-open logic', () => {
   const isContentVisible = (
     isOpen: boolean,

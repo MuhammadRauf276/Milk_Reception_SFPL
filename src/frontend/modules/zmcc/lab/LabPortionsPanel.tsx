@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import { LiveCamera } from '@/components/camera/LiveCamera';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
-import { QuickRemarksChips } from '@/components/ui/quick-remarks-chips';
 import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/DecisionStatusBadge';
 import {
   buildLabPortionDecision,
@@ -1087,22 +1086,12 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                       <label htmlFor="portion-remarks" className="block text-xs font-semibold text-slate-700">
                         {modalPreview?.remarksRequired ? 'Remarks / Justification (Required)' : 'Remarks (Optional)'}
                       </label>
-                      <QuickRemarksChips
-                        presets={
-                          modalDraft.person === 'REJECT'
-                            ? ['Lab SOP Failure', 'Acidity High', 'Abnormal Sediment', 'Organoleptic Off-flavor', 'Fat Below Spec']
-                            : ['Sample In Spec', 'All Tests Normal', 'Approved for Reception', 'Retest Passed']
-                        }
-                        value={modalDraft.remarks}
-                        onChange={(val) => setDraft(modalPortion.id, { remarks: val })}
-                        label="Quick remarks:"
-                      />
                       <textarea
                         id="portion-remarks"
                         value={modalDraft.remarks}
                         onChange={(e) => setDraft(modalPortion.id, { remarks: e.target.value })}
                         rows={2}
-                        placeholder={modalPreview?.remarksRequired ? 'Enter reason or tap quick presets above…' : 'Observations or tap quick presets…'}
+                        placeholder={modalPreview?.remarksRequired ? 'Enter reason…' : 'Observations…'}
                         className="min-h-11 w-full resize-none rounded-xl border border-border p-2.5 text-base sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
