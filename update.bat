@@ -14,6 +14,21 @@ if exist "%~dp0\.git" (
 
 echo Target directory: %CD%
 
+REM Step 1 deletes every uncommitted change in this folder, so outside the server folder it asks first.
+if /I not "%CD%"=="C:\app" (
+  echo.
+  echo [WARNING] This is not the server folder C:\app.
+  echo This update deletes ALL uncommitted work in %CD%,
+  echo and changes the database named in this folder's .env file.
+  set "CONFIRM="
+  set /p "CONFIRM=Type UPDATE to continue, or press Enter to stop: "
+  if /I not "!CONFIRM!"=="UPDATE" (
+    echo Stopped. Nothing was changed.
+    pause
+    exit /b 1
+  )
+)
+
 echo.
 echo [1/6] Force-syncing latest code from GitHub branch 4.4...
 git fetch origin 4.4
@@ -47,6 +62,13 @@ if %errorlevel% neq 0 (
 
 REM Run Prisma migrations to ensure migration history alignment
 call node node_modules/prisma/build/index.js migrate deploy
+if %errorlevel% neq 0 (
+  echo.
+  echo [ERROR] Database migrations failed! The app was NOT rebuilt or restarted,
+  echo so the running site still has its previous build. Please review the error above.
+  pause
+  exit /b %errorlevel%
+)
 
 echo.
 echo [4/6] Regenerating Prisma Client with latest schema...
