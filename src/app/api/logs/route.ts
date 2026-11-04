@@ -3,7 +3,25 @@ import { getCurrentUser } from '@backend/core/auth';
 import { prisma } from '@backend/core/db';
 import { User, Role } from '@backend/core/types';
 import { getPaginatedOperationalLogs, RetrievalMode } from '@backend/services/operationalReadModelService';
+import { operationalReadScopeForUser, type OperationalReadScope } from '@backend/services/dispatchScope';
 import { isValidDateOnly } from '@/lib/datetime-utils';
+
+/**
+ * A plant-wide reader covering one station (the x-acting-source-id header) sees only that station.
+ * It can only narrow: a source-bound user keeps their own source whatever the header says.
+ */
+async function readScopeFor(req: Request, user: User): Promise<OperationalReadScope> {
+  const scope = operationalReadScopeForUser(user);
+  const rawSourceId = req.headers.get('x-acting-source-id');
+  if (scope.kind !== 'ALL' || !rawSourceId) return scope;
+  if (!/^d+$/.test(rawSourceId)) return { kind: 'NONE' };
+  const source = await prisma.procurementSource.findUnique({
+    where: { id: BigInt(rawSourceId) },
+    select: { id: true, source_type: true },
+  });
+  if (!source || (source.source_type !== 'ZMCC' && source.source_type !== 'CONTRACTOR')) return { kind: 'NONE' };
+  return { kind: 'SOURCE', sourceId: source.id, sourceType: source.source_type };
+}
 
 export async function GET(req: NextRequest | Request) {
   try {
@@ -86,7 +104,8 @@ export async function GET(req: NextRequest | Request) {
 
     const result = await getPaginatedOperationalLogs(
       { mode, page, pageSize, fromDate, toDate, contractor, status, search, dateBasis },
-      authoritativeUser
+      authoritativeUser,
+      await readScopeFor(req, authoritativeUser)
     );
 
     return NextResponse.json(result);

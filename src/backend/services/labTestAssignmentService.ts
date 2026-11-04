@@ -174,6 +174,44 @@ export async function getOrAssignPlantQATests(
   return result || [];
 }
 
+export interface DispatchTestToSave {
+  test_id: bigint;
+  test_code_snapshot: string;
+  test_name_snapshot: string;
+  result_type_snapshot: string;
+  result_options_snapshot: unknown;
+}
+
+/**
+ * The tests a dispatch saves results for: the visit's frozen assignment plus every test in the dispatch policy. The
+ * form and the dispatch decision work from the policy, so a policy test missing from the assignment (its scope was
+ * not DISPATCH / BOTH, or it was added after the draft started) must still be saved. The lab report is a photo, not a
+ * result.
+ */
+export function dispatchTestsToSave(
+  assigned: DispatchTestToSave[],
+  policyTests: Array<{
+    labTestId: string;
+    testCode: string;
+    testName: string;
+    resultType: string;
+    isLabReport: boolean;
+    resultOptions?: unknown;
+  }>
+): DispatchTestToSave[] {
+  const assignedIds = new Set(assigned.map((t) => t.test_id.toString()));
+  const missing = policyTests
+    .filter((t) => !t.isLabReport && !assignedIds.has(t.labTestId))
+    .map((t) => ({
+      test_id: BigInt(t.labTestId),
+      test_code_snapshot: t.testCode,
+      test_name_snapshot: t.testName,
+      result_type_snapshot: t.resultType,
+      result_options_snapshot: t.resultOptions ?? null,
+    }));
+  return [...assigned, ...missing];
+}
+
 /**
  * Fetches existing or creates a stable frozen snapshot of Dispatch test assignments.
  */

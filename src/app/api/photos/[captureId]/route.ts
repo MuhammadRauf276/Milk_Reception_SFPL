@@ -9,9 +9,10 @@ import {
   resolvePhotoPath,
   type EntityDb,
 } from '@/backend/services/photo/capturedPhotoService';
+import { THUMBNAIL_WIDTH, getPhotoThumbnail } from '@/backend/services/photo/photoThumbnail';
 
 // Roles that may open any photo. Others: the uploader, or a user linked to the same source as the uploader.
-const VIEW_ALL_ROLES = new Set(['SUPER_ADMIN', 'DATA_EXECUTIVE', 'HEAD_OF_MPD', 'QA_HEAD']);
+const VIEW_ALL_ROLES = new Set(['SUPER_ADMIN', 'DATA_EXECUTIVE', 'EXECUTIVE_MANAGEMENT', 'HEAD_OF_MPD', 'QA_HEAD']);
 
 export async function GET(req: Request, ctx: { params: Promise<{ captureId: string }> }) {
   const { captureId } = await ctx.params;
@@ -52,12 +53,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ captureId: stri
   const full = resolvePhotoPath(photo.file_path);
   if (!full) return NextResponse.json({ error: 'Photo not found.' }, { status: 404 });
   try {
-    const data = await readFile(full);
+    const wantsThumbnail = new URL(req.url).searchParams.get('w') === String(THUMBNAIL_WIDTH);
+    const data = (wantsThumbnail ? await getPhotoThumbnail(captureId, full) : null) ?? (await readFile(full));
     return new NextResponse(new Uint8Array(data), {
       headers: {
         'Content-Type': 'image/jpeg',
         'Content-Length': String(data.length),
-        'Cache-Control': 'private, max-age=3600',
+        // A capture id always means the same image, so the browser never has to ask for it twice.
+        'Cache-Control': 'private, max-age=31536000, immutable',
         'X-Content-Type-Options': 'nosniff',
       },
     });

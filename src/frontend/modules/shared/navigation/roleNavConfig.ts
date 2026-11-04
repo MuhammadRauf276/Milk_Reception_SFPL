@@ -68,6 +68,11 @@ const MPD_VIEW_LINKS: RoleNavLeaf[] = [
   { id: 'mpd-v-policies', label: 'Testing Policies', href: '/command?view=POLICIES', icon: FileCheck2 },
 ];
 
+const SEVEN_DAY_VEHICLE_LINKS: RoleNavLeaf[] = [
+  { id: 'vehicles-7d-cards', label: 'Vehicle Cards', href: '/executive/live-vehicles', icon: Truck },
+  { id: 'vehicles-7d-report', label: 'Report Table', href: '/executive/live-vehicles?view=REPORT', icon: FileSpreadsheet },
+];
+
 const SOURCE_LINKS: RoleNavLeaf[] = [
   { id: 'src-milk', label: 'Milk sources', href: '/sources', icon: Milk },
   { id: 'src-contractors', label: 'Contractors', href: '/sources?view=CONTRACTORS', icon: Truck },
@@ -849,6 +854,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         href: '/department/qa-head',
       },
       {
+        id: 'qa-head-live-vehicles',
+        label: 'Vehicles',
+        icon: Truck,
+        children: SEVEN_DAY_VEHICLE_LINKS,
+      },
+      {
         id: 'tv-board',
         label: 'Yard Board',
         icon: Tv,
@@ -927,6 +938,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         label: 'Command Center',
         icon: LayoutDashboard,
         children: MPD_VIEW_LINKS,
+      },
+      {
+        id: 'exec-live-vehicles',
+        label: 'Vehicles',
+        icon: Truck,
+        children: SEVEN_DAY_VEHICLE_LINKS,
       },
       {
         id: 'exec-approvals',

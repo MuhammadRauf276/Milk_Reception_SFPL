@@ -13,6 +13,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
+import { dispatchResultText } from '@/frontend/lib/dispatchResultText';
 
 interface ZMCCManagerVisitDetailModalProps {
   isOpen: boolean;
@@ -20,7 +21,64 @@ interface ZMCCManagerVisitDetailModalProps {
   portions?: MilkProcessLog[];
   onClose: () => void;
   assignedSourceName?: string;
+  /** Extra section shown after the portion results, for views that add to this modal. */
+  extraSection?: React.ReactNode;
 }
+
+
+type PortionTestRow = {
+  name: string;
+  performed: boolean;
+  dispatchResult: string;
+  plantResult: string;
+  unit: string;
+};
+
+function buildPortionTests(p: MilkProcessLog): PortionTestRow[] {
+  if (p.portion_lab_results && p.portion_lab_results.length > 0) {
+    return p.portion_lab_results.map((tr) => {
+      const dispatchResult = dispatchResultText(tr);
+      const plantResult =
+        tr.plant_numeric_value != null
+          ? `${tr.plant_numeric_value}`
+          : tr.plant_text_value != null && tr.plant_text_value !== ''
+          ? tr.plant_text_value
+          : tr.plant_is_passed === true
+          ? 'Passed'
+          : tr.plant_is_passed === false
+          ? 'Failed'
+          : tr.plant_performed
+          ? tr.plant_status || 'Performed'
+          : 'Pending';
+      return {
+        name: tr.test_name,
+        performed: tr.plant_performed || tr.dispatch_performed,
+        dispatchResult,
+        plantResult,
+        unit: tr.unit || '-',
+      };
+    });
+  }
+  return [
+    { name: 'Fat', performed: p.sampling_fat != null, dispatchResult: p.dispatch_fat != null ? `${p.dispatch_fat}` : 'Not recorded', plantResult: p.sampling_fat != null ? `${p.sampling_fat}` : 'Pending', unit: '%' },
+    { name: 'LR', performed: p.sampling_lr != null, dispatchResult: p.dispatch_lr != null ? `${p.dispatch_lr}` : 'Not recorded', plantResult: p.sampling_lr != null ? `${p.sampling_lr}` : 'Pending', unit: '°L' },
+    { name: 'SNF', performed: p.computed_sampling_snf != null, dispatchResult: p.computed_dispatch_snf != null ? `${p.computed_dispatch_snf}` : 'Not recorded', plantResult: p.computed_sampling_snf != null ? `${p.computed_sampling_snf}` : 'Pending', unit: '%' },
+    { name: 'TS', performed: p.computed_sampling_ts != null, dispatchResult: p.computed_dispatch_ts != null ? `${p.computed_dispatch_ts}` : 'Not recorded', plantResult: p.computed_sampling_ts != null ? `${p.computed_sampling_ts}` : 'Pending', unit: '%' },
+    { name: 'MBRT', performed: p.b_mbrt_minutes_test != null, dispatchResult: 'Not recorded', plantResult: p.b_mbrt_minutes_test != null ? `${p.b_mbrt_minutes_test}` : 'Pending', unit: 'min' },
+  ];
+}
+
+const portionLabel = (p: MilkProcessLog, idx: number) =>
+  `P-${String(p.portion_number || idx + 1).replace(/^P-/, '')}`;
+
+const decisionClass = (d: string) =>
+  d === 'ACCEPTED'
+    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+    : d === 'REJECTED'
+    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+    : d === 'HOLD'
+    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+    : 'bg-slate-100 text-slate-700 border border-slate-300';
 
 export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalProps> = ({
   isOpen,
@@ -28,11 +86,22 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
   portions,
   onClose,
   assignedSourceName,
+  extraSection,
 }) => {
   const displayPortions = useMemo(() => {
     if (portions && portions.length > 0) return portions;
     return log ? [log] : [];
   }, [portions, log]);
+
+  const portionTests = useMemo(
+    () => displayPortions.map((p) => new Map(buildPortionTests(p).map((t) => [t.name, t]))),
+    [displayPortions]
+  );
+  const testNames = useMemo(() => {
+    const names: string[] = [];
+    for (const m of portionTests) for (const n of m.keys()) if (!names.includes(n)) names.push(n);
+    return names;
+  }, [portionTests]);
 
   if (!isOpen || !log) return null;
 
@@ -254,90 +323,12 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
             <div className="space-y-4">
               {displayPortions.map((p, idx) => {
-                const portionTests = (p.portion_lab_results && p.portion_lab_results.length > 0)
-                  ? p.portion_lab_results.map((tr) => {
-                      const dispatchVal = tr.dispatch_numeric_value != null
-                        ? `${tr.dispatch_numeric_value}`
-                        : tr.dispatch_text_value != null && tr.dispatch_text_value !== ''
-                        ? tr.dispatch_text_value
-                        : tr.dispatch_performed
-                        ? 'Recorded'
-                        : 'Not recorded';
-
-                      const plantVal = tr.plant_numeric_value != null
-                        ? `${tr.plant_numeric_value}`
-                        : tr.plant_text_value != null && tr.plant_text_value !== ''
-                        ? tr.plant_text_value
-                        : tr.plant_is_passed === true
-                        ? 'Passed'
-                        : tr.plant_is_passed === false
-                        ? 'Failed'
-                        : tr.plant_performed
-                        ? (tr.plant_status || 'Performed')
-                        : 'Pending';
-
-                      const isPerformed = tr.plant_performed || tr.dispatch_performed;
-
-                      return {
-                        name: tr.test_name,
-                        performed: isPerformed,
-                        dispatchResult: dispatchVal,
-                        plantResult: plantVal,
-                        unit: tr.unit || '-',
-                      };
-                    })
-                  : [
-                      {
-                        name: 'Fat',
-                        performed: p.sampling_fat != null,
-                        dispatchResult: p.dispatch_fat != null ? `${p.dispatch_fat}` : 'Not recorded',
-                        plantResult: p.sampling_fat != null ? `${p.sampling_fat}` : 'Pending',
-                        unit: '%',
-                      },
-                      {
-                        name: 'LR',
-                        performed: p.sampling_lr != null,
-                        dispatchResult: p.dispatch_lr != null ? `${p.dispatch_lr}` : 'Not recorded',
-                        plantResult: p.sampling_lr != null ? `${p.sampling_lr}` : 'Pending',
-                        unit: '°L',
-                      },
-                      {
-                        name: 'SNF',
-                        performed: p.computed_sampling_snf != null,
-                        dispatchResult: p.computed_dispatch_snf != null ? `${p.computed_dispatch_snf}` : 'Not recorded',
-                        plantResult: p.computed_sampling_snf != null ? `${p.computed_sampling_snf}` : 'Pending',
-                        unit: '%',
-                      },
-                      {
-                        name: 'TS',
-                        performed: p.computed_sampling_ts != null,
-                        dispatchResult: p.computed_dispatch_ts != null ? `${p.computed_dispatch_ts}` : 'Not recorded',
-                        plantResult: p.computed_sampling_ts != null ? `${p.computed_sampling_ts}` : 'Pending',
-                        unit: '%',
-                      },
-                      {
-                        name: 'MBRT',
-                        performed: p.b_mbrt_minutes_test != null,
-                        dispatchResult: 'Not recorded',
-                        plantResult: p.b_mbrt_minutes_test != null ? `${p.b_mbrt_minutes_test}` : 'Pending',
-                        unit: 'min',
-                      },
-                    ];
-
-                const decision = p.calculated_status || 'Pending';
-                const decisionUpper = decision.toUpperCase();
-
+                const decisionUpper = (p.calculated_status || 'Pending').toUpperCase();
                 return (
-                  <div
-                    key={p.portion_id || idx}
-                    className="bg-card border-border p-4 rounded-xl border space-y-3"
-                  >
-                    {/* Portion Header */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5">
+                  <div key={p.portion_id || idx} className="bg-card border-border p-4 rounded-xl border space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs font-semibold text-slate-900">
-                          Portion #{p.portion_number || (idx + 1)}
-                        </span>
+                        <span className="text-xs font-semibold text-slate-900">Portion #{portionLabel(p, idx)}</span>
                         <span className="text-xs text-slate-500 tabular-nums">
                           (Quantity:{' '}
                           <span className="font-semibold text-slate-800">
@@ -350,78 +341,72 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                           )
                         </span>
                       </div>
-
-                      <span
-                        className={`px-2.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${
-                          decisionUpper === 'ACCEPTED'
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : decisionUpper === 'REJECTED'
-                            ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                            : decisionUpper === 'HOLD'
-                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                            : 'bg-slate-100 text-slate-700 border border-slate-300'
-                        }`}
-                      >
+                      <span className={`px-2.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${decisionClass(decisionUpper)}`}>
                         {decisionUpper}
                       </span>
                     </div>
-
-                    {/* Rejection Reason (where present) */}
                     {p.rejection_reasons && (
                       <div className="bg-card border-border p-2.5 rounded-lg border text-rose-900 text-xs">
                         <span className="font-semibold">Rejection Reason: </span>
                         <span>{p.rejection_reasons}</span>
                       </div>
                     )}
-
-                    {/* Configured Lab Tests Table */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="border-b border-border text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                            <th className="py-1.5 px-2">Lab Test</th>
-                            <th className="py-1.5 px-2">Status</th>
-                            <th className="py-1.5 px-2 tabular-nums">Dispatch Result</th>
-                            <th className="py-1.5 px-2 tabular-nums">Plant Result</th>
-                            <th className="py-1.5 px-2">Unit</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/40 tabular-nums">
-                          {portionTests.map((t) => (
-                            <tr key={t.name} className="hover:bg-slate-50/60">
-                              <td className="py-1.5 px-2 font-sans font-semibold text-slate-900">
-                                {t.name}
-                              </td>
-                              <td className="py-1.5 px-2 font-sans">
-                                <span
-                                  className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
-                                    t.performed
-                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                      : 'bg-slate-100 text-slate-500'
-                                  }`}
-                                >
-                                  {t.performed ? 'Performed' : 'Not performed'}
-                                </span>
-                              </td>
-                              <td className="py-1.5 px-2 text-slate-700">
-                                {t.dispatchResult}
-                              </td>
-                              <td className="py-1.5 px-2 font-semibold text-slate-900">
-                                {t.plantResult}
-                              </td>
-                              <td className="py-1.5 px-2 font-sans text-slate-500">
-                                {t.unit}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
                   </div>
                 );
               })}
+
+              <div className="overflow-x-auto bg-card border-border p-4 rounded-xl border">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <th className="py-1.5 px-2">Lab Test</th>
+                      <th className="py-1.5 px-2">Status</th>
+                      {displayPortions.map((p, idx) => (
+                        <th key={`d-${p.portion_id || idx}`} className="py-1.5 px-2 tabular-nums whitespace-nowrap">
+                          Dispatch {displayPortions.length > 1 ? portionLabel(p, idx) : 'Result'}
+                        </th>
+                      ))}
+                      {displayPortions.map((p, idx) => (
+                        <th key={`p-${p.portion_id || idx}`} className="py-1.5 px-2 tabular-nums whitespace-nowrap">
+                          Plant {displayPortions.length > 1 ? portionLabel(p, idx) : 'Result'}
+                        </th>
+                      ))}
+                      <th className="py-1.5 px-2">Unit</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40 tabular-nums">
+                    {testNames.map((name) => (
+                      <tr key={name} className="hover:bg-slate-50/60">
+                        <td className="py-1.5 px-2 font-sans font-semibold text-slate-900">{name}</td>
+                        <td className="py-1.5 px-2 font-sans">
+                          {portionTests.some((t) => t.get(name)?.performed) ? (
+                            <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Performed</span>
+                          ) : (
+                            <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-500">Not performed</span>
+                          )}
+                        </td>
+                        {portionTests.map((tests, i) => (
+                          <td key={`d-${i}`} className="py-1.5 px-2 text-slate-700">
+                            {tests.get(name)?.dispatchResult ?? 'Not recorded'}
+                          </td>
+                        ))}
+                        {portionTests.map((tests, i) => (
+                          <td key={`p-${i}`} className="py-1.5 px-2 font-semibold text-slate-900">
+                            {tests.get(name)?.plantResult ?? 'Pending'}
+                          </td>
+                        ))}
+                        <td className="py-1.5 px-2 font-sans text-slate-500">
+                          {portionTests.map((t) => t.get(name)?.unit).find((u) => u) ?? '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
+
+          {extraSection}
 
           {/* 4. Receipt Details */}
           <div className="p-5 rounded-xl bg-card border border-border space-y-4 shadow-2xs">

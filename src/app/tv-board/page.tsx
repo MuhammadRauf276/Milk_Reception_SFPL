@@ -3,7 +3,9 @@
 import React, { useRef, useCallback, useSyncExternalStore, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
-import { Tv, LogIn, CheckCircle2, Scale, Building2, FlaskConical } from 'lucide-react';
+import { Tv, LogIn, CheckCircle2, Scale, Building2, FlaskConical, Clock } from 'lucide-react';
+import { ManagerLifecycleTracker } from '@/frontend/modules/dashboard/zmcc/ManagerLifecycleTracker';
+import type { ManagerLifecycleSummary } from '@/frontend/modules/dashboard/zmcc/zmccManagerTypes';
 import { Header } from '@/frontend/modules/shared/Header';
 import { HierarchicalNavDrawer } from '@/frontend/modules/shared/navigation/HierarchicalNavDrawer';
 import { SuperAdminSidebar } from '@/frontend/modules/super-admin/SuperAdminSidebar';
@@ -26,13 +28,28 @@ function useCurrentMinute(): number | null {
   );
 }
 
-const NO_VEHICLES: Array<{ visitId: string; vehicleNumber: string; stage: string }> = [];
+interface TvBoardVehicle {
+  visitId: string;
+  vehicleNumber: string;
+  tokenNumber: string | null;
+  sourceName: string;
+  portionCount: number;
+  dispatch13TsLiters: number | null;
+  dispatchGrossLiters: number | null;
+  dispatchQuantityValue: number | null;
+  dispatchQuantityUnit: string | null;
+  firstWeightKg: number | null;
+  secondWeightKg: number | null;
+  lifecycle: ManagerLifecycleSummary;
+}
+
+const NO_VEHICLES: TvBoardVehicle[] = [];
 
 export default function PublicYardTVBoardPage() {
   const boardQuery = useQuery({
     queryKey: ['tv-board'],
     queryFn: ({ signal }) =>
-      fetchJson<{ vehicles?: Array<{ visitId: string; vehicleNumber: string; stage: string }> }>('/api/tv-board', { signal }),
+      fetchJson<{ vehicles?: TvBoardVehicle[] }>('/api/tv-board', { signal }),
     refetchInterval: 60_000,
   });
   const activeVehicles = boardQuery.data?.vehicles ?? NO_VEHICLES;
@@ -134,7 +151,7 @@ export default function PublicYardTVBoardPage() {
                       <CheckCircle2 className="w-6 h-6" />
                     </div>
                     <h2 className="text-base font-bold text-foreground">Yard All Clear</h2>
-                    <p className="text-xs text-muted-foreground mt-1">No tankers waiting</p>
+                    <p className="text-xs text-muted-foreground mt-1">No tankers dispatched to the plant</p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -181,47 +198,63 @@ export default function PublicYardTVBoardPage() {
               ) : (
                 activeVehicles.map((vehicle, idx) => {
                   const isNext = idx === 0;
-                  const isRejected = vehicle.stage === 'REJECTED_OR_EXITING';
+                  const lc = vehicle.lifecycle;
 
                   return (
                     <div
                       key={`tv-vehicle-${vehicle.visitId}`}
-                      className={`p-5 rounded-xl border transition-all flex flex-col justify-between space-y-4 shadow-2xs bg-card ${
+                      className={`p-5 rounded-xl border transition-all flex flex-col justify-between space-y-3.5 shadow-2xs ${
                         isNext
-                          ? 'border-primary ring-1 ring-primary/40'
-                          : isRejected
-                          ? 'border-rose-300'
-                          : 'border-border hover:border-border-strong'
+                          ? 'bg-primary/5 border-primary ring-1 ring-primary'
+                          : 'bg-card border-border/80 hover:border-primary/40'
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-md text-xs font-semibold tabular-nums ${
-                            isNext
-                              ? 'bg-primary text-white'
-                              : isRejected
-                              ? 'bg-rose-600 text-white'
-                              : 'bg-muted text-foreground border border-border'
-                          }`}
-                        >
-                          {isNext ? 'Next In Line' : isRejected ? 'Rejected' : `Position #${idx + 1}`}
-                        </span>
-                        <span className="text-[11px] font-semibold text-muted-foreground tabular-nums uppercase bg-muted px-2 py-0.5 rounded border border-border">
-                          In Plant
+                        <div className="flex items-center space-x-1.5">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums tracking-wide shadow-2xs ${
+                              isNext ? 'bg-primary text-white' : 'bg-muted text-slate-700 border border-border'
+                            }`}
+                          >
+                            {isNext ? 'NEXT IN LINE' : `POSITION #${idx + 1}`}
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-600 tabular-nums uppercase bg-subtle px-2 py-0.5 rounded border border-border">
+                            Visit #{vehicle.visitId}
+                          </span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 tabular-nums text-[10px] font-semibold text-emerald-800">
+                          {vehicle.portionCount} Portion{vehicle.portionCount > 1 ? 's' : ''}
                         </span>
                       </div>
 
                       <div>
-                        <h2 className="text-2xl font-bold tabular-nums tracking-tight text-foreground">
-                          {vehicle.vehicleNumber}
-                        </h2>
+                        <div className="flex items-center justify-between">
+                          <h2 className="text-xl sm:text-2xl font-bold tabular-nums tracking-tight text-foreground">
+                            {vehicle.vehicleNumber}
+                          </h2>
+                          {lc.elapsedInPlant && (
+                            <div className="flex items-center space-x-1 text-[11px] tabular-nums font-semibold text-slate-500">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span>{lc.elapsedInPlant}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2 text-xs text-slate-500 font-semibold mt-0.5">
+                          <span>Token: <strong className="text-foreground">{vehicle.tokenNumber || 'PENDING'}</strong></span>
+                          <span>·</span>
+                          <span className="truncate">Source: <strong className="text-foreground">{vehicle.sourceName}</strong></span>
+                        </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-3 border-t border-border text-xs font-semibold">
-                        <span className="text-muted-foreground">Station:</span>
-                        <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border">
-                          {vehicle.stage.replaceAll('_', ' ').toLowerCase()}
+                      <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-subtle/80 border border-border/60 text-xs">
+                        <span className="text-slate-500 font-semibold text-[11px]">Station / Stage:</span>
+                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                          {lc.currentStageLabel}
                         </span>
+                      </div>
+
+                      <div className="py-1">
+                        <ManagerLifecycleTracker lifecycle={lc} compact={true} />
                       </div>
                     </div>
                   );

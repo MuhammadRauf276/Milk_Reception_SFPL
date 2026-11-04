@@ -298,11 +298,8 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const selectedVisitPortions = useMemo(() => {
     if (!selectedLog) return [];
     const pool = [...liveLogs, ...reportingLogs];
-    const matching = pool.filter(
-      (l) =>
-        l.id === selectedLog.id ||
-        (l.vehicle_number === selectedLog.vehicle_number && l.dispatch_date === selectedLog.dispatch_date)
-    );
+    // Dispatch and plant results both hang off the vehicle visit id, so a visit's portions are exactly the rows sharing it.
+    const matching = pool.filter((l) => l.id === selectedLog.id);
     const uniqueMap = new Map<string, MilkProcessLog>();
     for (const m of matching) {
       const key = m.portion_id != null ? String(m.portion_id) : m.portion_number || '1';

@@ -21,6 +21,20 @@ interface ZMCCManagerLiveDispatchesProps {
   isLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  /**
+   * The server pages and searches the list, for a window longer than the live queue. These vehicles are not a queue,
+   * so the queue position and the stage filters (which could only see the current page) are left out.
+   */
+  serverPaging?: {
+    title: string;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    totalVehicles: number;
+    search: string;
+    onSearchChange: (search: string) => void;
+    onPageChange: (page: number) => void;
+  };
 }
 
 type LiveLifecycleFilter =
@@ -40,8 +54,11 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
   isLoading = false,
   error = null,
   onRetry,
+  serverPaging,
 }) => {
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [localSearch, setLocalSearch] = useState<string>('');
+  const searchQuery = serverPaging ? serverPaging.search : localSearch;
+  const setSearchQuery = serverPaging ? serverPaging.onSearchChange : setLocalSearch;
   const [lifecycleFilter, setLifecycleFilter] = useState<LiveLifecycleFilter>('ALL_ACTIVE');
   const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -50,18 +67,14 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
     return buildVehicleVisitGroups(logs);
   }, [logs]);
 
-  // Active in-plant groups (prioritize active workflow state irrespective of midnight/08:00 date boundary)
-  const activeGroups = useMemo(() => {
-    return allGroups.filter((g) => {
-      const isInPlant = g.lifecycle.isInPlant;
-      const isDispatched = g.overallStatus === 'DISPATCHED';
-      const isNotComplete = !g.lifecycle.isComplete;
-      return (isInPlant || isDispatched) && isNotComplete;
-    });
-  }, [allGroups]);
+  // The live feed already holds only visits that have not left the gate, so every group in it is shown
+  // (including a vehicle whose receipt is posted and is awaiting gate exit). Filtering on a derived
+  // "in plant / not complete" state hid vehicles the In-Transit count still included.
+  const activeGroups = allGroups;
 
   // Filtered active groups
   const filteredActiveGroups = useMemo(() => {
+    if (serverPaging) return activeGroups;
     return activeGroups.filter((g) => {
       // 1. Search Query
       if (searchQuery.trim()) {
@@ -86,7 +99,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
 
       return true;
     });
-  }, [activeGroups, searchQuery, lifecycleFilter]);
+  }, [activeGroups, searchQuery, lifecycleFilter, serverPaging]);
 
   // Reset to first page when search query or filter changes
   useEffect(() => {
@@ -94,12 +107,16 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
   }, [searchQuery, lifecycleFilter]);
 
   // Pagination calculation: exactly 6 cards per screen/page
-  const totalPages = Math.max(1, Math.ceil(filteredActiveGroups.length / CARDS_PER_PAGE));
-  const validCurrentPage = Math.min(currentPage, totalPages);
+  const perPage = serverPaging?.pageSize ?? CARDS_PER_PAGE;
+  const totalVehicles = serverPaging?.totalVehicles ?? filteredActiveGroups.length;
+  const totalPages = serverPaging?.totalPages ?? Math.max(1, Math.ceil(filteredActiveGroups.length / CARDS_PER_PAGE));
+  const validCurrentPage = serverPaging?.page ?? Math.min(currentPage, totalPages);
+  const goToPage = serverPaging?.onPageChange ?? setCurrentPage;
   const paginatedGroups = useMemo(() => {
+    if (serverPaging) return filteredActiveGroups;
     const startIdx = (validCurrentPage - 1) * CARDS_PER_PAGE;
     return filteredActiveGroups.slice(startIdx, startIdx + CARDS_PER_PAGE);
-  }, [filteredActiveGroups, validCurrentPage]);
+  }, [filteredActiveGroups, validCurrentPage, serverPaging]);
 
   // Error State
   if (error) {
@@ -142,14 +159,14 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
             <Truck className="w-5 h-5 text-primary" />
             <div>
               <h3 className="text-sm font-semibold text-foreground">
-                Live vehicles
+                {serverPaging?.title ?? 'Live vehicles'}
               </h3>
             </div>
           </div>
 
           <div className="flex items-center space-x-2 self-start sm:self-auto">
             <span className="px-3 py-1 rounded-full text-xs tabular-nums font-semibold bg-blue-50 text-primary-hover border border-blue-200">
-              {activeGroups.length} active
+              {serverPaging ? `${totalVehicles} vehicles` : `${activeGroups.length} active`}
             </span>
           </div>
         </div>
@@ -167,6 +184,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
             />
           </div>
 
+          {!serverPaging && (
           <div className="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label="Stage filters">
             <button
               onClick={() => setLifecycleFilter('ALL_ACTIVE')}
@@ -229,6 +247,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
               Receipt
             </button>
           </div>
+          )}
         </div>
       </div>
 
@@ -237,11 +256,13 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
           <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mx-auto border border-slate-200">
             <Truck className="w-6 h-6" />
           </div>
-          <h4 className="text-sm font-semibold text-foreground">No Active Dispatches in Pipeline</h4>
+          <h4 className="text-sm font-semibold text-foreground">{serverPaging ? 'No Vehicles Found' : 'No Active Dispatches in Pipeline'}</h4>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
             {searchQuery
-              ? `No active dispatches match search query "${searchQuery}".`
-              : 'There are currently no tankers from this ZMCC source in plant reception.'}
+              ? `No ${serverPaging ? 'vehicles' : 'active dispatches'} match search query "${searchQuery}".`
+              : serverPaging
+              ? 'No vehicles were dispatched in this period.'
+              : 'There are currently no tankers in plant reception.'}
           </p>
         </div>
       ) : (
@@ -250,8 +271,8 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
             {paginatedGroups.map((group, idx) => {
               const lc = group.lifecycle;
               const primary = group.primaryLog;
-              const overallIdx = (validCurrentPage - 1) * CARDS_PER_PAGE + idx;
-              const isFirst = overallIdx === 0;
+              const overallIdx = (validCurrentPage - 1) * perPage + idx;
+              const isFirst = !serverPaging && overallIdx === 0;
 
               return (
                 <div
@@ -264,15 +285,17 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-1.5">
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums tracking-wide shadow-2xs ${
-                          isFirst
-                            ? 'bg-primary text-white'
-                            : 'bg-muted text-slate-700 border border-border'
-                        }`}
-                      >
-                        {isFirst ? 'NEXT IN LINE' : `POSITION #${overallIdx + 1}`}
-                      </span>
+                      {!serverPaging && (
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums tracking-wide shadow-2xs ${
+                            isFirst
+                              ? 'bg-primary text-white'
+                              : 'bg-muted text-slate-700 border border-border'
+                          }`}
+                        >
+                          {isFirst ? 'NEXT IN LINE' : `POSITION #${overallIdx + 1}`}
+                        </span>
+                      )}
                       <span className="text-[11px] font-semibold text-slate-600 tabular-nums uppercase bg-subtle px-2 py-0.5 rounded border border-border">
                         Visit #{group.visitId}
                       </span>
@@ -361,16 +384,16 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
               <span className="text-slate-600 font-semibold tabular-nums">
                 Showing{' '}
                 <strong className="text-foreground">
-                  {(validCurrentPage - 1) * CARDS_PER_PAGE + 1}–
-                  {Math.min(validCurrentPage * CARDS_PER_PAGE, filteredActiveGroups.length)}
+                  {(validCurrentPage - 1) * perPage + 1}–
+                  {Math.min(validCurrentPage * perPage, totalVehicles)}
                 </strong>{' '}
-                of <strong className="text-foreground">{filteredActiveGroups.length}</strong> active vehicles
+                of <strong className="text-foreground">{totalVehicles}</strong> {serverPaging ? 'vehicles' : 'active vehicles'}
                 {' '}(Page {validCurrentPage} of {totalPages})
               </span>
 
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  onClick={() => goToPage(Math.max(1, validCurrentPage - 1))}
                   disabled={validCurrentPage === 1}
                   className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
                   aria-label="Previous Page"
@@ -383,7 +406,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
                     <button
                       key={`page-${pg}`}
-                      onClick={() => setCurrentPage(pg)}
+                      onClick={() => goToPage(pg)}
                       className={`w-7 h-7 rounded-lg text-xs font-semibold tabular-nums transition ${
                         validCurrentPage === pg
                           ? 'bg-primary text-white shadow-2xs'
@@ -396,7 +419,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                 </div>
 
                 <button
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  onClick={() => goToPage(Math.min(totalPages, validCurrentPage + 1))}
                   disabled={validCurrentPage === totalPages}
                   className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
                   aria-label="Next Page"

@@ -9,7 +9,7 @@ import { generateReceptionNumber } from '@/lib/reception-number';
 import { validateRequiredString } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { calculateDensity, calculateGrossLiters, computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
-import { getOrAssignDispatchTests } from '@/backend/services/labTestAssignmentService';
+import { dispatchTestsToSave, getOrAssignDispatchTests } from '@/backend/services/labTestAssignmentService';
 import { storedCalculatedValue } from '@/backend/services/dispatch/calculatedResultValue';
 import { getOrFreezeDispatchQuantityPolicy } from '@/backend/modules/dispatch/quantity-policy/quantityPolicyService';
 import { validateDispatchQuantities, QuantityMeasurementError } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
@@ -796,12 +796,24 @@ export async function POST(req: Request) {
         });
       }
 
-      // Stored system roles of the assigned tests (the frozen assignment snapshot does not carry them).
-      const assignedRoles = await tx.labTest.findMany({
-        where: { id: { in: assignedDispatchTests.map((t) => t.test_id) } },
-        select: { id: true, systemRole: true },
+      // Stored system roles and options of the tests (the frozen assignment snapshot does not carry the role).
+      const savedTestRows = await tx.labTest.findMany({
+        where: {
+          id: {
+            in: [
+              ...assignedDispatchTests.map((t) => t.test_id),
+              ...dispatchPolicy.tests.filter((t) => !t.isLabReport).map((t) => BigInt(t.labTestId)),
+            ],
+          },
+        },
+        select: { id: true, systemRole: true, resultOptions: true },
       });
-      const systemRoleByTestId = new Map(assignedRoles.map((r) => [r.id.toString(), r.systemRole]));
+      const systemRoleByTestId = new Map(savedTestRows.map((r) => [r.id.toString(), r.systemRole]));
+      const optionsByTestId = new Map(savedTestRows.map((r) => [r.id.toString(), r.resultOptions]));
+      const testsToSave = dispatchTestsToSave(
+        assignedDispatchTests,
+        dispatchPolicy.tests.map((t) => ({ ...t, resultOptions: optionsByTestId.get(t.labTestId) }))
+      );
 
       // Create portions, dispatchInfo, and lab results
       const createdPortions = [];
@@ -865,7 +877,7 @@ export async function POST(req: Request) {
         const submittedFat = pDetail?.fat ?? null;
         const submittedLr = pDetail?.lr ?? null;
 
-        for (const testDef of assignedDispatchTests) {
+        for (const testDef of testsToSave) {
           const testIdStr = testDef.test_id.toString();
           const submittedRes = submittedResultsMap.get(testIdStr);
 

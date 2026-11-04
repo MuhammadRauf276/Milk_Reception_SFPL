@@ -569,6 +569,9 @@ export interface PortionLabTestResult {
   dispatch_value?: number | string | null;
   dispatch_numeric_value?: number | null;
   dispatch_text_value?: string | null;
+  /** A dispatch result row exists and says the test was not performed (no row at all leaves this false). */
+  dispatch_marked_not_performed?: boolean;
+  dispatch_not_performed_reason?: string | null;
   // Plant QA testing
   plant_performed: boolean;
   plant_value?: number | string | null;

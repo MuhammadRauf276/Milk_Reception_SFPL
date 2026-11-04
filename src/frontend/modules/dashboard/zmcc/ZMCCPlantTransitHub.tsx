@@ -93,7 +93,7 @@ export function ZMCCPlantTransitHub({
             }`}
           >
             <Truck className="w-3.5 h-3.5" />
-            <span>In-Transit ({liveLogs.length})</span>
+            <span>In-Transit ({new Set(liveLogs.map((l) => l.id)).size})</span>
           </button>
           <button
             type="button"

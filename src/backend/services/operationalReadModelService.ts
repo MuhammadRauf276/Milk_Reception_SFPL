@@ -31,7 +31,15 @@ export interface OperationalLogFilters {
   status?: string;
   search?: string;
   dateBasis?: 'dispatch' | 'reporting';
+  /** With a dispatch date range: also keep vehicles still inside the plant, however long ago they were dispatched. */
+  includeStillInPlant?: boolean;
 }
+
+/** Entered the gate, has not left it, and the visit is still open. */
+export const STILL_IN_PLANT: Prisma.VehicleVisitWhereInput = {
+  current_status: { notIn: ['COMPLETED', 'CANCELLED'] },
+  gate_log: { is: { entry_timestamp: { not: null }, exit_timestamp: null } },
+};
 
 export interface PaginationMeta {
   page: number;
@@ -136,6 +144,44 @@ function extractTestNumericValue(
     }
   }
   return null;
+}
+
+/**
+ * The dispatch decision stored on the visit keeps every value the form sent for a portion. Dispatches saved before
+ * all policy tests got result rows have their values only here. The seal identifies the portion first, since plant
+ * QA can renumber portions.
+ */
+export function dispatchDecisionPortion(
+  details: unknown,
+  portion: { portion_number: number; seal_number?: string | null }
+): {
+  lr: number | null;
+  fat: number | null;
+  tests: Map<string, { value: number | null; textValue: string | null }>;
+} | null {
+  const portions = (details as { portions?: unknown } | null)?.portions;
+  if (!Array.isArray(portions)) return null;
+  const rows = portions as Array<{
+    portionNumber?: number;
+    sealNumber?: string | null;
+    lr?: number | null;
+    fat?: number | null;
+    tests?: Array<{ labTestId?: string; value?: number | null; textValue?: string | null }>;
+  }>;
+  const seal = portion.seal_number?.trim();
+  const match =
+    (seal ? rows.find((p) => p.sealNumber?.trim() === seal) : undefined) ??
+    rows.find((p) => p.portionNumber === portion.portion_number);
+  if (!match) return null;
+
+  const tests = new Map<string, { value: number | null; textValue: string | null }>();
+  for (const t of match.tests ?? []) {
+    if (!t.labTestId) continue;
+    const value = t.value ?? null;
+    const textValue = t.textValue || null;
+    if (value !== null || textValue !== null) tests.set(String(t.labTestId), { value, textValue });
+  }
+  return { lr: match.lr ?? null, fat: match.fat ?? null, tests };
 }
 
 function isDispatchLrTest(code?: string | null, name?: string | null, systemRole?: string | null): boolean {
@@ -332,8 +378,17 @@ export function mapVisitToLogs(
     const declaredUnit = portion.dispatch_quantity_unit ? portion.dispatch_quantity_unit.toUpperCase() : null;
 
     // Dispatch QA
-    const dFat = extractTestNumericValue(portion.dispatch_lab_results, isDispatchFatTest);
-    const dLr = extractTestNumericValue(portion.dispatch_lab_results, isDispatchLrTest);
+    // A portion's own result rows come first, then the values kept in the stored dispatch decision. Last, the
+    // vehicle-level values, for dispatches that recorded Fat and LR once on the visit.
+    const decisionPortion = dispatchDecisionPortion(visit.dispatch_decision_details, portion);
+    const dFat =
+      extractTestNumericValue(portion.dispatch_lab_results, isDispatchFatTest) ??
+      decisionPortion?.fat ??
+      (visit.vehicle_dispatch_fat != null ? Number(visit.vehicle_dispatch_fat) : null);
+    const dLr =
+      extractTestNumericValue(portion.dispatch_lab_results, isDispatchLrTest) ??
+      decisionPortion?.lr ??
+      (visit.vehicle_dispatch_lr != null ? Number(visit.vehicle_dispatch_lr) : null);
 
     // Unit-safe dispatch gross liters
     let dispatchGrossLiters: number | null = null;
@@ -436,7 +491,8 @@ export function mapVisitToLogs(
       const dRes = dispatchResultMap.get(testIdStr) || dispatchResultMap.get(codeKey) || dispatchResultMap.get(nameKey);
       const pRes = plantResultMap.get(testIdStr) || plantResultMap.get(codeKey) || plantResultMap.get(nameKey);
 
-      const isApplicable = t.isActive || Boolean(dRes) || Boolean(pRes);
+      const decisionResult = decisionPortion?.tests.get(testIdStr);
+      const isApplicable = t.isActive || Boolean(dRes) || Boolean(pRes) || Boolean(decisionResult);
       if (!isApplicable) continue;
 
       const isDisFat = isDispatchFatTest(t.testCode, t.testName, t.systemRole);
@@ -447,6 +503,8 @@ export function mapVisitToLogs(
       let dNumeric: number | null = null;
       if (dRes?.numeric_value != null) {
         dNumeric = Number(dRes.numeric_value);
+      } else if (decisionResult?.value != null) {
+        dNumeric = decisionResult.value;
       } else if (isDisFat && dFat != null) {
         dNumeric = dFat;
       } else if (isDisLr && dLr != null) {
@@ -457,7 +515,7 @@ export function mapVisitToLogs(
         dNumeric = computedDispatchTs;
       }
 
-      const dText = dRes?.text_value || null;
+      const dText = dRes?.text_value || decisionResult?.textValue || null;
       const dPerformed = Boolean(
         (dRes && dRes.performance_status === 'PERFORMED') ||
         dNumeric != null ||
@@ -515,6 +573,8 @@ export function mapVisitToLogs(
         dispatch_performed: dPerformed,
         dispatch_numeric_value: dNumeric,
         dispatch_text_value: dText,
+        dispatch_marked_not_performed: dRes?.performance_status === 'NOT_PERFORMED' && !dPerformed,
+        dispatch_not_performed_reason: dRes?.performance_status === 'NOT_PERFORMED' && !dPerformed ? dRes.not_performed_reason : null,
         plant_performed: pPerformed,
         plant_numeric_value: pNumeric,
         plant_text_value: pText,
@@ -719,7 +779,9 @@ export async function getPaginatedOperationalLogs(
   readScope?: OperationalReadScope
 ): Promise<PaginatedOperationalLogs> {
   const mode: RetrievalMode = filters?.mode || 'recent';
-  const conditions: Prisma.VehicleVisitWhereInput[] = [];
+  // A draft is an unsent dispatch with no portions, so it can never produce a row here. Paging runs on
+  // visits, so left in, drafts fill the page and push real vehicles out of it.
+  const conditions: Prisma.VehicleVisitWhereInput[] = [{ current_status: { not: 'DRAFT_DISPATCH' } }];
 
   // 1. Scope (fail closed): an explicit read scope (e.g. from an acting context) wins; otherwise
   // computed from the user. Source-scoped roles see only their own source; no user / unknown
@@ -821,7 +883,7 @@ export async function getPaginatedOperationalLogs(
         ],
       });
     } else {
-      conditions.push({
+      const dispatchedInRange: Prisma.VehicleVisitWhereInput = {
         portions: {
           some: {
             dispatch_info: {
@@ -829,7 +891,8 @@ export async function getPaginatedOperationalLogs(
             },
           },
         },
-      });
+      };
+      conditions.push(filters?.includeStillInPlant ? { OR: [dispatchedInRange, STILL_IN_PLANT] } : dispatchedInRange);
     }
   }
 
@@ -959,6 +1022,19 @@ export async function getOperationalLogs(
 ): Promise<MilkProcessLog[]> {
   const result = await getPaginatedOperationalLogs(filters, currentUser, readScope);
   return result.items;
+}
+
+/** All portion rows of one visit, for a plant-wide reader. */
+export async function getOperationalVisitLogs(visitId: bigint): Promise<MilkProcessLog[]> {
+  const visit = await prisma.vehicleVisit.findUnique({
+    where: { id: visitId },
+    include: operationalVisitInclude,
+  });
+  if (!visit) return [];
+  const masterLabTests = await prisma.labTest.findMany({
+    orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+  });
+  return mapVisitToLogs(visit, masterLabTests);
 }
 
 /**
