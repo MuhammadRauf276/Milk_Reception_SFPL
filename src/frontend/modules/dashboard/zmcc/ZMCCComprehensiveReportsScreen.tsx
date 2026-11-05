@@ -308,6 +308,9 @@ export function ZMCCComprehensiveReportsScreen({
                     <th className="p-3">ZMCC Arrival</th>
                     <th className="p-3">Route Loss</th>
                     <th className="p-3">Loss %</th>
+                    <th className="p-3">Shop @13% TS</th>
+                    <th className="p-3">ZMCC @13% TS</th>
+                    <th className="p-3">Loss @13% TS</th>
                     <th className="p-3">Fat %</th>
                     <th className="p-3">LR</th>
                     <th className="p-3 text-right">Status</th>
@@ -345,6 +348,13 @@ export function ZMCCComprehensiveReportsScreen({
                         >
                           {row.routeLossPct}%
                         </span>
+                      </td>
+                      <td className="p-3 tabular-nums text-slate-700">{row.at13TsLiters.toLocaleString()} L</td>
+                      <td className="p-3 tabular-nums text-slate-700">
+                        {row.zmccArrivalAt13TsLiters !== null ? `${row.zmccArrivalAt13TsLiters.toLocaleString()} L` : '—'}
+                      </td>
+                      <td className="p-3 tabular-nums font-semibold text-amber-700">
+                        {row.routeLossAt13TsLiters !== null ? `${row.routeLossAt13TsLiters.toLocaleString()} L` : '—'}
                       </td>
                       <td className="p-3 tabular-nums font-medium text-slate-700">{row.avgFat}%</td>
                       <td className="p-3 tabular-nums font-medium text-slate-700">{row.avgLr}</td>
@@ -392,6 +402,7 @@ export function ZMCCComprehensiveReportsScreen({
                     <th className="p-3">Supplier Name</th>
                     <th className="p-3">Vehicle #</th>
                     <th className="p-3">Gross Liters</th>
+                    <th className="p-3">@13% TS</th>
                     <th className="p-3">Fat %</th>
                     <th className="p-3">SNF %</th>
                     <th className="p-3">LR</th>
@@ -412,6 +423,9 @@ export function ZMCCComprehensiveReportsScreen({
                       <td className="p-3 tabular-nums text-slate-700">{row.vehicleNumber}</td>
                       <td className="p-3 tabular-nums font-semibold text-foreground">
                         {row.grossLiters.toLocaleString()} L
+                      </td>
+                      <td className="p-3 tabular-nums font-semibold text-foreground">
+                        {row.at13TsLiters !== null ? `${row.at13TsLiters.toLocaleString()} L` : '—'}
                       </td>
                       <td className="p-3 tabular-nums text-slate-700 font-medium">
                         {row.fat !== null ? `${row.fat}%` : '—'}

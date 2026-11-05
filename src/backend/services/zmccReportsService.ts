@@ -212,6 +212,8 @@ export interface RouteLedgerRow {
   avgLr: number;
   avgSnf: number;
   at13TsLiters: number;
+  zmccArrivalAt13TsLiters: number | null;
+  routeLossAt13TsLiters: number | null;
 }
 
 export interface HcSupplierLedgerRow {
@@ -224,6 +226,9 @@ export interface HcSupplierLedgerRow {
   vehicleNumber: string;
   rmrNumber: string | null;
   grossLiters: number;
+  at13TsLiters: number | null;
+  netWeightKg: number | null;
+  tsPercent: number | null;
   density: number | null;
   fat: number | null;
   snf: number | null;
@@ -798,6 +803,11 @@ export async function getZmccRouteLedgerReport(
       avgLr: Number(avgLr.toFixed(2)),
       avgSnf: Number(avgSnf.toFixed(2)),
       at13TsLiters: Number(at13Ts.toFixed(2)),
+      zmccArrivalAt13TsLiters: j.area_received_at_13ts_liters != null ? Number(j.area_received_at_13ts_liters) : null,
+      routeLossAt13TsLiters:
+        j.area_received_at_13ts_liters != null
+          ? Number((at13Ts - Number(j.area_received_at_13ts_liters)).toFixed(2))
+          : null,
     };
   });
 
@@ -847,6 +857,9 @@ export async function getZmccHcSupplierLedgerReport(
             gross_liters: true,
             density: true,
             snf: true,
+            tank_receipt: {
+              select: { quantity_value: true, gross_liters: true, at_13ts_liters: true, density: true, lr: true, fat: true, snf: true, ts: true },
+            },
             results: {
               select: { test_id: true, test_code_snapshot: true, test_name_snapshot: true, numeric_value: true },
             },
@@ -869,6 +882,7 @@ export async function getZmccHcSupplierLedgerReport(
   const hasFatRole = [...roles.values()].includes('FAT');
   const hasLrRole = [...roles.values()].includes('LR');
   const rows: HcSupplierLedgerRow[] = arrivals.map((a) => {
+    const receipt = a.lab_session?.tank_receipt ?? null;
     let fatVal: number | null = null;
     let lrVal: number | null = null;
     let tempVal: number | null = null;
@@ -905,12 +919,16 @@ export async function getZmccHcSupplierLedgerReport(
       supplierName: a.local_supplier.name,
       vehicleNumber: a.vehicle_number,
       rmrNumber: rmrStr,
-      grossLiters: a.lab_session?.gross_liters ? Number(a.lab_session.gross_liters) : 0,
-      density: a.lab_session?.density ? Number(a.lab_session.density) : null,
-      fat: fatVal,
-      snf: a.lab_session?.snf ? Number(a.lab_session.snf) : null,
-      lr: lrVal,
-      temperatureC: tempVal || 4.2,
+      // What the tank really received for this vehicle; before weighing, whatever the lab recorded.
+      grossLiters: Number(receipt?.gross_liters ?? a.lab_session?.gross_liters ?? 0),
+      at13TsLiters: receipt ? Number(receipt.at_13ts_liters) : null,
+      netWeightKg: receipt ? Number(receipt.quantity_value) : null,
+      tsPercent: receipt ? Number(receipt.ts) : null,
+      density: receipt ? Number(receipt.density) : a.lab_session?.density ? Number(a.lab_session.density) : null,
+      fat: receipt ? Number(receipt.fat) : fatVal,
+      snf: receipt ? Number(receipt.snf) : a.lab_session?.snf ? Number(a.lab_session.snf) : null,
+      lr: receipt ? Number(receipt.lr) : lrVal,
+      temperatureC: tempVal,
       labStatus: a.lab_session?.status || 'PENDING',
       decision: a.lab_session?.decision || 'ACCEPTED',
       rmrStatus,
@@ -1130,6 +1148,9 @@ export async function generateZmccExcelReport(
       { header: 'Shops Visited', key: 'visited', width: 14 },
       { header: 'Shop Liters', key: 'shopLit', width: 14 },
       { header: 'Gate Liters', key: 'gateLit', width: 14 },
+      { header: 'Shop @13% TS', key: 'shop13', width: 14 },
+      { header: 'ZMCC @13% TS', key: 'gate13', width: 14 },
+      { header: 'Loss @13% TS', key: 'loss13', width: 14 },
       { header: 'Loss Liters', key: 'lossLit', width: 14 },
       { header: 'Loss %', key: 'lossPct', width: 12 },
       { header: 'Avg Fat %', key: 'fat', width: 12 },
@@ -1151,6 +1172,9 @@ export async function generateZmccExcelReport(
         visited: `${r.visitedStops} / ${r.plannedStops}`,
         shopLit: r.shopLitersCollected,
         gateLit: r.zmccArrivalLiters,
+        shop13: r.at13TsLiters,
+        gate13: r.zmccArrivalAt13TsLiters ?? '—',
+        loss13: r.routeLossAt13TsLiters ?? '—',
         lossLit: r.routeLossLiters,
         lossPct: r.routeLossPct,
         fat: r.avgFat,
@@ -1168,6 +1192,7 @@ export async function generateZmccExcelReport(
       { header: 'Supplier Name', key: 'name', width: 24 },
       { header: 'Vehicle #', key: 'veh', width: 14 },
       { header: 'Gross Liters', key: 'liters', width: 14 },
+      { header: '@13% TS Liters', key: 'at13', width: 15 },
       { header: 'Fat %', key: 'fat', width: 12 },
       { header: 'SNF %', key: 'snf', width: 12 },
       { header: 'LR', key: 'lr', width: 12 },
@@ -1187,6 +1212,7 @@ export async function generateZmccExcelReport(
         name: r.supplierName,
         veh: r.vehicleNumber,
         liters: r.grossLiters,
+        at13: r.at13TsLiters ?? '—',
         fat: r.fat ?? '',
         snf: r.snf ?? '',
         lr: r.lr ?? '',

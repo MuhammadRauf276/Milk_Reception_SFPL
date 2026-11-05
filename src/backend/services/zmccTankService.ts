@@ -12,7 +12,7 @@ import type { ActingContext } from '@/types/acting';
 import { assertResourceInScope, primaryActorFields, asRoleFields } from '@/backend/core/acting-context';
 import { isZmccFieldOfficer, canActAs } from '@/backend/core/roles/hierarchy';
 import { canViewZmcc13TsLiters, isBlindOperationalRole } from '@/lib/role-visibility';
-import { MOT_CALCULATION_VERSION } from '@/backend/utils/milkFormulas';
+import { MOT_CALCULATION_VERSION, milkQualityFromLrFat } from '@/backend/utils/milkFormulas';
 import {
   calculatePortionReceived,
   computeAndStoreAreaLossTx,
@@ -2050,11 +2050,15 @@ export async function unloadSessionToTank(
       // Received quantities per portion
       const rows = accepted.map((p) => {
         const net = Number(p.net_weight_kg);
+        // A portion decided before TS was saved at the lab still has the LR and Fat to work it out.
+        const quality = milkQualityFromLrFat(num(p.lr), num(p.fat));
+        const portionTs = num(p.ts) ?? quality?.ts ?? 0;
+        const portionSnf = num(p.snf) ?? quality?.snf ?? 0;
         const m = calculatePortionReceived({
           netWeightKg: net,
           density: num(p.density),
           lr: num(p.lr),
-          ts: Number(p.ts ?? 0),
+          ts: portionTs,
         });
         if (m.grossLiters <= 0) {
           throw new WeighingError(400, `Portion ${p.portion_number}: the quantity is too small. Please check it.`);
@@ -2071,8 +2075,8 @@ export async function unloadSessionToTank(
           density: m.density,
           lr: Number(p.lr ?? 0),
           fat: Number(p.fat ?? 0),
-          snf: Number(p.snf ?? 0),
-          ts: Number(p.ts ?? 0),
+          snf: portionSnf,
+          ts: portionTs,
         };
       });
       const totalGross = Number(rows.reduce((a, r) => a + r.gross, 0).toFixed(2));
@@ -2140,13 +2144,30 @@ export async function unloadSessionToTank(
         });
         await tx.zmccLabPortion.update({
           where: { id: r.portion.id },
-          data: { status: 'WEIGHED', tank_id: tank.id },
+          data: {
+            status: 'WEIGHED',
+            tank_id: tank.id,
+            density: new Prisma.Decimal(r.density.toFixed(4)),
+            snf: new Prisma.Decimal(r.snf.toFixed(2)),
+            ts: new Prisma.Decimal(r.ts.toFixed(2)),
+            gross_liters: new Prisma.Decimal(r.gross.toFixed(2)),
+            at_13ts_liters: new Prisma.Decimal(r.at13.toFixed(2)),
+            calculation_version: MOT_CALCULATION_VERSION,
+          },
         });
       }
 
       await tx.zmccLabSession.update({
         where: { id: sessionId },
-        data: { unloaded_at: now, unloaded_by_user_id: acting.userId, close_requested_by_user_id: null, close_requested_at: null },
+        data: {
+          // The whole vehicle's totals, like a dispatch: reports and losses read these.
+          gross_liters: receipt.gross_liters,
+          at_13ts_liters: receipt.at_13ts_liters,
+          density: receipt.density,
+          snf: receipt.snf,
+          ts: receipt.ts,
+          unloaded_at: now, unloaded_by_user_id: acting.userId, close_requested_by_user_id: null, close_requested_at: null
+        },
       });
 
       if (source && session.local_supplier_arrival_id) {

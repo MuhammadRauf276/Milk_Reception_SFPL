@@ -48,7 +48,7 @@ import { getCurrentUser } from '@core/auth';
 import { User, Role } from '@core/types';
 import { validateCategoricalOption } from '@/lib/lab-rules';
 import { isValidDateOnly } from '@/lib/datetime-utils';
-import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
+import { computeCanonicalMilkMetrics, milkQualityFromLrFat } from '@/backend/utils/milkFormulas';
 import { resolveCoreMilkTestResults, validateCoreMilkTestCandidates } from '@/backend/utils/milkTestResolvers';
 import { loadSystemRoles, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { QualityRuleService, type QualityResultEvaluation } from '@/backend/services/qualityRuleService';
@@ -3795,6 +3795,9 @@ export async function submitPortionDecision(
     }
   }
 
+  // The lab usually has no quantity yet (it is weighed later), but LR and Fat already fix density, SNF and TS.
+  const quality = metrics ?? milkQualityFromLrFat(details.lr, details.fat);
+
   const now = new Date();
   const portionStatus = decision.finalDecision === 'PENDING' ? 'PENDING_REVIEW' : decision.finalDecision;
 
@@ -3818,10 +3821,10 @@ export async function submitPortionDecision(
           fat: details.fat !== null ? new Prisma.Decimal(details.fat.toFixed(2)) : null,
           quantity_value: quantity !== null ? new Prisma.Decimal(quantity.toFixed(2)) : null,
           quantity_unit: unit as QuantityUnit | null,
-          density: metrics ? new Prisma.Decimal(metrics.density.toFixed(4)) : null,
+          density: quality ? new Prisma.Decimal(quality.density.toFixed(4)) : null,
           gross_liters: metrics ? new Prisma.Decimal(metrics.grossLiters.toFixed(2)) : null,
-          snf: metrics ? new Prisma.Decimal(metrics.snf.toFixed(2)) : null,
-          ts: metrics ? new Prisma.Decimal(metrics.ts.toFixed(2)) : null,
+          snf: quality ? new Prisma.Decimal(quality.snf.toFixed(2)) : null,
+          ts: quality ? new Prisma.Decimal(quality.ts.toFixed(2)) : null,
           at_13ts_liters: metrics ? new Prisma.Decimal(metrics.at13tsLiters.toFixed(2)) : null,
           calculation_version: metrics ? metrics.calculationVersion : null,
           // DECIDE_NOW: the superior's own exception is decided on the same screen.

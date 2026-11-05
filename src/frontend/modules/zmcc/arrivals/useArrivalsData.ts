@@ -51,42 +51,46 @@ export function useArrivalsData(a: Args) {
   const queryClient = useQueryClient();
   const zmccParam = a.zmccSourceId ? `?zmcc_id=${encodeURIComponent(a.zmccSourceId)}` : '';
 
+  const journeysCacheKey = `${CACHE_JOURNEYS_KEY}:${a.zmccSourceId ?? 'own'}`;
   const journeysQuery = useQuery({
     queryKey: ['zmcc', 'arrivals', 'arriving-journeys', a.zmccSourceId],
+    initialDataUpdatedAt: 0,
     enabled: a.canSubmit && a.activeTab === 'MC_ARRIVAL',
     queryFn: async ({ signal }) => {
       try {
         const data = await fetchJson<ArrivingJourney[]>(`/api/zmcc/arrivals/arriving-journeys${zmccParam}`, { signal });
-        writeLocalCache(CACHE_JOURNEYS_KEY, data);
+        writeLocalCache(journeysCacheKey, data);
         return data;
       } catch (err) {
-        const cached = readLocalCache<ArrivingJourney[]>(CACHE_JOURNEYS_KEY);
+        const cached = readLocalCache<ArrivingJourney[]>(journeysCacheKey);
         if (cached && cached.length > 0) return cached;
         throw err;
       }
     },
-    initialData: () => readLocalCache<ArrivingJourney[]>(CACHE_JOURNEYS_KEY) ?? undefined,
+    initialData: () => readLocalCache<ArrivingJourney[]>(journeysCacheKey) ?? undefined,
   });
 
   const needsSuppliers = a.canSubmit && (a.activeTab === 'HC_ARRIVAL' || a.correctionOpen);
   const localSuppliersUrl = a.zmccSourceId
-    ? `/api/zmcc/hc-suppliers?is_active=true&zmcc_id=${encodeURIComponent(a.zmccSourceId)}`
-    : '/api/zmcc/hc-suppliers?is_active=true';
+    ? `/api/zmcc/hc-suppliers?is_active=true&approval_status=ACTIVE&zmcc_id=${encodeURIComponent(a.zmccSourceId)}`
+    : '/api/zmcc/hc-suppliers?is_active=true&approval_status=ACTIVE';
+  const suppliersCacheKey = `${CACHE_SUPPLIERS_KEY}:${a.zmccSourceId ?? 'own'}`;
   const localSuppliersQuery = useQuery({
     queryKey: ['zmcc', 'hc-suppliers', 'active', a.zmccSourceId],
     enabled: needsSuppliers,
     queryFn: async ({ signal }) => {
       try {
         const data = await fetchJson<{ suppliers?: HcSupplierRow[] }>(localSuppliersUrl, { signal });
-        writeLocalCache(CACHE_SUPPLIERS_KEY, data);
+        writeLocalCache(suppliersCacheKey, data);
         return data;
       } catch (err) {
-        const cached = readLocalCache<{ suppliers?: HcSupplierRow[] }>(CACHE_SUPPLIERS_KEY);
+        const cached = readLocalCache<{ suppliers?: HcSupplierRow[] }>(suppliersCacheKey);
         if (cached && cached.suppliers?.length) return cached;
         throw err;
       }
     },
-    initialData: () => readLocalCache<{ suppliers?: HcSupplierRow[] }>(CACHE_SUPPLIERS_KEY) ?? undefined,
+    initialData: () => readLocalCache<{ suppliers?: HcSupplierRow[] }>(suppliersCacheKey) ?? undefined,
+    initialDataUpdatedAt: 0,
   });
   const addLocalSupplierToCache = (supplier: HcSupplierRow) =>
     queryClient.setQueryData<{ suppliers?: HcSupplierRow[] }>(['zmcc', 'hc-suppliers', 'active', a.zmccSourceId], (prev) => ({

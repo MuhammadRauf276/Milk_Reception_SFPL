@@ -267,3 +267,18 @@ export function formatCollectionSmsMessage(params: {
     `_Shakarganj Food Products Ltd, Field Reception_`,
   ].join('\n');
 }
+
+/** Density, SNF and TS need only LR and Fat. Null when either reading is missing. */
+export function milkQualityFromLrFat(
+  lr: number | null | undefined,
+  fat: number | null | undefined
+): { density: number; snf: number; ts: number } | null {
+  if (lr === null || lr === undefined || fat === null || fat === undefined) return null;
+  if (!Number.isFinite(lr) || !Number.isFinite(fat) || lr <= 0 || fat < 0) return null;
+  const snf = calculateSNF(lr, fat);
+  return {
+    density: Number(calculateDensity(lr).toFixed(4)),
+    snf: Number(snf.toFixed(2)),
+    ts: Number(calculateTS(fat, snf).toFixed(2)),
+  };
+}

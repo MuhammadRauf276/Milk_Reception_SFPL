@@ -1,4 +1,5 @@
-import { approveShop, rejectShop, resolveZmccAuth } from '@/backend/services/zmccMasterDataService';
+import { approveHcSupplier, rejectHcSupplier } from '@/backend/services/zmccLocalSupplierService';
+import { approveRoute, approveShop, rejectRoute, rejectShop, resolveZmccAuth } from '@/backend/services/zmccMasterDataService';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
@@ -236,35 +237,11 @@ export async function POST(
         return NextResponse.json({ error: res.error }, { status: res.status });
       }
     } else if (approvalType === 'STAGE_1_NEW_ROUTE') {
-      await prisma.$transaction(async (tx) => {
-        const row = await tx.zmccRoute.findUnique({ where: { id: numericId } });
-        if (!row || row.approval_status !== 'PENDING') {
-          throw new Error('Route already decided or not pending.');
-        }
-        await tx.zmccRoute.update({
-          where: { id: numericId },
-          data: {
-            approval_status: verdict === 'OKAY' ? 'ACTIVE' : 'REJECTED',
-            rejection_reason: verdict === 'NO' ? remarks : null,
-            approved_by: dbUser.id,
-            approved_at: new Date(),
-          },
-        });
-        await writeAuditLog(tx, {
-          tableName: 'zmcc_route',
-          recordId: numericId,
-          action: verdict === 'OKAY' ? 'ROUTE_APPROVED' : 'ROUTE_REJECTED',
-          oldValues: { approval_status: row.approval_status },
-          newValues: { approval_status: verdict === 'OKAY' ? 'ACTIVE' : 'REJECTED', remarks },
-          actor: {
-            userId: dbUser.id,
-            actorRole: dbUser.role,
-            performedAsRole: ctx.actingAs,
-            isDelegated: ctx.isDelegated,
-            selfApproved: decisionCheck.isSelfApproval,
-          },
-        });
-      });
+      const { auth: routeAuth, errorResponse: routeAuthError } = await resolveZmccAuth(req, 'APPROVE_ROUTE');
+      if (routeAuthError) return NextResponse.json({ error: routeAuthError.error }, { status: routeAuthError.status });
+      const res =
+        verdict === 'OKAY' ? await approveRoute(routeAuth!, numericId) : await rejectRoute(routeAuth!, numericId, remarks);
+      if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
     } else if (approvalType === 'STAGE_1_NEW_SHOP') {
       // The same approval as the shop screens: gives the real code, activates it and adds it to running journeys.
       const { auth: shopAuth, errorResponse: shopAuthError } = await resolveZmccAuth(req, 'APPROVE_SHOP');
@@ -282,35 +259,12 @@ export async function POST(
         return NextResponse.json({ error: res.error }, { status: res.status });
       }
     } else if (approvalType === 'STAGE_2_NEW_HC') {
-      await prisma.$transaction(async (tx) => {
-        const row = await tx.zmccLocalSupplier.findUnique({ where: { id: numericId } });
-        if (!row || row.approval_status !== 'PENDING') {
-          throw new Error('Local supplier already decided or not pending.');
-        }
-        await tx.zmccLocalSupplier.update({
-          where: { id: numericId },
-          data: {
-            approval_status: verdict === 'OKAY' ? 'ACTIVE' : 'REJECTED',
-            rejection_reason: verdict === 'NO' ? remarks : null,
-            approved_by_user_id: dbUser.id,
-            approved_at: new Date(),
-          },
-        });
-        await writeAuditLog(tx, {
-          tableName: 'zmcc_local_supplier',
-          recordId: numericId,
-          action: verdict === 'OKAY' ? 'LOCAL_SUPPLIER_APPROVED' : 'LOCAL_SUPPLIER_REJECTED',
-          oldValues: { approval_status: row.approval_status },
-          newValues: { approval_status: verdict === 'OKAY' ? 'ACTIVE' : 'REJECTED', remarks },
-          actor: {
-            userId: dbUser.id,
-            actorRole: dbUser.role,
-            performedAsRole: ctx.actingAs,
-            isDelegated: ctx.isDelegated,
-            selfApproved: decisionCheck.isSelfApproval,
-          },
-        });
-      });
+      // The same decision as the HC screens: the HC becomes usable for arrivals and tokens.
+      const res =
+        verdict === 'OKAY'
+          ? await approveHcSupplier(req, numericId.toString())
+          : await rejectHcSupplier(req, numericId.toString(), remarks);
+      if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
     } else if (
       approvalType === 'STAGE_3_ZMCC_DISPATCH_EXCEPTION' ||
       approvalType === 'STAGE_3_CONTRACTOR_DISPATCH_EXCEPTION'

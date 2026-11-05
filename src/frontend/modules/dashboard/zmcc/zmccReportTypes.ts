@@ -193,6 +193,8 @@ export interface RouteLedgerRow {
   avgLr: number;
   avgSnf: number;
   at13TsLiters: number;
+  zmccArrivalAt13TsLiters: number | null;
+  routeLossAt13TsLiters: number | null;
 }
 
 export interface HcSupplierLedgerRow {
@@ -205,6 +207,9 @@ export interface HcSupplierLedgerRow {
   vehicleNumber: string;
   rmrNumber: string | null;
   grossLiters: number;
+  at13TsLiters: number | null;
+  netWeightKg: number | null;
+  tsPercent: number | null;
   density: number | null;
   fat: number | null;
   snf: number | null;

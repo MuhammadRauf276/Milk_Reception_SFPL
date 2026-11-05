@@ -138,7 +138,7 @@ async function notifyZonalManagersHcPending(
         priority: 'HIGH',
         title: 'New HC waiting for approval',
         body: `HC "${supplier.name}" (${supplier.local_supplier_code}) is waiting for your approval.`,
-        deep_link: '/zmcc',
+        deep_link: '/mpd/zmcc-manager?tab=APPROVALS',
         source_type: 'LOCAL_SUPPLIER',
         source_id: supplier.id.toString(),
         dedupe_key: dedupeKey,

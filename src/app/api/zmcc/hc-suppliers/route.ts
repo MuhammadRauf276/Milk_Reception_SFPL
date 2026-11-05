@@ -22,6 +22,7 @@ export async function GET(req: Request) {
       search,
       zmcc_id,
       is_active,
+      approval_status: searchParams.get('approval_status') || undefined,
       page,
       page_size,
     });

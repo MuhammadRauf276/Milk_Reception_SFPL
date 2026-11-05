@@ -345,7 +345,7 @@ export async function getApprovalInbox(
     if (!typeFilter || typeFilter === 'STAGE_1_NEW_ROUTE') {
       const routeWhere: Prisma.ZmccRouteWhereInput = {};
       if (statusFilter === 'PENDING') {
-        routeWhere.approval_status = 'PENDING';
+        routeWhere.approval_status = { in: ['PENDING', 'PENDING_APPROVAL'] };
       } else if (statusFilter === 'DECIDED') {
         routeWhere.approval_status = { in: ['ACTIVE', 'REJECTED'] };
         routeWhere.approved_by = { not: null };
@@ -674,7 +674,7 @@ export async function getApprovalInbox(
     if (!typeFilter || typeFilter === 'STAGE_2_NEW_HC') {
       const hcWhere: Prisma.ZmccLocalSupplierWhereInput = {};
       if (statusFilter === 'PENDING') {
-        hcWhere.approval_status = 'PENDING';
+        hcWhere.approval_status = { in: ['PENDING', 'PENDING_APPROVAL'] };
       } else if (statusFilter === 'DECIDED') {
         hcWhere.approval_status = { in: ['ACTIVE', 'REJECTED'] };
         hcWhere.approved_by_user_id = { not: null };

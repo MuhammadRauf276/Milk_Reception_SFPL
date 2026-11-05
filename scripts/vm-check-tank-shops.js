@@ -58,6 +58,18 @@ const QUERIES = [
     SELECT u.role, COUNT(*) AS told, COUNT(*) FILTER (WHERE n.read_at IS NULL) AS still_open
     FROM notification n JOIN users u ON u.id = n.recipient_user_id
     WHERE n.event_key = 'NEW_SHOP_PENDING' GROUP BY 1 ORDER BY 1`],
+  ['10. HC LIST (what PHE and MDO should see: active and approved)', `
+    SELECT z.code AS zmcc, s.local_supplier_code AS code, s.name, s.approval_status, s.is_active, u.role AS added_by, s.created_at
+    FROM zmcc_local_supplier s JOIN procurement_source z ON z.id = s.zmcc_id LEFT JOIN users u ON u.id = s.created_by_user_id
+    ORDER BY s.id DESC LIMIT 40`],
+  ['11. ROUTE LIST', `
+    SELECT z.code AS zmcc, r.route_code, r.name, r.approval_status, r.is_active,
+      (SELECT COUNT(*) FROM zmcc_shop x WHERE x.route_id = r.id AND x.is_active AND x.approval_status = 'ACTIVE') AS active_shops, r.created_at
+    FROM zmcc_route r JOIN procurement_source z ON z.id = r.zmcc_id ORDER BY z.code, r.id LIMIT 60`],
+  ['12. JOURNEYS PHE SEES AS ON THE WAY OR ARRIVED', `
+    SELECT j.journey_number, j.status, z.code AS zmcc, r.name AS route, v.vehicle_number, j.assigned_at
+    FROM mot_journey j JOIN procurement_source z ON z.id = j.zmcc_id JOIN zmcc_route r ON r.id = j.route_id JOIN mot_vehicle v ON v.id = j.mot_vehicle_id
+    WHERE j.status IN ('COLLECTING','RETURNING','ARRIVED') ORDER BY j.id DESC LIMIT 30`],
   ['9. APP VERSION ON THIS SERVER', `SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY started_at DESC LIMIT 3`],
 ];
 (async () => {
