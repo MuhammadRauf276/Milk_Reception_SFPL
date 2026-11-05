@@ -5,7 +5,7 @@ import { requestCloseWithoutUnloading } from '@/backend/services/zmccArrival/zmc
 /** PHE Operator asks the ZMCC Manager to close a vehicle (MC or HC) without unloading. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const guard = await requireRoles(req, ['PHE_OPERATOR']);
+    const guard = await requireRoles(req, ['MDO', 'PHE_OPERATOR']);
     if ('response' in guard) return guard.response;
     const { id } = await params;
     let body: Record<string, unknown> = {};

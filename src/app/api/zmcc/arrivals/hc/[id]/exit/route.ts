@@ -5,7 +5,7 @@ import { recordHcGateExit } from '@/backend/services/zmccArrival/zmccExitService
 /** HC gate exit: last step, done by the PHE Operator (and superiors). MC has no gate exit. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const guard = await requireRoles(req, ['PHE_OPERATOR']);
+    const guard = await requireRoles(req, ['MDO', 'PHE_OPERATOR']);
     if ('response' in guard) return guard.response;
     const { id } = await params;
     let body: Record<string, unknown> = {};

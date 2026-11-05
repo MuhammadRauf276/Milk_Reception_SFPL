@@ -5,7 +5,7 @@ import { listExitQueue } from '@/backend/services/zmccArrival/zmccExitService';
 /** PHE Operator: HC vehicles waiting to leave, and vehicles that may be closed without unloading. */
 export async function GET(req: Request) {
   try {
-    const guard = await requireRoles(req, ['PHE_OPERATOR']);
+    const guard = await requireRoles(req, ['MDO', 'PHE_OPERATOR']);
     if ('response' in guard) return guard.response;
     const result = await listExitQueue(guard.acting);
     if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });

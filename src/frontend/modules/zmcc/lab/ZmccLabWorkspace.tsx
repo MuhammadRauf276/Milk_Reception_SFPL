@@ -3,7 +3,6 @@
 import { HcReceiptsPanel } from './HcReceiptsPanel';
 import React, { useState, useEffect, useCallback } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { AnimatePresence } from 'framer-motion';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { useDebouncedValue } from '@/frontend/modules/super-admin/shared/useDebouncedValue';
 import { User } from '@backend/core/types';
@@ -28,7 +27,7 @@ import { LabQueuePanel } from './LabQueuePanel';
 import { LabHistoryPanel } from './LabHistoryPanel';
 import { HistoryCorrectionDrawer } from './HistoryCorrectionDrawer';
 import { MySubmittedRequestsPanel } from '@/frontend/modules/approvals/MySubmittedRequestsPanel';
-import type { MainTab, LabSession, LabResult, ResultDrafts, ActiveTank, LabQueueItem } from './labTypes';
+import type { MainTab, LabSession, LabResult, ResultDrafts, LabQueueItem } from './labTypes';
 import { RequestCorrectionModal, type EditableFieldOption } from '@/frontend/modules/governance/RequestCorrectionModal';
 
 interface ZmccLabWorkspaceProps {
@@ -54,7 +53,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   // Superiors may do lab work in their own ZMCC (delegation).
   const canTest = isZmccLabAttendant || isZmccManager || currentUser?.role === 'HEAD_OF_MPD' || isSuperAdmin;
   const canDirectCorrect = isDataExecutive || isSuperAdmin;
-  const canReceiveHistorical = isZmccLabAttendant || isSuperAdmin;
 
   const [requestCorrectionModal, setRequestCorrectionModal] = useState<{
     isOpen: boolean;
@@ -125,12 +123,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   const [loadingSession, setLoadingSession] = useState(false);
   const [queuePage, setQueuePage] = useState<number>(1);
 
-  // Historical Receive Modal State
-  const [showHistoricalReceiveModal, setShowHistoricalReceiveModal] = useState(false);
-  const [historicalSession, setHistoricalSession] = useState<LabSession | null>(null);
-  const [historicalTanks, setHistoricalTanks] = useState<ActiveTank[]>([]);
-  const [selectedHistoricalTankId, setSelectedHistoricalTankId] = useState('');
-  const [submittingHistoricalReceive, setSubmittingHistoricalReceive] = useState(false);
 
   // History State
   const [historySearch, setHistorySearch] = useState('');
@@ -272,62 +264,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
     }
   }, [activeTab, activeSession, loadingSession, queueItems]);
 
-  // Historical Receive Handlers
-  const openHistoricalReceiveModal = async (session: LabSession) => {
-    setHistoricalSession(session);
-    setSelectedHistoricalTankId('');
-    try {
-      const zmccQuery = session.zmcc_id ? `&zmcc_id=${session.zmcc_id}` : '';
-      const res = await fetch(`/api/zmcc/tanks?active_only=true${zmccQuery}`);
-      if (res.ok) {
-        const data = await res.json();
-        const activeList = data.tanks || [];
-        setHistoricalTanks(activeList);
-        if (activeList.length === 1) {
-          setSelectedHistoricalTankId(activeList[0].id);
-        }
-      } else {
-        setHistoricalTanks([]);
-      }
-    } catch {
-      setHistoricalTanks([]);
-    }
-    setShowHistoricalReceiveModal(true);
-  };
-
-  const handleHistoricalReceive = async () => {
-    if (!historicalSession) return;
-    if (historicalTanks.length === 0) {
-      toast.showError('No active ZMCC tank configured.');
-      return;
-    }
-    if (historicalTanks.length > 1) {
-      toast.showError('Configuration error: Multiple active tanks found for this ZMCC. Only one active tank is permitted.');
-      return;
-    }
-    setSubmittingHistoricalReceive(true);
-    try {
-      const res = await fetch(`/api/zmcc/lab/sessions/${historicalSession.id}/receive`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tank_id: historicalTanks.length === 1 ? historicalTanks[0].id : (selectedHistoricalTankId || undefined),
-        }),
-      });
-      if (res.ok) {
-        toast.showSuccess('Tank receipt created successfully.');
-        setShowHistoricalReceiveModal(false);
-        fetchHistory();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.showError(err.error || 'Failed to create tank receipt.');
-      }
-    } catch {
-      toast.showError('Network error creating tank receipt.');
-    } finally {
-      setSubmittingHistoricalReceive(false);
-    }
-  };
 
 
   // Open correction modal
@@ -625,12 +561,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
           fetchHistory={fetchHistory}
           canTest={canTest}
           canDirectCorrect={canDirectCorrect}
-          canReceiveHistorical={canReceiveHistorical}
           canRequestCorrection={!canDirectCorrect}
           showLitres={!isZmccLabAttendant}
           openCorrection={openCorrection}
           openRequestCorrection={openRequestCorrection}
-          openHistoricalReceiveModal={openHistoricalReceiveModal}
         />
       )}
 
@@ -666,77 +600,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
 
 
       
-      <AnimatePresence>{showHistoricalReceiveModal && historicalSession && (
-        <Modal key="modal-3" onClose={() => setShowHistoricalReceiveModal(false)} title="Receive historical session" className="max-w-lg p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-primary" />
-                <h3 className="font-semibold text-slate-800 text-base">
-                  Assign Destination Tank (Session #{historicalSession.id})
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowHistoricalReceiveModal(false)}
-                className="min-h-11 min-w-11 text-slate-400 hover:text-slate-600 p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="bg-card border-border p-3 border rounded-xl text-xs text-blue-900 space-y-1">
-              <div className="font-semibold">Historical Accepted Milk Lot</div>
-              <div>
-                Quantity: <span className="tabular-nums font-semibold">{historicalSession.quantity_value} {historicalSession.quantity_unit}</span>
-                {historicalSession.gross_liters != null && (
-                  <span> ({Number(historicalSession.gross_liters).toFixed(2)} Gross Liters)</span>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {historicalTanks.length === 0 ? (
-                <div className="bg-card border-border p-3 border rounded-xl text-xs text-rose-800 font-semibold flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>No active tank.</span>
-                </div>
-              ) : historicalTanks.length > 1 ? (
-                <div className="bg-card border-border p-3 border rounded-xl text-xs text-rose-800 font-semibold flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>Multiple active tanks.</span>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-slate-700">Destination Tank (Sole Active Tank)</label>
-                  <div className="bg-card border-border p-2.5 border rounded-xl text-xs text-slate-800 font-semibold">
-                    {historicalTanks[0].tank_name} ({historicalTanks[0].tank_code}) · Available: {Number(historicalTanks[0].available_capacity).toFixed(2)} L / {Number(historicalTanks[0].capacity_liters).toFixed(2)} L
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowHistoricalReceiveModal(false)}
-                disabled={submittingHistoricalReceive}
-                className="min-h-11 min-w-11 px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleHistoricalReceive}
-                disabled={
-                  submittingHistoricalReceive ||
-                  historicalTanks.length !== 1
-                }
-                className="min-h-11 min-w-11 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submittingHistoricalReceive ? 'Receiving…' : 'Confirm Tank Receipt'}
-              </button>
-            </div>
-          </Modal>
-      )}</AnimatePresence>
 
       {requestCorrectionModal.session && (
         <RequestCorrectionModal

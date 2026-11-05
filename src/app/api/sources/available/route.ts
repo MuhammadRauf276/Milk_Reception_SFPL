@@ -9,7 +9,8 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const zmccIdParam = searchParams.get('zmcc_id') || user.procurement_source_id;
+  // A user tied to a ZMCC only ever sees that ZMCC's list, whatever is asked for. Only system-wide users may choose.
+  const zmccIdParam = user.procurement_source_id || searchParams.get('zmcc_id');
 
   if (!zmccIdParam) {
     return NextResponse.json({ error: 'zmcc_id is required.' }, { status: 400 });

@@ -21,14 +21,12 @@ export interface LabHistoryPanelProps {
   fetchHistory: () => void;
   canTest: boolean;
   canDirectCorrect: boolean;
-  canReceiveHistorical: boolean;
   /** Roles below Data Executive raise a correction ticket instead of correcting. */
   canRequestCorrection: boolean;
   /** Lab attendant never sees litres or 13TS figures. */
   showLitres: boolean;
   openCorrection: (session: LabSession) => void;
   openRequestCorrection: (session: LabSession) => void;
-  openHistoricalReceiveModal: (session: LabSession) => void | Promise<void>;
 }
 
 export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
@@ -47,12 +45,10 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
   fetchHistory,
   canTest,
   canDirectCorrect,
-  canReceiveHistorical,
   canRequestCorrection,
   showLitres,
   openCorrection,
   openRequestCorrection,
-  openHistoricalReceiveModal,
 }) => {
   return (
         <div className="space-y-4 animate-panel-in">
@@ -198,20 +194,9 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
                             )}
                           </div>
                         ) : item.decision === 'ACCEPTED' ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium border border-amber-200">
-                              Unassigned
-                            </span>
-                            {canReceiveHistorical && (
-                              <button
-                                type="button"
-                                onClick={() => openHistoricalReceiveModal(item)}
-                                className="min-h-11 min-w-11 px-2 py-0.5 text-xs font-semibold text-white bg-primary rounded hover:bg-primary-hover shadow-xs"
-                              >
-                                Receive
-                              </button>
-                            )}
-                          </div>
+                          <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium border border-amber-200">
+                            Waiting for weighing
+                          </span>
                         ) : (
                           <span className="text-slate-400">—</span>
                         )}
