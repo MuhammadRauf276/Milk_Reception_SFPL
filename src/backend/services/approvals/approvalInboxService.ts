@@ -428,7 +428,7 @@ export async function getApprovalInbox(
     if (!typeFilter || typeFilter === 'STAGE_1_NEW_SHOP') {
       const shopWhere: Prisma.ZmccShopWhereInput = {};
       if (statusFilter === 'PENDING') {
-        shopWhere.approval_status = 'PENDING';
+        shopWhere.approval_status = { in: ['PENDING', 'PENDING_APPROVAL'] };
       } else if (statusFilter === 'DECIDED') {
         shopWhere.approval_status = { in: ['ACTIVE', 'REJECTED'] };
         shopWhere.approved_by = { not: null };

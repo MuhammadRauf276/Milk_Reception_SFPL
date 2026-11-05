@@ -1,3 +1,4 @@
+import { getBatchTankPhysicalStock, getBatchTankTodayMovements } from '@/backend/services/zmccTankService';
 import { prisma } from '@core/db';
 import type { User } from '@core/types';
 import { canActAs } from '@core/roles/hierarchy';
@@ -461,17 +462,20 @@ export async function executeDynamicReportQuery(
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { tank_code: 'asc' },
-        include: {
-          receipts: { take: 10, orderBy: { received_at: 'desc' } },
-        },
       }),
+    ]);
+
+    const tankIds = records.map((t) => t.id);
+    const [physicalStocks, todayMovements] = await Promise.all([
+      getBatchTankPhysicalStock(tankIds),
+      getBatchTankTodayMovements(tankIds, new Date(`${getPakistanCalendarDate()}T00:00:00+05:00`)),
     ]);
 
     totalCount = count;
     rawRows = records.map((t) => {
       const cap = Number(t.capacity_liters);
-      const todayReceipts = t.receipts.reduce((sum, r) => sum + Number(r.gross_liters), 0);
-      const stock = Number((todayReceipts * 0.75).toFixed(2));
+      const today = todayMovements.get(t.id.toString());
+      const stock = Number((physicalStocks.get(t.id.toString()) ?? 0).toFixed(2));
       const fillPct = cap > 0 ? Number(((stock / cap) * 100).toFixed(1)) : 0;
 
       return {
@@ -481,10 +485,10 @@ export async function executeDynamicReportQuery(
         capacity_liters: cap,
         current_stock_liters: stock,
         fill_pct: fillPct,
-        current_temp_c: 3.8,
-        today_receipts_liters: Number(todayReceipts.toFixed(2)),
-        today_dispatches_liters: Number((todayReceipts * 0.9).toFixed(2)),
-        holding_hours: 6.5,
+        current_temp_c: null,
+        today_receipts_liters: Number((today?.received ?? 0).toFixed(2)),
+        today_dispatches_liters: Number((today?.dispatched ?? 0).toFixed(2)),
+        holding_hours: null,
         is_active: t.is_active,
       };
     });

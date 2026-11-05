@@ -53,7 +53,7 @@ export const notificationEventCatalog: Record<NotificationEventKey, Notification
   REJECTED_MILK_REMARKS_PENDING: { recipients: ['HEAD_OF_MPD'], priority: 'HIGH', sourceType: 'REJECTED_MILK' },
   SELF_APPROVAL_REVIEW: { recipients: ['DATA_EXECUTIVE', 'SUPER_ADMIN'], priority: 'HIGH', sourceType: 'APPROVAL_DECISION' },
   NEW_ROUTE_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_ROUTE' },
-  NEW_SHOP_PENDING: { recipients: ['MDO', 'ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_SHOP' },
+  NEW_SHOP_PENDING: { recipients: ['MDO', 'ZMCC_MANAGER', 'SUPER_ADMIN', 'DATA_EXECUTIVE'], priority: 'NORMAL', sourceType: 'ZMCC_SHOP' },
   NEW_HC_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_LOCAL_SUPPLIER' },
   MOT_SHOP_WARNING_LOGGED: { recipients: ['ZMCC_MANAGER', 'HEAD_OF_MPD'], priority: 'NORMAL', sourceType: 'MOT_SHOP_COLLECTION' },
   ZMCC_LAB_WARNING_LOGGED: { recipients: ['ZMCC_MANAGER', 'HEAD_OF_MPD'], priority: 'NORMAL', sourceType: 'ZMCC_LAB_SESSION' },

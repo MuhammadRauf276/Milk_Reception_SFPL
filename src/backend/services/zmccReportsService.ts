@@ -1,7 +1,7 @@
 import { prisma } from '@/backend/core/db';
 import ExcelJS from 'exceljs';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
-import { getBatchTankPhysicalStock, getBatchTankCommercialStock } from '@/backend/services/zmccTankService';
+import { getBatchTankPhysicalStock, getBatchTankCommercialStock, getBatchTankTodayMovements } from '@/backend/services/zmccTankService';
 import { isTemperatureTest } from '@/lib/lab-test-roles';
 import { loadSystemRoles, type PolicyDb } from '@/backend/services/testPointPolicyService';
 
@@ -246,7 +246,7 @@ export interface TankStorageRow {
   lastCipAt: string | null;
   todayReceiptsLiters: number;
   todayDispatchesLiters: number;
-  holdingHours: number;
+  holdingHours: number | null;
   fillPercentage: number;
 }
 
@@ -935,18 +935,13 @@ export async function getZmccTankStorageReport(zmccId?: bigint): Promise<{ rows:
   const tanks = await prisma.zmccTank.findMany({
     where,
     orderBy: { tank_code: 'asc' },
-    include: {
-      receipts: {
-        take: 5,
-        orderBy: { received_at: 'desc' },
-      },
-    },
   });
 
   const tankIds = tanks.map((t) => t.id);
-  const [physicalStocks, commercialStocks] = await Promise.all([
+  const [physicalStocks, commercialStocks, todayMovements] = await Promise.all([
     getBatchTankPhysicalStock(tankIds),
     getBatchTankCommercialStock(tankIds),
+    getBatchTankTodayMovements(tankIds, new Date(`${getPakistanCalendarDate()}T00:00:00+05:00`)),
   ]);
 
   const rows: TankStorageRow[] = tanks.map((t) => {
@@ -954,7 +949,7 @@ export async function getZmccTankStorageReport(zmccId?: bigint): Promise<{ rows:
     const stock = physicalStocks.get(t.id.toString()) ?? 0;
     const stockAt13 = commercialStocks.get(t.id.toString()) ?? 0;
     const compositeTsPercent = stock > 0 ? Number(((stockAt13 * 13) / stock).toFixed(2)) : null;
-    const todayReceipts = t.receipts.reduce((sum: number, r: { gross_liters: any }) => sum + Number(r.gross_liters), 0);
+    const today = todayMovements.get(t.id.toString());
     const fillPct = cap > 0 ? Number(((stock / cap) * 100).toFixed(1)) : 0;
 
     return {
@@ -965,11 +960,12 @@ export async function getZmccTankStorageReport(zmccId?: bigint): Promise<{ rows:
       currentStock: stock,
       currentStockAt13Ts: Number(stockAt13.toFixed(2)),
       compositeTsPercent,
-      currentTempC: 3.8,
+      // No sensor feeds these yet, so nothing is shown rather than a made-up reading.
+      currentTempC: null,
       lastCipAt: null,
-      todayReceiptsLiters: Number(todayReceipts.toFixed(2)),
-      todayDispatchesLiters: Number((todayReceipts * 0.9).toFixed(2)),
-      holdingHours: 6.5,
+      todayReceiptsLiters: Number((today?.received ?? 0).toFixed(2)),
+      todayDispatchesLiters: Number((today?.dispatched ?? 0).toFixed(2)),
+      holdingHours: null,
       fillPercentage: fillPct,
     };
   });

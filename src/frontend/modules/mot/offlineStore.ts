@@ -191,6 +191,7 @@ export interface QueuedShopRequest {
   cnic: string;
   route_id?: string;
   area_id?: string;
+  chiller_ownership_id?: string;
   latitude?: number | null;
   longitude?: number | null;
   offline_created_at: string;
@@ -1241,6 +1242,7 @@ export async function queueShopRequest(request: {
   cnic: string;
   route_id?: string;
   area_id?: string;
+  chiller_ownership_id?: string;
   latitude?: number | null;
   longitude?: number | null;
 }): Promise<QueuedShopRequest> {
@@ -1303,6 +1305,7 @@ export async function syncPendingShopRequests(): Promise<{ synced: number; faile
           cnic: item.cnic,
           route_id: item.route_id,
           area_id: item.area_id,
+          chiller_ownership_id: item.chiller_ownership_id,
           latitude: item.latitude,
           longitude: item.longitude,
         }),

@@ -1,3 +1,4 @@
+import { clearHandledNotifications, createNotificationsForEvent } from '@/backend/services/notificationService';
 import { prisma } from '@core/db';
 import { writeAuditLog } from '@/backend/core/audit';
 import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
@@ -1846,6 +1847,49 @@ export async function getShopById(auth: ZmccAuthContext, shopId: bigint) {
   };
 }
 
+/** A shop now active on a route joins the journeys collecting on that route, as its last stop. Safe to repeat. */
+async function addShopToActiveJourneysTx(
+  tx: Prisma.TransactionClient,
+  shop: {
+    id: bigint;
+    route_id: bigint;
+    shop_code: string;
+    shop_name: string;
+    owner_name: string;
+    phone_number: string;
+    latitude: Prisma.Decimal | null;
+    longitude: Prisma.Decimal | null;
+  },
+  area: { area_code: string; name: string }
+): Promise<void> {
+  const activeJourneys = await tx.motJourney.findMany({
+    where: { route_id: shop.route_id, status: 'COLLECTING' },
+    include: { stops: { orderBy: { planned_sequence: 'desc' }, take: 1 } },
+  });
+  for (const journey of activeJourneys) {
+    const existingStop = await tx.motJourneyStop.findUnique({
+      where: { journey_id_shop_id: { journey_id: journey.id, shop_id: shop.id } },
+    });
+    if (existingStop) continue;
+    await tx.motJourneyStop.create({
+      data: {
+        journey_id: journey.id,
+        shop_id: shop.id,
+        planned_sequence: (journey.stops[0]?.planned_sequence ?? 0) + 1,
+        status: 'PENDING',
+        shop_code_snapshot: shop.shop_code,
+        shop_name_snapshot: shop.shop_name,
+        owner_name_snapshot: shop.owner_name,
+        phone_number_snapshot: shop.phone_number,
+        area_code_snapshot: area.area_code,
+        area_name_snapshot: area.name,
+        planned_latitude_snapshot: shop.latitude,
+        planned_longitude_snapshot: shop.longitude,
+      },
+    });
+  }
+}
+
 export async function createShop(
   auth: ZmccAuthContext,
   body: {
@@ -1974,6 +2018,8 @@ export async function createShop(
         created_by: auth.actorUserId,
       },
     });
+
+    if (created.is_active) await addShopToActiveJourneysTx(tx, created, area);
 
     await writeAuditLog(tx, {
       tableName: 'zmcc_shop',
@@ -2191,6 +2237,9 @@ export async function updateShop(
       where: { id: targetAreaId },
       select: { area_code: true, name: true },
     });
+    if (updated.is_active && updated.approval_status === 'ACTIVE' && shopArea) {
+      await addShopToActiveJourneysTx(tx, updated, shopArea);
+    }
     await tx.motJourneyStop.updateMany({
       where: { shop_id: shopId, status: 'PENDING', journey: { status: { in: ['COLLECTING', 'RETURNING'] } } },
       data: {
@@ -2389,6 +2438,17 @@ export async function requestNewShop(
       },
     });
 
+    await createNotificationsForEvent(tx, {
+      eventKey: 'NEW_SHOP_PENDING',
+      sourceId: created.id.toString(),
+      sourceZmccId: effectiveZmccId!,
+      title: 'New shop request',
+      body: `${shop_name} (${owner_name}) is waiting for approval.`,
+      deepLink: '/approvals',
+      deepLinkByRole: { MDO: '/phe?section=mot&view=approvals' },
+      dedupeSuffix: created.id.toString(),
+    });
+
     await writeAuditLog(tx, {
       tableName: 'zmcc_shop',
       recordId: created.id,
@@ -2485,49 +2545,8 @@ export async function approveShop(auth: ZmccAuthContext, shopId: bigint): Promis
       },
     });
 
-    // If there is an active COLLECTING journey for that route, inject a new stop
-    const activeJourneys = await tx.motJourney.findMany({
-      where: {
-        route_id: updated.route_id,
-        status: 'COLLECTING',
-      },
-      include: {
-        stops: {
-          orderBy: { planned_sequence: 'desc' },
-          take: 1,
-        },
-      },
-    });
-
-    for (const journey of activeJourneys) {
-      const existingStop = await tx.motJourneyStop.findUnique({
-        where: {
-          journey_id_shop_id: {
-            journey_id: journey.id,
-            shop_id: updated.id,
-          },
-        },
-      });
-      if (!existingStop) {
-        const lastSeq = journey.stops[0]?.planned_sequence ?? 0;
-        await tx.motJourneyStop.create({
-          data: {
-            journey_id: journey.id,
-            shop_id: updated.id,
-            planned_sequence: lastSeq + 1,
-            status: 'PENDING',
-            shop_code_snapshot: updated.shop_code,
-            shop_name_snapshot: updated.shop_name,
-            owner_name_snapshot: updated.owner_name,
-            phone_number_snapshot: updated.phone_number,
-            area_code_snapshot: existing.area.area_code,
-            area_name_snapshot: existing.area.name,
-            planned_latitude_snapshot: updated.latitude,
-            planned_longitude_snapshot: updated.longitude,
-          },
-        });
-      }
-    }
+    await addShopToActiveJourneysTx(tx, updated, existing.area);
+    await clearHandledNotifications(tx, ['NEW_SHOP_PENDING'], shopId);
 
     await writeAuditLog(tx, {
       tableName: 'zmcc_shop',
@@ -2596,6 +2615,8 @@ export async function rejectShop(auth: ZmccAuthContext, shopId: bigint, reason: 
         updated_by: auth.actorUserId,
       },
     });
+
+    await clearHandledNotifications(tx, ['NEW_SHOP_PENDING'], shopId);
 
     await writeAuditLog(tx, {
       tableName: 'zmcc_shop',

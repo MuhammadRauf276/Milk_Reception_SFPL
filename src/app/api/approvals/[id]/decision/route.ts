@@ -1,3 +1,4 @@
+import { approveShop, rejectShop, resolveZmccAuth } from '@/backend/services/zmccMasterDataService';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
@@ -265,35 +266,12 @@ export async function POST(
         });
       });
     } else if (approvalType === 'STAGE_1_NEW_SHOP') {
-      await prisma.$transaction(async (tx) => {
-        const row = await tx.zmccShop.findUnique({ where: { id: numericId } });
-        if (!row || row.approval_status !== 'PENDING') {
-          throw new Error('Shop already decided or not pending.');
-        }
-        await tx.zmccShop.update({
-          where: { id: numericId },
-          data: {
-            approval_status: verdict === 'OKAY' ? 'ACTIVE' : 'REJECTED',
-            rejection_reason: verdict === 'NO' ? remarks : null,
-            approved_by: dbUser.id,
-            approved_at: new Date(),
-          },
-        });
-        await writeAuditLog(tx, {
-          tableName: 'zmcc_shop',
-          recordId: numericId,
-          action: verdict === 'OKAY' ? 'SHOP_APPROVED' : 'SHOP_REJECTED',
-          oldValues: { approval_status: row.approval_status },
-          newValues: { approval_status: verdict === 'OKAY' ? 'ACTIVE' : 'REJECTED', remarks },
-          actor: {
-            userId: dbUser.id,
-            actorRole: dbUser.role,
-            performedAsRole: ctx.actingAs,
-            isDelegated: ctx.isDelegated,
-            selfApproved: decisionCheck.isSelfApproval,
-          },
-        });
-      });
+      // The same approval as the shop screens: gives the real code, activates it and adds it to running journeys.
+      const { auth: shopAuth, errorResponse: shopAuthError } = await resolveZmccAuth(req, 'APPROVE_SHOP');
+      if (shopAuthError) return NextResponse.json({ error: shopAuthError.error }, { status: shopAuthError.status });
+      const res =
+        verdict === 'OKAY' ? await approveShop(shopAuth!, numericId) : await rejectShop(shopAuth!, numericId, remarks);
+      if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
     } else if (approvalType === 'STAGE_2_PORTION_EXCEPTION') {
       const res = await reviewPortionException(ctx, numericId, {
         verdict,

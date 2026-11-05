@@ -227,6 +227,6 @@ export interface TankStorageRow {
   lastCipAt: string | null;
   todayReceiptsLiters: number;
   todayDispatchesLiters: number;
-  holdingHours: number;
+  holdingHours: number | null;
   fillPercentage: number;
 }

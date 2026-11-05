@@ -199,6 +199,30 @@ export async function getTankPhysicalStock(
   }
 
   /**
+   * What each tank really took in and sent out today (Pakistan day), from the ledger.
+   */
+  export async function getBatchTankTodayMovements(
+    tankIds: bigint[],
+    dayStart: Date
+  ): Promise<Map<string, { received: number; dispatched: number }>> {
+    const out = new Map<string, { received: number; dispatched: number }>();
+    if (tankIds.length === 0) return out;
+    const rows: Array<{ tank_id: bigint | string; received: string | number | null; dispatched: string | number | null }> =
+      await prisma.$queryRaw`
+        SELECT tank_id,
+          COALESCE(SUM(CASE WHEN transaction_type = 'RECEIPT' OR reference_type = 'SUPER_ADMIN_MANUAL_INTAKE' THEN quantity_liters ELSE 0 END), 0) AS received,
+          COALESCE(SUM(CASE WHEN transaction_type = 'ISSUE' THEN quantity_liters ELSE 0 END), 0) AS dispatched
+        FROM zmcc_tank_inventory_transaction
+        WHERE tank_id IN (${Prisma.join(tankIds)}) AND operational_timestamp >= ${dayStart}
+        GROUP BY tank_id
+      `;
+    for (const row of rows) {
+      out.set(row.tank_id.toString(), { received: Number(row.received || 0), dispatched: Number(row.dispatched || 0) });
+    }
+    return out;
+  }
+
+  /**
    * Batch calculates current commercial stock (@13TS Liters) across multiple tanks.
    * Returns a Map of tankId string -> commercial stock number (@13TS).
    */

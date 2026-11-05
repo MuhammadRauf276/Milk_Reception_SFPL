@@ -22,6 +22,8 @@ export async function createNotificationsForEvent(
     title: string;
     body: string;
     deepLink?: string | null;
+    /** For a role whose screen for this item differs from `deepLink`. */
+    deepLinkByRole?: Partial<Record<string, string>>;
     dedupeSuffix: string;
     expiresAt?: Date | null;
   }
@@ -46,7 +48,7 @@ export async function createNotificationsForEvent(
       role: { in: definition.recipients },
       ...sourceFilter,
     },
-    select: { id: true },
+    select: { id: true, role: true },
   });
 
   return Promise.all(
@@ -60,7 +62,7 @@ export async function createNotificationsForEvent(
           priority: definition.priority,
           title: input.title,
           body: input.body,
-          deep_link: safeDeepLink(input.deepLink),
+          deep_link: safeDeepLink(input.deepLinkByRole?.[user.role] ?? input.deepLink),
           source_type: definition.sourceType,
           source_id: input.sourceId || null,
           dedupe_key: dedupeKey,
