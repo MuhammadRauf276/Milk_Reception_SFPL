@@ -28,7 +28,6 @@ import { LabHistoryPanel } from './LabHistoryPanel';
 import { HistoryCorrectionDrawer } from './HistoryCorrectionDrawer';
 import { MySubmittedRequestsPanel } from '@/frontend/modules/approvals/MySubmittedRequestsPanel';
 import type { MainTab, LabSession, LabResult, ResultDrafts, ActiveTank, LabQueueItem } from './labTypes';
-import { InfoTip } from '@/components/ui/info-tip';
 import { RequestCorrectionModal, type EditableFieldOption } from '@/frontend/modules/governance/RequestCorrectionModal';
 
 interface ZmccLabWorkspaceProps {
@@ -130,8 +129,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   const [selectedHistoricalTankId, setSelectedHistoricalTankId] = useState('');
   const [submittingHistoricalReceive, setSubmittingHistoricalReceive] = useState(false);
   const [rmrSession, setRmrSession] = useState<LabSession | null>(null);
-  const [rmrSeries, setRmrSeries] = useState('LSR');
-  const [rmrBookNumber, setRmrBookNumber] = useState('');
   const [rmrReceiptNumber, setRmrReceiptNumber] = useState('');
   const [issuingRmr, setIssuingRmr] = useState(false);
 
@@ -334,15 +331,15 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
 
   const issueLocalSupplierRmr = async () => {
     if (!rmrSession?.local_supplier_arrival?.id) return;
-    if (!rmrSeries.trim() || !rmrBookNumber.trim() || !rmrReceiptNumber.trim()) {
-      toast.showError('Series, book number, and receipt number are required.');
+    if (!rmrReceiptNumber.trim()) {
+      toast.showError('Enter the receipt number.');
       return;
     }
     setIssuingRmr(true);
     try {
       const res = await fetch(`/api/zmcc/hc-arrivals/${rmrSession.local_supplier_arrival.id}/rmr`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ series: rmrSeries, book_number: rmrBookNumber, receipt_number: rmrReceiptNumber, idempotency_key: `local-rmr-${rmrSession.id}-${Date.now()}` }),
+        body: JSON.stringify({ receipt_number: rmrReceiptNumber, idempotency_key: `local-rmr-${rmrSession.id}-${Date.now()}` }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to issue HC RMR.');
@@ -652,7 +649,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
           openCorrection={openCorrection}
           openRequestCorrection={openRequestCorrection}
           openHistoricalReceiveModal={openHistoricalReceiveModal}
-          startRmr={(item) => { setRmrSession(item); setRmrSeries('LSR'); setRmrBookNumber(''); setRmrReceiptNumber(''); }}
+          startRmr={(item) => { setRmrSession(item); setRmrReceiptNumber(''); }}
         />
       )}
 
@@ -687,10 +684,8 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
       <AnimatePresence>{rmrSession && (
         <Modal key="modal-2" onClose={() => setRmrSession(null)} title="Issue HC RMR" className="max-w-md p-6 space-y-4">
             <div className="flex justify-between"><h3 className="font-semibold text-slate-800">Issue HC RMR</h3><button className="min-h-11 min-w-11 flex items-center justify-center" onClick={() => setRmrSession(null)}><X className="w-4 h-4" /></button></div>
-            <InfoTip text="Enter the physical receipt book details. This number is permanent and cannot be reused." />
-            <input value={rmrSeries} onChange={(e) => setRmrSeries(e.target.value)} placeholder="Series (for example LSR)" className="min-h-11 w-full p-2 border rounded-lg text-sm" />
-            <input value={rmrBookNumber} onChange={(e) => setRmrBookNumber(e.target.value)} placeholder="Book number" className="min-h-11 w-full p-2 border rounded-lg text-sm" />
-            <input value={rmrReceiptNumber} onChange={(e) => setRmrReceiptNumber(e.target.value)} placeholder="Receipt number" className="min-h-11 w-full p-2 border rounded-lg text-sm" />
+            <label htmlFor="hc-rmr-number" className="block text-xs font-semibold text-slate-900">RMR Token (Paper Receipt No.)</label>
+            <input id="hc-rmr-number" value={rmrReceiptNumber} onChange={(e) => setRmrReceiptNumber(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" autoComplete="off" placeholder="e.g. 004821" className="min-h-11 w-full p-2 border rounded-lg text-sm tabular-nums" />
             <div className="flex justify-end gap-2"><button onClick={() => setRmrSession(null)} className="min-h-11 min-w-11 px-3 py-2 text-xs border rounded-lg">Cancel</button><button disabled={issuingRmr} onClick={issueLocalSupplierRmr} className="min-h-11 min-w-11 px-3 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg disabled:opacity-50">{issuingRmr ? 'Issuing…' : 'Issue RMR'}</button></div>
           </Modal>
       )}</AnimatePresence>

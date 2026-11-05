@@ -247,8 +247,6 @@ export async function resolveZmccLabAuth(
 }
 
 export interface IssueLocalSupplierRmrPayload {
-  series: string;
-  book_number: string;
   receipt_number: string;
   idempotency_key: string;
 }
@@ -258,8 +256,10 @@ function serializeLocalSupplierRmr(issuance: LocalSupplierRmrIssuance) {
     id: issuance.id.toString(), local_supplier_arrival_id: issuance.local_supplier_arrival_id.toString(),
     final_lab_session_id: issuance.final_lab_session_id.toString(), tank_receipt_id: issuance.tank_receipt_id.toString(),
     zmcc_id: issuance.zmcc_id.toString(), local_supplier_id: issuance.local_supplier_id.toString(), year: issuance.rmr_year,
-    series: issuance.series, book_number: issuance.book_number, receipt_number: issuance.receipt_number,
-    printable_reference: `${issuance.series}-${issuance.rmr_year}-${issuance.book_number}-${issuance.receipt_number}`,
+    receipt_number: issuance.receipt_number,
+    printable_reference: issuance.series
+      ? `${issuance.series}-${issuance.rmr_year}-${issuance.book_number}-${issuance.receipt_number}`
+      : issuance.receipt_number,
     accepted_quantity_value: Number(issuance.accepted_quantity_value), accepted_quantity_unit: issuance.accepted_quantity_unit,
     status: issuance.status, issued_at: issuance.issued_at instanceof Date ? issuance.issued_at.toISOString() : issuance.issued_at,
   };
@@ -273,16 +273,11 @@ export async function issueLocalSupplierRmr(
   if (!auth) return { status: 401, error: 'Unauthorized.' };
   let arrivalId: bigint;
   try { arrivalId = BigInt(String(arrivalIdParam).trim()); } catch { return { status: 400, error: 'Invalid Local Supplier arrival ID.' }; }
-  const normal = (value: unknown, label: string, max: number) => {
-    const result = typeof value === 'string' ? value.trim().toUpperCase() : '';
-    if (!result || result.length > max || !/^[A-Z0-9][A-Z0-9/_-]*$/.test(result)) throw new Error(`${label} has an invalid format.`);
-    return result;
-  };
-  let series: string, bookNumber: string, receiptNumber: string, idempotencyKey: string;
-  try {
-    series = normal(payload?.series, 'Series', 30); bookNumber = normal(payload?.book_number, 'Book number', 50);
-    receiptNumber = normal(payload?.receipt_number, 'Receipt number', 50); idempotencyKey = normal(payload?.idempotency_key, 'Idempotency key', 255);
-  } catch (error) { return { status: 400, error: getErrorMessage(error) }; }
+  // The same rule as the Mobile Tester's shop receipt: one number from the paper, digits only.
+  const receiptNumber = typeof payload?.receipt_number === 'string' ? payload.receipt_number.trim() : '';
+  if (!/^\d{1,50}$/.test(receiptNumber)) return { status: 400, error: 'Enter the receipt number (digits only).' };
+  const idempotencyKey = typeof payload?.idempotency_key === 'string' ? payload.idempotency_key.trim() : '';
+  if (!idempotencyKey || idempotencyKey.length > 200) return { status: 400, error: 'Invalid request. Please try again.' };
   try {
     const issuance = await prisma.$transaction(async (tx) => {
       const arrival = await tx.zmccLocalSupplierArrival.findUnique({
@@ -291,26 +286,22 @@ export async function issueLocalSupplierRmr(
       if (!arrival) throw new Error('ARRIVAL_NOT_FOUND');
       if (auth.effectiveZmccId !== null && arrival.zmcc_id !== auth.effectiveZmccId) throw new Error('FORBIDDEN_SOURCE');
       const session = arrival.lab_session;
-      if (!session || (session.final_decision || session.decision) !== 'ACCEPTED' || !session.tank_receipt || !session.quantity_value || !session.quantity_unit) throw new Error('NOT_FINALLY_ACCEPTED');
+      if (!session || (session.final_decision || session.decision) !== 'ACCEPTED' || !session.tank_receipt) throw new Error('NOT_FINALLY_ACCEPTED');
       const byKey = await tx.localSupplierRmrIssuance.findUnique({ where: { idempotency_key: idempotencyKey } });
       if (byKey) {
-        if (byKey.local_supplier_arrival_id === arrivalId && byKey.series === series && byKey.book_number === bookNumber && byKey.receipt_number === receiptNumber) return byKey;
+        if (byKey.local_supplier_arrival_id === arrivalId && byKey.receipt_number === receiptNumber) return byKey;
         throw new Error('IDEMPOTENCY_CONFLICT');
       }
       if (arrival.rmr_issuance) throw new Error('RMR_ALREADY_ISSUED');
       const rmrYear = new Date().getFullYear();
-      const lockKey = `LOCAL_SUPPLIER_RMR:${arrival.zmcc_id}:${rmrYear}:${series}:${bookNumber}:${receiptNumber}`;
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
-      const duplicate = await tx.localSupplierRmrIssuance.findFirst({ where: { zmcc_id: arrival.zmcc_id, rmr_year: rmrYear, series, book_number: bookNumber, receipt_number: receiptNumber } });
-      if (duplicate) throw new Error('PAPER_NUMBER_CONFLICT');
       const created = await tx.localSupplierRmrIssuance.create({ data: {
         local_supplier_arrival_id: arrivalId, final_lab_session_id: session.id, tank_receipt_id: session.tank_receipt.id,
-        zmcc_id: arrival.zmcc_id, local_supplier_id: arrival.local_supplier_id, rmr_year: rmrYear, series,
-        book_number: bookNumber, receipt_number: receiptNumber, accepted_quantity_value: session.quantity_value,
-        accepted_quantity_unit: session.quantity_unit, issued_by_user_id: auth.actorUserId, idempotency_key: idempotencyKey,
+        zmcc_id: arrival.zmcc_id, local_supplier_id: arrival.local_supplier_id, rmr_year: rmrYear,
+        receipt_number: receiptNumber, accepted_quantity_value: session.tank_receipt.quantity_value,
+        accepted_quantity_unit: session.tank_receipt.quantity_unit, issued_by_user_id: auth.actorUserId, idempotency_key: idempotencyKey,
       }});
       await writeAuditLog(tx, { tableName: 'local_supplier_rmr_issuance', recordId: created.id, action: 'LOCAL_SUPPLIER_RMR_ISSUED', oldValues: null,
-        newValues: { local_supplier_arrival_id: arrivalId.toString(), final_lab_session_id: session.id.toString(), tank_receipt_id: session.tank_receipt.id.toString(), year: rmrYear, series, book_number: bookNumber, receipt_number: receiptNumber, accepted_quantity_value: Number(session.quantity_value), accepted_quantity_unit: session.quantity_unit }, actor: { userId: auth.actorUserId, actorRole: auth.role } });
+        newValues: { local_supplier_arrival_id: arrivalId.toString(), final_lab_session_id: session.id.toString(), tank_receipt_id: session.tank_receipt.id.toString(), year: rmrYear, receipt_number: receiptNumber, accepted_quantity_value: Number(session.tank_receipt.quantity_value), accepted_quantity_unit: session.tank_receipt.quantity_unit }, actor: { userId: auth.actorUserId, actorRole: auth.role } });
       return created;
     });
     return { status: 201, data: serializeLocalSupplierRmr(issuance) };

@@ -1714,8 +1714,9 @@ model LocalSupplierRmrIssuance {
   zmcc_id                   BigInt                 @map("zmcc_id")
   local_supplier_id         BigInt                 @map("local_supplier_id")
   rmr_year                  Int                    @map("rmr_year")
-  series                    String                 @db.VarChar(30)
-  book_number               String                 @map("book_number") @db.VarChar(50)
+  // Older receipts only: a receipt is now just its number, like the shop receipt.
+  series                    String?                @db.VarChar(30)
+  book_number               String?                @map("book_number") @db.VarChar(50)
   receipt_number            String                 @map("receipt_number") @db.VarChar(50)
   accepted_quantity_value   Decimal                @map("accepted_quantity_value") @db.Decimal(12, 2)
   accepted_quantity_unit    QuantityUnit           @map("accepted_quantity_unit")
@@ -1740,7 +1741,7 @@ model LocalSupplierRmrIssuance {
   issuer         User                     @relation("LocalSupplierRmrIssuedBy", fields: [issued_by_user_id], references: [id], onDelete: Restrict)
   canceller      User?                    @relation("LocalSupplierRmrCancelledBy", fields: [cancelled_by_user_id], references: [id], onDelete: Restrict)
 
-  @@unique([zmcc_id, rmr_year, series, book_number, receipt_number], map: "local_supplier_rmr_paper_identity_key")
+  @@index([zmcc_id, receipt_number])
   @@index([zmcc_id, rmr_year])
   @@index([local_supplier_id, issued_at])
   @@index([status, issued_at])

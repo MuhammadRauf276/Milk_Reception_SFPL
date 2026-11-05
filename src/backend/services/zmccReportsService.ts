@@ -899,7 +899,9 @@ export async function getZmccHcSupplierLedgerReport(
     }
 
     const rmrStr = a.rmr_issuance
-      ? `${a.rmr_issuance.series ? `${a.rmr_issuance.series}-` : ''}${a.rmr_issuance.rmr_year ? `${a.rmr_issuance.rmr_year}-` : ''}${a.rmr_issuance.book_number}-${a.rmr_issuance.receipt_number}`
+      ? a.rmr_issuance.series
+        ? `${a.rmr_issuance.series}-${a.rmr_issuance.rmr_year}-${a.rmr_issuance.book_number}-${a.rmr_issuance.receipt_number}`
+        : a.rmr_issuance.receipt_number
       : a.rmr_number || null;
 
     const rmrStatus = a.rmr_issuance?.cancelled_at
