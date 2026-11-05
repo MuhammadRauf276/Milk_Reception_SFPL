@@ -6,6 +6,8 @@ import { getUnsyncedSummary, syncAll } from '../offlineStore';
 /** Offline queue status and sync triggers (manual, on reconnect, and every 30s while online). */
 export function useMotSync() {
   const [unsyncedCount, setUnsyncedCount] = useState<number>(0);
+  // Collections and skips not yet on the server. GPS points do not count: they never change the shop list.
+  const [unsyncedWork, setUnsyncedWork] = useState<number>(0);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
@@ -13,7 +15,10 @@ export function useMotSync() {
   const refreshUnsynced = useCallback(
     () =>
       getUnsyncedSummary()
-        .then((summary) => setUnsyncedCount(summary.totalUnsynced))
+        .then((summary) => {
+          setUnsyncedCount(summary.totalUnsynced);
+          setUnsyncedWork(summary.pendingCollections + summary.pendingSkips);
+        })
         .catch(() => {
           // IndexedDB might not be ready
         }),
@@ -62,6 +67,6 @@ export function useMotSync() {
     return () => clearInterval(interval);
   }, [triggerSync]);
 
-  return { unsyncedCount, lastSyncTime, syncing, syncFeedback, setSyncFeedback, refreshUnsynced, triggerSync };
+  return { unsyncedCount, unsyncedWork, lastSyncTime, syncing, syncFeedback, setSyncFeedback, refreshUnsynced, triggerSync };
 }
 export type MotSync = ReturnType<typeof useMotSync>;

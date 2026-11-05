@@ -2203,6 +2203,53 @@ function withArrival(
   };
 }
 
+/**
+ * Every active shop on the route belongs on a journey still collecting, however and whenever the shop was added.
+ * Returns true when stops were added. Never stops the journey from loading.
+ */
+async function addMissingRouteShops(journey: { id: bigint; route_id: bigint; status: string }): Promise<boolean> {
+  if (journey.status !== 'COLLECTING') return false;
+  try {
+    const stops = await prisma.motJourneyStop.findMany({
+      where: { journey_id: journey.id },
+      select: { shop_id: true, planned_sequence: true },
+    });
+    const missing = await prisma.zmccShop.findMany({
+      where: {
+        route_id: journey.route_id,
+        is_active: true,
+        approval_status: 'ACTIVE',
+        id: { notIn: stops.map((x) => x.shop_id) },
+      },
+      include: { area: { select: { area_code: true, name: true } } },
+      orderBy: { id: 'asc' },
+    });
+    if (missing.length === 0) return false;
+    const last = stops.reduce((max, x) => Math.max(max, x.planned_sequence), 0);
+    await prisma.motJourneyStop.createMany({
+      data: missing.map((shop, index) => ({
+        journey_id: journey.id,
+        shop_id: shop.id,
+        planned_sequence: last + index + 1,
+        status: 'PENDING' as const,
+        shop_code_snapshot: shop.shop_code,
+        shop_name_snapshot: shop.shop_name,
+        owner_name_snapshot: shop.owner_name,
+        phone_number_snapshot: shop.phone_number,
+        area_code_snapshot: shop.area.area_code,
+        area_name_snapshot: shop.area.name,
+        planned_latitude_snapshot: shop.latitude,
+        planned_longitude_snapshot: shop.longitude,
+      })),
+      skipDuplicates: true,
+    });
+    return true;
+  } catch (err) {
+    console.error('addMissingRouteShops error:', err);
+    return false;
+  }
+}
+
 export async function getCurrentMotJourney(
   auth: MotAuthContext,
   opts: { journeyId?: bigint } = {}
@@ -2244,6 +2291,10 @@ export async function getCurrentMotJourney(
     }
     if (journey.status !== 'COLLECTING' && journey.status !== 'RETURNING' && journey.status !== 'ARRIVED') {
       return { status: 200, data: { journey: null, message: 'This journey is not active any more.' } };
+    }
+    if (await addMissingRouteShops(journey)) {
+      const refreshed = await prisma.motJourney.findUnique({ where: { id: journey.id }, include });
+      if (refreshed) return { status: 200, data: { journey: withArrival(refreshed) } };
     }
     return { status: 200, data: { journey: withArrival(journey) } };
   }
@@ -2291,6 +2342,10 @@ export async function getCurrentMotJourney(
     };
   }
 
+  if (await addMissingRouteShops(activeJourney)) {
+    const refreshed = await prisma.motJourney.findUnique({ where: { id: activeJourney.id }, include });
+    if (refreshed) return { status: 200, data: { journey: withArrival(refreshed) } };
+  }
   return { status: 200, data: { journey: withArrival(activeJourney) } };
 }
 

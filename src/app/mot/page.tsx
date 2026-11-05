@@ -79,19 +79,19 @@ export default function MotPage() {
   const [isSubmittingReturn, setIsSubmittingReturn] = useState(false);
 
   // Keep the journey current. Never while work is waiting to send: the server copy does not have it yet.
-  const unsyncedCount = sync.unsyncedCount;
+  const unsyncedWork = sync.unsyncedWork;
   useEffect(() => {
     const refresh = () => {
-      if (document.visibilityState === 'hidden' || !navigator.onLine || unsyncedCount > 0) return;
+      if (document.visibilityState === 'hidden' || !navigator.onLine || unsyncedWork > 0) return;
       void reloadJourney();
     };
-    const timer = window.setInterval(refresh, 60_000);
+    const timer = window.setInterval(refresh, 30_000);
     window.addEventListener(LIVE_CONFIG_CHANGED_EVENT, refresh);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener(LIVE_CONFIG_CHANGED_EVENT, refresh);
     };
-  }, [reloadJourney, unsyncedCount]);
+  }, [reloadJourney, unsyncedWork]);
 
   // A waiting vehicle request holds the work back until the manager answers.
   const vehicleRequests = useVehicleRequests(journey?.id ?? null, isCovering, isCovering ? COVER_HEADERS : undefined);

@@ -2059,6 +2059,10 @@ export async function unloadSessionToTank(
         if (m.grossLiters <= 0) {
           throw new WeighingError(400, `Portion ${p.portion_number}: the quantity is too small. Please check it.`);
         }
+        // Without TS the milk would enter the tank with gross litres but no @13% TS litres.
+        if (m.at13tsLiters <= 0) {
+          throw new WeighingError(400, `Portion ${p.portion_number} has no Fat and LR result, so @13% TS cannot be worked out.`);
+        }
         return {
           portion: p,
           net,
