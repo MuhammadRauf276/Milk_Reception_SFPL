@@ -1,6 +1,6 @@
 import type { serializeLabSession } from '@/backend/services/zmccLabService';
 
-export type MainTab = 'QUEUE' | 'TESTING' | 'HISTORY' | 'REQUESTS';
+export type MainTab = 'QUEUE' | 'TESTING' | 'HISTORY' | 'RECEIPTS' | 'REQUESTS';
 
 export type LabSession = ReturnType<typeof serializeLabSession>;
 export type LabResult = LabSession['results'][number];

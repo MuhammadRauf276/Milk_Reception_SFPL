@@ -1,5 +1,6 @@
 'use client';
 
+import { HcReceiptsPanel } from './HcReceiptsPanel';
 import React, { useState, useEffect, useCallback } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { AnimatePresence } from 'framer-motion';
@@ -93,6 +94,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   const activeTab: MainTab = React.useMemo(() => {
     if (urlTab === 'testing' && canTest) return 'TESTING';
     if (urlTab === 'history') return 'HISTORY';
+    if (urlTab === 'receipts' && canTest) return 'RECEIPTS';
     if (urlTab === 'requests') return 'REQUESTS';
     if (urlTab === 'queue' && canTest) return 'QUEUE';
     return canTest ? 'QUEUE' : 'HISTORY';
@@ -104,6 +106,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
         QUEUE: 'queue',
         TESTING: 'testing',
         HISTORY: 'history',
+        RECEIPTS: 'receipts',
         REQUESTS: 'requests',
       };
       const params = new URLSearchParams(searchParams?.toString() || '');
@@ -128,9 +131,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   const [historicalTanks, setHistoricalTanks] = useState<ActiveTank[]>([]);
   const [selectedHistoricalTankId, setSelectedHistoricalTankId] = useState('');
   const [submittingHistoricalReceive, setSubmittingHistoricalReceive] = useState(false);
-  const [rmrSession, setRmrSession] = useState<LabSession | null>(null);
-  const [rmrReceiptNumber, setRmrReceiptNumber] = useState('');
-  const [issuingRmr, setIssuingRmr] = useState(false);
 
   // History State
   const [historySearch, setHistorySearch] = useState('');
@@ -329,25 +329,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
     }
   };
 
-  const issueLocalSupplierRmr = async () => {
-    if (!rmrSession?.local_supplier_arrival?.id) return;
-    if (!rmrReceiptNumber.trim()) {
-      toast.showError('Enter the receipt number.');
-      return;
-    }
-    setIssuingRmr(true);
-    try {
-      const res = await fetch(`/api/zmcc/hc-arrivals/${rmrSession.local_supplier_arrival.id}/rmr`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receipt_number: rmrReceiptNumber, idempotency_key: `local-rmr-${rmrSession.id}-${Date.now()}` }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Failed to issue HC RMR.');
-      toast.showSuccess(`HC RMR issued: ${data.printable_reference}`);
-      setRmrSession(null); fetchHistory();
-    } catch (error) { toast.showError(getErrorMessage(error) || 'Failed to issue HC RMR.'); }
-    finally { setIssuingRmr(false); }
-  };
 
   // Open correction modal
   const openCorrection = (session: LabSession) => {
@@ -460,6 +441,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
                 ? [{ value: 'TESTING' as const, label: activeSession ? 'Active session' : 'Testing', icon: FlaskConical, badge: activeSession ? 'In progress' : undefined }]
                 : []),
               { value: 'HISTORY' as const, label: 'History & corrections', icon: FileText },
+              ...(canTest ? [{ value: 'RECEIPTS' as const, label: 'HC Receipts' }] : []),
               { value: 'REQUESTS' as const, label: 'My Sent Requests' },
             ]}
           />
@@ -649,9 +631,10 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
           openCorrection={openCorrection}
           openRequestCorrection={openRequestCorrection}
           openHistoricalReceiveModal={openHistoricalReceiveModal}
-          startRmr={(item) => { setRmrSession(item); setRmrReceiptNumber(''); }}
         />
       )}
+
+      {activeTab === 'RECEIPTS' && canTest && <HcReceiptsPanel />}
 
       {activeTab === 'REQUESTS' && (
         <div className="bg-card rounded-2xl border border-border p-5 shadow-2xs animate-panel-in">
@@ -681,14 +664,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
         calculatePreview={calculatePreview}
       />
 
-      <AnimatePresence>{rmrSession && (
-        <Modal key="modal-2" onClose={() => setRmrSession(null)} title="Issue HC RMR" className="max-w-md p-6 space-y-4">
-            <div className="flex justify-between"><h3 className="font-semibold text-slate-800">Issue HC RMR</h3><button className="min-h-11 min-w-11 flex items-center justify-center" onClick={() => setRmrSession(null)}><X className="w-4 h-4" /></button></div>
-            <label htmlFor="hc-rmr-number" className="block text-xs font-semibold text-slate-900">RMR Token (Paper Receipt No.)</label>
-            <input id="hc-rmr-number" value={rmrReceiptNumber} onChange={(e) => setRmrReceiptNumber(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" autoComplete="off" placeholder="e.g. 004821" className="min-h-11 w-full p-2 border rounded-lg text-sm tabular-nums" />
-            <div className="flex justify-end gap-2"><button onClick={() => setRmrSession(null)} className="min-h-11 min-w-11 px-3 py-2 text-xs border rounded-lg">Cancel</button><button disabled={issuingRmr} onClick={issueLocalSupplierRmr} className="min-h-11 min-w-11 px-3 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg disabled:opacity-50">{issuingRmr ? 'Issuing…' : 'Issue RMR'}</button></div>
-          </Modal>
-      )}</AnimatePresence>
 
       
       <AnimatePresence>{showHistoricalReceiveModal && historicalSession && (

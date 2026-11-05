@@ -29,7 +29,6 @@ export interface LabHistoryPanelProps {
   openCorrection: (session: LabSession) => void;
   openRequestCorrection: (session: LabSession) => void;
   openHistoricalReceiveModal: (session: LabSession) => void | Promise<void>;
-  startRmr: (session: LabSession) => void;
 }
 
 export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
@@ -54,7 +53,6 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
   openCorrection,
   openRequestCorrection,
   openHistoricalReceiveModal,
-  startRmr,
 }) => {
   return (
         <div className="space-y-4 animate-panel-in">
@@ -256,14 +254,6 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
                         </td>
                       )}
                       <td className="py-3.5 px-4 text-right">
-                        {canTest && item.arrival_type === 'HC' && item.final_decision === 'ACCEPTED' && item.tank_receipt && (
-                          <button
-                            onClick={() => startRmr(item)}
-                            className="min-h-11 min-w-11 mr-2 px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 rounded-lg hover:bg-emerald-100"
-                          >
-                            Issue RMR
-                          </button>
-                        )}
                         {canDirectCorrect ? (
                           <button
                             onClick={() => openCorrection(item)}

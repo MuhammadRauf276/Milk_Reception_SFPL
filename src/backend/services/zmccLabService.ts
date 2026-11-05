@@ -251,6 +251,78 @@ export interface IssueLocalSupplierRmrPayload {
   idempotency_key: string;
 }
 
+/** HC vehicles in the tank waiting for the paper receipt number, and the latest ones given. The Lab Attendant does not see quantities. */
+export async function listHcReceiptWork(reqOrUser: Request | User): Promise<ServiceResult<{ waiting: unknown[]; issued: unknown[] }>> {
+  const { auth, errorResponse } = await resolveZmccLabAuth(reqOrUser, 'ISSUE_LOCAL_SUPPLIER_RMR');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+
+  const scope = auth.effectiveZmccId !== null ? { zmcc_id: auth.effectiveZmccId } : {};
+  const showQuantity = auth.role !== 'ZMCC_LAB_ATTENDANT';
+  const select = {
+    id: true,
+    zmcc_token: true,
+    vehicle_number: true,
+    local_supplier: { select: { local_supplier_code: true, name: true } },
+    lab_session: {
+      select: { id: true, unloaded_at: true, tank_receipt: { select: { quantity_value: true, gross_liters: true } } },
+    },
+  } satisfies Prisma.ZmccLocalSupplierArrivalSelect;
+  type Row = Prisma.ZmccLocalSupplierArrivalGetPayload<{ select: typeof select }>;
+  const toRow = (a: Row) => ({
+    session_id: a.lab_session?.id.toString() ?? '',
+    arrival_id: a.id.toString(),
+    token: a.zmcc_token,
+    vehicle_number: a.vehicle_number,
+    supplier_code: a.local_supplier.local_supplier_code,
+    supplier_name: a.local_supplier.name,
+    unloaded_at: a.lab_session?.unloaded_at?.toISOString() ?? null,
+    net_weight_kg: showQuantity && a.lab_session?.tank_receipt ? Number(a.lab_session.tank_receipt.quantity_value) : null,
+    gross_liters: showQuantity && a.lab_session?.tank_receipt ? Number(a.lab_session.tank_receipt.gross_liters) : null,
+  });
+
+  const [waiting, issued] = await Promise.all([
+    prisma.zmccLocalSupplierArrival.findMany({
+      where: {
+        ...scope,
+        rmr_issuance: null,
+        // An older arrival that already carries its paper number needs nothing more.
+        rmr_number: null,
+        lab_session: { arrival_type: 'HC', final_decision: 'ACCEPTED', tank_receipt: { isNot: null } },
+      },
+      orderBy: { arrival_timestamp: 'asc' },
+      take: 100,
+      select,
+    }),
+    prisma.localSupplierRmrIssuance.findMany({
+      where: scope,
+      orderBy: { issued_at: 'desc' },
+      take: 30,
+      select: { receipt_number: true, issued_at: true, issued_by_user_id: true, arrival: { select } },
+    }),
+  ]);
+
+  const issuerIds = [...new Set(issued.map((r) => r.issued_by_user_id))];
+  const issuers = await prisma.user.findMany({
+    where: { id: { in: issuerIds } },
+    select: { id: true, full_name: true, username: true },
+  });
+  const issuerName = new Map(issuers.map((u) => [u.id.toString(), u.full_name || u.username]));
+
+  return {
+    status: 200,
+    data: {
+      waiting: waiting.map(toRow),
+      issued: issued.map((r) => ({
+        ...toRow(r.arrival),
+        receipt_number: r.receipt_number,
+        issued_at: r.issued_at.toISOString(),
+        issued_by: issuerName.get(r.issued_by_user_id.toString()) ?? null,
+      })),
+    },
+  };
+}
+
 function serializeLocalSupplierRmr(issuance: LocalSupplierRmrIssuance) {
   return {
     id: issuance.id.toString(), local_supplier_arrival_id: issuance.local_supplier_arrival_id.toString(),

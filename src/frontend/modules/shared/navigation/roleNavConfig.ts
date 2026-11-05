@@ -263,6 +263,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
             href: '/zmcc/lab?tab=history',
             icon: History,
           },
+          {
+            id: 'hc-receipts',
+            label: 'HC Receipts',
+            href: '/zmcc/lab?tab=receipts',
+            icon: Receipt,
+          },
         ],
       },
       {
