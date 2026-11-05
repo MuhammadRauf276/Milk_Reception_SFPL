@@ -12,6 +12,7 @@ type Units = 'KG' | 'LITER' | 'BOTH';
 interface Policy {
   manual_entry_enabled: boolean;
   allowed_units: Units;
+  mot_allowed_units: Units;
   version: number;
 }
 
@@ -26,6 +27,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
   const queryClient = useQueryClient();
   const [enabled, setEnabled] = useState(false);
   const [units, setUnits] = useState<Units>('BOTH');
+  const [motUnits, setMotUnits] = useState<Units>('LITER');
   const [notice, setNotice] = useState<string | null>(null);
   useAutoClearMessage(notice, setNotice);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
     if (policy) {
       setEnabled(policy.manual_entry_enabled);
       setUnits(policy.allowed_units);
+      setMotUnits(policy.mot_allowed_units);
     }
   }, [policy]);
 
@@ -48,7 +51,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
       fetchJson<{ policy: Policy }>('/api/super-admin/weighing-policy', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ manual_entry_enabled: enabled, allowed_units: units }),
+        body: JSON.stringify({ manual_entry_enabled: enabled, allowed_units: units, mot_allowed_units: motUnits }),
       }),
     onSuccess: () => {
       setActionError(null);
@@ -61,7 +64,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
     },
   });
 
-  const dirty = !!policy && (policy.manual_entry_enabled !== enabled || policy.allowed_units !== units);
+  const dirty = !!policy && (policy.manual_entry_enabled !== enabled || policy.allowed_units !== units || policy.mot_allowed_units !== motUnits);
   const error = actionError || (query.error ? getErrorMessage(query.error) || 'Failed to load the setting.' : null);
 
   return (
@@ -119,6 +122,26 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label htmlFor="mot-units" className="mb-1 block text-xs font-semibold text-slate-700">
+                Mobile Tester shop form units
+              </label>
+              <select
+                id="mot-units"
+                value={motUnits}
+                disabled={!canEdit || save.isPending}
+                onChange={(e) => setMotUnits(e.target.value as Units)}
+                className="min-h-[44px] w-full rounded-xl border bg-card px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
+              >
+                {UNIT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">Phones pick up a change the next time they load the shop form.</p>
             </div>
 
             {canEdit ? (

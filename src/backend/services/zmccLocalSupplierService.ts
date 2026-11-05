@@ -405,7 +405,8 @@ export async function createHcSupplier(
           name,
           phone,
           cnic,
-          is_active: true,
+          // Waiting for the Zonal Manager is not active yet.
+          is_active: !needsApproval,
           created_by_user_id: auth.actorUserId,
           created_as_role: auth.acting.actingAs,
           created_is_delegated: auth.acting.isDelegated,
@@ -561,6 +562,15 @@ export async function updateHcSupplier(
       return { status: 400, error: 'is_active must be a boolean.' };
     }
     updateData.is_active = payload.is_active;
+    // Only Super Admin or Data Executive reach here. Switching an HC on is their approval, so PHE and MDO can use it.
+    if (payload.is_active && existingSupplier.approval_status !== 'ACTIVE') {
+      updateData.approval_status = 'ACTIVE';
+      updateData.approver = { connect: { id: auth.actorUserId } };
+      updateData.approved_as_role = auth.acting.actingAs;
+      updateData.approved_is_delegated = auth.acting.isDelegated;
+      updateData.approved_at = new Date();
+      updateData.rejection_reason = null;
+    }
   }
 
   try {

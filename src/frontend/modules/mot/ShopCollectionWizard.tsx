@@ -42,6 +42,7 @@ export interface ShopCollectionWizardProps {
   onQuantityChange: (v: string) => void;
   unit: 'LITER' | 'KG';
   onUnitChange: (u: 'LITER' | 'KG') => void;
+  allowedUnits?: Array<'LITER' | 'KG'>;
 
   tests: MotShopTestsStepProps;
   livePreview: CanonicalMilkMetrics | null;
@@ -64,6 +65,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
   const {
     shopLabel,
     sequence,
+    allowedUnits = ['LITER'],
     gpsStatus,
     gpsAccuracy,
     gpsBadge,
@@ -341,7 +343,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                       className={cn(FIELD_CLASS, 'h-14 flex-1 text-xl tabular-nums')}
                     />
                     <div className="flex shrink-0 overflow-hidden rounded-xl border border-border" role="radiogroup" aria-label="Unit">
-                      {(['LITER', 'KG'] as const).map((u) => (
+                      {allowedUnits.map((u) => (
                         <button
                           key={u}
                           type="button"

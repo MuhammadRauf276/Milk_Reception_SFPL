@@ -2266,7 +2266,8 @@ model MilkSourceZmccVisibility {
 model ZmccWeighingPolicy {
   id                   BigInt   @id @default(autoincrement())
   manual_entry_enabled Boolean  @default(false) @map("manual_entry_enabled")
-  allowed_units        String   @default("BOTH") @map("allowed_units") @db.VarChar(10) // KG | LITER | BOTH
+  allowed_units        String   @default("BOTH") @map("allowed_units") @db.VarChar(10)
+  mot_allowed_units    String   @default("LITER") @map("mot_allowed_units") @db.VarChar(10) // KG | LITER | BOTH
   version              Int      @default(1) @map("version")
   updated_by           BigInt?  @map("updated_by")
   created_at           DateTime @default(now()) @map("created_at") @db.Timestamp(6)

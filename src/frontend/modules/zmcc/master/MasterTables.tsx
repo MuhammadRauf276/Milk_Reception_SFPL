@@ -34,10 +34,10 @@ interface Props {
   onToggle: (r: MasterRecord) => void;
 }
 
-const status = <T extends { is_active: boolean }>(): MasterCol<T> => ({
+const status = <T extends { is_active: boolean; approval_status?: string | null }>(): MasterCol<T> => ({
   header: 'Status',
   align: 'center',
-  cell: (r) => <StatusPill active={r.is_active} />,
+  cell: (r) => <StatusPill active={r.is_active} approvalStatus={r.approval_status} />,
 });
 
 const supplierCols: MasterCol<LocalSupplierItem>[] = [

@@ -20,7 +20,7 @@ interface Props {
 export function CollectionModal({ collection: c, currentUser, journey, isCovering, gpsBadge }: Props) {
   const {
     activeStop, setActiveStop, shopRmrNumber, setShopRmrNumber, availableSources, selectedSourceId, setSelectedSourceId,
-    quantity, setQuantity, unit, setUnit, lr, setLr, fat, setFat, notes, setNotes, shopPolicy, testValues, setTestValues,
+    quantity, setQuantity, unit, setUnit, allowedUnits, lr, setLr, fat, setFat, notes, setNotes, shopPolicy, testValues, setTestValues,
     testPhotos, personDecision, setPersonDecision, decisionRemarks, setDecisionRemarks, collectionGps, formError,
     submittingCollection, livePreview, decisionPreview, decisionRows, handlePhotoTaken, handlePhotoRemoved,
     handleSaveDraft, handleRecordCollection,
@@ -51,6 +51,7 @@ export function CollectionModal({ collection: c, currentUser, journey, isCoverin
                 onQuantityChange={setQuantity}
                 unit={unit}
                 onUnitChange={setUnit}
+                allowedUnits={allowedUnits}
                 tests={{
                   policy: shopPolicy,
                   lr,

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { User } from '@core/types';
 import {
@@ -140,6 +140,12 @@ export function useCollection({
       setShopPolicy(policyQuery.data);
     }
   }, [policyQuery.data]);
+
+  // Only the units Super Admin allows, also when a saved draft was in another unit.
+  const allowedUnits = useMemo(() => shopPolicy?.quantityUnits ?? (['LITER'] as Array<'LITER' | 'KG'>), [shopPolicy]);
+  useEffect(() => {
+    if (!allowedUnits.includes(unit)) setUnit(allowedUnits[0]);
+  }, [allowedUnits, unit]);
 
   // Available ERP milk sources: fetched with TanStack Query and cached for 5 min
   const effectiveZmccId = journey?.zmcc?.id || currentUser?.procurement_source_id || currentUser?.procurement_source?.id;
@@ -567,6 +573,7 @@ export function useCollection({
     setQuantity,
     unit,
     setUnit,
+    allowedUnits,
     lr,
     setLr,
     fat,

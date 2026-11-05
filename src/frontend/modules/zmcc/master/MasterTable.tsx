@@ -13,15 +13,30 @@ export interface MasterCol<T> {
 
 const alignCls = { left: '', center: 'text-center', right: 'text-right' } as const;
 
-export const StatusPill: React.FC<{ active: boolean }> = ({ active }) => (
-  <span
-    className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase ${
-      active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-    }`}
-  >
-    {active ? 'Active' : 'Inactive'}
-  </span>
-);
+export const StatusPill: React.FC<{ active: boolean; approvalStatus?: string | null }> = ({ active, approvalStatus }) => {
+  // Waiting or refused records are not usable, whatever their active switch says.
+  const label =
+    approvalStatus === 'PENDING_APPROVAL' || approvalStatus === 'PENDING'
+      ? 'Waiting approval'
+      : approvalStatus === 'REJECTED'
+        ? 'Rejected'
+        : active
+          ? 'Active'
+          : 'Inactive';
+  return (
+    <span
+      className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase ${
+        label === 'Active'
+          ? 'bg-emerald-100 text-emerald-800'
+          : label === 'Waiting approval'
+            ? 'bg-amber-100 text-amber-800'
+            : 'bg-rose-100 text-rose-800'
+      }`}
+    >
+      {label}
+    </span>
+  );
+};
 
 interface Props<T extends { id: string; is_active: boolean }> {
   cols: MasterCol<T>[];

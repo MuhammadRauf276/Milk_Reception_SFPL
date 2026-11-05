@@ -1,4 +1,5 @@
 // Server loader for the MOT_SHOP decision policy: matrix cells + active release rules + lab test metadata.
+import { getWeighingPolicyDb, motUnitChoices } from '@/backend/services/zmccWeighingPolicyService';
 import type { Prisma } from '@prisma/client';
 import { resolveAllowedStageCells, getEffectivePolicy, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { isLr, isFat } from '@/lib/lab-test-roles';
@@ -94,5 +95,13 @@ export async function loadMotShopPolicy(at: Date = new Date(), db?: unknown): Pr
     };
   });
 
-  return { point: 'MOT_SHOP', version: policy.version, fetchedAt: new Date().toISOString(), tests };
+  let quantityUnits: Array<'LITER' | 'KG'> = ['LITER'];
+  try {
+    const weighing = await getWeighingPolicyDb(client);
+    quantityUnits = motUnitChoices(weighing.mot_allowed_units);
+  } catch {
+    // The unit setting never stops the shop form from loading.
+  }
+
+  return { point: 'MOT_SHOP', version: policy.version, fetchedAt: new Date().toISOString(), tests, quantityUnits };
 }

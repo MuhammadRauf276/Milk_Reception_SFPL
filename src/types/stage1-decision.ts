@@ -57,6 +57,8 @@ export interface MotShopPolicySnapshot {
   version: number;
   fetchedAt: string;
   tests: MotShopPolicyTest[];
+  /** Units the shop form offers (Super Admin's choice). An older saved copy without this means litres. */
+  quantityUnits?: Array<'LITER' | 'KG'>;
 }
 
 export interface MotShopTestInput {

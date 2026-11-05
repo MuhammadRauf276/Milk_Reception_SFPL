@@ -8,12 +8,14 @@ export type WeighingAllowedUnits = 'KG' | 'LITER' | 'BOTH';
 export interface WeighingPolicyView {
   manual_entry_enabled: boolean;
   allowed_units: WeighingAllowedUnits;
+  /** What the Mobile Tester may enter milk in at the shop. */
+  mot_allowed_units: WeighingAllowedUnits;
   version: number;
 }
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
-const DEFAULT_POLICY: WeighingPolicyView = { manual_entry_enabled: false, allowed_units: 'BOTH', version: 0 };
+const DEFAULT_POLICY: WeighingPolicyView = { manual_entry_enabled: false, allowed_units: 'BOTH', mot_allowed_units: 'LITER', version: 0 };
 
 function normalizeUnits(value: string | null | undefined): WeighingAllowedUnits {
   return value === 'KG' || value === 'LITER' ? value : 'BOTH';
@@ -26,8 +28,15 @@ export async function getWeighingPolicyDb(db: Db): Promise<WeighingPolicyView> {
   return {
     manual_entry_enabled: row.manual_entry_enabled,
     allowed_units: normalizeUnits(row.allowed_units),
+    mot_allowed_units: normalizeUnits(row.mot_allowed_units),
     version: row.version,
   };
+}
+
+/** The units the Mobile Tester's form offers, litres first. */
+export function motUnitChoices(allowed: WeighingAllowedUnits): Array<'LITER' | 'KG'> {
+  if (allowed === 'KG') return ['KG'];
+  return allowed === 'BOTH' ? ['LITER', 'KG'] : ['LITER'];
 }
 
 export async function getWeighingPolicy(): Promise<WeighingPolicyView> {
@@ -49,7 +58,7 @@ export async function getWeighingPolicyForOperators(): Promise<{
 
 export async function updateWeighingPolicy(
   acting: ActingContext,
-  payload: { manual_entry_enabled?: unknown; allowed_units?: unknown }
+  payload: { manual_entry_enabled?: unknown; allowed_units?: unknown; mot_allowed_units?: unknown }
 ): Promise<{ status: number; data?: WeighingPolicyView; error?: string }> {
   if (typeof payload?.manual_entry_enabled !== 'boolean') {
     return { status: 400, error: 'manual_entry_enabled must be true or false.' };
@@ -57,6 +66,10 @@ export async function updateWeighingPolicy(
   const units = payload.allowed_units;
   if (units !== 'KG' && units !== 'LITER' && units !== 'BOTH') {
     return { status: 400, error: 'allowed_units must be KG, LITER or BOTH.' };
+  }
+  const motUnits = payload.mot_allowed_units;
+  if (motUnits !== undefined && motUnits !== 'KG' && motUnits !== 'LITER' && motUnits !== 'BOTH') {
+    return { status: 400, error: 'mot_allowed_units must be KG, LITER or BOTH.' };
   }
   const enabled = payload.manual_entry_enabled;
   try {
@@ -68,21 +81,35 @@ export async function updateWeighingPolicy(
             data: {
               manual_entry_enabled: enabled,
               allowed_units: units,
+              ...(motUnits ? { mot_allowed_units: motUnits } : {}),
               version: { increment: 1 },
               updated_by: acting.userId,
             },
           })
         : await tx.zmccWeighingPolicy.create({
-            data: { manual_entry_enabled: enabled, allowed_units: units, updated_by: acting.userId },
+            data: {
+              manual_entry_enabled: enabled,
+              allowed_units: units,
+              ...(motUnits ? { mot_allowed_units: motUnits } : {}),
+              updated_by: acting.userId,
+            },
           });
       await writeAuditLog(tx, {
         tableName: 'zmcc_weighing_policy',
         recordId: row.id,
         action: existing ? 'ZMCC_WEIGHING_POLICY_UPDATED' : 'ZMCC_WEIGHING_POLICY_CREATED',
         oldValues: existing
-          ? { manual_entry_enabled: existing.manual_entry_enabled, allowed_units: existing.allowed_units }
+          ? {
+              manual_entry_enabled: existing.manual_entry_enabled,
+              allowed_units: existing.allowed_units,
+              mot_allowed_units: existing.mot_allowed_units,
+            }
           : null,
-        newValues: { manual_entry_enabled: row.manual_entry_enabled, allowed_units: row.allowed_units },
+        newValues: {
+          manual_entry_enabled: row.manual_entry_enabled,
+          allowed_units: row.allowed_units,
+          mot_allowed_units: row.mot_allowed_units,
+        },
         actor: acting,
       });
       return row;
@@ -92,6 +119,7 @@ export async function updateWeighingPolicy(
       data: {
         manual_entry_enabled: saved.manual_entry_enabled,
         allowed_units: normalizeUnits(saved.allowed_units),
+        mot_allowed_units: normalizeUnits(saved.mot_allowed_units),
         version: saved.version,
       },
     };
