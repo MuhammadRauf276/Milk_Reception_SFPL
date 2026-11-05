@@ -148,6 +148,47 @@ export async function POST(req: Request) {
     const dateStr = validated.operationalDate || getPakistanCalendarDate(new Date());
     const dateCode = dateStr.replace(/-/g, '');
 
+    // The form needs a visit to hold its tests and photos, but opening it again must not make another one: an operator
+    // keeps one empty draft per source per day, and older empty ones are closed.
+    if (!validated.vehicleNumber && !validated.motVehicleId) {
+      const dayStart = new Date(`${getPakistanCalendarDate(new Date())}T00:00:00+05:00`);
+      const ownDrafts = await prisma.vehicleVisit.findMany({
+        where: {
+          created_by: userId,
+          current_status: 'DRAFT_DISPATCH',
+          procurement_source_id: resolvedSourceId,
+          vehicle_number: 'DRAFT',
+        },
+        orderBy: { id: 'desc' },
+        select: { id: true, created_at: true },
+      });
+      const reusable = ownDrafts.find((d) => d.created_at >= dayStart) ?? null;
+      const extras = ownDrafts.filter((d) => d.id !== reusable?.id).map((d) => d.id);
+      if (extras.length > 0) {
+        const withWork = await prisma.formDraft.findMany({
+          where: { scope_id: { in: extras }, form_type: { contains: 'DISPATCH', mode: 'insensitive' } },
+          select: { scope_id: true },
+        });
+        const keep = new Set(withWork.map((d) => d.scope_id.toString()));
+        await prisma.vehicleVisit.updateMany({
+          where: { id: { in: extras.filter((id) => !keep.has(id.toString())) }, current_status: 'DRAFT_DISPATCH' },
+          data: { current_status: 'CANCELLED' },
+        });
+      }
+      if (reusable) {
+        const visit = await prisma.vehicleVisit.findUniqueOrThrow({ where: { id: reusable.id } });
+        const assigned = await getOrAssignDispatchTests(prisma, visit.id);
+        const quantityPolicy = await getOrFreezeDispatchQuantityPolicy(prisma, visit.id, resolvedSourceId);
+        return NextResponse.json({
+          success: true,
+          visitId: visit.id.toString(),
+          visitNumber: visit.visit_number,
+          assignedTests: assigned.map(serializeAssignment),
+          quantityPolicy: quantityPolicy,
+        });
+      }
+    }
+
     // 3. Create persistent DRAFT_DISPATCH work item with frozen assignment and quantity policy
     const result = await prisma.$transaction(async (tx) => {
       const todayVisits = await tx.vehicleVisit.findMany({

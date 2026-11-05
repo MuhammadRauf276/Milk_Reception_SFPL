@@ -1,7 +1,8 @@
 'use client';
 
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { apiClient, ApiError } from '@/frontend/lib/apiClient';
@@ -161,16 +162,13 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
     load();
   }, [load]);
 
-  const meQuery = useQuery({
-    queryKey: ['auth', 'me'],
-    queryFn: ({ signal }) => fetchJson<{ user?: { employee_code?: string; username?: string; role?: string } }>('/api/auth/me', { signal }),
-    staleTime: 5 * 60_000,
-    retry: false,
-  });
+  // The one shared signed-in user: a second query on its cache key sent people to "No workspace".
+  const { currentUser } = useCurrentUser();
   useEffect(() => {
-    const u = meQuery.data?.user;
-    if (u) setMe({ code: u.employee_code || u.username || 'unknown', role: u.role || 'unknown' });
-  }, [meQuery.data]);
+    if (!currentUser) return;
+    const code = (currentUser as { employee_code?: string }).employee_code || currentUser.username || 'unknown';
+    setMe({ code, role: currentUser.role || 'unknown' });
+  }, [currentUser]);
 
   const anyDecided = !!state?.portions.some((p) => p.personDecision !== null || p.finalDecision !== 'PENDING');
   const showSetup = !!state && state.sessionStatus === 'IN_PROGRESS' && editingSetup;

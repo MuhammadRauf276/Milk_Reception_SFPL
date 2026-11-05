@@ -22,6 +22,8 @@ import { fadeSlide } from '@/components/motion/presets';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { ZmccTankIntakeDrawer } from '@/frontend/modules/super-admin/zmcc-tanks/ZmccTankIntakeDrawer';
+import { ZmccTankOuttakeDrawer } from '@/frontend/modules/super-admin/zmcc-tanks/ZmccTankOuttakeDrawer';
+import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 import { ZmccTankLedgerDrawer } from '@/frontend/modules/super-admin/zmcc-tanks/ZmccTankLedgerDrawer';
 import { FormDrawer, DrawerActions, fieldInputClass, fieldLabelClass } from '@/frontend/modules/super-admin/shared/FormDrawer';
 import type { TankItem, ZmccSource } from '@/frontend/modules/zmcc/master/masterTypes';
@@ -30,6 +32,9 @@ export default function SuperAdminZmccTanksPage() {
   const queryClient = useQueryClient();
   const [selectedZmccId, setSelectedZmccId] = useState<string>('');
   const [intakeTank, setIntakeTank] = useState<TankItem | null>(null);
+  const [outtakeTank, setOuttakeTank] = useState<TankItem | null>(null);
+  const { currentUser: signedInUser } = useCurrentUser();
+  const canOuttake = signedInUser?.role === 'SUPER_ADMIN';
   const [ledgerTank, setLedgerTank] = useState<TankItem | null>(null);
   const [editTank, setEditTank] = useState<TankItem | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -416,6 +421,11 @@ export default function SuperAdminZmccTanksPage() {
                       <span>Intake</span>
                     </Button>
                   )}
+                  {t.is_active && canOuttake && (
+                    <Button variant="outline" size="sm" className="h-11 flex-1 px-3 text-xs" onClick={() => setOuttakeTank(t)}>
+                      <span>Outtake</span>
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -528,6 +538,17 @@ export default function SuperAdminZmccTanksPage() {
                             <span>Intake</span>
                           </Button>
                         )}
+                        {t.is_active && canOuttake && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2.5 text-xs"
+                            onClick={() => setOuttakeTank(t)}
+                            title="Take milk out of this tank"
+                          >
+                            <span>Outtake</span>
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
@@ -574,6 +595,15 @@ export default function SuperAdminZmccTanksPage() {
       <ZmccTankIntakeDrawer
         tank={intakeTank}
         onClose={() => setIntakeTank(null)}
+        onSaved={(msg) => {
+          setSuccessMsg(msg);
+          refresh();
+        }}
+      />
+
+      <ZmccTankOuttakeDrawer
+        tank={outtakeTank}
+        onClose={() => setOuttakeTank(null)}
         onSaved={(msg) => {
           setSuccessMsg(msg);
           refresh();

@@ -12,6 +12,11 @@ import { toJsonInput } from '@/lib/json';
 import { getErrorMessage } from '@/lib/errors';
 import { z } from 'zod';
 
+/** A form opened but never dispatched is not a record anyone can correct. */
+const NOT_EMPTY_DRAFT: Prisma.VehicleVisitWhereInput = {
+  NOT: [{ current_status: 'DRAFT_DISPATCH' }, { current_status: 'CANCELLED', vehicle_number: 'DRAFT' }],
+};
+
 export async function GET(req: Request) {
   const user = await getCurrentUser(req);
   if (!user) {
@@ -145,7 +150,7 @@ export async function GET(req: Request) {
               select: {
                 id: true,
                 portion_number: true,
-                decision: true,
+                final_decision: true,
                 first_weight_kg: true,
                 second_weight_kg: true,
                 net_weight_kg: true,
@@ -203,7 +208,7 @@ export async function GET(req: Request) {
           portions: s.portions.map((p) => ({
             id: p.id.toString(),
             portion_number: p.portion_number,
-            decision: p.decision,
+            decision: p.final_decision,
             first_weight_kg: p.first_weight_kg ? Number(p.first_weight_kg) : null,
             second_weight_kg: p.second_weight_kg ? Number(p.second_weight_kg) : null,
             net_weight_kg: p.net_weight_kg ? Number(p.net_weight_kg) : null,
@@ -223,6 +228,7 @@ export async function GET(req: Request) {
     if (stage === '3') {
       // Stage 3: ZMCC & Contractor Dispatches to Plant
       const where: Prisma.VehicleVisitWhereInput = {
+        ...NOT_EMPTY_DRAFT,
         OR: [
           { raw_milk_dispatch_note_number: { not: null } },
           { procurement_source: { source_type: { in: ['ZMCC', 'CONTRACTOR'] } } },
@@ -252,7 +258,7 @@ export async function GET(req: Request) {
               select: {
                 id: true,
                 portion_number: true,
-                dispatch_seal_number: true,
+                seal_number: true,
                 net_weight_kg: true,
               },
             },
@@ -285,7 +291,7 @@ export async function GET(req: Request) {
         portions: v.portions.map((p) => ({
           id: p.id.toString(),
           portion_number: p.portion_number,
-          seal_number: p.dispatch_seal_number || 'N/A',
+          seal_number: p.seal_number || 'N/A',
           net_weight_kg: p.net_weight_kg ? Number(p.net_weight_kg) : null,
         })),
       }));
@@ -301,7 +307,7 @@ export async function GET(req: Request) {
 
     if (stage === '4') {
       // Stage 4: Plant Reception (Gate, Weighbridge, QA, Silo)
-      const where: Prisma.VehicleVisitWhereInput = {};
+      const where: Prisma.VehicleVisitWhereInput = { ...NOT_EMPTY_DRAFT };
       if (search) {
         where.OR = [
           { visit_number: { contains: search, mode: 'insensitive' } },

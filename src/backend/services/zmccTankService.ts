@@ -1104,6 +1104,82 @@ export async function intakeZmccTankStock(
   }
 }
 
+/** Super Admin takes milk out of a tank. @13% TS leaves in proportion to what is in the tank. */
+export async function outtakeZmccTankStock(
+  reqOrUser: ZmccAuthInput,
+  tankIdParam: string | number | bigint,
+  payload: { gross_liters?: unknown; reason?: unknown }
+): Promise<ServiceResult<unknown>> {
+  const { auth, errorResponse } = await resolveZmccTankAuth(reqOrUser, 'INTAKE_STOCK');
+  if (errorResponse) return errorResponse;
+  if (!auth) return { status: 401, error: 'Unauthorized.' };
+  if (!auth.isSuperAdmin) return { status: 403, error: 'Forbidden. Only the Super Admin can take milk out of a tank.' };
+
+  let tankId: bigint;
+  try {
+    tankId = BigInt(String(tankIdParam).trim());
+  } catch {
+    return { status: 400, error: 'Invalid tank ID format.' };
+  }
+  const grossLiters = Number(payload?.gross_liters);
+  if (!Number.isFinite(grossLiters) || grossLiters <= 0) {
+    return { status: 400, error: 'Gross liters must be a positive number greater than 0.' };
+  }
+  const reason = typeof payload?.reason === 'string' ? payload.reason.trim() : '';
+  if (reason.length < 3) return { status: 400, error: 'Please write why this milk is taken out.' };
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const locked: Array<{ id: bigint; zmcc_id: bigint; is_active: boolean }> =
+        await tx.$queryRaw`SELECT id, zmcc_id, is_active FROM zmcc_tank WHERE id = ${tankId} FOR UPDATE`;
+      if (!locked.length) throw new Error('ZMCC Tank not found.');
+      if (!locked[0].is_active) throw new Error('This tank is inactive.');
+
+      const stock = await getTankPhysicalStock(tankId, tx);
+      if (grossLiters > stock + 0.001) {
+        throw new Error(`Only ${stock.toFixed(2)} L is in this tank; ${grossLiters.toFixed(2)} L was asked for.`);
+      }
+      const commercial = await getTankCommercialStock(tankId, tx);
+      const stockAt13 = commercial.stockAt13Ts ?? commercial.partialStockAt13Ts ?? 0;
+      const at13Out = stock > 0 ? Math.max(0, Math.min(stockAt13, (stockAt13 * grossLiters) / stock)) : 0;
+
+      const now = new Date();
+      const row = await tx.zmccTankInventoryTransaction.create({
+        data: {
+          tank_id: tankId,
+          zmcc_id: locked[0].zmcc_id,
+          transaction_type: 'ADJUSTMENT_OUT',
+          quantity_liters: new Prisma.Decimal(grossLiters.toFixed(2)),
+          at_13ts_liters: new Prisma.Decimal(at13Out.toFixed(2)),
+          reference_type: 'SUPER_ADMIN_MANUAL_OUTTAKE',
+          reference_id: `ADMIN-OUTTAKE-${now.getTime()}`,
+          idempotency_key: `ZMCC_TANK_OUTTAKE:ADMIN:${tankId}:${now.getTime()}`,
+          operational_timestamp: now,
+          performed_by_user_id: auth.actorUserId,
+          notes: reason,
+        },
+      });
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_tank',
+        recordId: tankId,
+        action: 'SUPER_ADMIN_MANUAL_OUTTAKE',
+        newValues: { transaction_id: row.id.toString(), gross_liters: grossLiters, at_13ts_liters: at13Out, reason },
+        actor: { userId: auth.actorUserId, actorRole: auth.role },
+      });
+      return {
+        transaction_id: row.id.toString(),
+        gross_liters_out: grossLiters,
+        at_13ts_liters_out: Number(at13Out.toFixed(2)),
+        new_physical_stock_gross_liters: Number((stock - grossLiters).toFixed(2)),
+      };
+    });
+    return { status: 200, data: result };
+  } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    console.error('outtakeZmccTankStock error:', err);
+    return { status: 400, error: err.message || 'Failed to take milk out of the tank.' };
+  }
+}
+
 /**
  * Fetch transaction history / ledger for a specific ZMCC Tank.
  */
