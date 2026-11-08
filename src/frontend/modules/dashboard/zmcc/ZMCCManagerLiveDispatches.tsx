@@ -287,7 +287,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                     <div className="flex items-center space-x-1.5">
                       {!serverPaging && (
                         <span
-                          className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums tracking-wide shadow-2xs ${
+                          className={`px-2.5 py-0.5 rounded-full text-xs font-semibold tabular-nums  shadow-2xs ${
                             isFirst
                               ? 'bg-primary text-white'
                               : 'bg-muted text-secondary-foreground border border-border'
@@ -308,7 +308,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
 
                   <div>
                     <div className="flex items-center justify-between">
-                      <h4 className="text-xl sm:text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+                      <h4 className="text-xl sm:text-2xl font-semibold tabular-nums text-foreground">
                         {group.vehicleNumber}
                       </h4>
                       {lc.elapsedInPlant && (
@@ -321,7 +321,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                     <div className="flex items-center space-x-2 text-xs text-muted-foreground font-semibold mt-0.5">
                       <span>Token: <strong className="text-foreground">{group.tokenNumber || 'PENDING'}</strong></span>
                       <span>·</span>
-                      <span className="truncate">Source: <strong className="text-foreground">{group.sourceName}</strong></span>
+                      <span className="min-w-0 break-words">Source: <strong className="text-foreground">{group.sourceName}</strong></span>
                     </div>
                   </div>
 

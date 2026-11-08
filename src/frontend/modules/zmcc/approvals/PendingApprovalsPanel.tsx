@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate } from '@/lib/format';
 import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState, useCallback, useMemo } from 'react';
@@ -341,7 +342,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                     <div className="text-xs text-muted-foreground flex items-center space-x-2">
                       <span>Requested by {r.creator_name}</span>
                       <span>·</span>
-                      <span>{new Date(r.created_at).toLocaleDateString()}</span>
+                      <span>{formatDate(r.created_at)}</span>
                     </div>
                   </div>
 
@@ -454,7 +455,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                     <div className="text-xs text-muted-foreground flex items-center space-x-2">
                       <span>Requested by {s.creator_name}</span>
                       <span>·</span>
-                      <span>{new Date(s.created_at).toLocaleDateString()}</span>
+                      <span>{formatDate(s.created_at)}</span>
                     </div>
                   </div>
 
@@ -549,7 +550,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       {h.zmcc && <span>ZMCC: <strong className="text-foreground">{h.zmcc.name}</strong></span>}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Added {new Date(h.created_at).toLocaleDateString()}
+                      Added {formatDate(h.created_at)}
                     </div>
                   </div>
 

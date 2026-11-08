@@ -247,7 +247,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-card rounded-2xl border border-border shadow-2xs">
         <div className="flex items-center space-x-3">
           <div>
-            <h1 className="text-base sm:text-lg font-semibold text-foreground tracking-tight">
+            <h1 className="text-base sm:text-lg font-semibold text-foreground">
               Mobile Tester operations
             </h1>
           </div>
@@ -255,12 +255,12 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
 
         {isCentralRole && sources.length > 0 && (
           <div className="flex items-center space-x-2">
-            <label htmlFor="zmcc-select" className="text-xs font-semibold text-secondary-foreground whitespace-nowrap">
+            <label htmlFor="zmcc-select" className="text-xs font-semibold text-secondary-foreground">
               ZMCC
             </label>
             <Combobox
               id="zmcc-select"
-              className="min-h-[44px] min-w-[200px]"
+              className="min-h-[44px] w-full sm:w-auto sm:min-w-[200px]"
               value={selectedZmccId}
               onValueChange={setSelectedZmccId}
               placeholder="Select ZMCC"
@@ -359,11 +359,11 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
           <div className="space-y-4 animate-panel-in">
             <div className="p-3 bg-card rounded-xl border border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center space-x-2">
-                <label className="text-xs font-semibold text-secondary-foreground whitespace-nowrap">
+                <label className="text-xs font-semibold text-secondary-foreground">
                   Select Journey:
                 </label>
                 <Combobox
-                  className="min-h-[44px] min-w-[220px]"
+                  className="min-h-[44px] w-full sm:w-auto sm:min-w-[220px]"
                   value={selectedMapJourneyId || ''}
                   onValueChange={setSelectedMapJourneyId}
                   placeholder="Choose journey"

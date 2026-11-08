@@ -71,7 +71,7 @@ export function ProfilesTab({ profiles, loading, onAdd, onEdit, onToggleActive }
                       </td>
                       <td className="p-3">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${
                             p.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-secondary-foreground'
                           }`}
                         >

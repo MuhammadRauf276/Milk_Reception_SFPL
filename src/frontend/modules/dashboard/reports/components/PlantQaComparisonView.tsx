@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StatCard } from '@/components/ui/stat-card';
+import { formatTime } from '@/lib/format';
 
 interface PlantQaComparisonRow {
   id: string;
@@ -203,7 +204,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
           sourceZmcc: r.zmcc_name || 'ZMCC Central',
           dispatchDate: r.operational_date || '2026-10-26',
           dispatchTime: '08:00',
-          plantReceivedTime: r.reconciled_at ? new Date(r.reconciled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—',
+          plantReceivedTime: r.reconciled_at ? formatTime(r.reconciled_at) : '—',
           dispatchedLiters: dispatched,
           plantAcceptedNetKg: Math.round(received * 1.028),
           plantAcceptedLiters: received,

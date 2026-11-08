@@ -24,6 +24,7 @@ import {
 } from '@/types/milk-test-policy';
 import { Modal } from '@/components/ui/modal';
 import { AnimatePresence } from 'framer-motion';
+import { SkeletonTable } from '@/components/ui/loaders';
 
 export type StationKey = 'PLANT_QA' | 'DISPATCH' | 'ZMCC_LAB' | 'MOT_SHOP';
 
@@ -512,16 +513,16 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
               <div className="flex items-center justify-between w-full mb-1.5">
                 <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-primary'}`} />
                 <span
-                  className={`text-[10px] tabular-nums px-2 py-0.5 rounded font-semibold ${
+                  className={`text-xs tabular-nums px-2 py-0.5 rounded font-semibold ${
                     isSelected ? 'bg-white/20 text-white' : 'bg-muted text-secondary-foreground'
                   }`}
                 >
                   {station === activeStation ? policies.length : '-'}
                 </span>
               </div>
-              <span className="text-xs font-semibold truncate">{meta.label}</span>
+              <span className="text-xs font-semibold">{meta.label}</span>
               <span
-                className={`text-[10px] truncate mt-0.5 ${
+                className={`text-xs mt-0.5 ${
                   isSelected ? 'text-white/80' : 'text-secondary-foreground'
                 }`}
               >
@@ -558,10 +559,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
 
       <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs">
         {loading ? (
-          <div className="p-12 text-center text-xs font-semibold text-secondary-foreground">
-            <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
-            Loading test policies & acceptance criteria…
-          </div>
+          <div className="p-4"><SkeletonTable rows={5} /></div>
         ) : filteredPolicies.length === 0 ? (
           <div className="p-12 text-center">
             <FlaskConical className="w-8 h-8 mx-auto text-slate-300 mb-2" />
@@ -633,7 +631,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                         <button
                           type="button"
                           onClick={() => handleToggleRequired(policy)}
-                          className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider transition ${
+                          className={`px-2 py-0.5 rounded text-xs font-semibold  transition ${
                             policy.isRequired
                               ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
                               : 'bg-muted text-secondary-foreground border border-border-strong hover:bg-muted'
@@ -683,7 +681,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
 
                       <td className="py-3 px-4">
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold  ${
                             policy.isActive
                               ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-rose-100 text-rose-800'

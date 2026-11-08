@@ -845,7 +845,7 @@ export async function getApprovalInbox(
           canDecide: false,
           disabledReason: null,
           details: {
-            entityTitle: `Local Supplier (HC): ${hc.name}`,
+            entityTitle: `HC supplier: ${hc.name}`,
             sourceName: hc.zmcc?.name || 'ZMCC Area',
             sourceType: 'ZMCC',
             metadata: {

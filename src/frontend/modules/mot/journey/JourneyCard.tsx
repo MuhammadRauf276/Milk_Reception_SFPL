@@ -74,7 +74,7 @@ export function JourneyCard({
             <h2 className="text-base sm:text-lg tabular-nums font-semibold text-primary">
               #{journey.journey_number}
             </h2>
-            <span className="text-xs font-semibold text-foreground truncate">
+            <span className="text-xs font-semibold text-foreground break-words min-w-0">
               {journey.route?.name || journey.route?.route_code || 'Route'}
             </span>
           </div>
@@ -103,7 +103,7 @@ export function JourneyCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 text-center">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2 sm:gap-3 text-center">
         <div className="bg-card border-border p-2 sm:p-2.5 rounded-xl border">
           <span className="text-xs font-semibold text-muted-foreground block">Active shops</span>
           <span className="font-semibold text-xs sm:text-sm text-foreground tabular-nums">
@@ -163,7 +163,7 @@ export function JourneyCard({
         <div className="bg-card border-border mt-2 p-3 sm:p-3.5 border rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center shrink-0">
-              <Truck className="w-4 h-4 animate-pulse" />
+              <Truck className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center space-x-2">

@@ -127,7 +127,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
             <Truck className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">Fleet</h1>
+            <h1 className="text-base font-semibold text-foreground sm:text-lg">Fleet</h1>
           </div>
         </div>
         <button
@@ -231,7 +231,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
                           <span className="text-muted-foreground">No journey yet</span>
                         )}
                       </td>
-                      <td className="space-x-2 whitespace-nowrap p-3 text-right">
+                      <td className="space-x-2 p-3 text-right">
                         <button
                           type="button"
                           onClick={() => setHistoryRow(r)}

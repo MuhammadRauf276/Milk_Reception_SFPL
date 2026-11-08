@@ -1,5 +1,6 @@
 'use client';
 
+import { formatTime } from '@/lib/format';
 import React from 'react';
 import type { JourneyItem } from './types';
 
@@ -83,7 +84,7 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
                       <td className="p-3 tabular-nums font-semibold text-secondary-foreground">{j.mot_vehicle?.vehicle_number}</td>
                       <td className="p-3">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${
                             j.status === 'COLLECTING'
                               ? 'bg-blue-100 text-blue-800'
                               : j.status === 'RETURNING' || j.status === 'ARRIVED'
@@ -97,7 +98,7 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
                         </span>
                       </td>
                       <td className="p-3 font-medium text-secondary-foreground">
-                        {new Date(j.assigned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {formatTime(j.assigned_at)}
                       </td>
                       <td className="p-3 text-secondary-foreground font-medium">
                         {j.status === 'CANCELLED' ? (

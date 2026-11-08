@@ -51,7 +51,7 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
                 y1={y}
                 x2={chartWidth - paddingX}
                 y2={y}
-                stroke="#e2e8f0"
+                stroke="#eef1f5"
                 strokeDasharray={pct > 0 ? '3 3' : '0'}
                 strokeWidth={1}
               />
@@ -84,23 +84,23 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
               onMouseEnter={() => setHoveredIndex(idx)}
               onMouseLeave={() => setHoveredIndex(null)}
             >
-              {/* Morning Segment (Blue) */}
+              {/* Morning segment (muted) */}
               <rect
                 x={x}
                 y={baseY - morningH}
                 width={barWidth}
                 height={Math.max(1, morningH)}
                 rx={eveningH === 0 ? 3 : 0}
-                className={isHovered ? 'fill-blue-600' : 'fill-blue-500'}
+                className={isHovered ? 'fill-slate-500' : 'fill-slate-400'}
               />
-              {/* Evening Segment (Indigo / Violet) */}
+              {/* Evening segment (accent) */}
               <rect
                 x={x}
                 y={baseY - totalBarH}
                 width={barWidth}
                 height={Math.max(0, eveningH)}
                 rx={3}
-                className={isHovered ? 'fill-indigo-700' : 'fill-indigo-600'}
+                className={isHovered ? 'fill-blue-700' : 'fill-blue-600'}
               />
 
               {/* X-axis label */}
@@ -158,8 +158,8 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
             </div>
           </div>
           <div className="text-right text-xs text-slate-300">
-            <div>Morning: <span className="text-blue-300 font-medium">{trends[hoveredIndex].morningLiters.toLocaleString()} L</span></div>
-            <div>Evening: <span className="text-indigo-300 font-medium">{trends[hoveredIndex].eveningLiters.toLocaleString()} L</span></div>
+            <div>Morning: <span className="text-slate-300 font-medium">{trends[hoveredIndex].morningLiters.toLocaleString()} L</span></div>
+            <div>Evening: <span className="text-blue-300 font-medium">{trends[hoveredIndex].eveningLiters.toLocaleString()} L</span></div>
           </div>
         </div>
       )}
@@ -167,11 +167,11 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
       {/* Legend */}
       <div className="mt-3 flex items-center justify-center gap-6 text-xs font-medium text-slate-600">
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-xs bg-blue-500 inline-block" />
+          <span className="w-3 h-3 rounded-xs bg-slate-400 inline-block" />
           <span>Morning Shift</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-xs bg-indigo-600 inline-block" />
+          <span className="w-3 h-3 rounded-xs bg-blue-600 inline-block" />
           <span>Evening Shift</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -197,7 +197,7 @@ export function ShiftDistributionChart({
     <div className="space-y-4">
       <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+          <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
           <span>Morning Shift (04:00 - 13:00)</span>
         </div>
         <div className="tabular-nums font-semibold">
@@ -207,16 +207,16 @@ export function ShiftDistributionChart({
       <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden flex">
         <div
           style={{ width: `${shiftComparison.morningPct}%` }}
-          className="bg-blue-500 h-full transition-[width] duration-500"
+          className="bg-slate-400 h-full transition-[width] duration-500"
         />
         <div
           style={{ width: `${shiftComparison.eveningPct}%` }}
-          className="bg-indigo-600 h-full transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-500"
+          className="bg-blue-600 h-full transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-500"
         />
       </div>
       <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
           <span>Evening Shift (13:00 - 22:00)</span>
         </div>
         <div className="tabular-nums font-semibold">
@@ -464,9 +464,9 @@ export function HourlyHeatmapChart({ hourlyFlow }: { hourlyFlow: HourlyThroughpu
                 style={{ height: `${barH}px` }}
                 className={`w-full rounded-xs transition-colors ${
                   isRush
-                    ? 'bg-indigo-600 group-hover:bg-indigo-700'
+                    ? 'bg-blue-600 group-hover:bg-blue-700'
                     : h.liters > 0
-                    ? 'bg-blue-400 group-hover:bg-blue-500'
+                    ? 'bg-slate-300 group-hover:bg-slate-400'
                     : 'bg-slate-200'
                 }`}
               />
@@ -486,7 +486,7 @@ export function HourlyHeatmapChart({ hourlyFlow }: { hourlyFlow: HourlyThroughpu
       </div>
       <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
         <span>00:00 Night</span>
-        <span className="font-semibold text-indigo-700">Peak Morning: 08:00 - 10:00 · Peak Evening: 18:00 - 20:00</span>
+        <span className="font-semibold text-secondary-foreground">Peak morning 08:00–10:00 · Peak evening 18:00–20:00</span>
         <span>23:00 Night</span>
       </div>
     </div>

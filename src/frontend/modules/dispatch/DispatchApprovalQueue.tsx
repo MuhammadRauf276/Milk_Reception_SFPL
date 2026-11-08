@@ -9,6 +9,7 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
+import { SkeletonList } from '@/components/ui/loaders';
 
 type Tab = 'PENDING' | 'DECIDED';
 type Outcome = 'PASS' | 'FAIL' | 'WARN' | 'NOT_TESTED';
@@ -244,9 +245,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
       </div>
 
       {approvalsQuery.isPending && (
-        <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground text-xs">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading dispatch review queue…
-        </div>
+        <SkeletonList count={3} />
       )}
 
       {approvalsQuery.isError && (
@@ -312,7 +311,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                   </div>
 
                   {/* Summary Metrics */}
-                  <div className="grid grid-cols-4 gap-1.5 bg-card p-2.5 rounded-xl border border-border text-center">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-1.5 bg-card p-2.5 rounded-xl border border-border text-center">
                     <div>
                       <span className="text-xs text-muted-foreground font-semibold">Litres</span>
                       <p className="text-xs font-semibold tabular-nums text-foreground mt-0.5">
@@ -399,7 +398,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               )}
 
               {/* Quality Totals Header */}
-              <div className="grid grid-cols-4 gap-2 bg-card p-3 rounded-xl border border-border text-center">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 bg-card p-3 rounded-xl border border-border text-center">
                 <div>
                   <span className="text-xs text-muted-foreground font-semibold">Total Litres</span>
                   <p className="text-sm font-semibold tabular-nums text-foreground mt-0.5">

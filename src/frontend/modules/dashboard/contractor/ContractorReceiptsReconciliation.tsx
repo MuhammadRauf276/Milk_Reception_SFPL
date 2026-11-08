@@ -139,7 +139,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             <span>Total Received Vol</span>
             <Scale className="w-4 h-4 text-blue-700" />
           </div>
-          <p className="text-2xl font-semibold text-blue-950 tabular-nums truncate">
+          <p className="text-2xl font-semibold text-blue-950 tabular-nums">
             {metrics.totalAuthoritativeReceivedLiters.toLocaleString()} L
           </p>
           <p className="text-xs text-blue-700 font-medium">
@@ -154,7 +154,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             <ArrowRightLeft className="w-4 h-4 text-slate-600" />
           </div>
           <p
-            className={`text-2xl font-semibold tabular-nums truncate ${
+            className={`text-2xl font-semibold tabular-nums ${
               metrics.totalLitersVariance == null
                 ? 'text-slate-500'
                 : metrics.totalLitersVariance < 0

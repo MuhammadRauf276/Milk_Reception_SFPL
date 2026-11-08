@@ -19,6 +19,7 @@ import {
 import { getErrorMessage } from '@/lib/errors';
 import { InfoTip } from '@/components/ui/info-tip';
 import { confirmAction } from '@/components/ui/confirm-dialog';
+import { Button } from '@/components/ui/button';
 
 interface GatewayStatus {
   status: 'OFFLINE' | 'DISCONNECTED' | 'CONNECTING' | 'SCAN_QR' | 'CONNECTED';
@@ -140,7 +141,7 @@ export default function WhatsAppGatewayPage() {
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="flex items-center space-x-2.5">
-              <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-2xs">
+              <div className="text-muted-foreground">
                 <MessageSquare className="w-5 h-5" />
               </div>
               <div>
@@ -152,41 +153,32 @@ export default function WhatsAppGatewayPage() {
           </div>
 
           <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={() => fetchStatus(false)}
-              disabled={refreshing}
-              className="inline-flex items-center space-x-1.5 min-h-11 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-secondary-foreground hover:bg-muted transition shadow-2xs"
-            >
-              <span>Refresh</span>
-            </button>
+            <Button variant="outline" onClick={() => fetchStatus(false)} disabled={refreshing}>
+              Refresh
+            </Button>
           </div>
         </div>
       </header>
 
       <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 space-y-6">
         <div className="bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center space-x-3.5">
+          <div className="flex min-w-0 items-center space-x-3.5">
             <div
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${
-                isConnected
-                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                  : isScanQr
-                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                  : 'bg-rose-100 text-rose-800 border border-rose-300'
+              className={`flex h-10 w-10 shrink-0 items-center justify-center ${
+                isConnected ? 'text-emerald-700' : isScanQr ? 'text-amber-700' : 'text-rose-700'
               }`}
             >
               {isConnected ? (
                 <ShieldCheck className="w-6 h-6" />
               ) : isScanQr ? (
-                <QrCode className="w-6 h-6 animate-pulse" />
+                <QrCode className="w-6 h-6" />
               ) : (
                 <AlertTriangle className="w-6 h-6" />
               )}
             </div>
 
             <div>
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-semibold text-foreground">
                   {isConnected
                     ? 'Connected'
@@ -195,7 +187,7 @@ export default function WhatsAppGatewayPage() {
                     : 'Not connected'}
                 </h2>
                 <span
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                     isConnected
                       ? 'bg-emerald-100 text-emerald-800'
                       : isScanQr
@@ -208,7 +200,7 @@ export default function WhatsAppGatewayPage() {
               </div>
               <p className="text-xs text-secondary-foreground mt-0.5">
                 {isConnected
-                  ? `Authenticated as: ${gateway?.user?.name || 'Shakarganj Milk Reception'} (${gateway?.user?.id || 'Active Session'})`
+                  ? `Signed in as: ${gateway?.user?.name || 'Shakarganj Milk Reception'} (${gateway?.user?.id || 'Active Session'})`
                   : isScanQr
                   ? 'Link any phone or WhatsApp Business account with the Shakarganj logo.'
                   : isOffline
@@ -219,28 +211,23 @@ export default function WhatsAppGatewayPage() {
           </div>
 
           {isConnected && (
-            <button
-              type="button"
-              disabled={loggingOut}
-              onClick={handleLogout}
-              className="inline-flex items-center space-x-1.5 min-h-11 px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-semibold transition shadow-2xs self-start md:self-auto"
-            >
-              <LogOut className="w-3.5 h-3.5" />
+            <Button variant="outline" disabled={loggingOut} onClick={handleLogout} className="self-start md:self-auto">
+              <LogOut />
               <span>{loggingOut ? 'Disconnecting…' : 'Disconnect'}</span>
-            </button>
+            </Button>
           )}
         </div>
 
         {isScanQr && gateway?.qr && (
           <div className="bg-card rounded-2xl border border-border shadow-2xs overflow-hidden">
-            <div className="p-5 sm:p-6 border-b border-border bg-slate-50/50">
+            <div className="p-5 sm:p-6 border-b border-border bg-subtle">
               <h3 className="text-sm font-semibold text-foreground flex items-center space-x-2">
-                <Smartphone className="w-4 h-4 text-primary" />
+                <Smartphone className="w-4 h-4 text-muted-foreground" />
                 <span>Link phone</span>
               </h3>
             </div>
 
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] items-center gap-8 p-6">
               <div className="flex flex-col items-center justify-center p-6 bg-card border border-border rounded-2xl space-y-3">
                 <div className="p-3 bg-card rounded-xl shadow-md border border-border">
                   <Image
@@ -249,12 +236,12 @@ export default function WhatsAppGatewayPage() {
                     width={256}
                     height={256}
                     unoptimized
-                    className="w-64 h-64 rounded-lg"
+                    className="h-auto w-full max-w-64 rounded-lg"
                   />
                 </div>
-                <div className="flex items-center space-x-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 animate-pulse">
+                <div className="flex items-center space-x-1.5 text-xs font-medium text-secondary-foreground">
                   <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>Waiting for scan…</span>
+                  <span>Waiting for scan</span>
                 </div>
               </div>
 
@@ -272,9 +259,9 @@ export default function WhatsAppGatewayPage() {
                   </li>
                 </ol>
 
-                <div className="p-3.5 bg-card border border-border rounded-2xl text-blue-950 text-xs space-y-1">
-                  <div className="font-semibold text-blue-900 flex items-center space-x-1">
-                    <Flame className="w-3.5 h-3.5 text-blue-700" />
+                <div className="p-3.5 bg-card border border-border rounded-2xl text-secondary-foreground text-xs space-y-1">
+                  <div className="font-semibold text-foreground flex items-center space-x-1">
+                    <Flame className="w-3.5 h-3.5 text-muted-foreground" />
                     <span>Profile tip</span>
                     <InfoTip text="Set the WhatsApp profile picture to the Shakarganj logo and the name to Shakarganj Milk Reception. Shops will see it when receipts arrive." />
                   </div>
@@ -285,11 +272,11 @@ export default function WhatsAppGatewayPage() {
         )}
 
         {isConnected && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-6">
             <div className="bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4">
               <div className="border-b border-border pb-3">
                 <h3 className="text-sm font-semibold text-foreground flex items-center space-x-2">
-                  <Send className="w-4 h-4 text-emerald-600" />
+                  <Send className="w-4 h-4 text-muted-foreground" />
                   <span>Send test</span>
                 </h3>
               </div>
@@ -299,8 +286,8 @@ export default function WhatsAppGatewayPage() {
                   <div
                     className={`p-3 rounded-xl border text-xs font-semibold flex items-center space-x-2 animate-panel-in ${
                       testResult.success
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                        : 'bg-rose-50 border-rose-200 text-rose-900'
+                        ? 'bg-card border-border text-emerald-900'
+                        : 'bg-card border-border text-rose-900'
                     }`}
                   >
                     {testResult.success ? (
@@ -322,7 +309,7 @@ export default function WhatsAppGatewayPage() {
                     value={testPhone}
                     onChange={(e) => setTestPhone(e.target.value)}
                     placeholder="03176826604"
-                    className="w-full text-xs font-medium border border-border rounded-xl p-2.5 bg-card text-foreground focus:ring-2 focus:ring-emerald-500 outline-hidden font-mono"
+                    className="w-full text-xs font-medium border border-border rounded-xl p-2.5 bg-card text-foreground focus:border-primary outline-hidden font-mono"
                   />
                 </div>
 
@@ -335,18 +322,14 @@ export default function WhatsAppGatewayPage() {
                     required
                     value={testMessage}
                     onChange={(e) => setTestMessage(e.target.value)}
-                    className="w-full text-xs font-medium border border-border rounded-xl p-2.5 bg-card text-foreground focus:ring-2 focus:ring-emerald-500 outline-hidden font-mono leading-relaxed"
+                    className="w-full text-xs font-medium border border-border rounded-xl p-2.5 bg-card text-foreground focus:border-primary outline-hidden font-mono leading-relaxed"
                   />
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={sendingTest}
-                  className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-2xs transition disabled:opacity-50"
-                >
-                  <Send className={`w-3.5 h-3.5 ${sendingTest ? 'animate-pulse' : ''}`} />
+                <Button type="submit" disabled={sendingTest} className="w-full">
+                  <Send />
                   <span>{sendingTest ? 'Sending…' : 'Send test'}</span>
-                </button>
+                </Button>
               </form>
             </div>
 
@@ -361,24 +344,24 @@ export default function WhatsAppGatewayPage() {
                 <div className="p-3 bg-card border border-border rounded-xl flex items-start space-x-2.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
-                    <strong className="text-emerald-950 font-semibold">Automatic Field Dispatch: Active</strong>
+                    <strong className="text-foreground font-semibold">Automatic field dispatch: active</strong>
                   </div>
                 </div>
 
                 <div className="p-3 bg-card border border-border rounded-xl space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-muted-foreground">Gateway Port:</span>
+                  <div className="flex flex-wrap justify-between items-center gap-x-2 text-xs">
+                    <span className="text-muted-foreground">Gateway port:</span>
                     <span className="font-mono font-semibold text-foreground">127.0.0.1:3001</span>
                   </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-muted-foreground">Connected User:</span>
+                  <div className="flex flex-wrap justify-between items-center gap-x-2 text-xs">
+                    <span className="text-muted-foreground">Connected user:</span>
                     <span className="font-mono font-semibold text-foreground">
                       {gateway?.user?.name || 'Shakarganj'} ({gateway?.user?.id?.split('@')[0] || 'Active'})
                     </span>
                   </div>
-                  <div className="flex justify-between items-center text-xs">
+                  <div className="flex flex-wrap justify-between items-center gap-x-2 text-xs">
                     <span className="text-muted-foreground">Encryption:</span>
-                    <span className="font-semibold text-emerald-700">End-to-End Encrypted (E2EE)</span>
+                    <span className="font-semibold text-emerald-700">End-to-end encrypted (E2EE)</span>
                   </div>
                 </div>
 
@@ -402,14 +385,9 @@ export default function WhatsAppGatewayPage() {
               <span>Gateway offline</span>
               <InfoTip text={'Start it with "npm run whatsapp:gateway", then retry.'} />
             </div>
-            <button
-              type="button"
-              onClick={() => fetchStatus(false)}
-              disabled={refreshing}
-              className="inline-flex min-h-11 items-center px-4 rounded-lg bg-primary text-white text-xs font-semibold disabled:opacity-50"
-            >
+            <Button onClick={() => fetchStatus(false)} disabled={refreshing}>
               Retry
-            </button>
+            </Button>
           </div>
         )}
       </main>

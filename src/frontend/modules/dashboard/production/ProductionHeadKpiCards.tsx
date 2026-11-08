@@ -28,11 +28,11 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
           </div>
         </div>
         <div>
-          <div className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+          <div className="text-xl sm:text-2xl font-semibold text-foreground tabular-nums">
             {kpis.totalIntake13TsLitersToday.toLocaleString()}{' '}
             <span className="text-xs font-normal text-muted-foreground">L @13% TS</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1 truncate">
+          <p className="text-xs text-muted-foreground mt-1 break-words">
             {kpis.totalIntakeGrossLitersToday.toLocaleString()} L gross · {kpis.totalIntakeNetKgToday.toLocaleString()} kg net
           </p>
         </div>
@@ -49,11 +49,11 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
           </div>
         </div>
         <div>
-          <div className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+          <div className="text-xl sm:text-2xl font-semibold text-foreground tabular-nums">
             {kpis.activeVehiclesInPlant}{' '}
             <span className="text-xs font-normal text-muted-foreground">vehicles</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1 truncate">
+          <p className="text-xs text-muted-foreground mt-1 break-words">
             Inside factory security boundary
           </p>
         </div>
@@ -70,7 +70,7 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
           </div>
         </div>
         <div>
-          <div className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+          <div className="text-xl sm:text-2xl font-semibold text-foreground tabular-nums">
             {kpis.weighbridgeTicketsToday}{' '}
             <span className="text-xs font-normal text-muted-foreground">weighed</span>
           </div>
@@ -80,7 +80,7 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
               <span>{waitingForGrossCount} gross · {waitingForTareCount} tare waiting</span>
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground mt-1 truncate">
+            <p className="text-xs text-muted-foreground mt-1 break-words">
               Scale queues clear
             </p>
           )}
@@ -98,11 +98,11 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
           </div>
         </div>
         <div>
-          <div className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+          <div className="text-xl sm:text-2xl font-semibold text-foreground tabular-nums">
             {kpis.currentSiloStock13TsLiters.toLocaleString()}{' '}
             <span className="text-xs font-normal text-muted-foreground">L @13% TS</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1 truncate">
+          <p className="text-xs text-muted-foreground mt-1 break-words">
             {kpis.siloUtilizationPercent}% of {kpis.totalSiloCapacityLiters.toLocaleString()} L capacity
           </p>
         </div>

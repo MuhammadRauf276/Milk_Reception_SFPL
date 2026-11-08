@@ -3,10 +3,14 @@
 import React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Users, Truck, Database, FlaskConical, AlertCircle, FileSpreadsheet } from 'lucide-react';
+import { Users, Truck, Database, FlaskConical, FileSpreadsheet } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatCard } from '@/components/ui/stat-card';
 import { InfoTip } from '@/components/ui/info-tip';
+import { Button } from '@/components/ui/button';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { ErrorState } from '@/components/ui/empty-state';
+import { SkeletonStats, SkeletonTable } from '@/components/ui/loaders';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 
@@ -51,8 +55,8 @@ function renderAuditSummary(summary: string) {
       const brief = parts.slice(0, 2).join(' · ') || 'System record';
       const formattedJson = JSON.stringify(parsed, null, 2);
       return (
-        <div className="flex items-center justify-between gap-1.5 max-w-xs">
-          <span className="truncate text-xs font-semibold text-foreground">{brief}</span>
+        <div className="flex max-w-xs items-center justify-between gap-1.5">
+          <span className="min-w-0 break-words text-xs font-medium text-foreground">{brief}</span>
           <InfoTip text={<pre className="text-xs tabular-nums font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">{formattedJson}</pre>} label="Full record" />
         </div>
       );
@@ -65,8 +69,8 @@ function renderAuditSummary(summary: string) {
     const words = cleanText.split(' ').filter(Boolean);
     const display = words.slice(0, 3).join(' ') || summary.slice(0, 20);
     return (
-      <div className="flex items-center justify-between gap-1.5 max-w-xs">
-        <span className="truncate text-xs font-semibold text-foreground">{display}…</span>
+      <div className="flex max-w-xs items-center justify-between gap-1.5">
+        <span className="min-w-0 break-words text-xs font-medium text-foreground">{display}…</span>
         <InfoTip text={<div className="text-xs break-all max-h-40 overflow-y-auto">{summary}</div>} label="Full text" />
       </div>
     );
@@ -74,6 +78,24 @@ function renderAuditSummary(summary: string) {
 
   return <span className="text-xs font-semibold text-foreground">{summary}</span>;
 }
+
+const auditColumns: DataColumn<AuditItem>[] = [
+  {
+    key: 'time',
+    header: 'Time',
+    label: 'Time',
+    cell: (item) => <span className="text-xs tabular-nums text-muted-foreground">{item.timestamp ? item.timestamp.split('T')[1]?.slice(0, 8) || item.timestamp : '—'}</span>,
+  },
+  { key: 'user', header: 'User', label: 'User', primary: true, cell: (item) => <span className="font-semibold text-foreground">{item.user}</span> },
+  {
+    key: 'action',
+    header: 'Action',
+    label: 'Action',
+    cell: (item) => <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium text-foreground">{item.action}</span>,
+  },
+  { key: 'entity', header: 'Entity', label: 'Entity', cell: (item) => <span className="text-muted-foreground">{item.entity}</span> },
+  { key: 'summary', header: 'Summary', label: 'Summary', cell: (item) => renderAuditSummary(item.summary) },
+];
 
 export default function SuperAdminOverviewPage() {
   const query = useQuery({
@@ -87,16 +109,16 @@ export default function SuperAdminOverviewPage() {
   const error = query.error ? getErrorMessage(query.error) || 'Failed to load overview data.' : null;
 
   if (loading) {
-    return <div className="p-8 text-xs tabular-nums font-semibold text-secondary-foreground">Loading…</div>;
+    return (
+      <div className="space-y-6">
+        <SkeletonStats count={4} />
+        <SkeletonTable rows={6} />
+      </div>
+    );
   }
 
   if (error) {
-    return (
-      <div className="p-4 bg-card border border-border rounded-2xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
-        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-        <span>{error}</span>
-      </div>
-    );
+    return <ErrorState description={error} onRetry={() => void query.refetch()} />;
   }
 
   return (
@@ -104,17 +126,16 @@ export default function SuperAdminOverviewPage() {
       <PageHeader
         title="Overview"
         actions={
-          <Link
-            href="/super-admin/daily-report"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-primary-hover transition"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            <span>Daily Report</span>
-          </Link>
+          <Button asChild>
+            <Link href="/super-admin/daily-report">
+              <FileSpreadsheet />
+              Daily report
+            </Link>
+          </Button>
         }
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-3 stagger-children">
         <StatCard
           label="User accounts"
           icon={Users}
@@ -143,53 +164,22 @@ export default function SuperAdminOverviewPage() {
 
       {/* RECENT AUDIT LOG TABLE */}
       <div className="bg-card rounded-2xl border border-border shadow-2xs p-5 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            <h2 className="text-sm font-semibold text-foreground">Recent Activity</h2>
+            <h2 className="text-sm font-semibold text-foreground">Recent activity</h2>
             <InfoTip text="Live chronological event log across plant reception and field procurement." />
           </div>
-          <Link href="/super-admin/audit" className="text-xs font-semibold text-primary hover:underline">
-            View All
+          <Link href="/super-admin/audit" className="inline-flex min-h-11 items-center text-xs font-semibold text-primary hover:underline">
+            View all
           </Link>
         </div>
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full text-left text-xs font-sans">
-            <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold text-xs whitespace-nowrap">
-              <tr>
-                <th className="p-3">Time</th>
-                <th className="p-3">User</th>
-                <th className="p-3">Action</th>
-                <th className="p-3">Entity</th>
-                <th className="p-3">Summary</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60 font-semibold text-foreground">
-              {recentAudit.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-6 text-center text-muted-foreground font-semibold">
-                    No recent events.
-                  </td>
-                </tr>
-              ) : (
-                recentAudit.map((item) => (
-                  <tr key={item.id} className="hover:bg-muted/20 transition-colors">
-                    <td className="p-3 tabular-nums text-muted-foreground whitespace-nowrap text-xs">
-                      {item.timestamp ? item.timestamp.split('T')[1]?.slice(0, 8) || item.timestamp : '—'}
-                    </td>
-                    <td className="p-3 font-semibold text-foreground whitespace-nowrap">{item.user}</td>
-                    <td className="p-3 whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded-md bg-muted text-foreground border border-border tabular-nums text-xs font-semibold">
-                        {item.action}
-                      </span>
-                    </td>
-                    <td className="p-3 tabular-nums text-muted-foreground whitespace-nowrap">{item.entity}</td>
-                    <td className="p-3">{renderAuditSummary(item.summary)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={auditColumns}
+          rows={recentAudit}
+          getRowId={(item) => item.id}
+          emptyTitle="No recent events"
+          tableFrom="lg"
+        />
       </div>
     </div>
   );

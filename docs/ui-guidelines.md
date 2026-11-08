@@ -14,7 +14,7 @@
 The Shakarganj Raw Milk Reception platform is an industrial operational application used across dusty field collection routes, regional ZMCC chilling centers, weighbridges, laboratories, and plant silos. The user interface adheres to six core design pillars:
 
 1. **Zero Clutter & Minimalist Surfaces:** Screens are concise, focused, and low-glare. No unnecessary decorative elements, crowded sidebars, or stacked multi-tier button bars.
-2. **No Sprawling Long Pages:** Endless vertical scrolling is prohibited. Long histories and dense logs are partitioned into paginated tables (10–25 rows per page with `Pager`), clean summary metric cards, and contextual inspection overlays.
+2. **No Sprawling Long Pages:** Operating queues and record lists use paginated tables (10–25 rows per page), clean summary metric cards, and contextual inspection overlays. Infinite scroll (`InfiniteScrollerLoader`) is only for read-only logs such as the audit log and notifications.
 3. **Screen-Size Adaptive Dialogs (Drawers on Mobile, Modals on Desktop):**
    - On mobile/tablet screens ($<1024\text{px}$): Contextual forms and review sheets slide up in bottom **Drawers** (`DrawerContent`) with ergonomic swipe handles and safe-area insets.
    - On desktop screens ($\ge 1024\text{px}$): Dialogs open as centered, focused **Modals** (`Modal` / `DialogContent` from Shadcn), avoiding awkwardly stretched full-height side panels.
@@ -27,12 +27,15 @@ The Shakarganj Raw Milk Reception platform is an industrial operational applicat
 ## 2. Component Design Standards
 
 ### A. Cards & Surface Elevation
-- **Structure:** `bg-white rounded-xl sm:rounded-2xl border border-border p-3.5 sm:p-5 shadow-2xs`
-- **Subtle Surface Tinting:** Secondary card containers and form groups use `bg-subtle` (`bg-slate-50/70`) with `border-border` to distinguish input groups without visual noise.
-- **KPI / Stat Cards:**
-  - Header: Icon + uppercase 11px label (`text-[11px] font-semibold uppercase tracking-wider text-slate-500`).
-  - Metric: Prominent tabular numeral (`text-xl sm:text-2xl font-bold text-slate-900 tabular-nums`).
-  - Subtitle: Compact description (`text-[11px] text-slate-500 mt-0.5`).
+- **Structure:** `bg-card rounded-2xl border border-border p-4 shadow-2xs`. Use `Card` from `@/components/ui/card`.
+- **Nested corners:** outer cards `rounded-2xl`, inner items `rounded-xl` or `rounded-lg`, buttons and inputs `rounded-lg`.
+- **Subtle Surface Tinting:** Secondary card containers and form groups use `bg-subtle` with `border-border` to distinguish input groups without visual noise.
+- **KPI / Stat Cards:** use `StatCard`.
+  - Header: sentence case label (`text-sm font-medium text-muted-foreground`) and a muted icon. Colour only for a real warning or problem.
+  - Metric: tabular numeral (`text-2xl font-semibold tabular-nums`). Figures wrap and are never cut off.
+  - Subtitle: compact description (`text-xs text-muted-foreground`).
+- **Minimum text size is 12px.** No `text-[10px]` or `text-[11px]`. Labels are sentence case. Only codes such as vehicle numbers stay in capitals.
+- **Colour:** Shakarganj red is the one accent, for the main action, the selected item or a real problem. Neutrals come from tokens, not `slate-*` classes.
 - **Interactive List / Queue Cards:**
   - Active / Selected item: `border-primary ring-1 ring-primary bg-primary/5` (never a heavy solid color block).
   - Hover transition: `hover:bg-subtle hover:border-border-strong transition-all duration-150`.
@@ -40,11 +43,9 @@ The Shakarganj Raw Milk Reception platform is an industrial operational applicat
 ### B. Buttons & Touch Ergonomics
 - **Industrial Touch Targets:** All interactive controls (buttons, icon triggers, form inputs) must maintain a strict minimum touch target of `min-h-11` (44px) and `min-w-11` (44px) for reliable operation on mobile devices and touch monitors in the field.
 - **Button Variants:**
-  - **Primary Action:** `min-h-11 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl font-semibold text-xs transition shadow-2xs disabled:opacity-50`
-  - **Secondary / Neutral:** `min-h-11 px-4 py-2 bg-white hover:bg-subtle border border-border text-slate-700 rounded-xl font-semibold text-xs transition`
-  - **Destructive / Reject:** `min-h-11 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold text-xs transition disabled:opacity-50`
-  - **Success / Accept:** `min-h-11 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-xs transition`
-  - **Ghost / Icon Trigger:** `flex min-h-11 min-w-11 items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 hover:bg-subtle transition`
+  - Use `Button` from `@/components/ui/button` with `default`, `outline`, `destructive` or `ghost`. One main action per area; the rest are `outline` or `ghost`.
+  - **Success / Accept:** `min-h-11 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm transition-colors`
+  - **Destructive actions** ask first with `confirmAction` from `@/components/ui/confirm-dialog`. Never use the browser's `confirm()`.
 - **Button Decluttering Rules:**
   - Do NOT stack redundant buttons (e.g. separate "View", "Details", "Inspect" buttons on every row).
   - Tapping a queue card directly opens the inspection Drawer/Modal.
@@ -174,6 +175,17 @@ Animations are kept professional, subtle, and high-performance:
 ---
 
 *This document defines the immutable UI/UX standards for all existing and future frontend development in the Shakarganj Milk Reception application.*
+
+## 8A. Shared Patterns (added 8 Nov 2026)
+
+- **Fits every screen:** layouts follow available space, not a list of phones. Use `grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))]` and container queries instead of fixed columns. Test with `npm run test:layout`, which covers 280px to 2560px.
+- **Lists:** `DataTable` shows cards when narrow and columns when wide. Filters use `DataFilters`.
+- **Loading:** `PageLoader` for a page, `SkeletonList`, `SkeletonTable` or `SkeletonStats` for a panel, `ButtonLoader` for a pressed button, `ProgressBarLoader` for uploads and exports. `PulsingLoader` only for something live. `FullScreenLoader` only when the operator must wait.
+- **Empty and error:** `EmptyState` and `ErrorState`. Each app section has its own `error.tsx` and `loading.tsx`.
+- **Dates and numbers:** `formatDate`, `formatTime`, `formatDateTime` and `formatNumber` from `@/lib/format`.
+- **Optimistic updates:** only for low-risk actions such as marking a notification read. Weights, lab results and approvals always wait for the server.
+- **Bulk actions:** only for users, master data and notifications. Never for approvals, weights, lab results or dispatches, because each needs its own reason and audit record.
+- **Wording:** journeys say Active shops, because a journey is built from the route's active shops. Use Mobile Tester and HC, never MOT or Local Supplier.
 
 ## 9. Role-Based Data Visibility & Field-Screen Patterns (added 23 Oct 2026)
 

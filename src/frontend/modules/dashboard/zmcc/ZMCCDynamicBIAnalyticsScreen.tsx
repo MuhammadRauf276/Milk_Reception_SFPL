@@ -404,7 +404,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
                   <td className="p-3 tabular-nums text-secondary-foreground">{r.routeLossLiters.toLocaleString()} L</td>
                   <td className="p-3 text-right tabular-nums">
                     <span
-                      className={`font-semibold px-2 py-0.5 rounded-full text-[10px] ${
+                      className={`font-semibold px-2 py-0.5 rounded-full text-xs ${
                         r.routeLossPct > 1.0
                           ? 'bg-rose-100 text-rose-800'
                           : 'bg-emerald-100 text-emerald-800'

@@ -2,10 +2,13 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Settings, ShieldAlert, CheckCircle2, X, Building2, Loader2 } from 'lucide-react';
+import { AlertTriangle, Settings, ShieldAlert, X, Loader2 } from 'lucide-react';
 import { toast } from '@/frontend/lib/appToast';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
+import { Button } from '@/components/ui/button';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { formatDateTime } from '@/lib/format';
 
 interface WarningItem {
   id: string;
@@ -38,6 +41,32 @@ interface ApiResponse {
   warnings?: WarningItem[];
   monthlySummary?: MonthlySummaryItem[];
 }
+
+const warningColumns: DataColumn<WarningItem>[] = [
+  { key: 'when', header: 'Timestamp', label: 'Timestamp', cell: (w) => <span className="tabular-nums text-muted-foreground">{formatDateTime(w.createdAt)}</span> },
+  {
+    key: 'source',
+    header: 'Procurement source',
+    label: 'Procurement source',
+    primary: true,
+    cell: (w) => (
+      <div className="min-w-0 font-semibold text-foreground">
+        {w.procurementSource.name}
+        <span className="block break-all font-mono text-xs font-normal text-muted-foreground">{w.procurementSource.code}</span>
+      </div>
+    ),
+  },
+  { key: 'test', header: 'Lab test', label: 'Lab test', cell: (w) => <span className="text-foreground">{w.labTest?.name || 'Quality parameter'}</span> },
+  { key: 'reason', header: 'Warning reason', label: 'Warning reason', cell: (w) => <span className="font-medium text-amber-900">{w.reason}</span> },
+  { key: 'by', header: 'Evaluated by', label: 'Evaluated by', cell: (w) => <span className="text-secondary-foreground">{w.createdBy}</span> },
+  {
+    key: 'status',
+    header: 'Status',
+    label: 'Status',
+    align: 'center',
+    cell: (w) => <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">{w.status}</span>,
+  },
+];
 
 export function WarningLimitsGovernanceView() {
   const queryClient = useQueryClient();
@@ -75,19 +104,17 @@ export function WarningLimitsGovernanceView() {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {/* Top Banner Card: Plant Reception Warning Limit Setting */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3.5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
-              <AlertTriangle className="h-6 w-6" />
-            </div>
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-semibold text-slate-900">Plant Reception Warning Limit Policy</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base font-semibold text-foreground">Plant reception warning limit policy</h2>
                 <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
-                  {threshold} Vehicles / Month
+                  {threshold} vehicles / month
                 </span>
               </div>
               <p className="mt-1 text-xs text-slate-600 max-w-2xl leading-relaxed">
@@ -98,28 +125,22 @@ export function WarningLimitsGovernanceView() {
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 disabled:opacity-50"
-            >
-              <Loader2 className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
-            <button
-              type="button"
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+              <Loader2 className={isFetching ? 'animate-spin' : 'text-muted-foreground'} />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => {
                 setEditThresholdValue(threshold);
                 setReason('');
                 setIsModalOpen(true);
               }}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50"
             >
-              <Settings className="h-3.5 w-3.5 text-slate-500" />
-              <span>Change Limit</span>
-            </button>
+              <Settings className="text-muted-foreground" />
+              Change limit
+            </Button>
           </div>
         </div>
       </div>
@@ -134,9 +155,9 @@ export function WarningLimitsGovernanceView() {
 
       {/* Monthly Summary Per Procurement Source */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-xs font-semibold text-slate-500">
-            Current Month Warning Accumulation by Procurement Source
+            Current month warnings by procurement source
           </h3>
           <span className="text-xs text-slate-400">Deduplicated per vehicle per source</span>
         </div>
@@ -144,13 +165,13 @@ export function WarningLimitsGovernanceView() {
         {summary.length === 0 ? (
           <p className="text-xs text-slate-500 py-2">No warning accumulations recorded for this month.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3 text-xs">
             {summary.map((s) => {
               const isOverLimit = s.activeWarningCount >= threshold;
               return (
                 <div
                   key={s.sourceId}
-                  className={`rounded-xl border p-3 flex justify-between items-center transition ${
+                  className={`flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border p-3 transition-colors ${
                     isOverLimit
                       ? 'border-rose-300 bg-rose-50/50'
                       : 'border-slate-200 bg-slate-50/60'
@@ -164,7 +185,7 @@ export function WarningLimitsGovernanceView() {
                   </div>
                   <div className="text-right">
                     <span
-                      className={`inline-block rounded-md px-2 py-0.5 text-xs font-bold ${
+                      className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ${
                         isOverLimit
                           ? 'bg-rose-100 text-rose-800 border border-rose-300'
                           : 'bg-amber-100 text-amber-800'
@@ -174,7 +195,7 @@ export function WarningLimitsGovernanceView() {
                     </span>
                     {isOverLimit && (
                       <span className="block text-xs font-semibold text-rose-600 mt-0.5">
-                        AVP Escalated
+                        AVP escalated
                       </span>
                     )}
                   </div>
@@ -188,61 +209,17 @@ export function WarningLimitsGovernanceView() {
       {/* Warning Event Records Table */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
         <h3 className="text-xs font-semibold text-slate-500">
-          Plant QA Warning Event Log
+          Plant QA warning event log
         </h3>
 
-        <div className="overflow-x-auto rounded-xl border border-slate-200">
-          <table className="w-full text-left text-xs font-medium text-slate-800">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold text-xs">
-              <tr>
-                <th className="p-3">Timestamp</th>
-                <th className="p-3">Procurement Source</th>
-                <th className="p-3">Lab Test</th>
-                <th className="p-3">Warning Reason</th>
-                <th className="p-3">Evaluated By</th>
-                <th className="p-3 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
-                    Loading warning log…
-                  </td>
-                </tr>
-              ) : warnings.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-1.5" />
-                    No QA warning events recorded.
-                  </td>
-                </tr>
-              ) : (
-                warnings.map((w) => (
-                  <tr key={w.id} className="hover:bg-slate-50/70 transition">
-                    <td className="p-3 tabular-nums text-slate-500 whitespace-nowrap">
-                      {new Date(w.createdAt).toLocaleString()}
-                    </td>
-                    <td className="p-3 font-semibold text-slate-900">
-                      {w.procurementSource.name}
-                      <span className="block text-xs text-slate-400 font-normal">
-                        {w.procurementSource.code}
-                      </span>
-                    </td>
-                    <td className="p-3 text-slate-800">{w.labTest?.name || 'Quality Parameter'}</td>
-                    <td className="p-3 text-amber-900 font-medium">{w.reason}</td>
-                    <td className="p-3 text-slate-600">{w.createdBy}</td>
-                    <td className="p-3 text-center">
-                      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-                        {w.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={warningColumns}
+          rows={warnings}
+          getRowId={(w) => w.id}
+          loading={isLoading}
+          emptyTitle="No QA warning events"
+          tableFrom="lg"
+        />
       </div>
 
       {/* Edit Threshold Modal */}
@@ -250,11 +227,12 @@ export function WarningLimitsGovernanceView() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-2xs">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="text-sm font-semibold text-slate-900">Configure Plant Reception Warning Limit</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Warning limit for plant reception</h3>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                aria-label="Close"
+                className="flex min-h-11 min-w-11 items-center justify-center text-slate-400 hover:text-slate-600"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -262,7 +240,7 @@ export function WarningLimitsGovernanceView() {
 
             <div>
               <label className="block text-xs font-semibold text-slate-800 mb-1">
-                Monthly Warning Threshold (Vehicles per Source)
+                Monthly warning limit (vehicles per source)
               </label>
               <input
                 type="number"
@@ -270,7 +248,7 @@ export function WarningLimitsGovernanceView() {
                 max={20}
                 value={editThresholdValue}
                 onChange={(e) => setEditThresholdValue(parseInt(e.target.value, 10) || 1)}
-                className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-900 focus:border-primary focus:outline-none"
+                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm font-semibold tabular-nums text-slate-900 focus:border-primary focus:outline-none"
               />
               <p className="mt-1 text-xs text-slate-500">
                 Default standard: 4 vehicles/month. Any source exceeding this limit requires AVP-QA approval.
@@ -279,7 +257,7 @@ export function WarningLimitsGovernanceView() {
 
             <div>
               <label className="block text-xs font-semibold text-slate-800 mb-1">
-                Reason for Change (Audit Requirement)
+                Reason for change (needed for the audit trail)
               </label>
               <textarea
                 rows={2}
@@ -291,15 +269,10 @@ export function WarningLimitsGovernanceView() {
             </div>
 
             <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
+              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                 Cancel
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
                 disabled={updateThresholdMutation.isPending}
                 onClick={() => {
                   updateThresholdMutation.mutate({
@@ -307,10 +280,9 @@ export function WarningLimitsGovernanceView() {
                     reason: reason || 'Super Admin changed warning threshold',
                   });
                 }}
-                className="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
               >
-                {updateThresholdMutation.isPending ? 'Saving…' : 'Save Limit'}
-              </button>
+                {updateThresholdMutation.isPending ? 'Saving…' : 'Save limit'}
+              </Button>
             </div>
           </div>
         </div>

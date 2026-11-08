@@ -1,5 +1,6 @@
 'use client';
 
+import { SkeletonList } from '@/components/ui/loaders';
 import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -103,7 +104,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
   };
 
   const inputClass =
-    'w-full min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary';
+    'w-full min-h-11 px-3.5 py-2 text-xs font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary';
 
   return (
     <Drawer open onOpenChange={(o) => !o && onClose()}>
@@ -119,7 +120,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
             </div>
             <div className="flex items-center gap-2">
               <span
-                className={`hidden sm:inline px-2.5 py-1 rounded-full text-[10px] uppercase tabular-nums font-semibold ${
+                className={`hidden sm:inline px-2.5 py-1 rounded-full text-xs uppercase tabular-nums font-semibold ${
                   silo.is_active ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
                 }`}
               >
@@ -192,7 +193,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
 
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-foreground">
-                Operational Timestamp <span className="text-rose-600">*</span>
+                Time <span className="text-rose-600">*</span>
               </label>
               <input
                 type="datetime-local"
@@ -208,20 +209,20 @@ export const ProductionSiloIssueDrawer: React.FC<{
             type="button"
             disabled={actionLoading || !issueQuantityLiters || isOverIssue}
             onClick={handleRecordSiloIssue}
-            className="w-full min-h-[44px] py-3.5 px-4 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition shadow-md flex items-center justify-center space-x-2"
+            className="w-full min-h-11 py-3.5 px-4 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-colors flex items-center justify-center space-x-2"
           >
-            {actionLoading ? <span>Recording Issue…</span> : <> <MinusCircle className="w-4 h-4" /> <span>Record Silo Issue</span> </>}
+            {actionLoading ? <span>Recording issue…</span> : <> <MinusCircle className="w-4 h-4" /> <span>Record silo issue</span> </>}
           </button>
 
           {/* Compact Recent Issues (collapsible) */}
           <details className="group rounded-xl bg-card border border-border" open>
             <summary className="min-h-11 flex cursor-pointer select-none items-center justify-between px-4 text-xs font-semibold text-foreground">
-              <span>Recent Issues: {silo.silo_code}</span>
-              <span className="text-xs text-muted-foreground tabular-nums">Last 10 Records</span>
+              <span>Recent issues: {silo.silo_code}</span>
+              <span className="text-xs text-muted-foreground tabular-nums">Last 10</span>
             </summary>
             <div className="border-t border-border-strong p-4">
               {historyLoading ? (
-                <div className="p-4 text-center text-xs text-muted-foreground tabular-nums font-semibold">Loading issue history…</div>
+                <SkeletonList count={2} />
               ) : issueHistory.length === 0 ? (
                 <div className="p-4 text-center text-xs text-muted-foreground font-semibold">No issues</div>
               ) : (

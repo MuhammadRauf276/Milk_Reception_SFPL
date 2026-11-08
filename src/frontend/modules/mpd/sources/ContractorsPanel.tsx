@@ -167,7 +167,7 @@ export function ContractorsPanel({
                 </td>
                 <td className="py-2.5 px-3">
                   <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                    className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                       contractor.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-muted-foreground'
                     }`}
                   >
@@ -303,7 +303,7 @@ export function ContractorsPanel({
                     value={newForm.code}
                     onChange={(e) => setNewForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
                     placeholder="e.g. CONT-001"
-                    className="w-full min-h-11 px-3 py-2 border border-border rounded-lg font-mono font-semibold uppercase bg-card"
+                    className="w-full min-h-11 px-3 py-2 border border-border rounded-lg font-mono font-semibold bg-card"
                   />
                 </div>
 

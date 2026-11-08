@@ -38,7 +38,7 @@ function Seg({
           type="button"
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`h-11 flex-1 rounded-lg border px-2.5 font-bold transition ${
+          className={`min-h-11 flex-1 rounded-lg border px-2.5 font-semibold transition-colors ${
             value === o.value ? o.active : 'border-border-strong bg-card text-secondary-foreground hover:bg-muted'
           }`}
         >
@@ -255,8 +255,8 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                 type="button"
                 aria-pressed={photoRequired}
                 onClick={() => setPhotoRequired((p) => !p)}
-                className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3 font-bold transition-colors ${
-                  photoRequired ? 'border-sky-600 bg-sky-600 text-white' : 'border-border-strong bg-card text-secondary-foreground hover:bg-muted'
+                className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3 font-semibold transition-colors ${
+                  photoRequired ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-card text-secondary-foreground hover:bg-muted'
                 }`}
               >
                 <Camera className="h-3.5 w-3.5" />
@@ -338,15 +338,15 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                   </div>
 
                   <div>
-                    <span className="mb-1 block font-semibold text-secondary-foreground">Warning Applies To</span>
-                    <div role="group" aria-label="Warning applies to" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <span className="mb-1 block font-semibold text-secondary-foreground">Warning applies to</span>
+                    <div role="group" aria-label="Warning applies to" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2">
                       {WARNING_OPTIONS.map((o) => (
                         <button
                           key={o.value}
                           type="button"
                           aria-pressed={trigger === o.value}
                           onClick={() => setTrigger(o.value)}
-                          className={`min-h-11 rounded-lg border px-2 py-1 text-[11px] font-bold leading-tight ${
+                          className={`min-h-11 rounded-lg border px-2 py-1 text-xs font-semibold leading-tight ${
                             trigger === o.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-card text-secondary-foreground hover:bg-muted'
                           }`}
                         >
@@ -401,7 +401,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                           type="button"
                           aria-pressed={acceptable === o.value}
                           onClick={() => setAcceptable(o.value)}
-                          className={`min-h-11 rounded-lg border px-3 py-1.5 text-left text-xs font-bold ${
+                          className={`min-h-11 rounded-lg border px-3 py-1.5 text-left text-xs font-semibold ${
                             acceptable === o.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-card text-foreground hover:bg-muted'
                           }`}
                         >

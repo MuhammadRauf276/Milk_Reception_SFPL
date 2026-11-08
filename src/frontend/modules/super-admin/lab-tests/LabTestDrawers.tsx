@@ -353,7 +353,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
       return {
         verdict: 'MONITORING',
         label: 'Monitoring Norm',
-        color: 'bg-slate-50 text-slate-800 border-slate-200',
+        color: 'bg-subtle text-foreground border-border',
         detail: 'Compulsory observation for yield & pricing. Never rejects milk.',
       };
     }
@@ -440,7 +440,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
     return {
       verdict: 'WARNING',
       label: 'Hold for QA Evaluation',
-      color: 'bg-slate-50 text-slate-800 border-slate-200',
+      color: 'bg-subtle text-foreground border-border',
       detail: 'Result requires evaluation.',
     };
   }, [testSimulatorVal, category, minValue, maxValue, boundaryType, warningMode, computedSopRules, isNumeric, isCalculated, options]);
@@ -523,16 +523,16 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
       onClose={onClose}
       busy={busy}
       error={error}
-      title={isEdit ? `Edit Lab Test (${test!.testCode})` : 'Create New Laboratory Test'}
+      title={isEdit ? `Edit lab test (${test!.testCode})` : 'New lab test'}
     >
       <form onSubmit={submit} className="space-y-4">
         {isEdit && (
-          <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-3 text-xs text-slate-700">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-2 rounded-xl border border-border bg-card p-3 text-xs text-secondary-foreground">
             <div>
-              Result Type: <strong className="tabular-nums text-slate-900">{test!.resultType}</strong> (Locked)
+              Result type: <strong className="tabular-nums text-foreground">{test!.resultType}</strong> (Locked)
             </div>
             <div>
-              Historical Records: <strong className="tabular-nums text-slate-900">{test!.historicalResultsCount}</strong>
+              Historical records: <strong className="tabular-nums text-foreground">{test!.historicalResultsCount}</strong>
             </div>
           </div>
         )}
@@ -540,17 +540,17 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
         {/* Category: Complete SOP vs Monitoring Norm */}
         <div className="space-y-1.5 rounded-xl border border-border bg-card p-3">
           <span className={fieldLabelClass}>
-            Rule Category
+            Rule category
             <InfoTip text="Complete SOP tests enforce pass/warning/rejection rules. Monitoring Norms are compulsory to record for yield/pricing, but never trigger system rejection." />
           </span>
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-2 pt-1">
             <button
               type="button"
               onClick={() => setCategory('RELEASE')}
-              className={`flex min-h-11 items-center justify-center rounded-xl border px-3 text-xs font-bold transition ${
+              className={`flex min-h-11 items-center justify-center rounded-lg border px-3 text-center text-xs font-medium transition-colors ${
                 category === 'RELEASE'
-                  ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-xs'
-                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-card text-secondary-foreground hover:bg-muted'
               }`}
             >
               Complete SOP (Enforce Release)
@@ -558,10 +558,10 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             <button
               type="button"
               onClick={() => setCategory('MONITORING')}
-              className={`flex min-h-11 items-center justify-center rounded-xl border px-3 text-xs font-bold transition ${
+              className={`flex min-h-11 items-center justify-center rounded-lg border px-3 text-center text-xs font-medium transition-colors ${
                 category === 'MONITORING'
-                  ? 'border-purple-500 bg-purple-50 text-purple-900 shadow-xs'
-                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-card text-secondary-foreground hover:bg-muted'
               }`}
             >
               Monitoring Norm (No Rejection)
@@ -570,7 +570,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
         </div>
 
         <div>
-          <label htmlFor="lt-name" className={fieldLabelClass}>Test Name *</label>
+          <label htmlFor="lt-name" className={fieldLabelClass}>Test name *</label>
           <input
             id="lt-name"
             type="text"
@@ -585,8 +585,8 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
         <div className="grid gap-3 sm:grid-cols-2">
           {!isEdit && (
             <div className="sm:col-span-2">
-              <span className={fieldLabelClass}>Result Type *</span>
-              <div role="group" aria-label="Result type" className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+              <span className={fieldLabelClass}>Result type *</span>
+              <div role="group" aria-label="Result type" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-1.5">
                 {RESULT_TYPES.map((t) => (
                   <button
                     key={t.value}
@@ -608,8 +608,8 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                         setOptions(defaultOptions());
                       }
                     }}
-                    className={`h-11 rounded-xl border px-2 text-xs font-semibold ${
-                      resultType === t.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-white text-slate-600 hover:bg-slate-50'
+                    className={`min-h-11 rounded-lg border px-2 text-xs font-medium transition-colors ${
+                      resultType === t.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-card text-secondary-foreground hover:bg-muted'
                     }`}
                   >
                     {t.label}
@@ -630,7 +630,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             />
           </div>
           <div>
-            <label htmlFor="lt-order" className={fieldLabelClass}>Catalog Order</label>
+            <label htmlFor="lt-order" className={fieldLabelClass}>Catalog order</label>
             <input
               id="lt-order"
               type="number"
@@ -646,13 +646,13 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
         {(isCalculated || effectiveType === 'NUMERIC') && (
           <div className="space-y-1.5 rounded-xl border border-border bg-card p-3">
             <span className={fieldLabelClass}>
-              Calculated Formula Binding
+              Calculated formula
               <InfoTip text="If bound to a formula, the value is auto-calculated from raw observations (e.g., LR and Fat) and displayed read-only." />
             </span>
             <select
               value={formulaId}
               onChange={(e) => setFormulaId(e.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:border-primary focus:outline-hidden"
+              className="min-h-11 w-full rounded-lg border border-border bg-card px-3 text-xs font-medium text-secondary-foreground focus:border-primary focus:outline-hidden"
             >
               {FORMULA_OPTIONS.map((fo) => (
                 <option key={fo.value} value={fo.value}>
@@ -663,10 +663,10 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
           </div>
         )}
 
-        {/* Assigned Operational Stages */}
+        {/* Assigned stages */}
         <div className="space-y-1.5 rounded-xl border border-border bg-card p-3">
           <span className={fieldLabelClass}>Stages<InfoTip text="Select which reception checkpoints run this test. Policies and SOP rules are maintained automatically." /></span>
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 pt-1">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-1.5 pt-1">
             {STAGE_OPTIONS.map((st) => {
               const active = assignedStages.includes(st.id);
               return (
@@ -675,14 +675,14 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                   type="button"
                   aria-pressed={active}
                   onClick={() => toggleStage(st.id)}
-                  className={`flex min-h-11 items-center justify-between rounded-xl border px-3 text-left transition-all ${
+                  className={`flex min-h-11 items-center justify-between gap-2 rounded-lg border px-3 text-left transition-colors ${
                     active
-                      ? 'border-primary bg-primary/10 font-semibold text-primary shadow-xs'
-                      : 'border-slate-200 bg-white font-medium text-slate-600 hover:bg-slate-100'
+                      ? 'border-primary bg-primary/10 font-semibold text-primary'
+                      : 'border-border bg-card font-medium text-secondary-foreground hover:bg-muted'
                   }`}
                 >
                   <span className="text-xs">{st.label}</span>
-                  <span className={`text-xs ${active ? 'font-bold text-primary' : 'text-slate-400'}`}>
+                  <span className={`text-xs ${active ? 'font-semibold text-primary' : 'text-muted-foreground'}`}>
                     {active ? 'Assigned' : 'Off'}
                   </span>
                 </button>
@@ -693,78 +693,78 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
 
         {/* SOP DECISION LIMITS & REJECTION RULES (NUMERIC / CALCULATED) */}
         {(isNumeric || isCalculated) && (
-          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <div className="space-y-3 rounded-2xl border border-border bg-card p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2.5">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-slate-800">
-                  SOP Limits
+                <span className="text-xs font-medium text-foreground">
+                  SOP limits
                 </span>
                 <InfoTip text="Standard operating limits for auto-release, tolerance warning hold, and rejection." />
               </div>
               {category === 'MONITORING' ? (
-                <span className="rounded-md bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 border border-purple-200">
+                <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium text-secondary-foreground">
                   Monitoring Norm
                 </span>
               ) : (
-                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 border border-slate-200">
+                <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium text-secondary-foreground">
                   Complete SOP
                 </span>
               )}
             </div>
 
-            {/* Clean Neutral Summary Strip */}
-            <div className="grid grid-cols-3 gap-2 rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center text-xs">
-              <div className="space-y-0.5">
-                <div className="flex items-center justify-center gap-1 text-xs font-semibold text-slate-600">
+            {/* Summary strip */}
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 rounded-lg border border-border bg-subtle p-2 text-center text-xs">
+              <div className="min-w-0 space-y-0.5">
+                <div className="flex items-center justify-center gap-1 text-xs font-medium text-secondary-foreground">
                   <span className="size-2 rounded-full bg-emerald-500" />
                   <span>Pass</span>
                 </div>
-                <div className="truncate font-mono text-xs font-semibold text-slate-900">
+                <div className="break-words font-mono text-xs font-semibold text-foreground">
                   {computedSopRules.passText}
                 </div>
               </div>
 
-              <div className="space-y-0.5 border-x border-slate-200 px-1">
-                <div className="flex items-center justify-center gap-1 text-xs font-semibold text-slate-600">
+              <div className="min-w-0 space-y-0.5 px-1">
+                <div className="flex items-center justify-center gap-1 text-xs font-medium text-secondary-foreground">
                   <span className="size-2 rounded-full bg-amber-500" />
                   <span>Warning</span>
                 </div>
-                <div className="truncate font-mono text-xs font-semibold text-slate-900">
+                <div className="break-words font-mono text-xs font-semibold text-foreground">
                   {computedSopRules.warnText !== '—' ? computedSopRules.warnText : 'None'}
                 </div>
               </div>
 
-              <div className="space-y-0.5">
-                <div className="flex items-center justify-center gap-1 text-xs font-semibold text-slate-600">
+              <div className="min-w-0 space-y-0.5">
+                <div className="flex items-center justify-center gap-1 text-xs font-medium text-secondary-foreground">
                   <span className="size-2 rounded-full bg-rose-500" />
                   <span>Reject</span>
                 </div>
-                <div className="truncate font-mono text-xs font-semibold text-slate-900">
+                <div className="break-words font-mono text-xs font-semibold text-foreground">
                   {computedSopRules.rejectText}
                 </div>
               </div>
             </div>
 
             {/* Interval Mode Switcher */}
-            <div className="space-y-1.5 rounded-lg border border-slate-200 bg-slate-50/40 p-2.5">
+            <div className="space-y-1.5 rounded-lg border border-border bg-subtle p-2.5">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-slate-700">Interval Mode</span>
+                <span className="text-xs font-medium text-secondary-foreground">Interval mode</span>
                 <InfoTip text="Choose whether this test has both minimum and maximum limits, or only a single boundary." />
               </div>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-1.5">
                 {[
-                  { id: 'RANGE', label: 'Min to Max' },
-                  { id: 'MIN_ONLY', label: 'Min Only' },
-                  { id: 'MAX_ONLY', label: 'Max Only' },
+                  { id: 'RANGE', label: 'Min to max' },
+                  { id: 'MIN_ONLY', label: 'Min only' },
+                  { id: 'MAX_ONLY', label: 'Max only' },
                 ].map((m) => (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => setBoundaryType(m.id as 'RANGE' | 'MIN_ONLY' | 'MAX_ONLY')}
-                    className={`rounded-lg border px-2.5 py-1.5 text-center text-xs font-semibold transition ${
+                    className={`min-h-11 rounded-lg border px-2.5 text-center text-xs font-medium transition-colors ${
                       boundaryType === m.id
-                        ? 'border-slate-900 bg-slate-900 text-white shadow-2xs'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border bg-card text-secondary-foreground hover:bg-muted'
                     }`}
                   >
                     {m.label}
@@ -774,18 +774,18 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             </div>
 
             {/* Pass Range */}
-            <div className="space-y-1.5 rounded-lg border border-slate-200 bg-white p-2.5">
+            <div className="space-y-1.5 rounded-lg border border-border bg-card p-2.5">
               <div className="flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-emerald-500" />
-                <span className="text-xs font-semibold text-slate-800">Pass Range</span>
+                <span className="text-xs font-medium text-foreground">Pass range</span>
                 <InfoTip text="Values within this range pass automatically and release the milk." />
               </div>
 
               <div className={`grid gap-2 pt-0.5 ${boundaryType === 'RANGE' ? 'grid-cols-2' : 'grid-cols-1'}`}>
                 {boundaryType !== 'MAX_ONLY' && (
                   <div>
-                    <label htmlFor="lt-min" className="text-xs font-medium text-slate-600">
-                      Min Value {unit ? `(${unit})` : ''}
+                    <label htmlFor="lt-min" className="text-xs font-medium text-secondary-foreground">
+                      Min value {unit ? `(${unit})` : ''}
                     </label>
                     <input
                       id="lt-min"
@@ -800,8 +800,8 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                 )}
                 {boundaryType !== 'MIN_ONLY' && (
                   <div>
-                    <label htmlFor="lt-max" className="text-xs font-medium text-slate-600">
-                      Max Value {unit ? `(${unit})` : ''}
+                    <label htmlFor="lt-max" className="text-xs font-medium text-secondary-foreground">
+                      Max value {unit ? `(${unit})` : ''}
                     </label>
                     <input
                       id="lt-max"
@@ -818,10 +818,10 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             </div>
 
             {/* Warning Margin */}
-            <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2.5">
+            <div className="space-y-2 rounded-lg border border-border bg-card p-2.5">
               <div className="flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-amber-500" />
-                <span className="text-xs font-semibold text-slate-800">Warning Margin</span>
+                <span className="text-xs font-medium text-foreground">Warning margin</span>
                 <InfoTip text="Borderline tolerance readings that hold for QA review instead of passing or rejecting." />
               </div>
 
@@ -833,24 +833,24 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                     setWarnLowFloor('');
                     setWarnHighCeil('');
                   }}
-                  className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
+                  className={`min-h-11 rounded-lg border px-2 text-xs font-medium transition-colors ${
                     warningMode === 'STRICT'
-                      ? 'border-slate-900 bg-slate-900 text-white shadow-2xs'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-card text-secondary-foreground hover:bg-muted'
                   }`}
                 >
-                  No Warning
+                  No warning
                 </button>
                 <button
                   type="button"
                   onClick={() => setWarningMode('TOLERANCE')}
-                  className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
+                  className={`min-h-11 rounded-lg border px-2 text-xs font-medium transition-colors ${
                     warningMode === 'TOLERANCE'
-                      ? 'border-slate-900 bg-slate-900 text-white shadow-2xs'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-card text-secondary-foreground hover:bg-muted'
                   }`}
                 >
-                  Tolerance Margin
+                  Tolerance margin
                 </button>
               </div>
 
@@ -858,8 +858,8 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                 <div className={`grid gap-2 pt-1 ${boundaryType === 'RANGE' ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   {boundaryType !== 'MAX_ONLY' && (
                     <div>
-                      <label className="text-xs font-medium text-slate-600">
-                        Low Margin {unit ? `(${unit})` : ''}
+                      <label className="text-xs font-medium text-secondary-foreground">
+                        Low margin {unit ? `(${unit})` : ''}
                       </label>
                       <input
                         type="number"
@@ -869,15 +869,15 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                         placeholder="e.g. 6.60"
                         className={fieldInputClass}
                       />
-                      <span className="text-xs text-slate-500 font-mono mt-0.5 block">
+                      <span className="mt-0.5 block break-words font-mono text-xs text-muted-foreground">
                         Hold: [{warnLowFloor || '?'} to {minValue || 'Min'})
                       </span>
                     </div>
                   )}
                   {boundaryType !== 'MIN_ONLY' && (
                     <div>
-                      <label className="text-xs font-medium text-slate-600">
-                        High Margin {unit ? `(${unit})` : ''}
+                      <label className="text-xs font-medium text-secondary-foreground">
+                        High margin {unit ? `(${unit})` : ''}
                       </label>
                       <input
                         type="number"
@@ -887,7 +887,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                         placeholder="e.g. 7.00"
                         className={fieldInputClass}
                       />
-                      <span className="text-xs text-slate-500 font-mono mt-0.5 block">
+                      <span className="mt-0.5 block break-words font-mono text-xs text-muted-foreground">
                         Hold: ({maxValue || 'Max'} to {warnHighCeil || '?'}]
                       </span>
                     </div>
@@ -897,19 +897,19 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             </div>
 
             {/* Rejection Limit */}
-            <div className="space-y-1.5 rounded-lg border border-slate-200 bg-white p-2.5">
+            <div className="space-y-1.5 rounded-lg border border-border bg-card p-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-rose-500" />
-                  <span className="text-xs font-semibold text-slate-800">Rejection Limit</span>
+                  <span className="text-xs font-medium text-foreground">Rejection limit</span>
                   <InfoTip text="Values beyond this limit fail the test and trigger a rejection recommendation." />
                 </div>
-                <span className="text-xs font-semibold text-slate-500">
-                  {category === 'MONITORING' ? 'Monitoring Norm' : 'Auto-Derived'}
+                <span className="text-xs font-medium text-muted-foreground">
+                  {category === 'MONITORING' ? 'Monitoring Norm' : 'Worked out from limits'}
                 </span>
               </div>
 
-              <div className="font-mono text-xs font-semibold text-slate-900 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+              <div className="break-words rounded-lg border border-border bg-subtle px-3 py-2 font-mono text-xs font-semibold text-foreground">
                 {computedSopRules.rejectText}
               </div>
             </div>
@@ -922,29 +922,29 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
         {/* PHOTO EVIDENCE REQUIREMENT */}
         <div className="rounded-xl border border-border bg-card p-3">
           {!isEdit ? (
-            <label className="flex min-h-11 cursor-pointer select-none items-center gap-2 text-xs font-semibold text-slate-800">
+            <label className="flex min-h-11 cursor-pointer select-none items-center gap-2 text-xs font-medium text-foreground">
               <input
                 type="checkbox"
                 checked={photoRequired}
                 onChange={(e) => setPhotoRequired(e.target.checked)}
-                className="size-5 rounded border-slate-300 text-primary focus:ring-primary"
+                className="size-5 rounded border-border-strong text-primary focus:ring-primary"
               />
               <span>Require camera photo evidence for this test</span>
             </label>
           ) : (
             <div className="space-y-1">
-              <span className="text-xs font-semibold text-slate-800">Require camera photo evidence for this test</span>
+              <span className="text-xs font-medium text-foreground">Require camera photo evidence for this test</span>
               {photoStagesQuery.isPending ? (
-                <p className="text-xs text-slate-500">Loading stages…</p>
+                <p className="text-xs text-muted-foreground">Loading stages…</p>
               ) : photoStagesQuery.isError ? (
                 <p role="alert" className="text-xs font-semibold text-rose-800">{getErrorMessage(photoStagesQuery.error) || 'Could not load the photo rules.'}</p>
               ) : photoStagesQuery.data.calculated ? (
-                <p className="text-xs text-slate-500">Calculated automatically, no photo</p>
+                <p className="text-xs text-muted-foreground">Calculated automatically, no photo</p>
               ) : photoStages.length === 0 ? (
-                <p className="text-xs text-slate-500">Turn the test on for a stage in the Master Matrix to set its photo rule.</p>
+                <p className="text-xs text-muted-foreground">Turn the test on for a stage in the Master matrix to set its photo rule.</p>
               ) : (
                 photoStages.map((s) => (
-                  <label key={s.point} className="flex min-h-11 cursor-pointer select-none items-center gap-2 text-xs font-semibold text-slate-800">
+                  <label key={s.point} className="flex min-h-11 cursor-pointer select-none items-center gap-2 text-xs font-medium text-foreground">
                     <input
                       type="checkbox"
                       checked={stagePhotoRequired(s)}
@@ -952,7 +952,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                         const checked = e.target.checked;
                         setPhotoEdits((prev) => ({ ...prev, [s.point]: checked }));
                       }}
-                      className="size-5 rounded border-slate-300 text-primary focus:ring-primary"
+                      className="size-5 rounded border-border-strong text-primary focus:ring-primary"
                     />
                     <span>{TEST_POINT_LABELS[s.point]}</span>
                   </label>
@@ -963,18 +963,18 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
         </div>
 
         {/* LIVE RULE SIMULATOR */}
-        <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+        <div className="space-y-2 rounded-xl border border-border bg-subtle p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <Eye className="size-3.5 text-slate-700" />
-              <span className="text-xs font-semibold text-slate-800">Live Simulator</span>
+              <Eye className="size-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-foreground">Live simulator</span>
               <InfoTip text="Enter any test reading to preview the policy verdict in real time." />
             </div>
             {testSimulatorVal && (
               <button
                 type="button"
                 onClick={() => setTestSimulatorVal('')}
-                className="text-xs font-medium text-slate-500 hover:text-slate-800"
+                className="min-h-11 px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 Clear
               </button>
@@ -983,18 +983,18 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
 
           {isCategorical && options.length > 0 && (
             <div className="space-y-1">
-              <span className="text-xs font-medium text-slate-500">Click choice to test:</span>
+              <span className="text-xs font-medium text-muted-foreground">Choose one to test</span>
               <div className="flex flex-wrap gap-1.5">
                 {options.map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
                     onClick={() => setTestSimulatorVal(opt.value)}
-                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition ${
+                    className={`min-h-11 rounded-lg border px-2.5 text-xs font-medium transition-colors ${
                       testSimulatorVal.toLowerCase() === opt.value.toLowerCase() ||
                       testSimulatorVal.toLowerCase() === opt.label.toLowerCase()
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border bg-card text-secondary-foreground hover:bg-muted'
                     }`}
                   >
                     {opt.label || opt.value}
@@ -1009,8 +1009,8 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
               type="text"
               value={testSimulatorVal}
               onChange={(e) => setTestSimulatorVal(e.target.value)}
-              placeholder={(isNumeric || isCalculated) ? 'Enter sample value (e.g. 6.62)…' : 'Type or pick choice…'}
-              className="h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-mono font-medium text-slate-900 focus:border-slate-900 focus:outline-hidden"
+              placeholder={(isNumeric || isCalculated) ? 'Sample value, e.g. 6.62' : 'Type or pick a choice'}
+              className="min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-card px-3 font-mono text-xs font-medium text-foreground focus:border-primary focus:outline-hidden"
             />
           </div>
 
@@ -1035,7 +1035,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
         <DrawerActions
           busy={busy}
           onCancel={onClose}
-          submitLabel={isEdit ? 'Update Lab Test' : 'Create Lab Test'}
+          submitLabel={isEdit ? 'Update lab test' : 'Create lab test'}
           busyLabel={isEdit ? 'Saving…' : 'Creating…'}
         />
       </form>
@@ -1072,7 +1072,7 @@ export function LabTestStatusDrawer({
       open
       onClose={onClose}
       busy={mutation.isPending}
-      title={isActivate ? `Activate Test (${test.testCode})` : `Deactivate Test (${test.testCode})`}
+      title={isActivate ? `Activate test (${test.testCode})` : `Deactivate test (${test.testCode})`}
     >
       <form
         onSubmit={(e) => {
@@ -1084,13 +1084,13 @@ export function LabTestStatusDrawer({
         }}
         className="space-y-4"
       >
-        <p className="text-xs text-slate-700">
+        <p className="text-xs text-secondary-foreground">
           Are you sure you want to {isActivate ? 'activate' : 'deactivate'} <strong>{test.testName}</strong>?
         </p>
         <DrawerActions
           busy={mutation.isPending}
           onCancel={onClose}
-          submitLabel={isActivate ? 'Activate Test' : 'Deactivate Test'}
+          submitLabel={isActivate ? 'Activate test' : 'Deactivate test'}
           busyLabel="Processing…"
         />
       </form>

@@ -24,6 +24,12 @@ const rules = [
   { name: 'bullet character (use "·" or a real list)', test: (l) => /•|&bull;/.test(l) },
   { name: 'stray symbol (use a lucide icon)', test: (l) => /[×✕✖✗✓✔⚠]/.test(l) },
   { name: 'refresh icon (not used in this UI; use Loader2 for spinners)', test: (l) => /<(RefreshCw|RotateCw|RefreshCcw)\b/.test(l) },
+  { name: 'text under 12px (use text-xs)', test: (l) => /text-\[(8|9|10|11)px\]/.test(l) },
+  { name: 'browser confirm box (use confirmAction)', test: (l) => /(window\.|[^.\w])confirm\(/.test(l) },
+  { name: 'old wording: Assigned Shops (use Active shops)', test: (l) => /Assigned Shops?\b|Shops Assigned/.test(l) },
+  { name: 'old wording: Local Supplier (use HC supplier)', test: (l) => />[^<{]*\bLocal Suppliers?\b[^<{]*</.test(l) },
+  { name: 'old wording: MOT in visible text (use Mobile Tester)', test: (l) => />[^<{]*\bMOT\b[^<{]*</.test(l) || /\b(label|title|header|placeholder): *['"`][^'"`]*\bMOT\b/.test(l) },
+  { name: 'hype word in visible text', test: (l) => />[^<{]*\b(Seamless|Enterprise|Comprehensive|Operational)\b[^<{]*</.test(l) },
 ];
 
 function walk(dir) {

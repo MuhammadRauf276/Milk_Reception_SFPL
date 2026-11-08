@@ -34,7 +34,7 @@ export function SyncBar({ isOnline, unsyncedCount, lastSyncTime, syncFeedback, s
                 )}
               </span>
 
-              <span className="text-xs text-secondary-foreground font-semibold truncate">
+              <span className="text-xs text-secondary-foreground font-semibold break-words min-w-0">
                 {unsyncedCount > 0 ? (
                   <span className="text-primary font-semibold">{unsyncedCount} pending sync</span>
                 ) : (

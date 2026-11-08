@@ -192,7 +192,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
                           {getActionBadge(item.action, item.actionLabel)}
                         </td>
                         <td className="py-3 px-3.5 whitespace-nowrap">
-                          <div className="font-mono font-semibold uppercase tracking-wider text-foreground">
+                          <div className="font-mono font-semibold uppercase text-foreground">
                             {item.vehicleNumber}
                           </div>
                           {item.tokenNumber && (

@@ -13,7 +13,6 @@ import {
   ShieldAlert,
   Camera,
   Check,
-  Search,
 } from 'lucide-react';
 import { User } from '@core/types';
 import { fadeSlide } from '@/components/motion/presets';
@@ -26,6 +25,10 @@ import {
   LabTestStatusDrawer,
   type LabTest,
 } from './lab-tests/LabTestDrawers';
+import { Button } from '@/components/ui/button';
+import { DataFilters, FilterToggle } from '@/components/ui/data-filters';
+import { SkeletonTable } from '@/components/ui/loaders';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 import { type TestPointCode, TEST_POINT_LABELS } from '@/types/test-point-policy';
 
 const ROW_PAGE_SIZE = 35;
@@ -261,97 +264,75 @@ function WorkspaceInner({
       </AnimatePresence>
 
       {/* Unified Master Catalog Workspace */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xs">
         {/* Master Matrix Workspace Header */}
-        <div className="border-b border-border bg-slate-100/90 p-3 sm:px-4 sm:py-3.5">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-foreground">Master Test Matrix (All 6 Stages)</h2>
+        <div className="border-b border-border bg-subtle p-3 sm:px-4 sm:py-3.5">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-foreground">Master test matrix (all 6 stages)</h2>
               <p className="text-xs text-muted-foreground">
-                Authoritative dairy specifications & test mode policies across MOT Shop, ZMCC MC, ZMCC HC, ZMCC Dispatch, Contractor Dispatch, and Plant QA Reception.
+                Dairy specifications and test mode policies across Mobile Tester shop, ZMCC MC, ZMCC HC, ZMCC Dispatch, Contractor Dispatch and Plant QA.
               </p>
             </div>
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-secondary-foreground bg-card border border-border rounded-lg px-2.5 py-1">
+            <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-secondary-foreground">
               <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
-              <span>All 6 Stages Active</span>
+              <span>All 6 stages active</span>
             </div>
           </div>
         </div>
 
         {/* Toolbar: Search, Status Filter & Add Lab Test */}
         <div className="space-y-3 border-b border-border bg-subtle p-3 sm:px-4 sm:py-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-foreground">
-                Master Matrix
+                Master matrix
               </span>
-              <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-secondary-foreground">
+              <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-medium tabular-nums text-secondary-foreground">
                 {catalogPagination?.totalRecords ?? catalogTests.length} tests
               </span>
             </div>
             {canEdit && (
-              <button
-                type="button"
-                onClick={() => setCatalogDrawer({ kind: 'create' })}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-primary-hover"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add test</span>
-              </button>
+              <Button onClick={() => setCatalogDrawer({ kind: 'create' })}>
+                <Plus />
+                Add test
+              </Button>
             )}
           </div>
 
           {/* Search & Status Filters */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <input
-                type="search"
-                value={catalogSearch}
-                onChange={(e) => {
-                  setCatalogSearch(e.target.value);
-                  setCatalogPage(1);
-                }}
-                placeholder="Search tests…"
-                aria-label="Search lab tests"
-                className="h-10 w-full rounded-lg border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
-              />
-            </div>
-            <div role="group" aria-label="Status filter" className="flex gap-1">
-              {STATUS_FILTER_OPTIONS.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  aria-pressed={catalogStatus === o.value}
-                  onClick={() => {
-                    setCatalogStatus(o.value);
-                    setCatalogPage(1);
-                  }}
-                  className={`h-10 rounded-xl border px-3 text-xs font-semibold transition-colors ${
-                    catalogStatus === o.value
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border-strong bg-card text-secondary-foreground hover:bg-subtle'
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <DataFilters
+            search={catalogSearch}
+            onSearchChange={(v) => {
+              setCatalogSearch(v);
+              setCatalogPage(1);
+            }}
+            searchPlaceholder="Search tests"
+          >
+            <FilterToggle
+              label="Status filter"
+              options={STATUS_FILTER_OPTIONS}
+              value={catalogStatus}
+              onChange={(v) => {
+                setCatalogStatus(v);
+                setCatalogPage(1);
+              }}
+            />
+          </DataFilters>
         </div>
 
         {/* Master Catalog Table: Master Matrix (All 6 Stages Side-by-Side) */}
-        <div className="w-full overflow-x-auto">
+        <TableWrapper>
             <table className="w-full min-w-[1330px] text-left text-xs">
-              <thead className="border-b border-border bg-slate-100/90 text-secondary-foreground">
+              <thead className="border-b border-border bg-subtle text-secondary-foreground">
                 <tr>
                   <th className="w-10 p-2.5 text-center font-semibold">#</th>
                   <th className="p-2.5 font-semibold">Code</th>
-                  <th className="p-2.5 font-semibold">Test Name</th>
+                  <th className="p-2.5 font-semibold">Test name</th>
                   <th className="p-2.5 font-semibold">Category</th>
-                  <th className="p-2.5 font-semibold text-emerald-800">Pass Range</th>
-                  <th className="p-2.5 font-semibold text-amber-800">Warning Hold</th>
-                  <th className="p-2.5 font-semibold text-rose-800">Fail Reject</th>
+                  <th className="p-2.5 font-semibold text-emerald-800">Pass range</th>
+                  <th className="p-2.5 font-semibold text-amber-800">Warning hold</th>
+                  <th className="p-2.5 font-semibold text-rose-800">Fail reject</th>
                   {MATRIX_STAGES.map((ms) => (
                     <th key={ms.code} className="p-2 text-center font-semibold">
                       {ms.shortLabel}
@@ -361,11 +342,11 @@ function WorkspaceInner({
                   {canEdit && <th className="sticky right-0 bg-muted p-2 text-right font-semibold">Actions</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200/70 font-medium">
+              <tbody className="divide-y divide-border font-medium">
                 {catalogQuery.isPending ? (
                   <tr>
-                    <td colSpan={15} className="p-8 text-center font-semibold text-muted-foreground">
-                      Loading matrix…
+                    <td colSpan={15} className="p-4">
+                      <SkeletonTable rows={8} />
                     </td>
                   </tr>
                 ) : catalogTests.length === 0 ? (
@@ -380,24 +361,24 @@ function WorkspaceInner({
                     const stageModes = t.stageModes || {};
 
                     return (
-                      <tr key={t.id} className={`transition-colors hover:bg-subtle ${t.isActive ? '' : 'bg-slate-50/70 text-muted-foreground'}`}>
+                      <tr key={t.id} className={`transition-colors hover:bg-subtle ${t.isActive ? '' : 'bg-subtle text-muted-foreground'}`}>
                         <td className="p-2.5 text-center font-semibold tabular-nums text-muted-foreground">
                           {t.displayOrder}
                         </td>
                         <td className="p-2.5 font-mono font-semibold text-foreground tabular-nums">
                           {t.testCode}
                         </td>
-                        <td className="p-2.5 font-semibold text-foreground max-w-[180px]">
+                        <td className="p-2.5 font-semibold text-foreground min-w-[8rem]">
                           <div>{t.testName}</div>
                           {t.unit && <span className="text-xs text-muted-foreground font-normal">({t.unit})</span>}
                         </td>
                         <td className="p-2.5">
                           {isMonitoring ? (
-                            <span className="inline-block rounded bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 border border-purple-200" title="Monitoring Norm: Compulsory to record for yield/pricing, but never rejects milk">
+                            <span className="inline-block rounded border border-border bg-muted px-2 py-0.5 text-xs font-medium text-secondary-foreground" title="Monitoring Norm: Compulsory to record for yield/pricing, but never rejects milk">
                               Monitoring Norm
                             </span>
                           ) : (
-                            <span className="inline-block rounded bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200">
+                            <span className="inline-block rounded border border-border bg-muted px-2 py-0.5 text-xs font-medium text-secondary-foreground">
                               Complete SOP
                             </span>
                           )}
@@ -413,13 +394,13 @@ function WorkspaceInner({
                               {t.warningHoldText}
                             </span>
                           ) : (
-                            <span className="text-xs text-muted-foreground font-normal">None (Strict)</span>
+                            <span className="text-xs text-muted-foreground font-normal">None (strict)</span>
                           )}
                         </td>
                         <td className="p-2.5 font-semibold text-rose-800 tabular-nums whitespace-nowrap">
                           {isMonitoring ? (
-                            <span className="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 border border-purple-200">
-                              None (Norm)
+                            <span className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium text-secondary-foreground">
+                              None (norm)
                             </span>
                           ) : t.failRejectText && t.failRejectText !== '—' ? (
                             <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-800 border border-rose-200 shadow-2xs">
@@ -451,7 +432,7 @@ function WorkspaceInner({
                                       mode: e.target.value,
                                     });
                                   }}
-                                  className={`rounded px-1.5 py-1 text-[10px] font-bold transition focus:outline-hidden ${
+                                  className={`min-h-11 rounded-lg px-1.5 text-xs font-semibold transition-colors focus:outline-hidden ${
                                     isAuto
                                       ? 'bg-purple-100 text-purple-900 border border-purple-300'
                                       : isCmp
@@ -460,7 +441,7 @@ function WorkspaceInner({
                                       ? 'bg-sky-100 text-sky-900 border border-sky-300'
                                       : 'bg-muted text-muted-foreground border border-border'
                                   }`}
-                                  title={`${TEST_POINT_LABELS[ms.code]}: Click to change mode`}
+                                  title={`${TEST_POINT_LABELS[ms.code]}: change mode`}
                                 >
                                   <option value="COMPULSORY">CMP</option>
                                   <option value="APPLIED">APPL</option>
@@ -469,7 +450,7 @@ function WorkspaceInner({
                                 </select>
                               ) : (
                                 <span
-                                  className={`inline-block rounded px-2 py-0.5 text-[10px] font-bold ${
+                                  className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${
                                     isAuto
                                       ? 'bg-purple-100 text-purple-900'
                                       : isCmp
@@ -487,7 +468,7 @@ function WorkspaceInner({
                         })}
 
                         {/* Status: Inactive = off at all stages; Active = only the stages selected above */}
-                        <td className="p-2.5 text-center whitespace-nowrap">
+                        <td className="p-2.5 text-center">
                           {canEdit ? (
                             <button
                               type="button"
@@ -496,17 +477,17 @@ function WorkspaceInner({
                                 setCatalogDrawer({ kind: 'status', test: t, action: t.isActive ? 'DEACTIVATE' : 'ACTIVATE' });
                               }}
                               title={t.isActive ? 'Active: shown at the selected stages. Click to deactivate (off at all stages).' : 'Inactive: off at all stages. Click to activate.'}
-                              className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
+                              className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors ${
                                 t.isActive
                                   ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
                                   : 'border-border-strong bg-muted text-secondary-foreground hover:bg-muted'
                               }`}
                             >
-                              <span className={`h-2 w-2 rounded-full ${t.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                              <span className={`h-2 w-2 rounded-full ${t.isActive ? 'bg-emerald-500' : 'bg-border-strong'}`} />
                               {t.isActive ? 'Active' : 'Inactive'}
                             </button>
                           ) : (
-                            <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${t.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-muted-foreground'}`}>
+                            <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${t.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-muted text-muted-foreground'}`}>
                               {t.isActive ? 'Active' : 'Inactive'}
                             </span>
                           )}
@@ -515,17 +496,17 @@ function WorkspaceInner({
                         {/* Actions */}
                         {canEdit && (
                           <td className="sticky right-0 bg-card p-2.5 text-right whitespace-nowrap">
-                            <button
-                              type="button"
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => {
                                 resetNotices();
                                 setCatalogDrawer({ kind: 'edit', test: t });
                               }}
-                              className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-border-strong bg-muted px-2 py-1 text-xs font-semibold text-foreground transition hover:bg-muted"
                             >
-                              <Edit2 className="h-3 w-3" />
-                              <span>Edit</span>
-                            </button>
+                              <Edit2 />
+                              Edit
+                            </Button>
                           </td>
                         )}
                       </tr>
@@ -534,7 +515,7 @@ function WorkspaceInner({
                 )}
               </tbody>
             </table>
-        </div>
+        </TableWrapper>
 
         {/* Pagination */}
         <PaginationBar
@@ -587,11 +568,7 @@ function WorkspaceInner({
 export const UnifiedStagePoliciesRulesWorkspace: React.FC<UnifiedStagePoliciesRulesWorkspaceProps> = (props) => {
   return (
     <Suspense
-      fallback={
-        <div className="flex items-center justify-center p-12 text-xs font-semibold text-muted-foreground">
-          Loading Laboratory Workspace…
-        </div>
-      }
+      fallback={<SkeletonTable rows={8} />}
     >
       <WorkspaceInner {...props} />
     </Suspense>

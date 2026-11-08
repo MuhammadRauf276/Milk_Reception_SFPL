@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { InfoTip } from '@/components/ui/info-tip';
+import { formatDateTime } from '@/lib/format';
 
 export type ExitOutcomeRow = {
   sessionId: string;
@@ -48,7 +49,7 @@ export function ZmccExitOutcomes({ left, pending, canDecide, busy, onDecide }: {
         <p className="font-medium">{row.arrivalLabel === 'MC' ? 'Mobile Tester' : row.arrivalLabel} · {row.reference}{row.vehicleNumber ? ` · ${row.vehicleNumber}` : ''}</p>
         <p className="text-secondary-foreground">Not received: <strong>{qty(row)}</strong></p>
         <div className="flex items-center gap-1 text-secondary-foreground"><span>{row.requestedBy ?? '—'}</span>
-          <InfoTip text={[row.reasonCode ? REASON_LABELS[row.reasonCode] ?? row.reasonCode : null, row.remarks, row.requestedAt ? new Date(row.requestedAt).toLocaleString() : null].filter(Boolean).join(' · ') || 'No details'} /></div>
+          <InfoTip text={[row.reasonCode ? REASON_LABELS[row.reasonCode] ?? row.reasonCode : null, row.remarks, row.requestedAt ? formatDateTime(row.requestedAt) : null].filter(Boolean).join(' · ') || 'No details'} /></div>
         {canDecide ? <div className="space-y-1">
           <input value={remarks[row.sessionId] ?? ''} onChange={(e) => setRemarks((c) => ({ ...c, [row.sessionId]: e.target.value }))} placeholder="Remarks (min 3 letters)" aria-label="Decision remarks" className="min-h-11 w-full rounded border border-border-strong px-2" />
           <div className="flex gap-2">
@@ -64,7 +65,7 @@ export function ZmccExitOutcomes({ left, pending, canDecide, busy, onDecide }: {
         <p className="font-medium">{row.arrivalLabel === 'MC' ? 'Mobile Tester' : row.arrivalLabel} · {row.reference}{row.vehicleNumber ? ` · ${row.vehicleNumber}` : ''}{row.sourceName ? ` · ${row.sourceName}` : ''}</p>
         <p className="text-secondary-foreground">{row.exitOutcome === 'PARTLY_RECEIVED' ? 'Partly received' : 'Not received'}: <strong>{qty(row)}</strong></p>
         <div className="flex items-center gap-1 text-muted-foreground"><span>{row.reasonCode ? REASON_LABELS[row.reasonCode] ?? row.reasonCode : '—'}</span>
-          <InfoTip text={[row.remarks, row.recordedBy, row.recordedAt ? new Date(row.recordedAt).toLocaleString() : null].filter(Boolean).join(' · ') || 'No details'} /></div>
+          <InfoTip text={[row.remarks, row.recordedBy, row.recordedAt ? formatDateTime(row.recordedAt) : null].filter(Boolean).join(' · ') || 'No details'} /></div>
       </div>) : <p className="mt-2 text-muted-foreground">None</p>}
     </div>
   </div>;

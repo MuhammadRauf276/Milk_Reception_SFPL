@@ -2,6 +2,9 @@
 
 import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import { InfoTip } from '@/components/ui/info-tip';
+import { Button } from '@/components/ui/button';
+import { SkeletonTable } from '@/components/ui/loaders';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Camera, CheckCircle2, CircleSlash, Lock, MinusCircle, Save, ShieldCheck, X } from 'lucide-react';
 import { TEST_POINT_LABELS } from '@/types/test-point-policy';
@@ -46,7 +49,7 @@ const FIELD_OPTIONS: Record<Field, { title: string; options: Option[] }> = {
 const TONE_ACTIVE: Record<Tone, string> = {
   good: 'bg-emerald-600 text-white border-emerald-700',
   warn: 'bg-amber-500 text-foreground border-amber-600',
-  off: 'bg-slate-600 text-white border-slate-700',
+  off: 'bg-muted-foreground text-white border-muted-foreground',
 };
 
 const FIELDS: Field[] = ['testMode', 'ruleMode', 'photoMode'];
@@ -147,25 +150,20 @@ export function TestPointPolicyMatrix() {
     }
   };
 
-  if (loading) return <div className="p-8 text-sm font-semibold text-secondary-foreground">Loading test matrix…</div>;
+  if (loading) return <div className="p-4"><SkeletonTable rows={8} /></div>;
 
   return (
     <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center text-xl font-semibold text-foreground">Test Matrix<InfoTip text="What is tested, how rules act and which photos are needed at each point." /></h1>
+          <h1 className="flex items-center text-base font-semibold text-foreground">Test matrix<InfoTip text="What is tested, how rules act and which photos are needed at each point." /></h1>
         </div>
         {canEdit ? (
-          <button
-            type="button"
-            disabled={changedCells.length === 0}
-            onClick={() => setShowReason(true)}
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-emerald-700 px-5 text-sm font-semibold text-white disabled:opacity-40"
-          >
-            <Save className="h-4 w-4" /> Save changes ({changedCells.length})
-          </button>
+          <Button disabled={changedCells.length === 0} onClick={() => setShowReason(true)}>
+            <Save /> Save changes ({changedCells.length})
+          </Button>
         ) : (
-          <span className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-muted px-4 text-sm font-semibold text-secondary-foreground">
+          <span className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-muted px-4 text-sm font-medium text-secondary-foreground">
             <Lock className="h-4 w-4" /> View only
           </span>
         )}
@@ -182,7 +180,7 @@ export function TestPointPolicyMatrix() {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+      <TableWrapper className="rounded-2xl border border-border bg-card">
         <table className="min-w-full border-collapse text-left text-xs">
           <thead>
             <tr className="bg-subtle">
@@ -223,7 +221,7 @@ export function TestPointPolicyMatrix() {
                                     aria-checked={active}
                                     disabled={!canEdit}
                                     onClick={() => setField(c, f, o.value)}
-                                    className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 border-l border-slate-300 px-1 text-[11px] font-bold first:border-l-0 ${
+                                    className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 border-l border-border-strong px-1 text-xs font-medium first:border-l-0 ${
                                       active ? TONE_ACTIVE[o.tone] : 'bg-card text-secondary-foreground'
                                     } ${canEdit ? '' : 'cursor-default'}`}
                                   >
@@ -246,11 +244,11 @@ export function TestPointPolicyMatrix() {
             ))}
           </tbody>
         </table>
-      </div>
+      </TableWrapper>
 
       {showReason && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label="Reason for change">
-          <div className="w-full max-w-md space-y-3 rounded-2xl bg-card p-5 shadow-xl">
+          <div className="w-full max-w-md space-y-3 rounded-2xl bg-card p-5 shadow-lg">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">Why are you changing this?</h2>
               <button type="button" onClick={() => setShowReason(false)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-lg text-secondary-foreground">
@@ -269,14 +267,9 @@ export function TestPointPolicyMatrix() {
               <button type="button" onClick={() => setShowReason(false)} className="min-h-[44px] flex-1 rounded-lg border border-border-strong text-sm font-semibold text-secondary-foreground">
                 Cancel
               </button>
-              <button
-                type="button"
-                disabled={saving || reason.trim().length < 5}
-                onClick={() => void save()}
-                className="min-h-[44px] flex-1 rounded-lg bg-emerald-700 text-sm font-semibold text-white disabled:opacity-40"
-              >
+              <Button className="flex-1" disabled={saving || reason.trim().length < 5} onClick={() => void save()}>
                 {saving ? 'Saving…' : 'Confirm and save'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

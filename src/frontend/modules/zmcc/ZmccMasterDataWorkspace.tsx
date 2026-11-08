@@ -1,5 +1,6 @@
 'use client';
 
+import { SkeletonTable } from '@/components/ui/loaders';
 import React, { useState, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,7 +19,6 @@ import {
   Plus,
   AlertCircle,
   CheckCircle2,
-  Loader2,
   Users,
   ShieldCheck,
   type LucideIcon,
@@ -314,7 +314,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             <>
               <div className="bg-card p-4 rounded-2xl border border-border flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
                 <div className="flex flex-wrap items-center gap-2.5 flex-1">
-                  <div className="relative flex-1 min-w-[200px] max-w-sm">
+                  <div className="relative flex-1 w-full sm:w-auto sm:min-w-[200px] max-w-sm">
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <input
                       type="text"
@@ -399,10 +399,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
 
               <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden">
                 {loading ? (
-                  <div className="p-12 text-center flex flex-col items-center justify-center text-muted-foreground space-y-2">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    <span className="text-xs font-semibold">Loading master data…</span>
-                  </div>
+                  <SkeletonTable />
                 ) : (
                   <div className="overflow-x-auto">
                     <MasterTables

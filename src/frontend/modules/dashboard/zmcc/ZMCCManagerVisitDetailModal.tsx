@@ -423,7 +423,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                   Receipt Status
                 </span>
                 <span
-                  className={`text-xs font-semibold uppercase inline-block px-2 py-0.5 rounded ${
+                  className={`text-xs font-semibold inline-block px-2 py-0.5 rounded ${
                     isCompletedReceipt
                       ? 'bg-emerald-100 text-emerald-800'
                       : isReceiptPending

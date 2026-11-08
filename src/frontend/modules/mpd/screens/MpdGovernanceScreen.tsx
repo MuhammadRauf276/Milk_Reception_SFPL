@@ -6,6 +6,7 @@ import type { GovernanceOverrideTelemetry, ZmccCenterTelemetry } from '../types'
 import { InfoTip } from '@/components/ui/info-tip';
 import { NO_DATA } from '../format';
 import { Pager, paginate, pageCount } from '@/frontend/modules/dashboard/components/Pager';
+import { formatDateTime } from '@/lib/format';
 
 interface MpdGovernanceScreenProps {
   overrides: GovernanceOverrideTelemetry[];
@@ -175,7 +176,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
                     <td className="py-3 px-4">
                       <div className="text-foreground font-semibold">{o.overruledBy ?? NO_DATA}</div>
                       <div className="text-muted-foreground text-xs tabular-nums">
-                        {new Date(o.timestamp).toLocaleString()}
+                        {formatDateTime(o.timestamp)}
                       </div>
                     </td>
                     <td className="py-3 px-4 text-center">

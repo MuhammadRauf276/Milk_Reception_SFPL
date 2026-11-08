@@ -1,5 +1,6 @@
 'use client';
 
+import { formatTime } from '@/lib/format';
 import React from 'react';
 import { CheckCircle2, Clock } from 'lucide-react';
 import type { McArrivalRow } from './arrivalTypes';
@@ -64,11 +65,11 @@ export const McSuccessCard: React.FC<{
                       Mobile Tester Journey Final Summary (v{result.journey.summary.summary_version}, Rev #{result.journey.summary.revision})
                     </span>
                     <span className="text-xs font-semibold text-muted-foreground">
-                      Ended: {new Date(result.journey.summary.journey_ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} PKT
+                      Ended: {formatTime(result.journey.summary.journey_ended_at)} PKT
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,6rem),1fr))] gap-2 text-center">
                     <div className="bg-card border-border p-2 rounded-lg border">
                       <div className="text-xs font-semibold text-muted-foreground">Active shops</div>
                       <div className="text-sm font-semibold text-foreground">{result.journey.summary.assigned_shop_count}</div>

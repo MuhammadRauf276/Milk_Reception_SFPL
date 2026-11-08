@@ -1,5 +1,7 @@
 'use client';
 
+import { SkeletonList } from '@/components/ui/loaders';
+import { formatDate, formatDateTime } from '@/lib/format';
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -478,11 +480,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
   });
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center p-12 text-xs font-semibold text-muted-foreground">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" /> Loading…
-      </div>
-    );
+    return <SkeletonList count={3} />;
   }
 
   return (
@@ -493,7 +491,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
           <div className="flex items-center space-x-2">
             <FlaskConical className="h-5 w-5 text-primary" />
             <h3 className="text-base font-semibold text-foreground">
-              {arrivalType === 'MOT' ? 'Mobile Tester Arrival Testing' : 'HC Arrival Testing'}
+              {arrivalType === 'MOT' ? 'Mobile Tester arrival testing' : 'HC arrival testing'}
             </h3>
             <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-primary">
               {state?.testMode === 'COMPOSITE' ? 'Composite' : 'Portion-wise'}
@@ -693,7 +691,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                     )}
                     {p.reviewedAt && (
                       <p className="text-xs text-muted-foreground pt-1">
-                        Manager decided {new Date(p.reviewedAt).toLocaleDateString()}
+                        Manager decided {formatDate(p.reviewedAt)}
                         {p.reviewRemarks ? `: "${p.reviewRemarks}"` : ''}
                       </p>
                     )}
@@ -800,7 +798,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                     )}
                     {modalPortion.reviewedAt && (
                       <p>
-                        Manager decided {new Date(modalPortion.reviewedAt).toLocaleString()}
+                        Manager decided {formatDateTime(modalPortion.reviewedAt)}
                         {modalPortion.reviewRemarks ? `: "${modalPortion.reviewRemarks}"` : ''}
                       </p>
                     )}

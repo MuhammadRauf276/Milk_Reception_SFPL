@@ -1,5 +1,7 @@
 'use client';
 
+import { SkeletonList } from '@/components/ui/loaders';
+import { formatTime } from '@/lib/format';
 import React, { useState, useEffect, useCallback } from 'react';
 import { User } from '@core/types';
 import {
@@ -7,7 +9,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   X,
-  Loader2,
 } from 'lucide-react';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
@@ -187,12 +188,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
   }
 
   if (isLoading) {
-    return (
-      <div className="p-16 bg-card rounded-xl border border-border text-center space-y-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto" />
-        <p className="text-xs font-semibold text-slate-600">Loading live journey tracking data…</p>
-      </div>
-    );
+    return <SkeletonList count={3} />;
   }
 
   if (error || !mapData) {
@@ -310,7 +306,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
               {totals.gps_point_count} pts
             </span>
             <span className="text-xs text-slate-400 block">
-              {new Date(totals.last_sync_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {formatTime(totals.last_sync_time)}
             </span>
           </div>
         </div>
@@ -342,7 +338,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                   {selectedStop.shop_name} ({selectedStop.shop_code})
                 </span>
                 <span
-                  className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${
+                  className={`text-xs font-semibold uppercase px-2 py-0.5 rounded-full ${
                     selectedStop.status === 'VISITED'
                       ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-500'
                       : 'bg-amber-900/60 text-amber-300 border border-amber-500'
@@ -420,7 +416,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                   <span className="text-xs text-amber-700 font-medium">Pending Collection</span>
                 )}
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                  className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${
                     s.status === 'VISITED'
                       ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-amber-100 text-amber-800'

@@ -66,7 +66,7 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
                 {isCompleted ? (
                   <CheckCircle2 className="w-4 h-4" />
                 ) : isCurrent ? (
-                  <div className="w-2.5 h-2.5 bg-card rounded-full animate-pulse" />
+                  <div className="w-2.5 h-2.5 bg-card rounded-full" />
                 ) : (
                   <Icon className="w-3.5 h-3.5" />
                 )}
@@ -87,7 +87,7 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
               {/* Specific Stage Contexts */}
               {stage.id === 'PLANT_QA' && stage.detailText && (
                 <span
-                  className={`mt-1 text-[10px] tabular-nums font-semibold px-1.5 py-0.5 rounded ${
+                  className={`mt-1 text-xs tabular-nums font-semibold px-1.5 py-0.5 rounded ${
                     lifecycle.portionQA.badgeType === 'ALL_ACCEPTED'
                       ? 'bg-emerald-50 text-emerald-800'
                       : lifecycle.portionQA.badgeType === 'ALL_REJECTED' || lifecycle.portionQA.badgeType === 'MIXED'

@@ -172,7 +172,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 min-w-0">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-3.5 min-w-0">
           {/* 1. Vehicle Selection (Combobox for ZMCC with manual fallback, text input for Contractor) */}
           <div className="space-y-1 min-w-0">
             <div className="flex items-center justify-between">
@@ -268,7 +268,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                   }}
                   className="text-xs text-primary hover:underline font-medium"
                 >
-                  {isManualEscort ? '← Select MOT escort' : 'Manual Entry →'}
+                  {isManualEscort ? '← Select Mobile Tester escort' : 'Manual Entry →'}
                 </button>
               )}
             </div>
@@ -281,13 +281,13 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                   onValueChange={(val) => onSelectMotProfileId?.(val)}
                   placeholder={
                     isLoadingResources
-                      ? 'Loading MOT escorts…'
+                      ? 'Loading Mobile Tester escorts…'
                       : availableMotProfiles.length === 0
-                        ? 'No MOT escorts found'
-                        : 'Select free MOT escort'
+                        ? 'No Mobile Tester escorts found'
+                        : 'Select free Mobile Tester escort'
                   }
-                  searchPlaceholder="Search MOT name or code"
-                  emptyText="No MOT escort match"
+                  searchPlaceholder="Search Mobile Tester name or code"
+                  emptyText="No Mobile Tester escort match"
                   disabled={availableMotProfiles.length === 0}
                   className={motError ? 'border-rose-500 ring-1 ring-rose-500' : ''}
                 />

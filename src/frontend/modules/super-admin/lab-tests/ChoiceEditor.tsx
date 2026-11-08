@@ -145,7 +145,7 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
                     type="button"
                     aria-pressed={current === o.value}
                     onClick={() => update(idx, { outcome: o.value, isPassing: o.value === 'PASS' ? true : o.value === 'FAIL' ? false : null })}
-                    className={`h-11 flex-1 rounded border text-xs font-bold ${
+                    className={`min-h-11 flex-1 rounded-lg border text-xs font-semibold transition-colors ${
                       current === o.value ? o.cls : 'border-border bg-card text-muted-foreground hover:bg-subtle'
                     }`}
                   >

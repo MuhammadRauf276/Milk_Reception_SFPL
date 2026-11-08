@@ -129,13 +129,13 @@ export default function PublicYardTVBoardPage() {
       <main className="flex-1 p-4 sm:p-6 flex flex-col justify-between max-w-7xl w-full mx-auto">
         <PageTransition>
           <div>
-            <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-2xs mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-2xs mb-6 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center space-x-3">
                 <div className="p-2.5 bg-primary text-white rounded-xl shadow-2xs shrink-0">
                   <Tv className="w-6 h-6" />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <h1 className="text-base sm:text-lg font-semibold tracking-tight text-foreground">
+                  <h1 className="text-base sm:text-lg font-semibold text-foreground">
                     Yard Status Board
                   </h1>
                   <InfoTip text="Live industrial plant yard and tanker queue display." />
@@ -151,7 +151,7 @@ export default function PublicYardTVBoardPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-4">
               {activeVehicles.length === 0 ? (
                 <div className="col-span-full space-y-4">
                   <div className="p-10 text-center border border-border rounded-xl bg-card text-muted-foreground shadow-2xs">
@@ -162,8 +162,8 @@ export default function PublicYardTVBoardPage() {
                     <p className="text-xs text-muted-foreground mt-1">No tankers dispatched to the plant</p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="p-4 rounded-2xl border border-border bg-card flex items-center justify-between">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3">
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card p-4">
                       <div className="flex items-center space-x-3">
                         <Scale className="w-5 h-5 text-primary" />
                         <div>
@@ -176,7 +176,7 @@ export default function PublicYardTVBoardPage() {
                       </span>
                     </div>
 
-                    <div className="p-4 rounded-2xl border border-border bg-card flex items-center justify-between">
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card p-4">
                       <div className="flex items-center space-x-3">
                         <Building2 className="w-5 h-5 text-primary" />
                         <div>
@@ -189,7 +189,7 @@ export default function PublicYardTVBoardPage() {
                       </span>
                     </div>
 
-                    <div className="p-4 rounded-2xl border border-border bg-card flex items-center justify-between">
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card p-4">
                       <div className="flex items-center space-x-3">
                         <FlaskConical className="w-5 h-5 text-primary" />
                         <div>
@@ -217,10 +217,10 @@ export default function PublicYardTVBoardPage() {
                           : 'bg-card border-border/80 hover:border-primary/40'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-1.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums tracking-wide shadow-2xs ${
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-semibold tabular-nums shadow-2xs ${
                               isNext ? 'bg-primary text-white' : 'bg-muted text-slate-700 border border-border'
                             }`}
                           >
@@ -236,8 +236,8 @@ export default function PublicYardTVBoardPage() {
                       </div>
 
                       <div>
-                        <div className="flex items-center justify-between">
-                          <h2 className="text-xl sm:text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h2 className="min-w-0 break-all text-xl sm:text-2xl font-semibold tabular-nums text-foreground">
                             {vehicle.vehicleNumber}
                           </h2>
                           {lc.elapsedInPlant && (
@@ -247,14 +247,14 @@ export default function PublicYardTVBoardPage() {
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center space-x-2 text-xs text-slate-500 font-semibold mt-0.5">
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs font-semibold text-slate-500">
                           <span>Token: <strong className="text-foreground">{vehicle.tokenNumber || 'PENDING'}</strong></span>
                           <span>·</span>
-                          <span className="truncate">Source: <strong className="text-foreground">{vehicle.sourceName}</strong></span>
+                          <span className="min-w-0 break-words">Source: <strong className="text-foreground">{vehicle.sourceName}</strong></span>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-subtle/80 border border-border/60 text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-subtle/80 px-2.5 py-1.5 text-xs">
                         <span className="text-slate-500 font-semibold text-xs">Station / Stage:</span>
                         <span className="px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
                           {lc.currentStageLabel}

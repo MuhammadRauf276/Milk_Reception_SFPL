@@ -92,7 +92,7 @@ export const ShakarganjBrandLockup: React.FC<ShakarganjBrandLockupProps> = ({
       <div className="min-w-0 flex flex-col items-start justify-center">
         <ShakarganjLogo className="h-7 sm:h-8 w-auto text-[#ED1C24]" />
         {tagline ? (
-          <span className="block truncate text-[10px] font-semibold tracking-wider uppercase text-muted-foreground mt-0.5 leading-none">
+          <span className="block text-xs font-medium text-muted-foreground mt-0.5 leading-none">
             {tagline}
           </span>
         ) : null}

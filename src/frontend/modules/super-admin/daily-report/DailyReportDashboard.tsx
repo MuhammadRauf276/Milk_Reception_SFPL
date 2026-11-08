@@ -2,13 +2,172 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Calendar, ChevronLeft, ChevronRight, Download, Share2, Search, Filter, CheckCircle2, AlertTriangle, XCircle, Clock, Layers, Truck, FlaskConical, Store, ShieldAlert, ShieldCheck, TrendingDown, Info, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Share2, Search, CheckCircle2, AlertTriangle, XCircle, Truck, FlaskConical, Store, ShieldCheck, Loader2 } from 'lucide-react';
 import { toast } from '@/frontend/lib/appToast';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import type { DailyReportData } from '@/backend/services/superAdminDailyReportService';
 import { SendReportModal } from './SendReportModal';
 import { InfoTip } from '@/components/ui/info-tip';
+import { Button } from '@/components/ui/button';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { formatNumber } from '@/lib/format';
+
+type MotRow = DailyReportData['motCollections'][number];
+type ZmccRow = DailyReportData['zmccPortions'][number];
+type ExceptionRow = DailyReportData['exceptions'][number];
+type PlantQaRow = DailyReportData['plantQaVisits'][number];
+
+function VerdictChip({ verdict }: { verdict: string }) {
+  if (verdict === 'ACCEPTED') return <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">Accepted</span>;
+  if (verdict === 'WARNING') return <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Warning</span>;
+  if (verdict === 'REJECTED') return <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">Rejected</span>;
+  return null;
+}
+
+function WarningsCell({ warnings }: { warnings: string[] }) {
+  if (warnings.length === 0) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="inline-flex items-start gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
+      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+      <span className="min-w-0 break-words">{warnings.join('; ')}</span>
+    </span>
+  );
+}
+
+const motColumns: DataColumn<MotRow>[] = [
+  { key: 'collection', header: 'Collection #', label: 'Collection #', primary: true, cell: (m) => <span className="font-semibold text-foreground">{m.collectionNumber}</span> },
+  { key: 'time', header: 'Time', label: 'Time', cell: (m) => <span className="tabular-nums text-muted-foreground">{m.time}</span> },
+  {
+    key: 'shop',
+    header: 'Village shop',
+    label: 'Village shop',
+    cell: (m) => (
+      <div className="min-w-0">
+        <span className="font-semibold text-foreground">{m.shopName}</span>
+        <span className="block text-xs text-muted-foreground">{m.shopCode}</span>
+      </div>
+    ),
+  },
+  {
+    key: 'tester',
+    header: 'Route / Mobile Tester',
+    label: 'Route / Mobile Tester',
+    cell: (m) => (
+      <div className="min-w-0">
+        <span className="text-foreground">{m.motName}</span>
+        {m.routeCode && <span className="block text-xs text-muted-foreground">Route {m.routeCode}</span>}
+      </div>
+    ),
+  },
+  { key: 'source', header: 'Source', label: 'Source', cell: (m) => <span className="text-secondary-foreground">{m.sourceName}</span> },
+  { key: 'liters', header: 'Liters', label: 'Liters', align: 'right', cell: (m) => <span className="font-mono font-semibold tabular-nums text-foreground">{m.grossLiters.toFixed(1)} L</span> },
+  { key: 'lr', header: 'LR', label: 'LR', align: 'right', cell: (m) => <span className="font-mono tabular-nums">{m.lr.toFixed(1)}</span> },
+  { key: 'fat', header: 'Fat %', label: 'Fat %', align: 'right', cell: (m) => <span className="font-mono tabular-nums">{m.fat.toFixed(1)}%</span> },
+  { key: 'snf', header: 'SNF %', label: 'SNF %', align: 'right', cell: (m) => <span className="font-mono tabular-nums">{m.snf.toFixed(2)}%</span> },
+  { key: 'warnings', header: 'Warnings', label: 'Warnings', cell: (m) => <WarningsCell warnings={m.warnings} /> },
+  { key: 'verdict', header: 'Verdict', label: 'Verdict', align: 'center', cell: (m) => <VerdictChip verdict={m.verdict} /> },
+];
+
+const zmccColumns: DataColumn<ZmccRow>[] = [
+  { key: 'session', header: 'Session #', label: 'Session #', primary: true, cell: (p) => <span className="font-semibold text-foreground">#{p.sessionId}</span> },
+  { key: 'time', header: 'Time', label: 'Time', cell: (p) => <span className="tabular-nums text-muted-foreground">{p.time}</span> },
+  {
+    key: 'type',
+    header: 'Type',
+    label: 'Type',
+    cell: (p) => (
+      <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-secondary-foreground">
+        {p.arrivalType === 'MC' ? 'Route (MC)' : 'Contractor (HC)'}
+      </span>
+    ),
+  },
+  { key: 'token', header: 'Token #', label: 'Token #', cell: (p) => <span className="break-all font-mono font-semibold text-foreground">{p.tokenNo}</span> },
+  { key: 'vehicle', header: 'Vehicle #', label: 'Vehicle #', cell: (p) => <span className="break-all font-mono font-semibold text-foreground">{p.vehicleNo}</span> },
+  { key: 'supplier', header: 'Supplier / Route', label: 'Supplier / Route', cell: (p) => <span className="text-secondary-foreground">{p.supplierName}</span> },
+  { key: 'portion', header: 'Portion', label: 'Portion', align: 'center', cell: (p) => <span className="font-semibold text-foreground">P{p.portionNumber}</span> },
+  { key: 'liters', header: 'Liters', label: 'Liters', align: 'right', cell: (p) => <span className="font-mono font-semibold tabular-nums text-foreground">{p.grossLiters.toFixed(1)} L</span> },
+  { key: 'temp', header: 'Temp', label: 'Temp', align: 'right', cell: (p) => <span className="font-mono tabular-nums">{p.temperature !== null ? `${p.temperature.toFixed(1)} °C` : '—'}</span> },
+  { key: 'warnings', header: 'Warnings', label: 'Warnings', cell: (p) => <WarningsCell warnings={p.warnings} /> },
+  { key: 'attendant', header: 'Lab attendant', label: 'Lab attendant', cell: (p) => <span className="text-secondary-foreground">{p.performedByRole || 'Attendant'}</span> },
+  { key: 'verdict', header: 'Verdict', label: 'Verdict', align: 'center', cell: (p) => <VerdictChip verdict={p.verdict} /> },
+];
+
+const exceptionColumns: DataColumn<ExceptionRow>[] = [
+  { key: 'reference', header: 'Reference #', label: 'Reference #', primary: true, cell: (e) => <span className="break-all font-semibold text-foreground">{e.referenceNumber}</span> },
+  {
+    key: 'entity',
+    header: 'Entity type',
+    label: 'Entity type',
+    cell: (e) => <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-secondary-foreground">{e.entityType.replace(/_/g, ' ')}</span>,
+  },
+  { key: 'time', header: 'Time', label: 'Time', cell: (e) => <span className="tabular-nums text-muted-foreground">{e.timestamp}</span> },
+  { key: 'zmcc', header: 'Location / ZMCC', label: 'Location / ZMCC', cell: (e) => <span className="text-secondary-foreground">{e.zmccName}</span> },
+  { key: 'reason', header: 'Exception trigger', label: 'Exception trigger', cell: (e) => <span className="font-medium text-amber-900">{e.reason}</span> },
+  {
+    key: 'submitted',
+    header: 'Submitted by',
+    label: 'Submitted by',
+    cell: (e) => (
+      <div className="min-w-0">
+        <span className="text-foreground">{e.submittedBy}</span>
+        <span className="block text-xs text-muted-foreground">{e.submittedRole}</span>
+      </div>
+    ),
+  },
+  {
+    key: 'resolved',
+    header: 'Resolved by',
+    label: 'Resolved by',
+    cell: (e) => (
+      <div className="min-w-0">
+        <span className="font-semibold text-foreground">{e.reviewedBy}</span>
+        {e.reviewedRole && <span className="block text-xs text-muted-foreground">{e.reviewedRole}</span>}
+      </div>
+    ),
+  },
+  { key: 'remarks', header: 'Remarks', label: 'Remarks', cell: (e) => <span className="text-secondary-foreground">{e.remarks || '—'}</span> },
+  {
+    key: 'decision',
+    header: 'Decision',
+    label: 'Decision',
+    align: 'center',
+    cell: (e) => (
+      <>
+        {e.decision === 'APPROVED' && <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">Approved</span>}
+        {e.decision === 'REJECTED' && <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">Overruled</span>}
+        {e.decision === 'PENDING' && <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Pending</span>}
+      </>
+    ),
+  },
+];
+
+const plantQaColumns: DataColumn<PlantQaRow>[] = [
+  { key: 'visit', header: 'Visit #', label: 'Visit #', primary: true, cell: (p) => <span className="break-all font-semibold text-foreground">{p.visitNumber}</span> },
+  { key: 'time', header: 'Time', label: 'Time', cell: (p) => <span className="tabular-nums text-muted-foreground">{p.time}</span> },
+  { key: 'vehicle', header: 'Vehicle #', label: 'Vehicle #', cell: (p) => <span className="break-all font-mono font-semibold text-foreground">{p.vehicleNumber}</span> },
+  { key: 'origin', header: 'Origin ZMCC', label: 'Origin ZMCC', cell: (p) => <span className="text-secondary-foreground">{p.sourceName}</span> },
+  { key: 'portion', header: 'Portion', label: 'Portion', align: 'center', cell: (p) => <span className="font-semibold text-foreground">P{p.portionNumber}</span> },
+  { key: 'liters', header: 'Liters', label: 'Liters', align: 'right', cell: (p) => <span className="font-mono font-semibold tabular-nums text-foreground">{p.grossLiters.toFixed(1)} L</span> },
+  {
+    key: 'mtd',
+    header: 'MTD warning count',
+    label: 'MTD warning count',
+    align: 'center',
+    cell: (p) => (
+      <span
+        className={`rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ${
+          p.requiresAvpEscalation ? 'border border-rose-300 bg-rose-100 text-rose-800' : 'bg-muted text-secondary-foreground'
+        }`}
+      >
+        {p.mtdWarningCount} / {p.mtdThreshold}
+      </span>
+    ),
+  },
+  { key: 'warnings', header: 'Warnings', label: 'Warnings', cell: (p) => <WarningsCell warnings={p.warnings} /> },
+  { key: 'decided', header: 'Decided by', label: 'Decided by', cell: (p) => <span className="text-secondary-foreground">{p.decidedBy}</span> },
+  { key: 'verdict', header: 'Verdict', label: 'Verdict', align: 'center', cell: (p) => <VerdictChip verdict={p.verdict} /> },
+];
 
 type ReportTab = 'MOT' | 'ZMCC' | 'EXCEPTIONS' | 'PLANT_QA';
 
@@ -54,6 +213,7 @@ export function DailyReportDashboard() {
   };
 
   const kpis = data?.kpis;
+  const tableError = error ? getErrorMessage(error) || 'Could not load the report.' : null;
 
   // Filtered Lists
   const filteredMot = (data?.motCollections || []).filter((m) => {
@@ -106,8 +266,8 @@ export function DailyReportDashboard() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-border bg-card p-4 shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-base font-semibold text-foreground">Daily Report</h1>
-            <InfoTip text="Audit across Village MOT collections, ZMCC lab receptions, Plant QA, exceptions, and losses." />
+            <p className="text-sm text-muted-foreground">Mobile Tester collections, ZMCC lab portions, plant QA, exceptions and losses</p>
+            <InfoTip text="Audit across Village Mobile Tester collections, ZMCC lab receptions, Plant QA, exceptions, and losses." />
           </div>
         </div>
 
@@ -118,8 +278,8 @@ export function DailyReportDashboard() {
             <button
               type="button"
               onClick={() => changeDateBy(-1)}
-              className="rounded-lg p-1.5 text-secondary-foreground hover:bg-card hover:text-foreground transition"
-              title="Previous Day"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-secondary-foreground transition-colors hover:bg-card hover:text-foreground"
+              title="Previous day" aria-label="Previous day"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -127,73 +287,55 @@ export function DailyReportDashboard() {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="border-0 bg-transparent px-2 py-1 text-xs font-semibold text-foreground focus:outline-none"
+              className="min-h-11 border-0 bg-transparent px-2 text-xs font-medium text-foreground focus:outline-hidden"
             />
             <button
               type="button"
               onClick={() => changeDateBy(1)}
-              className="rounded-lg p-1.5 text-secondary-foreground hover:bg-card hover:text-foreground transition"
-              title="Next Day"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-secondary-foreground transition-colors hover:bg-card hover:text-foreground"
+              title="Next day" aria-label="Next day"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={() => setDate(new Date().toISOString().slice(0, 10))}
-              className="ml-1 rounded-md bg-card border border-border px-2 py-0.5 text-xs font-semibold text-secondary-foreground hover:bg-muted"
+              className="ml-1 min-h-11 rounded-lg border border-border bg-card px-3 text-xs font-medium text-secondary-foreground transition-colors hover:bg-muted"
             >
               Today
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-secondary-foreground hover:bg-subtle shadow-2xs transition disabled:opacity-50"
-            title="Refresh Data"
-          >
-            <Loader2 className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin text-primary' : 'text-slate-500'}`} />
+          <Button variant="outline" onClick={() => refetch()} disabled={isFetching} title="Refresh data" aria-label="Refresh">
+            <Loader2 className={isFetching ? 'animate-spin text-primary' : 'text-muted-foreground'} />
             <span className="hidden sm:inline">Refresh</span>
-          </button>
+          </Button>
 
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            disabled={isExporting || isLoading}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 shadow-2xs transition disabled:opacity-50"
-          >
-            <Download className="h-3.5 w-3.5 text-emerald-600" />
-            <span>Export Excel</span>
-          </button>
+          <Button variant="outline" onClick={handleExportExcel} disabled={isExporting || isLoading}>
+            <Download className="text-muted-foreground" />
+            Export Excel
+          </Button>
 
-          <button
-            type="button"
-            onClick={() => setIsSendModalOpen(true)}
-            disabled={isLoading || !data}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-primary-hover transition disabled:opacity-50"
-          >
-            <Share2 className="h-3.5 w-3.5" />
-            <span>Send Report</span>
-          </button>
+          <Button onClick={() => setIsSendModalOpen(true)} disabled={isLoading || !data}>
+            <Share2 />
+            Send report
+          </Button>
         </div>
       </div>
 
       {/* KPI Ribbon */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3">
         {/* Card 1: MOT Shop Collections */}
         <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground">
-              1. Village Intake
+              Village intake
             </span>
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-primary">
-              <Store className="h-4 w-4" />
-            </span>
+            <span className="text-muted-foreground"><Store className="h-4 w-4" /></span>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xl font-semibold tabular-nums text-foreground">
-              {kpis ? `${kpis.mot.totalLiters.toLocaleString()} L` : '—'}
+            <span className="font-mono text-xl font-semibold tabular-nums text-foreground">
+              {kpis ? `${formatNumber(kpis.mot.totalLiters)} L` : '—'}
             </span>
             <span className="text-xs text-muted-foreground">
               ({kpis ? kpis.mot.totalCollections : 0} shops)
@@ -202,17 +344,17 @@ export function DailyReportDashboard() {
           <div className="mt-2.5 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               <CheckCircle2 className="h-3 w-3" />
-              {kpis ? kpis.mot.passedCount : 0} Pass
+              {kpis ? kpis.mot.passedCount : 0} pass
             </span>
-            <span className="text-slate-300">·</span>
+            <span className="text-border-strong">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
               <AlertTriangle className="h-3 w-3" />
-              {kpis ? kpis.mot.warningCount : 0} Warn
+              {kpis ? kpis.mot.warningCount : 0} warn
             </span>
-            <span className="text-slate-300">·</span>
+            <span className="text-border-strong">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-rose-700">
               <XCircle className="h-3 w-3" />
-              {kpis ? kpis.mot.rejectedCount : 0} Rej
+              {kpis ? kpis.mot.rejectedCount : 0} rej
             </span>
           </div>
           {kpis && kpis.mot.totalLiters > 0 && (
@@ -226,15 +368,13 @@ export function DailyReportDashboard() {
         <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground">
-              2. ZMCC Intake
+              ZMCC intake
             </span>
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-              <FlaskConical className="h-4 w-4" />
-            </span>
+            <span className="text-muted-foreground"><FlaskConical className="h-4 w-4" /></span>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xl font-semibold tabular-nums text-foreground">
-              {kpis ? `${kpis.zmcc.totalLiters.toLocaleString()} L` : '—'}
+            <span className="font-mono text-xl font-semibold tabular-nums text-foreground">
+              {kpis ? `${formatNumber(kpis.zmcc.totalLiters)} L` : '—'}
             </span>
             <span className="text-xs text-muted-foreground">
               ({kpis ? kpis.zmcc.totalPortions : 0} portions)
@@ -243,17 +383,17 @@ export function DailyReportDashboard() {
           <div className="mt-2.5 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               <CheckCircle2 className="h-3 w-3" />
-              {kpis ? kpis.zmcc.passedCount : 0} Pass
+              {kpis ? kpis.zmcc.passedCount : 0} pass
             </span>
-            <span className="text-slate-300">·</span>
+            <span className="text-border-strong">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
               <AlertTriangle className="h-3 w-3" />
-              {kpis ? kpis.zmcc.warningCount : 0} Warn
+              {kpis ? kpis.zmcc.warningCount : 0} warn
             </span>
-            <span className="text-slate-300">·</span>
+            <span className="text-border-strong">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-rose-700">
               <XCircle className="h-3 w-3" />
-              {kpis ? kpis.zmcc.rejectedCount : 0} Rej
+              {kpis ? kpis.zmcc.rejectedCount : 0} rej
             </span>
           </div>
           <p className="mt-1.5 text-xs font-medium text-muted-foreground">
@@ -265,15 +405,13 @@ export function DailyReportDashboard() {
         <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground">
-              3. Plant QA
+              Plant QA
             </span>
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700">
-              <Truck className="h-4 w-4" />
-            </span>
+            <span className="text-muted-foreground"><Truck className="h-4 w-4" /></span>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xl font-semibold tabular-nums text-foreground">
-              {kpis ? `${kpis.plantQa.totalLiters.toLocaleString()} L` : '—'}
+            <span className="font-mono text-xl font-semibold tabular-nums text-foreground">
+              {kpis ? `${formatNumber(kpis.plantQa.totalLiters)} L` : '—'}
             </span>
             <span className="text-xs text-muted-foreground">
               ({kpis ? kpis.plantQa.totalTankers : 0} tankers)
@@ -282,12 +420,12 @@ export function DailyReportDashboard() {
           <div className="mt-2.5 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               <CheckCircle2 className="h-3 w-3" />
-              {kpis ? kpis.plantQa.acceptedCount : 0} Accepted
+              {kpis ? kpis.plantQa.acceptedCount : 0} accepted
             </span>
-            <span className="text-slate-300">·</span>
+            <span className="text-border-strong">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
               <AlertTriangle className="h-3 w-3" />
-              {kpis ? kpis.plantQa.warningCount : 0} Warn
+              {kpis ? kpis.plantQa.warningCount : 0} warn
             </span>
           </div>
           <p className="mt-1.5 text-xs font-medium text-muted-foreground">
@@ -301,15 +439,13 @@ export function DailyReportDashboard() {
         <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground">
-              4. Exceptions & Loss
+              Exceptions and loss
             </span>
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
-              <ShieldCheck className="h-4 w-4" />
-            </span>
+            <span className="text-muted-foreground"><ShieldCheck className="h-4 w-4" /></span>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xl font-semibold tabular-nums text-foreground">
-              {kpis ? kpis.exceptions.totalHandled : 0} Resolved
+            <span className="font-mono text-xl font-semibold tabular-nums text-foreground">
+              {kpis ? kpis.exceptions.totalHandled : 0} resolved
             </span>
             <span className="text-xs text-muted-foreground">
               ({kpis ? kpis.exceptions.pendingCount : 0} pending)
@@ -317,11 +453,11 @@ export function DailyReportDashboard() {
           </div>
           <div className="mt-2.5 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
-              {kpis ? kpis.exceptions.approvedCount : 0} Approved
+              {kpis ? kpis.exceptions.approvedCount : 0} approved
             </span>
-            <span className="text-slate-300">·</span>
+            <span className="text-border-strong">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-rose-700">
-              {kpis ? kpis.exceptions.rejectedCount : 0} Rejected
+              {kpis ? kpis.exceptions.rejectedCount : 0} rejected
             </span>
           </div>
           <p className="mt-1.5 text-xs font-medium text-muted-foreground">
@@ -341,7 +477,7 @@ export function DailyReportDashboard() {
                 setActiveTab('MOT');
                 setStatusFilter('ALL');
               }}
-              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+              className={`min-h-11 rounded-lg px-3 text-xs font-medium transition-colors ${
                 activeTab === 'MOT'
                   ? 'bg-primary text-white shadow-2xs'
                   : 'bg-subtle text-secondary-foreground hover:bg-muted'
@@ -355,13 +491,13 @@ export function DailyReportDashboard() {
                 setActiveTab('ZMCC');
                 setStatusFilter('ALL');
               }}
-              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+              className={`min-h-11 rounded-lg px-3 text-xs font-medium transition-colors ${
                 activeTab === 'ZMCC'
                   ? 'bg-primary text-white shadow-2xs'
                   : 'bg-subtle text-secondary-foreground hover:bg-muted'
               }`}
             >
-              ZMCC Lab Portions ({data?.zmccPortions.length ?? 0})
+              ZMCC lab portions ({data?.zmccPortions.length ?? 0})
             </button>
             <button
               type="button"
@@ -369,13 +505,13 @@ export function DailyReportDashboard() {
                 setActiveTab('EXCEPTIONS');
                 setStatusFilter('ALL');
               }}
-              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+              className={`min-h-11 rounded-lg px-3 text-xs font-medium transition-colors ${
                 activeTab === 'EXCEPTIONS'
                   ? 'bg-primary text-white shadow-2xs'
                   : 'bg-subtle text-secondary-foreground hover:bg-muted'
               }`}
             >
-              Exceptions Audit ({data?.exceptions.length ?? 0})
+              Exceptions audit ({data?.exceptions.length ?? 0})
             </button>
             <button
               type="button"
@@ -383,26 +519,27 @@ export function DailyReportDashboard() {
                 setActiveTab('PLANT_QA');
                 setStatusFilter('ALL');
               }}
-              className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+              className={`min-h-11 rounded-lg px-3 text-xs font-medium transition-colors ${
                 activeTab === 'PLANT_QA'
                   ? 'bg-primary text-white shadow-2xs'
                   : 'bg-subtle text-secondary-foreground hover:bg-muted'
               }`}
             >
-              Plant QA Tankers ({data?.plantQaVisits.length ?? 0})
+              Plant QA tankers ({data?.plantQaVisits.length ?? 0})
             </button>
           </div>
 
           {/* Search & Filter */}
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="relative min-w-[min(100%,11rem)] flex-1">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search table…"
-                className="h-8 w-44 rounded-lg border border-border bg-subtle pl-8 pr-3 text-xs focus:border-primary focus:bg-card focus:outline-none"
+                placeholder="Search"
+                aria-label="Search"
+                className="min-h-11 w-full rounded-lg border border-border bg-subtle pl-8 pr-3 text-xs focus:border-primary focus:bg-card focus:outline-hidden"
               />
             </div>
 
@@ -410,9 +547,9 @@ export function DailyReportDashboard() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="h-8 rounded-lg border border-border bg-subtle px-2 text-xs font-semibold text-secondary-foreground focus:outline-none"
+                className="min-h-11 rounded-lg border border-border bg-subtle px-2 text-xs font-medium text-secondary-foreground focus:outline-hidden"
               >
-                <option value="ALL">All Verdicts</option>
+                <option value="ALL">All verdicts</option>
                 <option value="ACCEPTED">Passed</option>
                 <option value="WARNING">Warnings</option>
                 <option value="REJECTED">Rejected</option>
@@ -421,321 +558,60 @@ export function DailyReportDashboard() {
           </div>
         </div>
 
-        {/* Tab 1: MOT Collections Table */}
         {activeTab === 'MOT' && (
-          <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-subtle border-b border-border text-secondary-foreground font-semibold text-xs">
-                <tr>
-                  <th className="p-3">Collection #</th>
-                  <th className="p-3">Time</th>
-                  <th className="p-3">Village Shop</th>
-                  <th className="p-3">Route / Mobile Tester</th>
-                  <th className="p-3">Source</th>
-                  <th className="p-3 text-right">Liters</th>
-                  <th className="p-3 text-right">LR</th>
-                  <th className="p-3 text-right">Fat %</th>
-                  <th className="p-3 text-right">SNF %</th>
-                  <th className="p-3">Warnings</th>
-                  <th className="p-3 text-center">Verdict</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border font-medium text-foreground">
-                {filteredMot.length === 0 ? (
-                  <tr>
-                    <td colSpan={11} className="p-6 text-center text-muted-foreground">
-                      No Mobile Tester collections found for the selected filters.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredMot.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-50/70 transition">
-                      <td className="p-3 font-semibold text-foreground">{m.collectionNumber}</td>
-                      <td className="p-3 tabular-nums text-muted-foreground">{m.time}</td>
-                      <td className="p-3">
-                        <span className="font-semibold text-foreground">{m.shopName}</span>
-                        <span className="block text-xs text-muted-foreground">{m.shopCode}</span>
-                      </td>
-                      <td className="p-3">
-                        <span className="text-foreground">{m.motName}</span>
-                        {m.routeCode && <span className="block text-xs text-muted-foreground">Route {m.routeCode}</span>}
-                      </td>
-                      <td className="p-3 text-secondary-foreground truncate max-w-[140px]">{m.sourceName}</td>
-                      <td className="p-3 text-right tabular-nums font-semibold text-foreground">
-                        {m.grossLiters.toFixed(1)} L
-                      </td>
-                      <td className="p-3 text-right tabular-nums">{m.lr.toFixed(1)}</td>
-                      <td className="p-3 text-right tabular-nums">{m.fat.toFixed(1)}%</td>
-                      <td className="p-3 text-right tabular-nums">{m.snf.toFixed(2)}%</td>
-                      <td className="p-3">
-                        {m.warnings.length > 0 ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 border border-amber-200">
-                            <AlertTriangle className="h-3 w-3 text-amber-600" />
-                            {m.warnings.join('; ')}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-center">
-                        {m.verdict === 'ACCEPTED' && (
-                          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                            Accepted
-                          </span>
-                        )}
-                        {m.verdict === 'WARNING' && (
-                          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-                            Warning
-                          </span>
-                        )}
-                        {m.verdict === 'REJECTED' && (
-                          <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">
-                            Rejected
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={motColumns}
+            rows={filteredMot}
+            getRowId={(m) => m.id}
+            loading={isLoading}
+            error={tableError}
+            onRetry={() => void refetch()}
+            emptyTitle="No Mobile Tester collections"
+            emptyDescription="Nothing matches the selected filters."
+            tableFrom="lg"
+          />
         )}
 
-        {/* Tab 2: ZMCC Lab Portions Table */}
         {activeTab === 'ZMCC' && (
-          <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-subtle border-b border-border text-secondary-foreground font-semibold text-xs">
-                <tr>
-                  <th className="p-3">Session #</th>
-                  <th className="p-3">Time</th>
-                  <th className="p-3">Type</th>
-                  <th className="p-3">Token #</th>
-                  <th className="p-3">Vehicle #</th>
-                  <th className="p-3">Supplier / Route</th>
-                  <th className="p-3 text-center">Portion</th>
-                  <th className="p-3 text-right">Liters</th>
-                  <th className="p-3 text-right">Temp</th>
-                  <th className="p-3">Warnings</th>
-                  <th className="p-3">Lab Attendant</th>
-                  <th className="p-3 text-center">Verdict</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border font-medium text-foreground">
-                {filteredZmcc.length === 0 ? (
-                  <tr>
-                    <td colSpan={12} className="p-6 text-center text-muted-foreground">
-                      No ZMCC lab portions found for the selected filters.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredZmcc.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/70 transition">
-                      <td className="p-3 font-semibold text-foreground">#{p.sessionId}</td>
-                      <td className="p-3 tabular-nums text-muted-foreground">{p.time}</td>
-                      <td className="p-3">
-                        <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                          p.arrivalType === 'MC' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'
-                        }`}>
-                          {p.arrivalType === 'MC' ? 'Route (MC)' : 'Contractor (HC)'}
-                        </span>
-                      </td>
-                      <td className="p-3 font-semibold text-foreground">{p.tokenNo}</td>
-                      <td className="p-3 font-semibold text-foreground">{p.vehicleNo}</td>
-                      <td className="p-3 text-secondary-foreground truncate max-w-[150px]">{p.supplierName}</td>
-                      <td className="p-3 text-center font-semibold text-foreground">P{p.portionNumber}</td>
-                      <td className="p-3 text-right tabular-nums font-semibold text-foreground">
-                        {p.grossLiters.toFixed(1)} L
-                      </td>
-                      <td className="p-3 text-right tabular-nums">
-                        {p.temperature !== null ? `${p.temperature.toFixed(1)} °C` : '—'}
-                      </td>
-                      <td className="p-3">
-                        {p.warnings.length > 0 ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 border border-amber-200">
-                            <AlertTriangle className="h-3 w-3 text-amber-600" />
-                            {p.warnings.join('; ')}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-secondary-foreground">{p.performedByRole || 'Attendant'}</td>
-                      <td className="p-3 text-center">
-                        {p.verdict === 'ACCEPTED' && (
-                          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                            Accepted
-                          </span>
-                        )}
-                        {p.verdict === 'WARNING' && (
-                          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-                            Warning
-                          </span>
-                        )}
-                        {p.verdict === 'REJECTED' && (
-                          <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">
-                            Rejected
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={zmccColumns}
+            rows={filteredZmcc}
+            getRowId={(p) => p.id}
+            loading={isLoading}
+            error={tableError}
+            onRetry={() => void refetch()}
+            emptyTitle="No ZMCC lab portions"
+            emptyDescription="Nothing matches the selected filters."
+            tableFrom="lg"
+          />
         )}
 
-        {/* Tab 3: Exceptions Audit Table */}
         {activeTab === 'EXCEPTIONS' && (
-          <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-subtle border-b border-border text-secondary-foreground font-semibold text-xs">
-                <tr>
-                  <th className="p-3">Entity Type</th>
-                  <th className="p-3">Reference #</th>
-                  <th className="p-3">Time</th>
-                  <th className="p-3">Location / ZMCC</th>
-                  <th className="p-3">Exception Trigger</th>
-                  <th className="p-3">Submitted By</th>
-                  <th className="p-3">Resolved By</th>
-                  <th className="p-3">Remarks</th>
-                  <th className="p-3 text-center">Decision</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border font-medium text-foreground">
-                {filteredExceptions.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="p-6 text-center text-muted-foreground">
-                      No exceptions logged or decided on this date.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredExceptions.map((e) => (
-                    <tr key={e.id} className="hover:bg-slate-50/70 transition">
-                      <td className="p-3">
-                        <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-secondary-foreground">
-                          {e.entityType.replace(/_/g, ' ')}
-                        </span>
-                      </td>
-                      <td className="p-3 font-semibold text-foreground">{e.referenceNumber}</td>
-                      <td className="p-3 tabular-nums text-muted-foreground">{e.timestamp}</td>
-                      <td className="p-3 text-secondary-foreground">{e.zmccName}</td>
-                      <td className="p-3 font-medium text-amber-900 max-w-[220px]">{e.reason}</td>
-                      <td className="p-3">
-                        <span className="text-foreground">{e.submittedBy}</span>
-                        <span className="block text-xs text-muted-foreground">{e.submittedRole}</span>
-                      </td>
-                      <td className="p-3">
-                        <span className="font-semibold text-foreground">{e.reviewedBy}</span>
-                        {e.reviewedRole && <span className="block text-xs text-muted-foreground">{e.reviewedRole}</span>}
-                      </td>
-                      <td className="p-3 text-secondary-foreground truncate max-w-[200px]">{e.remarks || '—'}</td>
-                      <td className="p-3 text-center">
-                        {e.decision === 'APPROVED' && (
-                          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                            Approved
-                          </span>
-                        )}
-                        {e.decision === 'REJECTED' && (
-                          <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">
-                            Overruled
-                          </span>
-                        )}
-                        {e.decision === 'PENDING' && (
-                          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-                            Pending
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={exceptionColumns}
+            rows={filteredExceptions}
+            getRowId={(e) => e.id}
+            loading={isLoading}
+            error={tableError}
+            onRetry={() => void refetch()}
+            emptyTitle="No exceptions"
+            emptyDescription="None were logged or decided on this date."
+            tableFrom="lg"
+          />
         )}
 
-        {/* Tab 4: Plant QA Table */}
         {activeTab === 'PLANT_QA' && (
-          <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-subtle border-b border-border text-secondary-foreground font-semibold text-xs">
-                <tr>
-                  <th className="p-3">Visit #</th>
-                  <th className="p-3">Time</th>
-                  <th className="p-3">Vehicle #</th>
-                  <th className="p-3">Origin ZMCC</th>
-                  <th className="p-3 text-center">Portion</th>
-                  <th className="p-3 text-right">Liters</th>
-                  <th className="p-3 text-center">MTD Warning Count</th>
-                  <th className="p-3">Warnings</th>
-                  <th className="p-3">Decided By</th>
-                  <th className="p-3 text-center">Verdict</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border font-medium text-foreground">
-                {filteredPlantQa.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="p-6 text-center text-muted-foreground">
-                      No plant QA inspections recorded for this date.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredPlantQa.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/70 transition">
-                      <td className="p-3 font-semibold text-foreground">{p.visitNumber}</td>
-                      <td className="p-3 tabular-nums text-muted-foreground">{p.time}</td>
-                      <td className="p-3 font-semibold text-foreground">{p.vehicleNumber}</td>
-                      <td className="p-3 text-secondary-foreground">{p.sourceName}</td>
-                      <td className="p-3 text-center font-semibold text-foreground">P{p.portionNumber}</td>
-                      <td className="p-3 text-right tabular-nums font-semibold text-foreground">
-                        {p.grossLiters.toFixed(1)} L
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
-                          p.requiresAvpEscalation
-                            ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                            : 'bg-muted text-secondary-foreground'
-                        }`}>
-                          {p.mtdWarningCount} / {p.mtdThreshold}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        {p.warnings.length > 0 ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 border border-amber-200">
-                            <AlertTriangle className="h-3 w-3 text-amber-600" />
-                            {p.warnings.join('; ')}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-secondary-foreground">{p.decidedBy}</td>
-                      <td className="p-3 text-center">
-                        {p.verdict === 'ACCEPTED' && (
-                          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                            Accepted
-                          </span>
-                        )}
-                        {p.verdict === 'WARNING' && (
-                          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
-                            Warning
-                          </span>
-                        )}
-                        {p.verdict === 'REJECTED' && (
-                          <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">
-                            Rejected
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={plantQaColumns}
+            rows={filteredPlantQa}
+            getRowId={(p) => p.id}
+            loading={isLoading}
+            error={tableError}
+            onRetry={() => void refetch()}
+            emptyTitle="No plant QA inspections"
+            emptyDescription="None were recorded for this date."
+            tableFrom="lg"
+          />
         )}
       </div>
 

@@ -206,7 +206,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-border text-xs tabular-nums font-semibold text-secondary-foreground">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,6rem),1fr))] gap-2 pt-2 border-t border-border text-xs tabular-nums font-semibold text-secondary-foreground">
                   <div className="bg-card border-border p-2 rounded-xl border">
                     <span className="text-xs font-sans text-muted-foreground block">SNF %</span>
                     <span className="text-foreground">{calcValues.snf !== null ? `${calcValues.snf.toFixed(2)}%` : '—'}</span>
@@ -297,7 +297,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-3">
                     <div className="space-y-1">
                       <label htmlFor={`portion-qty-input-${index}`} className="block text-xs font-semibold text-secondary-foreground">Value *</label>
                       <input

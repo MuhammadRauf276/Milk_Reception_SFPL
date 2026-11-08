@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime } from '@/lib/format';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { User } from '@core/types';
@@ -216,7 +217,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                     </td>
                     <td className="p-3">
                       <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase inline-flex items-center space-x-1 ${
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase inline-flex items-center space-x-1 ${
                           item.status === 'SENT'
                             ? 'bg-emerald-100 text-emerald-800'
                             : item.status === 'FAILED'
@@ -230,7 +231,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                       </span>
                     </td>
                     <td className="p-3 text-muted-foreground text-xs">
-                      {new Date(item.created_at).toLocaleString()}
+                      {formatDateTime(item.created_at)}
                     </td>
                     <td className="p-3 text-right">
                       <div className="inline-flex items-center justify-end space-x-1.5">

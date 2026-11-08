@@ -461,7 +461,7 @@ export function ZMCCSubordinateHierarchyScreen({
         /* Direct HC Suppliers List */
         <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs">
           <div className="p-4 border-b border-border flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Direct / High Capacity Local Suppliers</h2>
+            <h2 className="text-sm font-semibold text-foreground">Direct HC suppliers</h2>
             <span className="text-xs text-slate-500">{reportData.hcSuppliers.length} registered suppliers</span>
           </div>
 

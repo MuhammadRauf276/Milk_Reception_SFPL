@@ -13,7 +13,9 @@ import {
 } from 'lucide-react';
 import type { UnifiedApprovalItem } from '@/backend/services/approvals/approvalInboxService';
 import { getRoleLabel } from '@/backend/core/roles/labels';
-import { Spinner } from '@/components/ui/spinner';
+import { SkeletonList } from '@/components/ui/loaders';
+import { EmptyState, ErrorState } from '@/components/ui/empty-state';
+import { formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
 import { Pager, pageCount, paginate } from '../dashboard/components/Pager';
@@ -116,37 +118,20 @@ export function ApprovalQueueList({
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-4">
         {loading && !refreshing ? (
-          <div className="p-12 flex flex-col items-center justify-center text-center space-y-3">
-            <Spinner className="w-6 h-6 text-primary" />
-            <p className="text-xs text-muted-foreground font-medium">Loading approvals…</p>
-          </div>
+          <SkeletonList count={4} />
         ) : error ? (
-          <div className="bg-card border-border p-6 max-w-md mx-auto text-center space-y-2 rounded-2xl border text-rose-700 text-xs shadow-xs">
-            <AlertTriangle className="w-6 h-6 mx-auto text-rose-500" />
-            <p className="font-semibold text-sm">Failed to Load Approvals</p>
-            <p className="text-secondary-foreground">{error}</p>
-            <button
-              type="button"
-              onClick={onRetry}
-              className="mt-3 min-h-11 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold text-xs shadow-xs transition"
-            >
-              Try Again
-            </button>
-          </div>
+          <ErrorState title="Approvals did not load" description={error} onRetry={onRetry} />
         ) : filteredItems.length === 0 ? (
-          <div className="bg-card border-border p-8 sm:p-12 max-w-md mx-auto text-center space-y-3 rounded-2xl border shadow-2xs">
-            <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-semibold text-foreground">
-              {statusFilter === 'PENDING' ? 'All Clear — No Pending Approvals' : 'No History Found'}
-            </h3>
-            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-              {statusFilter === 'PENDING'
-                ? 'There are no pending exceptions or authorization requests waiting in your queue.'
-                : 'No decided approval records match your current filter.'}
-            </p>
-          </div>
+          <EmptyState
+            icon={<CheckCircle2 aria-hidden="true" />}
+            title={statusFilter === 'PENDING' ? 'No pending approvals' : 'No history found'}
+            description={
+              statusFilter === 'PENDING'
+                ? 'Nothing is waiting in your queue.'
+                : 'No decided approval records match your current filter.'
+            }
+            className="mx-auto max-w-md"
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {pageItems.map((item) => {
@@ -165,9 +150,9 @@ export function ApprovalQueueList({
                 >
                   {/* Top Line: Reference, Stage, Status */}
                   <div className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        <span className="font-semibold text-sm text-foreground break-words min-w-0 transition-colors">
                           {item.referenceNumber}
                         </span>
                         <span className={'px-2 py-0.5 rounded text-xs font-semibold border border-border bg-subtle text-secondary-foreground shrink-0'}>
@@ -180,7 +165,7 @@ export function ApprovalQueueList({
                           className={cn(
                             'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border shrink-0',
                             item.slaStatus === 'BREACHED'
-                              ? 'bg-rose-50 text-rose-800 border-rose-300 animate-pulse'
+                              ? 'bg-rose-50 text-rose-800 border-rose-300'
                               : item.slaStatus === 'WARNING'
                               ? 'bg-amber-50 text-amber-800 border-amber-300'
                               : 'bg-muted text-secondary-foreground border-border'
@@ -212,7 +197,7 @@ export function ApprovalQueueList({
                       )}
                     </div>
 
-                    <p className="text-xs font-semibold text-foreground line-clamp-1">{cleanEntityTitle(item.details.entityTitle)}</p>
+                    <p className="text-xs font-semibold text-foreground break-words">{cleanEntityTitle(item.details.entityTitle)}</p>
                     <p className="text-xs text-muted-foreground">
                       Source: <strong className="text-secondary-foreground">{item.sourceName || 'ZMCC Area'}</strong>
                     </p>
@@ -234,10 +219,10 @@ export function ApprovalQueueList({
                       <div className="text-xs text-muted-foreground">
                         <span>Decided by: <strong className="text-secondary-foreground">{item.decision?.decidedBy || 'Supervisor'}</strong></span>
                         {item.decision?.decidedAt && (
-                          <span className="ml-1.5 text-muted-foreground">· {new Date(item.decision.decidedAt).toLocaleString()}</span>
+                          <span className="ml-1.5 text-muted-foreground">· {formatDateTime(item.decision.decidedAt)}</span>
                         )}
                         {item.decision?.remarks && (
-                          <p className="text-secondary-foreground italic mt-1 line-clamp-1">&ldquo;{item.decision.remarks}&rdquo;</p>
+                          <p className="text-secondary-foreground italic mt-1 break-words">&ldquo;{item.decision.remarks}&rdquo;</p>
                         )}
                       </div>
                     )}
@@ -263,7 +248,7 @@ export function ApprovalQueueList({
                       {isPending ? (
                         item.canDecide ? (
                           <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             Actionable
                           </span>
                         ) : (
@@ -285,13 +270,10 @@ export function ApprovalQueueList({
                         onSelect(item.id);
                       }}
                       className={cn(
-                        'min-h-11 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 shadow-2xs',
-                        isPending && item.canDecide
-                          ? 'bg-primary text-white hover:bg-primary/90'
-                          : 'bg-muted text-secondary-foreground hover:bg-muted'
+                        'min-h-11 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 border border-input bg-card text-foreground hover:bg-muted'
                       )}
                     >
-                      <span>{isPending ? (item.canDecide ? 'Review & Decide' : 'View Details') : 'View Details'}</span>
+                      <span>{isPending ? (item.canDecide ? 'Review & decide' : 'View details') : 'View details'}</span>
                     </button>
                   </div>
                 </div>

@@ -42,20 +42,18 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-2xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
-              <Database className="h-4 w-4" />
-            </div>
+            <Database className="h-4 w-4 shrink-0 text-muted-foreground" />
             <div>
               <h3 className="font-semibold text-foreground text-sm sm:text-base leading-tight">
-                Plant Silo Storage Overview
+                Silo storage
               </h3>
               <p className="text-xs text-muted-foreground">
-                Total plant reception silos stock calculated @13% Total Solids
+                Reception silo stock at 13% total solids
               </p>
             </div>
           </div>
           <div className="text-right sm:text-right">
-            <div className="text-lg sm:text-xl font-semibold tracking-tight text-foreground tabular-nums">
+            <div className="font-mono text-lg sm:text-xl font-semibold text-foreground tabular-nums">
               {totalStock13Ts.toLocaleString()}{' '}
               <span className="text-xs font-normal text-muted-foreground">L @13% TS</span>
             </div>
@@ -74,8 +72,8 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
             />
           </div>
           <div className="flex items-center justify-between text-xs text-muted-foreground tabular-nums">
-            <span>Overall Tanker Reception Utilization</span>
-            <span>{overallUtil}% Full · {(totalCapacity - totalPhysical).toLocaleString()} L Available Headspace</span>
+            <span>Reception silo use</span>
+            <span>{overallUtil}% full, {(totalCapacity - totalPhysical).toLocaleString()} L free</span>
           </div>
         </div>
       </div>
@@ -85,13 +83,13 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
         <button
           type="button"
           onClick={() => setStatusFilter('ALL')}
-          className={`min-h-9 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`min-h-11 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
             statusFilter === 'ALL'
-              ? 'bg-primary text-primary-foreground shadow-2xs'
+              ? 'bg-primary text-primary-foreground'
               : 'border border-border bg-card text-muted-foreground hover:text-foreground'
           }`}
         >
-          <span>All Silos</span>
+          <span>All silos</span>
           <span className="text-xs px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
             {silos.length}
           </span>
@@ -99,9 +97,9 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
         <button
           type="button"
           onClick={() => setStatusFilter('RECEIVING')}
-          className={`min-h-9 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`min-h-11 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
             statusFilter === 'RECEIVING'
-              ? 'bg-primary text-primary-foreground shadow-2xs'
+              ? 'bg-primary text-primary-foreground'
               : 'border border-border bg-card text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -115,13 +113,13 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
         <button
           type="button"
           onClick={() => setStatusFilter('STORAGE')}
-          className={`min-h-9 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`min-h-11 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
             statusFilter === 'STORAGE'
-              ? 'bg-primary text-primary-foreground shadow-2xs'
+              ? 'bg-primary text-primary-foreground'
               : 'border border-border bg-card text-muted-foreground hover:text-foreground'
           }`}
         >
-          <span>In Storage</span>
+          <span>In storage</span>
           <span className="text-xs px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
             {storageCount}
           </span>
@@ -129,9 +127,9 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
         <button
           type="button"
           onClick={() => setStatusFilter('EMPTY')}
-          className={`min-h-9 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`min-h-11 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
             statusFilter === 'EMPTY'
-              ? 'bg-primary text-primary-foreground shadow-2xs'
+              ? 'bg-primary text-primary-foreground'
               : 'border border-border bg-card text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -154,12 +152,12 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
             <div
               key={silo.id}
               onClick={() => setSelectedSilo(silo)}
-              className="group cursor-pointer rounded-2xl border border-border bg-card p-4 shadow-2xs space-y-3 hover:border-primary/50 hover:shadow-xs transition-[color,background-color,border-color,box-shadow,opacity,transform]"
+              className="group cursor-pointer rounded-2xl border border-border bg-card p-4 space-y-3 hover:border-border-strong transition-colors"
             >
               {/* Top row: Code, Name, Status Badge */}
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="font-mono text-base font-semibold uppercase tracking-wider text-foreground">
+                  <span className="font-mono text-base font-semibold text-foreground">
                     {silo.silo_code}
                   </span>
                   <span className="text-xs text-muted-foreground ml-2">
@@ -188,7 +186,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
 
               {/* Primary @13% TS Metric */}
               <div className="flex items-baseline justify-between pt-0.5">
-                <div className="text-xl font-semibold tracking-tight text-foreground tabular-nums">
+                <div className="font-mono text-xl font-semibold text-foreground tabular-nums">
                   {silo.current_stock_at_13ts !== null
                     ? silo.current_stock_at_13ts.toLocaleString()
                     : silo.current_stock_liters > 0
@@ -220,8 +218,8 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
               {/* Receiving Indicator if active */}
               {isReceiving && silo.activePumpingVehicle && (
                 <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 pt-2 border-t border-border/60">
-                  <Activity className="h-3.5 w-3.5 animate-pulse text-emerald-600" />
-                  <span>Receiving tanker: <strong className="font-mono uppercase">{silo.activePumpingVehicle}</strong></span>
+                  <Activity className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Receiving tanker: <strong className="font-mono">{silo.activePumpingVehicle}</strong></span>
                 </div>
               )}
             </div>
@@ -236,9 +234,9 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
             <DrawerHeader className="border-b border-border pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Database className="h-5 w-5 text-primary" />
+                  <Database className="h-5 w-5 text-muted-foreground" />
                   <div>
-                    <DrawerTitle className="font-mono text-lg font-semibold uppercase tracking-wider text-foreground">
+                    <DrawerTitle className="font-mono text-lg font-semibold text-foreground">
                       {selectedSilo.silo_code}
                     </DrawerTitle>
                     <p className="text-xs text-muted-foreground">{selectedSilo.silo_name}</p>
@@ -247,7 +245,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
                 <button
                   type="button"
                   onClick={() => setSelectedSilo(null)}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -258,32 +256,32 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
               {/* Stock telemetry summary */}
               <div className="rounded-2xl border border-border bg-muted/20 p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Standardized @13% TS Volume:</span>
-                  <span className="font-semibold text-base text-foreground tabular-nums">
+                  <span className="text-muted-foreground">Volume at 13% TS</span>
+                  <span className="font-mono font-semibold text-base text-foreground tabular-nums">
                     {selectedSilo.current_stock_at_13ts?.toLocaleString() || '0'} L
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-border/60 pt-2">
-                  <span className="text-muted-foreground">Physical Liquid Stock:</span>
-                  <span className="font-semibold text-foreground tabular-nums">
-                    {selectedSilo.current_stock_liters.toLocaleString()} Liters
+                  <span className="text-muted-foreground">Physical stock</span>
+                  <span className="font-mono font-semibold text-foreground tabular-nums">
+                    {selectedSilo.current_stock_liters.toLocaleString()} L
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-border/60 pt-2">
-                  <span className="text-muted-foreground">Total Silo Capacity:</span>
-                  <span className="font-semibold text-foreground tabular-nums">
-                    {selectedSilo.capacity_liters.toLocaleString()} Liters
+                  <span className="text-muted-foreground">Silo capacity</span>
+                  <span className="font-mono font-semibold text-foreground tabular-nums">
+                    {selectedSilo.capacity_liters.toLocaleString()} L
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-border/60 pt-2">
-                  <span className="text-muted-foreground">Capacity Utilization:</span>
-                  <span className="font-semibold text-foreground tabular-nums">
+                  <span className="text-muted-foreground">Capacity used</span>
+                  <span className="font-mono font-semibold text-foreground tabular-nums">
                     {selectedSilo.utilizationPercent}%
                   </span>
                 </div>
                 {selectedSilo.composite_ts_percent !== null && (
                   <div className="flex items-center justify-between border-t border-border/60 pt-2">
-                    <span className="text-muted-foreground">Composite Total Solids (TS):</span>
+                    <span className="text-muted-foreground">Composite total solids (TS)</span>
                     <span className="font-mono font-semibold text-foreground tabular-nums">
                       {selectedSilo.composite_ts_percent.toFixed(2)}%
                     </span>
@@ -295,15 +293,15 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
               <div className="space-y-2">
                 <h4 className="font-semibold text-foreground">Status</h4>
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card">
-                  <span className="text-muted-foreground">Current Operating State:</span>
+                  <span className="text-muted-foreground">Current state</span>
                   <Badge variant="outline" className="text-xs font-semibold">
                     {selectedSilo.status}
                   </Badge>
                 </div>
                 {selectedSilo.activePumpingVehicle && (
                   <div className="flex items-center justify-between p-3 rounded-lg border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-200">
-                    <span>Active Inflow Tanker:</span>
-                    <span className="font-mono font-semibold uppercase">{selectedSilo.activePumpingVehicle}</span>
+                    <span>Tanker unloading</span>
+                    <span className="font-mono font-semibold">{selectedSilo.activePumpingVehicle}</span>
                   </div>
                 )}
               </div>
@@ -312,9 +310,9 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
                 <button
                   type="button"
                   onClick={() => setSelectedSilo(null)}
-                  className="w-full min-h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition shadow-2xs"
+                  className="w-full min-h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition-colors"
                 >
-                  Close Inspection
+                  Close
                 </button>
               </div>
             </div>

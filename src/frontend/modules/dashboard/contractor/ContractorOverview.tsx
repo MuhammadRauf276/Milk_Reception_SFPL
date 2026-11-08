@@ -184,7 +184,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
                     </td>
                     <td className="py-3 px-3">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
                           v.journeyStage === 'COMPLETED'
                             ? 'bg-emerald-100 text-emerald-800'
                             : v.journeyStage === 'RECEIPT_PENDING'
@@ -205,7 +205,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
                     </td>
                     <td className="py-3 px-3">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
                           v.qaSummary.badgeType === 'ALL_ACCEPTED'
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : v.qaSummary.badgeType === 'ALL_REJECTED'

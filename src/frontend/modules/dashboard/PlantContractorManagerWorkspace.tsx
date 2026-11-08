@@ -86,7 +86,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
                   <span>{assignedSourceName}</span>
                 </span>
               </div>
-              <h1 className="text-lg font-semibold text-foreground tracking-tight mt-0.5">
+              <h1 className="text-lg font-semibold text-foreground mt-0.5">
                 Contractor operations
               </h1>
             </div>
@@ -102,7 +102,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
                 type="button"
                 onClick={() => fetchLogs(page)}
                 disabled={loading}
-                className="flex items-center space-x-1.5 px-3.5 py-2 min-h-[44px] bg-subtle hover:bg-muted/60 border border-border-strong rounded-xl text-xs font-semibold text-foreground shadow-2xs transition active:scale-95 disabled:opacity-50"
+                className="flex items-center space-x-1.5 px-3.5 py-2 min-h-11 bg-subtle hover:bg-muted/60 border border-border-strong rounded-xl text-xs font-semibold text-foreground shadow-2xs transition active:scale-95 disabled:opacity-50"
               >
                 <span>Refresh</span>
               </button>

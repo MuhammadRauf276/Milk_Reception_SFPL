@@ -70,7 +70,7 @@ export const QAWaitingVisitCard: React.FC<{
         type="button"
         disabled={isSubmitting}
         onClick={() => onStart(visit.id)}
-        className="w-full min-h-[48px] py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-sm shadow-xs transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+        className="w-full min-h-12 py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-sm shadow-xs transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
       >
         <Play className="w-4 h-4 fill-current" />
         <span>{isSubmitting ? 'Starting…' : 'Start QA Testing Session'}</span>
@@ -131,7 +131,7 @@ export const QAHeldVisitCard: React.FC<{
         type="button"
         disabled={isSubmitting}
         onClick={() => onResume(visit.id)}
-        className="w-full min-h-[48px] py-3 px-4 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-semibold text-sm shadow-xs transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+        className="w-full min-h-12 py-3 px-4 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-semibold text-sm shadow-xs transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
       >
         <Play className="w-4 h-4 fill-current" />
         <span>{isSubmitting ? 'Resuming…' : 'Resume Testing Session'}</span>

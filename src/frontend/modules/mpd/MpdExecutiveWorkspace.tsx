@@ -18,6 +18,7 @@ import {
   Scale,
 } from 'lucide-react';
 import { toast } from '@/frontend/lib/appToast';
+import { formatDate } from '@/lib/format';
 import type { MpdTabId, MpdExecutiveTelemetryData } from './types';
 import { MpdExecutiveKpiRibbon } from './components/MpdExecutiveKpiRibbon';
 import { MpdFleetRadarScreen } from './screens/MpdFleetRadarScreen';
@@ -198,7 +199,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
         title="Command center"
         description={
           <span className="inline-flex flex-wrap items-center gap-x-2">
-            <span className="tabular-nums">{telemetry?.calendarDate || new Date().toISOString().split('T')[0]}</span>
+            <span className="tabular-nums">{formatDate(telemetry?.calendarDate || new Date())}</span>
           </span>
         }
         actions={
@@ -218,7 +219,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
         <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-3 rounded-xl shadow-xs animate-panel-in">
           <div className="flex items-center gap-2.5">
             <Building2 className="w-4 h-4 text-primary shrink-0" />
-            <span className="text-xs font-semibold text-secondary-foreground">ZMCC Facility Scope:</span>
+            <span className="text-xs font-semibold text-secondary-foreground">ZMCC scope</span>
             <select
               value={selectedZmccId}
               onChange={(e) => setSelectedZmccId(e.target.value)}
@@ -239,7 +240,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
               onClick={() => setSelectedZmccId('')}
               className="text-xs text-muted-foreground hover:text-foreground"
             >
-              Reset to All Facilities
+              Show all ZMCCs
             </Button>
           )}
         </div>

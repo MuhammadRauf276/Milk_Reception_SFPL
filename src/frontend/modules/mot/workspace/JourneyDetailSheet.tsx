@@ -1,5 +1,6 @@
 'use client';
 
+import { formatTime } from '@/lib/format';
 import React, { useState } from 'react';
 import { Clock } from 'lucide-react';
 import { MotSheet } from '../MotSheet';
@@ -40,12 +41,12 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                     </span>
                     {journey.summary && (
                       <span className="text-xs font-semibold text-muted-foreground">
-                        Ended: {new Date(journey.summary.journey_ended_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} PKT
+                        Ended: {formatTime(journey.summary.journey_ended_at)} PKT
                       </span>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,6rem),1fr))] gap-2 text-center">
                     <div className="p-2 bg-card rounded-lg border border-border">
                       <div className="text-xs font-semibold text-muted-foreground">Active shops</div>
                       <div className="text-sm font-semibold text-foreground">{assignedCount}</div>
@@ -145,10 +146,10 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                             {stop.planned_sequence}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold text-foreground truncate">
+                            <p className="text-xs font-semibold text-foreground break-words min-w-0">
                               {stop.shop?.shop_name} ({stop.shop?.shop_code})
                             </p>
-                            <p className="text-xs text-muted-foreground truncate">
+                            <p className="text-xs text-muted-foreground break-words min-w-0">
                               {stop.shop?.owner_name || '—'} · {stop.shop?.contact_number || '—'}
                             </p>
                           </div>

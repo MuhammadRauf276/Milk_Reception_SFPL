@@ -32,6 +32,7 @@ import { QAPortionTabs } from './QAPortionTabs';
 import { QAWaitingVisitCard, QAHeldVisitCard } from './QAVisitStatusCards';
 import { QATestDrawer } from './QATestDrawer';
 import { cn } from '@/lib/utils';
+import { SkeletonList } from '@/components/ui/loaders';
 import type { User } from '@core/types';
 
 export type {
@@ -171,15 +172,8 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
 
   if (activeTab === 'WAITING') {
     if (!selectedWaitingVisit) {
-      return (
-        <div className="p-10 text-center border border-border rounded-xl bg-card space-y-2">
-          <div className="w-10 h-10 mx-auto rounded-full bg-muted flex items-center justify-center text-primary">
-            <FlaskConical className="w-5 h-5" />
-          </div>
-          <h3 className="text-xs font-semibold text-foreground">Select a vehicle</h3>
-          <p className="text-xs text-muted-foreground">Pick from queue to test.</p>
-        </div>
-      );
+      // The queue beside this panel already says it is empty.
+      return null;
     }
     return (
       <QAWaitingVisitCard
@@ -192,11 +186,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
 
   if (activeTab === 'ON_HOLD') {
     if (!selectedHeldVisit) {
-      return (
-        <div className="p-8 text-center border border-dashed border-border rounded-2xl text-sm text-muted-foreground">
-          Select a vehicle
-        </div>
-      );
+      return null;
     }
     return (
       <QAHeldVisitCard
@@ -210,19 +200,12 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
   // Active IN_TESTING workspace
   if (isLoadingVisit) {
     return (
-      <div className="bg-card border-border p-12 text-center border border-dashed rounded-xl text-sm text-muted-foreground">
-        <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
-        Loading vehicle testing session…
-      </div>
+      <SkeletonList count={2} />
     );
   }
 
   if (!visitDetail) {
-    return (
-      <div className="bg-card border-border p-8 text-center border border-dashed rounded-2xl text-sm text-muted-foreground">
-        Select a session
-      </div>
-    );
+    return null;
   }
 
   const portions = visitDetail?.portions || [];
@@ -253,30 +236,28 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
       <div className="bg-card border-border p-4 sm:p-5 rounded-2xl border shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-xl bg-primary text-white shadow-2xs shrink-0">
-              <FlaskConical className="w-5 h-5" />
-            </div>
+            <FlaskConical className="w-5 h-5 text-muted-foreground shrink-0" />
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold text-base text-foreground tabular-nums">
+                <span className="font-mono font-semibold text-base text-foreground tabular-nums">
                   {visitDetail.vehicle_number}
                 </span>
                 {visitDetail.token_number && (
-                  <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-md bg-muted text-foreground border border-border">
+                  <span className="font-mono text-xs tabular-nums px-2 py-0.5 rounded-md bg-muted text-foreground border border-border">
                     {visitDetail.token_number}
                   </span>
                 )}
                 <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border">
-                  Testing Active
+                  Testing
                 </span>
                 <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-muted text-foreground border border-border">
-                  {isSingleComposite ? 'Composite' : 'Portion-Wise'}
+                  {isSingleComposite ? 'Composite' : 'By portion'}
                 </span>
               </div>
               <p className="text-xs text-secondary-foreground font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
                 <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                 <span>
-                  Gate Entry:{' '}
+                  Gate entry:{' '}
                   <strong className="tabular-nums font-semibold text-foreground">
                     {formatOperationalTime(visitDetail.entry_timestamp)}
                   </strong>
@@ -296,7 +277,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
           <div className="flex items-center space-x-2 self-start sm:self-center">
             <div className="flex items-center space-x-2 bg-muted px-3 py-1.5 rounded-xl border border-border-strong">
               <span className="text-xs font-semibold text-muted-foreground">Status:</span>
-              <span className="text-xs font-semibold text-primary-hover tabular-nums">
+              <span className="text-xs font-semibold text-foreground tabular-nums">
                 {visitDetail.visit_decision_summary}
               </span>
             </div>
@@ -308,9 +289,9 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
       {showFinishedBanner && (
         <div
           role="region"
-          aria-label="QA Session Decision Banner"
+          aria-label="QA session decision"
           className={cn(
-            'flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border p-4 shadow-2xs transition animate-panel-in',
+            'flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border p-4 transition-colors animate-panel-in',
             hasEscalation
               ? 'border-amber-200 bg-amber-50 text-amber-950'
               : allRejected || isAlreadyRoutedToExit
@@ -340,17 +321,17 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
             <div>
               <h4 className="text-sm font-semibold leading-tight">
                 {hasEscalation
-                  ? 'Waiting for AVP QA Reception Lab'
+                  ? 'Waiting for AVP QA reception lab'
                   : allRejected || isAlreadyRoutedToExit
                   ? 'All portions rejected'
                   : 'Quality passed'}
               </h4>
               <p className="text-xs font-medium text-secondary-foreground mt-0.5">
                 {hasEscalation
-                  ? 'Request sent · this vehicle stays here until the AVP decides every pending portion'
+                  ? 'Request sent. This vehicle stays here until the AVP decides every pending portion'
                   : allRejected || isAlreadyRoutedToExit
-                  ? 'Vehicle rejected · Ready for checkout'
-                  : `${acceptedCount} portion(s) accepted, ${rejectedCount} rejected · Ready for scale`}
+                  ? 'Vehicle rejected, ready for checkout'
+                  : `${acceptedCount} portion(s) accepted, ${rejectedCount} rejected, ready for scale`}
               </p>
             </div>
           </div>
@@ -358,22 +339,22 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
           <div className="flex items-center gap-2 self-end sm:self-center">
             {hasEscalation && portions.some((p) => p.manager_review_status === 'PENDING') ? (
               <div className="px-3.5 py-2 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-xs font-semibold flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-700 animate-pulse" />
-                <span>Pending with AVP QA · Vehicle Frozen</span>
+                <Clock className="w-4 h-4 text-amber-700" />
+                <span>Pending with AVP QA, vehicle on hold</span>
               </div>
             ) : hasEscalation && onRouteVehicle ? (
               <button
                 type="button"
                 disabled={isRoutingVehicle}
                 onClick={() => onRouteVehicle('ESCALATE_AVP_QA')}
-                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-amber-700 text-white hover:bg-amber-800 transition shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
+                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isRoutingVehicle ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <AlertTriangle className="w-4 h-4" />
                 )}
-                <span>Send Request to AVP QA Reception Lab</span>
+                <span>Send request to AVP QA reception lab</span>
               </button>
             ) : null}
 
@@ -382,14 +363,14 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                 type="button"
                 disabled={isRoutingVehicle}
                 onClick={() => onRouteVehicle('GATE_EXIT')}
-                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-rose-700 text-white hover:bg-rose-800 transition shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
+                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isRoutingVehicle ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <LogOut className="w-4 h-4" />
                 )}
-                <span>Send to Gate Exit</span>
+                <span>Send to gate exit</span>
               </button>
             )}
 
@@ -398,14 +379,14 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                 type="button"
                 disabled={isRoutingVehicle}
                 onClick={() => onRouteVehicle('WEIGHBRIDGE')}
-                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 transition shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
+                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isRoutingVehicle ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <Scale className="w-4 h-4" />
                 )}
-                <span>Proceed to Weighbridge</span>
+                <span>Proceed to weighbridge</span>
               </button>
             )}
           </div>
@@ -451,14 +432,14 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               <article
                 key={p.id}
                 className={cn(
-                  'flex flex-col justify-between rounded-2xl border bg-card p-4 shadow-2xs transition hover:border-border-strong',
+                  'flex flex-col justify-between rounded-2xl border bg-card p-4 transition-colors hover:border-border-strong',
                   isSelected ? 'border-primary ring-1 ring-primary/20' : 'border-border'
                 )}
               >
                 <div className="space-y-2.5">
                   <header className="flex items-center justify-between gap-2 border-b border-border pb-2">
                     <h4 className="text-sm font-semibold text-foreground">
-                      {isSingleComposite ? 'Composite Sample' : `Portion #${p.portion_number}`}
+                      {isSingleComposite ? 'Composite sample' : `Portion #${p.portion_number}`}
                     </h4>
                     <span
                       className={cn(
@@ -482,7 +463,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                     {/* Double-Blind Entry: Quantity hidden from QA */}
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Quality:</span>
-                      <span className="tabular-nums font-semibold text-foreground">
+                      <span className="font-mono tabular-nums font-semibold text-foreground">
                         {displayLr || displayFat
                           ? `LR ${displayLr ?? '—'} · Fat ${displayFat ?? '—'}%`
                           : isSelected
@@ -513,7 +494,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                       setIsDrawerOpen(true);
                     }}
                     className={cn(
-                      'min-h-11 min-w-11 flex w-full items-center justify-center gap-1.5 rounded-lg text-sm font-semibold shadow-2xs transition',
+                      'min-h-11 min-w-11 flex w-full items-center justify-center gap-1.5 rounded-lg text-sm font-semibold transition-colors',
                       !isCompleted
                         ? 'bg-primary text-white hover:bg-primary-hover'
                         : 'border border-border bg-subtle text-secondary-foreground hover:bg-muted'
@@ -522,7 +503,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                     {!isCompleted ? (
                       <>
                         <Sparkles className="h-3.5 w-3.5" />
-                        <span>Test & Decide</span>
+                        <span>Test and decide</span>
                       </>
                     ) : (
                       <>
@@ -541,10 +522,10 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
       {currentPortion ? (
         <div className="space-y-5">
           {isSingleComposite && (
-            <div className="bg-card border-border p-3.5 border rounded-2xl text-purple-950 text-xs font-medium flex items-center gap-2.5 shadow-2xs">
-              <AlertCircle className="w-4 h-4 text-purple-600 shrink-0" />
+            <div className="bg-card border-border p-3.5 border rounded-2xl text-foreground text-xs font-medium flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0" />
               <span>
-                <strong>Composite Testing Mode:</strong> 1 portion represents the entire tanker load. An accepted or rejected decision applies to the complete vehicle.
+                <strong>Composite testing:</strong> 1 portion represents the entire tanker load. An accepted or rejected decision applies to the complete vehicle.
               </span>
             </div>
           )}
@@ -553,7 +534,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
           <div className="bg-card border-border p-4 sm:p-5 rounded-2xl border shadow-xs space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-primary" />
+                <ShieldCheck className="w-4 h-4 text-muted-foreground" />
                 <h3 className="text-xs font-semibold text-secondary-foreground">
                   Seal check
                 </h3>
@@ -561,7 +542,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               {hasDispatchSeal ? (
                 isSealMatched ? (
                   <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Seal Match
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Seal matches
                   </span>
                 ) : currentEnteredSeal ? (
                   <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-muted text-secondary-foreground border border-border-strong">
@@ -574,7 +555,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                 )
               ) : (
                 <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-muted text-secondary-foreground">
-                  No Dispatch Seal
+                  No dispatch seal
                 </span>
               )}
             </div>
@@ -596,8 +577,8 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                   type="text"
                   value={enteredSeal}
                   onChange={(e) => onSealChange?.(e.target.value)}
-                  placeholder="Enter physical seal number…"
-                  className="w-full min-h-[48px] px-3 font-mono font-semibold text-sm rounded-xl border border-border-strong bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary shadow-2xs"
+                  placeholder="Physical seal number"
+                  className="w-full min-h-12 px-3 font-mono font-semibold text-sm rounded-xl border border-border-strong bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
@@ -606,10 +587,10 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-semibold rounded-lg shadow-2xs hover:bg-primary-hover transition"
+                className="flex min-h-11 items-center gap-1.5 px-4 py-2 border border-border bg-card text-foreground text-xs font-semibold rounded-lg hover:bg-muted transition-colors"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>Open Tests & Decision Drawer</span>
+                <span>Open tests and decision</span>
               </button>
             </div>
           </div>
@@ -617,7 +598,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
           {currentPortion.plant_decision === 'REJECTED' && currentPortion.plant_rejection_reason && (
             <div className="bg-card border-border p-4 rounded-2xl border text-rose-800 text-xs font-semibold space-y-1">
               <span className="text-xs block text-rose-900 font-semibold">
-                Portion Rejection Reason
+                Portion rejection reason
               </span>
               <p>
                 {isSuperior || ['SUPER_ADMIN', 'DATA_EXECUTIVE', 'EXECUTIVE_MANAGEMENT', 'HEAD_OF_MPD', 'QA_HEAD'].includes(currentUser?.role || '')

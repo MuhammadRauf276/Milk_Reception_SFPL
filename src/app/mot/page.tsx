@@ -8,8 +8,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { User } from '@core/types';
 import { Header } from '@modules/shared/Header';
 import { HierarchicalNavDrawer } from '@modules/shared/navigation/HierarchicalNavDrawer';
-import { Truck, AlertCircle, Loader2 } from 'lucide-react';
+import { Truck, AlertCircle } from 'lucide-react';
 import { PageLoader } from '@/components/ui/spinner';
+import { SkeletonList } from '@/components/ui/loaders';
 import { PageTransition } from '@/components/motion/page-transition';
 import { useOnlineStatus } from '@/frontend/hooks/useOnlineStatus';
 import { canCoverMotWork } from '@/frontend/modules/zmcc/stage1Capabilities';
@@ -293,10 +294,7 @@ export default function MotPage() {
             )}
 
             {(isCovering && (!isOnline || !coverJourneyId)) || (!isCovering && gpsProblem) ? null : loadingJourney ? (
-              <div className="p-12 text-center text-xs font-semibold text-muted-foreground bg-card rounded-xl border border-border">
-                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
-                Checking assigned route…
-              </div>
+              <SkeletonList count={2} />
             ) : journeyError ? (
               <div className="bg-card border-border p-4 border rounded-2xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />

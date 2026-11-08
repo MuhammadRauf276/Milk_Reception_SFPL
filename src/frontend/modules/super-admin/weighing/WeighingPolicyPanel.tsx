@@ -1,6 +1,7 @@
 'use client';
 
 import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
+import { SkeletonList } from '@/components/ui/loaders';
 import { InfoTip } from '@/components/ui/info-tip';
 import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -84,9 +85,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
 
       <div className="space-y-4 rounded-2xl border border-border/80 bg-card p-4 shadow-2xs sm:p-5">
         {query.isPending ? (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-          </p>
+          <SkeletonList count={2} />
         ) : (
           <>
             <label className="flex min-h-[44px] cursor-pointer items-start gap-3">

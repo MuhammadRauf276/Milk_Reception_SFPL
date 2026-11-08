@@ -1,5 +1,6 @@
 'use client';
 
+import { formatTime } from '@/lib/format';
 import React from 'react';
 import type { JourneyItem } from './types';
 
@@ -69,7 +70,7 @@ export function ActiveJourneysTab({ journeys, loading, canCancel, onRefresh, onV
                         {j.total_stops != null ? `${j.total_stops} shops` : '—'}
                       </td>
                       <td className="p-3 font-medium text-secondary-foreground">
-                        {new Date(j.assigned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {formatTime(j.assigned_at)}
                       </td>
                       <td className="p-3 font-medium text-secondary-foreground">{j.assigned_by_name}</td>
                       <td className="p-3 text-right space-x-2">

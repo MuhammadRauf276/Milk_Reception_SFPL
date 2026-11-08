@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Plus, ShieldAlert, CheckCircle2, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InfoTip } from '@/components/ui/info-tip';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { fadeSlide } from '@/components/motion/presets';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -49,22 +50,117 @@ export default function SuperAdminSilosPage() {
     void refresh();
   };
 
+  const columns: DataColumn<Silo>[] = [
+    { key: 'code', header: 'Code', label: 'Code', cell: (s) => <span className="break-all font-mono font-semibold tabular-nums text-foreground">{s.siloCode}</span> },
+    { key: 'name', header: 'Name', label: 'Name', primary: true, cell: (s) => <span className="font-semibold text-foreground">{s.siloName}</span> },
+    { key: 'capacity', header: 'Capacity', label: 'Capacity', cell: (s) => <span className="font-mono tabular-nums text-muted-foreground">{s.capacityLiters.toLocaleString()} L</span> },
+    {
+      key: 'stock13',
+      header: 'Stock @13% TS',
+      label: 'Stock @13% TS',
+      cell: (s) => (
+        <span className="font-mono font-semibold tabular-nums text-foreground">
+          {s.currentStockAt13Ts !== null && s.currentStockAt13Ts !== undefined ? `${s.currentStockAt13Ts.toLocaleString()} L` : '—'}
+          {s.compositeTsPercent !== null && s.compositeTsPercent !== undefined && (
+            <span className="block text-xs font-normal text-muted-foreground">Avg TS: {s.compositeTsPercent}%</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'physical',
+      header: 'Physical stock',
+      label: 'Physical stock',
+      cell: (s) => {
+        const fillPct = Math.min(100, Math.round((s.currentStockLiters / (s.capacityLiters || 1)) * 100));
+        return (
+          <div className="min-w-24 max-w-40 space-y-1">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 text-xs font-semibold text-foreground">
+              <span className="font-mono tabular-nums">{s.currentStockLiters.toLocaleString()} L</span>
+              <span className="font-mono text-xs tabular-nums text-muted-foreground">{fillPct}%</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${fillPct}%` }} />
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'reserved',
+      header: 'Reserved',
+      label: 'Reserved',
+      cell: (s) => <span className="font-mono tabular-nums text-muted-foreground">{s.activeReservationsLiters > 0 ? `${s.activeReservationsLiters.toLocaleString()} L` : '—'}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cell: (s) =>
+        s.isActive ? (
+          <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">Active</span>
+        ) : (
+          <span className="rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-800">Inactive</span>
+        ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (s) => (
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setActionError(null);
+              setDialog({ kind: 'edit', silo: s });
+            }}
+          >
+            <Edit2 />
+            Edit
+          </Button>
+          {s.isActive ? (
+            <Button variant="ghost" size="sm" onClick={() => setDialog({ kind: 'deactivate', silo: s })}>
+              Deactivate
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setActionError(null);
+                setSuccessMsg(null);
+                activate.mutate(s);
+              }}
+              disabled={activate.isPending}
+            >
+              Activate
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="w-full max-w-full space-y-4 overflow-x-hidden">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+    <div className="w-full min-w-0 max-w-full space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
-          <h1 className="text-xl font-semibold text-foreground">Silo Storage</h1>
+          <p className="text-sm text-muted-foreground">Capacity, fill level and reservations</p>
           <InfoTip text="Plant raw milk storage silos with capacity, fill levels, and allocation tracking." />
         </div>
         <Button
-          className="h-11 shrink-0 px-4"
+          className="shrink-0"
           onClick={() => {
             setActionError(null);
             setDialog({ kind: 'create' });
           }}
         >
           <Plus />
-          <span>Add Silo</span>
+          <span>Add silo</span>
         </Button>
       </div>
 
@@ -92,125 +188,14 @@ export default function SuperAdminSilosPage() {
         )}
       </AnimatePresence>
 
-      <div className="w-full max-w-full overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
-        <div className="w-full overflow-x-auto">
-          <table className="w-full min-w-[700px] text-left text-xs font-sans">
-            <thead className="border-b border-border bg-muted/50 text-muted-foreground font-semibold text-xs">
-              <tr>
-                <th className="p-3">Code</th>
-                <th className="p-3">Name</th>
-                <th className="p-3">Capacity</th>
-                <th className="p-3">Stock @13% TS</th>
-                <th className="p-3">Physical Stock</th>
-                <th className="p-3">Reserved</th>
-                <th className="p-3">Status</th>
-                <th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60 font-semibold text-foreground">
-              {query.isPending ? (
-                <tr>
-                  <td colSpan={8} className="p-6 text-center tabular-nums text-muted-foreground">
-                    Loading silos…
-                  </td>
-                </tr>
-              ) : silos.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="p-6 text-center text-muted-foreground">
-                    No silos found.
-                  </td>
-                </tr>
-              ) : (
-                silos.map((s) => {
-                  const fillPct = Math.min(100, Math.round((s.currentStockLiters / (s.capacityLiters || 1)) * 100));
-                  return (
-                    <tr key={s.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="p-3 font-semibold tabular-nums text-foreground">{s.siloCode}</td>
-                      <td className="p-3 font-semibold text-foreground">{s.siloName}</td>
-                      <td className="p-3 tabular-nums text-muted-foreground">{s.capacityLiters.toLocaleString()} L</td>
-                      <td className="p-3 tabular-nums font-semibold text-foreground">
-                        {s.currentStockAt13Ts !== null && s.currentStockAt13Ts !== undefined
-                          ? `${s.currentStockAt13Ts.toLocaleString()} L`
-                          : '—'}
-                        {s.compositeTsPercent !== null && s.compositeTsPercent !== undefined && (
-                          <span className="block text-xs text-muted-foreground font-normal">
-                            Avg TS: {s.compositeTsPercent}%
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 tabular-nums">
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-xs font-semibold text-foreground">
-                            <span>{s.currentStockLiters.toLocaleString()} L</span>
-                            <span className="text-xs text-muted-foreground">{fillPct}%</span>
-                          </div>
-                          <div className="w-28 h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-full bg-primary rounded-full transition-[width]"
-                              style={{ width: `${fillPct}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-3 tabular-nums text-muted-foreground">
-                        {s.activeReservationsLiters > 0 ? `${s.activeReservationsLiters.toLocaleString()} L` : '—'}
-                      </td>
-                      <td className="p-3">
-                        {s.isActive ? (
-                          <span className="rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-xs font-semibold">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="rounded-md bg-rose-50 text-rose-800 border border-rose-200 px-2 py-0.5 text-xs font-semibold">
-                            Inactive
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-right">
-                        <div className="flex items-center justify-end space-x-1.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActionError(null);
-                              setDialog({ kind: 'edit', silo: s });
-                            }}
-                            className="flex min-h-[36px] items-center space-x-1 rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold text-foreground transition hover:bg-muted/80 border border-border"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                            <span>Edit</span>
-                          </button>
-                          {s.isActive ? (
-                            <button
-                              type="button"
-                              onClick={() => setDialog({ kind: 'deactivate', silo: s })}
-                              className="min-h-[36px] rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 border border-rose-200/60"
-                            >
-                              Deactivate
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActionError(null);
-                                setSuccessMsg(null);
-                                activate.mutate(s);
-                              }}
-                              disabled={activate.isPending}
-                              className="min-h-[36px] rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 border border-emerald-200/60"
-                            >
-                              Activate
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={silos}
+        getRowId={(s) => s.id}
+        loading={query.isPending}
+        emptyTitle="No silos found"
+        tableFrom="lg"
+      />
 
       {dialog?.kind === 'create' && <SiloFormDrawer silo={null} onClose={() => setDialog(null)} onSaved={handleSaved} />}
       {dialog?.kind === 'edit' && <SiloFormDrawer key={dialog.silo.id} silo={dialog.silo} onClose={() => setDialog(null)} onSaved={handleSaved} />}

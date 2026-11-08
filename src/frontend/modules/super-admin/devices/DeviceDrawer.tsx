@@ -357,7 +357,7 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
                 {stationUsers.map((u) => (
                   <li key={u.userId} className="flex items-center justify-between gap-2 rounded-md border p-2">
                     <div className="min-w-0">
-                      <div className="truncate font-medium">{u.name}</div>
+                      <div className="break-words font-medium">{u.name}</div>
                       <div className="text-xs text-muted-foreground">
                         {roleWords(u.role)}
                         {u.locked ? ' - PIN blocked' : ''}

@@ -16,7 +16,9 @@ import { formatDispatchQuantity } from '@/backend/modules/dispatch/quantity/disp
 import { PageHeader } from '@/components/ui/page-header';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { EmptyAction } from './components/EmptyAction';
-import { TableWrapper } from '@/components/ui/table-wrapper';
+import { DataTable } from '@/components/ui/data-table';
+import { SkeletonList } from '@/components/ui/loaders';
+import { formatTime } from '@/lib/format';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
 
@@ -313,7 +315,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-panel-in">
           <div className="lg:col-span-5 space-y-3">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-sm font-semibold text-foreground">Waiting for Entry</h3>
+              <h3 className="text-sm font-semibold text-foreground">Waiting for entry</h3>
               <span className="text-xs tabular-nums font-semibold text-muted-foreground">{dispatchedVisits.length} vehicles</span>
             </div>
 
@@ -324,15 +326,13 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 value={entrySearchQuery}
                 onChange={(e) => handleEntrySearch(e.target.value)}
                 placeholder="Search vehicle number…"
-                className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
+                className="w-full min-h-11 pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
               />
             </div>
 
             <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
               {isLoading ? (
-                <div className="p-8 text-center border border-dashed border-border rounded-2xl text-sm text-muted-foreground">
-                  Loading vehicles…
-                </div>
+                <SkeletonList count={3} />
               ) : dispatchedVisits.length === 0 ? (
                 <EmptyAction message="No vehicles" onRefresh={() => queryClient.invalidateQueries()} />
               ) : (
@@ -345,16 +345,16 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       onKeyDown={onActivateKey}
                       key={`waiting-entry-${String(v.id)}`}
                       onClick={() => setSelectedEntryVisitId(v.id)}
-                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${
+                      className={`p-4 rounded-xl border transition-colors cursor-pointer space-y-2 ${
                         isSelected
-                          ? 'bg-primary/4 text-foreground border-primary ring-1 ring-primary shadow-xs'
+                          ? 'bg-primary/4 text-foreground border-primary ring-1 ring-primary'
                           : 'bg-card text-foreground border-border hover:border-border-strong hover:bg-subtle'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2 min-w-0">
-                        <span className="tabular-nums font-semibold text-sm truncate min-w-0">{v.vehicle_number}</span>
+                        <span className="font-mono tabular-nums font-semibold text-sm min-w-0">{v.vehicle_number}</span>
                         <span className={`px-2 py-0.5 rounded text-xs font-semibold tabular-nums bg-muted text-foreground border border-border-strong shrink-0`}>
-                          Waiting Entry
+                          Waiting entry
                         </span>
                       </div>
 
@@ -362,7 +362,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                         <span className="shrink-0">
                           {v.portion_count} Portion{v.portion_count > 1 ? 's' : ''}
                         </span>
-                        <span className="truncate max-w-[150px] text-right">{v.zonal_contractor_name}</span>
+                        <span className="min-w-0 text-right">{v.zonal_contractor_name}</span>
                       </div>
                     </div>
                   );
@@ -377,7 +377,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 Select a vehicle
               </div>
             ) : (
-              <div className="p-6 rounded-2xl bg-card border border-border shadow-xs space-y-5 text-foreground">
+              <div className="p-6 rounded-2xl bg-card border border-border space-y-5 text-foreground">
                 <div className="pb-3 border-b border-border-strong">
                   <div className="lg:hidden flex items-center justify-between pb-2 mb-2 border-b border-border">
                     <button
@@ -385,13 +385,13 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       onClick={() => setSelectedEntryVisitId(null)}
                       className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
                     >
-                      <ArrowLeft className="h-4 w-4" /> Back to Vehicle Queue
+                      <ArrowLeft className="h-4 w-4" /> Back to vehicle queue
                     </button>
-                    <span className="text-xs font-semibold text-muted-foreground">Vehicle Selected</span>
+                    <span className="text-xs font-semibold text-muted-foreground">Vehicle selected</span>
                   </div>
-                  <h3 className="text-base font-semibold text-foreground">Entry Processing</h3>
+                  <h3 className="text-base font-semibold text-foreground">Entry</h3>
                   <p className="text-xs text-secondary-foreground font-semibold mt-0.5">
-                    Vehicle: <strong className="tabular-nums text-foreground">{selectedEntryVisit.vehicle_number}</strong> | Contractor: <strong className="text-primary">{selectedEntryVisit.zonal_contractor_name}</strong>
+                    Vehicle: <strong className="font-mono tabular-nums text-foreground">{selectedEntryVisit.vehicle_number}</strong> | Contractor: <strong className="text-foreground">{selectedEntryVisit.zonal_contractor_name}</strong>
                   </p>
                 </div>
 
@@ -409,22 +409,22 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 <form onSubmit={handleConfirmEntry} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-semibold text-foreground">
-                      Gate Token *
+                      Gate token *
                     </label>
                     <input
                       type="text"
                       value={tokenNumber}
                       onChange={(e) => setTokenNumber(e.target.value.toUpperCase())}
                       placeholder="e.g. TK-9025"
-                      className="w-full min-h-[44px] px-4 py-2.5 text-base sm:text-sm tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden"
+                      className="w-full min-h-11 px-4 py-2.5 font-mono text-base sm:text-sm tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden"
                       required
                     />
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="block text-xs font-semibold text-foreground flex items-center justify-between">
-                      <span>Entry Time *</span>
-                      <Clock className="w-3.5 h-3.5 text-primary" />
+                      <span>Entry time *</span>
+                      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                     </label>
                     <input
                       type="datetime-local"
@@ -432,7 +432,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       min={selectedEntryVisit.dispatch_timestamp ? toDatetimeLocalInput(selectedEntryVisit.dispatch_timestamp) : undefined}
                       max={toDatetimeLocalInput(new Date())}
                       onChange={(e) => setEntryOpTimestamp(e.target.value)}
-                      className="w-full min-h-[44px] px-4 py-2.5 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden"
+                      className="w-full min-h-11 px-4 py-2.5 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden"
                       required
                     />
                   </div>
@@ -440,10 +440,10 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full min-h-[44px] flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-xs shadow-md transition disabled:opacity-50 mt-2"
+                    className="w-full min-h-11 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-xs transition-colors disabled:opacity-50 mt-2"
                   >
                     
-                    <span>{isSubmitting ? 'Confirming Entry…' : 'Confirm Entry'}</span>
+                    <span>{isSubmitting ? 'Confirming entry…' : 'Confirm entry'}</span>
                   </button>
                 </form>
               </div>
@@ -453,52 +453,31 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
       )}
 
       {activeTab === 'INSIDE_PLANT' && (
-        <div className="p-6 rounded-2xl bg-card border border-border shadow-xs space-y-4 animate-panel-in">
+        <div className="p-6 rounded-2xl bg-card border border-border space-y-4 animate-panel-in">
           <div className="flex items-center justify-between pb-2 border-b border-border-strong">
             <h3 className="text-sm font-semibold text-foreground">
-              Vehicles Inside Plant ({activeVisits.length})
+              Vehicles inside plant ({activeVisits.length})
             </h3>
           </div>
 
           {activeVisits.length === 0 ? (
             <EmptyAction message="No vehicles" onRefresh={() => queryClient.invalidateQueries()} />
           ) : (
-            <TableWrapper className="max-w-full">
-              <table className="w-full text-left text-xs font-medium min-w-[600px]">
-                <thead className="bg-muted text-secondary-foreground font-semibold text-xs border-b border-border-strong">
-                  <tr>
-                    <th className="py-3 px-4">Token #</th>
-                    <th className="py-3 px-4">Vehicle #</th>
-                    <th className="py-3 px-4">Entry Time</th>
-                    <th className="py-3 px-4">Portions</th>
-                    <th className="py-3 px-4">Current Stage</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-strong text-foreground">
-                  {activeVisits.map((v) => (
-                    <tr key={`inside-${String(v.id)}`} className="hover:bg-muted/80 transition">
-                      <td className="py-3 px-4 tabular-nums font-semibold text-primary">
-                        {v.token_number || '-'}
-                      </td>
-                      <td className="py-3 px-4 font-semibold text-foreground">
-                        {v.vehicle_number}
-                      </td>
-                      <td className="py-3 px-4 tabular-nums text-secondary-foreground">
-                        {v.entry_timestamp ? new Date(v.entry_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-'}
-                      </td>
-                      <td className="py-3 px-4 tabular-nums">
-                        {v.portion_count} ({formatDispatchQuantity(v.vehicle_dispatch_quantity_value, v.vehicle_dispatch_quantity_unit)})
-                      </td>
-                      <td className="py-3 px-4 font-semibold">
-                        <span className="px-2.5 py-1 rounded-full text-xs tabular-nums bg-blue-100 text-primary border border-blue-300">
-                          {formatFriendlyStage(v.current_status)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableWrapper>
+            <DataTable<ActiveInPlantVisit>
+              rows={activeVisits}
+              getRowId={(v) => String(v.id)}
+              columns={[
+                { key: 'token', header: 'Token', label: 'Token', cell: (v) => <span className="font-mono tabular-nums font-semibold">{v.token_number || '-'}</span> },
+                { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', primary: true, cell: (v) => <span className="font-mono font-semibold text-foreground">{v.vehicle_number}</span> },
+                { key: 'entry', header: 'Entry time', label: 'Entry time', cell: (v) => <span className="tabular-nums text-secondary-foreground">{formatTime(v.entry_timestamp)}</span> },
+                { key: 'portions', header: 'Portions', label: 'Portions', cell: (v) => <span className="tabular-nums">{v.portion_count} ({formatDispatchQuantity(v.vehicle_dispatch_quantity_value, v.vehicle_dispatch_quantity_unit)})</span> },
+                { key: 'stage', header: 'Current stage', label: 'Current stage', cell: (v) => (
+                  <span className="px-2.5 py-1 rounded-full text-xs bg-muted text-foreground border border-border">
+                    {formatFriendlyStage(v.current_status)}
+                  </span>
+                ) },
+              ]}
+            />
           )}
         </div>
       )}
@@ -507,7 +486,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-panel-in">
           <div className="lg:col-span-5 space-y-3">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-sm font-semibold text-foreground">Ready for Exit</h3>
+              <h3 className="text-sm font-semibold text-foreground">Ready for exit</h3>
               <span className="text-xs tabular-nums font-semibold text-muted-foreground">{readyExitVisits.length} ready</span>
             </div>
 
@@ -518,7 +497,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 value={exitSearchQuery}
                 onChange={(e) => handleExitSearch(e.target.value)}
                 placeholder="Search token or vehicle number…"
-                className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
+                className="w-full min-h-11 pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
               />
             </div>
 
@@ -535,21 +514,21 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       onKeyDown={onActivateKey}
                       key={`ready-exit-${String(v.id)}`}
                       onClick={() => { setSelectedExitVisitId(v.id); setTankerWashed(null); }}
-                      className={`p-4 rounded-xl border transition cursor-pointer space-y-2 ${
+                      className={`p-4 rounded-xl border transition-colors cursor-pointer space-y-2 ${
                         isSelected
-                          ? 'bg-primary/4 text-foreground border-primary ring-1 ring-primary shadow-xs'
+                          ? 'bg-primary/4 text-foreground border-primary ring-1 ring-primary'
                           : 'bg-card text-foreground border-border hover:border-border-strong hover:bg-subtle'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2 min-w-0">
-                        <div className="flex items-center space-x-2 min-w-0 truncate">
-                          <span className="tabular-nums font-semibold text-sm truncate">{v.vehicle_number}</span>
-                          <span className={`tabular-nums text-xs font-semibold text-primary shrink-0`}>
+                        <div className="flex flex-wrap items-center gap-x-2 min-w-0">
+                          <span className="font-mono tabular-nums font-semibold text-sm">{v.vehicle_number}</span>
+                          <span className={`font-mono tabular-nums text-xs text-muted-foreground shrink-0`}>
                             ({v.token_number || 'NO-TOKEN'})
                           </span>
                         </div>
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 ${
+                          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 ${
                             v.is_all_rejected ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
                           }`}
                         >
@@ -559,7 +538,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
 
                       <div className={`flex items-center justify-between text-xs font-semibold text-secondary-foreground`}>
                         <span>Portions: {v.portion_count}</span>
-                        <span>Net: {v.net_weight_kg ? `${v.net_weight_kg.toLocaleString()} KG` : '—'}</span>
+                        <span className="font-mono tabular-nums">Net: {v.net_weight_kg ? `${v.net_weight_kg.toLocaleString()} kg` : '—'}</span>
                       </div>
                     </div>
                   );
@@ -574,7 +553,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 Select a vehicle
               </div>
             ) : (
-              <div className="p-6 rounded-2xl bg-card border border-border shadow-xs space-y-5 text-foreground">
+              <div className="p-6 rounded-2xl bg-card border border-border space-y-5 text-foreground">
                 <div className="pb-3 border-b border-border-strong">
                   <div className="lg:hidden flex items-center justify-between pb-2 mb-2 border-b border-border">
                     <button
@@ -582,39 +561,39 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       onClick={() => { setSelectedExitVisitId(null); setTankerWashed(null); }}
                       className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
                     >
-                      <ArrowLeft className="h-4 w-4" /> Back to Exit Queue
+                      <ArrowLeft className="h-4 w-4" /> Back to exit queue
                     </button>
                     <span className="text-xs font-semibold text-muted-foreground">Vehicle Selected</span>
                   </div>
-                  <h3 className="text-base font-semibold text-foreground">Gate Exit Clearance</h3>
+                  <h3 className="text-base font-semibold text-foreground">Exit clearance</h3>
                   <p className="text-xs text-secondary-foreground font-semibold mt-0.5">
-                    Vehicle: <strong className="tabular-nums text-foreground">{selectedExitVisit.vehicle_number}</strong> | Token: <strong className="tabular-nums text-primary-hover">{selectedExitVisit.token_number || 'NO-TOKEN'}</strong> | Entry: <strong className="tabular-nums text-primary">{selectedExitVisit.entry_timestamp ? new Date(selectedExitVisit.entry_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-'}</strong>
+                    Vehicle: <strong className="font-mono tabular-nums text-foreground">{selectedExitVisit.vehicle_number}</strong> | Token: <strong className="font-mono tabular-nums text-foreground">{selectedExitVisit.token_number || 'NO-TOKEN'}</strong> | Entry: <strong className="tabular-nums text-foreground">{selectedExitVisit.entry_timestamp ? formatTime(selectedExitVisit.entry_timestamp) : '-'}</strong>
                   </p>
                 </div>
 
                 <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
                   <div>
-                    <span className="text-muted-foreground font-sans block text-xs">Exit Reason</span>
+                    <span className="text-muted-foreground font-sans block text-xs">Exit reason</span>
                     <span className={selectedExitVisit.is_all_rejected ? 'text-rose-700 font-semibold' : 'text-emerald-700 font-semibold'}>
                       {selectedExitVisit.exit_reason}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-muted-foreground font-sans block text-xs">Net Milk Received</span>
-                    <span>{selectedExitVisit.net_weight_kg ? `${selectedExitVisit.net_weight_kg.toLocaleString()} KG` : '—'}</span>
+                    <span className="text-muted-foreground font-sans block text-xs">Net milk received</span>
+                    <span className="font-mono text-base tabular-nums">{selectedExitVisit.net_weight_kg ? `${selectedExitVisit.net_weight_kg.toLocaleString()} kg` : '—'}</span>
                   </div>
                 </div>
 
                 {!selectedExitVisit.is_all_rejected && (
                   <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
                     <div>
-                      <span className="text-muted-foreground font-sans block text-xs">Gross Weight</span>
-                      <span>{selectedExitVisit.gross_weight_kg ? `${selectedExitVisit.gross_weight_kg.toLocaleString()} KG` : '—'}</span>
+                      <span className="text-muted-foreground font-sans block text-xs">Gross weight</span>
+                      <span className="font-mono text-base tabular-nums">{selectedExitVisit.gross_weight_kg ? `${selectedExitVisit.gross_weight_kg.toLocaleString()} kg` : '—'}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground font-sans block text-xs">Second (Tare) Weight</span>
-                      <span>{selectedExitVisit.tare_weight_kg ? `${selectedExitVisit.tare_weight_kg.toLocaleString()} KG` : '—'}</span>
+                      <span className="text-muted-foreground font-sans block text-xs">Second (tare) weight</span>
+                      <span className="font-mono text-base tabular-nums">{selectedExitVisit.tare_weight_kg ? `${selectedExitVisit.tare_weight_kg.toLocaleString()} kg` : '—'}</span>
                     </div>
                   </div>
                 )}
@@ -630,18 +609,18 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 {!selectedExitVisit.is_all_rejected && (
                 <div className="bg-card border-border p-3.5 rounded-2xl border space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-foreground">Tanker Wash Verification *</span>
+                    <span className="text-xs font-semibold text-foreground">Tanker wash check *</span>
                     {tankerWashed === true ? (
                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        Clean &amp; Washed
+                        Clean and washed
                       </span>
                     ) : tankerWashed === false ? (
                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300">
-                        Sent to Wash Bay
+                        Sent to wash bay
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
-                        Inspection Required
+                        Inspection needed
                       </span>
                     )}
                   </div>
@@ -650,22 +629,22 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     <button
                       type="button"
                       onClick={() => setTankerWashed(true)}
-                      className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 border ${
+                      className={`min-h-11 px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border ${
                         tankerWashed === true
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          ? 'bg-emerald-600 text-white border-emerald-600'
                           : 'bg-card text-secondary-foreground border-border-strong hover:bg-subtle'
                       }`}
                     >
                       
-                      <span>Tanker Clean &amp; Washed</span>
+                      <span>Tanker clean and washed</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setTankerWashed(false)}
-                      className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 border ${
+                      className={`min-h-11 px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border ${
                         tankerWashed === false
-                          ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                          ? 'bg-rose-600 text-white border-rose-600'
                           : 'bg-card text-secondary-foreground border-border-strong hover:bg-subtle'
                       }`}
                     >
@@ -686,15 +665,15 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 <form onSubmit={handleConfirmExit} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="block text-xs font-semibold text-foreground flex items-center justify-between">
-                      <span>Gate Exit Time <span className="text-rose-600">*</span></span>
-                      <Clock className="w-3.5 h-3.5 text-primary" />
+                      <span>Gate exit time <span className="text-rose-600">*</span></span>
+                      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                     </label>
                     <input
                       type="datetime-local"
                       value={exitOpTimestamp}
                       max={toDatetimeLocalInput(new Date())}
                       onChange={(e) => setExitOpTimestamp(e.target.value)}
-                      className="w-full min-h-[44px] px-4 py-2.5 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-11 px-4 py-2.5 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                       required
                     />
                   </div>
@@ -702,10 +681,10 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   <button
                     type="submit"
                     disabled={isSubmitting || (!selectedExitVisit.is_all_rejected && tankerWashed !== true)}
-                    className="w-full min-h-[44px] flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full min-h-11 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     
-                    <span>{isSubmitting ? 'Confirming Exit…' : 'Confirm Gate Exit Clearance'}</span>
+                    <span>{isSubmitting ? 'Confirming exit…' : 'Confirm gate exit'}</span>
                   </button>
                 </form>
               </div>

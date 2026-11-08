@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Ban, CheckCircle2, Clock, KeyRound, Plus, ScrollText, Search, Smartphone, Undo2, UserPlus, Users } from 'lucide-react';
 import { InfoTip } from '@/components/ui/info-tip';
+import { SkeletonList } from '@/components/ui/loaders';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -105,7 +106,7 @@ export function DevicesWorkspace() {
                 setStatus(f.value);
                 setPage(1);
               }}
-              className={`h-11 rounded-xl border px-4 text-xs font-semibold ${
+              className={`min-h-11 rounded-lg border px-4 text-xs font-medium transition-colors ${
                 status === f.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-card text-secondary-foreground hover:bg-subtle'
               }`}
             >
@@ -122,7 +123,7 @@ export function DevicesWorkspace() {
       ) : null}
 
       {query.isPending ? (
-        <p className="text-sm text-muted-foreground">Loading phones…</p>
+        <SkeletonList count={4} />
       ) : devices.length === 0 ? (
         <p className="rounded-md border p-6 text-center text-sm text-muted-foreground">
           {q || status ? 'No phones match.' : 'No phones yet.'}
@@ -130,18 +131,18 @@ export function DevicesWorkspace() {
       ) : (
         <ul className={`grid gap-4 lg:grid-cols-2 ${query.isPlaceholderData ? 'opacity-60' : ''}`}>
           {devices.map((d) => (
-            <li key={d.id} className="space-y-3 rounded-lg border bg-card p-4">
+            <li key={d.id} className="space-y-3 rounded-2xl border bg-card p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 font-semibold">
                     <Smartphone className="size-4 shrink-0" aria-hidden />
-                    <span className="truncate">{d.label || d.deviceUid}</span>
+                    <span className="min-w-0 break-words">{d.label || d.deviceUid}</span>
                   </div>
                   <div className="break-all text-xs text-muted-foreground">{d.deviceUid}</div>
                 </div>
                 <StatusPill status={d.status} />
               </div>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+              <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-x-4 gap-y-1 text-sm">
                 <dt className="text-muted-foreground">User</dt>
                 <dd>{d.assignedUserName ?? (d.isSharedStation ? 'Shared station' : 'Nobody')}</dd>
                 <dt className="text-muted-foreground">ZMCC</dt>

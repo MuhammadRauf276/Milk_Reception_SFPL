@@ -65,7 +65,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
 
               <div className="flex items-baseline justify-between pt-0.5">
                 <div>
-                  <div className="font-mono text-base sm:text-lg font-semibold uppercase tracking-wider text-foreground">
+                  <div className="font-mono text-base sm:text-lg font-semibold uppercase text-foreground">
                     {weighbridge.currentlyOnScale.vehicleNumber}
                   </div>
                   {weighbridge.currentlyOnScale.tokenNumber && (
@@ -200,7 +200,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
                   </div>
 
                   <div className="flex items-baseline justify-between">
-                    <span className="font-mono text-base font-semibold uppercase tracking-wider text-foreground">
+                    <span className="font-mono text-base font-semibold uppercase text-foreground">
                       {p.vehicleNumber}
                     </span>
                     <span className="text-xs text-muted-foreground">

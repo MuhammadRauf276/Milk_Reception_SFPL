@@ -1,10 +1,11 @@
 'use client';
 
+import { SkeletonList } from '@/components/ui/loaders';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { User } from '@core/types';
-import { ChevronLeft, ChevronRight, Truck, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Truck } from 'lucide-react';
 import { DynamicDispatchForm } from '@modules/forms/DynamicDispatchForm';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { getErrorMessage } from '@/lib/errors';
@@ -290,10 +291,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           {/* Records List */}
           <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">
             {isLoading ? (
-              <div className="bg-card border-border p-10 text-center border border-dashed rounded-xl text-sm text-muted-foreground">
-                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
-                Loading dispatches…
-              </div>
+              <SkeletonList count={3} />
             ) : dbDispatches.length === 0 ? (
               <div className="bg-card border-border p-10 text-center border border-dashed rounded-xl text-sm text-muted-foreground">
                 No dispatches found for this period.
@@ -310,7 +308,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                         <Truck className="w-4 h-4" />
                       </div>
                       <div>
-                        <span className="font-semibold tabular-nums text-base tracking-tight text-foreground">
+                        <span className="font-semibold tabular-nums text-base text-foreground">
                           {log.vehicle_number}
                         </span>
                         <div className="flex items-center space-x-1.5 mt-0.5">
@@ -378,7 +376,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                     type="button"
                     disabled={page <= 1 || isLoading}
                     onClick={() => handlePageChange(page - 1)}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center space-x-1 px-3.5 py-2 rounded-xl bg-muted border border-border-strong text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent transition focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
+                    className="min-h-11 min-w-11 flex items-center justify-center space-x-1 px-3.5 py-2 rounded-xl bg-muted border border-border-strong text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent transition focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
                     aria-label="Previous page"
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -393,7 +391,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                     type="button"
                     disabled={page >= pagination.totalPages || isLoading}
                     onClick={() => handlePageChange(page + 1)}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center space-x-1 px-3.5 py-2 rounded-xl bg-muted border border-border-strong text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent transition focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
+                    className="min-h-11 min-w-11 flex items-center justify-center space-x-1 px-3.5 py-2 rounded-xl bg-muted border border-border-strong text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent transition focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
                     aria-label="Next page"
                   >
                     <span>Next</span>

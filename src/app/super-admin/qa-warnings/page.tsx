@@ -2,9 +2,11 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { formatDateTime } from '@/lib/format';
 
 interface WarningItem {
   id: string;
@@ -32,6 +34,26 @@ interface MonthlySummaryItem {
   activeWarningCount: number;
 }
 
+const columns: DataColumn<WarningItem>[] = [
+  { key: 'when', header: 'Timestamp', label: 'Timestamp', cell: (w) => <span className="text-xs tabular-nums text-muted-foreground">{formatDateTime(w.createdAt)}</span> },
+  {
+    key: 'source',
+    header: 'Procurement source',
+    label: 'Procurement source',
+    primary: true,
+    cell: (w) => (
+      <div className="min-w-0">
+        <div className="font-semibold text-foreground">{w.procurementSource.name}</div>
+        <div className="break-all font-mono text-xs text-muted-foreground">{w.procurementSource.code}</div>
+      </div>
+    ),
+  },
+  { key: 'test', header: 'Lab test', label: 'Lab test', cell: (w) => <span className="text-secondary-foreground">{w.labTest?.name || '-'}</span> },
+  { key: 'reason', header: 'Reason', label: 'Reason', cell: (w) => <span className="text-foreground">{w.reason}</span> },
+  { key: 'by', header: 'Created by', label: 'Created by', cell: (w) => <span className="text-secondary-foreground">{w.createdBy}</span> },
+  { key: 'status', header: 'Status', label: 'Status', cell: (w) => <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">{w.status}</span> },
+];
+
 export default function SuperAdminQaWarningsPage() {
   const query = useQuery({
     queryKey: ['super-admin', 'qa-warnings'],
@@ -44,93 +66,42 @@ export default function SuperAdminQaWarningsPage() {
   const error = query.error ? getErrorMessage(query.error) : null;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">QA Warnings</h1>
-      </div>
-
-      {error && (
-        <div className="p-4 bg-card border border-border rounded-2xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
-          <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
+    <div className="w-full min-w-0 space-y-6">
       {/* MONTHLY SUMMARY PER SOURCE */}
-      <div className="bg-card p-5 rounded-2xl border border-border/80 shadow-2xs space-y-3">
+      <div className="min-w-0 space-y-3 rounded-2xl border border-border/80 bg-card p-5 shadow-2xs">
         <h2 className="text-sm font-semibold text-foreground">Monthly warnings</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3 text-xs">
           {summary.map((s) => (
-            <div key={s.sourceId} className="p-3 rounded-lg bg-card border border-border flex justify-between items-center">
-              <div>
+            <div key={s.sourceId} className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card p-3">
+              <div className="min-w-0">
                 <div className="font-semibold text-foreground">{s.sourceName}</div>
-                <div className="tabular-nums text-xs text-muted-foreground">{s.sourceCode} ({s.sourceType})</div>
+                <div className="break-all font-mono text-xs text-muted-foreground">{s.sourceCode} ({s.sourceType})</div>
               </div>
-              <div className="tabular-nums text-sm font-semibold px-2.5 py-1 rounded bg-amber-100 text-amber-900">
-                {s.activeWarningCount} Warnings
+              <div className="rounded bg-amber-100 px-2.5 py-1 text-sm font-semibold tabular-nums text-amber-900">
+                {s.activeWarningCount} warnings
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* WARNING EVENT RECORDS TABLE */}
-      <div className="bg-card rounded-2xl border border-border/80 shadow-2xs overflow-hidden space-y-2 p-4">
-        <h2 className="text-sm font-semibold text-foreground flex items-center space-x-2">
-          <AlertTriangle className="w-4 h-4 text-amber-600" />
+      {/* WARNING EVENT RECORDS */}
+      <div className="min-w-0 space-y-2 rounded-2xl border border-border/80 bg-card p-4 shadow-2xs">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
           <span>Warning log</span>
         </h2>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-subtle text-secondary-foreground border-b border-border">
-              <tr>
-                <th className="p-3 font-semibold">Timestamp</th>
-                <th className="p-3 font-semibold">Procurement Source</th>
-                <th className="p-3 font-semibold">Lab Test</th>
-                <th className="p-3 font-semibold">Reason</th>
-                <th className="p-3 font-semibold">Created By</th>
-                <th className="p-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60 font-medium">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="p-6 text-center text-muted-foreground tabular-nums">
-                    Loading warning events…
-                  </td>
-                </tr>
-              ) : warnings.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground font-medium">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                    No warnings
-                  </td>
-                </tr>
-              ) : (
-                warnings.map((w) => (
-                  <tr key={w.id} className="hover:bg-subtle">
-                    <td className="p-3 tabular-nums text-xs text-muted-foreground">
-                      {new Date(w.createdAt).toLocaleString()}
-                    </td>
-                    <td className="p-3">
-                      <div className="font-semibold text-foreground">{w.procurementSource.name}</div>
-                      <div className="tabular-nums text-xs text-muted-foreground">{w.procurementSource.code}</div>
-                    </td>
-                    <td className="p-3 tabular-nums text-secondary-foreground">{w.labTest?.name || '-'}</td>
-                    <td className="p-3 text-foreground">{w.reason}</td>
-                    <td className="p-3 text-secondary-foreground">{w.createdBy}</td>
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 tabular-nums text-xs font-semibold">
-                        {w.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns}
+          rows={warnings}
+          getRowId={(w) => w.id}
+          loading={loading}
+          error={error}
+          onRetry={() => void query.refetch()}
+          emptyTitle="No warnings"
+          tableFrom="lg"
+        />
       </div>
     </div>
   );

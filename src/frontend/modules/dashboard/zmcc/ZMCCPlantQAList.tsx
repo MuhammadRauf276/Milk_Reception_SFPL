@@ -46,7 +46,7 @@ export const ZMCCPlantQAList: React.FC<{
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-border/60">
               <div className="flex items-center space-x-3 flex-wrap gap-y-1">
-                <span className="text-base font-semibold tabular-nums text-foreground tracking-tight">
+                <span className="text-base font-semibold tabular-nums text-foreground">
                   {item.vehicleNumber}
                 </span>
                 <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-900 text-white">
@@ -61,7 +61,7 @@ export const ZMCCPlantQAList: React.FC<{
                   Business Date: {item.businessDate || 'Pending plant completion'}
                 </span>
                 <span
-                  className={`px-2.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${
+                  className={`px-2.5 py-0.5 rounded text-xs font-semibold  ${
                     isAccepted
                       ? 'bg-emerald-100 text-emerald-800'
                       : isRejected

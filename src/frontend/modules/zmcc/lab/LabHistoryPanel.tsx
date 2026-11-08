@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime } from '@/lib/format';
 import React from 'react';
 import { Search, Edit3 } from 'lucide-react';
 import { MyCorrectionTicketsButton } from '@/frontend/modules/governance/MyCorrectionTickets';
@@ -202,7 +203,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-muted-foreground">
-                        {item.completed_at ? new Date(item.completed_at).toLocaleString() : '—'}
+                        {item.completed_at ? formatDateTime(item.completed_at) : '—'}
                       </td>
                       <td className="py-3.5 px-4 text-secondary-foreground">
                         {item.completer?.full_name || item.completer?.username || '—'}

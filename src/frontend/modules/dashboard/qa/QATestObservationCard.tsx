@@ -40,7 +40,7 @@ export interface QATestObservationCardProps {
  * - Auto-calculated test support (SNF, Total Solids, Ratio) with live Richmond formula
  * - Applied tests non-enforcement: shows "Not under SOP — Optional test, system rules not applied"
  * - SOP Range Pill with real-time pass / out-of-SOP visual feedback
- * - Touch-friendly min-h-[48px] numeric inputs and min-h-[44px] qualitative choice pills
+ * - Touch-friendly min-h-12 numeric inputs and min-h-11 qualitative choice pills
  * - Live inline out-of-SOP warning alerts directly on the card
  * - Live camera verification with stamp and photo preview
  */
@@ -186,7 +186,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             readOnly
             value={calculatedValue != null ? `${calculatedValue.toFixed(2)} ${test.unit || '%'}` : ''}
             placeholder="Auto-calculating (awaiting LR & Fat)…"
-            className="w-full min-w-0 min-h-[48px] rounded-xl border border-purple-200 bg-purple-50/40 p-3 text-base font-semibold text-purple-950 tabular-nums focus:outline-hidden"
+            className="w-full min-w-0 min-h-12 rounded-xl border border-purple-200 bg-purple-50/40 p-3 text-base font-semibold text-purple-950 tabular-nums focus:outline-hidden"
           />
           <p className="text-xs text-purple-800 font-medium">
             Calculated automatically from Lactometer Reading (LR) and Fat. Preserves canonical milk solids balance.
@@ -207,7 +207,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             placeholder={`Enter observation value ${test.unit ? `in ${test.unit}` : ''}`}
             aria-invalid={isNumericFail || undefined}
             className={cn(
-              'w-full min-w-0 min-h-[48px] rounded-xl border bg-subtle p-3 text-base font-semibold focus:ring-2 focus:outline-hidden transition tabular-nums',
+              'w-full min-w-0 min-h-12 rounded-xl border bg-subtle p-3 text-base font-semibold focus:ring-2 focus:outline-hidden transition tabular-nums',
               isNumericFail
                 ? 'border-rose-400 bg-rose-50/40 text-rose-950 focus:border-rose-500 focus:ring-rose-500'
                 : 'border-border focus:border-primary focus:ring-primary/20'
@@ -215,7 +215,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
           />
           {isAppliedOnly && !hasValue && (
             <p className="text-xs text-muted-foreground font-medium">
-              Optional test — leave blank if not conducted.
+              Optional test: leave blank if not conducted
             </p>
           )}
         </div>
@@ -233,7 +233,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
                   onClick={() => onTextChange(test.id, isSelected ? '' : opt.value)}
                   aria-pressed={isSelected}
                   className={cn(
-                    'min-h-[44px] rounded-xl border-2 px-3.5 text-sm font-semibold transition',
+                    'min-h-11 rounded-xl border-2 px-3.5 text-sm font-semibold transition',
                     isSelected
                       ? isOptionFail && !isAppliedOnly
                         ? 'border-rose-600 bg-rose-600 text-white shadow-xs'
@@ -248,7 +248,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
           </div>
           {isAppliedOnly && !hasValue && (
             <p className="text-xs text-muted-foreground font-medium">
-              Optional test — leave blank if not conducted.
+              Optional test: leave blank if not conducted
             </p>
           )}
         </div>
@@ -261,13 +261,13 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             onChange={(e) => onTextChange(test.id, e.target.value)}
             placeholder="Enter observation notes / findings"
             className={cn(
-              'w-full min-w-0 min-h-[48px] rounded-xl border bg-subtle p-3 text-base font-semibold focus:ring-2 focus:ring-primary focus:outline-hidden transition',
+              'w-full min-w-0 min-h-12 rounded-xl border bg-subtle p-3 text-base font-semibold focus:ring-2 focus:ring-primary focus:outline-hidden transition',
               isQualitativeFail ? 'border-rose-400 bg-rose-50/40 text-rose-950' : 'border-border'
             )}
           />
           {isAppliedOnly && !hasValue && (
             <p className="text-xs text-muted-foreground font-medium">
-              Optional test — leave blank if not conducted.
+              Optional test: leave blank if not conducted
             </p>
           )}
         </div>

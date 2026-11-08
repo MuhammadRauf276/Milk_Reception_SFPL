@@ -457,7 +457,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                         {/* 11. Status */}
                         <td className="py-3 px-3 text-center">
                           <span
-                            className={`inline-block px-2 py-0.5 rounded text-xs font-sans font-semibold uppercase tracking-wider ${
+                            className={`inline-block px-2 py-0.5 rounded text-xs font-sans font-semibold  ${
                               item.isCompletedReceipt
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : item.isReceiptPending
@@ -498,7 +498,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                   <Warehouse className="w-3.5 h-3.5 text-emerald-700" />
                                   <span>Weighbridge & Destination Silo</span>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2 pt-1 tabular-nums text-xs">
+                                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 pt-1 tabular-nums text-xs">
                                   <div>
                                     <span className="text-xs text-muted-foreground font-sans block">1st Weight (Gross):</span>
                                     <span className="font-semibold text-foreground">

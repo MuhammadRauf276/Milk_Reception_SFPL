@@ -6,11 +6,13 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { fetchJson } from '@/lib/query/fetchJson';
 import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
 import { useToast } from '@/frontend/context/ToastContext';
-import { Search, CheckCircle2, Clock, Loader2, X } from 'lucide-react';
+import { Search, CheckCircle2, Clock, X } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { formatOperationalDatetime, toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
+import { SkeletonList } from '@/components/ui/loaders';
+import { formatTime } from '@/lib/format';
 import { Pager, pageCount, paginate } from './components/Pager';
 import { apiClient } from '@/frontend/lib/apiClient';
 import type { SecondWeightVisit } from './weighbridgeTypes';
@@ -38,7 +40,7 @@ export const WeighbridgeSecondWeightPanel: React.FC = () => {
   return (
     <div className="space-y-3 animate-panel-in">
       <div className="flex items-center justify-between px-1">
-        <h3 className="text-sm font-semibold text-foreground">Ready for Second Weight</h3>
+        <h3 className="text-sm font-semibold text-foreground">Ready for second weight</h3>
         <span className="text-xs tabular-nums font-semibold text-muted-foreground">
           {visits.length} vehicle{visits.length !== 1 ? 's' : ''}
         </span>
@@ -54,16 +56,13 @@ export const WeighbridgeSecondWeightPanel: React.FC = () => {
             setPage(1);
           }}
           placeholder="Search vehicle or token…"
-          className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
+          className="w-full min-h-11 pl-9 pr-3 py-2 text-sm tabular-nums rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
         />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
         {secondQuery.isPending ? (
-          <div className="p-8 text-center border border-dashed border-border rounded-2xl text-sm text-muted-foreground md:col-span-2 lg:col-span-3">
-            <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
-            Loading weighbridge queue…
-          </div>
+          <SkeletonList count={3} className="md:col-span-2 lg:col-span-3" />
         ) : visits.length === 0 ? (
           <EmptyAction message="No vehicles" onRefresh={() => secondQuery.refetch()} className="md:col-span-2 lg:col-span-3" />
         ) : (
@@ -74,25 +73,25 @@ export const WeighbridgeSecondWeightPanel: React.FC = () => {
               onKeyDown={onActivateKey}
               key={`second-weight-${v.id}`}
               onClick={() => setSelectedId(v.id)}
-              className="p-4 rounded-2xl border transition cursor-pointer space-y-2 min-h-11 bg-card text-foreground border-border hover:border-border-strong hover:bg-subtle"
+              className="p-4 rounded-2xl border transition-colors cursor-pointer space-y-2 min-h-11 bg-card text-foreground border-border hover:border-border-strong hover:bg-subtle"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <span className="tabular-nums font-semibold text-sm">{v.vehicle_number}</span>
-                  <span className="tabular-nums text-xs font-semibold text-primary">({v.token_number || 'No Token'})</span>
+                  <span className="font-mono tabular-nums font-semibold text-sm">{v.vehicle_number}</span>
+                  <span className="font-mono tabular-nums text-xs text-muted-foreground">({v.token_number || 'No token'})</span>
                 </div>
                 <span className="px-2 py-0.5 rounded text-xs font-semibold tabular-nums bg-blue-100 text-primary border border-blue-300">
-                  Unloading Completed
+                  Unloading completed
                 </span>
               </div>
 
               <div className="flex items-center justify-between text-xs font-semibold text-secondary-foreground">
-                <span>First Weight: {v.gross_weight_kg.toLocaleString()} kg</span>
+                <span className="font-mono tabular-nums">First weight: {v.gross_weight_kg.toLocaleString()} kg</span>
                 <span>Date: {v.operational_date}</span>
               </div>
 
               <div className="flex items-center justify-between text-xs tabular-nums text-secondary-foreground">
-                <span>{v.is_portion_wise ? `Portion #${v.active_portion_number} of ${v.total_accepted_portions}` : 'Full Vehicle Tare'}</span>
+                <span>{v.is_portion_wise ? `Portion #${v.active_portion_number} of ${v.total_accepted_portions}` : 'Full vehicle tare'}</span>
                 <span>Destination: {v.destination_silo_text || 'Silo'}</span>
               </div>
             </div>
@@ -227,19 +226,19 @@ const SecondWeightDrawer: React.FC<{
     <Drawer open onOpenChange={(o) => !o && onClose()}>
       <DrawerContent>
         <div className="overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 space-y-5 text-foreground">
-          <DrawerTitle className="sr-only">Record Second Weight (After Unloading)</DrawerTitle>
+          <DrawerTitle className="sr-only">Record second weight</DrawerTitle>
           <div className="flex items-start justify-between gap-2 pb-3 border-b border-border-strong">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-1">
-                Scale Pass {currentPass} of {totalPasses}
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-foreground mb-1">
+                Scale pass {currentPass} of {totalPasses}
               </div>
               <h3 className="text-base font-semibold text-foreground">
                 {isFinalPass
-                  ? 'Final Tare Weight (Empty Vehicle)'
-                  : `Intermediate Weight: After Compartment #${visit.active_portion_number} of ${visit.total_accepted_portions}`}
+                  ? 'Final tare weight, empty vehicle'
+                  : `Intermediate weight after compartment #${visit.active_portion_number} of ${visit.total_accepted_portions}`}
               </h3>
               <p className="text-xs text-secondary-foreground font-semibold mt-0.5">
-                Vehicle: <strong className="tabular-nums text-foreground">{visit.vehicle_number}</strong> | Token: <strong className="tabular-nums text-primary">{visit.token_number || 'NO-TOKEN'}</strong>
+                Vehicle: <strong className="font-mono tabular-nums text-foreground">{visit.vehicle_number}</strong> | Token: <strong className="font-mono tabular-nums text-foreground">{visit.token_number || 'NO-TOKEN'}</strong>
               </p>
             </div>
             <button
@@ -255,16 +254,16 @@ const SecondWeightDrawer: React.FC<{
           <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
             <div>
               <span className="text-muted-foreground font-sans block text-xs">
-                {visit.is_portion_wise ? `Weight Before Compartment #${visit.active_portion_number} Unloading` : 'Loaded Gross Weight (Before Unloading)'}
+                {visit.is_portion_wise ? `Weight before compartment #${visit.active_portion_number} unloading` : 'Loaded gross weight, before unloading'}
               </span>
-              <span className="text-base text-primary font-semibold">{visit.gross_weight_kg.toLocaleString()} kg</span>
+              <span className="font-mono text-lg text-foreground font-semibold">{visit.gross_weight_kg.toLocaleString()} kg</span>
             </div>
             <div>
-              <span className="text-muted-foreground font-sans block text-xs">First Weight Time</span>
-              <span>{visit.gross_timestamp ? new Date(visit.gross_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-'}</span>
+              <span className="text-muted-foreground font-sans block text-xs">First weight time</span>
+              <span>{visit.gross_timestamp ? formatTime(visit.gross_timestamp) : '-'}</span>
             </div>
             <div>
-              <span className="text-muted-foreground font-sans block text-xs">Recorded By</span>
+              <span className="text-muted-foreground font-sans block text-xs">Recorded by</span>
               <span>{visit.gross_recorded_by_name}</span>
             </div>
             <div>
@@ -277,8 +276,8 @@ const SecondWeightDrawer: React.FC<{
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-foreground">
                 {isFinalPass
-                  ? 'Final Empty Vehicle Weight (kg)'
-                  : `Weight After Compartment #${visit.active_portion_number} Unloaded (kg)`}{' '}
+                  ? 'Final empty vehicle weight (kg)'
+                  : `Weight after compartment #${visit.active_portion_number} unloaded (kg)`}{' '}
                 <span className="text-rose-600">*</span>
               </label>
               <div className="relative">
@@ -288,10 +287,10 @@ const SecondWeightDrawer: React.FC<{
                   step="1"
                   value={tareInputKg}
                   onChange={(e) => setTareInputKg(e.target.value)}
-                  placeholder="e.g. 12200"
-                  className="w-full min-h-[48px] px-4 py-3 text-lg tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground shadow-inner focus:outline-hidden focus:ring-2 focus:ring-primary"
+                  placeholder="12200"
+                  className="w-full min-h-12 px-4 py-3 font-mono text-2xl tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 tabular-nums font-semibold text-muted-foreground text-sm">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-mono tabular-nums font-semibold text-muted-foreground text-sm">
                   kg
                 </span>
               </div>
@@ -299,8 +298,8 @@ const SecondWeightDrawer: React.FC<{
 
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Second Weighment Time <span className="text-rose-600">*</span></span>
-                <Clock className="w-3.5 h-3.5 text-primary" />
+                <span>Second weighment time <span className="text-rose-600">*</span></span>
+                <Clock className="w-3.5 h-3.5 text-muted-foreground" />
               </label>
               <input
                 type="datetime-local"
@@ -308,23 +307,23 @@ const SecondWeightDrawer: React.FC<{
                 min={visit.min_allowed_timestamp ? toDatetimeLocalInput(visit.min_allowed_timestamp) : undefined}
                 max={toDatetimeLocalInput(new Date())}
                 onChange={(e) => setTareDateTimeInput(e.target.value)}
-                className="w-full min-h-[48px] px-3.5 py-3 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                className="w-full min-h-12 px-3.5 py-3 text-sm tabular-nums rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
             </div>
           </div>
 
           {previewNetKg !== null && (
             <div className="space-y-2 pt-1">
-              <div className="p-3.5 rounded-2xl bg-card border border-border flex items-center justify-between text-emerald-900 tabular-nums font-semibold text-xs">
-                <span>{visit.is_portion_wise ? `Portion #${visit.active_portion_number} Net Weight:` : 'Net Milk Weight:'}</span>
-                <span className="text-base font-semibold text-emerald-800">{previewNetKg.toLocaleString()} kg</span>
+              <div className="p-3.5 rounded-2xl bg-card border border-border flex items-center justify-between text-foreground tabular-nums font-semibold text-xs">
+                <span>{visit.is_portion_wise ? `Portion #${visit.active_portion_number} net weight` : 'Net milk weight'}</span>
+                <span className="font-mono text-lg font-semibold text-foreground">{previewNetKg.toLocaleString()} kg</span>
               </div>
 
               {visit.destination_silo_text && (
-                <div className="bg-card border-border p-3 rounded-xl border text-xs tabular-nums font-semibold flex items-center justify-between text-blue-950">
-                  <span className="font-sans text-xs text-secondary-foreground">Destination Silo:</span>
-                  <span className="px-2 py-0.5 rounded bg-blue-200 text-blue-900 font-semibold text-xs">
-                    {visit.is_multi_silo_different ? 'Multi-Silo Allocation Required' : `Silo: ${visit.destination_silo_text}`}
+                <div className="bg-card border-border p-3 rounded-xl border text-xs tabular-nums font-semibold flex items-center justify-between text-foreground">
+                  <span className="font-sans text-xs text-secondary-foreground">Destination silo</span>
+                  <span className="px-2 py-0.5 rounded bg-muted text-foreground font-semibold text-xs">
+                    {visit.is_multi_silo_different ? 'Multi-silo allocation required' : `Silo: ${visit.destination_silo_text}`}
                   </span>
                 </div>
               )}
@@ -335,17 +334,17 @@ const SecondWeightDrawer: React.FC<{
             type="button"
             disabled={isSubmitting || !tareInputKg}
             onClick={handleRecordSecondWeight}
-            className="w-full min-h-[44px] py-3.5 px-4 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs transition shadow-md flex items-center justify-center space-x-2"
+            className="w-full min-h-11 py-3.5 px-4 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs transition-colors flex items-center justify-center space-x-2"
           >
             {isSubmitting ? (
-              <span>Recording Second Weight…</span>
+              <span>Recording second weight…</span>
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4" />
                 <span>
                   {visit.is_portion_wise
-                    ? `Record Weight for Portion #${visit.active_portion_number}`
-                    : 'Record Second Weight'}
+                    ? `Record weight for portion #${visit.active_portion_number}`
+                    : 'Record second weight'}
                 </span>
               </>
             )}

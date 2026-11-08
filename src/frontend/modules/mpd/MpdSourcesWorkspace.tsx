@@ -16,6 +16,7 @@ import type {
   ContractorItem,
   SourceFeedback,
 } from '@/frontend/modules/mpd/sources/sourceTypes';
+import { SkeletonList } from '@/components/ui/loaders';
 
 /** Milk Sources (name + ERP code) and plant Contractors. Used by MPD Head, Data Executive and Super Admin only. */
 export function MpdSourcesWorkspace() {
@@ -63,7 +64,7 @@ export function MpdSourcesWorkspace() {
   const isLoading = sourcesQuery.isPending || zmccsQuery.isPending || contractorsQuery.isPending;
 
   const tabClass = (active: boolean) =>
-    `min-h-11 px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+    `min-h-11 px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
       active ? 'bg-primary text-white shadow-xs' : 'text-secondary-foreground hover:bg-muted'
     }`;
 
@@ -105,10 +106,7 @@ export function MpdSourcesWorkspace() {
       </div>
 
       {isLoading ? (
-        <div className="bg-card border-border flex items-center justify-center p-12 rounded-xl border">
-          <Spinner className="w-6 h-6 text-primary" />
-          <span className="ml-2 text-xs text-muted-foreground font-medium">Loading…</span>
-        </div>
+        <SkeletonList count={4} />
       ) : activeSubTab === 'SOURCES' ? (
         <MilkSourcesPanel sources={sources} zmccOptions={zmccOptions} onFeedback={setFeedback} onChanged={handleChanged} />
       ) : (

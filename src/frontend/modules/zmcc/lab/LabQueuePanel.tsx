@@ -1,5 +1,6 @@
 'use client';
 
+import { formatTime } from '@/lib/format';
 import React from 'react';
 import { CheckCircle2, Clock, Search } from 'lucide-react';
 import type { LabQueueItem } from './labTypes';
@@ -90,7 +91,7 @@ export const LabQueuePanel: React.FC<LabQueuePanelProps> = ({
                       </span>
                       <span className="text-xs text-muted-foreground flex items-center gap-1 tabular-nums">
                         <Clock className="w-3.5 h-3.5" />
-                        {new Date(item.arrival_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {formatTime(item.arrival_timestamp)}
                       </span>
                     </div>
 

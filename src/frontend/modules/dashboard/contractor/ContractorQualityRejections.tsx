@@ -292,7 +292,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
                   </div>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <h3 className="text-base font-semibold text-slate-900 tabular-nums tracking-tight">
+                      <h3 className="text-base font-semibold text-slate-900 tabular-nums">
                         {v.vehicleNumber}
                       </h3>
                       {v.tokenNumber && (
@@ -358,7 +358,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
                           </td>
                           <td className="py-3 px-3">
                             <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
                                 st === 'ACCEPTED'
                                   ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                                   : st === 'REJECTED'

@@ -6,6 +6,8 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { SubmitterRequestItem } from '@/backend/services/approvals/submitterRequestService';
+import { SkeletonList } from '@/components/ui/loaders';
+import { formatDate, formatTime } from '@/lib/format';
 
 interface MySubmittedRequestsPanelProps {
   onClose?: () => void;
@@ -103,9 +105,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
 
       {/* Loading & Error States */}
       {isLoading && (
-        <div className="flex items-center justify-center p-12 text-xs font-semibold text-muted-foreground">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" /> Loading submitted requests…
-        </div>
+        <SkeletonList count={3} />
       )}
 
       {isError && (
@@ -167,7 +167,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
               <div className="rounded-lg bg-muted/40 p-2.5 text-xs space-y-1 border border-border/50">
                 <div className="flex flex-wrap items-center justify-between text-muted-foreground gap-1 text-xs">
                   <span>
-                    Sent: <strong className="text-foreground">{new Date(item.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong> on {new Date(item.submittedAt).toLocaleDateString()}
+                    Sent: <strong className="text-foreground">{formatTime(item.submittedAt)}</strong> on {formatDate(item.submittedAt)}
                   </span>
                   <span>
                     Approver: <strong className="text-foreground">{item.reviewerRole}</strong>
@@ -177,7 +177,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
 
                 {item.reviewedAt && (
                   <div className="pt-1 border-t border-border/50 text-xs text-muted-foreground">
-                    Decided on {new Date(item.reviewedAt).toLocaleDateString()} at {new Date(item.reviewedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    Decided on {formatDate(item.reviewedAt)} at {formatTime(item.reviewedAt)}
                   </div>
                 )}
 

@@ -7,6 +7,7 @@ import { AlertCircle, CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import type { RejectedMilkQueueItem } from '@/backend/services/rejectedMilkDispositionService';
+import { formatDate } from '@/lib/format';
 
 type QueueItem = RejectedMilkQueueItem;
 
@@ -98,7 +99,7 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
           {items.map((item) => (
             <div key={item.entity_id} className="p-4 space-y-3">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-secondary-foreground">
-                <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
+                <span className={`px-2 py-0.5 rounded text-xs font-semibold  ${
                   item.entity_type === 'PLANT_PORTION' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-blue-100 text-blue-800 border border-blue-200'
                 }`}>
                   {item.entity_type === 'PLANT_PORTION' ? 'Plant Reception' : 'ZMCC'}
@@ -107,7 +108,7 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
                 {item.zmcc_token && <span className="font-mono">{item.zmcc_token}</span>}
                 <span>Portion {item.portion_number}</span>
                 {item.gross_liters && <span>{item.gross_liters} L</span>}
-                {item.rejected_at && <span>{new Date(item.rejected_at).toLocaleDateString()}</span>}
+                {item.rejected_at && <span>{formatDate(item.rejected_at)}</span>}
               </div>
               {item.reject_reason && (
                 <div className="flex items-center gap-1 text-sm text-secondary-foreground">
@@ -122,7 +123,7 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
                   <div>
                     <div className="font-semibold">Done: {item.remarks}</div>
                     <div className="text-xs text-emerald-800">
-                      {item.remarks_by} {item.remarks_at ? `on ${new Date(item.remarks_at).toLocaleDateString()}` : ''}
+                      {item.remarks_by} {item.remarks_at ? `on ${formatDate(item.remarks_at)}` : ''}
                     </div>
                   </div>
                 </div>

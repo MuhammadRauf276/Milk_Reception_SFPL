@@ -69,15 +69,15 @@ export function ZmccTankOuttakeDrawer({ tank, onClose, onSaved }: Props) {
       onClose={close}
       title={
         <div className="flex items-center gap-2 min-w-0">
-          <Milk className="h-5 w-5 text-primary shrink-0" />
-          <span className="truncate text-sm sm:text-base">Milk Outtake · {tank.tank_code}</span>
+          <Milk className="h-5 w-5 text-muted-foreground shrink-0" />
+          <span className="min-w-0 break-words text-sm sm:text-base">Milk outtake · {tank.tank_code}</span>
         </div>
       }
       busy={mutation.isPending}
       error={error}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-subtle p-3 text-sm">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-3 rounded-xl border border-border bg-subtle p-3 text-sm">
         <div>
           <p className="text-xs text-muted-foreground">In tank (gross)</p>
           <p className="font-semibold tabular-nums">{stock.toLocaleString('en-US', { minimumFractionDigits: 2 })} L</p>
@@ -89,7 +89,7 @@ export function ZmccTankOuttakeDrawer({ tank, onClose, onSaved }: Props) {
       </div>
       <div>
         <label htmlFor="outtake-gross" className={fieldLabelClass}>
-          Gross Milk to Take Out (Liters) <span className="text-rose-600">*</span>
+          Gross milk to take out (liters) <span className="text-rose-600">*</span>
         </label>
         <input
           id="outtake-gross"

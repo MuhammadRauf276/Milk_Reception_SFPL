@@ -14,6 +14,7 @@ import { isBackgroundKind, type QueueRecord } from './syncQueueCore';
 import { DEVICE_SYNC_STATE_EVENT, getDeviceSyncState, type DeviceSyncState } from './deviceIdentity';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { formatDateTime } from '@/lib/format';
 
 const REFRESH_MS = 15_000;
 
@@ -45,7 +46,7 @@ function stateWord(r: QueueRecord): { word: string; tone: string } {
 function timeLabel(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return formatDateTime(d);
 }
 
 function subscribeDeviceState(onChange: () => void): () => void {
@@ -263,8 +264,8 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
               const st = stateWord(r);
               return (
                 <li key={r.clientUuid} className="flex min-h-[36px] items-center justify-between gap-2 border-b py-1 text-xs last:border-b-0">
-                  <span className="truncate">
-                    <span className="block font-medium truncate">{KIND_LABELS[r.item.kind] ?? r.item.kind}</span>
+                  <span className="min-w-0 break-words">
+                    <span className="block font-medium break-words">{KIND_LABELS[r.item.kind] ?? r.item.kind}</span>
                     <span className="block text-xs text-muted-foreground">{timeLabel(r.item.capturedAt)}</span>
                   </span>
                   <span className={`shrink-0 text-right font-semibold ${st.tone}`}>{st.word}</span>

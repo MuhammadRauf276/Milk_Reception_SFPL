@@ -23,6 +23,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { toast } from '@/frontend/lib/appToast';
+import { formatTime } from '@/lib/format';
 
 type ReportView = 'ROUTE_COLLECTIONS' | 'HC_SUPPLIERS' | 'TANK_STORAGE';
 
@@ -340,7 +341,7 @@ export function ZMCCComprehensiveReportsScreen({
                       </td>
                       <td className="p-3 tabular-nums">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                             row.routeLossPct > 1.0
                               ? 'bg-rose-100 text-rose-800'
                               : 'bg-emerald-100 text-emerald-800'
@@ -360,7 +361,7 @@ export function ZMCCComprehensiveReportsScreen({
                       <td className="p-3 tabular-nums font-medium text-secondary-foreground">{row.avgLr}</td>
                       <td className="p-3 text-right">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                             row.status === 'COMPLETED'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : 'bg-blue-50 text-blue-700 border border-blue-200'
@@ -416,7 +417,7 @@ export function ZMCCComprehensiveReportsScreen({
                     <tr key={row.id} className="hover:bg-subtle transition">
                       <td className="p-3 tabular-nums font-semibold text-primary">{row.zmccToken}</td>
                       <td className="p-3 tabular-nums text-secondary-foreground">
-                        {new Date(row.arrivalTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {formatTime(row.arrivalTimestamp)}
                       </td>
                       <td className="p-3 tabular-nums font-semibold text-secondary-foreground">{row.supplierCode}</td>
                       <td className="p-3 font-semibold text-foreground">{row.supplierName}</td>
@@ -439,7 +440,7 @@ export function ZMCCComprehensiveReportsScreen({
                       </td>
                       <td className="p-3">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                             row.decision === 'ACCEPTED'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : 'bg-rose-50 text-rose-700 border border-rose-200'

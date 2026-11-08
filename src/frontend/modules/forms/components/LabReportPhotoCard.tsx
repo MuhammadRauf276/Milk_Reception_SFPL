@@ -1,5 +1,6 @@
 'use client';
 
+import { formatTime } from '@/lib/format';
 import React from 'react';
 import { Camera, CheckCircle2, Trash2 } from 'lucide-react';
 import { LiveCamera, type LiveCameraProps } from '@/components/camera/LiveCamera';
@@ -56,7 +57,7 @@ export const LabReportPhotoCard: React.FC<LabReportPhotoCardProps> = ({
                     <span>Lab report photo captured</span>
                   </div>
                   <div className="text-xs text-emerald-700 mt-0.5">
-                    {new Date(labReportPhoto.capturedAt).toLocaleTimeString()}
+                    {formatTime(labReportPhoto.capturedAt)}
                   </div>
                 </div>
               </div>

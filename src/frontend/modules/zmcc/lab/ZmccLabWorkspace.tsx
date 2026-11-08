@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime, formatTime } from '@/lib/format';
 import { HcReceiptsPanel } from './HcReceiptsPanel';
 import React, { useState, useEffect, useCallback } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -444,7 +445,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
                         {item.queue_type === 'MOT' && (item.route_name || item.route_code ? `Route: ${item.route_name || item.route_code}` : 'Mobile Tester Route')}
                         {item.queue_type === 'HC' && (item.local_supplier_name || 'HC supplier')}
                         <span className="mx-1.5">·</span>
-                        Arrived: {new Date(item.arrival_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        Arrived: {formatTime(item.arrival_timestamp)}
                       </p>
                     </div>
 
@@ -480,7 +481,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
                   </h2>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Started at {new Date(activeSession.started_at).toLocaleString()} by {activeSession.starter?.full_name || activeSession.starter?.username}
+                  Started at {formatDateTime(activeSession.started_at)} by {activeSession.starter?.full_name || activeSession.starter?.username}
                 </p>
               </div>
 

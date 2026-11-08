@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { InfoTip } from '@/components/ui/info-tip';
 import { Combobox } from '@/components/ui/combobox';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { fadeSlide } from '@/components/motion/presets';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -27,6 +28,8 @@ import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 import { ZmccTankLedgerDrawer } from '@/frontend/modules/super-admin/zmcc-tanks/ZmccTankLedgerDrawer';
 import { FormDrawer, DrawerActions, fieldInputClass, fieldLabelClass } from '@/frontend/modules/super-admin/shared/FormDrawer';
 import type { TankItem, ZmccSource } from '@/frontend/modules/zmcc/master/masterTypes';
+
+const L2 = { minimumFractionDigits: 2 } as const;
 
 export default function SuperAdminZmccTanksPage() {
   const queryClient = useQueryClient();
@@ -208,54 +211,139 @@ export default function SuperAdminZmccTanksPage() {
 
   const error = actionError || (tanksQuery.error ? getErrorMessage(tanksQuery.error) : null);
 
-  return (
-    <div className="w-full max-w-full space-y-4 overflow-x-hidden">
-      {/* Page Header */}
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-1.5">
-          <h1 className="text-xl font-semibold text-foreground">ZMCC Tank Storage &amp; Stock</h1>
-          <InfoTip text="Raw milk storage tanks across all ZMCC sources. Directly add milk stock (@13% TS and Gross Liters) when field staff are absent, and monitor dispatch issue deductions." />
-        </div>
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
-          <Button
-            variant="outline"
-            className="h-11 shrink-0 px-3.5 flex-1 sm:flex-initial"
-            onClick={openCreate}
-          >
-            <Plus className="h-4 w-4 mr-1.5" />
-            <span>Add Tank</span>
+  const tankColumns: DataColumn<TankItem>[] = [
+    { key: 'zmcc', header: 'ZMCC', label: 'ZMCC', cell: (t) => <span className="font-semibold text-foreground">{t.zmcc ? `${t.zmcc.name} (${t.zmcc.code})` : '—'}</span> },
+    { key: 'code', header: 'Tank code', label: 'Tank code', primary: true, cell: (t) => <span className="break-all font-mono font-semibold tabular-nums text-foreground">{t.tank_code}</span> },
+    { key: 'name', header: 'Tank name', label: 'Tank name', cell: (t) => <span className="text-muted-foreground">{t.tank_name}</span> },
+    { key: 'capacity', header: 'Capacity', label: 'Capacity', align: 'right', cell: (t) => <span className="font-mono tabular-nums">{Number(t.capacity_liters).toLocaleString('en-US', L2)} L</span> },
+    {
+      key: 'gross',
+      header: 'Physical stock (gross)',
+      label: 'Physical stock (gross)',
+      align: 'right',
+      cell: (t) => {
+        const cap = Number(t.capacity_liters) || 0;
+        const gross = Number(t.current_stock) || 0;
+        const fillPct = cap > 0 ? Math.min(100, Math.round((gross / cap) * 100)) : 0;
+        return (
+          <div className="ml-auto min-w-28 space-y-1">
+            <div className="font-mono font-semibold tabular-nums text-foreground">{Number(t.current_stock).toLocaleString('en-US', L2)} L</div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted" role="img" aria-label={`Fill level ${fillPct}%`}>
+              <div className={`h-full rounded-full transition-[width] duration-300 ${fillPct > 90 ? 'bg-amber-500' : 'bg-primary'}`} style={{ width: `${fillPct}%` }} />
+            </div>
+            <div className="text-xs font-normal tabular-nums text-muted-foreground">{fillPct}% full</div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'ts13',
+      header: 'Stock @13% TS',
+      label: 'Stock @13% TS',
+      align: 'right',
+      cell: (t) => (
+        <span className="font-mono font-semibold tabular-nums text-foreground">
+          {t.current_commercial_stock_at_13ts !== null && t.current_commercial_stock_at_13ts !== undefined
+            ? `${Number(t.current_commercial_stock_at_13ts).toLocaleString('en-US', L2)} L`
+            : '—'}
+        </span>
+      ),
+    },
+    { key: 'free', header: 'Free space', label: 'Free space', align: 'right', cell: (t) => <span className="font-mono tabular-nums text-foreground">{Number(t.available_capacity).toLocaleString('en-US', L2)} L</span> },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      align: 'center',
+      cell: (t) => (
+        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${t.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+          {t.is_active ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (t) => (
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          {t.is_active && (
+            <Button size="sm" onClick={() => setIntakeTank(t)} title="Add manual milk stock (gross and @13% TS)">
+              <Milk />
+              Intake
+            </Button>
+          )}
+          {t.is_active && canOuttake && (
+            <Button variant="outline" size="sm" onClick={() => setOuttakeTank(t)} title="Take milk out of this tank">
+              Outtake
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setLedgerTank(t)} title="View stock transaction ledger">
+            <History />
+            Ledger
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => openEdit(t)} title="Edit tank configuration" aria-label="Edit tank configuration">
+            <Edit2 className="text-muted-foreground" />
           </Button>
           <Button
-            className="h-11 shrink-0 px-4 flex-1 sm:flex-initial"
+            variant="outline"
+            size="icon"
+            onClick={() => toggleMutation.mutate({ id: t.id, isActive: !t.is_active })}
+            title={t.is_active ? 'Deactivate tank' : 'Activate tank'}
+            aria-label={t.is_active ? 'Deactivate tank' : 'Activate tank'}
+          >
+            <Power className="text-muted-foreground" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="w-full min-w-0 max-w-full space-y-4">
+      {/* Page Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm text-muted-foreground">Storage tanks and stock at each ZMCC</p>
+          <InfoTip text="Raw milk storage tanks across all ZMCC sources. Directly add milk stock (@13% TS and Gross Liters) when field staff are absent, and monitor dispatch issue deductions." />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={openCreate}>
+            <Plus />
+            <span>Add tank</span>
+          </Button>
+          <Button
             disabled={tanks.filter((t) => t.is_active).length === 0}
             onClick={() => {
               const active = tanks.find((t) => t.is_active);
               if (active) setIntakeTank(active);
             }}
           >
-            <Milk className="h-4 w-4 mr-1.5" />
-            <span>Intake Milk Stock</span>
+            <Milk />
+            <span>Intake milk stock</span>
           </Button>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-3">
         <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
-            <span>Active Tanks</span>
+            <span>Active tanks</span>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="text-2xl font-semibold text-foreground tabular-nums mt-1">{stats.activeCount}</div>
+          <div className="font-mono text-2xl font-semibold text-foreground tabular-nums mt-1">{stats.activeCount}</div>
           <div className="text-xs text-muted-foreground mt-0.5">Across {sources.length} ZMCCs</div>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
-            <span>Gross Physical Stock</span>
-            <Milk className="h-4 w-4 text-blue-600" />
+            <span>Gross physical stock</span>
+            <Milk className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="text-2xl font-semibold text-blue-700 tabular-nums mt-1">
+          <div className="font-mono text-2xl font-semibold text-foreground tabular-nums mt-1">
             {stats.totalGross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
           </div>
           <div className="text-xs text-muted-foreground mt-0.5">Physical milk stored</div>
@@ -263,10 +351,10 @@ export default function SuperAdminZmccTanksPage() {
 
         <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
-            <span>Commercial @13% TS Stock</span>
-            <Layers className="h-4 w-4 text-primary" />
+            <span>Commercial @13% TS stock</span>
+            <Layers className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="text-2xl font-semibold text-primary tabular-nums mt-1">
+          <div className="font-mono text-2xl font-semibold text-foreground tabular-nums mt-1">
             {stats.total13Ts.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
           </div>
           <div className="text-xs text-muted-foreground mt-0.5">Standardized 13% TS</div>
@@ -274,10 +362,10 @@ export default function SuperAdminZmccTanksPage() {
 
         <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
-            <span>Free Storage Capacity</span>
-            <Building2 className="h-4 w-4 text-emerald-600" />
+            <span>Free storage capacity</span>
+            <Building2 className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="text-2xl font-semibold text-emerald-700 tabular-nums mt-1">
+          <div className="font-mono text-2xl font-semibold text-foreground tabular-nums mt-1">
             {stats.availableCap.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
           </div>
           <div className="text-xs text-muted-foreground mt-0.5">Total: {stats.totalCap.toLocaleString()} L</div>
@@ -310,286 +398,32 @@ export default function SuperAdminZmccTanksPage() {
       </AnimatePresence>
 
       {/* Filter Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-card p-3 rounded-xl border border-border">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs font-semibold text-muted-foreground">Filter ZMCC:</span>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-border bg-card p-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Filter ZMCC</span>
           <Combobox
             options={zmccFilterOptions}
             value={selectedZmccId}
             onValueChange={setSelectedZmccId}
             placeholder="All ZMCCs"
             searchPlaceholder="Search ZMCC"
-            className="min-h-11 w-full sm:w-60 text-xs font-semibold"
+            className="min-h-11 w-full max-w-60 text-xs font-medium"
           />
         </div>
-        <span className="text-xs text-muted-foreground font-medium self-end sm:self-auto">
+        <span className="text-xs font-medium text-muted-foreground">
           Showing {tanks.length} tank{tanks.length === 1 ? '' : 's'}
         </span>
       </div>
 
-      {/* Mobile Card List (Visible on phones/small screens < md) */}
-      <div data-testid="mobile-tank-cards" className="block md:hidden space-y-3">
-        {tanksQuery.isPending ? (
-          <div className="p-8 text-center rounded-2xl border border-border bg-card text-muted-foreground text-xs">
-            Loading tanks…
-          </div>
-        ) : tanks.length === 0 ? (
-          <div className="p-8 text-center rounded-2xl border border-border bg-card text-muted-foreground text-xs">
-            No tanks found for the selected scope.
-          </div>
-        ) : (
-          tanks.map((t) => {
-            const cap = Number(t.capacity_liters) || 0;
-            const gross = Number(t.current_stock) || 0;
-            const fillPct = cap > 0 ? Math.min(100, Math.round((gross / cap) * 100)) : 0;
-
-            return (
-              <div key={t.id} className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-semibold text-foreground tabular-nums">{t.tank_code}</span>
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                          t.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                        }`}
-                      >
-                        {t.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {t.tank_name} · {t.zmcc ? `${t.zmcc.name} (${t.zmcc.code})` : '—'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Fill Progress Bar */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground font-medium">
-                    <span>Fill Level</span>
-                    <span className="tabular-nums font-semibold text-foreground">{fillPct}%</span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ${
-                        fillPct > 90 ? 'bg-amber-500' : fillPct > 70 ? 'bg-blue-600' : 'bg-emerald-500'
-                      }`}
-                      style={{ width: `${fillPct}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Metrics Grid */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="bg-subtle p-2.5 rounded-lg border border-border">
-                    <span className="text-xs text-muted-foreground block font-medium">Physical Stock (Gross)</span>
-                    <span className="text-sm font-semibold text-blue-700 tabular-nums">
-                      {gross.toLocaleString('en-US', { minimumFractionDigits: 2 })} L
-                    </span>
-                  </div>
-                  <div className="bg-subtle p-2.5 rounded-lg border border-border">
-                    <span className="text-xs text-muted-foreground block font-medium">Stock @13% TS</span>
-                    <span className="text-sm font-semibold text-primary tabular-nums">
-                      {t.current_commercial_stock_at_13ts !== null && t.current_commercial_stock_at_13ts !== undefined
-                        ? `${Number(t.current_commercial_stock_at_13ts).toLocaleString('en-US', { minimumFractionDigits: 2 })} L`
-                        : '—'}
-                    </span>
-                  </div>
-                  <div className="bg-subtle p-2.5 rounded-lg border border-border">
-                    <span className="text-xs text-muted-foreground block font-medium">Total Capacity</span>
-                    <span className="font-semibold text-foreground tabular-nums">
-                      {cap.toLocaleString('en-US', { minimumFractionDigits: 2 })} L
-                    </span>
-                  </div>
-                  <div className="bg-subtle p-2.5 rounded-lg border border-border">
-                    <span className="text-xs text-muted-foreground block font-medium">Free Space</span>
-                    <span className="font-semibold text-emerald-700 tabular-nums">
-                      {Number(t.available_capacity).toLocaleString('en-US', { minimumFractionDigits: 2 })} L
-                    </span>
-                  </div>
-                </div>
-
-                {/* Mobile Actions with Touch Heights */}
-                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
-                  {t.is_active && (
-                    <Button
-                      size="sm"
-                      className="h-11 flex-1 px-3 text-xs bg-primary hover:bg-primary-hover text-white font-semibold"
-                      onClick={() => setIntakeTank(t)}
-                    >
-                      <Milk className="h-4 w-4 mr-1.5" />
-                      <span>Intake</span>
-                    </Button>
-                  )}
-                  {t.is_active && canOuttake && (
-                    <Button variant="outline" size="sm" className="h-11 flex-1 px-3 text-xs" onClick={() => setOuttakeTank(t)}>
-                      <span>Outtake</span>
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-11 flex-1 px-3 text-xs font-semibold"
-                    onClick={() => setLedgerTank(t)}
-                  >
-                    <History className="h-4 w-4 mr-1.5" />
-                    <span>Ledger</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-11 w-11 p-0 shrink-0"
-                    onClick={() => openEdit(t)}
-                    title="Edit tank configuration"
-                  >
-                    <Edit2 className="h-4 w-4 text-secondary-foreground" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={`h-11 w-11 p-0 shrink-0 ${
-                      t.is_active
-                        ? 'text-rose-600 border-rose-200 hover:bg-rose-50'
-                        : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'
-                    }`}
-                    onClick={() => toggleMutation.mutate({ id: t.id, isActive: !t.is_active })}
-                    title={t.is_active ? 'Deactivate tank' : 'Activate tank'}
-                  >
-                    <Power className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* Desktop Tanks Table (Visible on md+ screens) */}
-      <div data-testid="desktop-tanks-table" className="hidden md:block w-full max-w-full overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
-        <div className="w-full overflow-x-auto">
-          <table className="w-full min-w-[750px] text-left text-xs font-sans">
-            <thead className="border-b border-border bg-muted/50 text-muted-foreground font-semibold text-xs">
-              <tr>
-                <th className="p-3">ZMCC</th>
-                <th className="p-3">Tank Code</th>
-                <th className="p-3">Tank Name</th>
-                <th className="p-3 text-right">Capacity</th>
-                <th className="p-3 text-right">Physical Stock (Gross)</th>
-                <th className="p-3 text-right">Stock @13% TS</th>
-                <th className="p-3 text-right">Free Space</th>
-                <th className="p-3 text-center">Status</th>
-                <th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60 font-semibold text-foreground">
-              {tanksQuery.isPending ? (
-                <tr>
-                  <td colSpan={9} className="p-6 text-center text-muted-foreground">
-                    Loading tanks…
-                  </td>
-                </tr>
-              ) : tanks.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="p-6 text-center text-muted-foreground">
-                    No tanks found for the selected scope.
-                  </td>
-                </tr>
-              ) : (
-                tanks.map((t) => (
-                  <tr key={t.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="p-3 font-semibold text-foreground">
-                      {t.zmcc ? `${t.zmcc.name} (${t.zmcc.code})` : '—'}
-                    </td>
-                    <td className="p-3 font-semibold tabular-nums text-foreground">{t.tank_code}</td>
-                    <td className="p-3 text-muted-foreground">{t.tank_name}</td>
-                    <td className="p-3 text-right tabular-nums">
-                      {Number(t.capacity_liters).toLocaleString('en-US', { minimumFractionDigits: 2 })} L
-                    </td>
-                    <td className="p-3 text-right tabular-nums text-blue-700 font-semibold">
-                      {Number(t.current_stock).toLocaleString('en-US', { minimumFractionDigits: 2 })} L
-                    </td>
-                    <td className="p-3 text-right tabular-nums text-primary font-semibold">
-                      {t.current_commercial_stock_at_13ts !== null && t.current_commercial_stock_at_13ts !== undefined
-                        ? `${Number(t.current_commercial_stock_at_13ts).toLocaleString('en-US', { minimumFractionDigits: 2 })} L`
-                        : '—'}
-                    </td>
-                    <td className="p-3 text-right tabular-nums text-emerald-700">
-                      {Number(t.available_capacity).toLocaleString('en-US', { minimumFractionDigits: 2 })} L
-                    </td>
-                    <td className="p-3 text-center">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                          t.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                        }`}
-                      >
-                        {t.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {t.is_active && (
-                          <Button
-                            size="sm"
-                            className="h-8 px-2.5 text-xs bg-primary hover:bg-primary-hover text-white"
-                            onClick={() => setIntakeTank(t)}
-                            title="Add manual milk stock (Gross and @13% TS)"
-                          >
-                            <Milk className="h-3.5 w-3.5 mr-1" />
-                            <span>Intake</span>
-                          </Button>
-                        )}
-                        {t.is_active && canOuttake && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2.5 text-xs"
-                            onClick={() => setOuttakeTank(t)}
-                            title="Take milk out of this tank"
-                          >
-                            <span>Outtake</span>
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 text-xs"
-                          onClick={() => setLedgerTank(t)}
-                          title="View immutable stock transactions ledger"
-                        >
-                          <History className="h-3.5 w-3.5 mr-1" />
-                          <span>Ledger</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => openEdit(t)}
-                          title="Edit tank configuration"
-                        >
-                          <Edit2 className="h-3.5 w-3.5 text-secondary-foreground" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className={`h-8 w-8 p-0 ${
-                            t.is_active
-                              ? 'text-rose-600 border-rose-200 hover:bg-rose-50'
-                              : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'
-                          }`}
-                          onClick={() => toggleMutation.mutate({ id: t.id, isActive: !t.is_active })}
-                          title={t.is_active ? 'Deactivate tank' : 'Activate tank'}
-                        >
-                          <Power className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={tankColumns}
+        rows={tanks}
+        getRowId={(t) => t.id}
+        loading={tanksQuery.isPending}
+        emptyTitle="No tanks found"
+        emptyDescription="There are no tanks for the selected scope."
+        tableFrom="lg"
+      />
 
       {/* Manual Stock Intake Drawer */}
       <ZmccTankIntakeDrawer
@@ -620,13 +454,13 @@ export default function SuperAdminZmccTanksPage() {
       <FormDrawer
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        title="Add ZMCC Tank"
+        title="Add ZMCC tank"
         busy={createMutation.isPending}
         error={formError}
       >
         <form onSubmit={handleCreateSubmit} className="space-y-3">
           <div>
-            <label htmlFor="create-zmcc-id" className={fieldLabelClass}>ZMCC Source *</label>
+            <label htmlFor="create-zmcc-id" className={fieldLabelClass}>ZMCC source *</label>
             <select
               id="create-zmcc-id"
               value={formZmccId}
@@ -634,7 +468,7 @@ export default function SuperAdminZmccTanksPage() {
               className={fieldInputClass}
               required
             >
-              <option value="">Select ZMCC Source</option>
+              <option value="">Select ZMCC source</option>
               {sources.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.code})
@@ -643,7 +477,7 @@ export default function SuperAdminZmccTanksPage() {
             </select>
           </div>
           <div>
-            <label htmlFor="create-tank-code" className={fieldLabelClass}>Tank Code *</label>
+            <label htmlFor="create-tank-code" className={fieldLabelClass}>Tank code *</label>
             <input
               id="create-tank-code"
               type="text"
@@ -655,7 +489,7 @@ export default function SuperAdminZmccTanksPage() {
             />
           </div>
           <div>
-            <label htmlFor="create-tank-name" className={fieldLabelClass}>Tank Name *</label>
+            <label htmlFor="create-tank-name" className={fieldLabelClass}>Tank name *</label>
             <input
               id="create-tank-name"
               type="text"
@@ -667,7 +501,7 @@ export default function SuperAdminZmccTanksPage() {
             />
           </div>
           <div>
-            <label htmlFor="create-tank-capacity" className={fieldLabelClass}>Capacity (Liters) *</label>
+            <label htmlFor="create-tank-capacity" className={fieldLabelClass}>Capacity (liters) *</label>
             <input
               id="create-tank-capacity"
               type="number"
@@ -683,7 +517,7 @@ export default function SuperAdminZmccTanksPage() {
           <DrawerActions
             busy={createMutation.isPending}
             onCancel={() => setIsCreateOpen(false)}
-            submitLabel="Create Tank"
+            submitLabel="Create tank"
             busyLabel="Creating…"
           />
         </form>
@@ -693,13 +527,13 @@ export default function SuperAdminZmccTanksPage() {
       <FormDrawer
         open={!!editTank}
         onClose={() => setEditTank(null)}
-        title={`Edit Tank · ${editTank?.tank_code}`}
+        title={`Edit tank · ${editTank?.tank_code}`}
         busy={editMutation.isPending}
         error={formError}
       >
         <form onSubmit={handleEditSubmit} className="space-y-3">
           <div>
-            <label className={fieldLabelClass}>Tank Code</label>
+            <label className={fieldLabelClass}>Tank code</label>
             <input
               type="text"
               disabled
@@ -708,7 +542,7 @@ export default function SuperAdminZmccTanksPage() {
             />
           </div>
           <div>
-            <label htmlFor="edit-tank-name" className={fieldLabelClass}>Tank Name *</label>
+            <label htmlFor="edit-tank-name" className={fieldLabelClass}>Tank name *</label>
             <input
               id="edit-tank-name"
               type="text"
@@ -719,7 +553,7 @@ export default function SuperAdminZmccTanksPage() {
             />
           </div>
           <div>
-            <label htmlFor="edit-tank-capacity" className={fieldLabelClass}>Capacity (Liters) *</label>
+            <label htmlFor="edit-tank-capacity" className={fieldLabelClass}>Capacity (liters) *</label>
             <input
               id="edit-tank-capacity"
               type="number"
@@ -734,7 +568,7 @@ export default function SuperAdminZmccTanksPage() {
           <DrawerActions
             busy={editMutation.isPending}
             onCancel={() => setEditTank(null)}
-            submitLabel="Save Changes"
+            submitLabel="Save changes"
             busyLabel="Saving…"
           />
         </form>

@@ -32,7 +32,7 @@ export function AutoGpsStatusLine({ label, gps, status, onRetry }: Props) {
           </button>
         ) : hasLocation ? (
           <span
-            className={`font-semibold tabular-nums text-[11px] ${
+            className={`font-semibold tabular-nums text-xs ${
               status === 'APPROXIMATE' ? 'text-amber-700' : 'text-emerald-700'
             }`}
           >

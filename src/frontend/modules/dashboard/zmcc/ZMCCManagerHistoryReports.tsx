@@ -25,6 +25,7 @@ import {
   FileSpreadsheet,
   Loader2,
 } from 'lucide-react';
+import { SkeletonTable } from '@/components/ui/loaders';
 
 interface ZMCCManagerHistoryReportsProps {
   logs: MilkProcessLog[];
@@ -275,10 +276,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
 
       {/* 4. Loading State */}
       {isLoading && (
-        <div className="p-8 text-center bg-card rounded-2xl border border-border/80 text-xs text-muted-foreground font-semibold flex items-center justify-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin text-primary" />
-          <span>Loading historical transactions…</span>
-        </div>
+        <SkeletonTable rows={5} />
       )}
 
       {/* 5. Empty State */}
@@ -331,7 +329,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
                   </td>
                   <td className="py-2.5 px-3 font-sans whitespace-nowrap">
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${
+                      className={`px-2 py-0.5 rounded text-xs font-semibold  ${
                         item.isComplete
                           ? 'bg-emerald-100 text-emerald-800'
                           : item.hasRejection

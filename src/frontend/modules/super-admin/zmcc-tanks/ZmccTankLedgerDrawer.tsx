@@ -84,40 +84,40 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
       <DrawerContent className="max-h-[90vh]">
         <div className="border-b border-border px-4 sm:px-5 py-3 flex items-center justify-between gap-2">
           <DrawerTitle className="flex items-center gap-2 text-sm sm:text-base min-w-0">
-            <History className="h-5 w-5 text-primary shrink-0" />
-            <span className="truncate">Stock Ledger · {tank.tank_code}</span>
+            <History className="h-5 w-5 text-muted-foreground shrink-0" />
+            <span className="min-w-0 break-words">Stock ledger · {tank.tank_code}</span>
           </DrawerTitle>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-9 px-2.5 text-xs shrink-0">
+          <Button variant="ghost" size="sm" onClick={onClose} className="shrink-0 text-xs">
             Close
           </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3.5 sm:py-4 space-y-4 text-xs">
           {/* Tank Summary Header */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-subtle p-3 rounded-xl border border-border text-center">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 bg-subtle p-3 rounded-xl border border-border text-center">
             <div className="bg-card p-2 rounded-lg border border-border">
-              <span className="text-xs text-muted-foreground font-medium block">Total Capacity</span>
-              <span className="font-semibold text-foreground tabular-nums">
+              <span className="text-xs text-muted-foreground font-medium block">Total capacity</span>
+              <span className="font-mono font-semibold text-foreground tabular-nums">
                 {tank.capacity_liters.toLocaleString()} L
               </span>
             </div>
             <div className="bg-card p-2 rounded-lg border border-border">
-              <span className="text-xs text-muted-foreground font-medium block">Gross Stock</span>
-              <span className="font-semibold text-blue-700 tabular-nums">
+              <span className="text-xs text-muted-foreground font-medium block">Gross stock</span>
+              <span className="font-mono font-semibold text-foreground tabular-nums">
                 {(data?.tank.current_physical_stock_gross_liters ?? tank.current_stock).toLocaleString()} L
               </span>
             </div>
             <div className="bg-card p-2 rounded-lg border border-border">
               <span className="text-xs text-muted-foreground font-medium block">Commercial @13% TS</span>
-              <span className="font-semibold text-primary tabular-nums">
+              <span className="font-mono font-semibold text-foreground tabular-nums">
                 {data?.tank.current_commercial_stock_at_13ts !== null && data?.tank.current_commercial_stock_at_13ts !== undefined
                   ? `${Number(data.tank.current_commercial_stock_at_13ts).toLocaleString()} L`
                   : 'N/A'}
               </span>
             </div>
             <div className="bg-card p-2 rounded-lg border border-border">
-              <span className="text-xs text-muted-foreground font-medium block">Available Space</span>
-              <span className="font-semibold text-emerald-700 tabular-nums">
+              <span className="text-xs text-muted-foreground font-medium block">Available space</span>
+              <span className="font-mono font-semibold text-foreground tabular-nums">
                 {(data?.tank.available_capacity ?? tank.available_capacity).toLocaleString()} L
               </span>
             </div>
@@ -133,26 +133,26 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
           {loading ? (
             <div className="p-8 text-center flex flex-col items-center justify-center text-muted-foreground space-y-2">
               <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              <span className="text-xs">Loading ledger entries…</span>
+              <span className="text-xs">Loading ledger</span>
             </div>
           ) : transactions.length === 0 ? (
             <div className="p-8 text-center border border-dashed border-border rounded-2xl text-muted-foreground">
               <Milk className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="font-medium">No ledger transactions found for this tank.</p>
+              <p className="font-medium">No ledger entries for this tank</p>
               <p className="text-xs text-muted-foreground mt-1">Milk additions and plant dispatches will appear here.</p>
             </div>
           ) : (
-            <div className="rounded-xl border border-border bg-card shadow-2xs overflow-hidden">
+            <div className="rounded-2xl border border-border bg-card shadow-2xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-sans">
                   <thead className="border-b border-border bg-muted/50 text-muted-foreground font-semibold text-xs">
                     <tr>
-                      <th className="p-3">Date &amp; Time</th>
+                      <th className="p-3">Date and time</th>
                       <th className="p-3">Type</th>
-                      <th className="p-3 text-right">Gross Liters</th>
+                      <th className="p-3 text-right">Gross liters</th>
                       <th className="p-3 text-right">@13% TS (L)</th>
-                      <th className="p-3">Reference / Notes</th>
-                      <th className="p-3">Recorded By</th>
+                      <th className="p-3">Reference / notes</th>
+                      <th className="p-3">Recorded by</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -160,7 +160,7 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
                       const isIn = isPositiveType(tx.transaction_type);
                       return (
                         <tr key={tx.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="p-3 tabular-nums font-medium text-foreground whitespace-nowrap">
+                          <td className="p-3 tabular-nums font-medium text-foreground">
                             {new Date(tx.operational_timestamp).toLocaleString('en-GB', {
                               day: '2-digit',
                               month: 'short',
@@ -169,9 +169,9 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
                               minute: '2-digit',
                             })}
                           </td>
-                          <td className="p-3 whitespace-nowrap">
+                          <td className="p-3">
                             <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
                                 isIn
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : 'bg-blue-100 text-blue-800'
@@ -182,7 +182,7 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
                             </span>
                           </td>
                           <td
-                            className={`p-3 text-right tabular-nums font-bold whitespace-nowrap ${
+                            className={`p-3 text-right tabular-nums font-semibold ${
                               isIn ? 'text-emerald-700' : 'text-blue-700'
                             }`}
                           >
@@ -190,7 +190,7 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
                             {tx.quantity_liters.toLocaleString('en-US', { minimumFractionDigits: 2 })} L
                           </td>
                           <td
-                            className={`p-3 text-right tabular-nums font-semibold whitespace-nowrap ${
+                            className={`p-3 text-right tabular-nums font-semibold ${
                               isIn ? 'text-emerald-600' : 'text-blue-600'
                             }`}
                           >
@@ -198,11 +198,11 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
                               ? `${isIn ? '+' : '-'}${tx.at_13ts_liters.toLocaleString('en-US', { minimumFractionDigits: 2 })} L`
                               : '—'}
                           </td>
-                          <td className="p-3 text-secondary-foreground max-w-[220px] truncate" title={tx.notes || tx.reference_id || ''}>
-                            <span className="font-semibold text-foreground block">{tx.reference_type || 'Ledger Entry'}</span>
+                          <td className="p-3 text-secondary-foreground min-w-[10rem]" title={tx.notes || tx.reference_id || ''}>
+                            <span className="font-semibold text-foreground block">{tx.reference_type || 'Ledger entry'}</span>
                             <span className="text-xs text-muted-foreground">{tx.notes || tx.reference_id || '—'}</span>
                           </td>
-                          <td className="p-3 whitespace-nowrap text-muted-foreground">
+                          <td className="p-3 text-muted-foreground">
                             {tx.performer ? (
                               <div>
                                 <span className="font-medium text-foreground block">{tx.performer.full_name || tx.performer.username}</span>

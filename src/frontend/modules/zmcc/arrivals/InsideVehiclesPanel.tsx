@@ -78,7 +78,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                                   {v.vehicle_number}
                                 </div>
                                 <span
-                                  className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                  className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-xs font-semibold uppercase tracking-wider ${
                                     v.arrival_type === 'MOT'
                                       ? 'bg-blue-100 text-blue-800'
                                       : 'bg-emerald-100 text-emerald-800'
@@ -103,13 +103,13 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                             </div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1 pt-0.5 min-w-0">
                               <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                              <span className="truncate">Entered: {new Date(v.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT</span>
+                              <span className="break-words min-w-0">Entered: {new Date(v.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT</span>
                             </div>
                           </div>
 
                           <div className="pt-2.5 border-t border-border flex flex-wrap gap-1.5 items-center">
                             <span
-                              className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                              className={`px-2 py-0.5 rounded text-xs font-semibold ${
                                 v.lab_status === 'COMPLETED'
                                   ? 'bg-muted text-foreground'
                                   : 'bg-amber-100 text-amber-800'
@@ -119,7 +119,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                             </span>
                             {v.lab_decision && (
                               <span
-                                className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                                className={`px-2 py-0.5 rounded text-xs font-semibold ${
                                   v.lab_decision === 'ACCEPTED'
                                     ? 'bg-emerald-100 text-emerald-800'
                                     : 'bg-rose-100 text-rose-800'

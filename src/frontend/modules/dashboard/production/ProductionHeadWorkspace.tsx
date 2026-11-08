@@ -116,7 +116,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
       {/* 1. Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border/60">
         <div>
-          <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
+          <h2 className="text-lg sm:text-xl font-semibold text-foreground">
             {viewMetadata.title}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">

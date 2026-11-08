@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Layers,
 } from 'lucide-react';
+import { SkeletonTable } from '@/components/ui/loaders';
 import { DailyReportDashboard } from '../daily-report/DailyReportDashboard';
 import { HierarchyWorkView } from './HierarchyWorkView';
 import { WarningLimitsGovernanceView } from './WarningLimitsGovernanceView';
@@ -28,46 +29,46 @@ function ReportsContent() {
   };
 
   return (
-    <div className="w-full max-w-full space-y-4 overflow-x-hidden p-1">
+    <div className="w-full min-w-0 max-w-full space-y-4 p-1">
       {/* Sub-Tabs Navigation Bar */}
-      <div className="flex items-center gap-1 rounded-2xl border border-border bg-card p-1.5 shadow-2xs">
+      <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-border bg-card p-1.5 shadow-2xs">
         <button
           type="button"
           onClick={() => handleTabChange('daily')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+          className={`flex min-h-11 items-center gap-2 rounded-lg px-4 text-xs font-medium transition-colors ${
             activeTab === 'daily'
               ? 'bg-primary text-white shadow-2xs'
               : 'bg-transparent text-secondary-foreground hover:bg-subtle hover:text-foreground'
           }`}
         >
           <FileSpreadsheet className="h-4 w-4" />
-          <span>Daily Quality & Operations</span>
+          <span>Daily quality and operations</span>
         </button>
 
         <button
           type="button"
           onClick={() => handleTabChange('hierarchy')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+          className={`flex min-h-11 items-center gap-2 rounded-lg px-4 text-xs font-medium transition-colors ${
             activeTab === 'hierarchy'
               ? 'bg-primary text-white shadow-2xs'
               : 'bg-transparent text-secondary-foreground hover:bg-subtle hover:text-foreground'
           }`}
         >
           <UserCheck className="h-4 w-4" />
-          <span>Work for Lower Roles</span>
+          <span>Work for lower roles</span>
         </button>
 
         <button
           type="button"
           onClick={() => handleTabChange('warnings')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+          className={`flex min-h-11 items-center gap-2 rounded-lg px-4 text-xs font-medium transition-colors ${
             activeTab === 'warnings'
               ? 'bg-primary text-white shadow-2xs'
               : 'bg-transparent text-secondary-foreground hover:bg-subtle hover:text-foreground'
           }`}
         >
           <AlertTriangle className="h-4 w-4" />
-          <span>Warning Limits & Policy</span>
+          <span>Warning limits and policy</span>
         </button>
       </div>
 
@@ -83,7 +84,7 @@ function ReportsContent() {
 
 export function ReportsAndGovernanceWorkspace() {
   return (
-    <Suspense fallback={<div className="p-8 text-xs font-semibold text-muted-foreground">Loading Executive Reports…</div>}>
+    <Suspense fallback={<SkeletonTable rows={8} />}>
       <ReportsContent />
     </Suspense>
   );

@@ -7,6 +7,7 @@ import { formatMetric, NO_DATA } from '../format';
 import { LiveMap, type LiveMapMarker, type LiveMapPin, type LiveMapRoute, type LiveMapVehicle } from '@/frontend/modules/shared/map/LiveMap';
 import { buildJourneyOverlays, JOURNEY_COLORS, type JourneyOverlayData } from '@/frontend/modules/shared/map/journeyOverlays';
 import { Pager, paginate, pageCount } from '@/frontend/modules/dashboard/components/Pager';
+import { formatTime } from '@/lib/format';
 
 /** Optional live-position fields. Shown on the map only when the overview API returns them. */
 interface OptionalPosition {
@@ -306,7 +307,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
                         <div className="flex items-center gap-1 text-secondary-foreground">
                           <Clock className="w-3 h-3 text-muted-foreground" />
                           <span className="tabular-nums">
-                            {new Date(t.departureTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {formatTime(t.departureTime)}
                           </span>
                         </div>
                       </td>

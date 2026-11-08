@@ -1,7 +1,9 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
-import { TableWrapper } from '@/components/ui/table-wrapper';
+import { DataTable } from '@/components/ui/data-table';
+import { SkeletonStats, SkeletonTable } from '@/components/ui/loaders';
+import { formatTime } from '@/lib/format';
 
 type Dashboard = {
   security: {
@@ -29,42 +31,37 @@ export function AdminHeadDashboard() {
     refetchInterval: 30_000,
   });
 
-  if (!data) return <main className="p-6 text-sm text-muted-foreground">Loading Admin Head dashboard…</main>;
+  if (!data)
+    return (
+      <main className="min-h-[100dvh] w-full max-w-full min-w-0 space-y-4 bg-background p-4 sm:p-6">
+        <SkeletonStats count={2} />
+        <SkeletonTable />
+      </main>
+    );
 
   return (
     <main className="min-h-[100dvh] w-full max-w-full min-w-0 bg-background p-4 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-      <h1 className="text-xl font-semibold text-foreground">Admin Head: Plant Presence</h1>
-      <div className="mt-4 flex flex-wrap gap-3 text-sm">
-        <div className="flex-1 min-w-[140px] rounded-2xl bg-card border border-border p-4 shadow-2xs">
-          Vehicles inside: <b className="text-foreground">{data.security.vehiclesInsidePlant}</b>
+      <h1 className="text-xl font-semibold text-foreground">Plant presence</h1>
+      <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-3 text-sm">
+        <div className="min-w-0 rounded-2xl bg-card border border-border p-4">
+          Vehicles inside: <b className="font-mono tabular-nums text-foreground">{data.security.vehiclesInsidePlant}</b>
         </div>
-        <div className="flex-1 min-w-[140px] rounded-2xl bg-card border border-border p-4 shadow-2xs">
-          Ready for exit: <b className="text-foreground">{data.security.pendingGateExit}</b>
+        <div className="min-w-0 rounded-2xl bg-card border border-border p-4">
+          Ready for exit: <b className="font-mono tabular-nums text-foreground">{data.security.pendingGateExit}</b>
         </div>
       </div>
       <div className="mt-5">
-        <TableWrapper>
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="bg-subtle border-b border-border">
-                <th className="p-3 font-semibold text-foreground">Vehicle</th>
-                <th className="p-3 font-semibold text-foreground">Stage</th>
-                <th className="p-3 font-semibold text-foreground">Entered</th>
-                <th className="p-3 font-semibold text-foreground">Stage updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.vehicles.map((v) => (
-                <tr key={v.visitId} className="border-b border-border last:border-b-0 hover:bg-muted/40 transition-colors">
-                  <td className="p-3 tabular-nums font-semibold text-foreground">{v.vehicleNumber}</td>
-                  <td className="p-3">{v.stage.replaceAll('_', ' ')}</td>
-                  <td className="p-3">{v.enteredPlantAt ? new Date(v.enteredPlantAt).toLocaleTimeString() : '—'}</td>
-                  <td className="p-3">{v.stageChangedAt ? new Date(v.stageChangedAt).toLocaleTimeString() : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableWrapper>
+        <DataTable<Dashboard['vehicles'][number]>
+          rows={data.vehicles}
+          getRowId={(v) => v.visitId}
+          emptyTitle="No vehicles inside"
+          columns={[
+            { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', primary: true, cell: (v) => <span className="font-mono tabular-nums font-semibold text-foreground">{v.vehicleNumber}</span> },
+            { key: 'stage', header: 'Stage', label: 'Stage', cell: (v) => v.stage.replaceAll('_', ' ') },
+            { key: 'entered', header: 'Entered', label: 'Entered', cell: (v) => <span className="tabular-nums">{formatTime(v.enteredPlantAt)}</span> },
+            { key: 'updated', header: 'Stage updated', label: 'Stage updated', cell: (v) => <span className="tabular-nums">{formatTime(v.stageChangedAt)}</span> },
+          ]}
+        />
       </div>
     </main>
   );

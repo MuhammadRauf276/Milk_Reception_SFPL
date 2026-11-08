@@ -69,20 +69,20 @@ export function SiloFormDrawer({ silo, onClose, onSaved }: FormProps) {
   };
 
   return (
-    <FormDrawer open onClose={onClose} busy={busy} error={error} title={isEdit ? `Edit Silo (${silo!.siloCode})` : 'Add Silo Storage'}>
+    <FormDrawer open onClose={onClose} busy={busy} error={error} title={isEdit ? `Edit silo (${silo!.siloCode})` : 'Add silo'}>
       {isEdit && (
-        <div className="space-y-1 rounded-xl border border-border bg-card p-3 font-medium text-blue-950">
-          <div className="flex justify-between">
-            <span>Current Stock:</span>
-            <strong>{silo!.currentStockLiters.toLocaleString()} L</strong>
+        <div className="space-y-1 rounded-xl border border-border bg-card p-3 font-medium text-foreground">
+          <div className="flex flex-wrap justify-between gap-x-2">
+            <span>Current stock:</span>
+            <strong className="font-mono tabular-nums">{silo!.currentStockLiters.toLocaleString()} L</strong>
           </div>
-          <div className="flex justify-between">
-            <span>Active Reservations:</span>
-            <strong>{silo!.activeReservationsLiters.toLocaleString()} L</strong>
+          <div className="flex flex-wrap justify-between gap-x-2">
+            <span>Active reservations:</span>
+            <strong className="font-mono tabular-nums">{silo!.activeReservationsLiters.toLocaleString()} L</strong>
           </div>
-          <div className="flex justify-between border-t border-blue-200/60 pt-1">
-            <span>Minimum Allowed Capacity:</span>
-            <strong className="text-blue-900">{(silo!.currentStockLiters + silo!.activeReservationsLiters).toLocaleString()} L</strong>
+          <div className="flex flex-wrap justify-between gap-x-2 border-t border-border pt-1">
+            <span>Minimum allowed capacity:</span>
+            <strong className="text-foreground">{(silo!.currentStockLiters + silo!.activeReservationsLiters).toLocaleString()} L</strong>
           </div>
         </div>
       )}

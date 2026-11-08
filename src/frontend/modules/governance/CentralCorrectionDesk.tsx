@@ -33,6 +33,7 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { InfoTip } from '@/components/ui/info-tip';
 import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
+import { formatDate, formatDateTime } from '@/lib/format';
 
 export interface StageRecordItem {
   id: string;
@@ -448,7 +449,7 @@ export const CentralCorrectionDesk: React.FC = () => {
         <button
           type="button"
           onClick={() => setTab('REQUESTS')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-bold transition-all ${
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'REQUESTS'
               ? 'bg-card text-primary shadow-xs'
               : 'text-secondary-foreground hover:text-foreground'
@@ -466,7 +467,7 @@ export const CentralCorrectionDesk: React.FC = () => {
         <button
           type="button"
           onClick={() => setTab('DIRECT_EDIT')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-bold transition-all ${
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'DIRECT_EDIT'
               ? 'bg-card text-primary shadow-xs'
               : 'text-secondary-foreground hover:text-foreground'
@@ -482,7 +483,7 @@ export const CentralCorrectionDesk: React.FC = () => {
         <button
           type="button"
           onClick={() => setTab('AUDIT')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-bold transition-all ${
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-all ${
             activeTab === 'AUDIT'
               ? 'bg-card text-primary shadow-xs'
               : 'text-secondary-foreground hover:text-foreground'
@@ -591,7 +592,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-border">
                       <div className="flex items-center space-x-2.5">
                         <span
-                          className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] tracking-wide uppercase ${
+                          className={`px-2.5 py-0.5 rounded-full font-semibold text-xs  uppercase ${
                             req.impact === 'HIGH'
                               ? 'bg-rose-100 text-rose-800'
                               : req.impact === 'MEDIUM'
@@ -616,7 +617,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                         </span>
                         <span>·</span>
                         <span className="tabular-nums">
-                          {new Date(req.requestedAt).toLocaleString()}
+                          {formatDateTime(req.requestedAt)}
                         </span>
                       </div>
                     </div>
@@ -649,7 +650,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                         </p>
                         {req.reviewedBy && (
                           <p className="text-xs text-muted-foreground pt-1">
-                            Reviewed by <strong className="text-foreground">{req.reviewedBy.name}</strong> on {req.reviewedAt && new Date(req.reviewedAt).toLocaleDateString()}
+                            Reviewed by <strong className="text-foreground">{req.reviewedBy.name}</strong> on {req.reviewedAt && formatDate(req.reviewedAt)}
                           </p>
                         )}
                       </div>
@@ -659,7 +660,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                       <div className="flex items-center space-x-2">
                         <span className="font-semibold text-secondary-foreground">Current Status:</span>
                         <span
-                          className={`px-2.5 py-0.5 rounded-md font-bold text-[10px] ${
+                          className={`px-2.5 py-0.5 rounded-md font-semibold text-xs ${
                             isPending
                               ? 'bg-amber-100 text-amber-800'
                               : isApproved
@@ -935,7 +936,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                             </td>
                             <td className="p-3">
                               <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                className={`px-2 py-0.5 rounded text-xs font-semibold ${
                                   rec.decision === 'ACCEPTED'
                                     ? 'bg-emerald-100 text-emerald-800'
                                     : 'bg-rose-100 text-rose-800'
@@ -1067,7 +1068,7 @@ export const CentralCorrectionDesk: React.FC = () => {
               <div>
                 <span className="text-xs font-semibold text-muted-foreground">Request Timestamp</span>
                 <p className="font-semibold text-foreground">
-                  {selectedRequest?.requestedAt && new Date(selectedRequest.requestedAt).toLocaleString()}
+                  {selectedRequest?.requestedAt && formatDateTime(selectedRequest.requestedAt)}
                 </p>
                 <span className="inline-block px-2 py-0.2 rounded text-xs font-semibold bg-amber-100 text-amber-800 mt-1">
                   {selectedRequest?.impact} Impact

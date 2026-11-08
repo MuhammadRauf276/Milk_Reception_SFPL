@@ -30,6 +30,7 @@ import type { ZmccLabSessionItem } from './zmccQualityTypes';
 import { ZMCCLabSessionList } from './ZMCCLabSessionList';
 import { ZMCCPlantQAList } from './ZMCCPlantQAList';
 import { ZMCCManagerReviewDrawer } from './ZMCCManagerReviewDrawer';
+import { SkeletonTable } from '@/components/ui/loaders';
 
 
 interface ZMCCManagerQualityRejectionsProps {
@@ -364,10 +365,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
 
       {/* 4. Loading */}
       {(labLoading || isLoading) && (
-        <div className="p-8 text-center bg-card rounded-2xl border border-border/80 text-xs text-muted-foreground font-semibold flex items-center justify-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin text-primary" />
-          <span>Loading quality records…</span>
-        </div>
+        <SkeletonTable rows={5} />
       )}
 
       {/* 5. Empty State */}

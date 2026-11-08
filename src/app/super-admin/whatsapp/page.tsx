@@ -4,7 +4,6 @@ import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import {
-  MessageSquare,
   ShieldCheck,
   Send,
   LogOut,
@@ -22,6 +21,10 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import { Combobox } from '@/components/ui/combobox';
 import { InfoTip } from '@/components/ui/info-tip';
 import { confirmAction } from '@/components/ui/confirm-dialog';
+import { Button } from '@/components/ui/button';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { SkeletonList } from '@/components/ui/loaders';
+import { formatDateTime } from '@/lib/format';
 
 interface GatewayStatus {
   status: 'OFFLINE' | 'DISCONNECTED' | 'CONNECTING' | 'SCAN_QR' | 'CONNECTED';
@@ -52,6 +55,31 @@ interface OutboxItem {
     gross_liters: number;
   } | null;
 }
+
+const outboxColumns: DataColumn<OutboxItem>[] = [
+  { key: 'recipient', header: 'Recipient', label: 'Recipient', primary: true, cell: (row) => <span className="break-all font-mono font-semibold text-foreground">{row.recipient_phone}</span> },
+  { key: 'shop', header: 'Shop name', label: 'Shop name', cell: (row) => <span className="text-secondary-foreground">{row.collection?.shop_name || 'Bismillah Dairy Center'}</span> },
+  {
+    key: 'message',
+    header: 'Message',
+    label: 'Message',
+    cell: (row) => (
+      <div className="max-w-sm whitespace-pre-line break-words rounded-lg border border-border bg-card p-2 font-mono text-xs text-foreground">{row.message_body}</div>
+    ),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    label: 'Status',
+    cell: (row) => (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+        <CheckCircle2 className="h-3 w-3" />
+        {row.status}
+      </span>
+    ),
+  },
+  { key: 'sent', header: 'Sent at', label: 'Sent at', cell: (row) => <span className="tabular-nums text-muted-foreground">{formatDateTime(row.created_at)}</span> },
+];
 
 export default function SuperAdminWhatsAppPage() {
   const queryClient = useQueryClient();
@@ -176,7 +204,7 @@ export default function SuperAdminWhatsAppPage() {
         setDispatchResult({
           success: true,
           count: sentCount,
-          message: `Successfully dispatched WhatsApp message to ${targetPhone} (Message ID: ${data.messageId || 'sent'})!`,
+          message: `Message sent to ${targetPhone} (ID: ${data.messageId || 'sent'})`,
         });
         loadOutbox();
       } else {
@@ -203,53 +231,32 @@ export default function SuperAdminWhatsAppPage() {
   const userShops = shops.filter((s) => s.phone_number === '03176826604');
 
   return (
-    <div className="space-y-6 w-full max-w-full overflow-x-hidden animate-panel-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-4">
-        <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-2xs">
-            <MessageSquare className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">
-              WhatsApp gateway
-            </h1>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <button
-            type="button"
-            onClick={() => fetchGatewayStatus()}
-            disabled={refreshing}
-            className="inline-flex items-center space-x-1.5 min-h-11 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-secondary-foreground hover:bg-muted transition shadow-2xs"
-          >
-            <span>Refresh</span>
-          </button>
-        </div>
+    <div className="w-full min-w-0 max-w-full space-y-6 animate-panel-in">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+        <p className="min-w-0 text-sm text-muted-foreground">Send receipts and notices to shops</p>
+        <Button variant="outline" onClick={() => fetchGatewayStatus()} disabled={refreshing}>
+          Refresh
+        </Button>
       </div>
 
       <div className="bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-center space-x-3.5">
+        <div className="flex min-w-0 items-center space-x-3.5">
           <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${
-              isConnected
-                ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                : isScanQr
-                ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                : 'bg-rose-100 text-rose-800 border border-rose-300'
+            className={`flex h-10 w-10 shrink-0 items-center justify-center ${
+              isConnected ? 'text-emerald-700' : isScanQr ? 'text-amber-700' : 'text-rose-700'
             }`}
           >
             {isConnected ? (
               <ShieldCheck className="w-6 h-6" />
             ) : isScanQr ? (
-              <QrCode className="w-6 h-6 animate-pulse" />
+              <QrCode className="w-6 h-6" />
             ) : (
               <AlertTriangle className="w-6 h-6" />
             )}
           </div>
 
           <div>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold text-foreground">
                 {isConnected
                   ? 'Connected'
@@ -258,7 +265,7 @@ export default function SuperAdminWhatsAppPage() {
                   : 'Gateway offline'}
               </h2>
               <span
-                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                   isConnected
                     ? 'bg-emerald-100 text-emerald-800'
                     : isScanQr
@@ -281,14 +288,10 @@ export default function SuperAdminWhatsAppPage() {
         </div>
 
         {isConnected && (
-          <button
-            type="button"
-            onClick={handleDisconnect}
-            className="inline-flex items-center space-x-1.5 min-h-11 px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-semibold transition shadow-2xs self-start md:self-auto"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Disconnect</span>
-          </button>
+          <Button variant="outline" onClick={handleDisconnect} className="self-start md:self-auto">
+            <LogOut />
+            Disconnect
+          </Button>
         )}
       </div>
 
@@ -307,7 +310,7 @@ export default function SuperAdminWhatsAppPage() {
             </div>
             <div className="text-xs font-semibold text-emerald-700 flex items-center space-x-1">
               <Loader2 className="w-3 h-3 animate-spin" />
-              <span>Waiting for scan…</span>
+              <span>Waiting for scan</span>
             </div>
           </div>
 
@@ -323,12 +326,12 @@ export default function SuperAdminWhatsAppPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-7 bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4">
-          <div className="border-b border-border pb-3 flex items-center justify-between">
+      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="lg:col-span-7 min-w-0 bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
             <div>
               <h3 className="text-sm font-semibold text-foreground flex items-center space-x-2">
-                <Send className="w-4 h-4 text-emerald-600" />
+                <Send className="w-4 h-4 text-muted-foreground" />
                 <span>Send message</span>
               </h3>
             </div>
@@ -359,17 +362,17 @@ export default function SuperAdminWhatsAppPage() {
               <label className="block text-xs font-semibold text-secondary-foreground mb-1.5">
                 Send to
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+              <div className="mb-2 grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-2">
                 <button
                   type="button"
                   onClick={() => setTargetMode('ALL_USER')}
-                  className={`p-2.5 rounded-xl border text-left text-xs font-semibold transition flex items-center space-x-2 ${
+                  className={`min-h-11 rounded-xl border p-2.5 text-left text-xs font-medium transition-colors flex items-center space-x-2 ${
                     targetMode === 'ALL_USER'
                       ? 'border-primary bg-card text-foreground ring-1 ring-primary'
                       : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
                   }`}
                 >
-                  <Radio className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Radio className="w-4 h-4 text-muted-foreground shrink-0" />
                   <div>
                     <div className="font-semibold">Demo shops ({userShops.length || 14})</div>
                     <div className="text-xs text-muted-foreground font-mono">03176826604</div>
@@ -379,13 +382,13 @@ export default function SuperAdminWhatsAppPage() {
                 <button
                   type="button"
                   onClick={() => setTargetMode('SINGLE')}
-                  className={`p-2.5 rounded-xl border text-left text-xs font-semibold transition flex items-center space-x-2 ${
+                  className={`min-h-11 rounded-xl border p-2.5 text-left text-xs font-medium transition-colors flex items-center space-x-2 ${
                     targetMode === 'SINGLE'
                       ? 'border-primary bg-card text-foreground ring-1 ring-primary'
                       : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
                   }`}
                 >
-                  <Store className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <Store className="w-4 h-4 text-muted-foreground shrink-0" />
                   <div>
                     <div className="font-semibold">One shop</div>
                     
@@ -405,31 +408,31 @@ export default function SuperAdminWhatsAppPage() {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
                 <label className="text-xs font-semibold text-secondary-foreground">
                   Templates
                 </label>
-                <div className="flex items-center space-x-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate('RECEIPT')}
-                    className="min-h-11 px-3 py-0.5 rounded-md text-xs font-semibold bg-card text-secondary-foreground border border-border hover:bg-subtle transition"
+                    className="min-h-11 rounded-lg border border-border bg-card px-3 text-xs font-medium text-secondary-foreground transition-colors hover:bg-subtle"
                   >
-                    Collection Receipt
+                    Collection receipt
                   </button>
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate('RATE')}
-                    className="min-h-11 px-3 py-0.5 rounded-md text-xs font-semibold bg-card text-secondary-foreground border border-border hover:bg-subtle transition"
+                    className="min-h-11 rounded-lg border border-border bg-card px-3 text-xs font-medium text-secondary-foreground transition-colors hover:bg-subtle"
                   >
-                    Rate Advisory
+                    Rate advisory
                   </button>
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate('CHILLING')}
-                    className="min-h-11 px-3 py-0.5 rounded-md text-xs font-semibold bg-card text-secondary-foreground border border-border hover:bg-subtle transition"
+                    className="min-h-11 rounded-lg border border-border bg-card px-3 text-xs font-medium text-secondary-foreground transition-colors hover:bg-subtle"
                   >
-                    Chilling Alert
+                    Chilling alert
                   </button>
                 </div>
               </div>
@@ -439,8 +442,8 @@ export default function SuperAdminWhatsAppPage() {
                 required
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
-                placeholder="Type WhatsApp message here…"
-                className="w-full text-xs font-mono border border-border rounded-xl p-3 bg-card text-foreground focus:ring-2 focus:ring-emerald-500 outline-hidden leading-relaxed shadow-2xs"
+                placeholder="Type the message"
+                className="w-full text-xs font-mono border border-border rounded-xl p-3 bg-card text-foreground focus:border-primary outline-hidden leading-relaxed shadow-2xs"
               />
               <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span className="flex items-center">Formatting<InfoTip text="Supports WhatsApp formatting: *bold*, _italics_" /></span>
@@ -448,12 +451,8 @@ export default function SuperAdminWhatsAppPage() {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={isSending || !isConnected}
-              className="w-full min-h-11 flex items-center justify-center space-x-2 py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md transition disabled:opacity-50"
-            >
-              <Send className={`w-4 h-4 ${isSending ? 'animate-pulse' : ''}`} />
+            <Button type="submit" disabled={isSending || !isConnected} className="w-full">
+              <Send />
               <span>
                 {isSending
                   ? 'Sending…'
@@ -461,14 +460,14 @@ export default function SuperAdminWhatsAppPage() {
                   ? 'Not connected'
                   : 'Send message'}
               </span>
-            </button>
+            </Button>
           </form>
         </div>
 
-        <div className="lg:col-span-5 bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4 flex flex-col">
-          <div className="border-b border-border pb-3 flex items-center justify-between">
+        <div className="lg:col-span-5 min-w-0 bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4 flex flex-col">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center space-x-2">
-              <Users className="w-4 h-4 text-primary" />
+              <Users className="w-4 h-4 text-muted-foreground" />
               <span>Shops</span>
             </h3>
             <span className="text-xs font-semibold text-secondary-foreground bg-card border border-border px-2 py-0.5 rounded-md">
@@ -478,21 +477,21 @@ export default function SuperAdminWhatsAppPage() {
 
           <p className="text-xs text-muted-foreground flex items-center">Sent to your number<InfoTip text="All active Hasilpur demonstration shops are set to this number." /></p>
 
-          <div className="flex-1 overflow-y-auto max-h-[360px] divide-y divide-border border border-border rounded-xl">
+          <div className="max-h-[360px] min-w-0 flex-1 overflow-y-auto divide-y divide-border border border-border rounded-xl">
             {loadingShops ? (
-              <div className="p-6 text-center text-xs text-muted-foreground">Loading…</div>
+              <SkeletonList count={3} className="p-2" />
             ) : shops.length === 0 ? (
               <div className="p-6 text-center text-xs text-muted-foreground">No shops found.</div>
             ) : (
               shops.map((shop) => (
-                <div key={shop.id} className="p-2.5 hover:bg-subtle transition flex items-center justify-between text-xs">
-                  <div>
+                <div key={shop.id} className="flex flex-wrap items-center justify-between gap-2 p-2.5 text-xs transition-colors hover:bg-subtle">
+                  <div className="min-w-0">
                     <div className="font-semibold text-foreground">{shop.shop_name}</div>
                     <div className="text-xs text-muted-foreground">
                       {shop.shop_code} · {shop.owner_name}
                     </div>
                   </div>
-                  <span className="font-mono text-xs font-semibold text-secondary-foreground bg-card px-2 py-0.5 rounded-md border border-border">
+                  <span className="rounded-md border border-border bg-card px-2 py-0.5 font-mono text-xs font-semibold text-secondary-foreground">
                     {shop.phone_number}
                   </span>
                 </div>
@@ -502,71 +501,26 @@ export default function SuperAdminWhatsAppPage() {
         </div>
       </div>
 
-      <div className="bg-card rounded-2xl border border-border shadow-2xs overflow-hidden">
-        <div className="p-4 border-b border-border flex items-center justify-between bg-subtle">
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-2xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-subtle p-4">
           <div className="flex items-center space-x-2">
-            <FileText className="w-4 h-4 text-primary" />
-            <h3 className="text-xs font-semibold text-foreground">
-              Dispatch log
-            </h3>
+            <FileText className="w-4 h-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold text-foreground">Dispatch log</h3>
           </div>
-          <button
-            type="button"
-            onClick={loadOutbox}
-            className="min-h-11 px-3 text-xs text-secondary-foreground hover:text-foreground flex items-center space-x-1"
-          >
-            <span>Reload</span>
-          </button>
+          <Button variant="ghost" size="sm" onClick={loadOutbox}>
+            Reload
+          </Button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-border bg-subtle text-xs font-semibold text-muted-foreground">
-                <th className="p-3">Recipient</th>
-                <th className="p-3">Shop Name</th>
-                <th className="p-3">Message</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Sent at</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {loadingOutbox && outbox.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-6 text-center text-muted-foreground">Loading…</td>
-                </tr>
-              ) : outbox.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-6 text-center text-muted-foreground">No dispatch records found.</td>
-                </tr>
-              ) : (
-                outbox.map((row) => (
-                  <tr key={row.id} className="hover:bg-subtle">
-                    <td className="p-3 font-mono font-semibold text-foreground">
-                      {row.recipient_phone}
-                    </td>
-                    <td className="p-3 text-secondary-foreground">
-                      {row.collection?.shop_name || 'Bismillah Dairy Center'}
-                    </td>
-                    <td className="p-3 max-w-sm">
-                      <div className="p-2 rounded-lg bg-card border border-border text-xs font-mono text-foreground whitespace-pre-line wrap-break-word">
-                        {row.message_body}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 inline-flex items-center space-x-1">
-                        <CheckCircle2 className="w-2.5 h-2.5 mr-1" />
-                        <span>{row.status}</span>
-                      </span>
-                    </td>
-                    <td className="p-3 text-xs text-muted-foreground">
-                      {new Date(row.created_at).toLocaleString()}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="p-3 sm:p-4">
+          <DataTable
+            columns={outboxColumns}
+            rows={outbox}
+            getRowId={(row) => row.id}
+            loading={loadingOutbox && outbox.length === 0}
+            emptyTitle="No dispatch records"
+            tableFrom="lg"
+          />
         </div>
       </div>
     </div>

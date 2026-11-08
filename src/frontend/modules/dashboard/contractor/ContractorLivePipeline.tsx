@@ -195,7 +195,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                   </div>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <h3 className="text-base font-semibold text-foreground tabular-nums tracking-tight">
+                      <h3 className="text-base font-semibold text-foreground tabular-nums">
                         {v.vehicleNumber}
                       </h3>
                       {v.tokenNumber && (
@@ -259,7 +259,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 >
                   <FlaskConical className="w-4 h-4 mx-auto mb-1 text-inherit" />
                   <span className="font-semibold block">2. QA Lab</span>
-                  <span className="text-xs tabular-nums truncate block">
+                  <span className="text-xs tabular-nums block break-words">
                     {v.qaSummary.summaryText}
                   </span>
                 </div>

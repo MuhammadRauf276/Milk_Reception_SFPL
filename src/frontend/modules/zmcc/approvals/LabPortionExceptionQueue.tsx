@@ -1,11 +1,13 @@
 'use client';
 
+import { SkeletonList } from '@/components/ui/loaders';
+import { formatDateTime } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { item as itemVariant } from '@/components/motion/presets';
-import { AlertTriangle, CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/DecisionStatusBadge';
 import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
@@ -115,11 +117,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
         ))}
       </div>
 
-      {loading && (
-        <div className="flex items-center gap-2 py-6 text-secondary-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Loading…
-        </div>
-      )}
+      {loading && <SkeletonList count={3} />}
       {error && (
         <div className="bg-card border-border flex items-center gap-2 rounded-xl border p-3 text-rose-800">
           <AlertTriangle className="h-5 w-5" aria-hidden="true" /> {error}
@@ -159,13 +157,13 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                   </p>
                 ) : (
                   <p className="text-sm text-secondary-foreground">
-                    Decided {item.reviewedAt ? new Date(item.reviewedAt).toLocaleString() : ''}
+                    Decided {item.reviewedAt ? formatDateTime(item.reviewedAt) : ''}
                     {item.reviewRemarks ? `: ${item.reviewRemarks}` : ''}
                   </p>
                 )}
               </header>
 
-              <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2 text-center">
                 <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-muted-foreground">Weight (KG)</div><div className="text-base font-semibold">{item.quantityValue ?? item.grossLiters ?? '-'}</div></div>
                 <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-muted-foreground">LR</div><div className="text-base font-semibold">{item.lr ?? '-'}</div></div>
                 <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-muted-foreground">Fat</div><div className="text-base font-semibold">{item.fat ?? '-'}</div></div>

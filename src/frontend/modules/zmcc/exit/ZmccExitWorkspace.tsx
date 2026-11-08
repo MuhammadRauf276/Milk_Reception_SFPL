@@ -232,7 +232,7 @@ export const ZmccExitWorkspace: React.FC = () => {
                       {item.vehicle_number || 'Vehicle'}
                     </div>
                     <span
-                      className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-xs font-semibold uppercase tracking-wider ${
                         item.source_type === 'MC' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
@@ -242,7 +242,7 @@ export const ZmccExitWorkspace: React.FC = () => {
                 </div>
 
                 <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold shrink-0 ${
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold shrink-0 ${
                     item.unloaded
                       ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-muted text-secondary-foreground'

@@ -35,7 +35,7 @@ export function useMotGpsStream(opts: {
   const gpsFixAgeMs = lastFixAt === null ? null : Math.max(0, gpsClock - lastFixAt);
   const gpsBadge = (
     <span
-      className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
         gpsFixAgeMs !== null && gpsFixAgeMs <= 5 * 60 * 1000
           ? 'bg-emerald-100 text-emerald-800'
           : 'bg-muted text-muted-foreground'

@@ -703,7 +703,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       hasError = true;
     }
     if (!isContractorSource && !selectedMotProfileId && !driverName.trim()) {
-      setMotError('Please select an MOT escort or enter driver/escort name.');
+      setMotError('Please select a Mobile Tester escort or enter driver/escort name.');
       hasError = true;
     }
     if (isContractorSource && !driverName.trim()) {
@@ -1453,7 +1453,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           )}
 
           {result.totals && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 text-left">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,6rem),1fr))] gap-2.5 pt-2 text-left">
               <div className="bg-card border-border p-3 rounded-xl border">
                 <div className="text-xs font-semibold text-muted-foreground">Gross Litres</div>
                 <div className="text-sm font-semibold text-foreground tabular-nums mt-0.5">{fmtL(result.totals.grossLiters)}</div>

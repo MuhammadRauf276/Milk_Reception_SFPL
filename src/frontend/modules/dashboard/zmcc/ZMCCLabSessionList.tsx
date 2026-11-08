@@ -61,7 +61,7 @@ export const ZMCCLabSessionList: React.FC<{
             {/* Header row */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-border/60">
               <div className="flex items-center space-x-2.5 flex-wrap gap-y-1">
-                <span className="text-base font-semibold tabular-nums text-foreground tracking-tight">
+                <span className="text-base font-semibold tabular-nums text-foreground">
                   {vehicleNumber}
                 </span>
                 <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-900 text-white">
@@ -101,7 +101,7 @@ export const ZMCCLabSessionList: React.FC<{
             {/* Status Badges Row */}
             <div className="flex items-center gap-2 flex-wrap text-xs">
               <span
-                className={`px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${
+                className={`px-2 py-0.5 rounded text-xs font-semibold  ${
                   session.system_quality_outcome === 'IN_SPEC'
                     ? 'bg-emerald-100 text-emerald-800'
                     : session.system_quality_outcome === 'OUT_OF_SPEC'
@@ -115,7 +115,7 @@ export const ZMCCLabSessionList: React.FC<{
               </span>
 
               <span
-                className={`px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${
+                className={`px-2 py-0.5 rounded text-xs font-semibold  ${
                   isAccepted
                     ? 'bg-emerald-100 text-emerald-800'
                     : isRejected
@@ -128,7 +128,7 @@ export const ZMCCLabSessionList: React.FC<{
 
               {session.manager_review_status && session.manager_review_status !== 'NONE' && (
                 <span
-                  className={`px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${
+                  className={`px-2 py-0.5 rounded text-xs font-semibold  ${
                     session.manager_review_status === 'APPROVED'
                       ? 'bg-emerald-200 text-emerald-900'
                       : session.manager_review_status === 'REVIEWED_EXITED'

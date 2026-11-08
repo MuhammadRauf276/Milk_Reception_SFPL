@@ -1,5 +1,6 @@
 'use client';
 
+import { formatTime } from '@/lib/format';
 import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState } from 'react';
 import { X, Layers } from 'lucide-react';
@@ -116,7 +117,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
                   <span>Portion #{activePortion.portion_number} of {acceptedPortions.length} · In Progress</span>
                 </span>
                 <span className="tabular-nums">
-                  Started: {activePortion.unloading_log?.pump_start_timestamp ? new Date(activePortion.unloading_log.pump_start_timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Active'}
+                  Started: {activePortion.unloading_log?.pump_start_timestamp ? formatTime(activePortion.unloading_log.pump_start_timestamp) : 'Active'}
                 </span>
               </div>
             </div>
@@ -153,7 +154,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
               min={minTimestamp ? toDatetimeLocalInput(minTimestamp) : undefined}
               max={toDatetimeLocalInput(new Date())}
               onChange={(e) => setCompleteOpTimestamp(e.target.value)}
-              className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+              className="w-full min-h-11 px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -161,7 +162,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
             type="button"
             disabled={actionLoading}
             onClick={handleCompleteUnloading}
-            className="w-full min-h-[44px] py-3.5 px-4 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition shadow-md flex items-center justify-center space-x-2"
+            className="w-full min-h-11 py-3.5 px-4 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-colors flex items-center justify-center space-x-2"
           >
             {actionLoading ? (
               <span>Completing Unloading…</span>

@@ -23,6 +23,7 @@ import {
   FileSpreadsheet,
   Loader2,
 } from 'lucide-react';
+import { SkeletonTable } from '@/components/ui/loaders';
 
 interface ZMCCManagerReceiptsPerformanceProps {
   logs: MilkProcessLog[];
@@ -263,10 +264,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
 
       {/* 4. Loading State */}
       {isLoading && (
-        <div className="p-8 text-center bg-card rounded-2xl border border-border/80 text-xs text-muted-foreground font-semibold flex items-center justify-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin text-primary" />
-          <span>Loading receipt records…</span>
-        </div>
+        <SkeletonTable rows={5} />
       )}
 
       {/* 5. Empty State */}
@@ -297,7 +295,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
               {/* Card Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-border/80">
                 <div className="flex items-center space-x-3 flex-wrap gap-y-1">
-                  <span className="text-base font-semibold tabular-nums text-foreground tracking-tight">
+                  <span className="text-base font-semibold tabular-nums text-foreground">
                     {item.vehicleNumber}
                   </span>
                   {item.tokenNumber && (
@@ -315,7 +313,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                     </span>
                   )}
                   <span
-                    className={`px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${
+                    className={`px-2 py-0.5 rounded text-xs font-semibold  ${
                       item.isCompletedReceipt
                         ? 'bg-emerald-100 text-emerald-800'
                         : item.isReceiptPending
@@ -350,7 +348,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                     <span className="text-xs font-semibold text-muted-foreground">Dispatch vs Final Receipt</span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 pt-1">
                     <div>
                       <span className="text-xs font-sans text-muted-foreground block">Dispatch Gross Liters:</span>
                       <span className="font-semibold text-foreground">
@@ -379,7 +377,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/40 text-xs">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 pt-2 border-t border-border/40 text-xs">
                     <div>
                       <span className="text-xs font-sans text-muted-foreground block">Dispatch Liters @ 13% TS:</span>
                       <span className="font-semibold text-foreground">
@@ -419,7 +417,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                     <span className="text-xs font-semibold text-muted-foreground">Official Scale Records</span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 pt-1">
                     <div>
                       <span className="text-xs font-sans text-muted-foreground block">First Weight (Loaded Vehicle):</span>
                       <span className="font-semibold text-foreground">

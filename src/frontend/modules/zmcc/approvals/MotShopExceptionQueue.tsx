@@ -1,5 +1,7 @@
 'use client';
 
+import { SkeletonList } from '@/components/ui/loaders';
+import { formatDate, formatDateTime } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -125,12 +127,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
         ))}
       </div>
 
-      {loading && (
-        <div className="flex items-center justify-center gap-2 py-8 text-xs font-medium text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
-          <span>Loading exception records…</span>
-        </div>
-      )}
+      {loading && <SkeletonList count={3} />}
 
       {error && (
         <div className="bg-card border-border flex items-center gap-2 rounded-xl border p-3 text-xs text-rose-800">
@@ -186,13 +183,13 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                     </span>
                   ) : (
                     <span className="text-xs text-muted-foreground">
-                      {item.reviewedAt ? new Date(item.reviewedAt).toLocaleDateString() : ''}
+                      {item.reviewedAt ? formatDate(item.reviewedAt) : ''}
                     </span>
                   )}
                 </div>
 
                 {/* Metrics Pill Row */}
-                <div className="bg-card border-border border grid grid-cols-3 gap-1.5 rounded-lg p-2 text-center text-xs">
+                <div className="bg-card border-border border grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-1.5 rounded-lg p-2 text-center text-xs">
                   <div>
                     <span className="block text-xs text-muted-foreground">Gross</span>
                     <strong className="text-foreground tabular-nums">{item.grossLiters} L</strong>
@@ -285,7 +282,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
 
               <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
                 {/* Summary Metrics */}
-                <div className="bg-card border-border border grid grid-cols-3 gap-2 rounded-xl p-3 text-center text-xs">
+                <div className="bg-card border-border border grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2 rounded-xl p-3 text-center text-xs">
                   <div>
                     <span className="block text-xs text-muted-foreground">Gross Quantity</span>
                     <strong className="text-base text-foreground tabular-nums">{activeModalItem.grossLiters} L</strong>
@@ -397,7 +394,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                     <p className="mt-0.5">
                       Verdict: <strong>{activeModalItem.finalDecision}</strong>
                       {activeModalItem.reviewedAt && (
-                        <span> · {new Date(activeModalItem.reviewedAt).toLocaleString()}</span>
+                        <span> · {formatDateTime(activeModalItem.reviewedAt)}</span>
                       )}
                     </p>
                     {activeModalItem.reviewRemarks && (

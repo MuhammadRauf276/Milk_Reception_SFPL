@@ -128,9 +128,9 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
       onClose={onClose}
       title={
         <div className="flex items-center gap-2 min-w-0">
-          <Milk className="h-5 w-5 text-primary shrink-0" />
-          <span className="truncate text-sm sm:text-base">
-            Manual Milk Intake · {tank.tank_code}
+          <Milk className="h-5 w-5 text-muted-foreground shrink-0" />
+          <span className="min-w-0 break-words text-sm sm:text-base">
+            Manual milk intake · {tank.tank_code}
           </span>
         </div>
       }
@@ -140,29 +140,29 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Tank State Summary Card */}
         <div className="rounded-2xl border border-border bg-subtle p-3 sm:p-3.5 space-y-2.5">
-          <div className="flex justify-between items-center text-xs font-semibold text-foreground">
-            <span>Tank Storage State</span>
-            <span className="text-xs text-muted-foreground truncate max-w-[150px]">
+          <div className="flex flex-wrap justify-between items-center gap-x-2 text-xs font-semibold text-foreground">
+            <span>Tank storage state</span>
+            <span className="min-w-0 break-words text-xs text-muted-foreground">
               {tank.zmcc?.name || 'Assigned ZMCC'}
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-center text-xs">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-1.5 sm:gap-2 text-center text-xs">
             <div className="bg-card p-2 rounded-lg border border-border overflow-hidden">
               <span className="text-xs text-muted-foreground block font-medium">Capacity</span>
-              <span className="font-semibold text-foreground tabular-nums block truncate">
+              <span className="font-mono font-semibold text-foreground tabular-nums block break-words">
                 {tank.capacity_liters.toLocaleString()} L
               </span>
             </div>
             <div className="bg-card p-2 rounded-lg border border-border overflow-hidden">
-              <span className="text-xs text-muted-foreground block font-medium">Current Stock</span>
-              <span className="font-semibold text-blue-700 tabular-nums block truncate">
+              <span className="text-xs text-muted-foreground block font-medium">Current stock</span>
+              <span className="font-mono font-semibold text-foreground tabular-nums block break-words">
                 {tank.current_stock.toLocaleString()} L
               </span>
             </div>
             <div className="bg-card p-2 rounded-lg border border-border overflow-hidden">
               <span className="text-xs text-muted-foreground block font-medium">Available</span>
-              <span className="font-semibold text-emerald-700 tabular-nums block truncate">
+              <span className="font-mono font-semibold text-foreground tabular-nums block break-words">
                 {availableCap.toLocaleString()} L
               </span>
             </div>
@@ -170,7 +170,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
 
           {tank.current_commercial_stock_at_13ts !== undefined && tank.current_commercial_stock_at_13ts !== null && (
             <div className="text-xs text-secondary-foreground bg-card px-2.5 py-1.5 rounded-lg border border-border flex justify-between items-center">
-              <span>Current Commercial Stock (@13% TS):</span>
+              <span>Current commercial stock (@13% TS):</span>
               <span className="font-semibold tabular-nums text-foreground">{Number(tank.current_commercial_stock_at_13ts).toLocaleString()} L</span>
             </div>
           )}
@@ -179,7 +179,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
         {/* Input Gross Liters */}
         <div className="space-y-1">
           <label htmlFor="intake-gross-liters" className={fieldLabelClass}>
-            Gross Milk Volume to Add (Liters) *
+            Gross milk volume to add (liters) *
           </label>
           <input
             id="intake-gross-liters"
@@ -197,7 +197,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Free space: {availableCap.toLocaleString()} L</span>
             {isOverCapacity && (
-              <span className="text-rose-600 font-semibold">Exceeds available capacity!</span>
+              <span className="text-rose-600 font-semibold">Exceeds available capacity</span>
             )}
           </div>
         </div>
@@ -318,7 +318,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
             <div className="space-y-0.5">
               <span className="font-semibold block">Projected Tank Stock After Intake</span>
               <span className="text-xs text-emerald-800">
-                Gross Physical Stock: <strong className="tabular-nums font-semibold">{afterStock.toLocaleString('en-US', { minimumFractionDigits: 2 })} L</strong> ({((afterStock / tank.capacity_liters) * 100).toFixed(1)}% full)
+                Gross physical stock: <strong className="tabular-nums font-semibold">{afterStock.toLocaleString('en-US', { minimumFractionDigits: 2 })} L</strong> ({((afterStock / tank.capacity_liters) * 100).toFixed(1)}% full)
               </span>
             </div>
           </div>

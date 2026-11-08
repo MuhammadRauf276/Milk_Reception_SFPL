@@ -23,6 +23,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
+import { SkeletonList } from '@/components/ui/loaders';
 
 interface ContractorHistoryReportsProps {
   initialLogs: MilkProcessLog[];
@@ -261,7 +262,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
             <span>Received Vol {totalPages > 1 ? '(Current Page)' : ''}</span>
             <Scale className="w-4 h-4 text-blue-700" />
           </div>
-          <p className="text-2xl font-semibold text-blue-950 tabular-nums truncate">
+          <p className="text-2xl font-semibold text-blue-950 tabular-nums">
             {metrics.totalReceivedLiters.toLocaleString()} L
           </p>
           <p className="text-xs text-blue-700 font-medium">
@@ -276,7 +277,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
             <ArrowRightLeft className="w-4 h-4 text-secondary-foreground" />
           </div>
           <p
-            className={`text-2xl font-semibold tabular-nums truncate ${
+            className={`text-2xl font-semibold tabular-nums ${
               metrics.netLitersVariance == null
                 ? 'text-muted-foreground'
                 : metrics.netLitersVariance < 0
@@ -309,10 +310,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
         </div>
 
         {loading ? (
-          <div className="py-12 text-center text-xs font-semibold text-muted-foreground flex flex-col items-center justify-center space-y-2">
-            <Loader2 className="w-5 h-5 text-blue-700 animate-spin" />
-            <span>Loading historical records…</span>
-          </div>
+          <SkeletonList count={4} />
         ) : filteredVisits.length === 0 ? (
           <div className="bg-card border-border py-12 px-4 rounded-xl border border-dashed text-center space-y-2">
             <FileSpreadsheet className="w-8 h-8 text-muted-foreground mx-auto" />
@@ -359,7 +357,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
                       </td>
                       <td className="py-3.5 px-3">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
                             v.qaSummary.badgeType === 'ALL_ACCEPTED'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : v.qaSummary.badgeType === 'ALL_REJECTED'

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { RefreshCw } from 'lucide-react';
+
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 
 const POLL_MS = 15_000;
@@ -64,7 +64,6 @@ export function LiveUpdateWatcher() {
         onClick={() => window.location.reload()}
         className="flex min-h-9 shrink-0 items-center gap-1 rounded-lg bg-primary px-2.5 text-white hover:bg-primary-hover"
       >
-        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
         Refresh
       </button>
     </div>

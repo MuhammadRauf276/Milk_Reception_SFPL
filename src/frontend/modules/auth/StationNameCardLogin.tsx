@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { SkeletonList } from '@/components/ui/loaders';
 import { AlertTriangle, ArrowLeft, Delete, Lock, UserRound } from 'lucide-react';
 import { resolveRoleHome } from '@/lib/role-routing';
 import { getDeviceAuthHeaders, getDeviceUid } from '@/frontend/modules/pwa/deviceIdentity';
@@ -102,7 +103,7 @@ export function StationNameCardLogin() {
           <AlertTriangle className="size-6 shrink-0" aria-hidden /> {NOT_STATION}
         </p>
       ) : cards === null ? (
-        <p className="text-lg text-slate-700">Loading names…</p>
+        <SkeletonList count={3} />
       ) : !selected ? (
         <>
           {problem ? <ProblemBox problem={problem} /> : null}
@@ -119,8 +120,8 @@ export function StationNameCardLogin() {
                   >
                     {c.locked ? <Lock className="size-6 shrink-0 text-rose-700" aria-hidden /> : <UserRound className="size-6 shrink-0 text-slate-700" aria-hidden />}
                     <span className="min-w-0">
-                      <span className="block truncate text-xl font-semibold text-slate-900">{c.name}</span>
-                      <span className="block truncate text-sm capitalize text-slate-600">{c.locked ? 'PIN locked' : c.roleLabel}</span>
+                      <span className="block break-words text-xl font-semibold text-slate-900">{c.name}</span>
+                      <span className="block break-words text-sm capitalize text-slate-600">{c.locked ? 'PIN locked' : c.roleLabel}</span>
                     </span>
                   </button>
                 </li>

@@ -56,7 +56,7 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
           {/* Native vs Web GPS Indicator */}
           {isNative ? (
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold text-[11px] ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold text-xs ${
                 gpsStatus?.isTracking
                   ? 'bg-sky-950/80 text-sky-400 border border-sky-800/60'
                   : 'bg-slate-800 text-slate-400'

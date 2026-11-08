@@ -166,7 +166,7 @@ export function MilkSourcesPanel({
                           return (
                             <span
                               key={v.zmcc_id}
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                              className={`px-2 py-0.5 rounded-md text-xs font-semibold border ${
                                 isContractor
                                   ? 'bg-amber-50 text-amber-900 border-amber-200'
                                   : 'bg-muted text-foreground border-border'
@@ -181,7 +181,7 @@ export function MilkSourcesPanel({
                   </td>
                   <td className="py-2.5 px-3">
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                         source.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-muted-foreground'
                       }`}
                     >

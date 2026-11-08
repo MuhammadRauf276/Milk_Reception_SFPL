@@ -6,6 +6,7 @@ import { getRoleLabel } from '@/backend/core/roles/labels';
 import { InfoTip } from '@/components/ui/info-tip';
 import { TableWrapper } from '@/components/ui/table-wrapper';
 import { cn } from '@/lib/utils';
+import { formatDateTime } from '@/lib/format';
 
 export function ApprovalDetailBody({
   item,
@@ -152,7 +153,7 @@ export function ApprovalDetailBody({
                   </div>
                 )}
                 <div className="relative z-10 bg-slate-900/80 backdrop-blur-xs text-white p-1 rounded text-xs flex items-center justify-between">
-                  <span className="truncate">{photo.testCode || photo.label || 'Test Proof'}</span>
+                  <span className="break-words min-w-0">{photo.testCode || photo.label || 'Test Proof'}</span>
                   <Maximize2 className="w-3 h-3 shrink-0 ml-1 opacity-70 group-hover:opacity-100" />
                 </div>
               </div>
@@ -277,7 +278,7 @@ export function ApprovalDetailBody({
           <p className="font-semibold text-slate-800">Decision Recorded by {item.decision.decidedBy}</p>
           <p className="text-slate-600">
             Verdict: <strong>{item.decision.verdict === 'OKAY' ? 'Approved' : 'Rejected'}</strong> · Decided at{' '}
-            {new Date(item.decision.decidedAt).toLocaleString()}
+            {formatDateTime(item.decision.decidedAt)}
           </p>
           {item.decision.remarks &&
             (item.decision.remarks.trim().split(/\s+/).length > 4 ? (

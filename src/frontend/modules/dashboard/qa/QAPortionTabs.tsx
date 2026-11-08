@@ -70,7 +70,7 @@ export const QAPortionTabs: React.FC<QAPortionTabsProps> = ({
               type="button"
               onClick={() => onSelectPortion(idx)}
               className={cn(
-                'px-4 py-2.5 rounded-xl text-xs font-semibold transition flex items-center space-x-2 border min-h-[44px] cursor-pointer select-none shadow-2xs',
+                'px-4 py-2.5 rounded-xl text-xs font-semibold transition flex items-center space-x-2 border min-h-11 cursor-pointer select-none shadow-2xs',
                 isSelected
                   ? 'bg-blue-50 text-primary-hover border-primary-hover ring-2 ring-primary-hover/20 font-semibold'
                   : isAccepted

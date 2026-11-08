@@ -33,6 +33,7 @@ import { VehicleRequestsPanel } from './VehicleRequestsPanel';
 import { CancelJourneySheet } from '@/frontend/modules/mot/workspace/CancelJourneySheet';
 import { canAssignJourney, canCreateRoute, routeNeedsApproval } from '@/frontend/modules/zmcc/stage1Capabilities';
 import type { MotProfileItem, MotVehicleItem, RouteOption, JourneyItem } from '@/frontend/modules/mot/workspace/types';
+import { formatTime } from '@/lib/format';
 
 interface ZMCCOperationalJourneysScreenProps {
   currentUser: User | null;
@@ -369,7 +370,7 @@ export function ZMCCOperationalJourneysScreen({
           <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <h2 className="text-xs font-semibold text-foreground">
                   Live Mobile Tester Fleet Radar
                 </h2>
@@ -428,7 +429,7 @@ export function ZMCCOperationalJourneysScreen({
                           {j.mot_vehicle?.vehicle_number}
                         </td>
                         <td className="p-3 tabular-nums text-slate-600">
-                          {new Date(j.assigned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {formatTime(j.assigned_at)}
                         </td>
                         <td className="p-3">
                           <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
@@ -553,7 +554,7 @@ export function ZMCCOperationalJourneysScreen({
                         </td>
                         <td className="p-3">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                               j.status === 'COMPLETED'
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : j.status === 'CANCELLED'
@@ -565,7 +566,7 @@ export function ZMCCOperationalJourneysScreen({
                           </span>
                         </td>
                         <td className="p-3 tabular-nums text-slate-600">
-                          {new Date(j.assigned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {formatTime(j.assigned_at)}
                         </td>
                         <td className="p-3 text-right">
                           <button

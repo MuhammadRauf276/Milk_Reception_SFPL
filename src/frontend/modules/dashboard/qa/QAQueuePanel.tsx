@@ -3,7 +3,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { EmptyAction } from '../components/EmptyAction';
 import React from 'react';
-import { Search, Play, Loader2 } from 'lucide-react';
+import { Search, Play } from 'lucide-react';
+import { SkeletonList } from '@/components/ui/loaders';
 import { formatOperationalTime } from '@/lib/datetime-utils';
 import { onActivateKey } from '@/lib/a11y';
 import { cn } from '@/lib/utils';
@@ -91,13 +92,6 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
   return (
     <div className="space-y-3.5">
       <div className="flex items-center justify-between px-1">
-        <h3 className="text-sm font-semibold text-foreground">
-          {activeTab === 'WAITING'
-            ? 'Waiting'
-            : activeTab === 'IN_TESTING'
-            ? 'In testing'
-            : 'On hold'}
-        </h3>
         <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full bg-muted text-secondary-foreground border border-border">
           {activeTab === 'WAITING'
             ? `${waitingVisits.length} ready`
@@ -114,16 +108,13 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search token…"
-          className="w-full min-h-[44px] pl-10 pr-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs"
+          className="w-full min-h-11 pl-10 pr-3.5 py-2 text-sm tabular-nums rounded-xl border border-border-strong bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs"
         />
       </div>
 
       <div key={activeTab} className="space-y-3 max-h-[560px] overflow-y-auto pr-1 stagger-children scrollbar-thin">
         {isLoadingQueues ? (
-          <div className="bg-card border-border p-8 text-center border border-dashed rounded-2xl text-sm text-muted-foreground">
-            <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
-            Loading queues…
-          </div>
+          <SkeletonList count={3} />
         ) : activeTab === 'WAITING' ? (
           waitingVisits.length === 0 ? (
             <EmptyAction message="No vehicles" onRefresh={() => queryClient.invalidateQueries()} />
@@ -138,17 +129,17 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                   key={`waiting-${v.id}`}
                   onClick={() => onSelectWaitingVisit(v.id)}
                   className={cn(
-                    'p-4 rounded-2xl border transition cursor-pointer space-y-2.5 shadow-2xs select-none',
+                    'p-4 rounded-2xl border transition-colors cursor-pointer space-y-2.5 select-none',
                     isSelected
                       ? 'bg-primary/5 text-foreground border-primary ring-1 ring-primary'
-                      : 'bg-card text-foreground border-border-strong hover:border-primary-hover/60 hover:bg-slate-50/50'
+                      : 'bg-card text-foreground border-border hover:bg-muted/40'
                   )}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="tabular-nums font-semibold text-sm text-foreground">{v.vehicle_number}</span>
                       <span className="tabular-nums text-xs font-semibold px-2 py-0.5 rounded-md bg-muted text-foreground border border-border">
-                        {v.token_number || 'No Token'}
+                        {v.token_number || 'No token'}
                       </span>
                     </div>
                     <span className="px-2 py-0.5 rounded text-xs font-semibold tabular-nums bg-muted text-secondary-foreground border border-border">
@@ -158,7 +149,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
 
                   <div className="flex items-center justify-between text-xs font-medium text-secondary-foreground">
                     <span>
-                      {v.portion_count} Portion{v.portion_count > 1 ? 's' : ''}
+                      {v.portion_count} portion{v.portion_count > 1 ? 's' : ''}
                     </span>
                     <span className="tabular-nums">Wait: {v.waiting_minutes}m</span>
                   </div>
@@ -170,10 +161,10 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                       e.stopPropagation();
                       onOpenActionModal('START', v.id);
                     }}
-                    className="w-full min-h-[44px] mt-1 py-2 px-3 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition flex items-center justify-center space-x-1.5 shadow-2xs"
+                    className="w-full min-h-11 mt-1 py-2 px-3 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition flex items-center justify-center space-x-1.5 shadow-2xs"
                   >
                     <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>Start Testing</span>
+                    <span>Start testing</span>
                   </button>
                 </div>
               );
@@ -182,7 +173,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
         ) : activeTab === 'IN_TESTING' ? (
           inTestingVisits.length === 0 ? (
             <div className="bg-card border-border p-8 text-center border border-dashed rounded-2xl text-sm text-muted-foreground">
-              No active tests.
+              No active tests
             </div>
           ) : (
             inTestingVisits.map((v) => {
@@ -195,30 +186,30 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                   key={`in-testing-${v.id}`}
                   onClick={() => onSelectTestingVisit(v.id)}
                   className={cn(
-                    'p-4 rounded-2xl border transition cursor-pointer space-y-2.5 shadow-2xs select-none',
+                    'p-4 rounded-2xl border transition-colors cursor-pointer space-y-2.5 select-none',
                     isSelected
                       ? 'bg-primary/5 text-foreground border-primary ring-1 ring-primary'
-                      : 'bg-card text-foreground border-border-strong hover:border-primary-hover/60 hover:bg-slate-50/50'
+                      : 'bg-card text-foreground border-border hover:bg-muted/40'
                   )}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="tabular-nums font-semibold text-sm text-foreground">{v.vehicle_number}</span>
                       <span className="tabular-nums text-xs font-semibold px-2 py-0.5 rounded-md bg-muted text-foreground border border-border">
-                        {v.token_number || 'No Token'}
+                        {v.token_number || 'No token'}
                       </span>
                     </div>
                     <span className="px-2 py-0.5 rounded text-xs font-semibold tabular-nums bg-sky-50 text-sky-800 border border-sky-200">
-                      In Testing
+                      In testing
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between text-xs font-medium text-secondary-foreground">
-                    <span className="truncate max-w-[140px]">By: {v.started_by_name}</span>
+                    <span className="min-w-0">By: {v.started_by_name}</span>
                     <span className="tabular-nums font-medium">Elapsed: {v.elapsed_minutes}m</span>
                   </div>
 
-                  <div className="text-xs tabular-nums font-semibold text-primary">
+                  <div className="text-xs tabular-nums font-semibold text-foreground">
                     Portions: {v.finalized_portion_count}/{v.portion_count}
                   </div>
                 </div>
@@ -227,7 +218,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
           )
         ) : onHoldVisits.length === 0 ? (
           <div className="bg-card border-border p-8 text-center border border-dashed rounded-2xl text-sm text-muted-foreground">
-            No held tests.
+            No held tests
           </div>
         ) : (
           onHoldVisits.map((v) => {
@@ -240,21 +231,21 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                 key={`on-hold-${v.id}`}
                 onClick={() => onSelectHeldVisit(v.id)}
                 className={cn(
-                  'p-4 rounded-2xl border transition cursor-pointer space-y-2.5 shadow-2xs select-none',
+                  'p-4 rounded-2xl border transition-colors cursor-pointer space-y-2.5 select-none',
                   isSelected
                     ? 'bg-primary/5 text-foreground border-primary ring-1 ring-primary'
-                    : 'bg-card text-foreground border-amber-300 hover:bg-amber-50/40'
+                    : 'bg-card text-foreground border-border hover:bg-muted/40'
                 )}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <span className="tabular-nums font-semibold text-sm text-foreground">{v.vehicle_number}</span>
                     <span className="tabular-nums text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
-                      {v.token_number || 'No Token'}
+                      {v.token_number || 'No token'}
                     </span>
                   </div>
                   <span className="px-2 py-0.5 rounded text-xs font-semibold tabular-nums bg-amber-100 text-amber-900 border border-amber-300">
-                    ON HOLD
+                    On hold
                   </span>
                 </div>
 
@@ -263,7 +254,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                 </p>
 
                 <div className="flex items-center justify-between text-xs font-medium text-secondary-foreground">
-                  <span className="truncate max-w-[140px]">By: {v.chemist_name}</span>
+                  <span className="min-w-0">By: {v.chemist_name}</span>
                   <span className="tabular-nums">Held: {formatOperationalTime(v.held_since)}</span>
                 </div>
 
@@ -274,10 +265,10 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                     e.stopPropagation();
                     onOpenActionModal('RESUME', v.id);
                   }}
-                  className="w-full min-h-[44px] mt-1 py-2 px-3 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-semibold transition flex items-center justify-center space-x-1.5 shadow-2xs"
+                  className="w-full min-h-11 mt-1 py-2 px-3 rounded-xl border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5 shadow-2xs"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Resume Testing</span>
+                  <span>Resume testing</span>
                 </button>
               </div>
             );

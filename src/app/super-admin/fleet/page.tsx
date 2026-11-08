@@ -3,13 +3,13 @@
 import React from 'react';
 import { FleetWorkspace } from '@/frontend/modules/mot/FleetWorkspace';
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
-import { PageLoader } from '@/components/ui/spinner';
+import { SkeletonList } from '@/components/ui/loaders';
 
 export default function FleetPage() {
   const { currentUser, loadingUser } = useCurrentUser();
 
   if (loadingUser || !currentUser) {
-    return <PageLoader label="Loading Fleet…" className="min-h-[50vh]" />;
+    return <div className="p-4 sm:p-6"><SkeletonList count={4} /></div>;
   }
 
   return (

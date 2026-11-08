@@ -3,11 +3,15 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ArrowLeft, Download, Filter, Search, ShieldAlert, UserCheck, Loader2 } from 'lucide-react';
+import { ArrowLeft, Download, UserCheck, Loader2 } from 'lucide-react';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import { canSeeTestPolicies } from '@/lib/test-policy-access';
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
+import { Button } from '@/components/ui/button';
+import { DataFilters } from '@/components/ui/data-filters';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { formatDateTime } from '@/lib/format';
 
 interface HierarchyWorkItem {
   id: string;
@@ -28,6 +32,31 @@ interface ApiResponse {
   records: HierarchyWorkItem[];
   count: number;
 }
+
+const columns: DataColumn<HierarchyWorkItem>[] = [
+  { key: 'when', header: 'Date and time', label: 'Date and time', primary: true, cell: (r) => <span className="font-mono text-xs tabular-nums text-muted-foreground">{formatDateTime(r.timestamp)}</span> },
+  {
+    key: 'user',
+    header: 'Actual user',
+    label: 'Actual user',
+    cell: (r) => (
+      <div className="min-w-0">
+        <div className="font-semibold text-foreground">{r.actualUserName}</div>
+        <span className="inline-block rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-secondary-foreground">{r.actualUserRoleLabel}</span>
+      </div>
+    ),
+  },
+  {
+    key: 'workspace',
+    header: 'Workspace used',
+    label: 'Workspace used',
+    cell: (r) => <span className="inline-block rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">{r.performedRoleLabel}</span>,
+  },
+  { key: 'action', header: 'Action taken', label: 'Action taken', cell: (r) => <span className="font-semibold text-foreground">{r.actionTaken}</span> },
+  { key: 'station', header: 'Station', label: 'Station', cell: (r) => <span className="text-secondary-foreground">{r.station}</span> },
+  { key: 'reference', header: 'Reference #', label: 'Reference #', cell: (r) => <span className="break-all font-mono font-semibold text-foreground">{r.referenceNumber}</span> },
+  { key: 'reason', header: 'Reason / notes', label: 'Reason / notes', cell: (r) => <span className="text-secondary-foreground">{r.reason}</span> },
+];
 
 export default function HierarchyWorkPage() {
   const { currentUser } = useCurrentUser();
@@ -94,172 +123,77 @@ export default function HierarchyWorkPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6">
-      {/* Top Breadcrumb & Navigation */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
+    <div className="mx-auto w-full min-w-0 max-w-7xl space-y-4 p-4 sm:p-6">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           {canSeeTestPolicies(currentUser?.role) && (
-            <Link
-              href="/super-admin/test-policies"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-secondary-foreground shadow-2xs transition hover:bg-subtle"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Back to Lab Policies</span>
-            </Link>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/super-admin/test-policies">
+                <ArrowLeft />
+                Back to Lab Policies
+              </Link>
+            </Button>
           )}
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">Work Done for Lower Roles</h1>
-            <p className="text-xs text-muted-foreground">
-              Cross-role activity log: when senior users or Super Admins work in subordinate workspaces
-            </p>
-          </div>
+          <p className="min-w-0 text-sm text-muted-foreground">
+            When senior users or Super Admins work in lower-role workspaces
+          </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-secondary-foreground shadow-2xs transition hover:bg-subtle disabled:opacity-50"
-          >
-            <Loader2 className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-          <button
-            type="button"
-            onClick={exportCsv}
-            disabled={filteredRecords.length === 0}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white shadow-2xs transition hover:bg-primary-hover disabled:opacity-50"
-          >
-            <Download className="h-3.5 w-3.5" />
-            <span>Export CSV</span>
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            <Loader2 className={isFetching ? 'animate-spin' : 'text-muted-foreground'} />
+            Refresh
+          </Button>
+          <Button onClick={exportCsv} disabled={filteredRecords.length === 0}>
+            <Download />
+            Export CSV
+          </Button>
         </div>
       </div>
 
-      {/* Info Card */}
-      <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3.5 text-xs text-sky-900">
-        <div className="flex items-start gap-2.5">
-          <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
-          <div className="space-y-0.5">
-            <span className="font-semibold">Executive Transparency & Audit Trail:</span>
-            <p className="text-sky-800">
-              This report records all instances where a higher-ranking account (such as Super Admin, QA Head, or Plant Manager)
-              stepped in to perform operational actions on behalf of a subordinate role (e.g. during operator absence or operational escalation).
-              Junior field staff only see clean status records (&quot;Accepted&quot; / &quot;Rejected&quot;); confidential override context is strictly limited to executive management.
+      <div className="rounded-2xl border border-border bg-card p-3.5 text-xs text-secondary-foreground">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="min-w-0 space-y-0.5">
+            <span className="font-semibold text-foreground">Audit trail</span>
+            <p>
+              This report records every time a higher-ranking account (such as Super Admin, QA Head or Plant Manager)
+              stepped in to act for a lower role, for example when an operator was absent or a case was escalated.
+              Field staff only see clean status records (&quot;Accepted&quot; / &quot;Rejected&quot;). The override detail is limited to senior management.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Filter Toolbar */}
-      <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by user name, tanker token, station, or note…"
-            className="h-10 w-full rounded-lg border border-border bg-subtle pl-9 pr-3 text-xs focus:border-primary focus:bg-card focus:outline-hidden"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
+      <div className="rounded-2xl border border-border bg-card p-3 shadow-2xs">
+        <DataFilters search={searchQuery} onSearchChange={setSearchQuery} searchPlaceholder="Search by user, token, station or note">
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="h-10 rounded-lg border border-border bg-subtle px-3 text-xs font-medium text-secondary-foreground focus:border-primary focus:bg-card focus:outline-hidden"
+            aria-label="Lower role"
+            className="min-h-11 min-w-0 max-w-full rounded-lg border border-input bg-card px-3 text-sm text-secondary-foreground focus:border-primary focus:outline-hidden"
           >
-            <option value="">All Lower Roles</option>
+            <option value="">All lower roles</option>
             <option value="QA_OFFICER">Plant QA Officer (QAE)</option>
             <option value="QA_HEAD">QA Head / AVP Reception Lab</option>
             <option value="QA_LAB_ATTENDANT">QA Lab Attendant</option>
             <option value="ZMCC_INSPECTOR">ZMCC Inspector</option>
             <option value="MOT_SHOP_OPERATOR">Mobile Tester Shop Operator</option>
           </select>
-        </div>
+        </DataFilters>
       </div>
 
-      {/* Error Notice */}
-      {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">
-          <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
-          <span>{getErrorMessage(error) || 'Failed to load report records.'}</span>
-        </div>
-      )}
-
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-left text-xs">
-            <thead className="border-b border-border bg-slate-100/80 text-secondary-foreground">
-              <tr>
-                <th className="p-3 font-semibold">Date & Time</th>
-                <th className="p-3 font-semibold">Actual User</th>
-                <th className="p-3 font-semibold">Workspace Used</th>
-                <th className="p-3 font-semibold">Action Taken</th>
-                <th className="p-3 font-semibold">Station</th>
-                <th className="p-3 font-semibold">Reference #</th>
-                <th className="p-3 font-semibold">Reason / Notes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                    Loading cross-role activity records…
-                  </td>
-                </tr>
-              ) : filteredRecords.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                    No cross-role activities recorded matching the selected filter.
-                  </td>
-                </tr>
-              ) : (
-                filteredRecords.map((r) => (
-                  <tr key={r.id} className="transition-colors hover:bg-slate-50/80">
-                    <td className="p-3 font-mono text-xs tabular-nums text-muted-foreground whitespace-nowrap">
-                      {new Date(r.timestamp).toLocaleString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                    <td className="p-3">
-                      <div className="font-semibold text-foreground">{r.actualUserName}</div>
-                      <span className="inline-block rounded bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold text-indigo-700">
-                        {r.actualUserRoleLabel}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      <span className="inline-block rounded bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 border border-amber-200">
-                        {r.performedRoleLabel}
-                      </span>
-                    </td>
-                    <td className="p-3 font-semibold text-foreground">
-                      {r.actionTaken}
-                    </td>
-                    <td className="p-3 text-secondary-foreground">
-                      {r.station}
-                    </td>
-                    <td className="p-3 font-mono font-semibold text-foreground">
-                      {r.referenceNumber}
-                    </td>
-                    <td className="p-3 text-secondary-foreground max-w-xs truncate" title={r.reason}>
-                      {r.reason}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={filteredRecords}
+        getRowId={(r) => r.id}
+        loading={isLoading}
+        error={error ? getErrorMessage(error) || 'Failed to load report records.' : null}
+        onRetry={() => void refetch()}
+        emptyTitle="No cross-role activity"
+        emptyDescription="Nothing matches the selected filter."
+        tableFrom="lg"
+      />
     </div>
   );
 }

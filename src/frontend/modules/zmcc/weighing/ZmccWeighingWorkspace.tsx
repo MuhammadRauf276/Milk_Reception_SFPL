@@ -43,7 +43,7 @@ function VehicleCard({ session, onOpen }: { session: WeighingSessionView; onOpen
                 {session.vehicle_number || 'Vehicle'}
               </div>
               <span
-                className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] font-bold uppercase tracking-wider ${
+                className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-xs font-semibold uppercase tracking-wider ${
                   session.source_type === 'MC' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
                 }`}
               >
@@ -119,7 +119,7 @@ function VehicleCard({ session, onOpen }: { session: WeighingSessionView; onOpen
               {session.milk_source_name && (
                 <>
                   <span className="text-slate-300">·</span>
-                  <span className="text-secondary-foreground truncate">{session.milk_source_name}</span>
+                  <span className="text-secondary-foreground break-words min-w-0">{session.milk_source_name}</span>
                 </>
               )}
             </div>
@@ -272,7 +272,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
             role="tab"
             aria-selected={activeTab === 'WEIGH'}
             onClick={() => setActiveTab('WEIGH')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
               activeTab === 'WEIGH'
                 ? 'bg-card text-foreground shadow-2xs'
                 : 'text-secondary-foreground hover:text-foreground'
@@ -281,7 +281,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
             <Scale className="h-4 w-4 text-primary" />
             <span>Weigh milk</span>
             {ready.length > 0 && (
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                 activeTab === 'WEIGH' ? 'bg-amber-100 text-amber-800' : 'bg-muted text-secondary-foreground'
               }`}>
                 {ready.length}
@@ -294,7 +294,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
             role="tab"
             aria-selected={activeTab === 'DONE'}
             onClick={() => setActiveTab('DONE')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
               activeTab === 'DONE'
                 ? 'bg-card text-foreground shadow-2xs'
                 : 'text-secondary-foreground hover:text-foreground'
@@ -303,7 +303,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
             <span>Done / Unloaded</span>
             {(data?.done_total ?? 0) > 0 && (
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                 activeTab === 'DONE' ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-secondary-foreground'
               }`}>
                 {data?.done_total}
@@ -396,7 +396,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleRangeChange('today')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     range === 'today'
                       ? 'bg-primary text-white shadow-2xs'
                       : 'bg-muted text-secondary-foreground hover:bg-muted border border-border'
@@ -407,7 +407,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleRangeChange('7days')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     range === '7days'
                       ? 'bg-primary text-white shadow-2xs'
                       : 'bg-muted text-secondary-foreground hover:bg-muted border border-border'
@@ -418,7 +418,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleRangeChange('custom')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     range === 'custom'
                       ? 'bg-primary text-white shadow-2xs'
                       : 'bg-muted text-secondary-foreground hover:bg-muted border border-border'

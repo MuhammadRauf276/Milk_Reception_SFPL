@@ -120,12 +120,12 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
     <div className="w-full max-w-7xl mx-auto space-y-5 text-foreground animate-panel-in">
       <div className="flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-1.5">
-          <h1 className="text-lg font-semibold tracking-tight text-foreground">Silo Offloading</h1>
+          <h1 className="text-lg font-semibold text-foreground">Offloading queue</h1>
           <InfoTip text="Assign unloading bays, pump raw milk into storage silos, and track real-time tank capacity." />
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold tabular-nums px-2.5 py-1 rounded-md bg-muted text-foreground border border-border">
-            {activeTab === 'READY' ? `${readyVisits.length} Ready` : activeTab === 'UNLOADING' ? `${unloadingVisits.length} Active` : `${siloIssueList.length} Silos`}
+            {activeTab === 'READY' ? `${readyVisits.length} ready` : activeTab === 'UNLOADING' ? `${unloadingVisits.length} active` : `${siloIssueList.length} silos`}
           </span>
         </div>
       </div>
@@ -146,7 +146,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
               placeholder="Search silo code…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:ring-2 focus:ring-ring/30 focus:border-primary"
+              className="w-full min-h-11 pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:ring-2 focus:ring-ring/30 focus:border-primary"
             />
           </div>
           <ProductionQueueList
@@ -186,7 +186,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                 placeholder="Search vehicle or token…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full min-h-[44px] pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:ring-2 focus:ring-ring/30 focus:border-primary"
+                className="w-full min-h-11 pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:ring-2 focus:ring-ring/30 focus:border-primary"
               />
             </div>
 

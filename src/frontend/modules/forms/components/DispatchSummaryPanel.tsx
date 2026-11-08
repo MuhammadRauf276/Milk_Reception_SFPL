@@ -233,26 +233,26 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
           <div className="grid grid-cols-2 gap-2.5 text-xs tabular-nums font-semibold min-w-0">
             <div className="bg-card border-border p-3 rounded-xl border-strong space-y-0.5 min-w-0">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground truncate">Avg LR</span>
+                <span className="text-xs font-semibold text-muted-foreground break-words min-w-0">Avg LR</span>
                 <span className="text-xs font-semibold text-muted-foreground bg-slate-200/80 px-1 py-0.5 rounded">@20°C</span>
               </div>
               <span className="text-lg font-semibold text-foreground tabular-nums block">
                 {avgLr ? avgLr : '—'}
               </span>
-              <span className="text-xs text-muted-foreground font-medium block truncate">
+              <span className="text-xs text-muted-foreground font-medium block break-words min-w-0">
                 Density: {weightedDensity !== null ? weightedDensity.toFixed(4) : '—'}
               </span>
             </div>
 
             <div className="bg-card border-border p-3 rounded-xl border-strong space-y-0.5 min-w-0">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground truncate">Avg Fat</span>
+                <span className="text-xs font-semibold text-muted-foreground break-words min-w-0">Avg Fat</span>
                 <span className="text-xs font-semibold text-emerald-800 bg-emerald-100 px-1 py-0.5 rounded">GERBER</span>
               </div>
               <span className="text-lg font-semibold text-foreground tabular-nums block">
                 {avgFat ? `${avgFat}%` : '—'}
               </span>
-              <span className="text-xs text-muted-foreground font-medium block truncate">
+              <span className="text-xs text-muted-foreground font-medium block break-words min-w-0">
                 SNF: {weightedSnf !== null ? `${weightedSnf.toFixed(2)}%` : '—'}
               </span>
             </div>
@@ -260,15 +260,15 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
 
           <div className="grid grid-cols-2 gap-2.5 text-xs tabular-nums font-semibold min-w-0">
             <div className="bg-card border-border p-3 rounded-xl border-strong space-y-0.5 min-w-0">
-              <span className="text-xs font-semibold text-muted-foreground block truncate">Gross L</span>
-              <span className="text-base font-semibold text-foreground tabular-nums block truncate">
+              <span className="text-xs font-semibold text-muted-foreground block break-words min-w-0">Gross L</span>
+              <span className="text-base font-semibold text-foreground tabular-nums block break-words min-w-0">
                 {safeTotals.formattedTotalGrossLiters || '—'}
               </span>
             </div>
 
             <div className="bg-card border-border p-3 rounded-xl border space-y-0.5 min-w-0">
-              <span className="text-xs font-semibold text-emerald-950 block truncate">L @ 13 TS</span>
-              <span className="text-base font-semibold text-emerald-900 tabular-nums block truncate">
+              <span className="text-xs font-semibold text-emerald-950 block break-words min-w-0">L @ 13 TS</span>
+              <span className="text-base font-semibold text-emerald-900 tabular-nums block break-words min-w-0">
                 {safeTotals.formattedTotalLitersAt13TS || '—'}
               </span>
             </div>
@@ -299,7 +299,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
                   className="p-3 rounded-xl bg-subtle border border-border space-y-1.5 min-w-0"
                 >
                   <div className="flex items-center justify-between text-xs tabular-nums font-semibold gap-2 min-w-0">
-                    <span className="font-sans font-semibold text-foreground truncate">
+                    <span className="font-sans font-semibold text-foreground break-words min-w-0">
                       Portion {idx + 1}
                     </span>
                     <span className="text-foreground shrink-0">
@@ -307,20 +307,20 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 text-xs tabular-nums min-w-0">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2 text-xs tabular-nums min-w-0">
                     <div className="text-secondary-foreground min-w-0">
-                      <span className="font-sans text-muted-foreground block truncate">LR / Fat</span>
-                      <span className="font-semibold text-foreground block truncate">{pLr} / {pFat}</span>
+                      <span className="font-sans text-muted-foreground block break-words min-w-0">LR / Fat</span>
+                      <span className="font-semibold text-foreground block break-words min-w-0">{pLr} / {pFat}</span>
                     </div>
                     <div className="text-secondary-foreground min-w-0">
-                      <span className="font-sans text-muted-foreground block truncate">Gross L</span>
-                      <span className="font-semibold text-emerald-800 block truncate">
+                      <span className="font-sans text-muted-foreground block break-words min-w-0">Gross L</span>
+                      <span className="font-semibold text-emerald-800 block break-words min-w-0">
                         {calc?.grossLiters != null ? `${calc.grossLiters.toFixed(1)} L` : '—'}
                       </span>
                     </div>
                     <div className="text-secondary-foreground min-w-0">
-                      <span className="font-sans text-muted-foreground block truncate">@13TS</span>
-                      <span className="font-semibold text-emerald-800 block truncate">
+                      <span className="font-sans text-muted-foreground block break-words min-w-0">@13TS</span>
+                      <span className="font-semibold text-emerald-800 block break-words min-w-0">
                         {calc?.at13TsLiters != null ? `${calc.at13TsLiters.toFixed(1)} L` : '—'}
                       </span>
                     </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime } from '@/lib/format';
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Search } from 'lucide-react';
@@ -27,7 +28,7 @@ interface ReceiptWork {
   issued: ReceiptRow[];
 }
 
-const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
+const when = (iso?: string | null) => (iso ? formatDateTime(iso) : '—');
 
 /** HC vehicles unloaded into the tank and waiting for the paper raw milk receipt number, and those already given one. */
 export function HcReceiptsPanel() {

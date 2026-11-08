@@ -113,7 +113,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           : urlView === 'HISTORY'
           ? 'Journey History & Audit'
           : 'Fleet Radar';
-      return { sectionTitle: 'MOT Fleet Journeys', subpageTitle: motTitle };
+      return { sectionTitle: 'Mobile Tester fleet journeys', subpageTitle: motTitle };
     }
     if (activeTab === 'PLANT_TRANSIT' || activeTab === 'LIVE' || activeTab === 'RECONCILIATION') {
       return { sectionTitle: 'Plant Dispatches', subpageTitle: null };
