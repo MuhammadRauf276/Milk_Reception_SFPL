@@ -69,7 +69,7 @@ export async function POST(
 
       let targetAction = requestedAction;
       if (targetAction === 'AUTO') {
-        if (hasException && hasPending) {
+        if (hasPending || hasException) {
           targetAction = 'ESCALATE_AVP_QA';
         } else if (allRejected || (visit.test_mode === 'COMPOSITE' && decisions[0] === 'REJECTED')) {
           targetAction = 'GATE_EXIT';
@@ -136,6 +136,13 @@ export async function POST(
       }
 
       if (targetAction === 'WEIGHBRIDGE') {
+        if (hasPending || hasException) {
+          return {
+            error: 'Cannot route vehicle to Weighbridge. One or more portions have pending tests or unresolved exceptions requiring supervisor review.',
+            status: 400,
+          };
+        }
+
         await tx.vehicleVisit.update({
           where: { id: visitId },
           data: { current_status: 'READY_FOR_GROSS' },
@@ -180,8 +187,20 @@ export async function POST(
       }
 
       if (targetAction === 'ESCALATE_AVP_QA') {
+        const portionIdsToEscalate = portions
+          .filter(
+            (p) =>
+              p.plant_decision === 'PENDING' ||
+              p.manager_review_status === 'PENDING' ||
+              p.system_quality_outcome === 'FAIL' ||
+              (p.exception_reasons && Array.isArray(p.exception_reasons) && p.exception_reasons.length > 0)
+          )
+          .map((p) => p.id);
+
+        const targetPortionIds = portionIdsToEscalate.length > 0 ? portionIdsToEscalate : portions.map((p) => p.id);
+
         await tx.visitPortion.updateMany({
-          where: { visit_id: visitId, plant_decision: 'PENDING' },
+          where: { id: { in: targetPortionIds } },
           data: {
             manager_review_status: 'PENDING',
             manager_review_requested_by_user_id: dbUser.id,

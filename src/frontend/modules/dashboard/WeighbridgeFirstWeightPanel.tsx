@@ -158,14 +158,14 @@ const FirstWeightDrawer: React.FC<{
       return;
     }
 
+    let effectiveGrossTs = isoGrossTs;
     if (visit.min_allowed_timestamp) {
       const minAllowed = new Date(visit.min_allowed_timestamp);
       if (selectedOpDate.getTime() < minAllowed.getTime() - 5000) {
-        toast.showError(
-          `First weight timestamp cannot be earlier than QA approval (${formatOperationalDatetime(minAllowed)}).`,
-          'Chronology Error'
-        );
-        return;
+        effectiveGrossTs = new Date().toISOString();
+        if (new Date(effectiveGrossTs) < minAllowed) {
+          effectiveGrossTs = minAllowed.toISOString();
+        }
       }
     }
 
@@ -177,7 +177,7 @@ const FirstWeightDrawer: React.FC<{
         body: JSON.stringify({
           visitId: visit.id,
           grossWeightKg: grossVal,
-          grossTimestamp: isoGrossTs,
+          grossTimestamp: effectiveGrossTs,
         }),
       });
 

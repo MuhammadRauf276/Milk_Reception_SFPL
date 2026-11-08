@@ -365,24 +365,6 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-12 w-full">
       
-      {!hideTabBar && (
-        <div className="lg:hidden">
-          <SegmentedTabs
-            label="Laboratory views"
-            value={activeTab}
-            onValueChange={setActiveTab}
-            tabs={[
-              ...(canTest ? [{ value: 'QUEUE' as const, label: 'Arrivals queue', icon: Clock, count: queueItems.length }] : []),
-              ...(canTest
-                ? [{ value: 'TESTING' as const, label: activeSession ? 'Active session' : 'Testing', icon: FlaskConical, badge: activeSession ? 'In progress' : undefined }]
-                : []),
-              { value: 'HISTORY' as const, label: 'History & corrections', icon: FileText },
-              ...(canTest ? [{ value: 'RECEIPTS' as const, label: 'HC Receipts' }] : []),
-              { value: 'REQUESTS' as const, label: 'My Sent Requests' },
-            ]}
-          />
-        </div>
-      )}
 
       
       {activeTab === 'QUEUE' && canTest && (

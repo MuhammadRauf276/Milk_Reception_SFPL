@@ -302,6 +302,7 @@ export async function POST(
       // 1. Re-read the VisitPortion within the locked transaction
       const lockedPortion = await tx.visitPortion.findFirst({
         where: { id: portionId, visit_id: visitId },
+        include: { visit: true },
       });
 
       if (!lockedPortion) {
@@ -702,11 +703,12 @@ export async function POST(
 
         if (hasWarning) {
           // Warning notification to AVP QA Reception Lab / QA Head
+          const vehicleNum = lockedPortion.visit?.vehicle_number || portion.visit?.vehicle_number || 'Vehicle';
           await createNotificationsForEvent(tx, {
             eventKey: 'PLANT_QA_WARNING_LOGGED',
             sourceId: portionId.toString(),
-            title: `Plant QA warning accepted: ${portion.visit.vehicle_number}`,
-            body: `Vehicle ${portion.visit.vehicle_number} portion #${lockedPortion.portion_number}: ${warningTestCodes.join(', ')} in warning tolerance margin. Accepted by ${effectiveRole}.${rejectionReasonInput ? ` Remarks: ${rejectionReasonInput}` : ''}`,
+            title: `Plant QA warning accepted: ${vehicleNum}`,
+            body: `Vehicle ${vehicleNum} portion #${lockedPortion.portion_number}: ${warningTestCodes.join(', ')} in warning tolerance margin. Accepted by ${effectiveRole}.${rejectionReasonInput ? ` Remarks: ${rejectionReasonInput}` : ''}`,
             deepLink: '/department/qa-head',
             dedupeSuffix: `qa-warning:${portionId}:${completionEventId}`,
           });

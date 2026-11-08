@@ -32,20 +32,21 @@ export function validateOperationalTimestamp(
   }
 
   const serverNow = new Date();
+  const CLOCK_SKEW_TOLERANCE_MS = 2 * 60 * 1000; // 2 minutes grace period for mobile device clock jitter
 
-  // Rule 1: eventTimestamp <= serverNow (Strict equality or past allowed, future rejected)
-  if (opDate.getTime() > serverNow.getTime()) {
+  // Rule 1: eventTimestamp <= serverNow + skew tolerance (Future beyond 2 minutes rejected)
+  if (opDate.getTime() > serverNow.getTime() + CLOCK_SKEW_TOLERANCE_MS) {
     return { isValid: false, error: `${eventName} date & time cannot be in the future.` };
   }
 
-  // Rule 2: eventTimestamp >= predecessorTimestamp (Strict equality or later allowed, earlier rejected)
-  if (predecessorTimestamp && opDate.getTime() < predecessorTimestamp.getTime()) {
-    const predFormatted = formatOperationalDatetime(predecessorTimestamp);
-    return {
-      isValid: false,
-      error: `${eventName} time cannot be earlier than ${predecessorName} (${predFormatted}).`,
-    };
+  // If timestamp is slightly ahead of server due to clock drift (within 2-minute tolerance), clamp to serverNow
+  let effectiveDate = opDate.getTime() > serverNow.getTime() ? serverNow : opDate;
+
+  // Rule 2: If eventTimestamp is earlier than predecessor (e.g. user stayed on screen for a long time before submitting),
+  // auto-advance effectiveDate to serverNow (or predecessorTimestamp) so user is never blocked by idle screen stay.
+  if (predecessorTimestamp && effectiveDate.getTime() < predecessorTimestamp.getTime()) {
+    effectiveDate = serverNow.getTime() >= predecessorTimestamp.getTime() ? serverNow : predecessorTimestamp;
   }
 
-  return { isValid: true, date: opDate };
+  return { isValid: true, date: effectiveDate };
 }

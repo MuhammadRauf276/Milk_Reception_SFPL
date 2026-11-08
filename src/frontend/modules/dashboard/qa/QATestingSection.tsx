@@ -356,7 +356,12 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
           </div>
 
           <div className="flex items-center gap-2 self-end sm:self-center">
-            {hasEscalation && onRouteVehicle && (
+            {hasEscalation && portions.some((p) => p.manager_review_status === 'PENDING') ? (
+              <div className="px-3.5 py-2 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-700 animate-pulse" />
+                <span>Pending with AVP QA · Vehicle Frozen</span>
+              </div>
+            ) : hasEscalation && onRouteVehicle ? (
               <button
                 type="button"
                 disabled={isRoutingVehicle}
@@ -370,7 +375,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                 )}
                 <span>Send Request to AVP QA Reception Lab</span>
               </button>
-            )}
+            ) : null}
 
             {(allRejected || isAlreadyRoutedToExit) && onRouteVehicle && (
               <button

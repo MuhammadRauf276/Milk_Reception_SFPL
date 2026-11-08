@@ -518,8 +518,8 @@ export async function issueDispatchFromZmccTankTx(
         tank_id: tankId,
         zmcc_id: i.zmccId,
         transaction_type: 'ISSUE',
-        quantity_liters: new Prisma.Decimal(i.grossLiters.toFixed(2)),
-        at_13ts_liters: new Prisma.Decimal(i.at13tsLiters.toFixed(2)),
+        quantity_liters: new Prisma.Decimal(i.grossLiters.toFixed(3)),
+        at_13ts_liters: new Prisma.Decimal(i.at13tsLiters.toFixed(3)),
         dispatch_id: i.visitId,
         reference_type: 'DISPATCH',
         reference_id: i.visitId.toString(),
@@ -720,7 +720,12 @@ export async function listDispatchApprovals(
   const limit = Math.min(Math.max(q.limit ?? 100, 1), 200);
   const where: Prisma.VehicleVisitWhereInput = decided
     ? { approval_requested_by: { not: null }, approval_decided_by: { not: null }, approval_status: { in: ['APPROVED', 'RETURNED'] } }
-    : { approval_status: 'PENDING', current_status: DISPATCH_STATUS.PENDING_APPROVAL };
+    : {
+        OR: [
+          { approval_status: 'PENDING' },
+          { current_status: DISPATCH_STATUS.PENDING_APPROVAL },
+        ],
+      };
   if (ctx.scope.kind === 'SOURCE') where.procurement_source_id = ctx.scope.sourceId;
   else if (ctx.scope.kind !== 'SYSTEM') return [];
 
@@ -791,11 +796,12 @@ export async function decideDispatchApproval(
       await tx.$queryRaw`SELECT id FROM vehicle_visit WHERE id = ${id} FOR UPDATE`;
       const row = await tx.vehicleVisit.findUnique({ where: { id } });
       if (!row) return { status: 404, error: 'Dispatch not found.' };
-      if (row.dispatch_version !== i.version || row.approval_status !== 'PENDING' || row.current_status !== DISPATCH_STATUS.PENDING_APPROVAL) {
+      if (row.dispatch_version !== i.version || row.approval_status !== 'PENDING') {
         return { status: 409, error: 'Someone already decided this. Reload.', code: 'VERSION_MISMATCH' };
       }
+      const isSuper = ctx.actorRole === 'SUPER_ADMIN' || ctx.actorRole === 'DATA_EXECUTIVE';
       const submitter = submitterIdOf(row);
-      if (submitter !== null && submitter === ctx.userId) {
+      if (!isSuper && submitter !== null && submitter === ctx.userId) {
         return { status: 403, error: 'You cannot decide your own dispatch.', code: 'OWN_SUBMISSION' };
       }
 
@@ -805,7 +811,8 @@ export async function decideDispatchApproval(
       let tankRemainingLiters: number | null = null;
       if (i.verdict === 'NO') {
         nextStatus = DISPATCH_STATUS.REOPENED;
-      } else if (person === 'ACCEPT') {
+      } else {
+        // Superior sovereign verdict: OKAY authorizes and finalizes dispatch
         nextStatus = DISPATCH_STATUS.DISPATCHED;
         if (sourceType === 'ZMCC') {
           tankRemainingLiters = await issueDispatchFromZmccTankTx(tx, {
@@ -819,8 +826,6 @@ export async function decideDispatchApproval(
             userId: ctx.userId,
           });
         }
-      } else {
-        nextStatus = DISPATCH_STATUS.REJECTED;
       }
       if (tankRemainingLiters === null && sourceType === 'ZMCC') {
         tankRemainingLiters = await zmccTankRemainingLiters(head.procurement_source_id!, tx);

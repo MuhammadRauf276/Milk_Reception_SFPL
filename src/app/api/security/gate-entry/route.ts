@@ -157,14 +157,21 @@ export async function POST(req: Request) {
         );
       }
 
-      // 5. Update VehicleVisit.tokenNumber and set currentStatus to TOKEN_ISSUED
-      const updatedVisit = await tx.vehicleVisit.update({
-        where: { id: visitId },
+      // 5. Atomic Status Claim: Update VehicleVisit.tokenNumber and set currentStatus to TOKEN_ISSUED
+      const claimResult = await tx.vehicleVisit.updateMany({
+        where: {
+          id: visitId,
+          current_status: { in: ['DISPATCHED', 'Dispatched'] },
+        },
         data: {
           token_number: validated.tokenNumber,
           current_status: 'TOKEN_ISSUED',
         },
       });
+
+      if (claimResult.count === 0) {
+        throw new Error(`Vehicle visit is not in DISPATCHED status or gate entry was already recorded.`);
+      }
 
       // 6. Create GateLog
       await tx.gateLog.create({
@@ -178,17 +185,17 @@ export async function POST(req: Request) {
 
       const responsePayload = {
         success: true,
-        visitId: updatedVisit.id.toString(),
-        tokenNumber: updatedVisit.token_number,
+        visitId: visitId.toString(),
+        tokenNumber: validated.tokenNumber,
         identifiers: paperLinkedIdentity(
           {
             entity: 'vehicle_visit',
-            id: updatedVisit.id.toString(),
-            number: updatedVisit.visit_number,
+            id: visitId.toString(),
+            number: visit.visit_number,
           },
-          [{ type: 'PLANT_GATE_TOKEN', value: updatedVisit.token_number }]
+          [{ type: 'PLANT_GATE_TOKEN', value: validated.tokenNumber }]
         ),
-        message: `Token ${updatedVisit.token_number} issued. Vehicle ${updatedVisit.vehicle_number} entered gate.`,
+        message: `Token ${validated.tokenNumber} issued. Vehicle ${visit.vehicle_number} entered gate.`,
       };
 
       if (idempotencyKey) {

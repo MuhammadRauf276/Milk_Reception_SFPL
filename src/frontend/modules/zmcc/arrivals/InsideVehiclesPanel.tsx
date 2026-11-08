@@ -101,9 +101,9 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-500 flex items-center gap-1 pt-0.5">
+                            <div className="text-[11px] text-slate-500 flex items-center gap-1 pt-0.5 min-w-0">
                               <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              <span>Entered: {new Date(v.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT</span>
+                              <span className="truncate">Entered: {new Date(v.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT</span>
                             </div>
                           </div>
 

@@ -128,20 +128,32 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
             icon: Building2,
           },
           {
-            id: 'weighing',
-            label: 'Weighing & Tanks',
-            href: '/phe?section=weighing',
+            id: 'weigh-milk',
+            label: 'Weigh Milk',
+            href: '/phe?section=weighing&view=weigh',
             icon: Scale,
           },
+          {
+            id: 'done-unloaded',
+            label: 'Done / Unloaded',
+            href: '/phe?section=weighing&view=done',
+            icon: CheckCircle2,
+          },
+          {
+            id: 'phe-my-requests',
+            label: 'My Submitted Requests',
+            href: '/my-requests',
+            icon: Send,
+          },
           ...(!isMdo
-            ? [
+            ? ([
                 {
                   id: 'exit',
                   label: 'Vehicle Exit',
                   href: '/phe?section=exit',
                   icon: Send,
                 },
-              ]
+              ] as RoleNavLeaf[])
             : []),
           {
             id: 'history',
@@ -170,14 +182,14 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
             isReference: true,
           },
           ...(isMdo
-            ? [
+            ? ([
                 {
                   id: 'new-shop-requests',
                   label: 'New Shop Requests',
                   href: '/phe?section=suppliers&view=approvals',
                   icon: ShieldCheck,
                 },
-              ]
+              ] as RoleNavLeaf[])
             : []),
         ],
       },
@@ -232,7 +244,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
                 },
               ],
             },
-          ]
+          ] as RoleNavSection[]
         : []),
     ];
   }
@@ -268,6 +280,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
             label: 'HC Receipts',
             href: '/zmcc/lab?tab=receipts',
             icon: Receipt,
+          },
+          {
+            id: 'requests',
+            label: 'My Sent Requests',
+            href: '/zmcc/lab?tab=requests',
+            icon: Send,
           },
         ],
       },
@@ -319,6 +337,20 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         label: 'Hierarchy Tree',
         icon: Network,
         href: '/mpd/zmcc-manager?tab=HIERARCHY',
+        children: [
+          {
+            id: 'hier-routes',
+            label: 'Routes & Points',
+            href: '/mpd/zmcc-manager?tab=HIERARCHY&view=ROUTES',
+            icon: RouteIcon,
+          },
+          {
+            id: 'hier-hc',
+            label: 'Direct HC Suppliers',
+            href: '/mpd/zmcc-manager?tab=HIERARCHY&view=HC_SUPPLIERS',
+            icon: Users,
+          },
+        ],
       },
       {
         id: 'MOT_JOURNEYS',
@@ -474,6 +506,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         icon: AlertTriangle,
         href: '/mot?request=vehicle',
       },
+      {
+        id: 'mot-my-requests',
+        label: 'My Submitted Requests',
+        icon: Send,
+        href: '/my-requests',
+      },
     ];
   }
 
@@ -504,6 +542,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
             icon: CheckCircle2,
           },
         ],
+      },
+      {
+        id: 'sec-my-requests',
+        label: 'My Submitted Requests',
+        icon: Send,
+        href: '/my-requests',
       },
       {
         id: 'tv-board',
@@ -543,6 +587,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         ],
       },
       {
+        id: 'qa-my-requests',
+        label: 'My Submitted Requests',
+        icon: Send,
+        href: '/my-requests',
+      },
+      {
         id: 'tv-board',
         label: 'Yard Board',
         icon: Tv,
@@ -580,6 +630,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         ],
       },
       {
+        id: 'wb-my-requests',
+        label: 'My Submitted Requests',
+        icon: Send,
+        href: '/my-requests',
+      },
+      {
         id: 'tv-board',
         label: 'Yard Board',
         icon: Tv,
@@ -615,6 +671,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
             icon: Database,
           },
         ],
+      },
+      {
+        id: 'prod-my-requests',
+        label: 'My Submitted Requests',
+        icon: Send,
+        href: '/my-requests',
       },
       {
         id: 'tv-board',
@@ -854,6 +916,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         href: '/department/qa-head',
       },
       {
+        id: 'qa-head-my-requests',
+        label: 'My Submitted Requests',
+        icon: Send,
+        href: '/my-requests',
+      },
+      {
         id: 'qa-head-live-vehicles',
         label: 'Vehicles',
         icon: Truck,
@@ -937,7 +1005,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         id: 'exec-command',
         label: 'Command Center',
         icon: LayoutDashboard,
-        children: MPD_VIEW_LINKS,
+        children: MPD_VIEW_LINKS.filter((l) => l.href !== '/command?view=POLICIES'),
       },
       {
         id: 'exec-live-vehicles',

@@ -1,7 +1,7 @@
 'use client';
 
 import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { apiClient } from '@/frontend/lib/apiClient';
@@ -131,6 +131,19 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
   const activeEntryOpIdRef = useRef<string | null>(null);
   const activeExitOpIdRef = useRef<string | null>(null);
   const [_msg, setMsg] = useState<{ text: string; isError: boolean } | null>(null);
+
+  // Keep operational timestamps current when selecting visits so idle screen stays don't submit stale times
+  useEffect(() => {
+    if (selectedEntryVisitId) {
+      setEntryOpTimestamp(toDatetimeLocalInput(new Date()));
+    }
+  }, [selectedEntryVisitId]);
+
+  useEffect(() => {
+    if (selectedExitVisitId) {
+      setExitOpTimestamp(toDatetimeLocalInput(new Date()));
+    }
+  }, [selectedExitVisitId]);
 
   const queryClient = useQueryClient();
   const debouncedEntry = useDebouncedValue(entrySearchQuery);
@@ -274,14 +287,14 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
       case 'PLANT_QA':
         return 'Plant QA';
       case 'READY_FOR_GROSS':
-        return 'Ready for First Weight';
+        return 'Ready for Gross Weighment';
       case 'GROSS_WEIGHED':
       case 'READY_FOR_UNLOADING':
       case 'UNLOADING':
         return 'Unloading';
       case 'READY_FOR_TARE':
       case 'TARE_WEIGHED':
-        return 'Ready for Second Weight';
+        return 'Ready for Tare Weighment';
       case 'READY_FOR_GATE_EXIT':
         return 'Ready for Gate Exit';
       default:
@@ -295,18 +308,6 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
         title="Gate entry & exit"
       />
 
-      <div className="lg:hidden">
-        <SegmentedTabs
-          label="Gate operations"
-          value={activeTab}
-          onValueChange={(val) => handleTabChange(val as SecurityTab)}
-          tabs={[
-            { value: 'WAITING_ENTRY', label: 'Waiting Entry', count: dispatchedVisits.length },
-            { value: 'INSIDE_PLANT', label: 'Inside Plant', count: activeVisits.length },
-            { value: 'READY_EXIT', label: 'Ready for Exit', count: readyExitVisits.length },
-          ]}
-        />
-      </div>
 
       {activeTab === 'WAITING_ENTRY' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-panel-in">
@@ -350,18 +351,18 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                           : 'bg-card text-foreground border-border hover:border-border-strong hover:bg-subtle'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="tabular-nums font-semibold text-sm">{v.vehicle_number}</span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold tabular-nums bg-muted text-foreground border border-border-strong`}>
+                      <div className="flex items-center justify-between gap-2 min-w-0">
+                        <span className="tabular-nums font-semibold text-sm truncate min-w-0">{v.vehicle_number}</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold tabular-nums bg-muted text-foreground border border-border-strong shrink-0`}>
                           Waiting Entry
                         </span>
                       </div>
 
-                      <div className={`flex items-center justify-between text-xs font-semibold text-slate-700`}>
-                        <span>
+                      <div className={`flex items-center justify-between text-xs font-semibold text-muted-foreground gap-2 min-w-0`}>
+                        <span className="shrink-0">
                           {v.portion_count} Portion{v.portion_count > 1 ? 's' : ''}
                         </span>
-                        <span className="truncate max-w-[150px]">{v.zonal_contractor_name}</span>
+                        <span className="truncate max-w-[150px] text-right">{v.zonal_contractor_name}</span>
                       </div>
                     </div>
                   );
@@ -540,15 +541,15 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                           : 'bg-card text-foreground border-border hover:border-border-strong hover:bg-subtle'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <span className="tabular-nums font-semibold text-sm">{v.vehicle_number}</span>
-                          <span className={`tabular-nums text-xs font-semibold text-primary`}>
+                      <div className="flex items-center justify-between gap-2 min-w-0">
+                        <div className="flex items-center space-x-2 min-w-0 truncate">
+                          <span className="tabular-nums font-semibold text-sm truncate">{v.vehicle_number}</span>
+                          <span className={`tabular-nums text-xs font-semibold text-primary shrink-0`}>
                             ({v.token_number || 'NO-TOKEN'})
                           </span>
                         </div>
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                          className={`px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 ${
                             v.is_all_rejected ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
                           }`}
                         >

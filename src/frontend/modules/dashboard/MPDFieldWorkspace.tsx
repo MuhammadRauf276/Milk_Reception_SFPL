@@ -159,27 +159,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 w-full overflow-x-hidden">
-      {/* Top-Level Dispatch Workspace Tabs */}
-      {!hideTabBar && (
-        <div className="lg:hidden">
-          <SegmentedTabs
-            label="Dispatch views"
-            value={activeTab}
-            onValueChange={handleTabChange}
-            tabs={[
-              { value: 'new', label: 'New dispatch', id: 'tab-new-dispatch', panelId: 'panel-new-dispatch' },
-              {
-                value: 'recent',
-                label: 'Recent dispatches',
-                id: 'tab-recent-dispatches',
-                panelId: 'panel-recent-dispatches',
-                count: pagination.totalRecords > 0 ? pagination.totalRecords : undefined,
-              },
-            ]}
-          />
-        </div>
-      )}
-
+      
       {/* Tab Panels: New Dispatch Panel (state preserved when hidden) */}
       <div
         id="panel-new-dispatch"

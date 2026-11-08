@@ -177,7 +177,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
           )}
         >
           {icon}
-          <span>{label}</span>
+          <span className="hidden sm:inline">{label}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(92vw,360px)] p-3 text-sm shadow-xl">

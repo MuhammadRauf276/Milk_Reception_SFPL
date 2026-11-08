@@ -93,6 +93,64 @@ export async function getMySubmittedRequests(
     });
   }
 
+  // 1b. ZMCC Lab Sessions (Whole-intake arrivals: MOT and Local Suppliers)
+  const labSessions = await prisma.zmccLabSession.findMany({
+    where: {
+      OR: [
+        { completed_by_user_id: userId, manager_review_status: { not: 'NONE' } },
+        { manager_review_requested_by_user_id: userId },
+        ...(zmccId ? [{ zmcc_id: zmccId, manager_review_status: { not: 'NONE' } }] : []),
+      ],
+    },
+    take: 30,
+    orderBy: { created_at: 'desc' },
+    include: {
+      local_supplier_arrival: { select: { zmcc_token: true, vehicle_number: true } },
+      mot_arrival: { select: { raw_milk_token_number: true, zmcc_token: true, journey: { select: { journey_number: true, mot_vehicle: { select: { vehicle_number: true } } } } } },
+      manager_reviewer: { select: { full_name: true, role: true } },
+    },
+  });
+
+  for (const s of labSessions) {
+    const token =
+      s.local_supplier_arrival?.zmcc_token ||
+      s.mot_arrival?.zmcc_token ||
+      s.mot_arrival?.raw_milk_token_number ||
+      `Session #${s.id}`;
+    const vehNum = s.mot_arrival?.journey?.mot_vehicle?.vehicle_number || s.local_supplier_arrival?.vehicle_number;
+
+    let status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING';
+    let statusLabel = 'Pending Manager Review';
+    let statusTone: 'warning' | 'success' | 'danger' = 'warning';
+
+    if (s.manager_review_status === 'APPROVED' || (s.final_decision === 'ACCEPTED' && s.manager_reviewed_by_user_id)) {
+      status = 'APPROVED';
+      statusLabel = 'Approved (Accepted)';
+      statusTone = 'success';
+    } else if (s.manager_review_status === 'REJECTED' || s.manager_review_status === 'REVIEWED_EXITED' || (s.final_decision === 'REJECTED' && s.manager_reviewed_by_user_id)) {
+      status = 'REJECTED';
+      statusLabel = 'Rejected';
+      statusTone = 'danger';
+    }
+
+    items.push({
+      id: `session-${s.id}`,
+      requestType: 'LAB_SESSION_REVIEW',
+      categoryLabel: 'Lab Quality Review',
+      referenceNumber: `Token: ${token}${vehNum ? ` (${vehNum})` : ''}`,
+      submittedAt: s.manager_review_requested_at ? s.manager_review_requested_at.toISOString() : s.created_at.toISOString(),
+      status,
+      statusLabel,
+      statusTone,
+      reviewerRole: s.manager_reviewed_as_role || 'ZMCC Manager',
+      reviewerName: s.manager_reviewer?.full_name || null,
+      reviewedAt: s.manager_reviewed_at ? s.manager_reviewed_at.toISOString() : null,
+      reviewRemarks: s.manager_review_reason || s.remarks || null,
+      summary: `${s.arrival_type} Intake (${token}): ${s.gross_liters ?? '—'} L. Outcome: ${s.system_quality_outcome || 'FLAGGED'}.`,
+      metadata: { sessionId: s.id.toString(), arrivalType: s.arrival_type },
+    });
+  }
+
   // 2. MOT Collection Exceptions submitted by this user
   const motCollections = await prisma.motShopCollection.findMany({
     where: {
@@ -228,6 +286,55 @@ export async function getMySubmittedRequests(
       reviewRemarks: cr.review_reason || null,
       summary: `Module ${cr.module}: ${cr.reason}`,
       metadata: { module: cr.module, impact: cr.impact },
+    });
+  }
+
+  // 5. Plant QA Portions escalated to AVP QA
+  const plantPortions = await prisma.visitPortion.findMany({
+    where: {
+      OR: [
+        { manager_review_requested_by_user_id: userId },
+        { manager_review_status: { not: 'NONE' }, visit: { created_by: userId } },
+      ],
+    },
+    take: 30,
+    orderBy: { updated_at: 'desc' },
+    include: {
+      visit: { select: { vehicle_number: true, token_number: true } },
+      manager_reviewer: { select: { full_name: true, role: true } },
+    },
+  });
+
+  for (const vp of plantPortions) {
+    let status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING';
+    let statusLabel = 'Pending AVP-QA Review';
+    let statusTone: 'warning' | 'success' | 'danger' = 'warning';
+
+    if (vp.manager_review_status === 'APPROVED' || vp.plant_decision === 'ACCEPTED') {
+      status = 'APPROVED';
+      statusLabel = 'Approved (Accepted)';
+      statusTone = 'success';
+    } else if (vp.manager_review_status === 'REJECTED' || vp.plant_decision === 'REJECTED') {
+      status = 'REJECTED';
+      statusLabel = 'Rejected';
+      statusTone = 'danger';
+    }
+
+    items.push({
+      id: `plant-portion-${vp.id}`,
+      requestType: 'LAB_PORTION_REVIEW',
+      categoryLabel: 'Plant QA Exception',
+      referenceNumber: `Vehicle ${vp.visit.vehicle_number} · Portion ${vp.portion_number}`,
+      submittedAt: vp.manager_review_requested_at ? vp.manager_review_requested_at.toISOString() : vp.updated_at.toISOString(),
+      status,
+      statusLabel,
+      statusTone,
+      reviewerRole: 'AVP QA Reception Lab',
+      reviewerName: vp.manager_reviewer?.full_name || null,
+      reviewedAt: vp.manager_reviewed_at ? vp.manager_reviewed_at.toISOString() : null,
+      reviewRemarks: vp.manager_review_reason || null,
+      summary: `Vehicle ${vp.visit.vehicle_number} (Portion ${vp.portion_number}): Quality Exception Escalation. Decision: ${vp.plant_decision || 'PENDING'}.`,
+      metadata: { portionId: vp.id.toString(), visitId: vp.visit_id.toString() },
     });
   }
 

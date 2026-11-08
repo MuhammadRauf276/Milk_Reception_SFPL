@@ -213,26 +213,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
       {/* Top Level KPI Ribbon */}
       {telemetry && activeTab === 'FLEET_RADAR' && <MpdExecutiveKpiRibbon summary={telemetry.summary} isLoading={loading} />}
 
-      {/* Segmented Sub-Screen Tabs Bar */}
-      <div className="overflow-x-auto pb-1">
-        <SegmentedTabs
-          label="Executive views"
-          value={activeTab}
-          onValueChange={(val) => {
-            setActiveTab(val);
-            if (typeof window !== 'undefined') {
-              const url = new URL(window.location.href);
-              url.searchParams.set('view', val);
-              window.history.replaceState({}, '', url.toString());
-            }
-          }}
-          mobileOnly={false}
-          className="lg:inline-flex"
-          tabs={tabs.map((tab) => ({ value: tab.id, label: tab.label, icon: tab.icon as React.ReactElement, count: tab.count }))}
-        />
-      </div>
-
-      {/* Multi-Facility ZMCC Selector for Scoped Views */}
+            {/* Multi-Facility ZMCC Selector for Scoped Views */}
       {['HIERARCHY', 'MOT_JOURNEYS', 'REPORTS', 'DISPATCH_VS_PLANT', 'ANALYTICS'].includes(activeTab) && (
         <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-3 rounded-xl shadow-xs animate-panel-in">
           <div className="flex items-center gap-2.5">

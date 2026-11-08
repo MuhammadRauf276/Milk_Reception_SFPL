@@ -160,34 +160,34 @@ const SecondWeightDrawer: React.FC<{
       return;
     }
 
+    let effectiveTareTs = isoTareTs;
     if (visit.min_allowed_timestamp) {
       const minAllowed = new Date(visit.min_allowed_timestamp);
       if (selectedOpDate.getTime() < minAllowed.getTime() - 5000) {
-        toast.showError(
-          `Second weight timestamp cannot be earlier than First weight or unloading completion (${formatOperationalDatetime(minAllowed)}).`,
-          'Chronology Error'
-        );
-        return;
+        effectiveTareTs = new Date().toISOString();
+        if (new Date(effectiveTareTs) < minAllowed) {
+          effectiveTareTs = minAllowed.toISOString();
+        }
       }
     }
 
     setIsSubmitting(true);
     try {
       if (!activeTareOpIdRef.current) {
-        activeTareOpIdRef.current = `tare-${visit.id}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`;
+        activeTareOpIdRef.current = "tare-" + visit.id + "-" + Date.now();
       }
       const opId = activeTareOpIdRef.current;
       const data = await apiClient.post<any>('/api/scale/tare-weight', {
         visitId: visit.id,
         tareWeightKg: tareVal,
-        tareTimestamp: isoTareTs,
+        tareTimestamp: effectiveTareTs,
         clientOperationId: opId,
       }, {
         idempotencyKey: opId,
         dedupKey: `wb-tare-${visit.id}`,
         timeoutMs: 25_000,
       });
-      activeTareOpIdRef.current = null;
+        activeTareOpIdRef.current = "tare-" + visit.id + "-" + Date.now();
       
 
       if (data.isPortionCycle) {
@@ -219,6 +219,10 @@ const SecondWeightDrawer: React.FC<{
       ? visit.gross_weight_kg - currentTareVal
       : null;
 
+  const currentPass = (visit.completed_accepted_portions ?? 0) + 2;
+  const totalPasses = (visit.total_accepted_portions ?? 1) + 1;
+  const isFinalPass = Boolean(visit.is_final_weighment || !visit.is_portion_wise);
+
   return (
     <Drawer open onOpenChange={(o) => !o && onClose()}>
       <DrawerContent>
@@ -226,10 +230,13 @@ const SecondWeightDrawer: React.FC<{
           <DrawerTitle className="sr-only">Record Second Weight (After Unloading)</DrawerTitle>
           <div className="flex items-start justify-between gap-2 pb-3 border-b border-border-strong">
             <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary mb-1">
+                Scale Pass {currentPass} of {totalPasses}
+              </div>
               <h3 className="text-base font-semibold text-foreground">
-                {visit.is_portion_wise
-                  ? `Record Second Weight: Portion #${visit.active_portion_number} of ${visit.total_accepted_portions}`
-                  : 'Record Second Weight (After Unloading)'}
+                {isFinalPass
+                  ? 'Final Tare Weight (Empty Vehicle)'
+                  : `Intermediate Weight: After Compartment #${visit.active_portion_number} of ${visit.total_accepted_portions}`}
               </h3>
               <p className="text-xs text-slate-700 font-semibold mt-0.5">
                 Vehicle: <strong className="tabular-nums text-foreground">{visit.vehicle_number}</strong> | Token: <strong className="tabular-nums text-primary">{visit.token_number || 'NO-TOKEN'}</strong>
@@ -248,7 +255,7 @@ const SecondWeightDrawer: React.FC<{
           <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-xl border text-xs tabular-nums font-semibold">
             <div>
               <span className="text-slate-500 font-sans block text-[10px]">
-                {visit.is_portion_wise ? `First Weight (Before Portion #${visit.active_portion_number} Unloading)` : 'First Weight (Loaded Vehicle)'}
+                {visit.is_portion_wise ? `Weight Before Compartment #${visit.active_portion_number} Unloading` : 'Loaded Gross Weight (Before Unloading)'}
               </span>
               <span className="text-base text-primary font-semibold">{visit.gross_weight_kg.toLocaleString()} kg</span>
             </div>
@@ -269,9 +276,9 @@ const SecondWeightDrawer: React.FC<{
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-foreground">
-                {visit.is_portion_wise
-                  ? `Second Weight (After Unloading Portion #${visit.active_portion_number}) (kg)`
-                  : 'Second Weight (Empty Vehicle) (kg)'}{' '}
+                {isFinalPass
+                  ? 'Final Empty Vehicle Weight (kg)'
+                  : `Weight After Compartment #${visit.active_portion_number} Unloaded (kg)`}{' '}
                 <span className="text-rose-600">*</span>
               </label>
               <div className="relative">

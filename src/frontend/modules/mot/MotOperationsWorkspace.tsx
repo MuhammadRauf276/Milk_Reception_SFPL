@@ -305,20 +305,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
         </div>
       )}
 
-      {!hideTabBar && (
-        <div className="lg:hidden">
-          <SegmentedTabs
-            label="Mobile Tester operations views"
-            value={activeTab}
-            onValueChange={(tab) => {
-              setActiveTab(tab);
-              setError(null);
-              setSuccessMessage(null);
-            }}
-            tabs={permittedTabs.map((tab) => ({ value: tab.id, label: tab.label, icon: tab.icon }))}
-          />
-        </div>
-      )}
+      
 
       <motion.div key={activeTab} variants={fadeSlide} initial="initial" animate="animate" className="space-y-4">
         {activeTab === 'DISPATCH' && (

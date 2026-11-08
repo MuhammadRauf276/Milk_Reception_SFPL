@@ -116,6 +116,13 @@ export async function POST(
       }
 
       // 5. Gather portion assignments
+      const hasUnresolvedException = visit.portions.some(
+        (p) => p.manager_review_status === 'PENDING' || p.plant_decision === 'HOLD'
+      );
+      if (hasUnresolvedException) {
+        throw new Error('Unloading blocked: One or more vehicle compartments are pending supervisor exception review.');
+      }
+
       const acceptedPortions = visit.portions.filter((p) => p.plant_decision === 'ACCEPTED');
       if (acceptedPortions.length === 0) {
         throw new Error('Vehicle has zero accepted portions eligible for unloading');
@@ -153,6 +160,20 @@ export async function POST(
         }
         if (assignmentsToProcess.length === 0) {
           throw new Error(`Target Portion #${portionIdStr} must have a destination silo assignment.`);
+        }
+
+        // Sequential Compartment Rule: Prior compartment must be unloaded and weighed
+        if (targetPortion) {
+          const priorUnfinishedPortion = acceptedPortions.find(
+            (p) =>
+              p.portion_number < targetPortion.portion_number &&
+              (!p.unloading_log?.pump_end_timestamp || p.second_weight_kg === null)
+          );
+          if (priorUnfinishedPortion) {
+            throw new Error(
+              `Cannot start unloading Compartment #${targetPortion.portion_number}. Compartment #${priorUnfinishedPortion.portion_number} must complete unloading and scale tare weighment first.`
+            );
+          }
         }
       }
 

@@ -2,6 +2,7 @@
 
 import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Calendar,
@@ -166,7 +167,11 @@ function VehicleCard({ session, onOpen }: { session: WeighingSessionView; onOpen
 
 export const ZmccWeighingWorkspace: React.FC = () => {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<WeighingTab>('WEIGH');
+  const searchParams = useSearchParams();
+  const urlView = searchParams?.get('view')?.toLowerCase();
+  const [internalTab, setInternalTab] = useState<WeighingTab>('WEIGH');
+  const activeTab: WeighingTab = urlView === 'done' ? 'DONE' : urlView === 'weigh' ? 'WEIGH' : internalTab;
+  const setActiveTab = setInternalTab;
   const [range, setRange] = useState<'today' | '7days' | 'custom'>('today');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
@@ -261,7 +266,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
       {/* Top Header: Two Separate Tabs & Refresh Button */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
         {/* Two Tabs: Weigh Milk & Done / Unloaded */}
-        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200" role="tablist" aria-label="Weighing Navigation">
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200 lg:hidden" role="tablist" aria-label="Weighing Navigation">
           <button
             type="button"
             role="tab"

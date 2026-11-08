@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { User } from '@backend/core/types';
@@ -47,7 +48,11 @@ export function ZMCCSubordinateHierarchyScreen({
   const [expandedRoutes, setExpandedRoutes] = useState<Set<string>>(new Set());
   const [expandedAreas, setExpandedAreas] = useState<Set<string>>(new Set());
   const [selectedShop, setSelectedShop] = useState<ZmccShopHierarchyNode | null>(null);
-  const [activeTab, setActiveTab] = useState<'ROUTES' | 'HC_SUPPLIERS'>('ROUTES');
+  const searchParams = useSearchParams();
+  const urlView = searchParams?.get('view')?.toUpperCase();
+  const [internalTab, setInternalTab] = useState<'ROUTES' | 'HC_SUPPLIERS'>('ROUTES');
+  const activeTab = urlView === 'HC_SUPPLIERS' ? 'HC_SUPPLIERS' : urlView === 'ROUTES' ? 'ROUTES' : internalTab;
+  const setActiveTab = setInternalTab;
 
   const isSystemScope =
     currentUser?.role === 'HEAD_OF_MPD' ||
@@ -239,7 +244,7 @@ export function ZMCCSubordinateHierarchyScreen({
 
       {/* Tab Switcher & Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border">
+        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border lg:hidden">
           <button
             type="button"
             onClick={() => setActiveTab('ROUTES')}

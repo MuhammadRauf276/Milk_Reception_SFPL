@@ -965,6 +965,9 @@ export interface IntakeZmccTankStockPayload {
   ts?: number | null;
   notes?: string | null;
   operational_timestamp?: string | Date | null;
+  client_event_id?: string | null;
+  idempotencyKey?: string | null;
+  clientOperationId?: string | null;
 }
 
 /**
@@ -1004,14 +1007,14 @@ export async function intakeZmccTankStock(
     // Derive from fat and lr or ts
     if (fat !== null && lr !== null && !isNaN(fat) && !isNaN(lr) && fat >= 0 && lr >= 0) {
       if (snf === null || isNaN(snf)) {
-        snf = Number(((lr / 4) + (0.22 * fat) + 0.72).toFixed(2));
+        snf = Number(((lr / 4) + (0.22 * fat) + 0.72).toFixed(3));
       }
       if (ts === null || isNaN(ts)) {
-        ts = Number((fat + snf).toFixed(2));
+        ts = Number((fat + snf).toFixed(3));
       }
-      finalAt13tsLiters = Number(((grossLiters * ts) / 13).toFixed(2));
+      finalAt13tsLiters = Number(((grossLiters * ts) / 13).toFixed(3));
     } else if (ts !== null && !isNaN(ts) && ts > 0) {
-      finalAt13tsLiters = Number(((grossLiters * ts) / 13).toFixed(2));
+      finalAt13tsLiters = Number(((grossLiters * ts) / 13).toFixed(3));
     } else {
       return {
         status: 400,
@@ -1022,6 +1025,33 @@ export async function intakeZmccTankStock(
 
   if (finalAt13tsLiters <= 0 || isNaN(finalAt13tsLiters)) {
     return { status: 400, error: 'Invalid calculated or provided @13% TS liters.' };
+  }
+
+  const rawClientKey = (payload.client_event_id || (payload as any).idempotencyKey || (payload as any).clientOperationId || '').trim();
+  const idempotencyKey = rawClientKey ? `ZMCC_TANK_INTAKE:${rawClientKey}` : `ZMCC_TANK_INTAKE:ADMIN:${tankId}:${Date.now()}`;
+
+  if (rawClientKey) {
+    const existingTx = await prisma.zmccTankInventoryTransaction.findUnique({
+      where: { idempotency_key: idempotencyKey },
+    });
+    if (existingTx) {
+      const [updatedPhysicalStock, updatedCommercialStock] = await Promise.all([
+        getTankPhysicalStock(tankId),
+        getTankCommercialStock(tankId),
+      ]);
+      return {
+        status: 200,
+        data: {
+          transaction_id: existingTx.id.toString(),
+          tank_id: tankId.toString(),
+          gross_liters: Number(existingTx.quantity_liters),
+          at_13ts_liters: Number(existingTx.at_13ts_liters),
+          is_replay: true,
+          updated_physical_stock_liters: updatedPhysicalStock,
+          updated_commercial_stock_at_13ts: updatedCommercialStock.stockAt13Ts,
+        },
+      };
+    }
   }
 
   try {
@@ -1039,11 +1069,10 @@ export async function intakeZmccTankStock(
       const capacity = Number(locked[0].capacity_liters);
       const available = Math.max(0, capacity - currentStock);
       if (grossLiters > available + 0.001) {
-        throw new Error(`Tank capacity exceeded. ${available.toFixed(2)} L free; ${grossLiters.toFixed(2)} L attempted.`);
+        throw new Error(`Tank capacity exceeded. ${available.toFixed(3)} L free; ${grossLiters.toFixed(3)} L attempted.`);
       }
 
       const now = payload.operational_timestamp ? new Date(payload.operational_timestamp) : new Date();
-      const idempotencyKey = `ZMCC_TANK_INTAKE:ADMIN:${tankId}:${Date.now()}`;
       const referenceId = `ADMIN-INTAKE-${Date.now()}`;
 
       const invTx = await tx.zmccTankInventoryTransaction.create({
@@ -1051,8 +1080,8 @@ export async function intakeZmccTankStock(
           tank_id: tankId,
           zmcc_id: locked[0].zmcc_id,
           transaction_type: 'ADJUSTMENT_IN',
-          quantity_liters: new Prisma.Decimal(grossLiters.toFixed(2)),
-          at_13ts_liters: new Prisma.Decimal(finalAt13tsLiters.toFixed(2)),
+          quantity_liters: new Prisma.Decimal(grossLiters.toFixed(3)),
+          at_13ts_liters: new Prisma.Decimal(finalAt13tsLiters.toFixed(3)),
           reference_type: 'SUPER_ADMIN_MANUAL_INTAKE',
           reference_id: referenceId,
           idempotency_key: idempotencyKey,
@@ -1128,6 +1157,28 @@ export async function outtakeZmccTankStock(
   const reason = typeof payload?.reason === 'string' ? payload.reason.trim() : '';
   if (reason.length < 3) return { status: 400, error: 'Please write why this milk is taken out.' };
 
+  const rawClientKey = ((payload as any).client_event_id || (payload as any).idempotencyKey || (payload as any).clientOperationId || '').trim();
+  const idempotencyKey = rawClientKey ? `ZMCC_TANK_OUTTAKE:${rawClientKey}` : `ZMCC_TANK_OUTTAKE:ADMIN:${tankId}:${Date.now()}`;
+
+  if (rawClientKey) {
+    const existingTx = await prisma.zmccTankInventoryTransaction.findUnique({
+      where: { idempotency_key: idempotencyKey },
+    });
+    if (existingTx) {
+      const stock = await getTankPhysicalStock(tankId);
+      return {
+        status: 200,
+        data: {
+          transaction_id: existingTx.id.toString(),
+          gross_liters_out: Number(existingTx.quantity_liters),
+          at_13ts_liters_out: Number(existingTx.at_13ts_liters),
+          is_replay: true,
+          new_physical_stock_gross_liters: stock,
+        },
+      };
+    }
+  }
+
   try {
     const result = await prisma.$transaction(async (tx) => {
       const locked: Array<{ id: bigint; zmcc_id: bigint; is_active: boolean }> =
@@ -1137,7 +1188,7 @@ export async function outtakeZmccTankStock(
 
       const stock = await getTankPhysicalStock(tankId, tx);
       if (grossLiters > stock + 0.001) {
-        throw new Error(`Only ${stock.toFixed(2)} L is in this tank; ${grossLiters.toFixed(2)} L was asked for.`);
+        throw new Error(`Only ${stock.toFixed(3)} L is in this tank; ${grossLiters.toFixed(3)} L was asked for.`);
       }
       const commercial = await getTankCommercialStock(tankId, tx);
       const stockAt13 = commercial.stockAt13Ts ?? commercial.partialStockAt13Ts ?? 0;
@@ -1149,11 +1200,11 @@ export async function outtakeZmccTankStock(
           tank_id: tankId,
           zmcc_id: locked[0].zmcc_id,
           transaction_type: 'ADJUSTMENT_OUT',
-          quantity_liters: new Prisma.Decimal(grossLiters.toFixed(2)),
-          at_13ts_liters: new Prisma.Decimal(at13Out.toFixed(2)),
+          quantity_liters: new Prisma.Decimal(grossLiters.toFixed(3)),
+          at_13ts_liters: new Prisma.Decimal(at13Out.toFixed(3)),
           reference_type: 'SUPER_ADMIN_MANUAL_OUTTAKE',
           reference_id: `ADMIN-OUTTAKE-${now.getTime()}`,
-          idempotency_key: `ZMCC_TANK_OUTTAKE:ADMIN:${tankId}:${now.getTime()}`,
+          idempotency_key: idempotencyKey,
           operational_timestamp: now,
           performed_by_user_id: auth.actorUserId,
           notes: reason,
@@ -1169,8 +1220,8 @@ export async function outtakeZmccTankStock(
       return {
         transaction_id: row.id.toString(),
         gross_liters_out: grossLiters,
-        at_13ts_liters_out: Number(at13Out.toFixed(2)),
-        new_physical_stock_gross_liters: Number((stock - grossLiters).toFixed(2)),
+        at_13ts_liters_out: Number(at13Out.toFixed(3)),
+        new_physical_stock_gross_liters: Number((stock - grossLiters).toFixed(3)),
       };
     });
     return { status: 200, data: result };
@@ -2155,7 +2206,7 @@ export async function unloadSessionToTank(
           ts: portionTs,
         };
       });
-      const totalGross = Number(rows.reduce((a, r) => a + r.gross, 0).toFixed(2));
+      const totalGross = Number(rows.reduce((a, r) => a + r.gross, 0).toFixed(3));
 
       // Lock the tank; capacity check for the whole vehicle
       const locked: Array<{ id: bigint; zmcc_id: bigint; capacity_liters: Prisma.Decimal; is_active: boolean }> =
@@ -2183,14 +2234,14 @@ export async function unloadSessionToTank(
           received_at: now,
           received_by_user_id: acting.userId,
           portion_id: rows.length === 1 ? rows[0].portion.id : null,
-          quantity_value: new Prisma.Decimal(totalNet.toFixed(2)),
+          quantity_value: new Prisma.Decimal(totalNet.toFixed(3)),
           density: new Prisma.Decimal(wavg((r) => r.density).toFixed(4)),
-          gross_liters: new Prisma.Decimal(totalGross.toFixed(2)),
+          gross_liters: new Prisma.Decimal(totalGross.toFixed(3)),
           lr: new Prisma.Decimal(wavg((r) => r.lr).toFixed(2)),
           fat: new Prisma.Decimal(wavg((r) => r.fat).toFixed(2)),
-          snf: new Prisma.Decimal(wavg((r) => r.snf).toFixed(2)),
-          ts: new Prisma.Decimal(wavg((r) => r.ts).toFixed(2)),
-          at_13ts_liters: new Prisma.Decimal(rows.reduce((a, r) => a + r.at13, 0).toFixed(2)),
+          snf: new Prisma.Decimal(wavg((r) => r.snf).toFixed(3)),
+          ts: new Prisma.Decimal(wavg((r) => r.ts).toFixed(3)),
+          at_13ts_liters: new Prisma.Decimal(rows.reduce((a, r) => a + r.at13, 0).toFixed(3)),
           ...(source
             ? {
                 milk_source_id: source.id,
@@ -2207,8 +2258,8 @@ export async function unloadSessionToTank(
             tank_id: tank.id,
             zmcc_id: zmccId,
             transaction_type: 'RECEIPT',
-            quantity_liters: new Prisma.Decimal(r.gross.toFixed(2)),
-            at_13ts_liters: new Prisma.Decimal(r.at13.toFixed(2)),
+            quantity_liters: new Prisma.Decimal(r.gross.toFixed(3)),
+            at_13ts_liters: new Prisma.Decimal(r.at13.toFixed(3)),
             tank_receipt_id: receipt.id,
             reference_type: 'ZMCC_LAB_PORTION',
             reference_id: r.portion.id.toString(),
@@ -2224,10 +2275,10 @@ export async function unloadSessionToTank(
             status: 'WEIGHED',
             tank_id: tank.id,
             density: new Prisma.Decimal(r.density.toFixed(4)),
-            snf: new Prisma.Decimal(r.snf.toFixed(2)),
-            ts: new Prisma.Decimal(r.ts.toFixed(2)),
-            gross_liters: new Prisma.Decimal(r.gross.toFixed(2)),
-            at_13ts_liters: new Prisma.Decimal(r.at13.toFixed(2)),
+            snf: new Prisma.Decimal(r.snf.toFixed(3)),
+            ts: new Prisma.Decimal(r.ts.toFixed(3)),
+            gross_liters: new Prisma.Decimal(r.gross.toFixed(3)),
+            at_13ts_liters: new Prisma.Decimal(r.at13.toFixed(3)),
             calculation_version: MOT_CALCULATION_VERSION,
           },
         });

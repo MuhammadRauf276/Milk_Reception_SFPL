@@ -802,15 +802,6 @@ export async function submitMotArrival(
     }
   }
 
-  if (journey.locations.length > 0) {
-    const latestLocTime = new Date(journey.locations[0].device_recorded_at).getTime();
-    if (arrivalDate.getTime() < latestLocTime) {
-      return {
-        status: 400,
-        error: `arrival_timestamp cannot predate latest GPS point recorded at ${journey.locations[0].device_recorded_at.toISOString()}.`,
-      };
-    }
-  }
 
   const pktDateStr = getPakistanCalendarDate(arrivalDate);
   const dateCode = pktDateStr.replace(/-/g, '');
@@ -1164,15 +1155,6 @@ export async function correctMotArrival(
         return {
           status: 400,
           error: `arrival_timestamp cannot predate collection recorded at ${stop.collection.device_collected_at.toISOString()}.`,
-        };
-      }
-    }
-    if (arrival.journey.locations.length > 0) {
-      const latestLocTime = new Date(arrival.journey.locations[0].device_recorded_at).getTime();
-      if (parsedTime.getTime() < latestLocTime) {
-        return {
-          status: 400,
-          error: `arrival_timestamp cannot predate latest GPS point recorded at ${arrival.journey.locations[0].device_recorded_at.toISOString()}.`,
         };
       }
     }

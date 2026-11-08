@@ -99,6 +99,7 @@ export interface SecondWeightVisit {
   active_portion_first_weight_kg?: number;
   total_accepted_portions?: number;
   completed_accepted_portions?: number;
+  is_final_weighment?: boolean;
 }
 
 export function formatAcceptedQuantity(v: FirstWeightVisit): string {

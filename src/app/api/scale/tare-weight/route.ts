@@ -150,7 +150,7 @@ export async function POST(req: Request) {
       }
 
       if (!visit.weight_ticket || !visit.weight_ticket.gross_weight_kg) {
-        throw new Error('First weight (Gross) has not been recorded for this vehicle yet.');
+        throw new Error('Gross weight has not been recorded for this vehicle yet.');
       }
 
       // Strict Decision Gate: confirm ALL portions are definitively decided (no pending or unresolved conflicts)
@@ -159,7 +159,6 @@ export async function POST(req: Request) {
         return (dec !== 'ACCEPTED' && dec !== 'REJECTED') || p.manager_review_status === 'PENDING';
       });
       if (unresolvedPortions.length > 0) {
-        await tx.vehicleVisit.update({ where: { id: visitId }, data: { current_status: 'READY_FOR_TARE' } });
         throw new Error(`Tare weighing blocked: Portion #${unresolvedPortions[0].portion_number} is still pending QA decision or exception review.`);
       }
 
@@ -168,7 +167,6 @@ export async function POST(req: Request) {
         .sort((a, b) => a.portion_number - b.portion_number);
 
       if (acceptedPortions.length === 0) {
-        await tx.vehicleVisit.update({ where: { id: visitId }, data: { current_status: 'READY_FOR_TARE' } });
         throw new Error('Vehicle visit has no accepted portions.');
       }
 
@@ -188,16 +186,18 @@ export async function POST(req: Request) {
         );
 
         if (!activePortion) {
-          await tx.vehicleVisit.update({ where: { id: visitId }, data: { current_status: 'READY_FOR_TARE' } });
-          throw new Error('No active portion found waiting for second weight in portion-wise mode.');
+          throw new Error('No active compartment found waiting for tare weighment in portion-wise mode.');
+        }
+
+        if (activePortion.unloading_log && !activePortion.unloading_log.pump_end_timestamp) {
+          throw new Error(`Tare weighing blocked: Compartment #${activePortion.portion_number} is still actively pumping milk at the silo. Please complete unloading before weighing.`);
         }
 
         const portionFirstWeightKg = Number(activePortion.first_weight_kg);
 
         if (tareWeightKg >= portionFirstWeightKg) {
-          await tx.vehicleVisit.update({ where: { id: visitId }, data: { current_status: 'READY_FOR_TARE' } });
           throw new Error(
-            `Second weight (${tareWeightKg} kg) must be strictly less than First weight for Portion #${activePortion.portion_number} (${portionFirstWeightKg} kg).`
+            `Tare weight (${tareWeightKg.toLocaleString()} kg) must be strictly less than loaded weight for Compartment #${activePortion.portion_number} (${portionFirstWeightKg.toLocaleString()} kg).`
           );
         }
 
@@ -257,11 +257,11 @@ export async function POST(req: Request) {
             data: { current_status: 'READY_FOR_UNLOADING' },
           });
 
-          // Immutable Audit Record for portion second weight
+          // Immutable Audit Record for portion intermediate tare
           await writeAuditLog(tx, {
             tableName: 'visit_portion',
             recordId: activePortion.id,
-            action: 'PORTION_SECOND_WEIGHT_RECORDED',
+            action: 'PORTION_INTERMEDIATE_TARE_RECORDED',
             newValues: {
               visit_id: visitId.toString(),
               vehicle_number: visit.vehicle_number,
@@ -285,7 +285,7 @@ export async function POST(req: Request) {
             nextPortionNumber: nextPortion.portion_number,
             tareWeightKg,
             portionNetKg,
-            message: `Second Weight (${tareWeightKg.toLocaleString()} kg) for Portion #${activePortion.portion_number} recorded (Net: ${portionNetKg.toLocaleString()} kg). Vehicle is now ready for Unloading Portion #${nextPortion.portion_number}.`,
+            message: `Intermediate Tare (${tareWeightKg.toLocaleString()} kg) for Compartment #${activePortion.portion_number} recorded (Net: ${portionNetKg.toLocaleString()} kg). Vehicle is ready for Unloading Compartment #${nextPortion.portion_number}.`,
           };
 
           await recordOperation({
@@ -363,7 +363,7 @@ export async function POST(req: Request) {
           const finalPhysicalLiters = finalizeRes.finalPhysicalLiters != null ? Math.round(finalizeRes.finalPhysicalLiters) : null;
           const finalAt13TSLiters = finalizeRes.finalAt13TSLiters != null ? Math.round(finalizeRes.finalAt13TSLiters) : null;
 
-          let msg = `Second Weight (Tare: ${tareWeightKg.toLocaleString()} kg) recorded successfully. Total Net Milk Weight: ${totalVehicleNetKg.toLocaleString()} kg.`;
+          let msg = `Final Tare (${tareWeightKg.toLocaleString()} kg) recorded successfully. Total Net Milk Weight: ${totalVehicleNetKg.toLocaleString()} kg.`;
           if (isFinalized) {
             msg += ` Final Silo Receipt created (~${finalPhysicalLiters?.toLocaleString()} L in ${finalizeRes.targetSiloCode}). Vehicle is ready for gate exit.`;
           } else {
@@ -411,6 +411,16 @@ export async function POST(req: Request) {
       if (visit.weight_ticket.tare_weight_kg !== null) {
         await tx.vehicleVisit.update({ where: { id: visitId }, data: { current_status: 'READY_FOR_TARE' } });
         throw new Error(`Tare weight (${visit.weight_ticket.tare_weight_kg} kg) has already been recorded for this vehicle.`);
+      }
+
+      const activelyPumpingPortion = acceptedPortions.find(
+        (p) => p.unloading_log && !p.unloading_log.pump_end_timestamp
+      );
+      if (activelyPumpingPortion) {
+        await tx.vehicleVisit.update({ where: { id: visitId }, data: { current_status: 'READY_FOR_TARE' } });
+        throw new Error(
+          `Tare weighing blocked: Compartment #${activelyPumpingPortion.portion_number} is still actively pumping milk at the silo. Please complete unloading before weighing.`
+        );
       }
 
       const firstUnloadingLog = visit.portions.find((p) => p.unloading_log?.pump_end_timestamp)?.unloading_log;
@@ -506,7 +516,7 @@ export async function POST(req: Request) {
       const finalPhysicalLiters = finalizeRes.finalPhysicalLiters != null ? Math.round(finalizeRes.finalPhysicalLiters) : null;
       const finalAt13TSLiters = finalizeRes.finalAt13TSLiters != null ? Math.round(finalizeRes.finalAt13TSLiters) : null;
 
-      let msg = `Second Weight (Tare: ${tareWeightKg.toLocaleString()} kg) recorded successfully. Total Net Milk Weight: ${netWeightKg.toLocaleString()} kg.`;
+      let msg = `Final Tare (${tareWeightKg.toLocaleString()} kg) recorded successfully. Total Net Milk Weight: ${netWeightKg.toLocaleString()} kg.`;
       if (isFinalized) {
         msg += ` Final Silo Receipt created (~${finalPhysicalLiters?.toLocaleString()} L in ${finalizeRes.targetSiloCode}). Vehicle is ready for gate exit.`;
       } else {

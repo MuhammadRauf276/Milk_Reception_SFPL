@@ -1,5 +1,6 @@
 import { approveHcSupplier, rejectHcSupplier } from '@/backend/services/zmccLocalSupplierService';
 import { approveRoute, approveShop, rejectRoute, rejectShop, resolveZmccAuth } from '@/backend/services/zmccMasterDataService';
+import { correctCompletedSession } from '@/backend/services/zmccLabService';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
@@ -22,6 +23,7 @@ const EVENTS_BY_APPROVAL_TYPE: Partial<Record<ApprovalType, string[]>> = {
   STAGE_1_SHOP_EXCEPTION: ['MOT_SHOP_EXCEPTION_PENDING'],
   STAGE_1_NEW_ROUTE: ['NEW_ROUTE_PENDING'],
   STAGE_1_NEW_SHOP: ['NEW_SHOP_PENDING'],
+  STAGE_2_SESSION_EXCEPTION: ['ZMCC_LAB_EXCEPTION_PENDING'],
   STAGE_2_PORTION_EXCEPTION: ['ZMCC_LAB_EXCEPTION_PENDING'],
   STAGE_2_NEW_HC: ['NEW_HC_PENDING', 'HC_APPROVAL_PENDING'],
   STAGE_3_ZMCC_DISPATCH_EXCEPTION: ['DISPATCH_APPROVAL_PENDING'],
@@ -90,6 +92,7 @@ export async function POST(
   // Extract acting context for this operation using authUser
   const actingResult = resolveActingContext(authUser, [
     'SUPER_ADMIN',
+    'DATA_EXECUTIVE',
     'HEAD_OF_MPD',
     'ZMCC_MANAGER',
     'QA_HEAD',
@@ -138,6 +141,16 @@ export async function POST(
     submitterUserId = shop.created_by;
     submitterRole = shop.creator?.role || shop.created_as_role || 'MOT';
     zmccId = shop.zmcc_id;
+  } else if (approvalType === 'STAGE_2_SESSION_EXCEPTION') {
+    const session = await prisma.zmccLabSession.findUnique({
+      where: { id: numericId },
+      include: { completer: true, manager_requester: true },
+    });
+    if (!session) return NextResponse.json({ error: 'Lab session not found.' }, { status: 404 });
+    submitterUserId = session.manager_review_requested_by_user_id || session.completed_by_user_id;
+    submitterRole = session.manager_requester?.role || session.completer?.role || session.completed_as_role || 'ZMCC_LAB_ATTENDANT';
+    zmccId = session.zmcc_id;
+    dbVersion = session.correction_count;
   } else if (approvalType === 'STAGE_2_PORTION_EXCEPTION') {
     const portion = await prisma.zmccLabPortion.findUnique({
       where: { id: numericId },
@@ -249,6 +262,14 @@ export async function POST(
       const res =
         verdict === 'OKAY' ? await approveShop(shopAuth!, numericId) : await rejectShop(shopAuth!, numericId, remarks);
       if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
+    } else if (approvalType === 'STAGE_2_SESSION_EXCEPTION') {
+      const res = await correctCompletedSession(req, numericId, {
+        decision: verdict === 'OKAY' ? 'ACCEPTED' : 'REJECTED',
+        reason: remarks || (verdict === 'OKAY' ? 'Approved by Manager' : 'Rejected by Manager'),
+      });
+      if (res.error) {
+        return NextResponse.json({ error: res.error }, { status: res.status });
+      }
     } else if (approvalType === 'STAGE_2_PORTION_EXCEPTION') {
       const res = await reviewPortionException(ctx, numericId, {
         verdict,
@@ -288,23 +309,61 @@ export async function POST(
         }
 
         const newStatus = verdict === 'OKAY' ? 'APPROVED' : 'REJECTED';
-        const finalPlantDecision =
-          verdict === 'OKAY'
-            ? portion.manager_requested_decision || 'ACCEPT'
-            : portion.manager_requested_decision === 'ACCEPT'
-            ? 'REJECT'
-            : 'ACCEPT';
+        const finalPlantDecision = verdict === 'OKAY' ? 'ACCEPTED' : 'REJECTED';
 
         await tx.visitPortion.update({
           where: { id: numericId },
           data: {
             manager_review_status: newStatus,
             plant_decision: finalPlantDecision,
+            current_status: finalPlantDecision,
             manager_reviewed_by_user_id: dbUser.id,
             manager_review_reason: remarks || portion.manager_review_reason,
             manager_reviewed_at: new Date(),
           },
         });
+
+        // Recompute the vehicle visit status upon superior exception decision
+        const isComposite = portion.visit.test_mode === 'COMPOSITE';
+        if (isComposite) {
+          await tx.visitPortion.updateMany({
+            where: { visit_id: portion.visit_id },
+            data: {
+              plant_decision: finalPlantDecision,
+              current_status: finalPlantDecision,
+              manager_review_status: newStatus,
+              manager_reviewed_by_user_id: dbUser.id,
+              manager_reviewed_at: new Date(),
+            },
+          });
+          const targetVisitStatus = finalPlantDecision === 'ACCEPTED' ? 'READY_FOR_GROSS' : 'READY_FOR_GATE_EXIT';
+          await tx.vehicleVisit.update({
+            where: { id: portion.visit_id },
+            data: { current_status: targetVisitStatus },
+          });
+        } else {
+          const allPortions = await tx.visitPortion.findMany({
+            where: { visit_id: portion.visit_id },
+          });
+          const hasPending = allPortions.some(
+            (p) =>
+              p.id !== numericId &&
+              (p.manager_review_status === 'PENDING' ||
+                !p.plant_decision ||
+                p.plant_decision === 'PENDING' ||
+                p.plant_decision === 'HOLD' ||
+                p.plant_decision === 'UNDER_TEST')
+          );
+          if (!hasPending) {
+            const decisions = allPortions.map((p) => (p.id === numericId ? finalPlantDecision : p.plant_decision));
+            const allRejected = decisions.every((d) => d === 'REJECTED');
+            const targetVisitStatus = allRejected ? 'READY_FOR_GATE_EXIT' : 'READY_FOR_GROSS';
+            await tx.vehicleVisit.update({
+              where: { id: portion.visit_id },
+              data: { current_status: targetVisitStatus },
+            });
+          }
+        }
 
         await writeAuditLog(tx, {
           tableName: 'visit_portion',

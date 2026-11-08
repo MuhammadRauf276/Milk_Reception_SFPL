@@ -81,6 +81,10 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
             // default view for mot
           } else if (leafPath === '/phe' && key === 'view' && val === 'local-suppliers' && searchParams?.get('section') === 'suppliers') {
             // default view for suppliers
+          } else if (leafPath === '/phe' && key === 'view' && val === 'weigh' && searchParams?.get('section') === 'weighing') {
+            // default view for weighing
+          } else if (leafPath === '/mpd/zmcc-manager' && key === 'view' && val === 'ROUTES' && searchParams?.get('tab') === 'HIERARCHY') {
+            // default view for hierarchy tree
           } else if (leafPath === '/zmcc/lab' && key === 'tab' && val === 'queue') {
             // default tab
           } else if (leafPath === '/zmcc/dispatch' && key === 'tab' && val === 'new') {

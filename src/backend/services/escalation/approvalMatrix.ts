@@ -22,6 +22,7 @@ export type ApprovalType =
   | 'STAGE_1_SHOP_EXCEPTION'
   | 'STAGE_1_NEW_SHOP'
   | 'STAGE_1_NEW_ROUTE'
+  | 'STAGE_2_SESSION_EXCEPTION'
   | 'STAGE_2_PORTION_EXCEPTION'
   | 'STAGE_2_NEW_HC'
   | 'STAGE_3_ZMCC_DISPATCH_EXCEPTION'
@@ -64,6 +65,13 @@ export const APPROVAL_TYPE_DEFINITIONS: Record<ApprovalType, ApprovalTypeDefinit
     defaultApproverRole: 'ZMCC_MANAGER',
     scopeKind: 'ZMCC',
     autoApproveRoles: ['ZMCC_MANAGER', 'HEAD_OF_MPD', 'SUPER_ADMIN'],
+  },
+  STAGE_2_SESSION_EXCEPTION: {
+    type: 'STAGE_2_SESSION_EXCEPTION',
+    stage: 'STAGE_2',
+    label: 'Stage 2 Lab Session Exception',
+    defaultApproverRole: 'ZMCC_MANAGER',
+    scopeKind: 'ZMCC',
   },
   STAGE_2_PORTION_EXCEPTION: {
     type: 'STAGE_2_PORTION_EXCEPTION',
@@ -141,23 +149,10 @@ export const APPROVAL_TYPE_DEFINITIONS: Record<ApprovalType, ApprovalTypeDefinit
  */
 export function resolveAuthoritativeApproverRole(
   approvalType: ApprovalType,
-  submitterRole?: string | null
+  _submitterRole?: string | null
 ): { approverRole: CanonicalRole; isEscalated: boolean; originalApproverRole: CanonicalRole } {
   const def = APPROVAL_TYPE_DEFINITIONS[approvalType];
-  const originalApproverRole = def.defaultApproverRole;
-
-  if (!submitterRole || !isCanonicalRole(submitterRole)) {
-    return { approverRole: originalApproverRole, isEscalated: false, originalApproverRole };
-  }
-
-  // The submitter is at or above the default approver: they are the responsible approver.
-  if (canActAs(submitterRole, originalApproverRole)) {
-    return {
-      approverRole: submitterRole,
-      isEscalated: false,
-      originalApproverRole,
-    };
-  }
+  const originalApproverRole = def?.defaultApproverRole || 'SUPER_ADMIN';
 
   return { approverRole: originalApproverRole, isEscalated: false, originalApproverRole };
 }
@@ -216,6 +211,30 @@ export function canDecideApproval(
     };
   }
 
+  // 1. DATA_EXECUTIVE & SUPER_ADMIN are supreme governance authorities with global deciding power
+  if (actor.role === 'DATA_EXECUTIVE' || actor.role === 'SUPER_ADMIN') {
+    const isSelf = Boolean(
+      item.submittedByUserId &&
+        String(actor.userId) === String(item.submittedByUserId)
+    );
+    if (isSelf && (remarks ?? '').trim().length < 5) {
+      return {
+        allowed: false,
+        disabledReason: `${getRoleLabel(actor.role as CanonicalRole)} self-approval requires justification remarks (at least 5 characters).`,
+        isSelfApproval: true,
+        isEscalated: false,
+        targetApproverRole: actor.role as CanonicalRole,
+        requiresExtendedRemarks: true,
+      };
+    }
+    return {
+      allowed: true,
+      isSelfApproval: isSelf,
+      isEscalated: false,
+      targetApproverRole: actor.role as CanonicalRole,
+    };
+  }
+
   // 2. Resolve authoritative approver role with supervisor auto-escalation.
   const { approverRole: targetApproverRole, isEscalated } = resolveAuthoritativeApproverRole(
     item.approvalType,
@@ -235,11 +254,11 @@ export function canDecideApproval(
   }
 
   // 4. Scope containment check.
-  // ZMCC-scoped roles (e.g. ZMCC_MANAGER) must match the item's ZMCC.
-  // Higher roles (HEAD_OF_MPD, SUPER_ADMIN) have system scope.
+  // ZMCC-scoped roles (e.g. ZMCC_MANAGER, MDO) must match the item's ZMCC.
+  // Higher roles (HEAD_OF_MPD, SUPER_ADMIN, DATA_EXECUTIVE) have system scope.
   if (def.scopeKind === 'ZMCC') {
     const actorRole = actor.role as CanonicalRole;
-    if (actorRole === 'ZMCC_MANAGER' || actorRole === 'MDO' || actorRole === 'PHE_OPERATOR') {
+    if (actorRole === 'ZMCC_MANAGER' || actorRole === 'MDO') {
       if (
         actor.procurementSourceId &&
         item.zmccId &&
@@ -273,7 +292,7 @@ export function canDecideApproval(
     }
   }
 
-  // 5. Segregation of Duties Check: Submitter cannot approve their own item.
+  // 5. Segregation of Duties Check: Submitter cannot approve their own item unless covered work or designated manager
   const isSelf = Boolean(
     item.submittedByUserId &&
       String(actor.userId) === String(item.submittedByUserId)
@@ -284,35 +303,11 @@ export function canDecideApproval(
   const isCoveredWork = Boolean(
     item.submitterRole && isCanonicalRole(item.submitterRole) && canActAs(item.submitterRole, def.defaultApproverRole)
   );
-  if (isSelf && isStageException && isCoveredWork && actor.role !== 'SUPER_ADMIN') {
+  if (isSelf && (isCoveredWork || canActAs(actor.role, def.defaultApproverRole))) {
     return { allowed: true, isSelfApproval: true, isEscalated: false, targetApproverRole };
   }
 
   if (isSelf) {
-    // Super Admin self-approval exception:
-    // Permitted ONLY with mandatory remarks >= 20 chars, flagged self_approved: true.
-    if (actor.role === 'SUPER_ADMIN') {
-      const trimmedRemarks = (remarks ?? '').trim();
-      if (trimmedRemarks.length < 20) {
-        return {
-          allowed: false,
-          disabledReason:
-            'Super Admin self-approval requires mandatory justification remarks of at least 20 characters.',
-          isSelfApproval: true,
-          isEscalated,
-          targetApproverRole,
-          requiresExtendedRemarks: true,
-        };
-      }
-      return {
-        allowed: true,
-        isSelfApproval: true,
-        isEscalated,
-        targetApproverRole,
-        requiresExtendedRemarks: true,
-      };
-    }
-
     const supervisorLabel = getRoleLabel(targetApproverRole);
     return {
       allowed: false,
@@ -359,18 +354,9 @@ export const DEPARTMENT_ESCALATION_CHAINS: Record<string, DepartmentEscalationCh
   },
   ZMCC_LAB: {
     department: 'Milk Procurement Division (Field & ZMCC)',
-    stageName: 'ZMCC Intake Lab',
+    stageName: 'ZMCC Intake & Dispatch Lab',
     tiers: [
       { role: 'ZMCC_LAB_ATTENDANT', roleTitle: 'ZMCC Lab Attendant' },
-      { role: 'ZMCC_MANAGER', roleTitle: 'ZMCC Manager' },
-      { role: 'HEAD_OF_MPD', roleTitle: 'MPD Head' },
-    ],
-  },
-  ZMCC_PHE: {
-    department: 'Milk Procurement Division (Field & ZMCC)',
-    stageName: 'ZMCC Reception / Dispatch',
-    tiers: [
-      { role: 'PHE_OPERATOR', roleTitle: 'PHE Operator' },
       { role: 'ZMCC_MANAGER', roleTitle: 'ZMCC Manager' },
       { role: 'HEAD_OF_MPD', roleTitle: 'MPD Head' },
     ],

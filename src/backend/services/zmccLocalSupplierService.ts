@@ -160,7 +160,7 @@ export async function getHcSuppliers(
   if (!auth) return { status: 401, error: 'Unauthorized.' };
 
   let targetZmccId: bigint | null = null;
-  if (auth.isSuperAdmin) {
+  if (auth.isSuperAdmin || auth.isDataExecutive) {
     if (params.zmcc_id) {
       try {
         targetZmccId = BigInt(String(params.zmcc_id).trim());
@@ -224,7 +224,7 @@ export async function getHcSuppliers(
 
   return {
     status: 200,
-    data: suppliers.map((supplier) => serializeHcSupplier(supplier, auth.isSuperAdmin || auth.isZmccManager)),
+    data: suppliers.map((supplier) => serializeHcSupplier(supplier, auth.isSuperAdmin || auth.isDataExecutive || auth.isZmccManager)),
     ...(paginated
       ? { pagination: { page, page_size: pageSize, total, total_pages: Math.max(1, Math.ceil(total / pageSize)) } }
       : {}),
@@ -258,13 +258,13 @@ export async function getHcSupplierById(
     return { status: 404, error: 'HC supplier not found.' };
   }
 
-  if (!auth.isSuperAdmin && supplier.zmcc_id !== auth.effectiveZmccId) {
+  if (!auth.isSuperAdmin && !auth.isDataExecutive && supplier.zmcc_id !== auth.effectiveZmccId) {
     return { status: 403, error: 'Forbidden. Supplier belongs to another ZMCC.' };
   }
 
   return {
     status: 200,
-    data: serializeHcSupplier(supplier, auth.isSuperAdmin || auth.isZmccManager),
+    data: serializeHcSupplier(supplier, auth.isSuperAdmin || auth.isDataExecutive || auth.isZmccManager),
   };
 }
 
@@ -274,9 +274,9 @@ export async function getIncompleteHcSuppliers(
 ): Promise<ServiceResult<ReturnType<typeof serializeHcSupplier>[]>> {
   const { auth, errorResponse } = await resolveZmccAuth(reqOrUser as Request, 'READ');
   if (errorResponse) return errorResponse;
-  if (!auth || (!auth.isSuperAdmin && !auth.isZmccManager)) return { status: 403, error: 'Forbidden. Only ZMCC Manager or Super Admin may view incomplete identities.' };
+  if (!auth || (!auth.isSuperAdmin && !auth.isDataExecutive && !auth.isZmccManager)) return { status: 403, error: 'Forbidden. Only ZMCC Manager, Data Executive, or Super Admin may view incomplete identities.' };
   const suppliers = await prisma.zmccLocalSupplier.findMany({
-    where: { ...(auth.isSuperAdmin || !auth.effectiveZmccId ? {} : { zmcc_id: auth.effectiveZmccId }), OR: [{ phone: null }, { cnic: null }, { phone: '' }, { cnic: '' }] },
+    where: { ...(auth.isSuperAdmin || auth.isDataExecutive || !auth.effectiveZmccId ? {} : { zmcc_id: auth.effectiveZmccId }), OR: [{ phone: null }, { cnic: null }, { phone: '' }, { cnic: '' }] },
     include: { zmcc: true }, orderBy: [{ zmcc_id: 'asc' }, { name: 'asc' }],
   });
   return { status: 200, data: suppliers.map((supplier) => serializeHcSupplier(supplier, true)) };
@@ -293,11 +293,11 @@ export async function createHcSupplier(
   if (errorResponse) return errorResponse;
   if (!auth) return { status: 401, error: 'Unauthorized.' };
 
-  // Role check: Only PHE_OPERATOR, ZMCC_MANAGER, SUPER_ADMIN can create HC suppliers
-  if (!auth.isPheOperator && !auth.isZmccManager && !auth.isSuperAdmin) {
+  // Role check: Only PHE_OPERATOR, ZMCC_MANAGER, DATA_EXECUTIVE, SUPER_ADMIN can create HC suppliers
+  if (!auth.isPheOperator && !auth.isZmccManager && !auth.isSuperAdmin && !auth.isDataExecutive) {
     return {
       status: 403,
-      error: 'Forbidden. Only PHE Operator, ZMCC Manager, or Super Admin can create HC suppliers.',
+      error: 'Forbidden. Only PHE Operator, ZMCC Manager, Data Executive, or Super Admin can create HC suppliers.',
     };
   }
 
@@ -305,14 +305,15 @@ export async function createHcSupplier(
     return { status: 400, error: 'Missing request payload.' };
   }
 
+  const isSuperOrDataExecutive = Boolean(auth.isSuperAdmin || auth.isDataExecutive);
   // Role-specific strict create allowlists
-  const allowedCreateFields = auth.isSuperAdmin
+  const allowedCreateFields = isSuperOrDataExecutive
     ? new Set(['name', 'phone', 'cnic', 'zmcc_id'])
     : new Set(['name', 'phone', 'cnic']);
 
   for (const field of Object.keys(payload)) {
     if (!allowedCreateFields.has(field)) {
-      if (!auth.isSuperAdmin && (field === 'zmcc_id' || field === 'target_zmcc_id' || field.toLowerCase().includes('zmcc'))) {
+      if (!isSuperOrDataExecutive && (field === 'zmcc_id' || field === 'target_zmcc_id' || field.toLowerCase().includes('zmcc'))) {
         return {
           status: 400,
           error: `Scoped users (${auth.role}) cannot supply zmcc_id. Target ZMCC is resolved automatically from session.`,
@@ -331,9 +332,9 @@ export async function createHcSupplier(
 
   // Resolve target ZMCC
   let targetZmccId: bigint;
-  if (auth.isSuperAdmin) {
+  if (isSuperOrDataExecutive) {
     if (!payload.zmcc_id || String(payload.zmcc_id).trim() === '') {
-      return { status: 400, error: 'zmcc_id is required for Super Admin.' };
+      return { status: 400, error: 'zmcc_id is required for Super Admin and Data Executive.' };
     }
     try {
       targetZmccId = BigInt(String(payload.zmcc_id).trim());
@@ -377,8 +378,8 @@ export async function createHcSupplier(
   const phone = phoneResult.value;
   const cnic = cnicResult.value;
 
-  // PHE / MDO create HCs as PENDING; a Zonal Manager (or above) creates them already approved.
-  const needsApproval = !auth.canApproveStage1 && !auth.isSuperAdmin;
+  // PHE / MDO create HCs as PENDING; a Zonal Manager, Data Executive or Super Admin creates them already approved.
+  const needsApproval = !auth.canApproveStage1 && !auth.isSuperAdmin && !auth.isDataExecutive;
 
   // Race-safe sequence allocation and atomic creation inside transaction
   try {
@@ -520,8 +521,8 @@ export async function updateHcSupplier(
     return { status: 404, error: 'HC supplier not found.' };
   }
 
-  // Manager can only update suppliers in their own ZMCC
-  if (!auth.isSuperAdmin && existingSupplier.zmcc_id !== auth.effectiveZmccId) {
+  // Manager can only update suppliers in their own ZMCC (Super Admin and Data Executive can update any)
+  if (!auth.isSuperAdmin && !auth.isDataExecutive && existingSupplier.zmcc_id !== auth.effectiveZmccId) {
     return { status: 403, error: 'Forbidden. Supplier belongs to another ZMCC.' };
   }
 
@@ -620,13 +621,13 @@ export async function listPendingHcSuppliers(
   const { auth, errorResponse } = await resolveZmccAuth(reqOrUser as Request, 'READ');
   if (errorResponse) return errorResponse;
   if (!auth) return { status: 401, error: 'Unauthorized.' };
-  if (!auth.canApproveStage1 && !auth.isSuperAdmin) {
-    return { status: 403, error: 'Forbidden. Only the Zonal Manager (or above) can see HCs waiting for approval.' };
+  if (!auth.canApproveStage1 && !auth.isSuperAdmin && !auth.isDataExecutive) {
+    return { status: 403, error: 'Forbidden. Only the Zonal Manager, Data Executive, or Super Admin can see HCs waiting for approval.' };
   }
   const suppliers = await prisma.zmccLocalSupplier.findMany({
     where: {
       approval_status: 'PENDING_APPROVAL',
-      ...(auth.isSuperAdmin || !auth.effectiveZmccId ? {} : { zmcc_id: auth.effectiveZmccId }),
+      ...(auth.isSuperAdmin || auth.isDataExecutive || !auth.effectiveZmccId ? {} : { zmcc_id: auth.effectiveZmccId }),
     },
     include: { zmcc: true },
     orderBy: { created_at: 'asc' },
@@ -643,8 +644,8 @@ async function decideHcSupplier(
   const { auth, errorResponse } = await resolveZmccAuth(reqOrUser as Request, 'READ');
   if (errorResponse) return errorResponse;
   if (!auth) return { status: 401, error: 'Unauthorized.' };
-  if (!auth.canApproveStage1 && !auth.isSuperAdmin) {
-    return { status: 403, error: 'Forbidden. Only the Zonal Manager (or above) can approve or reject an HC.' };
+  if (!auth.canApproveStage1 && !auth.isSuperAdmin && !auth.isDataExecutive) {
+    return { status: 403, error: 'Forbidden. Only the Zonal Manager, Data Executive, or Super Admin can approve or reject an HC.' };
   }
 
   let supplierId: bigint;
@@ -661,7 +662,7 @@ async function decideHcSupplier(
 
   const existing = await prisma.zmccLocalSupplier.findUnique({ where: { id: supplierId }, include: { zmcc: true } });
   if (!existing) return { status: 404, error: 'HC supplier not found.' };
-  if (!auth.isSuperAdmin && !inScope(auth, existing.zmcc_id)) {
+  if (!auth.isSuperAdmin && !auth.isDataExecutive && !inScope(auth, existing.zmcc_id)) {
     return { status: 403, error: 'Forbidden. This HC belongs to another ZMCC.' };
   }
   if (existing.approval_status !== 'PENDING_APPROVAL') {

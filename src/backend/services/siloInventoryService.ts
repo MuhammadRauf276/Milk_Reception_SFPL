@@ -305,6 +305,20 @@ export async function getSiloActiveReservedLiters(
     include: {
       portion: {
         include: {
+          visit: {
+            include: {
+              portions: {
+                include: {
+                  plant_lab_results: {
+                    include: { lab_test: true },
+                  },
+                  dispatch_lab_results: {
+                    include: { lab_test: true },
+                  },
+                },
+              },
+            },
+          },
           plant_lab_results: {
             include: { lab_test: true },
           },
@@ -318,21 +332,47 @@ export async function getSiloActiveReservedLiters(
 
   let totalReservedLiters = 0;
   for (const log of activeLogs) {
-    const declVal = log.portion.dispatch_quantity_value ? Number(log.portion.dispatch_quantity_value) : 0;
-    const declUnit = log.portion.dispatch_quantity_unit ? log.portion.dispatch_quantity_unit.toUpperCase() : null;
+    if (!log.portion) continue;
+    const visit = log.portion.visit;
+    const acceptedPortionCount = visit?.portions?.filter((p) => p.plant_decision === 'ACCEPTED').length || 1;
+    let declVal = log.portion.dispatch_quantity_value ? Number(log.portion.dispatch_quantity_value) : 0;
+    let declUnit = log.portion.dispatch_quantity_unit ? log.portion.dispatch_quantity_unit.toUpperCase() : null;
+
+    if (declVal <= 0 && visit?.vehicle_dispatch_quantity_value) {
+      declVal = Number(visit.vehicle_dispatch_quantity_value) / acceptedPortionCount;
+      declUnit = (visit.vehicle_dispatch_quantity_unit || 'LITER').toUpperCase();
+    }
+    if (declVal <= 0 && log.portion.first_weight_kg) {
+      declVal = Number(log.portion.first_weight_kg);
+      declUnit = 'KG';
+    }
     if (declVal <= 0) continue;
 
-    if (declUnit === 'LITER') {
+    if (['LITER', 'LITRE', 'LITRES', 'L'].includes(declUnit || '')) {
       totalReservedLiters += declVal;
-    } else if (declUnit === 'KG') {
-      // Primary: Plant QA LR (only genuine PERFORMED, no dispatch/fake fallback)
-      const performedPlantLr = log.portion.plant_lab_results.filter(
-        (r) => isPlantLrTest(r.lab_test.testCode, r.lab_test.testName, r.lab_test.systemRole) && r.performance_status === 'PERFORMED' && r.numeric_value !== null
+    } else if (['KG', 'KGS', 'KILOGRAM', 'KILOGRAMS'].includes(declUnit || '')) {
+      let resolvedLr: number | null = null;
+      const performedPlantLr = log.portion.plant_lab_results?.find(
+        (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName, r.lab_test?.systemRole) && r.performance_status === 'PERFORMED' && r.numeric_value !== null && Number(r.numeric_value) > 0
       );
-      if (performedPlantLr.length === 1 && Number(performedPlantLr[0].numeric_value) > 0) {
-        const lrVal = Number(performedPlantLr[0].numeric_value);
-        totalReservedLiters += calculatePhysicalLiters(declVal, lrVal);
+      if (performedPlantLr) {
+        resolvedLr = Number(performedPlantLr.numeric_value);
+      } else if (visit?.portions) {
+        const visitLr = visit.portions.flatMap((p) => p.plant_lab_results || []).find(
+          (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName, r.lab_test?.systemRole) && r.performance_status === 'PERFORMED' && r.numeric_value !== null && Number(r.numeric_value) > 0
+        );
+        if (visitLr) {
+          resolvedLr = Number(visitLr.numeric_value);
+        } else {
+          const dispatchLr = visit.portions.flatMap((p) => p.dispatch_lab_results || []).find(
+            (r) => isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName, r.lab_test?.systemRole) && r.numeric_value !== null && Number(r.numeric_value) > 0
+          );
+          resolvedLr = dispatchLr ? Number(dispatchLr.numeric_value) : 28.0;
+        }
       }
+      totalReservedLiters += calculatePhysicalLiters(declVal, resolvedLr ?? 28.0);
+    } else {
+      totalReservedLiters += declVal;
     }
   }
 
@@ -677,10 +717,35 @@ async function executeFinalizeSiloReceiptForVisit(
       ? Number(visit.vehicle_dispatch_at_13ts_liters)
       : null;
 
+  // Partial Rejection Isolation: Exclude dispatched volume of rejected compartments from transit loss evaluation
+  const rejectedPortions = (visit.portions || []).filter((p) => p.plant_decision === 'REJECTED');
+  let rejectedGrossLiters = 0;
+
+  if (rejectedPortions.length > 0 && sentGrossLiters !== null) {
+    const totalPortionsCount = visit.portions.length || 1;
+    for (const rp of rejectedPortions) {
+      if (rp.dispatch_quantity_value && Number(rp.dispatch_quantity_value) > 0) {
+        const rpUnit = (rp.dispatch_quantity_unit || 'LITER').toUpperCase();
+        if (['KG', 'KGS'].includes(rpUnit)) {
+          rejectedGrossLiters += calculatePhysicalLiters(Number(rp.dispatch_quantity_value), 28.0);
+        } else {
+          rejectedGrossLiters += Number(rp.dispatch_quantity_value);
+        }
+      } else {
+        rejectedGrossLiters += sentGrossLiters / totalPortionsCount;
+      }
+    }
+  }
+
+  const effectiveSentGrossLiters = sentGrossLiters !== null ? Math.max(0, sentGrossLiters - rejectedGrossLiters) : null;
+  const effectiveSentAt13tsLiters = sentAt13tsLiters !== null && sentGrossLiters && sentGrossLiters > 0
+    ? Math.max(0, sentAt13tsLiters * (1 - Math.min(1, rejectedGrossLiters / sentGrossLiters)))
+    : sentAt13tsLiters;
+
   const dualRecon = calculateDualReconciliation({
-    sentGrossLiters,
+    sentGrossLiters: effectiveSentGrossLiters,
     receivedGrossLiters: calcResult.finalPhysicalLiters,
-    sentAt13tsLiters,
+    sentAt13tsLiters: effectiveSentAt13tsLiters,
     receivedAt13tsLiters: calcResult.finalAt13TSLiters,
   });
 
@@ -716,9 +781,9 @@ async function executeFinalizeSiloReceiptForVisit(
   });
 
   // Step 20: High Transit Loss Alert Trigger (>1.0%)
-  if (sentGrossLiters !== null && sentGrossLiters > 0) {
-    const transitLossL = sentGrossLiters > calcResult.finalPhysicalLiters ? sentGrossLiters - calcResult.finalPhysicalLiters : 0;
-    const transitLossPercent = (transitLossL / sentGrossLiters) * 100;
+  if (effectiveSentGrossLiters !== null && effectiveSentGrossLiters > 0) {
+    const transitLossL = effectiveSentGrossLiters > calcResult.finalPhysicalLiters ? effectiveSentGrossLiters - calcResult.finalPhysicalLiters : 0;
+    const transitLossPercent = (transitLossL / effectiveSentGrossLiters) * 100;
     if (transitLossPercent > 1.0) {
       await checkAndTriggerTransitLossAlertTx(db, {
         visitId,
@@ -726,7 +791,7 @@ async function executeFinalizeSiloReceiptForVisit(
         vehicleNumber: visit.vehicle_number,
         zmccId: visit.procurement_source_id,
         zmccName: visit.procurement_source?.name,
-        dispatchedGrossLiters: sentGrossLiters,
+        dispatchedGrossLiters: effectiveSentGrossLiters,
         receivedGrossLiters: calcResult.finalPhysicalLiters,
         transitLossPercent,
       });
@@ -903,22 +968,24 @@ export async function recordSiloTransaction(params: RecordTransactionParams) {
     const currentStockLiters = stockState.knownLiters;
     const capacityLiters = Number(silo.capacity_liters);
 
-    // Validation 3: RECEIPT Inactive Check (New milk receipts require active silo)
-    if (params.transaction_type === SiloTransactionType.RECEIPT) {
-      if (!silo.is_active) {
+    // Inflow & Outflow capacity boundary checks
+    const isInflow = params.transaction_type === SiloTransactionType.RECEIPT;
+    const isOutflow = params.transaction_type === SiloTransactionType.ISSUE;
+
+    if (isInflow) {
+      if (params.transaction_type === SiloTransactionType.RECEIPT && !silo.is_active) {
         throw new Error(`Silo "${silo.silo_name}" (${silo.silo_code}) is INACTIVE. New milk receipts are blocked.`);
       }
 
       if (currentStockLiters + txLiters > capacityLiters) {
-        const available = capacityLiters - currentStockLiters;
-        throw new Error(`Receipt quantity (${Math.round(txLiters)} L) exceeds available silo capacity (${Math.round(available)} L).`);
+        const available = Math.max(0, capacityLiters - currentStockLiters);
+        throw new Error(`Inflow quantity (${Math.round(txLiters)} L) exceeds available silo capacity (${Math.round(available)} L).`);
       }
     }
 
-    // Validation 4: ISSUE Check (Allows inactive silo provided existing stock is sufficient)
-    if (params.transaction_type === SiloTransactionType.ISSUE) {
+    if (isOutflow) {
       if (currentStockLiters - txLiters < 0) {
-        throw new Error(`Issue quantity (${Math.round(txLiters)} L) exceeds current stock balance (${Math.round(currentStockLiters)} L).`);
+        throw new Error(`Outflow quantity (${Math.round(txLiters)} L) exceeds current stock balance (${Math.round(currentStockLiters)} L).`);
       }
     }
 

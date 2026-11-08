@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ACTING_AS_HEADER, requireRoles, scopeFailureResponse } from '@core/route-guards';
 import { asRoleFields } from '@core/acting-context';
+import { canActAs } from '@core/roles/hierarchy';
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { createDispatchSchema } from '@/lib/validations/dispatch';
@@ -632,8 +633,14 @@ export async function POST(req: Request) {
       }
     }
 
-    const isSendRequest = validated.action === 'SEND_REQUEST';
     const approverRole = dispatchApproverRoleFor(sourceType);
+    const userRole = guard.user.role;
+    const canDirectlyApprove =
+      userRole === 'SUPER_ADMIN' ||
+      userRole === 'DATA_EXECUTIVE' ||
+      canActAs(userRole, approverRole);
+
+    const isSendRequest = validated.action === 'SEND_REQUEST' || !canDirectlyApprove;
     let nextStatus: string;
     let approvalStatus: string;
 

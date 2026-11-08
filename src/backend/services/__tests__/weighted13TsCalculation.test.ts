@@ -23,7 +23,7 @@ test('computeWeightedMilkMetrics: correctly calculates weighted averages and @13
   const b2Ts = calculateTS(6.5, b2Snf); // 16.15%
   const b2At13 = calculateAt13TSLiters(5000, b2Ts); // 6211.538...
 
-  const sumAt13 = Number((b1At13 + b2At13).toFixed(2)); // 10823.08 L
+  const sumAt13 = Number((b1At13 + b2At13).toFixed(3)); // 10823.077 L
 
   const composite = computeWeightedMilkMetrics([
     { grossLiters: 5000, lr: 28.0, fat: 3.5 },

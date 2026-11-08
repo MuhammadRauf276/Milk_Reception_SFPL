@@ -6,12 +6,10 @@ import { validateOperationalTimestamp } from '../chronology-validator';
 const qaCompleted = new Date('2026-11-03T22:50:00.000Z');
 const check = (input: string) => validateOperationalTimestamp(input, qaCompleted, 'Gross Weight', 'QA Completion');
 
-test('a time before the previous stage is refused, and the message uses plant time', () => {
+test('a time before the previous stage is auto-advanced so idle screen stays are never blocked', () => {
   const result = check('2026-11-04T02:33:00+05:00');
-  assert.equal(result.isValid, false);
-  assert.match(String(result.error), /04 Nov 2026/);
-  assert.match(String(result.error), /03:50/);
-  assert.doesNotMatch(String(result.error), /2026-11-03T/);
+  assert.equal(result.isValid, true);
+  assert.ok(result.date && result.date.getTime() >= qaCompleted.getTime());
 });
 
 test('the same moment as the previous stage is allowed', () => {

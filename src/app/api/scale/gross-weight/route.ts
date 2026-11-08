@@ -328,7 +328,7 @@ export async function POST(req: Request) {
         grossWeightKg: Number(ticket.gross_weight_kg),
         isPortionWise: (visit.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED').length > 1,
         isMultiPortion: (visit.portions || []).filter((p) => (p.plant_decision || '').toUpperCase() === 'ACCEPTED').length > 1,
-        message: `First Weight (Gross: ${grossWeightKg} kg) recorded successfully. Vehicle is ready for unloading.`,
+        message: `Gross Weight (${grossWeightKg.toLocaleString()} kg) recorded successfully. Vehicle is ready for unloading.`,
       };
 
       if (idempotencyKey) {

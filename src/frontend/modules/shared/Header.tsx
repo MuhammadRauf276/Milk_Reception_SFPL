@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Menu } from 'lucide-react';
+import { Menu, Search } from 'lucide-react';
 import { User } from '@core/types';
 import { NotificationBell } from '@/frontend/modules/notifications/NotificationBell';
 import { SyncStatusSign } from '@/frontend/modules/pwa/SyncStatusSign';
@@ -13,6 +13,7 @@ import { DelegationBanner } from './delegation/DelegationBanner';
 import { SourceContextSelector } from './delegation/SourceContextSelector';
 import { resolveDelegationContext } from './delegation/stations';
 import { useDelegationInterceptor } from './delegation/useDelegationInterceptor';
+import { CommandPalette } from './navigation/CommandPalette';
 
 interface HeaderProps {
   currentUser: User | null;
@@ -38,6 +39,18 @@ export const Header: React.FC<HeaderProps> = ({
   const searchParams = useSearchParams();
   const sourceTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [selectedSourceName, setSelectedSourceName] = useState<string | null>(null);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const shouldShowMenu = Boolean(onMenuClick || showMenuButton);
 
@@ -100,11 +113,30 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <button
+            type="button"
+            onClick={() => setIsCommandPaletteOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border bg-muted/40 hover:bg-muted text-xs text-muted-foreground transition font-medium"
+            aria-label="Open Command Palette (Ctrl+K)"
+            title="Quick Jump & Search (Ctrl+K)"
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline text-[11px]">Search…</span>
+            <kbd className="hidden lg:inline-flex items-center text-[10px] bg-background border px-1 rounded font-mono">
+              Ctrl K
+            </kbd>
+          </button>
           <SyncStatusSign />
           <NotificationBell currentUser={currentUser} />
           <UserMenu currentUser={currentUser} />
         </div>
       </header>
+
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        currentUser={currentUser}
+      />
 
       {/* Compact Delegation Banner (§5.1, §5.3, §5.6) */}
       <DelegationBanner

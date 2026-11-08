@@ -297,19 +297,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
       )}
 
       {/* Navigation Tabs (Only if more than 1 tab and not hidden; hidden on large screens where sidebar is present) */}
-      {!hideTabBar && permittedTabs.length > 1 && (
-        <div className="lg:hidden">
-          <SegmentedTabs
-            label="Master data sections"
-            value={activeTab}
-            onValueChange={(tab) => {
-              setActiveTab(tab);
-              clearFilters();
-            }}
-            tabs={permittedTabs.map((t) => ({ value: t.id, label: t.label, icon: t.icon }))}
-          />
-        </div>
-      )}
+      
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={activeTab} variants={fadeSlide} initial="initial" animate="animate" exit="exit" className="space-y-6">

@@ -171,9 +171,8 @@ export async function reviewMotShopException(
       return { status: 403, error: 'You cannot decide your own collection.' };
     }
 
-    const person: PersonDecision = row.person_decision === 'REJECT' ? 'REJECT' : 'ACCEPT';
-    const final: FinalDecision =
-      i.verdict === 'OKAY' ? (person === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED') : person === 'ACCEPT' ? 'REJECTED' : 'ACCEPTED';
+    // Superior exception verdict is sovereign: Approve (OKAY) => ACCEPTED, Reject (NO) => REJECTED
+    const final: FinalDecision = i.verdict === 'OKAY' ? 'ACCEPTED' : 'REJECTED';
     const reviewStatus: ReviewStatus = i.verdict === 'OKAY' ? 'APPROVED' : 'REJECTED';
     const now = new Date();
 
@@ -206,7 +205,7 @@ export async function reviewMotShopException(
         verdict: i.verdict,
         review_status: reviewStatus,
         final_decision: final,
-        person_decision: person,
+        person_decision: row.person_decision,
         review_remarks: remarks || null,
       },
       actor: ctx,

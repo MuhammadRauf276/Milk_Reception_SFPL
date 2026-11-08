@@ -377,7 +377,7 @@ export async function decideCloseWithoutUnloading(
       const s = await lockSession(tx, sessionId, acting);
       if (!s.close_requested_at || s.close_approved_at) throw new ExitError(409, 'There is no pending close request.');
       if (s.unloaded_at || s.journey_closed_at) throw new ExitError(409, 'This vehicle visit is already closed.');
-      if (s.close_requested_by_user_id === acting.userId) {
+      if (s.close_requested_by_user_id === acting.userId && acting.actorRole !== 'SUPER_ADMIN' && acting.actorRole !== 'DATA_EXECUTIVE') {
         throw new ExitError(403, 'You cannot approve your own request.');
       }
       const now = new Date();

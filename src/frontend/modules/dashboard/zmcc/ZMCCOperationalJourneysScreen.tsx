@@ -307,41 +307,7 @@ export function ZMCCOperationalJourneysScreen({
         }}
       />
 
-      {/* Segmented Subtabs */}
-      <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border w-fit">
-        <button
-          type="button"
-          onClick={() => handleTabChange('DISPATCH')}
-          className={`min-h-9 px-4 py-1.5 text-xs font-semibold rounded-md transition inline-flex items-center gap-1.5 ${
-            activeTab === 'DISPATCH' ? 'bg-primary text-white shadow-2xs' : 'text-slate-700 hover:text-foreground'
-          }`}
-        >
-          <Send className="w-3.5 h-3.5" />
-          <span>Assign & Dispatch</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTabChange('ACTIVE')}
-          className={`min-h-9 px-4 py-1.5 text-xs font-semibold rounded-md transition inline-flex items-center gap-1.5 ${
-            activeTab === 'ACTIVE' ? 'bg-primary text-white shadow-2xs' : 'text-slate-700 hover:text-foreground'
-          }`}
-        >
-          <Truck className="w-3.5 h-3.5" />
-          <span>Active Fleet Radar ({activeJourneys.length})</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTabChange('HISTORY')}
-          className={`min-h-9 px-4 py-1.5 text-xs font-semibold rounded-md transition inline-flex items-center gap-1.5 ${
-            activeTab === 'HISTORY' ? 'bg-primary text-white shadow-2xs' : 'text-slate-700 hover:text-foreground'
-          }`}
-        >
-          <Clock className="w-3.5 h-3.5" />
-          <span>Journey History & Map Audit ({historyJourneys.length})</span>
-        </button>
-      </div>
-
-      {/* 0. ASSIGN & DISPATCH VIEW */}
+            {/* 0. ASSIGN & DISPATCH VIEW */}
       {activeTab === 'DISPATCH' && (
         <div className="space-y-4">
           {!facilityId && (

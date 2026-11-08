@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { apiClient } from '@/frontend/lib/apiClient';
@@ -114,34 +114,6 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
         </div>
       </div>
 
-      {/* Mobile-only Segmented Tabs (Desktop uses Left Sidebar Navigation) */}
-      <div className="lg:hidden">
-        <SegmentedTabs
-          label="Weighbridge Queues"
-          value={filter}
-          onValueChange={(val) => handleFilterChange(val as WeighbridgeFilter)}
-          tabs={[
-            {
-              value: 'SCALE_ACTION',
-              label: 'Needs Scale',
-              count: scaleActionVisits.length,
-              icon: Scale,
-            },
-            {
-              value: 'AT_SILO',
-              label: 'At Silos',
-              count: atSiloVisits.length,
-              icon: Building2,
-            },
-            {
-              value: 'COMPLETED_TODAY',
-              label: 'Completed',
-              count: completedVisits.length,
-              icon: CheckCircle2,
-            },
-          ]}
-        />
-      </div>
 
       {/* Search Bar */}
       <div className="relative max-w-md">
@@ -196,34 +168,34 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
                 }`}
               >
                 {/* Header: Reg + Token + Status Badge */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-1.5">
-                    <span className="tabular-nums font-bold text-sm tracking-tight text-foreground">{v.vehicle_number}</span>
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <div className="flex items-center space-x-1.5 min-w-0 truncate">
+                    <span className="tabular-nums font-bold text-sm tracking-tight text-foreground truncate">{v.vehicle_number}</span>
                     {v.token_number && (
-                      <span className="tabular-nums text-xs text-muted-foreground font-semibold">
+                      <span className="tabular-nums text-xs text-muted-foreground font-semibold shrink-0">
                         ({v.token_number})
                       </span>
                     )}
                   </div>
 
                   {v.accepted_portion_count === 0 || v.active_scale_status === 'REJECTED_EXIT' ? (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold tabular-nums bg-destructive/10 text-destructive border border-destructive/20">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold tabular-nums bg-destructive/10 text-destructive border border-destructive/20 shrink-0">
                       Rejected · Exit
                     </span>
                   ) : v.active_scale_status === 'READY_FOR_GROSS' ? (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-muted text-foreground border border-border">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-muted text-foreground border border-border shrink-0">
                       Initial Gross
                     </span>
                   ) : v.active_scale_status === 'READY_FOR_TARE' ? (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-muted text-foreground border border-border">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-muted text-foreground border border-border shrink-0">
                       Weighment {v.current_weighment_index}/{v.total_weighments}
                     </span>
                   ) : v.active_scale_status === 'AT_SILO' ? (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20 shrink-0">
                       At {v.active_silo_text}
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/20">
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold tabular-nums bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/20 shrink-0">
                       Completed
                     </span>
                   )}
@@ -279,12 +251,12 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
                 </div>
 
                 {/* Footer: Waiting time & Date */}
-                <div className="flex items-center justify-between text-[11px] tabular-nums text-muted-foreground pt-1 border-t border-border/60">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    Waiting: {formatDuration(v.waiting_minutes)}
+                <div className="flex items-center justify-between text-[11px] tabular-nums text-muted-foreground pt-1 border-t border-border/60 gap-2 min-w-0">
+                  <span className="flex items-center gap-1 min-w-0 truncate">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <span className="truncate">Waiting: {formatDuration(v.waiting_minutes)}</span>
                   </span>
-                  <span>{v.operational_date}</span>
+                  <span className="shrink-0">{v.operational_date}</span>
                 </div>
               </div>
             );
@@ -324,6 +296,12 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
   const [activeInputKg, setActiveInputKg] = useState<string>('');
   const [opDateTimeInput, setOpDateTimeInput] = useState<string>(toDatetimeLocalInput(new Date()));
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (visit?.id) {
+      setOpDateTimeInput(toDatetimeLocalInput(new Date()));
+    }
+  }, [visit?.id]);
   const activeWeighOpIdRef = useRef<string | null>(null);
 
   // Identify currently active step
@@ -378,12 +356,12 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
       return;
     }
 
+    let effectiveTimestamp = isoTimestamp;
     if (activeStep.min_allowed_timestamp && new Date(isoTimestamp) < new Date(activeStep.min_allowed_timestamp)) {
-      toast.showError(
-        `Weighment time cannot be earlier than the previous stage (${formatOperationalDatetime(activeStep.min_allowed_timestamp)}).`,
-        'Check the time'
-      );
-      return;
+      effectiveTimestamp = new Date().toISOString();
+      if (new Date(effectiveTimestamp) < new Date(activeStep.min_allowed_timestamp)) {
+        effectiveTimestamp = new Date(activeStep.min_allowed_timestamp).toISOString();
+      }
     }
 
     setIsSubmitting(true);
@@ -402,7 +380,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
             visitId: visit.id,
             scaleId: 'SCALE-01',
             grossWeightKg: enteredVal,
-            grossTimestamp: isoTimestamp,
+            grossTimestamp: effectiveTimestamp,
             clientOperationId: opId,
           },
           {
@@ -423,7 +401,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
             visitId: visit.id,
             scaleId: 'SCALE-01',
             tareWeightKg: enteredVal,
-            tareTimestamp: isoTimestamp,
+            tareTimestamp: effectiveTimestamp,
             clientOperationId: opId,
           },
           {

@@ -134,13 +134,18 @@ export function ApprovalQueueList({
             </button>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="bg-card border-border p-12 max-w-md mx-auto text-center space-y-3 rounded-2xl border shadow-2xs">
+          <div className="bg-card border-border p-8 sm:p-12 max-w-md mx-auto text-center space-y-3 rounded-2xl border shadow-2xs">
             <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-200">
               <CheckCircle2 className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-bold text-foreground">
-              {statusFilter === 'PENDING' ? 'All clear' : 'No history'}
+            <h3 className="text-base font-bold text-foreground">
+              {statusFilter === 'PENDING' ? 'All Clear — No Pending Approvals' : 'No History Found'}
             </h3>
+            <p className="text-xs text-slate-500 max-w-xs mx-auto">
+              {statusFilter === 'PENDING'
+                ? 'There are no pending exceptions or authorization requests waiting in your queue.'
+                : 'No decided approval records match your current filter.'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -254,12 +259,23 @@ export function ApprovalQueueList({
 
                   {/* Bottom Line: Clean Action Trigger */}
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <div className="text-[11px] text-slate-400">
-                      {isPending
-                        ? item.canDecide
-                          ? 'Actionable'
-                          : 'Audit only'
-                        : 'Audit trail archived'}
+                    <div className="flex items-center gap-1.5 text-[11px]">
+                      {isPending ? (
+                        item.canDecide ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Actionable
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-slate-600 font-medium bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                            {item.disabledReason?.includes('You submitted')
+                              ? 'Submitted by you'
+                              : item.disabledReason || 'Pending review'}
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-slate-400">Archived</span>
+                      )}
                     </div>
 
                     <button
@@ -275,8 +291,7 @@ export function ApprovalQueueList({
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       )}
                     >
-                      <span>{isPending ? (item.canDecide ? 'Review' : 'View') : 'View'}</span>
-                      
+                      <span>{isPending ? (item.canDecide ? 'Review & Decide' : 'View Details') : 'View Details'}</span>
                     </button>
                   </div>
                 </div>

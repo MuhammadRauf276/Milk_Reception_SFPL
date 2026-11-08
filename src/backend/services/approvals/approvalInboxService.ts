@@ -171,6 +171,7 @@ export async function getApprovalInbox(
   const limit = Math.min(Math.max(options.limit || 50, 1), 200);
 
   const actorSourceId = actor.procurementSourceId ? BigInt(actor.procurementSourceId) : null;
+  const isMpdHead = actor.role === 'HEAD_OF_MPD';
   const isZmccScoped = actor.role === 'ZMCC_MANAGER' || actor.role === 'MDO';
   const isContractorScoped = actor.role === 'CONTRACTOR_MANAGER';
   const isQaScoped = actor.role === 'QA_HEAD' || actor.role === 'QA_LAB_ATTENDANT';
@@ -183,10 +184,10 @@ export async function getApprovalInbox(
 
   // ===============================================================================================
   // Stage 1 Queries: MOT Shop Collections, New Routes, New Shops
-  // Only for ZMCC Manager / MDO or System Auditors (Super Admin, Data Executive)
+  // For ZMCC Manager / MDO, MPD Head, or System Authorities (Super Admin, Data Executive)
   // ===============================================================================================
   if (
-    (isZmccScoped || isSuperOrAuditor) &&
+    (isZmccScoped || isMpdHead || isSuperOrAuditor) &&
     (stageFilter === 'ALL' || stageFilter === 'STAGE_1')
   ) {
     // 1. MOT Shop Collections
@@ -511,10 +512,10 @@ export async function getApprovalInbox(
 
   // ===============================================================================================
   // Stage 2 Queries: ZMCC Lab Portions, New HCs
-  // Only for ZMCC Manager or System Auditors (Super Admin, Data Executive)
+  // For ZMCC Manager / MDO, MPD Head, or System Authorities (Super Admin, Data Executive)
   // ===============================================================================================
   if (
-    (isZmccScoped || isSuperOrAuditor) &&
+    (isZmccScoped || isMpdHead || isSuperOrAuditor) &&
     (stageFilter === 'ALL' || stageFilter === 'STAGE_2')
   ) {
     // 1. ZMCC Lab Portions
@@ -670,7 +671,129 @@ export async function getApprovalInbox(
       }
     }
 
-    // 2. New HC (Local Supplier) Requests
+    // 2. ZMCC Lab Sessions (Whole-intake arrivals: MOT and Local Suppliers)
+    if (!typeFilter || typeFilter === 'STAGE_2_SESSION_EXCEPTION') {
+      const sessionWhere: Prisma.ZmccLabSessionWhereInput = {};
+      if (statusFilter === 'PENDING') {
+        sessionWhere.manager_review_status = 'PENDING';
+      } else if (statusFilter === 'DECIDED') {
+        sessionWhere.manager_review_status = { in: ['APPROVED', 'REJECTED', 'REVIEWED_EXITED'] };
+      }
+      if (isZmccScoped && actorSourceId) {
+        sessionWhere.zmcc_id = actorSourceId;
+      }
+
+      const labSessions = await prisma.zmccLabSession.findMany({
+        where: sessionWhere,
+        include: {
+          completer: { select: { id: true, full_name: true, username: true, role: true } },
+          starter: { select: { id: true, full_name: true, username: true, role: true } },
+          manager_requester: { select: { id: true, full_name: true, username: true, role: true } },
+          manager_reviewer: { select: { id: true, full_name: true, username: true, role: true } },
+          zmcc: true,
+          mot_arrival: {
+            include: {
+              journey: {
+                include: {
+                  route: true,
+                  mot_vehicle: true,
+                  mot_profile: true,
+                },
+              },
+            },
+          },
+          local_supplier_arrival: {
+            include: {
+              local_supplier: true,
+            },
+          },
+          results: {
+            orderBy: { display_order_snapshot: 'asc' },
+          },
+        },
+        orderBy: statusFilter === 'DECIDED' ? { manager_reviewed_at: 'desc' } : { manager_review_requested_at: 'asc' },
+        take: limit,
+      });
+
+      for (const sess of labSessions) {
+        const submittedAt = sess.manager_review_requested_at || sess.completed_at || sess.created_at;
+        const { waitingMinutes, slaStatus } = calculateSla(submittedAt);
+
+        const testValues: TestValueSnapshot[] = sess.results.map((r) => ({
+          code: r.test_code_snapshot || 'TEST',
+          name: r.test_name_snapshot || 'Lab Test',
+          value: r.numeric_value !== null ? Number(r.numeric_value) : r.text_value,
+          pass: r.is_passed,
+          outcome: r.is_passed ? 'PASS' : 'FAIL',
+        }));
+
+        const zmccId = sess.zmcc_id.toString();
+        const zmccName = sess.zmcc?.name || 'ZMCC';
+        const submitterUser = sess.manager_requester || sess.completer || sess.starter;
+        const submitterId = submitterUser?.id?.toString() || '';
+        const submitterRole = submitterUser?.role || sess.completed_as_role || 'ZMCC_LAB_ATTENDANT';
+
+        const token = sess.mot_arrival?.zmcc_token || sess.local_supplier_arrival?.zmcc_token || `SES-${sess.id}`;
+        const vehicleNum = sess.mot_arrival?.journey?.mot_vehicle?.vehicle_number || sess.local_supplier_arrival?.vehicle_number;
+
+        const reasons: string[] = [];
+        if (sess.rejection_reason) reasons.push(sess.rejection_reason);
+        if (sess.system_quality_outcome === 'FAIL') reasons.push('Rule Mismatch');
+        if (reasons.length === 0) reasons.push('Quality Exception');
+
+        items.push({
+          id: `lab_session_${sess.id}`,
+          stage: 'STAGE_2',
+          approvalType: 'STAGE_2_SESSION_EXCEPTION',
+          referenceNumber: `Token: ${token}${vehicleNum ? ` (${vehicleNum})` : ''}`,
+          sourceId: zmccId,
+          sourceName: zmccName,
+          zmccId,
+          submittedBy: {
+            id: submitterId,
+            name: submitterUser?.full_name || submitterUser?.username || 'Zonal Lab Attendant',
+            role: submitterRole,
+            performedAsRole: sess.completed_as_role,
+            isDelegated: sess.completed_is_delegated,
+          },
+          submittedAt: submittedAt.toISOString(),
+          waitingMinutes,
+          slaStatus,
+          reasonChips: reasons,
+          canDecide: false,
+          disabledReason: null,
+          details: {
+            entityTitle: `Session #${sess.id} · ${sess.arrival_type} Arrival (${vehicleNum || token})`,
+            sourceName: zmccName,
+            sourceType: 'ZMCC',
+            vehicleNumber: vehicleNum,
+            grossLiters: Number(sess.gross_liters || 0),
+            testValues,
+            personDecision: sess.manager_requested_decision === 'REJECT' || sess.decision === 'REJECT' ? 'REJECT' : 'ACCEPT',
+            personRemarks: sess.rejection_reason || sess.remarks,
+            metadata: {
+              sessionId: sess.id.toString(),
+              arrivalType: sess.arrival_type,
+              systemQualityOutcome: sess.system_quality_outcome,
+            },
+          },
+          version: sess.correction_count,
+          status: sess.manager_review_status === 'APPROVED' ? 'APPROVED' : (sess.manager_review_status === 'REJECTED' || sess.manager_review_status === 'REVIEWED_EXITED') ? 'REJECTED' : 'PENDING',
+          decision:
+            sess.manager_reviewed_at && sess.manager_reviewer
+              ? {
+                  decidedBy: sess.manager_reviewer.full_name || sess.manager_reviewer.username,
+                  decidedAt: sess.manager_reviewed_at.toISOString(),
+                  decidedAsRole: sess.manager_reviewed_as_role,
+                  verdict: sess.manager_review_status === 'APPROVED' ? 'OKAY' : 'NO',
+                  remarks: sess.manager_review_reason,
+                }
+              : null,
+        });
+      }
+    }
+
+    // 3. New HC (Local Supplier) Requests
     if (!typeFilter || typeFilter === 'STAGE_2_NEW_HC') {
       const hcWhere: Prisma.ZmccLocalSupplierWhereInput = {};
       if (statusFilter === 'PENDING') {
@@ -756,8 +879,10 @@ export async function getApprovalInbox(
   ) {
     const dispatchWhere: Prisma.VehicleVisitWhereInput = {};
     if (statusFilter === 'PENDING') {
-      dispatchWhere.approval_status = 'PENDING';
-      dispatchWhere.current_status = 'PENDING_APPROVAL';
+      dispatchWhere.OR = [
+        { approval_status: 'PENDING' },
+        { current_status: 'PENDING_APPROVAL' },
+      ];
     } else if (statusFilter === 'DECIDED') {
       dispatchWhere.approval_status = { in: ['APPROVED', 'RETURNED'] };
     }
@@ -1022,14 +1147,10 @@ export async function getApprovalInbox(
     item.disabledReason = decisionCheck.disabledReason || null;
   }
 
-  // Filter out non-actionable items for operational roles in PENDING mode:
-  // An operational approver's pending queue must only show items they can actually decide.
-  // Governance and auditor roles may review all pending items across stages.
-  const isAuditorOrViewer = ['DATA_EXECUTIVE', 'SUPER_ADMIN'].includes(actor.role);
-  const activeItems =
-    statusFilter === 'PENDING' && !isAuditorOrViewer
-      ? scopedItems.filter((item) => item.canDecide === true)
-      : scopedItems;
+  // Maintain all scoped items in the queue so users never see a false "All clear"
+  // when requests are pending in their domain. Items the actor can decide have canDecide = true;
+  // others are marked audit only / in review.
+  const activeItems = scopedItems;
 
   // Sort: Pending items by SLA urgency (BREACHED first, then WARNING, then NORMAL; within group, oldest waiting first)
   // Decided items by decidedAt desc

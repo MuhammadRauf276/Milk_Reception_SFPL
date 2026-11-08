@@ -130,33 +130,6 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
         </div>
       </div>
 
-      <div className="lg:hidden">
-        <SegmentedTabs
-          tabs={[
-            {
-              value: 'READY',
-              label: 'Ready',
-              count: readyVisits.length,
-              icon: Truck,
-            },
-            {
-              value: 'UNLOADING',
-              label: 'Unloading',
-              count: unloadingVisits.length,
-              icon: ArrowDownCircle,
-            },
-            {
-              value: 'SILO_ISSUE',
-              label: 'Silos',
-              count: siloIssueList.length,
-              icon: Database,
-            },
-          ]}
-          value={activeTab}
-          onValueChange={setActiveTab}
-          label="Unloading Stations"
-        />
-      </div>
 
       {activeTab === 'SILO_ISSUE' ? (
         <div className="space-y-3">

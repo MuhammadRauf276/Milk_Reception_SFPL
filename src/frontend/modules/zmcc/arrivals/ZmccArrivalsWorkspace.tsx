@@ -142,11 +142,6 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
 
   return (
     <div className="space-y-6">
-      {!hideTabBar && (
-        <div className="lg:hidden">
-          <SegmentedTabs label="Arrival views" value={activeTab} onValueChange={setActiveTab} tabs={tabs} />
-        </div>
-      )}
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={activeTab} variants={fadeSlide} initial="initial" animate="animate" exit="exit">

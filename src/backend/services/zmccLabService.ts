@@ -491,15 +491,15 @@ export async function createCanonicalTankReceiptTx(
       zmcc_id: zmccId,
       tank_id: targetTankId,
       arrival_type: arrivalType,
-      quantity_value: new Prisma.Decimal(quantityNum.toFixed(2)),
+      quantity_value: new Prisma.Decimal(quantityNum.toFixed(3)),
       quantity_unit: quantityUnitNorm as QuantityUnit,
       density: new Prisma.Decimal(metrics.density.toFixed(4)),
-      gross_liters: new Prisma.Decimal(metrics.grossLiters.toFixed(2)),
+      gross_liters: new Prisma.Decimal(metrics.grossLiters.toFixed(3)),
       lr: new Prisma.Decimal(lr.toFixed(2)),
       fat: new Prisma.Decimal(fat.toFixed(2)),
-      snf: new Prisma.Decimal(metrics.snf.toFixed(2)),
-      ts: new Prisma.Decimal(metrics.ts.toFixed(2)),
-      at_13ts_liters: new Prisma.Decimal(metrics.at13tsLiters.toFixed(2)),
+      snf: new Prisma.Decimal(metrics.snf.toFixed(3)),
+      ts: new Prisma.Decimal(metrics.ts.toFixed(3)),
+      at_13ts_liters: new Prisma.Decimal(metrics.at13tsLiters.toFixed(3)),
       calculation_version: metrics.calculationVersion,
       received_at: receivedAt,
       received_by_user_id: actorUserId,
@@ -515,8 +515,8 @@ export async function createCanonicalTankReceiptTx(
       tank_id: targetTankId,
       zmcc_id: zmccId,
       transaction_type: 'RECEIPT',
-      quantity_liters: new Prisma.Decimal(metrics.grossLiters.toFixed(2)),
-      at_13ts_liters: new Prisma.Decimal(metrics.at13tsLiters.toFixed(2)),
+      quantity_liters: new Prisma.Decimal(metrics.grossLiters.toFixed(3)),
+      at_13ts_liters: new Prisma.Decimal(metrics.at13tsLiters.toFixed(3)),
       tank_receipt_id: tankReceipt.id,
       reference_type: 'ZMCC_LAB_SESSION',
       reference_id: sessionId.toString(),
@@ -1848,46 +1848,37 @@ export async function completeSession(
       orderBy: { id: 'asc' },
     });
 
-    if (payload.tank_id !== undefined && payload.tank_id !== null && String(payload.tank_id).trim() !== '') {
-      try {
-        const suppliedTankId = BigInt(String(payload.tank_id).trim());
-        const suppliedTank = await prisma.zmccTank.findUnique({ where: { id: suppliedTankId } });
-        if (!suppliedTank) {
-          return { status: 404, error: 'Selected ZMCC tank not found.' };
-        }
-        if (suppliedTank.zmcc_id !== session.zmcc_id) {
-          return { status: 403, error: 'Forbidden. Destination tank belongs to another ZMCC.' };
-        }
-        if (!suppliedTank.is_active) {
-          return { status: 400, error: 'Destination ZMCC tank is inactive.' };
-        }
-      } catch {
-        return { status: 400, error: 'Invalid tank_id format.' };
-      }
-    }
-
     if (activeTanks.length === 0) {
       return { status: 400, error: 'No active ZMCC tank is configured.' };
     }
-    if (activeTanks.length > 1) {
-      return {
-        status: 400,
-        error: 'Configuration error: Multiple active tanks exist for this ZMCC. Exactly one active tank is permitted.',
-      };
-    }
-
-    const soleTank = activeTanks[0];
-    targetTankId = soleTank.id;
 
     if (payload.tank_id !== undefined && payload.tank_id !== null && String(payload.tank_id).trim() !== '') {
       try {
         const suppliedTankId = BigInt(String(payload.tank_id).trim());
-        if (suppliedTankId !== soleTank.id) {
-          return { status: 400, error: 'Selected tank does not match the active ZMCC tank.' };
+        const suppliedTank = activeTanks.find((t) => t.id === suppliedTankId);
+        if (!suppliedTank) {
+          const anyTank = await prisma.zmccTank.findUnique({ where: { id: suppliedTankId } });
+          if (!anyTank) {
+            return { status: 404, error: 'Selected ZMCC tank not found.' };
+          }
+          if (anyTank.zmcc_id !== session.zmcc_id) {
+            return { status: 403, error: 'Forbidden. Destination tank belongs to another ZMCC.' };
+          }
+          if (!anyTank.is_active) {
+            return { status: 400, error: 'Destination ZMCC tank is inactive.' };
+          }
         }
+        targetTankId = suppliedTankId;
       } catch {
         return { status: 400, error: 'Invalid tank_id format.' };
       }
+    } else if (activeTanks.length === 1) {
+      targetTankId = activeTanks[0].id;
+    } else {
+      return {
+        status: 400,
+        error: 'Multiple active tanks exist for this ZMCC. Please select a destination tank.',
+      };
     }
   }
 
@@ -2969,8 +2960,8 @@ export async function correctCompletedSession(
               tank_id: receiptRow.tank_id,
               zmcc_id: session.zmcc_id,
               transaction_type: txType,
-              quantity_liters: new Prisma.Decimal(Math.abs(deltaGross).toFixed(2)),
-              at_13ts_liters: hasCommercialDelta ? new Prisma.Decimal(Math.abs(deltaAt13).toFixed(2)) : new Prisma.Decimal('0.00'),
+              quantity_liters: new Prisma.Decimal(Math.abs(deltaGross).toFixed(3)),
+              at_13ts_liters: hasCommercialDelta ? new Prisma.Decimal(Math.abs(deltaAt13).toFixed(3)) : new Prisma.Decimal('0.000'),
               tank_receipt_id: receiptRow.id,
               reference_type: 'ZMCC_LAB_SESSION_CORRECTION',
               reference_id: `${sessionId}:${newTotalCount}:PHYSICAL`,
@@ -2990,8 +2981,8 @@ export async function correctCompletedSession(
               tank_id: receiptRow.tank_id.toString(),
               zmcc_id: session.zmcc_id.toString(),
               transaction_type: txType,
-              quantity_liters: Math.abs(deltaGross).toFixed(2),
-              at_13ts_liters: hasCommercialDelta ? Math.abs(deltaAt13).toFixed(2) : '0.00',
+              quantity_liters: Math.abs(deltaGross).toFixed(3),
+              at_13ts_liters: hasCommercialDelta ? Math.abs(deltaAt13).toFixed(3) : '0.000',
               tank_receipt_id: receiptRow.id.toString(),
               lab_session_id: sessionId.toString(),
               correction_count: newTotalCount,

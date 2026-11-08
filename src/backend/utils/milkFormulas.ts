@@ -35,7 +35,7 @@ export function calculateRatio(snf: number, fat: number): number {
  * Formula: Density = 1 + (LR / 1000)
  */
 export function calculateDensity(lr: number): number {
-  if (isNaN(lr)) return 1.0;
+  if (isNaN(lr) || lr < 0) return 1.0;
   return 1 + lr / 1000;
 }
 
@@ -46,7 +46,8 @@ export function calculateDensity(lr: number): number {
 export function calculatePhysicalLiters(kg: number, lr: number): number {
   if (isNaN(kg) || kg <= 0) return 0;
   const density = calculateDensity(lr);
-  return kg / density;
+  if (density <= 0) return 0;
+  return Number((kg / density).toFixed(3));
 }
 
 /**
@@ -66,7 +67,7 @@ export function calculateAt13TSLiters(physicalLiters: number, tsPercent: number)
  */
 export function calculateEquivalentKgFromLiters(liters: number, density: number): number {
   if (isNaN(liters) || isNaN(density) || liters <= 0) return 0;
-  return Number((liters * density).toFixed(2));
+  return Number((liters * density).toFixed(3));
 }
 
 /**
@@ -83,16 +84,16 @@ export function calculateGrossLiters(
     return null;
   }
   const normalizedUnit = (unit || '').trim().toUpperCase();
-  if (normalizedUnit === 'LITER') {
+  if (['LITER', 'LITRE', 'LITRES', 'L'].includes(normalizedUnit)) {
     return quantity;
   }
-  if (normalizedUnit === 'KG') {
+  if (['KG', 'KGS', 'KILOGRAM', 'KILOGRAMS'].includes(normalizedUnit)) {
     if (lr === null || lr === undefined || isNaN(lr) || lr <= 0) {
       return null;
     }
     const density = calculateDensity(lr);
     if (density <= 0) return null;
-    return quantity / density;
+    return Number((quantity / density).toFixed(3));
   }
   return null;
 }
@@ -148,13 +149,13 @@ export function computeCanonicalMilkMetrics(
 
   return {
     density: Number(rawDensity.toFixed(4)),
-    grossLiters: Number(rawGrossLiters.toFixed(2)),
-    snf: Number(rawSnf.toFixed(2)),
-    ts: Number(rawTs.toFixed(2)),
-    totalSolids: Number(rawTs.toFixed(2)),
-    at13tsLiters: Number(rawAt13tsLiters.toFixed(2)),
-    at13TsLiters: Number(rawAt13tsLiters.toFixed(2)),
-    at_13ts_liters: Number(rawAt13tsLiters.toFixed(2)),
+    grossLiters: Number(rawGrossLiters.toFixed(3)),
+    snf: Number(rawSnf.toFixed(3)),
+    ts: Number(rawTs.toFixed(3)),
+    totalSolids: Number(rawTs.toFixed(3)),
+    at13tsLiters: Number(rawAt13tsLiters.toFixed(3)),
+    at13TsLiters: Number(rawAt13tsLiters.toFixed(3)),
+    at_13ts_liters: Number(rawAt13tsLiters.toFixed(3)),
     calculationVersion: MOT_CALCULATION_VERSION,
   };
 }
@@ -208,7 +209,7 @@ export function computeWeightedMilkMetrics(batches: WeightedMilkBatch[]): Weight
   const weightedSnf = weightedLr !== null && weightedFat !== null ? Number(calculateSNF(weightedLr, weightedFat).toFixed(2)) : null;
   const weightedTs = weightedFat !== null && weightedSnf !== null ? Number(calculateTS(weightedFat, weightedSnf).toFixed(2)) : null;
   const totalAt13tsLiters = weightedTs !== null && totalGross > 0
-    ? Number(calculateAt13TSLiters(totalGross, weightedTs).toFixed(2))
+    ? Number(calculateAt13TSLiters(totalGross, weightedTs).toFixed(3))
     : 0;
 
   return {

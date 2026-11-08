@@ -68,10 +68,12 @@ export function ApprovalInbox({
     const canSeeStage1 =
       role === 'ZMCC_MANAGER' ||
       role === 'MDO' ||
+      role === 'HEAD_OF_MPD' ||
       isSuperOrAuditor;
 
     const canSeeStage2 =
       role === 'ZMCC_MANAGER' ||
+      role === 'HEAD_OF_MPD' ||
       isSuperOrAuditor;
 
     const canSeeStage3 =
