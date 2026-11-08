@@ -34,7 +34,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                         Phone Number *
@@ -82,7 +82,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                       className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-secondary-foreground mb-1">Origin</label>
                       <input

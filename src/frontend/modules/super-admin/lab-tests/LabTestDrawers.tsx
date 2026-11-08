@@ -825,7 +825,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                 <InfoTip text="Borderline tolerance readings that hold for QA review instead of passing or rejecting." />
               </div>
 
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-1.5">
                 <button
                   type="button"
                   onClick={() => {

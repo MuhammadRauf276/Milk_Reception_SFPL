@@ -1568,7 +1568,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         </div>
 
         <div className="w-full lg:col-span-7 space-y-5 order-1 lg:order-2">
-          <nav aria-label="Dispatch steps" className="grid grid-cols-2 gap-2">
+          <nav aria-label="Dispatch steps" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
             {(['1. Vehicle', '2. Portions'] as const).map((label, i) => (
               <button
                 key={label}
@@ -1639,7 +1639,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           {/* Test Mode Selector */}
           <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border-strong shadow-xs space-y-2">
             <label className="block text-xs font-semibold text-secondary-foreground">Test mode</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
               <button
                 type="button"
                 onClick={() => handleTestModeChange('COMPOSITE')}

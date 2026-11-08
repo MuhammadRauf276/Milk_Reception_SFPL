@@ -171,7 +171,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
       icon={<Scale className="mt-0.5 h-5 w-5 text-secondary-foreground" />}
     >
       {manualAllowed ? (
-        <div role="group" aria-label="Entry mode" className="grid grid-cols-2 gap-2">
+        <div role="group" aria-label="Entry mode" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
           {(['WEIGHT', 'MANUAL'] as const).map((m) => (
             <button
               key={m}

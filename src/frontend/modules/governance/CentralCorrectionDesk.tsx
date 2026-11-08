@@ -1113,7 +1113,7 @@ export const CentralCorrectionDesk: React.FC = () => {
 
           <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
             {/* Requester Info Card */}
-            <div className="bg-card border-border p-3.5 rounded-2xl border grid grid-cols-2 gap-2 text-secondary-foreground">
+            <div className="bg-card border-border p-3.5 rounded-2xl border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 text-secondary-foreground">
               <div>
                 <span className="text-xs font-semibold text-muted-foreground">Requested By</span>
                 <p className="font-semibold text-foreground">{selectedRequest?.requestedBy.name}</p>
@@ -1280,7 +1280,7 @@ export const CentralCorrectionDesk: React.FC = () => {
 
               {/* CHEMISTRY INPUTS (LR & FAT) */}
               {(selectedStage === '1' || selectedStage === '3') && (
-                <div className="bg-card border-border grid grid-cols-2 gap-3 p-3 rounded-xl border">
+                <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3 rounded-xl border">
                   <div>
                     <label className="block font-semibold text-secondary-foreground mb-1">
                       Corrected LR

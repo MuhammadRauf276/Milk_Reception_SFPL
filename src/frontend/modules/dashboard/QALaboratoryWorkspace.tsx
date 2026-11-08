@@ -143,7 +143,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
         }
       />
 
-      <nav aria-label="QA Laboratory queues" className="grid grid-cols-3 gap-2 lg:hidden">
+      <nav aria-label="QA Laboratory queues" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 lg:hidden">
         <button
           type="button"
           aria-current={activeTab === 'WAITING' ? 'page' : undefined}

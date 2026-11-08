@@ -11,7 +11,7 @@
  * Safe to run: it never signs anyone in with a password, and it aborts every
  * non-GET request, so no click in this script can change data.
  *
- * Usage: npm run test:layout -- [outDir] [--quick] [--only=id,id]
+ * Usage: npm run test:layout -- [outDir] [--quick] [--only=id,id] [--widths=280,2560]
  * Exit code 1 when a blocking problem is found.
  */
 import 'dotenv/config';
@@ -27,9 +27,10 @@ const QUICK = args.includes('--quick');
 const OUT = args.find((a) => !a.startsWith('--')) || 'artifacts/ui-layout-audit';
 const CHROME_PATH = 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe';
 
-const WIDTHS = QUICK
+const CUSTOM_WIDTHS = args.find((a) => a.startsWith('--widths='))?.slice(9).split(',').map((w) => [Number(w), 800]);
+const WIDTHS = CUSTOM_WIDTHS ?? (QUICK
   ? [[320, 568], [360, 800], [1366, 768]]
-  : [[280, 653], [320, 568], [360, 800], [390, 844], [412, 915], [768, 1024], [1024, 768], [1366, 768], [1536, 864], [1920, 1080], [2560, 1440]];
+  : [[280, 653], [320, 568], [360, 800], [390, 844], [412, 915], [768, 1024], [1024, 768], [1366, 768], [1536, 864], [1920, 1080], [2560, 1440]]);
 
 const SA = 'admin.superuser';
 const ZM = 'zmcc.manager.hasilpur';
@@ -121,12 +122,19 @@ const MEASURE = `(() => {
   root.querySelectorAll('svg').forEach((s) => {
     const r = s.getBoundingClientRect();
     if (!shown(r) || r.width > 48 || s.closest('.maplibregl-map')) return;
-    const box = s.parentElement && s.parentElement.closest('[class*="border"], button, a');
-    if (!box) return;
-    const c = box.getBoundingClientRect();
-    if (scroller(s, box)) return;
-    const over = Math.max(r.right - c.right, c.left - r.left, r.bottom - c.bottom, c.top - r.top);
-    if (over > 1) iconsOut.push(label(box) + ' by=' + Math.round(over));
+    // Check the icon against its button and against the card around it, and against the screen.
+    const boxes = [s.parentElement && s.parentElement.closest('[class*="border"], button, a'), s.closest('li, [class*="rounded-2xl"], [class*="rounded-xl"]')];
+    let reported = false;
+    boxes.forEach((box) => {
+      if (!box || reported || scroller(s, box)) return;
+      const c = box.getBoundingClientRect();
+      const over = Math.max(r.right - c.right, c.left - r.left, r.bottom - c.bottom, c.top - r.top);
+      if (over > 1) {
+        iconsOut.push(label(box) + ' by=' + Math.round(over));
+        reported = true;
+      }
+    });
+    if (!reported && !scroller(s) && (r.right > vw + 1 || r.left < -1)) iconsOut.push('screen edge ' + label(s) + ' x=' + Math.round(r.left));
   });
   const clippedFigures = [];
   let smallText = 0;
@@ -142,7 +150,8 @@ const MEASURE = `(() => {
   });
   let tinyTargets = 0;
   root.querySelectorAll('button,a[href],input:not([type=hidden]),select').forEach((e) => {
-    const r = e.getBoundingClientRect();
+    const hit = e.matches('input[type=checkbox],input[type=radio]') && e.closest('label') ? e.closest('label') : e;
+    const r = hit.getBoundingClientRect();
     if (shown(r) && (r.height < 36 || r.width < 36)) tinyTargets++;
   });
   const uniq = (a) => [...new Set(a)];

@@ -773,7 +773,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
                 <div>
                   <label className="block font-semibold text-secondary-foreground mb-1">Display Order</label>
                   <input
@@ -809,7 +809,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                     <label className="block font-semibold text-secondary-foreground mb-1">
                       Acceptable Range ({selectedTestObj.unit || 'Numeric'})
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
                       <div>
                         <span className="text-xs text-muted-foreground block mb-0.5">Min Value</span>
                         <input
@@ -932,7 +932,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                   <label className="block font-semibold text-secondary-foreground mb-1">
                     Acceptable Range ({criteriaTargetPolicy.labTest?.unit || 'Numeric'})
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
                     <div>
                       <span className="text-xs text-muted-foreground block mb-0.5">Min Value</span>
                       <input

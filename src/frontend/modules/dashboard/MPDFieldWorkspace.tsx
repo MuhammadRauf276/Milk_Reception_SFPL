@@ -332,7 +332,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                     </span>
                   </div>
 
-                  <div className="bg-card border-border grid grid-cols-2 gap-2 p-2.5 rounded-xl border text-xs tabular-nums font-semibold">
+                  <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 p-2.5 rounded-xl border text-xs tabular-nums font-semibold">
                     <div>
                       <span className="text-muted-foreground font-sans block text-xs font-semibold">Vehicle Quantity</span>
                       <span className="text-foreground font-semibold text-sm">

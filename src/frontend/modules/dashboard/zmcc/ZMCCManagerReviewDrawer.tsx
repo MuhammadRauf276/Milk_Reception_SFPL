@@ -125,7 +125,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
             )}
 
             {/* Session Meta */}
-            <div className="bg-card border-border grid grid-cols-2 gap-2 text-xs tabular-nums p-3 rounded-xl border">
+            <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 text-xs tabular-nums p-3 rounded-xl border">
               <div>
                 <span className="text-muted-foreground text-xs block font-sans font-semibold">Arrival Type</span>
                 <span className="font-semibold text-foreground">{session.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}</span>
@@ -149,7 +149,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
             {/* Decision Radio Choice */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground block">Manager Decision</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
                 <button
                   type="button"
                   onClick={() => setReviewDecision('ACCEPTED')}

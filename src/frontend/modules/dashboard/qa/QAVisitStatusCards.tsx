@@ -112,7 +112,7 @@ export const QAHeldVisitCard: React.FC<{
       <p className="text-xs font-semibold text-amber-950">{visit.hold_reason}</p>
     </div>
 
-    <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+    <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
       <div>
         <span className="text-muted-foreground font-sans block text-xs font-semibold">Chemist</span>
         <span className="text-foreground">{visit.chemist_name}</span>

@@ -84,7 +84,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
             </div>
 
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-4">
               <div>
                 <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                   Corrected Decision

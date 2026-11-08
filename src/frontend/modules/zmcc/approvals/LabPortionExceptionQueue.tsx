@@ -223,7 +223,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
               )}
 
               {item.photos.length > 0 && (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
                   {item.photos.map((p) => (
                     <div key={p.captureId} className="overflow-hidden rounded-xl border border-border">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -247,7 +247,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                   className="min-h-11 w-full rounded-lg border border-border-strong p-2 text-base"
                 />
                 {itemError[item.id] && <p className="text-sm font-semibold text-rose-700">{itemError[item.id]}</p>}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
                   <button
                     type="button"
                     disabled={busyId === item.id}

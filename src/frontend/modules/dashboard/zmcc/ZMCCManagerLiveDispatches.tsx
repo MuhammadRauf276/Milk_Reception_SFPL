@@ -336,7 +336,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                     <ManagerLifecycleTracker lifecycle={lc} compact={true} />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs tabular-nums pt-2 border-t border-border/80 bg-subtle/40 -mx-5 -mb-3.5 p-3 rounded-b-xl">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 text-xs tabular-nums pt-2 border-t border-border/80 bg-subtle/40 -mx-5 -mb-3.5 p-3 rounded-b-xl">
                     <div>
                       <span className="text-xs text-muted-foreground block">Dispatch (@13 TS):</span>
                       <span className="font-semibold text-foreground">
@@ -407,7 +407,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                     <button
                       key={`page-${pg}`}
                       onClick={() => goToPage(pg)}
-                      className={`w-7 h-7 rounded-lg text-xs font-semibold tabular-nums transition ${
+                      className={`min-w-11 min-h-11 rounded-lg text-xs font-semibold tabular-nums transition ${
                         validCurrentPage === pg
                           ? 'bg-primary text-white shadow-2xs'
                           : 'bg-subtle text-secondary-foreground border border-border hover:bg-muted'

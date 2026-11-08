@@ -230,7 +230,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 text-xs tabular-nums font-semibold min-w-0">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2.5 text-xs tabular-nums font-semibold min-w-0">
             <div className="bg-card border-border p-3 rounded-xl border-strong space-y-0.5 min-w-0">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-muted-foreground break-words min-w-0">Avg LR</span>
@@ -258,7 +258,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 text-xs tabular-nums font-semibold min-w-0">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2.5 text-xs tabular-nums font-semibold min-w-0">
             <div className="bg-card border-border p-3 rounded-xl border-strong space-y-0.5 min-w-0">
               <span className="text-xs font-semibold text-muted-foreground block break-words min-w-0">Gross L</span>
               <span className="text-base font-semibold text-foreground tabular-nums block break-words min-w-0">

@@ -395,7 +395,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   </p>
                 </div>
 
-                <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+                <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
                   <div>
                     <span className="text-muted-foreground font-sans block text-xs">Portions</span>
                     <span>{selectedEntryVisit.portion_count} Portion{selectedEntryVisit.portion_count > 1 ? 's' : ''}</span>
@@ -571,7 +571,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   </p>
                 </div>
 
-                <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+                <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
                   <div>
                     <span className="text-muted-foreground font-sans block text-xs">Exit reason</span>
                     <span className={selectedExitVisit.is_all_rejected ? 'text-rose-700 font-semibold' : 'text-emerald-700 font-semibold'}>
@@ -586,7 +586,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 </div>
 
                 {!selectedExitVisit.is_all_rejected && (
-                  <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+                  <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
                     <div>
                       <span className="text-muted-foreground font-sans block text-xs">Gross weight</span>
                       <span className="font-mono text-base tabular-nums">{selectedExitVisit.gross_weight_kg ? `${selectedExitVisit.gross_weight_kg.toLocaleString()} kg` : '—'}</span>
@@ -625,7 +625,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
                     <button
                       type="button"
                       onClick={() => setTankerWashed(true)}

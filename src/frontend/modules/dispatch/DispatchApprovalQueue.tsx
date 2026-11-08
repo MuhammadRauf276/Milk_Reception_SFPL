@@ -526,7 +526,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                     className="w-full text-xs font-semibold p-3 border rounded-xl outline-hidden focus:ring-2 focus:ring-primary bg-subtle"
                   />
 
-                  <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 pt-2">
                     <button
                       type="button"
                       disabled={busy}

@@ -203,7 +203,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
         </div>
 
         {/* Step Tabs */}
-        <div className="mt-2.5 grid grid-cols-2 gap-2" role="tablist">
+        <div className="mt-2.5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2" role="tablist">
           {STEPS.map((label, i) => (
             <button
               key={label}
@@ -364,7 +364,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
 
                 {/* Live Yield calculations */}
                 {livePreview && parseFloat(quantity) > 0 && (
-                  <div className="bg-card border-border grid grid-cols-2 gap-2 rounded-xl border p-2.5">
+                  <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 rounded-xl border p-2.5">
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground">Gross Liters</p>
                       <p className="text-base font-semibold tabular-nums text-foreground">{livePreview.grossLiters} L</p>
@@ -461,7 +461,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
 
           <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
             {livePreview && (
-              <div className="bg-card border-border grid grid-cols-2 gap-2 rounded-xl border p-3">
+              <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 rounded-xl border p-3">
                 <div>
                   <span className="text-xs font-semibold text-muted-foreground">Gross Quantity</span>
                   <p className="text-lg font-semibold tabular-nums text-foreground">{livePreview.grossLiters} L</p>

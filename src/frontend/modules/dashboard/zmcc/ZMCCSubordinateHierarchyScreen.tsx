@@ -527,7 +527,7 @@ export function ZMCCSubordinateHierarchyScreen({
               ><X className="w-4 h-4" /></button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 text-xs">
               <div className="bg-subtle p-3 rounded-lg">
                 <span className="text-xs text-slate-500 block">Owner</span>
                 <span className="font-semibold text-foreground">{selectedShop.ownerName}</span>

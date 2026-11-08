@@ -259,7 +259,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
                   type="button"
                   disabled={activePage <= 1}
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="flex h-8 items-center gap-1 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  className="flex min-h-11 items-center gap-1 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   <span>Previous</span>
@@ -271,7 +271,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
                   type="button"
                   disabled={activePage >= totalPages}
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className="flex h-8 items-center gap-1 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  className="flex min-h-11 items-center gap-1 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   <span>Next</span>
                   <ChevronRight className="h-3.5 w-3.5" />

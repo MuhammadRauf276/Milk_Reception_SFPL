@@ -438,7 +438,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 pt-2 border-t border-border/40 text-xs">
                     <div>
                       <span className="text-xs font-sans text-muted-foreground block">Destination Silo:</span>
                       <span className="font-semibold text-foreground">

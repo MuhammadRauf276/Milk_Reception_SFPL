@@ -87,7 +87,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
           </div>
 
           {/* Key details: Vehicle & Collector */}
-          <div className="mt-3 pt-2.5 border-t border-border text-xs text-secondary-foreground grid grid-cols-2 gap-2">
+          <div className="mt-3 pt-2.5 border-t border-border text-xs text-secondary-foreground grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
             <div className="flex items-center gap-1.5 min-w-0" title={`Vehicle: ${j.mot_vehicle?.vehicle_number || '—'}`}>
               <Truck className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <span className="break-words min-w-0 font-semibold text-foreground">{j.mot_vehicle?.vehicle_number || '—'}</span>
@@ -224,7 +224,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs text-secondary-foreground">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 text-xs text-secondary-foreground">
                 <div>Vehicle: <strong className="text-foreground">{selectedJourney.mot_vehicle?.vehicle_number}</strong></div>
                 <div>Mobile Tester: <strong className="text-foreground">{selectedJourney.mot_profile?.name}</strong></div>
               </div>

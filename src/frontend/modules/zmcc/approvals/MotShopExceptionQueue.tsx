@@ -374,7 +374,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 {activeModalItem.photos.length > 0 && (
                   <div>
                     <h4 className="mb-1.5 text-xs font-semibold text-foreground">Photo Evidence</h4>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
                       {activeModalItem.photos.map((p) => (
                         <div key={p.captureId} className="bg-card border-border overflow-hidden rounded-xl border">
                           {p.received ? (
@@ -432,7 +432,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2.5">
                       <button
                         type="button"
                         disabled={busyId === activeModalItem.id}

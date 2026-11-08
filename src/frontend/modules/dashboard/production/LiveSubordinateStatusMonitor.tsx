@@ -69,7 +69,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
         )}
 
         {/* Weighbridge Queues */}
-        <div className="grid grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 pt-1">
           <div className="p-3 rounded-lg border bg-background/50">
             <span className="text-xs text-muted-foreground">Waiting for Gross (1st)</span>
             <p className="text-xl font-semibold text-foreground mt-1">
@@ -156,7 +156,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
         )}
 
         {/* Reception Queue */}
-        <div className="grid grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 pt-1">
           <div className="p-3 rounded-lg border bg-background/50">
             <span className="text-xs text-muted-foreground">Waiting for Bay Allocation</span>
             <p className="text-xl font-semibold text-foreground mt-1">

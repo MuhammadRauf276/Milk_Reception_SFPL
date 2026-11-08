@@ -220,7 +220,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
             </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
             <div>
               <label htmlFor="intake-fat" className={fieldLabelClass}>
                 Fat % *

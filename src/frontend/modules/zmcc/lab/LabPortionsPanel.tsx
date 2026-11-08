@@ -538,7 +538,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               </div>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
             <button
               type="button"
               onClick={() => handleModeSwitch('COMPOSITE')}
@@ -1023,7 +1023,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                     {/* Decision Choice */}
                     <div>
                       <p className="mb-1 text-xs font-semibold text-foreground">Your Decision</p>
-                      <div className="grid grid-cols-2 gap-2.5">
+                      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2.5">
                         <button
                           type="button"
                           onClick={() => setDraft(modalPortion.id, { person: 'REJECT' })}

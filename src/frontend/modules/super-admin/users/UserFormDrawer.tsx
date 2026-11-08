@@ -15,6 +15,7 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import { DrawerActions, FormDrawer, fieldInputClass, fieldLabelClass } from '../shared/FormDrawer';
 import type { UserItem, UserSource } from './types';
+import { useSmartValidation } from '@/components/ui/form-field';
 
 const ROLE_OPTIONS = CREATABLE_ROLES.map((r) => ({
   value: r,
@@ -45,6 +46,19 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
   const [role, setRole] = useState<CreatableRole>(initialRole);
   const [sourceId, setSourceId] = useState(user?.procurementSourceId || '');
   const [error, setError] = useState<string | null>(null);
+  const validation = useSmartValidation(
+    { username, email, phone, cnic, password },
+    isEdit
+      ? {}
+      : {
+          username: (v) => (String(v).trim() ? null : 'Enter a username'),
+          email: (v) => (!String(v).trim() ? 'Enter an email address' : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim()) ? null : 'Check this email address'),
+          phone: (v) => (String(v).trim() ? null : 'Enter a mobile number'),
+          cnic: (v) => (String(v).trim() ? null : 'Enter a CNIC'),
+          password: (v) => (String(v).length >= 8 ? null : 'Use at least 8 characters'),
+        }
+  );
+
 
   const sourcesQuery = useQuery({
     queryKey: ['super-admin', 'procurement-sources', 'all'],
@@ -90,6 +104,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
     setError(null);
 
     if (!isEdit) {
+      validation.validateAll();
       const trimmedUsername = username.trim();
       if (!trimmedUsername) return setError('Username is required.');
       const trimmedEmail = email.trim();
@@ -173,6 +188,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
             </label>
             <input
               id={`${p}-username`}
+              {...validation.blurProps('username')}
               type="text"
               required={!isEdit}
               readOnly={isEdit}
@@ -182,6 +198,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               placeholder="e.g. john.doe"
               disabled={busy}
             />
+            {validation.errorFor('username') ? <p role="alert" className="mt-1 text-xs text-destructive">{validation.errorFor('username')}</p> : null}
           </div>
           <div>
             <label htmlFor={`${p}-email`} className={fieldLabelClass}>
@@ -196,6 +213,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
             </label>
             <input
               id={`${p}-email`}
+              {...validation.blurProps('email')}
               type="email"
               required={!isEdit}
               maxLength={254}
@@ -205,6 +223,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               placeholder={isEdit ? user!.email || 'e.g. user@example.com' : 'e.g. john.doe@example.com'}
               disabled={busy}
             />
+            {validation.errorFor('email') ? <p role="alert" className="mt-1 text-xs text-destructive">{validation.errorFor('email')}</p> : null}
           </div>
           <div>
             <label htmlFor={`${p}-name`} className={fieldLabelClass}>
@@ -226,6 +245,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
             </label>
             <input
               id={`${p}-phone`}
+              {...validation.blurProps('phone')}
               type="tel"
               inputMode="tel"
               required={!isEdit}
@@ -235,6 +255,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               placeholder="e.g. 0300-1234567"
               disabled={busy}
             />
+            {validation.errorFor('phone') ? <p role="alert" className="mt-1 text-xs text-destructive">{validation.errorFor('phone')}</p> : null}
           </div>
           <div>
             <label htmlFor={`${p}-cnic`} className={fieldLabelClass}>
@@ -242,6 +263,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
             </label>
             <input
               id={`${p}-cnic`}
+              {...validation.blurProps('cnic')}
               type="text"
               inputMode="numeric"
               required={!isEdit}
@@ -251,6 +273,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               placeholder="e.g. 35201-1234567-1"
               disabled={busy}
             />
+            {validation.errorFor('cnic') ? <p role="alert" className="mt-1 text-xs text-destructive">{validation.errorFor('cnic')}</p> : null}
           </div>
           {!isEdit && (
             <div>

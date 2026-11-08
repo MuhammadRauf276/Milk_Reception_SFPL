@@ -19,7 +19,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
               {/* Shop Details Form */}
               {(modalType === 'CREATE_SHOP' || modalType === 'EDIT_SHOP') && (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-secondary-foreground mb-1">Shop Name</label>
                       <input
@@ -46,7 +46,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-secondary-foreground mb-1">Phone Number</label>
                       <input
@@ -72,7 +72,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                   </div>
 
                   {/* Dependent Route & Area Selection */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-secondary-foreground mb-1">Route</label>
                       <Combobox
@@ -103,7 +103,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-secondary-foreground mb-1">Chiller Ownership</label>
                       <Combobox
@@ -118,7 +118,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                   </div>
 
                   {/* GPS Optional Coordinates */}
-                  <div className="grid grid-cols-2 gap-3 pt-1 border-t border-border">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 pt-1 border-t border-border">
                     <div>
                       <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                         Latitude <span className="text-xs text-muted-foreground font-normal">(-90 to 90)</span>

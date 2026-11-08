@@ -32,7 +32,7 @@ const Stat: React.FC<{ icon: React.ReactNode; label: string; dispatch: string; p
       {icon}
       <span>{label}</span>
     </div>
-    <div className="grid grid-cols-2 gap-2 text-xs">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 text-xs">
       <div>
         <p className="text-muted-foreground">ZMCC sent</p>
         <p className="text-sm font-semibold tabular-nums text-foreground">{dispatch}</p>

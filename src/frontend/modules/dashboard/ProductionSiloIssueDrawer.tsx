@@ -137,7 +137,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
             </div>
           </div>
 
-          <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+          <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
             <div>
               <span className="text-muted-foreground font-sans block text-xs">Physical Stock</span>
               <span className="text-base font-semibold text-primary">

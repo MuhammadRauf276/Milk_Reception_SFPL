@@ -95,9 +95,9 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
           )}
 
           {/* Scale Queues Telemetry */}
-          <div className="grid grid-cols-2 gap-2.5 pt-0.5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2.5 pt-0.5">
             <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
-              <span className="text-xs font-medium text-muted-foreground block truncate">
+              <span className="text-xs font-medium text-muted-foreground block break-words">
                 Gross Queue (1st Weight)
               </span>
               <div className="text-lg font-semibold text-foreground tabular-nums mt-0.5">
@@ -106,7 +106,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               </div>
             </div>
             <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
-              <span className="text-xs font-medium text-muted-foreground block truncate">
+              <span className="text-xs font-medium text-muted-foreground block break-words">
                 Tare Queue (2nd Weight)
               </span>
               <div className="text-lg font-semibold text-foreground tabular-nums mt-0.5">
@@ -118,9 +118,9 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
 
           {/* Operator and Turnaround info */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/60 gap-1">
-            <div className="flex items-center gap-1.5 truncate">
+            <div className="flex items-center gap-1.5">
               <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="truncate">
+              <span className="min-w-0 break-words">
                 {weighbridge.activeOperators.length > 0
                   ? weighbridge.activeOperators.join(', ')
                   : 'Weighbridge Operator'}
@@ -221,9 +221,9 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
           )}
 
           {/* Reception Queues Telemetry */}
-          <div className="grid grid-cols-2 gap-2.5 pt-0.5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2.5 pt-0.5">
             <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
-              <span className="text-xs font-medium text-muted-foreground block truncate">
+              <span className="text-xs font-medium text-muted-foreground block break-words">
                 Ready for Bay (QA Cleared)
               </span>
               <div className="text-lg font-semibold text-foreground tabular-nums mt-0.5">
@@ -232,7 +232,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               </div>
             </div>
             <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
-              <span className="text-xs font-medium text-muted-foreground block truncate">
+              <span className="text-xs font-medium text-muted-foreground block break-words">
                 Offloaded Today
               </span>
               <div className="text-lg font-semibold text-foreground tabular-nums mt-0.5">
@@ -244,9 +244,9 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
 
           {/* Operator and Turnaround info */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/60 gap-1">
-            <div className="flex items-center gap-1.5 truncate">
+            <div className="flex items-center gap-1.5">
               <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="truncate">
+              <span className="min-w-0 break-words">
                 {reception.activeOperators.length > 0
                   ? reception.activeOperators.join(', ')
                   : 'Production Operator'}

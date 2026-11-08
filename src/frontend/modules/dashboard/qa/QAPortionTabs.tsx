@@ -111,7 +111,7 @@ export const QAPortionTabs: React.FC<QAPortionTabsProps> = ({
                     e.stopPropagation();
                     onRemovePortion(p.id, p.portion_number);
                   }}
-                  className="ml-1 flex min-h-6 min-w-6 items-center justify-center rounded-md hover:bg-rose-100 text-muted-foreground hover:text-rose-700 transition"
+                  className="ml-1 flex min-h-11 min-w-6 items-center justify-center rounded-md hover:bg-rose-100 text-muted-foreground hover:text-rose-700 transition"
                 >
                   <X className="w-3.5 h-3.5" />
                 </span>

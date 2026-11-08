@@ -189,14 +189,15 @@ export function DataTable<T>({
                   onClick={onRowClick ? (e) => !interactive(e) && onRowClick(row) : undefined}
                   className={cn('min-w-0 rounded-2xl border bg-card p-4 shadow-2xs', onRowClick && 'cursor-pointer transition-colors hover:bg-subtle', rowClassName?.(row))}
                 >
-                  <div className="flex min-w-0 items-start gap-2">
+                  {/* Wraps, so several action buttons drop to their own line instead of leaving the card. */}
+                  <div className="flex min-w-0 flex-wrap items-start gap-2">
                     {canSelect ? (
                       <label className="-ml-3 -mt-3 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
                         <input type="checkbox" aria-label="Select row" checked={selected.has(id)} onChange={() => toggleRow(id)} className="h-4 w-4 accent-primary" />
                       </label>
                     ) : null}
-                    <div className="min-w-0 flex-1 text-sm">{primary?.cell(row)}</div>
-                    {actionCols.length ? <div className="-mr-2 -mt-2 flex shrink-0 items-center gap-1">{actionCols.map((c) => <React.Fragment key={c.key}>{c.cell(row)}</React.Fragment>)}</div> : null}
+                    <div className="min-w-[min(100%,8rem)] flex-1 text-sm">{primary?.cell(row)}</div>
+                    {actionCols.length ? <div className="ml-auto flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1">{actionCols.map((c) => <React.Fragment key={c.key}>{c.cell(row)}</React.Fragment>)}</div> : null}
                   </div>
                   {detailCols.length ? (
                     <dl className="mt-3 grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-x-4 gap-y-2 border-t pt-3 text-sm">
