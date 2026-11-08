@@ -25,12 +25,7 @@ export default function GlobalError({
       description={
         <>
           <p>This view failed to load. Your session and saved data are unaffected.</p>
-          {error.message ? (
-            <pre className="mt-4 max-h-32 overflow-auto whitespace-pre-wrap wrap-break-word rounded-md border bg-subtle p-3 text-left font-mono text-xs text-red-700">
-              {error.message}
-              {error.digest ? `\nRef: ${error.digest}` : ''}
-            </pre>
-          ) : null}
+          {error.digest ? <p className="mt-2 font-mono text-xs">Ref: {error.digest}</p> : null}
         </>
       }
     >

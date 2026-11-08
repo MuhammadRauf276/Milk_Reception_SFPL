@@ -60,6 +60,7 @@ import {
 import type { LiveCameraResult } from '@/types/captured-photo';
 import type { DecisionResult, PersonDecision } from '@/types/stage1-decision';
 import { getErrorMessage } from '@/lib/errors';
+import { confirmAction } from '@/components/ui/confirm-dialog';
 
 export type { QuantityUnitType, MeasurementBasisType, QuantityState, LabTestDef, TestResultState, PortionFormState };
 
@@ -894,7 +895,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     setPortions(updated);
   };
 
-  const handleTestModeChange = (mode: DispatchTestMode) => {
+  const handleTestModeChange = async (mode: DispatchTestMode) => {
     if (mode === testMode) {
       // Tapping the active mode still opens the portion sheet.
       const firstOpenNow = portions.findIndex((p) => !p.isSaved);
@@ -902,7 +903,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       return;
     }
     if (mode === 'COMPOSITE' && portions.length > 1) {
-      if (typeof window !== 'undefined' && !window.confirm('Switching to Composite mode records all tests under Portion 1. Any additional portions will be removed. Continue?')) {
+      if (!(await confirmAction({ title: 'Switch to Composite mode?', description: 'All tests are recorded under Portion 1. Other portions will be removed.', confirmLabel: 'Switch mode', destructive: true }))) {
         return;
       }
       setPortions((prev) => prev.slice(0, 1));

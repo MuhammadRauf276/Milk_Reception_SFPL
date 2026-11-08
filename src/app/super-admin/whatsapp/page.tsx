@@ -21,6 +21,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { Combobox } from '@/components/ui/combobox';
 import { InfoTip } from '@/components/ui/info-tip';
+import { confirmAction } from '@/components/ui/confirm-dialog';
 
 interface GatewayStatus {
   status: 'OFFLINE' | 'DISCONNECTED' | 'CONNECTING' | 'SCAN_QR' | 'CONNECTED';
@@ -115,7 +116,7 @@ export default function SuperAdminWhatsAppPage() {
 
   // Handle Logout / Disconnect
   const handleDisconnect = async () => {
-    if (!confirm('Disconnect this WhatsApp session? You will need to scan the QR code again.')) {
+    if (!(await confirmAction({ title: 'Disconnect WhatsApp?', description: 'You will need to scan the QR code again.', confirmLabel: 'Disconnect', destructive: true }))) {
       return;
     }
     try {

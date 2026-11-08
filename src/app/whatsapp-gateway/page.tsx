@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
 import { InfoTip } from '@/components/ui/info-tip';
+import { confirmAction } from '@/components/ui/confirm-dialog';
 
 interface GatewayStatus {
   status: 'OFFLINE' | 'DISCONNECTED' | 'CONNECTING' | 'SCAN_QR' | 'CONNECTED';
@@ -107,7 +108,7 @@ export default function WhatsAppGatewayPage() {
   };
 
   const handleLogout = async () => {
-    if (!confirm('Are you sure you want to disconnect this WhatsApp account? You will need to re-scan the QR code.')) {
+    if (!(await confirmAction({ title: 'Disconnect WhatsApp?', description: 'You will need to scan the QR code again.', confirmLabel: 'Disconnect', destructive: true }))) {
       return;
     }
 

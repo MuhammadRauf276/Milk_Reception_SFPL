@@ -6,6 +6,7 @@ import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
 import { apiClient } from '@/frontend/lib/apiClient';
 import type { QAVisitDetailState } from './useQAVisitDetail';
+import { confirmAction } from '@/components/ui/confirm-dialog';
 
 export type QAActionModal = 'START' | 'RESUME' | 'ACCEPT' | 'HOLD' | 'REJECT';
 type QATab = 'WAITING' | 'IN_TESTING' | 'ON_HOLD';
@@ -360,9 +361,12 @@ export function useQAActions({
       return;
     }
 
-    const confirmRemove = window.confirm(
-      `Remove Portion #${portionNumber}? Any unsaved observations for this portion will be discarded.`
-    );
+    const confirmRemove = await confirmAction({
+      title: `Remove portion ${portionNumber}?`,
+      description: 'Unsaved observations for this portion will be lost.',
+      confirmLabel: 'Remove portion',
+      destructive: true,
+    });
     if (!confirmRemove) return;
 
     setIsRemovingPortion(true);
