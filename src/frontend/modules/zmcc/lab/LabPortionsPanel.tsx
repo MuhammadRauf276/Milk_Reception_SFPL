@@ -639,7 +639,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               type="button"
               onClick={handleAddPortion}
               disabled={Boolean(busy)}
-              className="flex min-h-11 items-center space-x-1.5 rounded-lg border border-dashed border-primary px-3.5 text-xs font-semibold text-primary shadow-2xs hover:bg-primary/5 transition disabled:opacity-50"
+              className="flex min-h-11 items-center space-x-1.5 rounded-lg border border-dashed border-primary px-4 text-xs font-semibold text-primary shadow-2xs hover:bg-primary/5 transition disabled:opacity-50"
               title="Add another test portion"
             >
               {busy === 'add-portion' ? (
@@ -720,7 +720,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                         handleDiscardPortion(p.portionNumber);
                       }}
                       disabled={Boolean(busy)}
-                      className="w-full min-h-11 flex items-center justify-center text-xs text-rose-700 hover:text-rose-900 font-semibold py-1.5 px-3 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 transition"
+                      className="w-full min-h-11 flex items-center justify-center text-xs text-rose-700 hover:text-rose-900 font-semibold py-2 px-3 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 transition"
                     >
                       <span>{busy === `discard-${p.portionNumber}` ? 'Discarding…' : 'Discard Empty Portion'}</span>
                     </button>
@@ -977,7 +977,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                                     disabled={photoBusy}
                                     onClick={() => setCamera({ portion: modalPortion, test: t })}
                                     className={cn('min-h-11 min-w-11', 
-                                      'flex items-center gap-1 rounded-lg border px-2.5 text-xs font-semibold transition',
+                                      'flex items-center gap-1 rounded-lg border px-3 text-xs font-semibold transition',
                                       modalPhotos[t.labTestId]
                                         ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
                                         : t.photoMode === 'REQUIRED'
@@ -1023,7 +1023,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                     {/* Decision Choice */}
                     <div>
                       <p className="mb-1 text-xs font-semibold text-foreground">Your Decision</p>
-                      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2.5">
+                      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
                         <button
                           type="button"
                           onClick={() => setDraft(modalPortion.id, { person: 'REJECT' })}
@@ -1088,7 +1088,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                         onChange={(e) => setDraft(modalPortion.id, { remarks: e.target.value })}
                         rows={2}
                         placeholder={modalPreview?.remarksRequired ? 'Enter reason…' : 'Observations…'}
-                        className="min-h-11 w-full resize-none rounded-lg border border-border p-2.5 text-base sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="min-h-11 w-full resize-none rounded-lg border border-border p-3 text-base sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
 
@@ -1112,7 +1112,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                         )}
                       >
                         {busy === `submit:${modalPortion.id}` ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-1.5" aria-hidden="true" />
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" aria-hidden="true" />
                         ) : null}
                         <span>
                           {modalPreview?.route === 'SEND_TO_APPROVER'

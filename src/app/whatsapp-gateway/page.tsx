@@ -187,7 +187,7 @@ export default function WhatsAppGatewayPage() {
                     : 'Not connected'}
                 </h2>
                 <span
-                  className={`rounded-md px-2.5 py-0.5 text-xs font-semibold ${
+                  className={`rounded-md px-3 py-0.5 text-xs font-semibold ${
                     isConnected
                       ? 'bg-emerald-100 text-emerald-800'
                       : isScanQr
@@ -259,7 +259,7 @@ export default function WhatsAppGatewayPage() {
                   </li>
                 </ol>
 
-                <div className="p-3.5 bg-card border border-border rounded-2xl text-secondary-foreground text-xs space-y-1">
+                <div className="p-4 bg-card border border-border rounded-2xl text-secondary-foreground text-xs space-y-1">
                   <div className="font-semibold text-foreground flex items-center space-x-1">
                     <Flame className="w-3.5 h-3.5 text-muted-foreground" />
                     <span>Profile tip</span>
@@ -309,7 +309,7 @@ export default function WhatsAppGatewayPage() {
                     value={testPhone}
                     onChange={(e) => setTestPhone(e.target.value)}
                     placeholder="03176826604"
-                    className="w-full text-xs font-medium border border-border rounded-xl p-2.5 bg-card text-foreground focus:border-primary outline-hidden font-mono"
+                    className="w-full text-xs font-medium border border-border rounded-xl p-3 bg-card text-foreground focus:border-primary outline-hidden font-mono"
                   />
                 </div>
 
@@ -322,7 +322,7 @@ export default function WhatsAppGatewayPage() {
                     required
                     value={testMessage}
                     onChange={(e) => setTestMessage(e.target.value)}
-                    className="w-full text-xs font-medium border border-border rounded-xl p-2.5 bg-card text-foreground focus:border-primary outline-hidden font-mono leading-relaxed"
+                    className="w-full text-xs font-medium border border-border rounded-xl p-3 bg-card text-foreground focus:border-primary outline-hidden font-mono leading-relaxed"
                   />
                 </div>
 

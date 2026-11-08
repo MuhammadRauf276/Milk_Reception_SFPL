@@ -268,7 +268,7 @@ export default function SuperAdminZmccTanksPage() {
       actions: true,
       align: 'right',
       cell: (t) => (
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {t.is_active && (
             <Button size="sm" onClick={() => setIntakeTank(t)} title="Add manual milk stock (gross and @13% TS)">
               <Milk />
@@ -305,7 +305,7 @@ export default function SuperAdminZmccTanksPage() {
     <div className="w-full min-w-0 max-w-full space-y-4">
       {/* Page Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <p className="text-sm text-muted-foreground">Storage tanks and stock at each ZMCC</p>
           <InfoTip text="Raw milk storage tanks across all ZMCC sources. Directly add milk stock (@13% TS and Gross Liters) when field staff are absent, and monitor dispatch issue deductions." />
         </div>
@@ -329,7 +329,7 @@ export default function SuperAdminZmccTanksPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-3">
-        <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
             <span>Active tanks</span>
             <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -338,7 +338,7 @@ export default function SuperAdminZmccTanksPage() {
           <div className="text-xs text-muted-foreground mt-0.5">Across {sources.length} ZMCCs</div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
             <span>Gross physical stock</span>
             <Milk className="h-4 w-4 text-muted-foreground" />
@@ -349,7 +349,7 @@ export default function SuperAdminZmccTanksPage() {
           <div className="text-xs text-muted-foreground mt-0.5">Physical milk stored</div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
             <span>Commercial @13% TS stock</span>
             <Layers className="h-4 w-4 text-muted-foreground" />
@@ -360,7 +360,7 @@ export default function SuperAdminZmccTanksPage() {
           <div className="text-xs text-muted-foreground mt-0.5">Standardized 13% TS</div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
             <span>Free storage capacity</span>
             <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -398,7 +398,7 @@ export default function SuperAdminZmccTanksPage() {
       </AnimatePresence>
 
       {/* Filter Bar */}
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-border bg-card p-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card p-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">Filter ZMCC</span>
           <Combobox

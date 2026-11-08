@@ -34,7 +34,7 @@ const PAGE_SIZE = 12;
 function StatusPill({ status }: { status: DeviceStatus }) {
   const v = STATUS_VIEW[status] ?? STATUS_VIEW.PENDING;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-sm font-medium ${v.cls}`}>
+    <span className={`inline-flex items-center gap-2 rounded-md border px-3 py-1 text-sm font-medium ${v.cls}`}>
       {v.icon}
       {v.word}
     </span>

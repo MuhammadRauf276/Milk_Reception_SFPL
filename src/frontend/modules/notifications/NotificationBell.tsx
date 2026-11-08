@@ -233,7 +233,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
                       )}
                     >
                       <span
-                        className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', isUnread ? 'bg-primary' : 'bg-transparent')}
+                        className={cn('mt-2 h-2 w-2 shrink-0 rounded-full', isUnread ? 'bg-primary' : 'bg-transparent')}
                         aria-hidden="true"
                       />
                       <span className="min-w-0 flex-1 space-y-1">
@@ -242,7 +242,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
                             {item.title}
                           </span>
                           {isHighPriority && (
-                            <span className="shrink-0 rounded bg-rose-50 px-1.5 py-0.5 text-xs font-medium text-rose-700">
+                            <span className="shrink-0 rounded bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700">
                               {item.priority}
                             </span>
                           )}
@@ -270,11 +270,11 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t bg-subtle px-4 py-2.5 text-xs">
+        <div className="flex items-center justify-between border-t bg-subtle px-4 py-2 text-xs">
           <Link
             href="/notifications/settings"
             onClick={() => setIsOpen(false)}
-            className="inline-flex items-center gap-1.5 font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-2 font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <Settings className="h-3.5 w-3.5" />
             Settings

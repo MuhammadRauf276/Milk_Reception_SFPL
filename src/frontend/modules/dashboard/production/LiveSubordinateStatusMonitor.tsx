@@ -31,9 +31,9 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
 
         {/* Current Scale Occupancy */}
         {weighbridge.currentlyOnScale ? (
-          <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/5 space-y-2">
+          <div className="p-4 rounded-lg border border-amber-500/30 bg-amber-500/5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
@@ -61,8 +61,8 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
             </div>
           </div>
         ) : (
-          <div className="p-3.5 rounded-lg border border-border/60 bg-muted/30 text-center py-6">
-            <CheckCircle2 className="h-6 w-6 text-emerald-500 mx-auto mb-1.5" />
+          <div className="p-4 rounded-lg border border-border/60 bg-muted/30 text-center py-6">
+            <CheckCircle2 className="h-6 w-6 text-emerald-500 mx-auto mb-2" />
             <p className="text-sm font-medium text-foreground">Scale Platform Ready</p>
             <p className="text-xs text-muted-foreground mt-0.5">No tanker currently on scale</p>
           </div>
@@ -117,10 +117,10 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
             {reception.activePumpings.map((p, idx) => (
               <div
                 key={idx}
-                className="p-3.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 space-y-2"
+                className="p-4 rounded-lg border border-emerald-500/30 bg-emerald-500/5 space-y-2"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -148,8 +148,8 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
             ))}
           </div>
         ) : (
-          <div className="p-3.5 rounded-lg border border-border/60 bg-muted/30 text-center py-6">
-            <CheckCircle2 className="h-6 w-6 text-emerald-500 mx-auto mb-1.5" />
+          <div className="p-4 rounded-lg border border-border/60 bg-muted/30 text-center py-6">
+            <CheckCircle2 className="h-6 w-6 text-emerald-500 mx-auto mb-2" />
             <p className="text-sm font-medium text-foreground">Reception Bays Available</p>
             <p className="text-xs text-muted-foreground mt-0.5">No tanker currently pumping into silos</p>
           </div>

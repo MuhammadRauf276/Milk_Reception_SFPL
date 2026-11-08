@@ -119,12 +119,12 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
   return (
     <div className="w-full max-w-7xl mx-auto space-y-5 text-foreground animate-panel-in">
       <div className="flex items-center justify-between border-b border-border pb-3">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <h1 className="text-lg font-semibold text-foreground">Offloading queue</h1>
           <InfoTip text="Assign unloading bays, pump raw milk into storage silos, and track real-time tank capacity." />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold tabular-nums px-2.5 py-1 rounded-md bg-muted text-foreground border border-border">
+          <span className="text-xs font-semibold tabular-nums px-3 py-1 rounded-md bg-muted text-foreground border border-border">
             {activeTab === 'READY' ? `${readyVisits.length} ready` : activeTab === 'UNLOADING' ? `${unloadingVisits.length} active` : `${siloIssueList.length} silos`}
           </span>
         </div>
@@ -208,7 +208,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
           {/* Right Column: Plant Silos Level Overview */}
           <div className="lg:col-span-5 p-4 rounded-2xl border border-border bg-card space-y-3 shadow-2xs">
             <div className="flex items-center justify-between pb-2 border-b border-border">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <Database className="w-4 h-4 text-muted-foreground" />
                 <h2 className="text-sm font-semibold text-foreground">Plant Silos</h2>
                 <InfoTip text="Live storage levels across all plant raw milk silos." />
@@ -221,7 +221,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
             {activeSilos.length === 0 ? (
               <p className="text-xs text-muted-foreground p-4 text-center">No silos found.</p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
                 {activeSilos.slice(0, 6).map((silo) => {
                   const cap = silo.capacity_liters;
                   const stock13Ts = silo.current_stock_at_13ts;
@@ -231,7 +231,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                   return (
                     <div
                       key={`sidebar-silo-${silo.id}`}
-                      className="p-2.5 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition space-y-1.5"
+                      className="p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition space-y-1.5"
                     >
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-semibold tabular-nums text-foreground">{silo.silo_code}</span>
@@ -244,7 +244,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                             {stock.toLocaleString()} L {pct != null && <span className="text-muted-foreground font-normal text-xs">({pct}%)</span>}
                           </span>
                         ) : (
-                          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                             Available
                           </span>
                         )}

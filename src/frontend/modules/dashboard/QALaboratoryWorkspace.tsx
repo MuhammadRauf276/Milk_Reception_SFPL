@@ -148,14 +148,14 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
           type="button"
           aria-current={activeTab === 'WAITING' ? 'page' : undefined}
           onClick={() => setActiveTab('WAITING')}
-          className={`min-h-11 rounded-xl border text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-1.5 ${
+          className={`min-h-11 rounded-xl border text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 ${
             activeTab === 'WAITING'
               ? 'border-primary ring-1 ring-primary bg-primary/5 text-primary font-semibold'
               : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
           }`}
         >
           <span>Waiting</span>
-          <span className="tabular-nums px-1.5 py-0.5 rounded-md text-xs bg-muted text-secondary-foreground">
+          <span className="tabular-nums px-2 py-0.5 rounded-md text-xs bg-muted text-secondary-foreground">
             {waitingVisits.length}
           </span>
         </button>
@@ -164,14 +164,14 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
           type="button"
           aria-current={activeTab === 'IN_TESTING' ? 'page' : undefined}
           onClick={() => setActiveTab('IN_TESTING')}
-          className={`min-h-11 rounded-xl border text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-1.5 ${
+          className={`min-h-11 rounded-xl border text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 ${
             activeTab === 'IN_TESTING'
               ? 'border-primary ring-1 ring-primary bg-primary/5 text-primary font-semibold'
               : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
           }`}
         >
           <span>In Testing</span>
-          <span className="tabular-nums px-1.5 py-0.5 rounded-md text-xs bg-sky-100 text-sky-800">
+          <span className="tabular-nums px-2 py-0.5 rounded-md text-xs bg-sky-100 text-sky-800">
             {inTestingVisits.length}
           </span>
         </button>
@@ -180,14 +180,14 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
           type="button"
           aria-current={activeTab === 'ON_HOLD' ? 'page' : undefined}
           onClick={() => setActiveTab('ON_HOLD')}
-          className={`min-h-11 rounded-xl border text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-1.5 ${
+          className={`min-h-11 rounded-xl border text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 ${
             activeTab === 'ON_HOLD'
               ? 'border-primary ring-1 ring-primary bg-primary/5 text-primary font-semibold'
               : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
           }`}
         >
           <span>On Hold</span>
-          <span className="tabular-nums px-1.5 py-0.5 rounded-md text-xs bg-amber-100 text-amber-900">
+          <span className="tabular-nums px-2 py-0.5 rounded-md text-xs bg-amber-100 text-amber-900">
             {onHoldVisits.length}
           </span>
         </button>

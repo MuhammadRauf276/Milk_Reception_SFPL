@@ -383,7 +383,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     <button
                       type="button"
                       onClick={() => setSelectedEntryVisitId(null)}
-                      className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                      className="inline-flex min-h-11 items-center gap-2 text-xs font-semibold text-primary hover:underline"
                     >
                       <ArrowLeft className="h-4 w-4" /> Back to vehicle queue
                     </button>
@@ -395,7 +395,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   </p>
                 </div>
 
-                <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+                <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
                   <div>
                     <span className="text-muted-foreground font-sans block text-xs">Portions</span>
                     <span>{selectedEntryVisit.portion_count} Portion{selectedEntryVisit.portion_count > 1 ? 's' : ''}</span>
@@ -416,7 +416,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       value={tokenNumber}
                       onChange={(e) => setTokenNumber(e.target.value.toUpperCase())}
                       placeholder="e.g. TK-9025"
-                      className="w-full min-h-11 px-4 py-2.5 font-mono text-base sm:text-sm tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden"
+                      className="w-full min-h-11 px-4 py-2 font-mono text-base sm:text-sm tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden"
                       required
                     />
                   </div>
@@ -432,7 +432,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       min={selectedEntryVisit.dispatch_timestamp ? toDatetimeLocalInput(selectedEntryVisit.dispatch_timestamp) : undefined}
                       max={toDatetimeLocalInput(new Date())}
                       onChange={(e) => setEntryOpTimestamp(e.target.value)}
-                      className="w-full min-h-11 px-4 py-2.5 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden"
+                      className="w-full min-h-11 px-4 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden"
                       required
                     />
                   </div>
@@ -472,7 +472,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 { key: 'entry', header: 'Entry time', label: 'Entry time', cell: (v) => <span className="tabular-nums text-secondary-foreground">{formatTime(v.entry_timestamp)}</span> },
                 { key: 'portions', header: 'Portions', label: 'Portions', cell: (v) => <span className="tabular-nums">{v.portion_count} ({formatDispatchQuantity(v.vehicle_dispatch_quantity_value, v.vehicle_dispatch_quantity_unit)})</span> },
                 { key: 'stage', header: 'Current stage', label: 'Current stage', cell: (v) => (
-                  <span className="px-2.5 py-1 rounded-md text-xs bg-muted text-foreground border border-border">
+                  <span className="px-3 py-1 rounded-md text-xs bg-muted text-foreground border border-border">
                     {formatFriendlyStage(v.current_status)}
                   </span>
                 ) },
@@ -559,7 +559,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     <button
                       type="button"
                       onClick={() => { setSelectedExitVisitId(null); setTankerWashed(null); }}
-                      className="inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                      className="inline-flex min-h-11 items-center gap-2 text-xs font-semibold text-primary hover:underline"
                     >
                       <ArrowLeft className="h-4 w-4" /> Back to exit queue
                     </button>
@@ -571,7 +571,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   </p>
                 </div>
 
-                <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+                <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
                   <div>
                     <span className="text-muted-foreground font-sans block text-xs">Exit reason</span>
                     <span className={selectedExitVisit.is_all_rejected ? 'text-rose-700 font-semibold' : 'text-emerald-700 font-semibold'}>
@@ -586,7 +586,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 </div>
 
                 {!selectedExitVisit.is_all_rejected && (
-                  <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+                  <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
                     <div>
                       <span className="text-muted-foreground font-sans block text-xs">Gross weight</span>
                       <span className="font-mono text-base tabular-nums">{selectedExitVisit.gross_weight_kg ? `${selectedExitVisit.gross_weight_kg.toLocaleString()} kg` : '—'}</span>
@@ -599,7 +599,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 )}
 
                 {selectedExitVisit.is_all_rejected && (
-                  <div className="bg-card border-border p-3.5 rounded-2xl border text-rose-800 text-xs font-semibold flex items-center space-x-2">
+                  <div className="bg-card border-border p-4 rounded-2xl border text-rose-800 text-xs font-semibold flex items-center space-x-2">
                     <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0" />
                     <p>All rejected. Direct return exit.</p>
                   </div>
@@ -607,7 +607,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
 
                 {/* Tanker Washed Check (Phase 4d Stage 4) - only for vehicles that unloaded milk */}
                 {!selectedExitVisit.is_all_rejected && (
-                <div className="bg-card border-border p-3.5 rounded-2xl border space-y-2.5">
+                <div className="bg-card border-border p-4 rounded-2xl border space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-foreground">Tanker wash check *</span>
                     {tankerWashed === true ? (
@@ -629,7 +629,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     <button
                       type="button"
                       onClick={() => setTankerWashed(true)}
-                      className={`min-h-11 px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border ${
+                      className={`min-h-11 px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-2 border ${
                         tankerWashed === true
                           ? 'bg-emerald-600 text-white border-emerald-600'
                           : 'bg-card text-secondary-foreground border-border-strong hover:bg-subtle'
@@ -642,7 +642,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     <button
                       type="button"
                       onClick={() => setTankerWashed(false)}
-                      className={`min-h-11 px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border ${
+                      className={`min-h-11 px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-2 border ${
                         tankerWashed === false
                           ? 'bg-rose-600 text-white border-rose-600'
                           : 'bg-card text-secondary-foreground border-border-strong hover:bg-subtle'
@@ -673,7 +673,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       value={exitOpTimestamp}
                       max={toDatetimeLocalInput(new Date())}
                       onChange={(e) => setExitOpTimestamp(e.target.value)}
-                      className="w-full min-h-11 px-4 py-2.5 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-11 px-4 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                       required
                     />
                   </div>

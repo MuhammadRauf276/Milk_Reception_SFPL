@@ -131,7 +131,7 @@ const tankerColumns: DataColumn<InTransitTankerTelemetry>[] = [
     label: 'Status',
     align: 'center',
     cell: (t) => (
-      <span className="inline-block px-2.5 py-1 rounded-md text-xs font-semibold bg-muted text-foreground border border-border">{t.status}</span>
+      <span className="inline-block px-3 py-1 rounded-md text-xs font-semibold bg-muted text-foreground border border-border">{t.status}</span>
     ),
   },
 ];
@@ -158,7 +158,7 @@ const routeColumns: DataColumn<MotRouteTelemetry>[] = [
     label: 'Shop progress',
     align: 'center',
     cell: (r) => (
-      <div className="inline-flex items-center gap-1.5">
+      <div className="inline-flex items-center gap-2">
         <span className="tabular-nums font-semibold text-foreground">
           {r.completedShops}/{r.totalShops}
         </span>
@@ -196,7 +196,7 @@ const routeColumns: DataColumn<MotRouteTelemetry>[] = [
     align: 'center',
     cell: (r) => (
       <span
-        className={`inline-block px-2.5 py-1 rounded-md text-xs font-semibold ${
+        className={`inline-block px-3 py-1 rounded-md text-xs font-semibold ${
           r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-blue-50 text-primary border border-blue-200'
         }`}
       >
@@ -317,7 +317,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-2xl border">
+      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl border">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -328,12 +328,12 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
             className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border focus:outline-hidden focus:border-primary bg-subtle min-h-11"
           />
         </div>
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
           {(['ALL', 'TANKERS', 'MOT_ROUTES'] as const).map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
-              className={`px-3 py-1.5 min-h-11 shrink-0 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+              className={`px-3 py-2 min-h-11 shrink-0 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
                 activeFilter === filter
                   ? 'bg-primary text-white'
                   : 'bg-muted text-secondary-foreground hover:bg-muted'
@@ -348,7 +348,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
       </div>
 
       {focusable.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto">
+        <div className="flex items-center gap-2 overflow-x-auto">
           <button
             type="button"
             onClick={() => setFocusId(null)}

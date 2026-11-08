@@ -38,5 +38,5 @@ const ROLE_TIERS: Record<string, Tier> = {
 export function AuthorityBadge({ role, className }: { role?: string | null; className?: string }) {
   const tier = role ? TIERS[ROLE_TIERS[role]] : undefined;
   if (!tier) return null;
-  return <span className={cn('inline-flex rounded-md px-1.5 py-0.5 text-xs font-medium', tier.className, className)}>{tier.label}</span>;
+  return <span className={cn('inline-flex rounded-md px-2 py-0.5 text-xs font-medium', tier.className, className)}>{tier.label}</span>;
 }

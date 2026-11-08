@@ -24,8 +24,8 @@ export function DecisionStatusBadge({ status, label, size = 'md' }: DecisionStat
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border font-semibold',
-        size === 'lg' ? 'px-4 py-2 text-base' : 'px-2.5 py-1 text-sm',
+        'inline-flex items-center gap-2 rounded-full border font-semibold',
+        size === 'lg' ? 'px-4 py-2 text-base' : 'px-3 py-1 text-sm',
         className
       )}
     >

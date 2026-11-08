@@ -262,7 +262,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
       {/* 1. Header Scope Banner */}
       <div className="bg-card border-border p-5 rounded-2xl border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-xs">
+          <div className="p-3 bg-blue-900 text-white rounded-xl shadow-xs">
             <Receipt className="w-5 h-5" />
           </div>
           <div>
@@ -358,12 +358,12 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search"
-            className="w-full pl-9 pr-4 py-2.5 min-h-[44px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+            className="w-full pl-9 pr-4 py-2 min-h-[44px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
           />
         </div>
 
         {/* Receipt Status Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1">
           <span className="text-xs font-semibold text-slate-500 flex items-center gap-1 mr-1 shrink-0">
             <Filter className="w-3.5 h-3.5" />
             <span>Status:</span>
@@ -372,7 +372,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           <button
             type="button"
             onClick={() => setReceiptFilter('ALL')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'ALL'
                 ? 'bg-blue-900 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -384,7 +384,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           <button
             type="button"
             onClick={() => setReceiptFilter('FINAL_RECEIPT')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'FINAL_RECEIPT'
                 ? 'bg-emerald-800 text-white shadow-xs'
                 : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
@@ -396,7 +396,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           <button
             type="button"
             onClick={() => setReceiptFilter('RECEIPT_PENDING')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'RECEIPT_PENDING'
                 ? 'bg-amber-900 text-white shadow-xs'
                 : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
@@ -408,7 +408,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           <button
             type="button"
             onClick={() => setReceiptFilter('BEFORE_RECEIPT')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'BEFORE_RECEIPT'
                 ? 'bg-slate-800 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'

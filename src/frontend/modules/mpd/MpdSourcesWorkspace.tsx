@@ -80,7 +80,7 @@ export function MpdSourcesWorkspace() {
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            className={`p-3.5 rounded-xl border text-xs font-semibold flex items-center justify-between gap-3 ${
+            className={`p-4 rounded-xl border text-xs font-semibold flex items-center justify-between gap-3 ${
               feedback.type === 'success'
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                 : 'bg-rose-50 text-rose-800 border-rose-300'

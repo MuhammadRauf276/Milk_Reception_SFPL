@@ -45,7 +45,7 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
     <>
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex min-h-11 min-w-11 items-center gap-2 rounded-md pl-1 pr-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted sm:pr-2"
+        className="flex min-h-11 min-w-11 items-center gap-2 rounded-md pl-1 pr-2 text-left transition-colors hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted sm:pr-2"
         aria-label="Account menu"
       >
         <Avatar className="h-7 w-7">
@@ -75,7 +75,7 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <div className="flex items-center justify-between px-2 py-1.5 text-xs select-none">
+        <div className="flex items-center justify-between px-2 py-2 text-xs select-none">
           <span className="flex items-center gap-2 text-foreground font-medium">
             {forcedOffline ? <WifiOff className="h-3.5 w-3.5 text-amber-600" /> : <Wifi className="h-3.5 w-3.5 text-emerald-600" />}
             Offline Mode

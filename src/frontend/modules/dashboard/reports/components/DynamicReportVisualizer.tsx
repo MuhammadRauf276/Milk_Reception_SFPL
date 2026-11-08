@@ -97,7 +97,7 @@ export function DynamicReportVisualizer({
       {/* Header Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-foreground flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-muted-foreground" /> Visual Analytics & Distributions
           </span>
           <span className="text-slate-400 text-xs">·</span>
@@ -109,12 +109,12 @@ export function DynamicReportVisualizer({
         <div className="flex items-center gap-3">
           {/* Metric Selector */}
           {numericMetrics.length > 1 && (
-            <div className="flex items-center gap-1.5 text-xs">
+            <div className="flex items-center gap-2 text-xs">
               <span className="text-muted-foreground">Metric:</span>
               <select
                 value={selectedMetricId}
                 onChange={(e) => setSelectedMetricId(e.target.value)}
-                className="bg-background border border-border rounded-lg px-2.5 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
+                className="bg-background border border-border rounded-lg px-3 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
               >
                 {numericMetrics.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -130,7 +130,7 @@ export function DynamicReportVisualizer({
             <button
               type="button"
               onClick={() => setChartMode('BAR')}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
                 chartMode === 'BAR'
                   ? 'bg-background text-foreground shadow-2xs font-semibold'
                   : 'text-muted-foreground hover:text-foreground'
@@ -141,7 +141,7 @@ export function DynamicReportVisualizer({
             <button
               type="button"
               onClick={() => setChartMode('TREND')}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
                 chartMode === 'TREND'
                   ? 'bg-background text-foreground shadow-2xs font-semibold'
                   : 'text-muted-foreground hover:text-foreground'
@@ -153,7 +153,7 @@ export function DynamicReportVisualizer({
               <button
                 type="button"
                 onClick={() => setChartMode('SCATTER')}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
                   chartMode === 'SCATTER'
                     ? 'bg-background text-foreground shadow-2xs font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
@@ -183,7 +183,7 @@ export function DynamicReportVisualizer({
                 >
                   {/* Floating Tooltip */}
                   {isHovered && (
-                    <div className="absolute -top-12 z-20 bg-slate-900 text-white text-xs font-medium py-1 px-2.5 rounded-lg shadow-xl whitespace-nowrap pointer-events-none">
+                    <div className="absolute -top-12 z-20 bg-slate-900 text-white text-xs font-medium py-1 px-3 rounded-lg shadow-xl whitespace-nowrap pointer-events-none">
                       <span className="font-semibold">{d.label}</span>: {d.value.toLocaleString()} {selectedMetricDef?.unit || ''}
                     </div>
                   )}

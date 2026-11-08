@@ -62,7 +62,7 @@ export function LiveUpdateWatcher() {
       <button
         type="button"
         onClick={() => window.location.reload()}
-        className="flex min-h-9 shrink-0 items-center gap-1 rounded-lg bg-primary px-2.5 text-white hover:bg-primary-hover"
+        className="flex min-h-9 shrink-0 items-center gap-1 rounded-lg bg-primary px-3 text-white hover:bg-primary-hover"
       >
         Refresh
       </button>

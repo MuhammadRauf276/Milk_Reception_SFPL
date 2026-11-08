@@ -254,11 +254,11 @@ export function ZMCCOperationalJourneysScreen({
       actions: true,
       align: 'right',
       cell: (j) => (
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => setSelectedJourneyIdForMap(j.id)}
-            className="min-h-9 px-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition inline-flex items-center gap-1.5"
+            className="min-h-9 px-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition inline-flex items-center gap-2"
           >
             <MapPin className="w-3.5 h-3.5" />
             <span>View Trail & Map</span>
@@ -272,7 +272,7 @@ export function ZMCCOperationalJourneysScreen({
             <button
               type="button"
               onClick={() => setCancelSheetJourney(j as unknown as JourneyItem)}
-              className="min-h-9 px-3 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold hover:bg-rose-100 transition inline-flex items-center gap-1.5"
+              className="min-h-9 px-3 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold hover:bg-rose-100 transition inline-flex items-center gap-2"
             >
               <Ban className="w-3.5 h-3.5" />
               <span>Cancel</span>
@@ -318,7 +318,7 @@ export function ZMCCOperationalJourneysScreen({
         <button
           type="button"
           onClick={() => setSelectedJourneyIdForMap(j.id)}
-          className="min-h-9 px-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition inline-flex items-center gap-1.5"
+          className="min-h-9 px-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition inline-flex items-center gap-2"
         >
           <MapPin className="w-3.5 h-3.5" />
           <span>Audit Map & Stops</span>
@@ -345,7 +345,7 @@ export function ZMCCOperationalJourneysScreen({
           <button
             type="button"
             onClick={() => handleTabChange('DISPATCH')}
-            className="min-h-11 flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-primary text-white hover:bg-primary/90 text-xs font-semibold shadow-2xs transition"
+            className="min-h-11 flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 text-xs font-semibold shadow-2xs transition"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Assign & Dispatch</span>
@@ -358,7 +358,7 @@ export function ZMCCOperationalJourneysScreen({
               dispatchDataQuery.refetch();
               toast.success('Journeys updated');
             }}
-            className="min-h-11 flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-foreground transition"
+            className="min-h-11 flex items-center space-x-1.5 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-foreground transition"
           >
             <span>Refresh</span>
           </button>
@@ -518,7 +518,7 @@ export function ZMCCOperationalJourneysScreen({
           {/* Controls: Date Picker, Status Filter, Search */}
           <div className="bg-card p-4 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1 bg-subtle px-2.5 py-1.5 rounded-lg border border-border text-xs">
+              <div className="flex items-center gap-1 bg-subtle px-3 py-2 rounded-lg border border-border text-xs">
                 <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type="date"

@@ -60,7 +60,7 @@ export const WeighbridgeSecondWeightPanel: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
         {secondQuery.isPending ? (
           <SkeletonList count={3} className="md:col-span-2 lg:col-span-3" />
         ) : visits.length === 0 ? (
@@ -229,7 +229,7 @@ const SecondWeightDrawer: React.FC<{
           <DrawerTitle className="sr-only">Record second weight</DrawerTitle>
           <div className="flex items-start justify-between gap-2 pb-3 border-b border-border-strong">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-muted text-foreground mb-1">
+              <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-md text-xs font-semibold bg-muted text-foreground mb-1">
                 Scale pass {currentPass} of {totalPasses}
               </div>
               <h3 className="text-base font-semibold text-foreground">
@@ -251,7 +251,7 @@ const SecondWeightDrawer: React.FC<{
             </button>
           </div>
 
-          <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+          <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
             <div>
               <span className="text-muted-foreground font-sans block text-xs">
                 {visit.is_portion_wise ? `Weight before compartment #${visit.active_portion_number} unloading` : 'Loaded gross weight, before unloading'}
@@ -307,14 +307,14 @@ const SecondWeightDrawer: React.FC<{
                 min={visit.min_allowed_timestamp ? toDatetimeLocalInput(visit.min_allowed_timestamp) : undefined}
                 max={toDatetimeLocalInput(new Date())}
                 onChange={(e) => setTareDateTimeInput(e.target.value)}
-                className="w-full min-h-12 px-3.5 py-3 text-sm tabular-nums rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                className="w-full min-h-12 px-4 py-3 text-sm tabular-nums rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
             </div>
           </div>
 
           {previewNetKg !== null && (
             <div className="space-y-2 pt-1">
-              <div className="p-3.5 rounded-2xl bg-card border border-border flex items-center justify-between text-foreground tabular-nums font-semibold text-xs">
+              <div className="p-4 rounded-2xl bg-card border border-border flex items-center justify-between text-foreground tabular-nums font-semibold text-xs">
                 <span>{visit.is_portion_wise ? `Portion #${visit.active_portion_number} net weight` : 'Net milk weight'}</span>
                 <span className="font-mono text-lg font-semibold text-foreground">{previewNetKg.toLocaleString()} kg</span>
               </div>
@@ -334,7 +334,7 @@ const SecondWeightDrawer: React.FC<{
             type="button"
             disabled={isSubmitting || !tareInputKg}
             onClick={handleRecordSecondWeight}
-            className="w-full min-h-11 py-3.5 px-4 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs transition-colors flex items-center justify-center space-x-2"
+            className="w-full min-h-11 py-4 px-4 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs transition-colors flex items-center justify-center space-x-2"
           >
             {isSubmitting ? (
               <span>Recording second weight…</span>

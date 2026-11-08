@@ -36,7 +36,7 @@ export function UserStatusDrawer({ user, targetStatus, open, onClose, onSaved }:
       <p className="text-xs text-muted-foreground">
         Target Account: <span className="font-semibold tabular-nums text-foreground">@{user.username}</span>
       </p>
-      <div className="space-y-2 rounded-2xl border border-border bg-card p-3.5">
+      <div className="space-y-2 rounded-2xl border border-border bg-card p-4">
         <div className="flex justify-between">
           <span className="font-medium text-muted-foreground">Current Status:</span>
           <span className={`font-semibold ${user.isActive ? 'text-emerald-700' : 'text-rose-700'}`}>

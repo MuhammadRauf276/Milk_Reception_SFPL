@@ -196,7 +196,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
             <button
               type="button"
               onClick={handleExportExcel}
-              className="min-h-11 flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-foreground transition"
+              className="min-h-11 flex items-center space-x-1.5 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-foreground transition"
             >
               <Download className="w-4 h-4 text-secondary-foreground" />
               <span>Export BI Digest (.xlsx)</span>
@@ -204,7 +204,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
             <button
               type="button"
               onClick={() => analyticsQuery.refetch()}
-              className="min-h-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground"
+              className="min-h-11 flex items-center space-x-1 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground"
             >
               <span>Refresh</span>
             </button>

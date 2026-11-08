@@ -93,7 +93,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={currentPhotoUrl} alt={`${label} picture`} className="h-12 w-12 rounded-lg border border-border object-cover" />
             </button>
-            <span className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+            <span className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
               <Check className="h-4 w-4" aria-hidden="true" />
               Picture taken
             </span>
@@ -187,7 +187,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
           type="button"
           onClick={handleCaptureClick}
           disabled={disabled || processing}
-          className={`inline-flex min-h-11 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition shadow-2xs ${
+          className={`inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-xs font-semibold transition shadow-2xs ${
             isRequired
               ? 'bg-primary text-white hover:bg-primary-hover border border-transparent'
               : 'border border-border bg-card text-secondary-foreground hover:bg-subtle'

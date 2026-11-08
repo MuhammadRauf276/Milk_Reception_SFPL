@@ -78,7 +78,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                                   {v.vehicle_number}
                                 </div>
                                 <span
-                                  className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-xs font-semibold tracking-wider ${
+                                  className={`inline-block mt-0.5 px-2 py-0.2 rounded text-xs font-semibold tracking-wider ${
                                     v.arrival_type === 'MOT'
                                       ? 'bg-blue-100 text-blue-800'
                                       : 'bg-emerald-100 text-emerald-800'
@@ -94,7 +94,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                             <div className="text-sm font-semibold text-foreground line-clamp-1" title={v.source_name}>
                               {v.source_name}
                             </div>
-                            <div className="flex flex-wrap items-center gap-1.5">
+                            <div className="flex flex-wrap items-center gap-2">
                               {v.zmcc_token && (
                                 <span className="font-mono text-xs font-medium px-2 py-0.5 rounded bg-muted text-secondary-foreground border border-border">
                                   Token: {v.zmcc_token}
@@ -107,7 +107,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                             </div>
                           </div>
 
-                          <div className="pt-2.5 border-t border-border flex flex-wrap gap-1.5 items-center">
+                          <div className="pt-3 border-t border-border flex flex-wrap gap-2 items-center">
                             <span
                               className={`px-2 py-0.5 rounded text-xs font-semibold ${
                                 v.lab_status === 'COMPLETED'

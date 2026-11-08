@@ -155,11 +155,11 @@ export function DynamicFilterBar({
       {/* Top Bar: Controls & Quick Date Presets */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+          <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
             <Filter className="w-4 h-4 text-muted-foreground" />
             <span>Ad-Hoc Query Filters</span>
             {filters.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-semibold">
+              <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-semibold">
                 {filters.length} active
               </span>
             )}
@@ -206,7 +206,7 @@ export function DynamicFilterBar({
             <select
               value={groupByFieldId || ''}
               onChange={(e) => onChangeGroupByFieldId(e.target.value || undefined)}
-              className="text-xs bg-background border border-border rounded-lg px-2.5 py-1 text-foreground font-medium focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              className="text-xs bg-background border border-border rounded-lg px-3 py-1 text-foreground font-medium focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
             >
               <option value="">No Grouping (Flat Records)</option>
               {groupableFields.map((f) => (
@@ -227,7 +227,7 @@ export function DynamicFilterBar({
             return (
               <div
                 key={filter.id}
-                className="flex flex-wrap items-center gap-2 p-2.5 rounded-lg bg-muted/30 border border-border/70 text-xs"
+                className="flex flex-wrap items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/70 text-xs"
               >
                 <span className="text-xs font-semibold text-muted-foreground w-10">WHERE</span>
 
@@ -235,7 +235,7 @@ export function DynamicFilterBar({
                 <select
                   value={filter.fieldId}
                   onChange={(e) => updateFilter(filter.id, { fieldId: e.target.value })}
-                  className="bg-background border border-border rounded-md px-2.5 py-1 text-xs font-semibold text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer min-w-[150px]"
+                  className="bg-background border border-border rounded-md px-3 py-1 text-xs font-semibold text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer min-w-[150px]"
                 >
                   {filterableFields.map((f) => (
                     <option key={f.id} value={f.id}>
@@ -278,7 +278,7 @@ export function DynamicFilterBar({
                   <select
                     value={filter.value || ''}
                     onChange={(e) => updateFilter(filter.id, { value: e.target.value })}
-                    className="bg-background border border-border rounded-md px-2.5 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary min-w-[140px]"
+                    className="bg-background border border-border rounded-md px-3 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary min-w-[140px]"
                   >
                     <option value="">Select option…</option>
                     {currentFieldDef.enumValues.map((val) => (
@@ -292,7 +292,7 @@ export function DynamicFilterBar({
                     type="date"
                     value={filter.value || ''}
                     onChange={(e) => updateFilter(filter.id, { value: e.target.value })}
-                    className="bg-background border border-border rounded-md px-2.5 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
+                    className="bg-background border border-border rounded-md px-3 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
                   />
                 ) : currentFieldDef?.dataType === 'number' ? (
                   <input
@@ -301,7 +301,7 @@ export function DynamicFilterBar({
                     value={filter.value ?? ''}
                     onChange={(e) => updateFilter(filter.id, { value: Number(e.target.value) })}
                     placeholder="Enter threshold…"
-                    className="bg-background border border-border rounded-md px-2.5 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary w-28"
+                    className="bg-background border border-border rounded-md px-3 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary w-28"
                   />
                 ) : (
                   <input
@@ -309,7 +309,7 @@ export function DynamicFilterBar({
                     value={filter.value || ''}
                     onChange={(e) => updateFilter(filter.id, { value: e.target.value })}
                     placeholder="Type search text…"
-                    className="bg-background border border-border rounded-md px-2.5 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary flex-1 min-w-[140px]"
+                    className="bg-background border border-border rounded-md px-3 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary flex-1 min-w-[140px]"
                   />
                 )}
 
@@ -322,7 +322,7 @@ export function DynamicFilterBar({
                         type="date"
                         value={filter.valueSecondary || ''}
                         onChange={(e) => updateFilter(filter.id, { valueSecondary: e.target.value })}
-                        className="bg-background border border-border rounded-md px-2.5 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
+                        className="bg-background border border-border rounded-md px-3 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
                       />
                     ) : (
                       <input
@@ -331,7 +331,7 @@ export function DynamicFilterBar({
                         value={filter.valueSecondary ?? ''}
                         onChange={(e) => updateFilter(filter.id, { valueSecondary: Number(e.target.value) })}
                         placeholder="Max value…"
-                        className="bg-background border border-border rounded-md px-2.5 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary w-28"
+                        className="bg-background border border-border rounded-md px-3 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary w-28"
                       />
                     )}
                   </>

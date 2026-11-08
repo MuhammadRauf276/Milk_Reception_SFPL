@@ -254,8 +254,8 @@ export function DynamicReportGeneratorScreen({
         </div>
 
         {/* Domain Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-t border-border pt-3 scrollbar-none">
-          <span className="text-xs font-semibold text-muted-foreground mr-1.5 shrink-0">Data Domain:</span>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-t border-border pt-3 scrollbar-none">
+          <span className="text-xs font-semibold text-muted-foreground mr-2 shrink-0">Data Domain:</span>
           {(metaQuery.data?.domains || [
             { id: 'MOT_COLLECTIONS', label: 'Mobile Tester collections' },
             { id: 'HC_SUPPLIERS', label: 'Direct HC Suppliers' },
@@ -271,7 +271,7 @@ export function DynamicReportGeneratorScreen({
                 setDomain(d.id as ReportDomain);
                 if (viewMode === 'PLANT_QA') setViewMode('GRID');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors shrink-0 ${
                 domain === d.id && viewMode !== 'PLANT_QA'
                   ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
                   : 'bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted/70'
@@ -320,7 +320,7 @@ export function DynamicReportGeneratorScreen({
       )}
 
       {/* Studio Toolbar: Column Chooser Popover, View Mode, Export */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/30 border border-border/80 px-4 py-2.5 rounded-xl">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/30 border border-border/80 px-4 py-2 rounded-xl">
         <div className="flex items-center gap-2">
           {/* Sleek Column Popover */}
           {viewMode !== 'PLANT_QA' && (
@@ -332,7 +332,7 @@ export function DynamicReportGeneratorScreen({
           )}
 
           {groupByFieldId && viewMode === 'GRID' && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium border border-primary/20">
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium border border-primary/20">
               <Layers className="w-3 h-3" /> Grouped by {allFields.find((f) => f.id === groupByFieldId)?.label || groupByFieldId}
             </span>
           )}
@@ -344,7 +344,7 @@ export function DynamicReportGeneratorScreen({
             <button
               type="button"
               onClick={() => setViewMode('GRID')}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
                 viewMode === 'GRID'
                   ? 'bg-muted text-foreground font-semibold shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -355,7 +355,7 @@ export function DynamicReportGeneratorScreen({
             <button
               type="button"
               onClick={() => setViewMode('PIVOT')}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
                 viewMode === 'PIVOT'
                   ? 'bg-muted text-foreground font-semibold shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -366,7 +366,7 @@ export function DynamicReportGeneratorScreen({
             <button
               type="button"
               onClick={() => setViewMode('CHART')}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
                 viewMode === 'CHART'
                   ? 'bg-muted text-foreground font-semibold shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -378,7 +378,7 @@ export function DynamicReportGeneratorScreen({
               <button
                 type="button"
                 onClick={() => setViewMode('PLANT_QA')}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
                   viewMode === 'PLANT_QA'
                     ? 'bg-primary text-primary-foreground font-semibold shadow-2xs'
                     : 'text-muted-foreground hover:text-foreground'

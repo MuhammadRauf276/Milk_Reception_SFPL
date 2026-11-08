@@ -172,21 +172,21 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
     <div className="space-y-4">
       {/* 1. Filter Buttons & Search Box */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs">
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 text-xs">
           <button
             type="button"
             onClick={() => {
               setStationFilter('ALL');
               setCurrentPage(1);
             }}
-            className={`min-h-9 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+            className={`min-h-9 px-3 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
               stationFilter === 'ALL'
                 ? 'bg-primary text-primary-foreground shadow-2xs'
                 : 'border border-border bg-card text-muted-foreground hover:text-foreground'
             }`}
           >
             <span>All Activities</span>
-            <span className="text-xs px-1.5 py-0.2 rounded-md bg-primary-foreground/20">
+            <span className="text-xs px-2 py-0.2 rounded-md bg-primary-foreground/20">
               {history.length}
             </span>
           </button>
@@ -196,7 +196,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
               setStationFilter('WEIGHBRIDGE');
               setCurrentPage(1);
             }}
-            className={`min-h-9 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+            className={`min-h-9 px-3 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
               stationFilter === 'WEIGHBRIDGE'
                 ? 'bg-primary text-primary-foreground shadow-2xs'
                 : 'border border-border bg-card text-muted-foreground hover:text-foreground'
@@ -211,7 +211,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
               setStationFilter('RECEPTION');
               setCurrentPage(1);
             }}
-            className={`min-h-9 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+            className={`min-h-9 px-3 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
               stationFilter === 'RECEPTION'
                 ? 'bg-primary text-primary-foreground shadow-2xs'
                 : 'border border-border bg-card text-muted-foreground hover:text-foreground'
@@ -254,12 +254,12 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
                 Showing {startIndex + 1}–{Math.min(filteredHistory.length, startIndex + ITEMS_PER_PAGE)} of{' '}
                 {filteredHistory.length} events
               </span>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   disabled={activePage <= 1}
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="flex min-h-11 items-center gap-1 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  className="flex min-h-11 items-center gap-1 px-3 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   <span>Previous</span>
@@ -271,7 +271,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
                   type="button"
                   disabled={activePage >= totalPages}
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className="flex min-h-11 items-center gap-1 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  className="flex min-h-11 items-center gap-1 px-3 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   <span>Next</span>
                   <ChevronRight className="h-3.5 w-3.5" />

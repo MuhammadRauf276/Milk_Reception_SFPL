@@ -204,7 +204,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
 
               {item.exceptionReasons.length > 0 && (
                 <div className="bg-card border-border rounded-xl border p-3">
-                  <p className="mb-1 flex items-center gap-1.5 font-semibold text-amber-900">
+                  <p className="mb-1 flex items-center gap-2 font-semibold text-amber-900">
                     <AlertTriangle className="h-4 w-4" aria-hidden="true" /> Why it needs a decision
                   </p>
                   <ul className="list-disc space-y-0.5 pl-5 text-sm text-amber-900">

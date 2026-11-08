@@ -181,7 +181,7 @@ export function ApprovalQueueList({
                       ) : (
                         <span
                           className={cn(
-                            'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold border shrink-0',
+                            'inline-flex items-center gap-1 px-3 py-0.5 rounded-md text-xs font-semibold border shrink-0',
                             item.status === 'APPROVED'
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                               : 'bg-rose-50 text-rose-800 border-rose-300'
@@ -206,11 +206,11 @@ export function ApprovalQueueList({
                   {/* Middle Line: Submitter or Decision info */}
                   <div className="text-xs text-secondary-foreground pt-2 border-t border-border space-y-1">
                     {isPending ? (
-                      <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span>Submitted by: <strong className="text-secondary-foreground">{item.submittedBy.name}</strong></span>
                         <span>({getRoleLabel(item.submittedBy.role)})</span>
                         {item.submittedBy.isDelegated && (
-                          <span className="px-1.5 py-0.2 rounded text-xs font-semibold bg-subtle text-secondary-foreground border border-border">
+                          <span className="px-2 py-0.2 rounded text-xs font-semibold bg-subtle text-secondary-foreground border border-border">
                             Delegated
                           </span>
                         )}
@@ -219,7 +219,7 @@ export function ApprovalQueueList({
                       <div className="text-xs text-muted-foreground">
                         <span>Decided by: <strong className="text-secondary-foreground">{item.decision?.decidedBy || 'Supervisor'}</strong></span>
                         {item.decision?.decidedAt && (
-                          <span className="ml-1.5 text-muted-foreground">· {formatDateTime(item.decision.decidedAt)}</span>
+                          <span className="ml-2 text-muted-foreground">· {formatDateTime(item.decision.decidedAt)}</span>
                         )}
                         {item.decision?.remarks && (
                           <p className="text-secondary-foreground mt-1 break-words">&ldquo;{item.decision.remarks}&rdquo;</p>
@@ -244,7 +244,7 @@ export function ApprovalQueueList({
 
                   {/* Bottom Line: Clean Action Trigger */}
                   <div className="pt-2 border-t border-border flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs">
+                    <div className="flex items-center gap-2 text-xs">
                       {isPending ? (
                         item.canDecide ? (
                           <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
@@ -270,7 +270,7 @@ export function ApprovalQueueList({
                         onSelect(item.id);
                       }}
                       className={cn(
-                        'min-h-11 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 border border-input bg-card text-foreground hover:bg-muted'
+                        'min-h-11 px-4 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 border border-input bg-card text-foreground hover:bg-muted'
                       )}
                     >
                       <span>{isPending ? (item.canDecide ? 'Review & decide' : 'View details') : 'View details'}</span>

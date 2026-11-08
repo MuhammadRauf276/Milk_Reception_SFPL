@@ -295,7 +295,7 @@ export function ZMCCSubordinateHierarchyScreen({
           <button
             type="button"
             onClick={handleExportExcel}
-            className="min-h-11 flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-foreground transition"
+            className="min-h-11 flex items-center space-x-1.5 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-foreground transition"
           >
             <Download className="w-4 h-4 text-secondary-foreground" />
             <span>Export Directory (.xlsx)</span>
@@ -303,7 +303,7 @@ export function ZMCCSubordinateHierarchyScreen({
           <button
             type="button"
             onClick={() => hierarchyQuery.refetch()}
-            className="min-h-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground"
+            className="min-h-11 flex items-center space-x-1 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground"
           >
             <span>Refresh</span>
           </button>
@@ -338,7 +338,7 @@ export function ZMCCSubordinateHierarchyScreen({
           <button
             type="button"
             onClick={() => setActiveTab('ROUTES')}
-            className={`min-h-9 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
+            className={`min-h-9 px-3 py-2 text-xs font-semibold rounded-md transition ${
               activeTab === 'ROUTES' ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
             }`}
           >
@@ -347,7 +347,7 @@ export function ZMCCSubordinateHierarchyScreen({
           <button
             type="button"
             onClick={() => setActiveTab('HC_SUPPLIERS')}
-            className={`min-h-9 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
+            className={`min-h-9 px-3 py-2 text-xs font-semibold rounded-md transition ${
               activeTab === 'HC_SUPPLIERS' ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
             }`}
           >

@@ -165,14 +165,14 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
             </h3>
           </div>
           {isZmccSource && (
-            <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+            <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-3 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" />
               <span>MPD Fleet & Escort</span>
             </span>
           )}
         </div>
 
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-3.5 min-w-0">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-4 min-w-0">
           {/* 1. Vehicle Selection (Combobox for ZMCC with manual fallback, text input for Contractor) */}
           <div className="space-y-1 min-w-0">
             <div className="flex items-center justify-between">
@@ -236,7 +236,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                   if (onSelectVehicle) onSelectVehicle('', e.target.value);
                 }}
                 placeholder={isZmccSource ? 'Enter vehicle no. (e.g. LES-1234)' : 'e.g. KBL-8492'}
-                className={`w-full min-w-0 h-11 px-3.5 text-sm tabular-nums font-semibold rounded-xl border bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition ${
+                className={`w-full min-w-0 h-11 px-4 text-sm tabular-nums font-semibold rounded-xl border bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition ${
                   vehicleNumberError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-border-strong'
                 }`}
                 required
@@ -305,7 +305,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                 value={driverName}
                 onChange={(e) => onDriverNameChange?.(e.target.value)}
                 placeholder={isZmccSource ? 'Enter escort or driver name' : 'e.g. Muhammad Bilal'}
-                className={`w-full min-w-0 h-11 px-3.5 text-xs font-semibold rounded-xl border bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition ${
+                className={`w-full min-w-0 h-11 px-4 text-xs font-semibold rounded-xl border bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition ${
                   driverError || motError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-border-strong'
                 }`}
                 required
@@ -331,7 +331,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
               value={rawMilkDispatchNoteNumber || ''}
               onChange={(e) => onRawMilkDispatchNoteNumberChange?.(e.target.value.replace(/[^0-9]/g, ''))}
               placeholder="e.g. 008124"
-              className="w-full min-w-0 h-11 px-3.5 text-xs tabular-nums font-semibold rounded-lg border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden transition"
+              className="w-full min-w-0 h-11 px-4 text-xs tabular-nums font-semibold rounded-lg border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden transition"
             />
           </div>
 
@@ -347,7 +347,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
               value={dispatchOpDatetime}
               max={maxDatetime}
               onChange={(e) => onDispatchOpDatetimeChange(e.target.value)}
-              className="w-full min-w-0 h-11 px-3.5 text-xs tabular-nums font-semibold rounded-lg border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden transition"
+              className="w-full min-w-0 h-11 px-4 text-xs tabular-nums font-semibold rounded-lg border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden transition"
               required
             />
           </div>

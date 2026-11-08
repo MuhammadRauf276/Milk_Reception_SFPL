@@ -114,7 +114,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-2xl border">
+      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl border">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -125,10 +125,10 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
             className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border focus:outline-hidden focus:border-primary bg-subtle min-h-11"
           />
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setSourceFilter('ALL')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
               sourceFilter === 'ALL' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
@@ -136,7 +136,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
           </button>
           <button
             onClick={() => setSourceFilter('ZMCC')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
               sourceFilter === 'ZMCC' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
@@ -144,7 +144,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
           </button>
           <button
             onClick={() => setSourceFilter('CONTRACTORS')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
               sourceFilter === 'CONTRACTORS' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
@@ -184,7 +184,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                   </div>
                   <h3 className="text-sm font-semibold text-foreground">{z.name}</h3>
 
-                  <div className="bg-card border-border mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 p-2.5 rounded-lg border">
+                  <div className="bg-card border-border mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 p-3 rounded-lg border">
                     <div>
                       <div className="text-xs text-muted-foreground font-medium">Received today</div>
                       <div className="tabular-nums font-semibold text-foreground text-xs">

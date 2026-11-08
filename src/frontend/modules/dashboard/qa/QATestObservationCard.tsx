@@ -136,7 +136,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             </span>
             <span
               className={cn(
-                'rounded-md px-2.5 py-0.5 text-xs font-semibold',
+                'rounded-md px-3 py-0.5 text-xs font-semibold',
                 isCalculated
                   ? 'bg-purple-100 text-purple-900 border border-purple-300'
                   : test.isRequired
@@ -150,11 +150,11 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
           <span className="text-xs font-mono text-muted-foreground block mt-0.5">{test.testCode}</span>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {sopHint && (
             <span
               className={cn(
-                'rounded-md border px-2.5 py-0.5 text-xs font-semibold tabular-nums',
+                'rounded-md border px-3 py-0.5 text-xs font-semibold tabular-nums',
                 isNumericFail ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-border-strong bg-subtle text-secondary-foreground'
               )}
             >
@@ -233,7 +233,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
                   onClick={() => onTextChange(test.id, isSelected ? '' : opt.value)}
                   aria-pressed={isSelected}
                   className={cn(
-                    'min-h-11 rounded-xl border-2 px-3.5 text-sm font-semibold transition',
+                    'min-h-11 rounded-xl border-2 px-4 text-sm font-semibold transition',
                     isSelected
                       ? isOptionFail && !isAppliedOnly
                         ? 'border-rose-600 bg-rose-600 text-white shadow-xs'
@@ -275,7 +275,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
 
       {/* Out of range alert */}
       {isOut && (
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-700">
+        <p className="flex items-center gap-2 text-xs font-semibold text-rose-700">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           {isQualitativeFail ? 'Does not meet the acceptable specification.' : `Outside SOP range${range ? ` (${range})` : ''}`}
         </p>

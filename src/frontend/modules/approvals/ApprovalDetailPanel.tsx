@@ -39,7 +39,7 @@ export function ApprovalDetailPanel({
             <button
               type="button"
               onClick={onBack}
-              className="flex min-h-11 items-center gap-1.5 text-xs font-semibold text-secondary-foreground hover:text-primary min-w-11"
+              className="flex min-h-11 items-center gap-2 text-xs font-semibold text-secondary-foreground hover:text-primary min-w-11"
             >
               <Undo2 className="w-4 h-4" />
               <span>Back to Queue</span>
@@ -76,17 +76,17 @@ export function ApprovalDetailPanel({
             {/* Status Badge using Color + Icon + Word */}
             <div className="shrink-0">
               {item.status === 'APPROVED' ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-semibold">
+                <span className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-semibold">
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Approved</span>
                 </span>
               ) : item.status === 'REJECTED' ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-rose-300 bg-rose-50 text-rose-800 text-xs font-semibold">
+                <span className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-rose-300 bg-rose-50 text-rose-800 text-xs font-semibold">
                   <XCircle className="w-4 h-4" />
                   <span>Rejected</span>
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-amber-300 bg-amber-50 text-amber-900 text-xs font-semibold">
+                <span className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-amber-300 bg-amber-50 text-amber-900 text-xs font-semibold">
                   <AlertTriangle className="w-4 h-4" />
                   <span>Pending decision</span>
                 </span>

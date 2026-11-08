@@ -100,7 +100,7 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
               <div className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center space-x-2">
-                    <div className={`p-1.5 rounded-lg border ${iconColor}`}>
+                    <div className={`p-2 rounded-lg border ${iconColor}`}>
                       <Icon className="w-3.5 h-3.5" />
                     </div>
                     <div>
@@ -123,9 +123,9 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
                 </div>
 
                 {item.metrics && item.metrics.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1 tabular-nums text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 tabular-nums text-xs">
                     {item.metrics.map((m, idx) => (
-                      <div key={idx} className="bg-white/80 p-1.5 rounded border border-border/60">
+                      <div key={idx} className="bg-white/80 p-2 rounded border border-border/60">
                         <span className="text-xs text-muted-foreground block font-sans">{m.label}</span>
                         <span className="font-semibold text-foreground">{m.value}</span>
                       </div>
@@ -140,7 +140,7 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
                 </span>
                 <button
                   onClick={() => onInspectDetails(item.log)}
-                  className="px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-hover text-white font-sans text-xs font-semibold transition flex items-center space-x-1 shadow-2xs min-h-11 min-w-11"
+                  className="px-3 py-1 rounded-lg bg-primary hover:bg-primary-hover text-white font-sans text-xs font-semibold transition flex items-center space-x-1 shadow-2xs min-h-11 min-w-11"
                 >
                   <Eye className="w-3 h-3" />
                   <span>View Details</span>

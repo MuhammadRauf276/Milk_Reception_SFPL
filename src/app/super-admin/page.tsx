@@ -55,7 +55,7 @@ function renderAuditSummary(summary: string) {
       const brief = parts.slice(0, 2).join(' · ') || 'System record';
       const formattedJson = JSON.stringify(parsed, null, 2);
       return (
-        <div className="flex max-w-xs items-center justify-between gap-1.5">
+        <div className="flex max-w-xs items-center justify-between gap-2">
           <span className="min-w-0 break-words text-xs font-medium text-foreground">{brief}</span>
           <InfoTip text={<pre className="text-xs tabular-nums font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">{formattedJson}</pre>} label="Full record" />
         </div>
@@ -69,7 +69,7 @@ function renderAuditSummary(summary: string) {
     const words = cleanText.split(' ').filter(Boolean);
     const display = words.slice(0, 3).join(' ') || summary.slice(0, 20);
     return (
-      <div className="flex max-w-xs items-center justify-between gap-1.5">
+      <div className="flex max-w-xs items-center justify-between gap-2">
         <span className="min-w-0 break-words text-xs font-medium text-foreground">{display}…</span>
         <InfoTip text={<div className="text-xs break-all max-h-40 overflow-y-auto">{summary}</div>} label="Full text" />
       </div>
@@ -165,7 +165,7 @@ export default function SuperAdminOverviewPage() {
       {/* RECENT AUDIT LOG TABLE */}
       <div className="bg-card rounded-2xl border border-border shadow-2xs p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold text-foreground">Recent activity</h2>
             <InfoTip text="Live chronological event log across plant reception and field procurement." />
           </div>

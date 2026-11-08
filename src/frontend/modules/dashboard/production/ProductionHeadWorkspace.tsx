@@ -126,7 +126,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
 
         <div className="flex items-center gap-2 self-start sm:self-center">
           {data && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/70 bg-card text-xs text-muted-foreground shadow-2xs">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/70 bg-card text-xs text-muted-foreground shadow-2xs">
               <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
               <span>Business Day:</span>
               <strong className="text-foreground font-mono">{data.businessDate}</strong>
@@ -151,7 +151,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
         <button
           type="button"
           onClick={() => handleTabChange('OVERVIEW')}
-          className={`flex-1 min-h-10 py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
+          className={`flex-1 min-h-10 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
             currentTab === 'OVERVIEW'
               ? 'bg-background text-foreground shadow-2xs font-semibold'
               : 'text-muted-foreground hover:text-foreground'
@@ -163,7 +163,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
         <button
           type="button"
           onClick={() => handleTabChange('SILOS')}
-          className={`flex-1 min-h-10 py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
+          className={`flex-1 min-h-10 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
             currentTab === 'SILOS'
               ? 'bg-background text-foreground shadow-2xs font-semibold'
               : 'text-muted-foreground hover:text-foreground'
@@ -172,7 +172,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
           <Database className="h-3.5 w-3.5" />
           <span>Plant Silos</span>
           {data && (
-            <span className="text-xs px-1.5 py-0.2 rounded-md bg-muted text-foreground">
+            <span className="text-xs px-2 py-0.2 rounded-md bg-muted text-foreground">
               {data.silos.length}
             </span>
           )}
@@ -180,7 +180,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
         <button
           type="button"
           onClick={() => handleTabChange('HISTORY')}
-          className={`flex-1 min-h-10 py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
+          className={`flex-1 min-h-10 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
             currentTab === 'HISTORY'
               ? 'bg-background text-foreground shadow-2xs font-semibold'
               : 'text-muted-foreground hover:text-foreground'

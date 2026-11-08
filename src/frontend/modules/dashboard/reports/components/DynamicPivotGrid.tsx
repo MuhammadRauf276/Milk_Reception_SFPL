@@ -228,12 +228,12 @@ export function DynamicPivotGrid({
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border">
         <div className="flex flex-wrap items-center gap-3">
           {/* Row Dimension */}
-          <div className="flex items-center gap-1.5 text-xs">
+          <div className="flex items-center gap-2 text-xs">
             <span className="text-muted-foreground font-semibold">Rows:</span>
             <select
               value={rowDimension}
               onChange={(e) => setRowDimension(e.target.value)}
-              className="bg-background border border-border rounded-lg px-2.5 py-1 text-xs font-semibold text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
+              className="bg-background border border-border rounded-lg px-3 py-1 text-xs font-semibold text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
             >
               {dimensionFields.map((f) => (
                 <option key={`row-${f.id}`} value={f.id} disabled={f.id === colDimension}>
@@ -247,19 +247,19 @@ export function DynamicPivotGrid({
           <button
             type="button"
             onClick={handleSwapDimensions}
-            className="p-1.5 rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            className="p-2 rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             title="Swap rows and columns"
           >
             <ArrowRightLeft className="w-3.5 h-3.5" />
           </button>
 
           {/* Column Dimension */}
-          <div className="flex items-center gap-1.5 text-xs">
+          <div className="flex items-center gap-2 text-xs">
             <span className="text-muted-foreground font-semibold">Columns:</span>
             <select
               value={colDimension}
               onChange={(e) => setColDimension(e.target.value)}
-              className="bg-background border border-border rounded-lg px-2.5 py-1 text-xs font-semibold text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
+              className="bg-background border border-border rounded-lg px-3 py-1 text-xs font-semibold text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
             >
               {dimensionFields.map((f) => (
                 <option key={`col-${f.id}`} value={f.id} disabled={f.id === rowDimension}>
@@ -298,7 +298,7 @@ export function DynamicPivotGrid({
             <thead>
               <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold text-xs">
                 {/* Top Left Header */}
-                <th className="py-3 px-3.5 text-foreground bg-muted/80 sticky left-0 z-20 border-r border-border min-w-[160px]">
+                <th className="py-3 px-4 text-foreground bg-muted/80 sticky left-0 z-20 border-r border-border min-w-[160px]">
                   {dimensionFields.find((f) => f.id === rowDimension)?.label || rowDimension} \ {dimensionFields.find((f) => f.id === colDimension)?.label || colDimension}
                 </th>
 
@@ -310,7 +310,7 @@ export function DynamicPivotGrid({
                 ))}
 
                 {/* Row Total Header */}
-                <th className="py-3 px-3.5 text-right font-semibold text-foreground bg-muted/80 sticky right-0 z-10 border-l border-border min-w-[120px]">
+                <th className="py-3 px-4 text-right font-semibold text-foreground bg-muted/80 sticky right-0 z-10 border-l border-border min-w-[120px]">
                   Total / Avg
                 </th>
               </tr>
@@ -320,7 +320,7 @@ export function DynamicPivotGrid({
               {rowKeys.map((rKey) => (
                 <tr key={rKey} className="hover:bg-muted/30 transition-colors">
                   {/* Row Label (Sticky Left) */}
-                  <td className="py-2.5 px-3.5 font-semibold text-foreground bg-card sticky left-0 z-10 border-r border-border whitespace-nowrap">
+                  <td className="py-2 px-4 font-semibold text-foreground bg-card sticky left-0 z-10 border-r border-border whitespace-nowrap">
                     {rKey}
                   </td>
 
@@ -343,7 +343,7 @@ export function DynamicPivotGrid({
                   })}
 
                   {/* Row Total (Sticky Right) */}
-                  <td className="py-2 px-3.5 text-right tabular-nums font-mono font-semibold text-foreground bg-card sticky right-0 z-10 border-l border-border">
+                  <td className="py-2 px-4 text-right tabular-nums font-mono font-semibold text-foreground bg-card sticky right-0 z-10 border-l border-border">
                     {formatCellValue(rowTotals[rKey])}
                   </td>
                 </tr>
@@ -353,7 +353,7 @@ export function DynamicPivotGrid({
             {/* Column Grand Totals Footer */}
             <tfoot>
               <tr className="border-t-2 border-border bg-muted/70 font-semibold text-xs sticky bottom-0 z-20">
-                <td className="py-3 px-3.5 text-foreground text-xs font-semibold sticky left-0 z-30 bg-muted/90 border-r border-border">
+                <td className="py-3 px-4 text-foreground text-xs font-semibold sticky left-0 z-30 bg-muted/90 border-r border-border">
                   Grand total
                 </td>
 
@@ -363,7 +363,7 @@ export function DynamicPivotGrid({
                   </td>
                 ))}
 
-                <td className="py-3 px-3.5 text-right tabular-nums font-mono font-semibold text-primary bg-muted/90 sticky right-0 z-30 border-l border-border text-sm">
+                <td className="py-3 px-4 text-right tabular-nums font-mono font-semibold text-primary bg-muted/90 sticky right-0 z-30 border-l border-border text-sm">
                   {formatCellValue(grandTotal)}
                 </td>
               </tr>

@@ -135,7 +135,7 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
               <button
                 type="button"
                 onClick={onRefresh}
-                className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
+                className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-2 rounded-lg border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
               >
                 <span>Refresh</span>
               </button>

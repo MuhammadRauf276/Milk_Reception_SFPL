@@ -198,26 +198,26 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
 
       <div className={`space-y-4 ${isCollapsible ? (isMobileExpanded ? 'block max-lg:animate-panel-in' : 'hidden lg:block') : 'block'}`}>
         <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border-strong shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-border pb-2.5">
+          <div className="flex items-center justify-between border-b border-border pb-3">
             <div className="flex items-center space-x-2">
               <Calculator className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-xs font-semibold text-foreground">
                 Dispatch Summary
               </h3>
             </div>
-            <span className="px-2.5 py-0.5 rounded-lg text-xs tabular-nums font-semibold bg-muted text-secondary-foreground border border-border-strong">
+            <span className="px-3 py-0.5 rounded-lg text-xs tabular-nums font-semibold bg-muted text-secondary-foreground border border-border-strong">
               {portions.length} Portion{portions.length > 1 ? 's' : ''}
             </span>
           </div>
 
-          <div className="bg-card border-border p-3.5 rounded-2xl border-strong space-y-1">
+          <div className="bg-card border-border p-4 rounded-2xl border-strong space-y-1">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-secondary-foreground text-xs">Net weight</span>
-              <span className="text-xs font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
+              <span className="text-xs font-semibold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded">
                 AUTO-SUM
               </span>
             </div>
-            <div className="flex items-baseline gap-1.5">
+            <div className="flex items-baseline gap-2">
               <span className="text-2xl font-semibold text-foreground tabular-nums">
                 {vehicleQuantity.value && Number(vehicleQuantity.value) > 0
                   ? Number(vehicleQuantity.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -230,7 +230,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
             </span>
           </div>
 
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2.5 text-xs tabular-nums font-semibold min-w-0">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 text-xs tabular-nums font-semibold min-w-0">
             <div className="bg-card border-border p-3 rounded-xl border-strong space-y-0.5 min-w-0">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-muted-foreground break-words min-w-0">Avg LR</span>
@@ -258,7 +258,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2.5 text-xs tabular-nums font-semibold min-w-0">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 text-xs tabular-nums font-semibold min-w-0">
             <div className="bg-card border-border p-3 rounded-xl border-strong space-y-0.5 min-w-0">
               <span className="text-xs font-semibold text-muted-foreground block break-words min-w-0">Gross L</span>
               <span className="text-base font-semibold text-foreground tabular-nums block break-words min-w-0">

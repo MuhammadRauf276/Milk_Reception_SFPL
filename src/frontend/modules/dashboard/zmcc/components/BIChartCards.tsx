@@ -148,7 +148,7 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
 
       {/* Hover Card */}
       {hoveredIndex !== null && trends[hoveredIndex] && (
-        <div className="mt-2 p-2.5 bg-slate-900 text-white rounded-lg text-xs shadow-lg flex items-center justify-between gap-4">
+        <div className="mt-2 p-3 bg-slate-900 text-white rounded-lg text-xs shadow-lg flex items-center justify-between gap-4">
           <div>
             <span className="font-semibold text-slate-200">{trends[hoveredIndex].date}</span>
             <div className="text-xs text-slate-400">
@@ -166,15 +166,15 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
 
       {/* Legend */}
       <div className="mt-3 flex items-center justify-center gap-6 text-xs font-medium text-slate-600">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-xs bg-slate-400 inline-block" />
           <span>Morning Shift</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-xs bg-blue-600 inline-block" />
           <span>Evening Shift</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <span className="w-4 h-0.5 bg-emerald-500 inline-block" />
           <span className="w-2 h-2 rounded-full bg-emerald-500 -ml-2.5 inline-block" />
           <span className="ml-1">13% TS Standardized</span>
@@ -362,7 +362,7 @@ export function QualityMatrixChart({ scatter }: { scatter: QualityScatterPoint[]
       </div>
 
       {selectedPoint ? (
-        <div className="p-2.5 bg-slate-900 text-white rounded-lg text-xs flex items-center justify-between">
+        <div className="p-3 bg-slate-900 text-white rounded-lg text-xs flex items-center justify-between">
           <div>
             <span className="font-semibold text-primary-foreground">#{selectedPoint.collectionNumber}</span> · Route {selectedPoint.routeCode}
           </div>

@@ -53,7 +53,7 @@ export function NetworkStatusBar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="pointer-events-auto flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md backdrop-blur-xs"
+            className="pointer-events-auto flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-md backdrop-blur-xs"
           >
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
             <span>Connection restored</span>
@@ -67,7 +67,7 @@ export function NetworkStatusBar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="pointer-events-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur-xs"
+            className="pointer-events-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur-xs"
           >
             <div className="flex items-center gap-2">
               <WifiOff className="h-4 w-4 shrink-0 text-white/90" />
@@ -94,7 +94,7 @@ export function NetworkStatusBar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="pointer-events-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-rose-600/30 bg-rose-700 px-3.5 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur-xs"
+            className="pointer-events-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-rose-600/30 bg-rose-700 px-4 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur-xs"
           >
             <div className="flex items-center gap-2">
               <Database className="h-4 w-4 shrink-0 text-white/90" />
@@ -121,7 +121,7 @@ export function NetworkStatusBar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="pointer-events-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-600 px-3.5 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur-xs"
+            className="pointer-events-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur-xs"
           >
             <div className="flex items-center gap-2">
               {isReconnecting ? (

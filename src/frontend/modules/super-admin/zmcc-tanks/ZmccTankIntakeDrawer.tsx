@@ -139,7 +139,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Tank State Summary Card */}
-        <div className="rounded-2xl border border-border bg-subtle p-3 sm:p-3.5 space-y-2.5">
+        <div className="rounded-2xl border border-border bg-subtle p-3 sm:p-4 space-y-2.5">
           <div className="flex flex-wrap justify-between items-center gap-x-2 text-xs font-semibold text-foreground">
             <span>Tank storage state</span>
             <span className="min-w-0 break-words text-xs text-muted-foreground">
@@ -147,7 +147,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
             </span>
           </div>
 
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-1.5 sm:gap-2 text-center text-xs">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 sm:gap-2 text-center text-xs">
             <div className="bg-card p-2 rounded-lg border border-border overflow-hidden">
               <span className="text-xs text-muted-foreground block font-medium">Capacity</span>
               <span className="font-mono font-semibold text-foreground tabular-nums block break-words">
@@ -169,7 +169,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
           </div>
 
           {tank.current_commercial_stock_at_13ts !== undefined && tank.current_commercial_stock_at_13ts !== null && (
-            <div className="text-xs text-secondary-foreground bg-card px-2.5 py-1.5 rounded-lg border border-border flex justify-between items-center">
+            <div className="text-xs text-secondary-foreground bg-card px-3 py-2 rounded-lg border border-border flex justify-between items-center">
               <span>Current commercial stock (@13% TS):</span>
               <span className="font-semibold tabular-nums text-foreground">{Number(tank.current_commercial_stock_at_13ts).toLocaleString()} L</span>
             </div>
@@ -203,13 +203,13 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
         </div>
 
         {/* Quality Parameters Section */}
-        <div className="rounded-2xl border border-border bg-card p-3 sm:p-3.5 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+        <div className="rounded-2xl border border-border bg-card p-3 sm:p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
               <FlaskConical className="h-4 w-4 text-muted-foreground shrink-0" />
               <span>Milk Quality &amp; @13% TS Basis</span>
             </div>
-            <label className="flex items-center gap-1.5 text-xs font-medium text-secondary-foreground cursor-pointer self-start sm:self-auto">
+            <label className="flex items-center gap-2 text-xs font-medium text-secondary-foreground cursor-pointer self-start sm:self-auto">
               <input
                 type="checkbox"
                 checked={useCustom13Ts}
@@ -276,13 +276,13 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
             </div>
           ) : (
             /* Live Calculated Preview */
-            <div className="bg-subtle rounded-lg p-2.5 border border-border text-xs space-y-1.5">
+            <div className="bg-subtle rounded-lg p-3 border border-border text-xs space-y-1.5">
               <div className="flex items-center justify-between text-muted-foreground font-medium">
                 <span>Density: <strong className="text-foreground font-semibold tabular-nums">{density.toFixed(4)}</strong></span>
                 <span>SNF: <strong className="text-foreground font-semibold tabular-nums">{snf.toFixed(2)}%</strong></span>
                 <span>TS: <strong className="text-foreground font-semibold tabular-nums">{ts.toFixed(2)}%</strong></span>
               </div>
-              <div className="border-t border-border pt-1.5 flex justify-between items-center font-semibold text-foreground">
+              <div className="border-t border-border pt-2 flex justify-between items-center font-semibold text-foreground">
                 <span className="flex items-center gap-1">
                   <Calculator className="h-3.5 w-3.5 text-muted-foreground" />
                   Calculated @13% TS Volume:

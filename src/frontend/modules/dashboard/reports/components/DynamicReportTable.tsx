@@ -189,12 +189,12 @@ export function DynamicReportTable({
                   <th
                     key={f.id}
                     onClick={() => f.sortable !== false && onSort(f.id)}
-                    className={`py-3 px-3.5 transition-colors select-none ${
+                    className={`py-3 px-4 transition-colors select-none ${
                       f.sortable !== false ? 'cursor-pointer hover:bg-muted/80 hover:text-foreground' : ''
                     } ${f.align === 'right' ? 'text-right' : f.align === 'center' ? 'text-center' : 'text-left'}`}
                   >
                     <div
-                      className={`inline-flex items-center gap-1.5 ${
+                      className={`inline-flex items-center gap-2 ${
                         f.align === 'right' ? 'justify-end' : f.align === 'center' ? 'justify-center' : 'justify-start'
                       }`}
                     >
@@ -239,7 +239,7 @@ export function DynamicReportTable({
                       onClick={() => toggleGroup(groupKey)}
                       className="bg-muted/40 hover:bg-muted/70 cursor-pointer border-t border-b border-border select-none"
                     >
-                      <td colSpan={fields.length} className="py-2.5 px-3.5 font-semibold text-foreground text-xs">
+                      <td colSpan={fields.length} className="py-2 px-4 font-semibold text-foreground text-xs">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             {isCollapsed ? (
@@ -280,7 +280,7 @@ export function DynamicReportTable({
                           {fields.map((f) => (
                             <td
                               key={f.id}
-                              className={`py-2.5 px-3.5 ${
+                              className={`py-2 px-4 ${
                                 f.align === 'right' ? 'text-right' : f.align === 'center' ? 'text-center' : 'text-left'
                               }`}
                             >
@@ -299,7 +299,7 @@ export function DynamicReportTable({
                   {fields.map((f) => (
                     <td
                       key={f.id}
-                      className={`py-2.5 px-3.5 ${
+                      className={`py-2 px-4 ${
                         f.align === 'right' ? 'text-right' : f.align === 'center' ? 'text-center' : 'text-left'
                       }`}
                     >
@@ -318,7 +318,7 @@ export function DynamicReportTable({
                 {fields.map((f, idx) => {
                   if (idx === 0) {
                     return (
-                      <td key={f.id} className="py-3 px-3.5 text-foreground text-xs font-semibold">
+                      <td key={f.id} className="py-3 px-4 text-foreground text-xs font-semibold">
                         TOTAL ({totalRecords})
                       </td>
                     );
@@ -327,7 +327,7 @@ export function DynamicReportTable({
                   return (
                     <td
                       key={f.id}
-                      className={`py-3 px-3.5 ${
+                      className={`py-3 px-4 ${
                         f.align === 'right' ? 'text-right' : f.align === 'center' ? 'text-center' : 'text-left'
                       }`}
                     >
@@ -360,7 +360,7 @@ export function DynamicReportTable({
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="icon-sm"

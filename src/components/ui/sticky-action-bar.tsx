@@ -40,7 +40,7 @@ export function StickyActionBar({
     >
       <div
         className={cn(
-          'mx-auto flex max-w-7xl items-center justify-end gap-2.5',
+          'mx-auto flex max-w-7xl items-center justify-end gap-2',
           innerClassName
         )}
       >

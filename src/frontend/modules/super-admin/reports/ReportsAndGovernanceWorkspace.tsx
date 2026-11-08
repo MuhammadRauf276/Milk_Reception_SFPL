@@ -31,7 +31,7 @@ function ReportsContent() {
   return (
     <div className="w-full min-w-0 max-w-full space-y-4 p-1">
       {/* Sub-Tabs Navigation Bar */}
-      <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-border bg-card p-1.5 shadow-2xs">
+      <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-border bg-card p-2 shadow-2xs">
         <button
           type="button"
           onClick={() => handleTabChange('daily')}

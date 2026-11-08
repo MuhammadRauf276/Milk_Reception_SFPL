@@ -18,7 +18,7 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       {/* 1. Today's Intake (@13% TS) */}
-      <div className="rounded-2xl border border-border bg-card p-3.5 sm:p-4 shadow-2xs flex flex-col justify-between">
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-4 shadow-2xs flex flex-col justify-between">
         <div className="flex items-center justify-between text-muted-foreground mb-2">
           <span className="text-xs font-semibold text-muted-foreground">
             Intake Today
@@ -39,7 +39,7 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
       </div>
 
       {/* 2. Active In-Plant Tankers */}
-      <div className="rounded-2xl border border-border bg-card p-3.5 sm:p-4 shadow-2xs flex flex-col justify-between">
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-4 shadow-2xs flex flex-col justify-between">
         <div className="flex items-center justify-between text-muted-foreground mb-2">
           <span className="text-xs font-semibold text-muted-foreground">
             In-Plant Tankers
@@ -60,7 +60,7 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
       </div>
 
       {/* 3. Weighbridge Activity */}
-      <div className="rounded-2xl border border-border bg-card p-3.5 sm:p-4 shadow-2xs flex flex-col justify-between">
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-4 shadow-2xs flex flex-col justify-between">
         <div className="flex items-center justify-between text-muted-foreground mb-2">
           <span className="text-xs font-semibold text-muted-foreground">
             Weighbridge
@@ -88,7 +88,7 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
       </div>
 
       {/* 4. Silo Storage */}
-      <div className="rounded-2xl border border-border bg-card p-3.5 sm:p-4 shadow-2xs flex flex-col justify-between">
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-4 shadow-2xs flex flex-col justify-between">
         <div className="flex items-center justify-between text-muted-foreground mb-2">
           <span className="text-xs font-semibold text-muted-foreground">
             Silo Stock

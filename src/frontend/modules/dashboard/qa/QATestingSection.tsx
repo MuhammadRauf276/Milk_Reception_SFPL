@@ -254,7 +254,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                   {isSingleComposite ? 'Composite' : 'By portion'}
                 </span>
               </div>
-              <p className="text-xs text-secondary-foreground font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
+              <p className="text-xs text-secondary-foreground font-medium mt-0.5 flex items-center gap-2 flex-wrap">
                 <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                 <span>
                   Gate entry:{' '}
@@ -275,7 +275,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
           </div>
 
           <div className="flex items-center space-x-2 self-start sm:self-center">
-            <div className="flex items-center space-x-2 bg-muted px-3 py-1.5 rounded-xl border border-border-strong">
+            <div className="flex items-center space-x-2 bg-muted px-3 py-2 rounded-xl border border-border-strong">
               <span className="text-xs font-semibold text-muted-foreground">Status:</span>
               <span className="text-xs font-semibold text-foreground tabular-nums">
                 {visitDetail.visit_decision_summary}
@@ -338,7 +338,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
 
           <div className="flex items-center gap-2 self-end sm:self-center">
             {hasEscalation && portions.some((p) => p.manager_review_status === 'PENDING') ? (
-              <div className="px-3.5 py-2 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-xs font-semibold flex items-center gap-2">
+              <div className="px-4 py-2 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-xs font-semibold flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-700" />
                 <span>Pending with AVP QA, vehicle on hold</span>
               </div>
@@ -347,7 +347,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                 type="button"
                 disabled={isRoutingVehicle}
                 onClick={() => onRouteVehicle('ESCALATE_AVP_QA')}
-                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 {isRoutingVehicle ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -363,7 +363,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                 type="button"
                 disabled={isRoutingVehicle}
                 onClick={() => onRouteVehicle('GATE_EXIT')}
-                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 {isRoutingVehicle ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -379,7 +379,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                 type="button"
                 disabled={isRoutingVehicle}
                 onClick={() => onRouteVehicle('WEIGHBRIDGE')}
-                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors flex items-center gap-2 disabled:opacity-50"
               >
                 {isRoutingVehicle ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -443,7 +443,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                     </h4>
                     <span
                       className={cn(
-                        'rounded-md px-2.5 py-0.5 text-xs font-semibold',
+                        'rounded-md px-3 py-0.5 text-xs font-semibold',
                         p.plant_decision === 'ACCEPTED'
                           ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                           : p.plant_decision === 'REJECTED'
@@ -494,7 +494,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                       setIsDrawerOpen(true);
                     }}
                     className={cn(
-                      'min-h-11 min-w-11 flex w-full items-center justify-center gap-1.5 rounded-lg text-sm font-semibold transition-colors',
+                      'min-h-11 min-w-11 flex w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-colors',
                       !isCompleted
                         ? 'bg-primary text-white hover:bg-primary-hover'
                         : 'border border-border bg-subtle text-secondary-foreground hover:bg-muted'
@@ -522,7 +522,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
       {currentPortion ? (
         <div className="space-y-5">
           {isSingleComposite && (
-            <div className="bg-card border-border p-3.5 border rounded-2xl text-foreground text-xs font-medium flex items-center gap-2.5">
+            <div className="bg-card border-border p-4 border rounded-2xl text-foreground text-xs font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0" />
               <span>
                 <strong>Composite testing:</strong> 1 portion represents the entire tanker load. An accepted or rejected decision applies to the complete vehicle.
@@ -541,20 +541,20 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               </div>
               {hasDispatchSeal ? (
                 isSealMatched ? (
-                  <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
+                  <span className="px-3 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Seal matches
                   </span>
                 ) : currentEnteredSeal ? (
-                  <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-muted text-secondary-foreground border border-border-strong">
+                  <span className="px-3 py-1 rounded-md text-xs font-semibold bg-muted text-secondary-foreground border border-border-strong">
                     Seal differs (optional)
                   </span>
                 ) : (
-                  <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-muted text-secondary-foreground">
+                  <span className="px-3 py-1 rounded-md text-xs font-semibold bg-muted text-secondary-foreground">
                     Seal not entered (optional)
                   </span>
                 )
               ) : (
-                <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-muted text-secondary-foreground">
+                <span className="px-3 py-1 rounded-md text-xs font-semibold bg-muted text-secondary-foreground">
                   No dispatch seal
                 </span>
               )}
@@ -587,7 +587,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(true)}
-                className="flex min-h-11 items-center gap-1.5 px-4 py-2 border border-border bg-card text-foreground text-xs font-semibold rounded-lg hover:bg-muted transition-colors"
+                className="flex min-h-11 items-center gap-2 px-4 py-2 border border-border bg-card text-foreground text-xs font-semibold rounded-lg hover:bg-muted transition-colors"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 <span>Open tests and decision</span>

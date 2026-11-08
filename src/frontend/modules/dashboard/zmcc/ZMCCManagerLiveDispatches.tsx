@@ -185,10 +185,10 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
           </div>
 
           {!serverPaging && (
-          <div className="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label="Stage filters">
+          <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Stage filters">
             <button
               onClick={() => setLifecycleFilter('ALL_ACTIVE')}
-              className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition ${
+              className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition ${
                 lifecycleFilter === 'ALL_ACTIVE'
                   ? 'bg-primary text-white shadow-2xs'
                   : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
@@ -198,7 +198,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
             </button>
             <button
               onClick={() => setLifecycleFilter('GATE_ENTERED')}
-              className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition ${
+              className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition ${
                 lifecycleFilter === 'GATE_ENTERED'
                   ? 'bg-primary text-white shadow-2xs'
                   : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
@@ -208,7 +208,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
             </button>
             <button
               onClick={() => setLifecycleFilter('PLANT_QA')}
-              className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition ${
+              className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition ${
                 lifecycleFilter === 'PLANT_QA'
                   ? 'bg-primary text-white shadow-2xs'
                   : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
@@ -218,7 +218,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
             </button>
             <button
               onClick={() => setLifecycleFilter('WEIGHBRIDGE')}
-              className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition ${
+              className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition ${
                 lifecycleFilter === 'WEIGHBRIDGE'
                   ? 'bg-primary text-white shadow-2xs'
                   : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
@@ -228,7 +228,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
             </button>
             <button
               onClick={() => setLifecycleFilter('UNLOADING')}
-              className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition ${
+              className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition ${
                 lifecycleFilter === 'UNLOADING'
                   ? 'bg-primary text-white shadow-2xs'
                   : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
@@ -238,7 +238,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
             </button>
             <button
               onClick={() => setLifecycleFilter('AWAITING_RECEIPT')}
-              className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition ${
+              className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition ${
                 lifecycleFilter === 'AWAITING_RECEIPT'
                   ? 'bg-primary text-white shadow-2xs'
                   : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
@@ -287,7 +287,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                     <div className="flex items-center space-x-1.5">
                       {!serverPaging && (
                         <span
-                          className={`px-2.5 py-0.5 rounded-md text-xs font-semibold tabular-nums  shadow-2xs ${
+                          className={`px-3 py-0.5 rounded-md text-xs font-semibold tabular-nums  shadow-2xs ${
                             isFirst
                               ? 'bg-primary text-white'
                               : 'bg-muted text-secondary-foreground border border-border'
@@ -325,7 +325,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-subtle/80 border border-border/60 text-xs">
+                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-subtle/80 border border-border/60 text-xs">
                     <span className="text-muted-foreground font-semibold text-xs">Station / Stage:</span>
                     <span className="px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
                       {lc.currentStageLabel}
@@ -380,7 +380,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
           </div>
 
           {totalPages > 1 && (
-            <div className="p-3.5 rounded-2xl bg-card border border-border/80 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
               <span className="text-secondary-foreground font-semibold tabular-nums">
                 Showing{' '}
                 <strong className="text-foreground">
@@ -395,7 +395,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                 <button
                   onClick={() => goToPage(Math.max(1, validCurrentPage - 1))}
                   disabled={validCurrentPage === 1}
-                  className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
+                  className="inline-flex items-center space-x-1 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
                   aria-label="Previous Page"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
@@ -421,7 +421,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                 <button
                   onClick={() => goToPage(Math.min(totalPages, validCurrentPage + 1))}
                   disabled={validCurrentPage === totalPages}
-                  className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
+                  className="inline-flex items-center space-x-1 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
                   aria-label="Next Page"
                 >
                   <span>Next</span>

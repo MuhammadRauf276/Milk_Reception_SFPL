@@ -53,7 +53,7 @@ export function AssignTestDrawer({ stage, stageLabel, tests, onClose, onAssigned
         </div>
       ) : (
         <div>
-          <label className="mb-1.5 block font-semibold text-secondary-foreground">Test</label>
+          <label className="mb-2 block font-semibold text-secondary-foreground">Test</label>
           <Combobox
             options={options}
             value={testId}

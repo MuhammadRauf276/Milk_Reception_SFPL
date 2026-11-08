@@ -44,7 +44,7 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
                   className={upper}
                 />
                 {t.record.route_milk_token && (
-                  <div className="bg-card border-border mt-2 p-2.5 border rounded-xl text-xs text-secondary-foreground">
+                  <div className="bg-card border-border mt-2 p-3 border rounded-xl text-xs text-secondary-foreground">
                     <span className="font-semibold text-muted-foreground">Legacy token:</span>{' '}
                     <span className="tabular-nums font-semibold text-foreground">{t.record.route_milk_token}</span>
                   </div>
@@ -75,7 +75,7 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
                   />
                 </div>
                 {t.record.rmr_number && (
-                  <div className="bg-card border-border p-2.5 border rounded-xl text-xs text-secondary-foreground">
+                  <div className="bg-card border-border p-3 border rounded-xl text-xs text-secondary-foreground">
                     <span className="font-semibold text-muted-foreground">RMR:</span>{' '}
                     <span className="tabular-nums font-semibold text-foreground">{t.record.rmr_number}</span>
                   </div>

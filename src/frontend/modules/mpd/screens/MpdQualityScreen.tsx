@@ -113,7 +113,7 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-card border-border p-3.5 rounded-lg border">
+          <div className="bg-card border-border p-4 rounded-lg border">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-secondary-foreground">Formalin (Preservative)</span>
               <IncidentDot count={qualityFunnel.incidents.formalinCount} />
@@ -124,7 +124,7 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
             <div className="mt-1 text-xs text-muted-foreground">Strict zero tolerance</div>
           </div>
 
-          <div className="bg-card border-border p-3.5 rounded-lg border">
+          <div className="bg-card border-border p-4 rounded-lg border">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-secondary-foreground">Urea</span>
               <IncidentDot count={qualityFunnel.incidents.ureaCount} />
@@ -135,7 +135,7 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
             <div className="mt-1 text-xs text-muted-foreground">Strict zero tolerance</div>
           </div>
 
-          <div className="bg-card border-border p-3.5 rounded-lg border">
+          <div className="bg-card border-border p-4 rounded-lg border">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-secondary-foreground">Added Water (LR out of range)</span>
               <IncidentDot count={qualityFunnel.incidents.waterLowLrCount} />
@@ -146,7 +146,7 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
             <div className="mt-1 text-xs text-muted-foreground">Failed lactometer reading</div>
           </div>
 
-          <div className="bg-card border-border p-3.5 rounded-lg border">
+          <div className="bg-card border-border p-4 rounded-lg border">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-secondary-foreground">Clot on Boiling Positive</span>
               <IncidentDot count={qualityFunnel.incidents.cobPositiveCount} />

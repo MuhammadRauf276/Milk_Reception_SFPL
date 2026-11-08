@@ -112,7 +112,7 @@ export const ZMCCLabSessionList: React.FC<{
             }`}
           >
             {/* Header row */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-border/60">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-border/60">
               <div className="flex items-center space-x-2.5 flex-wrap gap-y-1">
                 <span className="text-base font-semibold tabular-nums text-foreground">
                   {vehicleNumber}
@@ -218,7 +218,7 @@ export const ZMCCLabSessionList: React.FC<{
 
             {/* Rejection / Review Reasons */}
             {session.rejection_reason && (
-              <div className="bg-card border-border p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 border text-rose-900">
+              <div className="bg-card border-border p-3 rounded-lg text-xs font-semibold flex items-start gap-2 border text-rose-900">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-700" />
                 <div>
                   <span className="font-semibold text-xs block">Rejection Reason:</span>
@@ -228,7 +228,7 @@ export const ZMCCLabSessionList: React.FC<{
             )}
 
             {session.manager_review_reason && (
-              <div className="bg-card border-border p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 border text-slate-800">
+              <div className="bg-card border-border p-3 rounded-lg text-xs font-semibold flex items-start gap-2 border text-slate-800">
                 <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-700" />
                 <div>
                   <span className="font-semibold text-xs block">

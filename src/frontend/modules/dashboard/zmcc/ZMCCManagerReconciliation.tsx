@@ -312,7 +312,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
         <button
           type="button"
           onClick={() => onInspectDetails(item.group.primaryLog)}
-          className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-subtle border border-border text-xs font-sans font-semibold text-primary hover:bg-blue-50 transition min-h-11 min-w-11"
+          className="inline-flex items-center space-x-1 px-3 py-1 rounded bg-subtle border border-border text-xs font-sans font-semibold text-primary hover:bg-blue-50 transition min-h-11 min-w-11"
           title="Inspect full details"
         >
           <span>Inspect</span>
@@ -347,7 +347,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                 type="button"
                 onClick={onRetry}
                 disabled={isLoading}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 min-h-11"
+                className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 min-h-11"
               >
                 <span>{isLoading ? 'Syncing…' : 'Refresh'}</span>
               </button>
@@ -367,7 +367,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
           </div>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 tabular-nums">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 tabular-nums">
           <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-muted-foreground block font-semibold">Visits on Page</span>
             <span className="text-lg font-semibold text-foreground">
@@ -409,7 +409,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
         {/* 2. Controls & Filter Pills */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2">
           {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
             {FILTER_OPTIONS.map((opt) => {
               const active = filterState === opt.id;
               return (
@@ -417,7 +417,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                   key={opt.id}
                   type="button"
                   onClick={() => setFilterState(opt.id)}
-                  className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold shrink-0 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
+                  className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold shrink-0 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                     active
                       ? 'bg-primary text-white shadow-2xs'
                       : 'bg-subtle text-secondary-foreground hover:bg-muted border border-border/80'
@@ -438,7 +438,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
               aria-label="Search current page vehicle or token"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-subtle border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary min-h-11"
+              className="w-full pl-8 pr-3 py-2 rounded-lg bg-subtle border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary min-h-11"
             />
           </div>
         </div>
@@ -537,7 +537,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                             {`Fat: ${p.dispatchFat ?? '—'}% / ${p.plantFat ?? '—'}% · LR: ${p.dispatchLr ?? '—'} / ${p.plantLr ?? '—'}`}
                           </span>
                           <span
-                            className={`px-1.5 py-0.5 rounded text-xs font-sans font-semibold ${
+                            className={`px-2 py-0.5 rounded text-xs font-sans font-semibold ${
                               p.qaDecision === 'ACCEPTED'
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : p.qaDecision === 'REJECTED'

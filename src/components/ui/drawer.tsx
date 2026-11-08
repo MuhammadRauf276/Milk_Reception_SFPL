@@ -128,7 +128,7 @@ const DrawerContent = React.forwardRef<
         }}
         {...props}
       >
-        <div className="mx-auto mt-2.5 h-1.5 w-11 shrink-0 rounded-full bg-border-strong" aria-hidden="true" />
+        <div className="mx-auto mt-2 h-1.5 w-11 shrink-0 rounded-full bg-border-strong" aria-hidden="true" />
         {children}
       </DrawerPrimitive.Content>
     </DrawerPrimitive.Portal>
@@ -165,7 +165,7 @@ const DrawerDescription = React.forwardRef<
 DrawerDescription.displayName = 'DrawerDescription';
 
 const DrawerHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex shrink-0 flex-col gap-1.5 px-4 pt-3 pb-2 text-left sm:px-6', className)} {...props} />
+  <div className={cn('flex shrink-0 flex-col gap-2 px-4 pt-3 pb-2 text-left sm:px-6', className)} {...props} />
 );
 DrawerHeader.displayName = 'DrawerHeader';
 

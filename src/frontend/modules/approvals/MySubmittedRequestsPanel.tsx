@@ -49,7 +49,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
             <button
               type="button"
               onClick={() => setFilterStatus('ALL')}
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition ${
                 filterStatus === 'ALL'
                   ? 'bg-background text-foreground shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -60,7 +60,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
             <button
               type="button"
               onClick={() => setFilterStatus('PENDING')}
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition ${
                 filterStatus === 'PENDING'
                   ? 'bg-amber-100 text-amber-900 shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -71,7 +71,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
             <button
               type="button"
               onClick={() => setFilterStatus('RESOLVED')}
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition ${
                 filterStatus === 'RESOLVED'
                   ? 'bg-background text-foreground shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -141,7 +141,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
           return (
             <div
               key={item.id}
-              className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs space-y-2.5 transition hover:border-border/80"
+              className="rounded-2xl border border-border bg-card p-4 shadow-2xs space-y-2.5 transition hover:border-border/80"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -157,14 +157,14 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
                 </div>
 
                 <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold border ${badgeClass}`}
+                  className={`inline-flex items-center px-3 py-0.5 rounded-md text-xs font-semibold border ${badgeClass}`}
                 >
                   {item.statusLabel}
                 </span>
               </div>
 
               {/* Reviewer / Decision Details */}
-              <div className="rounded-lg bg-muted/40 p-2.5 text-xs space-y-1 border border-border/50">
+              <div className="rounded-lg bg-muted/40 p-3 text-xs space-y-1 border border-border/50">
                 <div className="flex flex-wrap items-center justify-between text-muted-foreground gap-1 text-xs">
                   <span>
                     Sent: <strong className="text-foreground">{formatTime(item.submittedAt)}</strong> on {formatDate(item.submittedAt)}

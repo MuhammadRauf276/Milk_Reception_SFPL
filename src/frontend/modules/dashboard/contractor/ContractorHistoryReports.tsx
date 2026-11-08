@@ -236,7 +236,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
       {/* 1. Header Scope Banner */}
       <div className="bg-card border-border p-5 rounded-2xl border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-xs">
+          <div className="p-3 bg-blue-900 text-white rounded-xl shadow-xs">
             <History className="w-5 h-5" />
           </div>
           <div>
@@ -329,7 +329,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
 
       {/* Bounded Page Notice */}
       {totalPages > 1 && (
-        <div className="bg-card border-border p-3.5 rounded-2xl border text-xs text-amber-800 flex items-center justify-between">
+        <div className="bg-card border-border p-4 rounded-2xl border text-xs text-amber-800 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
@@ -450,7 +450,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
                       const prev = Math.max(1, page - 1);
                       setPage(prev);
                     }}
-                    className="px-3.5 py-1.5 min-h-11 bg-card border border-border-strong rounded-lg hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition shadow-2xs"
+                    className="px-4 py-2 min-h-11 bg-card border border-border-strong rounded-lg hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition shadow-2xs"
                   >
                     Previous
                   </button>
@@ -464,7 +464,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
                       const next = Math.min(totalPages, page + 1);
                       setPage(next);
                     }}
-                    className="px-3.5 py-1.5 min-h-11 bg-card border border-border-strong rounded-lg hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition shadow-2xs"
+                    className="px-4 py-2 min-h-11 bg-card border border-border-strong rounded-lg hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition shadow-2xs"
                   >
                     Next
                   </button>

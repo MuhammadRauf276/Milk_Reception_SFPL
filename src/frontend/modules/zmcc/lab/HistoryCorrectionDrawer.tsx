@@ -79,7 +79,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                 value={correctionReason}
                 onChange={(e) => setCorrectionReason(e.target.value)}
                 placeholder="Reason"
-                className="min-h-11 w-full p-2.5 border border-border-strong rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-primary"
+                className="min-h-11 w-full p-3 border border-border-strong rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
             </div>
 
@@ -92,7 +92,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                 <select
                   value={correctionDecision}
                   onChange={(e) => setCorrectionDecision(e.target.value as 'ACCEPTED' | 'REJECTED')}
-                  className="min-h-11 w-full p-2.5 border border-border-strong rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
+                  className="min-h-11 w-full p-3 border border-border-strong rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
                 >
                   <option value="ACCEPTED">ACCEPTED</option>
                   <option value="REJECTED">REJECTED</option>
@@ -110,7 +110,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                     value={correctionRejectionReason}
                     onChange={(e) => setCorrectionRejectionReason(e.target.value)}
                     placeholder="Reason for rejection…"
-                    className="min-h-11 w-full p-2.5 border border-rose-300 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-rose-500"
+                    className="min-h-11 w-full p-3 border border-rose-300 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-rose-500"
                   />
                 </div>
               )}
@@ -129,7 +129,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                   value={correctionQuantityValue}
                   onChange={(e) => setCorrectionQuantityValue(e.target.value)}
                   placeholder="e.g. 5000"
-                  className="min-h-11 w-full p-2.5 border border-border-strong rounded-lg text-xs tabular-nums focus:outline-hidden focus:ring-2 focus:ring-primary"
+                  className="min-h-11 w-full p-3 border border-border-strong rounded-lg text-xs tabular-nums focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div>
@@ -159,7 +159,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
               return (
                 <div className="bg-card border-border border rounded-xl p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-secondary-foreground flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-secondary-foreground flex items-center gap-2">
                       <Calculator className="w-3.5 h-3.5 text-muted-foreground" />
                       Recomputed Final Metrics Preview
                     </span>

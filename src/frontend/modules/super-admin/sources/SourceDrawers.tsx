@@ -159,7 +159,7 @@ export function SourceEditDrawer({ source, onClose, onSaved }: { source: Source;
   return (
     <FormDrawer open onClose={onClose} busy={busy} error={error} title="Edit Procurement Source">
       <form onSubmit={submit} className="space-y-3.5">
-        <div className="grid gap-3.5 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className={fieldLabelClass}>Source Code</label>
             <input type="text" disabled value={source.code} className={readOnly} />

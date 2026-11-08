@@ -25,7 +25,7 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, lo
 
   return (
 <div
-                            className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-subtle transition"
+                            className="p-4 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-subtle transition"
                           >
                             <div className="flex items-start space-x-3 min-w-0">
                               <span
@@ -80,7 +80,7 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, lo
                                 <div className="text-xs text-muted-foreground flex items-center space-x-2 flex-wrap gap-y-1">
                                   {areaName && <span>Area: {areaName}</span>}
                                   {!stop.hasCoordinates && (
-                                    <span className="px-1.5 py-0.5 rounded-md text-xs font-semibold bg-muted text-secondary-foreground border border-border">
+                                    <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-muted text-secondary-foreground border border-border">
                                       Geotag on 1st Visit
                                     </span>
                                   )}
@@ -109,7 +109,7 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, lo
                                           href={`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`}
                                           target="_blank"
                                           rel="noreferrer"
-                                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                                          className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                                         >
                                           <MessageSquare className="w-3.5 h-3.5" />
                                           <span>WhatsApp Receipt ({rawPhone})</span>
@@ -126,7 +126,7 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, lo
                                 {!locked && (<button
                                   type="button"
                                   onClick={() => onRecord(stop)}
-                                  className="min-h-[44px] px-3.5 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-primary"
+                                  className="min-h-[44px] px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-primary"
                                 >
                                   Record Collection
                                 </button>)}

@@ -44,7 +44,7 @@ export const LabReportPhotoCard: React.FC<LabReportPhotoCardProps> = ({
             </div>
 
             {labReportPhoto ? (
-              <div className="bg-card border-border flex items-center space-x-3 p-2.5 rounded-xl border">
+              <div className="bg-card border-border flex items-center space-x-3 p-3 rounded-xl border">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={labReportPhoto.previewUrl}
@@ -74,7 +74,7 @@ export const LabReportPhotoCard: React.FC<LabReportPhotoCardProps> = ({
               <button
                 type="button"
                 onClick={() => setLabReportCamera(true)}
-                className="w-full min-h-[48px] px-4 py-2.5 rounded-xl border border-dashed border-border-strong hover:border-primary-hover bg-subtle hover:bg-blue-50/50 text-xs font-semibold text-secondary-foreground flex items-center justify-center space-x-2 transition"
+                className="w-full min-h-[48px] px-4 py-2 rounded-xl border border-dashed border-border-strong hover:border-primary-hover bg-subtle hover:bg-blue-50/50 text-xs font-semibold text-secondary-foreground flex items-center justify-center space-x-2 transition"
               >
                 <Camera className="w-4 h-4 text-muted-foreground-hover" />
                 <span>Take Hand-written Lab Report Photo</span>

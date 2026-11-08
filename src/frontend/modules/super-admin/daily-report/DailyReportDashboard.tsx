@@ -19,9 +19,9 @@ type ExceptionRow = DailyReportData['exceptions'][number];
 type PlantQaRow = DailyReportData['plantQaVisits'][number];
 
 function VerdictChip({ verdict }: { verdict: string }) {
-  if (verdict === 'ACCEPTED') return <span className="rounded-md bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">Accepted</span>;
-  if (verdict === 'WARNING') return <span className="rounded-md bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Warning</span>;
-  if (verdict === 'REJECTED') return <span className="rounded-md bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">Rejected</span>;
+  if (verdict === 'ACCEPTED') return <span className="rounded-md bg-emerald-100 px-3 py-0.5 text-xs font-semibold text-emerald-800">Accepted</span>;
+  if (verdict === 'WARNING') return <span className="rounded-md bg-amber-100 px-3 py-0.5 text-xs font-semibold text-amber-800">Warning</span>;
+  if (verdict === 'REJECTED') return <span className="rounded-md bg-rose-100 px-3 py-0.5 text-xs font-semibold text-rose-800">Rejected</span>;
   return null;
 }
 
@@ -77,7 +77,7 @@ const zmccColumns: DataColumn<ZmccRow>[] = [
     header: 'Type',
     label: 'Type',
     cell: (p) => (
-      <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-secondary-foreground">
+      <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-secondary-foreground">
         {p.arrivalType === 'MC' ? 'Route (MC)' : 'Contractor (HC)'}
       </span>
     ),
@@ -134,9 +134,9 @@ const exceptionColumns: DataColumn<ExceptionRow>[] = [
     align: 'center',
     cell: (e) => (
       <>
-        {e.decision === 'APPROVED' && <span className="rounded-md bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">Approved</span>}
-        {e.decision === 'REJECTED' && <span className="rounded-md bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">Overruled</span>}
-        {e.decision === 'PENDING' && <span className="rounded-md bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Pending</span>}
+        {e.decision === 'APPROVED' && <span className="rounded-md bg-emerald-100 px-3 py-0.5 text-xs font-semibold text-emerald-800">Approved</span>}
+        {e.decision === 'REJECTED' && <span className="rounded-md bg-rose-100 px-3 py-0.5 text-xs font-semibold text-rose-800">Overruled</span>}
+        {e.decision === 'PENDING' && <span className="rounded-md bg-amber-100 px-3 py-0.5 text-xs font-semibold text-amber-800">Pending</span>}
       </>
     ),
   },
@@ -341,7 +341,7 @@ export function DailyReportDashboard() {
               ({kpis ? kpis.mot.totalCollections : 0} shops)
             </span>
           </div>
-          <div className="mt-2.5 flex items-center gap-2 text-xs">
+          <div className="mt-2 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               <CheckCircle2 className="h-3 w-3" />
               {kpis ? kpis.mot.passedCount : 0} pass
@@ -358,7 +358,7 @@ export function DailyReportDashboard() {
             </span>
           </div>
           {kpis && kpis.mot.totalLiters > 0 && (
-            <p className="mt-1.5 text-xs font-medium text-muted-foreground">
+            <p className="mt-2 text-xs font-medium text-muted-foreground">
               Avg LR: {kpis.mot.avgLr} · Fat: {kpis.mot.avgFat}% · SNF: {kpis.mot.avgSnf}%
             </p>
           )}
@@ -380,7 +380,7 @@ export function DailyReportDashboard() {
               ({kpis ? kpis.zmcc.totalPortions : 0} portions)
             </span>
           </div>
-          <div className="mt-2.5 flex items-center gap-2 text-xs">
+          <div className="mt-2 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               <CheckCircle2 className="h-3 w-3" />
               {kpis ? kpis.zmcc.passedCount : 0} pass
@@ -396,7 +396,7 @@ export function DailyReportDashboard() {
               {kpis ? kpis.zmcc.rejectedCount : 0} rej
             </span>
           </div>
-          <p className="mt-1.5 text-xs font-medium text-muted-foreground">
+          <p className="mt-2 text-xs font-medium text-muted-foreground">
             Route trucks (MC) & Commercial tankers (HC)
           </p>
         </div>
@@ -417,7 +417,7 @@ export function DailyReportDashboard() {
               ({kpis ? kpis.plantQa.totalTankers : 0} tankers)
             </span>
           </div>
-          <div className="mt-2.5 flex items-center gap-2 text-xs">
+          <div className="mt-2 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               <CheckCircle2 className="h-3 w-3" />
               {kpis ? kpis.plantQa.acceptedCount : 0} accepted
@@ -428,7 +428,7 @@ export function DailyReportDashboard() {
               {kpis ? kpis.plantQa.warningCount : 0} warn
             </span>
           </div>
-          <p className="mt-1.5 text-xs font-medium text-muted-foreground">
+          <p className="mt-2 text-xs font-medium text-muted-foreground">
             {kpis?.plantQa.mtdWarningEscalations
               ? `${kpis.plantQa.mtdWarningEscalations} tanker(s) exceeded MTD limit (AVP QA approval)`
               : 'All vehicles within MTD warning limit'}
@@ -451,7 +451,7 @@ export function DailyReportDashboard() {
               ({kpis ? kpis.exceptions.pendingCount : 0} pending)
             </span>
           </div>
-          <div className="mt-2.5 flex items-center gap-2 text-xs">
+          <div className="mt-2 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               {kpis ? kpis.exceptions.approvedCount : 0} approved
             </span>
@@ -460,7 +460,7 @@ export function DailyReportDashboard() {
               {kpis ? kpis.exceptions.rejectedCount : 0} rejected
             </span>
           </div>
-          <p className="mt-1.5 text-xs font-medium text-muted-foreground">
+          <p className="mt-2 text-xs font-medium text-muted-foreground">
             Loss: T1 {kpis ? kpis.losses.tier1LossPercent.toFixed(2) : '0'}% · T2 {kpis ? kpis.losses.tier2LossPercent.toFixed(2) : '0'}% · T3 {kpis ? kpis.losses.tier3LossPercent.toFixed(2) : '0'}%
           </p>
         </div>

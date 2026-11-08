@@ -77,7 +77,7 @@ export default function SuperAdminQaWarningsPage() {
                 <div className="font-semibold text-foreground">{s.sourceName}</div>
                 <div className="break-all font-mono text-xs text-muted-foreground">{s.sourceCode} ({s.sourceType})</div>
               </div>
-              <div className="rounded bg-amber-100 px-2.5 py-1 text-sm font-semibold tabular-nums text-amber-900">
+              <div className="rounded bg-amber-100 px-3 py-1 text-sm font-semibold tabular-nums text-amber-900">
                 {s.activeWarningCount} warnings
               </div>
             </div>

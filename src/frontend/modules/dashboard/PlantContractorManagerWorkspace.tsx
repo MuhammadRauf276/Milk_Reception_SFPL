@@ -93,7 +93,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
 
             <div className="flex items-center space-x-2 self-start sm:self-auto">
               {serverBusinessDate && (
-                <div className="flex items-center space-x-1.5 px-3 py-1.5 bg-subtle border border-border-strong rounded-xl text-xs tabular-nums font-semibold text-secondary-foreground shadow-2xs">
+                <div className="flex items-center space-x-1.5 px-3 py-2 bg-subtle border border-border-strong rounded-xl text-xs tabular-nums font-semibold text-secondary-foreground shadow-2xs">
                   <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                   <span>{serverBusinessDate}</span>
                 </div>
@@ -102,7 +102,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
                 type="button"
                 onClick={() => fetchLogs(page)}
                 disabled={loading}
-                className="flex items-center space-x-1.5 px-3.5 py-2 min-h-11 bg-subtle hover:bg-muted/60 border border-border-strong rounded-xl text-xs font-semibold text-foreground shadow-2xs transition active:scale-95 disabled:opacity-50"
+                className="flex items-center space-x-1.5 px-4 py-2 min-h-11 bg-subtle hover:bg-muted/60 border border-border-strong rounded-xl text-xs font-semibold text-foreground shadow-2xs transition active:scale-95 disabled:opacity-50"
               >
                 <span>Refresh</span>
               </button>
@@ -195,7 +195,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
                     fetchLogs(prevPage);
                   }}
                   disabled={page <= 1 || loading}
-                  className="px-3.5 py-1.5 min-h-11 bg-subtle hover:bg-muted/60 border border-border-strong rounded-lg font-semibold text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  className="px-4 py-2 min-h-11 bg-subtle hover:bg-muted/60 border border-border-strong rounded-lg font-semibold text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   Previous
                 </button>
@@ -206,7 +206,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
                     fetchLogs(nextPage);
                   }}
                   disabled={page >= totalPages || !hasMore || loading}
-                  className="px-3.5 py-1.5 bg-subtle hover:bg-muted/60 border border-border-strong rounded-lg font-semibold text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition min-h-11"
+                  className="px-4 py-2 bg-subtle hover:bg-muted/60 border border-border-strong rounded-lg font-semibold text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition min-h-11"
                 >
                   Next
                 </button>

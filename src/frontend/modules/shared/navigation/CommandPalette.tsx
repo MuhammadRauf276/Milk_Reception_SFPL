@@ -276,7 +276,7 @@ export function CommandPalette({ isOpen, onClose, currentUser }: CommandPaletteP
       {/* Palette Modal (Nested rounded corners, unslop aesthetic) */}
       <div className="relative w-full max-w-xl bg-card rounded-2xl border border-border shadow-xl overflow-hidden flex flex-col z-10 animate-in zoom-in-95 duration-150">
         {/* Search Header */}
-        <div className="flex items-center px-4 py-3 border-b border-border gap-2.5 bg-background/50">
+        <div className="flex items-center px-4 py-3 border-b border-border gap-2 bg-background/50">
           <Search className="w-4 h-4 text-muted-foreground shrink-0" />
           <input
             ref={inputRef}
@@ -299,7 +299,7 @@ export function CommandPalette({ isOpen, onClose, currentUser }: CommandPaletteP
               <X className="w-4 h-4" />
             </button>
           )}
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 text-xs bg-muted px-1.5 py-0.5 rounded border border-border text-muted-foreground font-mono">
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 text-xs bg-muted px-2 py-0.5 rounded border border-border text-muted-foreground font-mono">
             ESC
           </kbd>
         </div>
@@ -323,13 +323,13 @@ export function CommandPalette({ isOpen, onClose, currentUser }: CommandPaletteP
                   onClick={() => handleSelect(item)}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={cn(
-                    'flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs font-semibold transition',
+                    'flex items-center justify-between p-3 rounded-xl cursor-pointer text-xs font-semibold transition',
                     isSelected
                       ? 'bg-primary text-primary-foreground shadow-2xs'
                       : 'hover:bg-muted text-foreground'
                   )}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
                     <div
                       className={cn(
                         'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border',
@@ -343,7 +343,7 @@ export function CommandPalette({ isOpen, onClose, currentUser }: CommandPaletteP
                     <span className="truncate">{item.title}</span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
                     {item.badge && (
                       <span
                         className={cn(

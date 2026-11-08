@@ -118,7 +118,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-subtle">
           <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+            <div className="p-3 rounded-xl bg-primary/10 text-primary">
               <Truck className="w-5 h-5" />
             </div>
             <div>
@@ -341,12 +341,12 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                           )
                         </span>
                       </div>
-                      <span className={`px-2.5 py-0.5 rounded text-xs font-semibold ${decisionClass(decisionUpper)}`}>
+                      <span className={`px-3 py-0.5 rounded text-xs font-semibold ${decisionClass(decisionUpper)}`}>
                         {decisionUpper}
                       </span>
                     </div>
                     {p.rejection_reasons && (
-                      <div className="bg-card border-border p-2.5 rounded-lg border text-rose-900 text-xs">
+                      <div className="bg-card border-border p-3 rounded-lg border text-rose-900 text-xs">
                         <span className="font-semibold">Rejection Reason: </span>
                         <span>{p.rejection_reasons}</span>
                       </div>
@@ -359,26 +359,26 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-border text-xs font-semibold text-muted-foreground">
-                      <th className="py-1.5 px-2">Lab Test</th>
-                      <th className="py-1.5 px-2">Status</th>
+                      <th className="py-2 px-2">Lab Test</th>
+                      <th className="py-2 px-2">Status</th>
                       {displayPortions.map((p, idx) => (
-                        <th key={`d-${p.portion_id || idx}`} className="py-1.5 px-2 tabular-nums whitespace-nowrap">
+                        <th key={`d-${p.portion_id || idx}`} className="py-2 px-2 tabular-nums whitespace-nowrap">
                           Dispatch {displayPortions.length > 1 ? portionLabel(p, idx) : 'Result'}
                         </th>
                       ))}
                       {displayPortions.map((p, idx) => (
-                        <th key={`p-${p.portion_id || idx}`} className="py-1.5 px-2 tabular-nums whitespace-nowrap">
+                        <th key={`p-${p.portion_id || idx}`} className="py-2 px-2 tabular-nums whitespace-nowrap">
                           Plant {displayPortions.length > 1 ? portionLabel(p, idx) : 'Result'}
                         </th>
                       ))}
-                      <th className="py-1.5 px-2">Unit</th>
+                      <th className="py-2 px-2">Unit</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40 tabular-nums">
                     {testNames.map((name) => (
                       <tr key={name} className="hover:bg-subtle/60">
-                        <td className="py-1.5 px-2 font-sans font-semibold text-foreground">{name}</td>
-                        <td className="py-1.5 px-2 font-sans">
+                        <td className="py-2 px-2 font-sans font-semibold text-foreground">{name}</td>
+                        <td className="py-2 px-2 font-sans">
                           {portionTests.some((t) => t.get(name)?.performed) ? (
                             <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Performed</span>
                           ) : (
@@ -386,16 +386,16 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                           )}
                         </td>
                         {portionTests.map((tests, i) => (
-                          <td key={`d-${i}`} className="py-1.5 px-2 text-secondary-foreground">
+                          <td key={`d-${i}`} className="py-2 px-2 text-secondary-foreground">
                             {tests.get(name)?.dispatchResult ?? 'Not recorded'}
                           </td>
                         ))}
                         {portionTests.map((tests, i) => (
-                          <td key={`p-${i}`} className="py-1.5 px-2 font-semibold text-foreground">
+                          <td key={`p-${i}`} className="py-2 px-2 font-semibold text-foreground">
                             {tests.get(name)?.plantResult ?? 'Pending'}
                           </td>
                         ))}
-                        <td className="py-1.5 px-2 font-sans text-muted-foreground">
+                        <td className="py-2 px-2 font-sans text-muted-foreground">
                           {portionTests.map((t) => t.get(name)?.unit).find((u) => u) ?? '-'}
                         </td>
                       </tr>
@@ -481,7 +481,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-between px-6 py-3.5 border-t border-border bg-subtle">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-subtle">
           <div className="flex items-center space-x-1.5 text-secondary-foreground text-xs font-semibold">
             <ShieldCheck className="w-4 h-4 text-muted-foreground" />
             <span>Station: {assignedSourceName || log.zonal_contractor_name || 'Assigned Station'}</span>

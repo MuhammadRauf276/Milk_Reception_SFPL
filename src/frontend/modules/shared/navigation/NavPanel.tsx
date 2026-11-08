@@ -55,7 +55,7 @@ export function BrandMark({
 }
 
 const itemBase =
-  'group flex w-full items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring';
+  'group flex w-full items-center gap-2 rounded-md px-3 text-sm transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring';
 
 export function NavPanel({
   sections,
@@ -86,7 +86,7 @@ export function NavPanel({
 
       <nav aria-label="Primary" className="scrollbar-thin touch-scroll flex-1 overflow-y-auto px-3 py-4">
         {caption ? (
-          <p className="mb-2 px-2.5 text-xs font-medium text-muted-foreground">
+          <p className="mb-2 px-3 text-xs font-medium text-muted-foreground">
             {caption}
           </p>
         ) : null}
@@ -168,7 +168,7 @@ export function NavPanel({
                         return (
                           <React.Fragment key={leaf.id}>
                             {showGroupHeader ? (
-                              <li className="pt-2 pb-1 px-2.5">
+                              <li className="pt-2 pb-1 px-3">
                                 <span className="text-xs font-semibold text-muted-foreground/80">
                                   {leaf.group}
                                 </span>

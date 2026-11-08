@@ -151,7 +151,7 @@ export function ContractorsPanel({
         <button
           type="button"
           onClick={() => openEdit(contractor)}
-          className="min-h-11 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-subtle rounded-lg transition min-w-11"
+          className="min-h-11 px-3 py-1 text-xs font-semibold text-primary hover:bg-subtle rounded-lg transition min-w-11"
         >
           Edit ERP code
         </button>
@@ -178,7 +178,7 @@ export function ContractorsPanel({
               setPage(1);
             }}
             placeholder="Search"
-            className="w-full min-h-11 pl-8 pr-3 py-1.5 border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary outline-hidden"
+            className="w-full min-h-11 pl-8 pr-3 py-2 border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary outline-hidden"
           />
         </div>
 
@@ -188,7 +188,7 @@ export function ContractorsPanel({
               setNewForm({ name: '', code: '', erp_code: '' });
               setIsAddingContractor(true);
             }}
-            className="flex min-h-11 items-center justify-center space-x-1 px-3.5 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold transition shadow-2xs"
+            className="flex min-h-11 items-center justify-center space-x-1 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold transition shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Register Direct Contractor</span>

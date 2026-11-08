@@ -51,7 +51,7 @@ export interface DispatchPolicyTestsProps {
 }
 
 const INPUT_CLASS =
-  'w-full min-w-0 min-h-[48px] rounded-xl border bg-subtle p-2.5 text-base font-semibold focus:ring-2 focus:ring-primary focus:outline-none';
+  'w-full min-w-0 min-h-[48px] rounded-xl border bg-subtle p-3 text-base font-semibold focus:ring-2 focus:ring-primary focus:outline-none';
 
 /** SOP range text from policy rule, e.g. "26.0 – 32.0", "≥ 3.5". */
 export function sopRangeText(t: DispatchPolicyTest): string | null {
@@ -109,7 +109,7 @@ export function DispatchPolicyTests({
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={photo.previewUrl} alt={`${t.testName} picture`} className="h-12 w-12 rounded-lg border border-border object-cover" />
-          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
             <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
             Picture taken
           </span>
@@ -190,7 +190,7 @@ export function DispatchPolicyTests({
           {chip && (
             <span
               className={cn(
-                'rounded-md border px-2.5 py-0.5 text-xs font-semibold tabular-nums',
+                'rounded-md border px-3 py-0.5 text-xs font-semibold tabular-nums',
                 isOut ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-border-strong bg-subtle text-secondary-foreground'
               )}
             >
@@ -238,7 +238,7 @@ export function DispatchPolicyTests({
                 onClick={() => onValueChange(t.labTestId, 'textValue', v.textValue === o ? '' : o)}
                 aria-pressed={v.textValue === o}
                 className={cn(
-                  'min-h-[44px] rounded-xl border-2 px-3.5 text-sm font-semibold transition',
+                  'min-h-[44px] rounded-xl border-2 px-4 text-sm font-semibold transition',
                   v.textValue === o
                     ? isOut
                       ? 'border-rose-600 bg-rose-600 text-white'
@@ -264,7 +264,7 @@ export function DispatchPolicyTests({
         )}
 
         {isOut && (
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-700">
+          <p className="flex items-center gap-2 text-xs font-semibold text-rose-700">
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
             Outside SOP range {range ? `(${range})` : ''}
           </p>
@@ -284,7 +284,7 @@ export function DispatchPolicyTests({
           <summary className="flex min-h-[48px] cursor-pointer items-center justify-between px-3 text-sm font-semibold text-secondary-foreground">
             More tests ({more.length})
           </summary>
-          <div className="space-y-3 p-2.5 pt-0">{more.map((t) => renderTest(t))}</div>
+          <div className="space-y-3 p-3 pt-0">{more.map((t) => renderTest(t))}</div>
         </details>
       )}
 

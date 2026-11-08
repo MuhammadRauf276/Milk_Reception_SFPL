@@ -43,7 +43,7 @@ function VehicleCard({ session, onOpen }: { session: WeighingSessionView; onOpen
                 {session.vehicle_number || 'Vehicle'}
               </div>
               <span
-                className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-xs font-semibold tracking-wider ${
+                className={`inline-block mt-0.5 px-2 py-0.2 rounded text-xs font-semibold tracking-wider ${
                   session.source_type === 'MC' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
                 }`}
               >
@@ -53,15 +53,15 @@ function VehicleCard({ session, onOpen }: { session: WeighingSessionView; onOpen
           </div>
 
           {done ? (
-            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 shrink-0">
+            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 shrink-0">
               <CheckCircle2 className="h-3.5 w-3.5" /> Unloaded
             </span>
           ) : session.values_complete ? (
-            <span className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800 shrink-0">
+            <span className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 shrink-0">
               <Clock className="h-3.5 w-3.5" /> Values saved
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 shrink-0">
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 shrink-0">
               <Clock className="h-3.5 w-3.5" /> Ready
             </span>
           )}
@@ -72,7 +72,7 @@ function VehicleCard({ session, onOpen }: { session: WeighingSessionView; onOpen
           <div className="text-sm font-semibold text-foreground line-clamp-1" title={session.source_name || ''}>
             {session.source_name || (session.source_type === 'MC' ? 'Route Milk' : 'Direct Supplier')}
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             {session.zmcc_token && (
               <span className="font-mono text-xs font-medium px-2 py-0.5 rounded bg-muted text-secondary-foreground border border-border">
                 Token: {session.zmcc_token}
@@ -86,9 +86,9 @@ function VehicleCard({ session, onOpen }: { session: WeighingSessionView; onOpen
 
         {/* Portions / Net Values (Clean pills instead of pipe string) */}
         {(done || session.values_complete) && session.portions.length > 0 && (
-          <div className="mt-3 pt-2.5 border-t border-border">
+          <div className="mt-3 pt-3 border-t border-border">
             <div className="text-xs font-medium text-muted-foreground mb-1">Portion Weights:</div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {session.portions.map((p) => {
                 const hasVal = p.net_value !== null;
                 const unit = p.net_unit === 'LITER' ? 'L' : 'kg';
@@ -112,8 +112,8 @@ function VehicleCard({ session, onOpen }: { session: WeighingSessionView; onOpen
 
         {/* Unloaded Destination Tank and Timestamp */}
         {done && (
-          <div className="mt-2.5 space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-secondary-foreground bg-subtle px-2.5 py-1.5 rounded-lg border border-border">
+          <div className="mt-2 space-y-1.5">
+            <div className="flex items-center gap-2 text-xs font-medium text-secondary-foreground bg-subtle px-3 py-2 rounded-lg border border-border">
               <Warehouse className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span className="font-semibold text-foreground">{session.tank_code ? `Tank ${session.tank_code}` : 'Tank'}</span>
               {session.milk_source_name && (
@@ -317,7 +317,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
           type="button"
           onClick={() => void reload()}
           disabled={queueQuery.isFetching}
-          className="inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-lg border border-border-strong bg-card hover:bg-subtle text-xs font-semibold text-foreground cursor-pointer transition-colors shrink-0 disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg border border-border-strong bg-card hover:bg-subtle text-xs font-semibold text-foreground cursor-pointer transition-colors shrink-0 disabled:opacity-50"
         >
           <Loader2 className={`h-3.5 w-3.5 ${queueQuery.isFetching ? 'animate-spin' : ''}`} />
           <span>Refresh</span>
@@ -389,14 +389,14 @@ export const ZmccWeighingWorkspace: React.FC = () => {
           <div className="bg-card rounded-2xl border border-border p-4 shadow-2xs space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               {/* Range Selector: Today vs Last 7 Days vs Custom */}
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-semibold text-muted-foreground mr-1 flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5" /> Range:
                 </span>
                 <button
                   type="button"
                   onClick={() => handleRangeChange('today')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer ${
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer ${
                     range === 'today'
                       ? 'bg-primary text-white shadow-2xs'
                       : 'bg-muted text-secondary-foreground hover:bg-muted border border-border'
@@ -407,7 +407,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleRangeChange('7days')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer ${
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer ${
                     range === '7days'
                       ? 'bg-primary text-white shadow-2xs'
                       : 'bg-muted text-secondary-foreground hover:bg-muted border border-border'
@@ -418,7 +418,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleRangeChange('custom')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer ${
+                  className={`px-3 py-2 rounded-lg text-xs font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer ${
                     range === 'custom'
                       ? 'bg-primary text-white shadow-2xs'
                       : 'bg-muted text-secondary-foreground hover:bg-muted border border-border'
@@ -436,7 +436,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search vehicle, supplier, token…"
-                  className="w-full pl-8 pr-8 py-1.5 rounded-xl border border-border bg-card text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-primary"
+                  className="w-full pl-8 pr-8 py-2 rounded-xl border border-border bg-card text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
                 {search && (
                   <button
@@ -459,7 +459,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
                     type="date"
                     value={fromDate}
                     onChange={(e) => handleFromDateChange(e.target.value)}
-                    className="px-2.5 py-1.5 rounded-lg border border-border bg-card text-xs font-medium"
+                    className="px-3 py-2 rounded-lg border border-border bg-card text-xs font-medium"
                   />
                 </div>
                 <div className="flex items-center gap-2 text-xs">
@@ -468,10 +468,10 @@ export const ZmccWeighingWorkspace: React.FC = () => {
                     type="date"
                     value={toDate}
                     onChange={(e) => handleToDateChange(e.target.value)}
-                    className="px-2.5 py-1.5 rounded-lg border border-border bg-card text-xs font-medium"
+                    className="px-3 py-2 rounded-lg border border-border bg-card text-xs font-medium"
                   />
                 </div>
-                <span className="text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-md">
+                <span className="text-xs font-medium text-muted-foreground bg-muted px-3 py-1 rounded-md">
                   Range limited to 7 days maximum
                 </span>
               </div>
@@ -507,7 +507,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
                     setRange('today');
                     setSearch('');
                   }}
-                  className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold bg-card border border-border text-secondary-foreground hover:bg-muted cursor-pointer"
+                  className="mt-3 px-3 py-2 rounded-lg text-xs font-semibold bg-card border border-border text-secondary-foreground hover:bg-muted cursor-pointer"
                 >
                   Reset to Current Today
                 </button>

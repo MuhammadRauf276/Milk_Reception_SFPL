@@ -104,7 +104,7 @@ export function DispatchTab({
             <div>
               <h2 className="text-sm font-semibold text-foreground">Assign & dispatch</h2>
             </div>
-            <span className="px-2.5 py-1 rounded-md bg-blue-50 text-primary text-xs font-semibold border border-blue-200">
+            <span className="px-3 py-1 rounded-md bg-blue-50 text-primary text-xs font-semibold border border-blue-200">
               Now
             </span>
           </div>
@@ -116,7 +116,7 @@ export function DispatchTab({
           )}
 
           {profiles.length > 0 && profiles.every((p) => p.has_active_journey) && (
-            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <p className="font-semibold text-amber-950">All registered Mobile Testers are currently on active journeys</p>
@@ -128,7 +128,7 @@ export function DispatchTab({
           )}
 
           <form onSubmit={handleAssignAndDispatch} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-1.5 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-semibold text-foreground break-words min-w-0">
@@ -274,7 +274,7 @@ export function DispatchTab({
                       Lat: {gpsLocation.latitude.toFixed(6)}, Lng: {gpsLocation.longitude.toFixed(6)}
                     </span>
                     {gpsLocation.accuracy != null && (
-                      <span className="text-xs text-emerald-700 ml-1.5">
+                      <span className="text-xs text-emerald-700 ml-2">
                         (±{Math.round(gpsLocation.accuracy)}m live)
                       </span>
                     )}
@@ -289,7 +289,7 @@ export function DispatchTab({
                     <span className="font-medium break-words min-w-0">
                       Lat: {gpsLocation.latitude.toFixed(6)}, Lng: {gpsLocation.longitude.toFixed(6)}
                     </span>
-                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-800">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-200/80 text-amber-800">
                       {gpsLocation.source === 'FACILITY_DEFAULT' ? 'Center Coords' : 'Offline Cache'}
                     </span>
                   </div>
@@ -300,7 +300,7 @@ export function DispatchTab({
               )}
 
               {displayedGpsStatus === 'ERROR' && (
-                <div className="space-y-1.5 text-xs text-rose-800 bg-rose-50 p-2.5 rounded-md border border-rose-200">
+                <div className="space-y-1.5 text-xs text-rose-800 bg-rose-50 p-3 rounded-md border border-rose-200">
                   <p className="flex items-center leading-snug">
                     {displayedGpsErrorMsg || 'No GPS.'}
                     <InfoTip text="Allow location for this site in your browser settings, then tap retry." />

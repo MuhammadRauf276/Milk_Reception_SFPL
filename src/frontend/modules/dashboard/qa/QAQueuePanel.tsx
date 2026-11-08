@@ -108,7 +108,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search token…"
-          className="w-full min-h-11 pl-10 pr-3.5 py-2 text-sm tabular-nums rounded-xl border border-border-strong bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs"
+          className="w-full min-h-11 pl-10 pr-4 py-2 text-sm tabular-nums rounded-xl border border-border-strong bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs"
         />
       </div>
 

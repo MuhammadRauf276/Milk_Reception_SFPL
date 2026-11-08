@@ -71,19 +71,19 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
             </strong>
           </div>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2 pt-2 border-t border-border text-center">
-            <div className="p-1.5 bg-card rounded-lg border border-border">
+            <div className="p-2 bg-card rounded-lg border border-border">
               <span className="text-xs text-muted-foreground block">Active shops</span>
               <strong className="text-foreground tabular-nums">{journey.stops.length}</strong>
             </div>
-            <div className="p-1.5 bg-card rounded-lg border border-border">
+            <div className="p-2 bg-card rounded-lg border border-border">
               <span className="text-xs text-emerald-700 block">Collected</span>
               <strong className="text-emerald-900 tabular-nums">{visitedStops.length}</strong>
             </div>
-            <div className="p-1.5 bg-card rounded-lg border border-border">
+            <div className="p-2 bg-card rounded-lg border border-border">
               <span className="text-xs text-amber-700 block">Skipped/Rej</span>
               <strong className="text-amber-900 tabular-nums">{skippedStops.length + rejectedStops.length}</strong>
             </div>
-            <div className="p-1.5 bg-card rounded-lg border border-border">
+            <div className="p-2 bg-card rounded-lg border border-border">
               <span className="text-xs text-blue-700 block">Pending</span>
               <strong className="text-blue-900 tabular-nums">{pendingStops.length}</strong>
             </div>
@@ -102,7 +102,7 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
             type="button"
             disabled={isSubmitting}
             onClick={() => onConfirm()}
-            className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-xs shadow-md transition flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full min-h-[44px] py-2 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-xs shadow-md transition flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <>

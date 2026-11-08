@@ -157,7 +157,7 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
         type="button"
         onClick={() => setModalOverride(true)}
         aria-label={`Current location: ${displayLabel}. Click to switch.`}
-        className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border bg-card hover:bg-muted/80 px-2.5 py-1 text-xs font-medium text-foreground transition-colors cursor-pointer shadow-2xs max-w-[200px]"
+        className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-card hover:bg-muted/80 px-3 py-1 text-xs font-medium text-foreground transition-colors cursor-pointer shadow-2xs max-w-[200px]"
       >
         <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
         <span className="truncate">{displayLabel}</span>
@@ -217,7 +217,7 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
                       key={source.id}
                       type="button"
                       onClick={() => handleSelectSource(source)}
-                      className={`flex w-full items-center justify-between px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-primary/[0.07] ${
+                      className={`flex w-full items-center justify-between px-4 py-2 text-left text-sm transition-colors hover:bg-primary/[0.07] ${
                         isCurrent ? 'bg-primary/[0.07] font-medium text-primary' : 'text-foreground'
                       }`}
                     >
@@ -238,7 +238,7 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
               <button
                 type="button"
                 onClick={() => setModalOverride(false)}
-                className="min-h-11 rounded-md border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
+                className="min-h-11 rounded-md border border-border bg-card px-4 py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
               >
                 Close
               </button>

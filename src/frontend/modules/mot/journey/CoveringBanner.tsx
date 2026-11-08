@@ -29,7 +29,7 @@ export function CoveringBanner({ role, isOnline, coverJourneyId, coverJourneys, 
                 </div>
               </div>
               {!isOnline ? (
-                <p className="text-xs font-semibold flex items-center gap-1.5">
+                <p className="text-xs font-semibold flex items-center gap-2">
                   <WifiOff className="w-4 h-4" aria-hidden="true" />
                   Offline.
                 </p>

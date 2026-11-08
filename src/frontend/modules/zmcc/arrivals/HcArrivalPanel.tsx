@@ -56,15 +56,15 @@ export const HcArrivalPanel: React.FC<Props> = ({
               </div>
 
               <div className="space-y-2 text-xs divide-y divide-emerald-200/60 pt-2">
-                <div className="pb-1.5">
+                <div className="pb-2">
                   ZMCC Token: <strong className="tabular-nums text-emerald-900 text-sm font-semibold">{localSupplierSuccessResult.zmcc_token}</strong>
                   {localSupplierSuccessResult.zmcc_token?.includes('OFFLINE') && (
-                    <div className="mt-1 text-xs font-medium text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 border border-amber-200">
+                    <div className="mt-1 text-xs font-medium text-amber-700 bg-amber-50 rounded px-2 py-0.5 border border-amber-200">
                       Saved offline on device. Will sync automatically once connected.
                     </div>
                   )}
                 </div>
-                <div className="py-1.5">
+                <div className="py-2">
                   Raw Milk Token: <strong className="tabular-nums text-foreground">{localSupplierSuccessResult.raw_milk_token_number || '—'}</strong>
                   {localSupplierSuccessResult.rmr_number && (
                     <span className="text-muted-foreground text-xs ml-2">
@@ -72,14 +72,14 @@ export const HcArrivalPanel: React.FC<Props> = ({
                     </span>
                   )}
                 </div>
-                <div className="py-1.5">
+                <div className="py-2">
                   Vehicle: <strong className="tabular-nums text-foreground">{localSupplierSuccessResult.vehicle_number}</strong>
                 </div>
-                <div className="py-1.5">
+                <div className="py-2">
                   Supplier: <strong className="text-foreground">{localSupplierSuccessResult.local_supplier?.name}</strong>{' '}
                   <span className="text-muted-foreground tabular-nums text-xs">({localSupplierSuccessResult.local_supplier?.local_supplier_code})</span>
                 </div>
-                <div className="pt-1.5">
+                <div className="pt-2">
                   Arrival Date: <strong className="text-foreground">{localSupplierSuccessResult.arrival_date}</strong>
                 </div>
               </div>
@@ -102,7 +102,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => form.setFormOpen(true)}
-            className="w-full min-h-[48px] py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold cursor-pointer"
+            className="w-full min-h-[48px] py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold cursor-pointer"
           >
             Record HC Arrival
           </button>
@@ -213,7 +213,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
               <button
                 type="submit"
                 disabled={form.submitting}
-                className="w-full min-h-[44px] py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 cursor-pointer"
+                className="w-full min-h-[44px] py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 cursor-pointer"
               >
                 {form.submitting ? 'Recording Arrival…' : 'Record HC Arrival & Generate Token'}
               </button>

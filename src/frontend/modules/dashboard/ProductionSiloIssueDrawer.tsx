@@ -104,7 +104,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
   };
 
   const inputClass =
-    'w-full min-h-11 px-3.5 py-2 text-xs font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary';
+    'w-full min-h-11 px-4 py-2 text-xs font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary';
 
   return (
     <Drawer open onOpenChange={(o) => !o && onClose()}>
@@ -120,7 +120,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
             </div>
             <div className="flex items-center gap-2">
               <span
-                className={`hidden sm:inline px-2.5 py-1 rounded-md text-xs tabular-nums font-semibold ${
+                className={`hidden sm:inline px-3 py-1 rounded-md text-xs tabular-nums font-semibold ${
                   silo.is_active ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
                 }`}
               >
@@ -137,7 +137,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
             </div>
           </div>
 
-          <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+          <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
             <div>
               <span className="text-muted-foreground font-sans block text-xs">Physical Stock</span>
               <span className="text-base font-semibold text-primary">
@@ -209,7 +209,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
             type="button"
             disabled={actionLoading || !issueQuantityLiters || isOverIssue}
             onClick={handleRecordSiloIssue}
-            className="w-full min-h-11 py-3.5 px-4 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-colors flex items-center justify-center space-x-2"
+            className="w-full min-h-11 py-4 px-4 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-colors flex items-center justify-center space-x-2"
           >
             {actionLoading ? <span>Recording issue…</span> : <> <MinusCircle className="w-4 h-4" /> <span>Record silo issue</span> </>}
           </button>

@@ -185,13 +185,13 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
               <div className="flex items-center space-x-2">
                 <h2 className="text-base font-semibold text-foreground">Recent Dispatches</h2>
               </div>
-              <span className="text-xs tabular-nums font-semibold text-secondary-foreground bg-muted px-2.5 py-1 rounded-lg border border-border-strong">
+              <span className="text-xs tabular-nums font-semibold text-secondary-foreground bg-muted px-3 py-1 rounded-lg border border-border-strong">
                 {pagination.totalRecords} records
               </span>
             </div>
 
             {/* Quick Date Window Filter Buttons */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-xl bg-subtle border border-border text-xs font-semibold">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2 rounded-xl bg-subtle border border-border text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => handleRangeChange('today')}
@@ -248,7 +248,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                       type="date"
                       value={fromDate}
                       onChange={(e) => setFromDate(e.target.value)}
-                      className="w-full h-11 px-3.5 rounded-lg border border-border-strong bg-card tabular-nums text-xs text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden min-h-11"
+                      className="w-full h-11 px-4 rounded-lg border border-border-strong bg-card tabular-nums text-xs text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden min-h-11"
                     />
                   </div>
                   <div className="space-y-1">
@@ -257,7 +257,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                       type="date"
                       value={toDate}
                       onChange={(e) => setToDate(e.target.value)}
-                      className="w-full h-11 px-3.5 rounded-lg border border-border-strong bg-card tabular-nums text-xs text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden min-h-11"
+                      className="w-full h-11 px-4 rounded-lg border border-border-strong bg-card tabular-nums text-xs text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden min-h-11"
                     />
                   </div>
                 </div>
@@ -266,7 +266,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                   <button
                     type="button"
                     onClick={handleClearCustomDate}
-                    className="px-3.5 text-xs font-semibold text-secondary-foreground hover:text-foreground rounded-lg hover:bg-muted transition min-h-11"
+                    className="px-4 text-xs font-semibold text-secondary-foreground hover:text-foreground rounded-lg hover:bg-muted transition min-h-11"
                   >
                     Clear
                   </button>
@@ -332,7 +332,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                     </span>
                   </div>
 
-                  <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 p-2.5 rounded-xl border text-xs tabular-nums font-semibold">
+                  <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 p-3 rounded-xl border text-xs tabular-nums font-semibold">
                     <div>
                       <span className="text-muted-foreground font-sans block text-xs font-semibold">Vehicle Quantity</span>
                       <span className="text-foreground font-semibold text-sm">
@@ -365,7 +365,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
           {/* Server-side Pagination Footer */}
           {pagination.totalRecords > 0 && (
-            <div className="bg-card border-border p-3.5 rounded-2xl border shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-semibold">
+            <div className="bg-card border-border p-4 rounded-2xl border shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-semibold">
               <span className="text-secondary-foreground font-sans text-xs">
                 Showing {Math.min((pagination.page - 1) * pagination.pageSize + 1, pagination.totalRecords)}–{Math.min(pagination.page * pagination.pageSize, pagination.totalRecords)} of {pagination.totalRecords} dispatches
               </span>
@@ -376,7 +376,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                     type="button"
                     disabled={page <= 1 || isLoading}
                     onClick={() => handlePageChange(page - 1)}
-                    className="min-h-11 min-w-11 flex items-center justify-center space-x-1 px-3.5 py-2 rounded-xl bg-muted border border-border-strong text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent transition focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
+                    className="min-h-11 min-w-11 flex items-center justify-center space-x-1 px-4 py-2 rounded-xl bg-muted border border-border-strong text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent transition focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
                     aria-label="Previous page"
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -391,7 +391,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                     type="button"
                     disabled={page >= pagination.totalPages || isLoading}
                     onClick={() => handlePageChange(page + 1)}
-                    className="min-h-11 min-w-11 flex items-center justify-center space-x-1 px-3.5 py-2 rounded-xl bg-muted border border-border-strong text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent transition focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
+                    className="min-h-11 min-w-11 flex items-center justify-center space-x-1 px-4 py-2 rounded-xl bg-muted border border-border-strong text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent transition focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
                     aria-label="Next page"
                   >
                     <span>Next</span>

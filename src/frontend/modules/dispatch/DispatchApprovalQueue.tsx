@@ -250,7 +250,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
       )}
 
       {approvalsQuery.isError && (
-        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card p-3.5 text-xs text-rose-800">
+        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card p-4 text-xs text-rose-800">
           <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{getErrorMessage(approvalsQuery.error) || 'Failed to load dispatch queue.'}</span>
           <button
@@ -270,7 +270,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
       )}
 
       {/* Compact Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <AnimatePresence>
           {items.map((item) => {
             const wait = waitingInfo(item.submittedAt, now);
@@ -312,7 +312,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                   </div>
 
                   {/* Summary Metrics */}
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-1.5 bg-card p-2.5 rounded-xl border border-border text-center">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 bg-card p-3 rounded-xl border border-border text-center">
                     <div>
                       <span className="text-xs text-muted-foreground font-semibold">Litres</span>
                       <p className="text-xs font-semibold tabular-nums text-foreground mt-0.5">
@@ -340,7 +340,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                   </div>
 
                   {/* Exceptions & Info pills */}
-                  <div className="flex flex-wrap gap-1.5 items-center">
+                  <div className="flex flex-wrap gap-2 items-center">
                     <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
                       {item.portions.length} Portion{item.portions.length > 1 ? 's' : ''}
                     </span>
@@ -427,20 +427,20 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               </div>
 
               {/* Person Decision & Exception Reasons */}
-              <div className="p-3.5 rounded-2xl border border-border bg-card space-y-2">
+              <div className="p-4 rounded-2xl border border-border bg-card space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-secondary-foreground font-semibold">Station Submitter Verdict:</span>
-                  <span className={cn('px-2.5 py-0.5 rounded-md text-xs font-semibold', selectedItem.personDecision === 'ACCEPT' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300')}>
+                  <span className={cn('px-3 py-0.5 rounded-md text-xs font-semibold', selectedItem.personDecision === 'ACCEPT' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300')}>
                     {selectedItem.personDecision === 'ACCEPT' ? 'Accepted by Station' : 'Rejected by Station'}
                   </span>
                 </div>
                 {selectedItem.decisionRemarks && (
-                  <p className="text-xs text-secondary-foreground bg-card p-2.5 rounded-lg border border-border">
+                  <p className="text-xs text-secondary-foreground bg-card p-3 rounded-lg border border-border">
                     <strong className="text-foreground">Submitter Remarks:</strong> {selectedItem.decisionRemarks}
                   </p>
                 )}
                 {selectedItem.exceptionReasons.length > 0 && (
-                  <div className="space-y-1 pt-1.5 border-t border-border">
+                  <div className="space-y-1 pt-2 border-t border-border">
                     <span className="text-xs font-semibold text-amber-900">Triggered Escalations:</span>
                     <ul className="list-disc pl-5 text-xs text-amber-800 space-y-0.5">
                       {selectedItem.exceptionReasons.map((r) => (
@@ -457,7 +457,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                   Portion Breakdown & Lab Tests
                 </h4>
                 {selectedItem.portions.map((p) => (
-                  <div key={p.portionNumber} className="rounded-2xl border border-border bg-card p-3.5 space-y-2.5">
+                  <div key={p.portionNumber} className="rounded-2xl border border-border bg-card p-4 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/80 pb-2">
                       <span className="text-xs font-semibold text-foreground">
                         Portion #{p.portionNumber}
@@ -470,7 +470,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                     </div>
 
                     {p.tests.length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                         {p.tests.map((t) => (
                           <div key={t.testCode} className="flex items-center justify-between p-2 rounded-lg bg-card border border-border text-xs">
                             <span className="text-foreground font-medium">
@@ -497,7 +497,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               </div>
 
               {/* Hand-written Lab Report Photo */}
-              <div className="p-3.5 rounded-2xl border border-border bg-card space-y-2">
+              <div className="p-4 rounded-2xl border border-border bg-card space-y-2">
                 <div className="flex items-center space-x-1.5 text-xs font-semibold text-foreground">
                   <FileText className="w-4 h-4 text-muted-foreground" />
                   <span>Official Hand-written Lab Report Sheet</span>
@@ -532,7 +532,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                       type="button"
                       disabled={busy}
                       onClick={() => decide(selectedItem, 'NO')}
-                      className="min-h-[48px] py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition disabled:opacity-50 cursor-pointer"
+                      className="min-h-[48px] py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition disabled:opacity-50 cursor-pointer"
                     >
                       {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                       <span>Reject & Return (NO)</span>
@@ -542,7 +542,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                       type="button"
                       disabled={busy}
                       onClick={() => decide(selectedItem, 'OKAY')}
-                      className="min-h-[48px] py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition disabled:opacity-50 cursor-pointer"
+                      className="min-h-[48px] py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition disabled:opacity-50 cursor-pointer"
                     >
                       {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                       <span>Approve Dispatch (OKAY)</span>

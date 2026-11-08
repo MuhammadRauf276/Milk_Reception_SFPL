@@ -180,7 +180,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
             <button
               onClick={viewMode === 'ZMCC_LAB' ? fetchLabSessions : onRetry}
               disabled={labLoading || isLoading}
-              className="flex min-h-11 items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50"
+              className="flex min-h-11 items-center space-x-1.5 px-3 py-2 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50"
             >
               <span>{labLoading || isLoading ? 'Syncing…' : 'Refresh'}</span>
             </button>
@@ -201,7 +201,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
 
         {/* Mode-Specific KPIs */}
         {viewMode === 'ZMCC_LAB' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 tabular-nums">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 tabular-nums">
             <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-muted-foreground block font-semibold">Total Lab Sessions</span>
               <span className="text-lg font-semibold text-foreground">
@@ -242,7 +242,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 tabular-nums">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 tabular-nums">
             <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-muted-foreground block font-semibold">Total Portions</span>
               <span className="text-lg font-semibold text-foreground">{plantSummary.totalPortions}</span>
@@ -281,7 +281,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search"
-              className="w-full min-h-11 pl-9 pr-3 py-1.5 text-xs font-semibold rounded-lg bg-subtle border border-border/80 text-foreground focus:ring-2 focus:ring-primary outline-hidden"
+              className="w-full min-h-11 pl-9 pr-3 py-2 text-xs font-semibold rounded-lg bg-subtle border border-border/80 text-foreground focus:ring-2 focus:ring-primary outline-hidden"
             />
           </div>
 
@@ -292,7 +292,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
                 type="date"
                 value={currentFromDate}
                 onChange={(e) => onDateFilterChange(e.target.value || null, currentToDate || null)}
-                className="px-2.5 py-1 text-xs tabular-nums font-semibold rounded-lg bg-subtle border border-border/80 text-foreground min-h-11"
+                className="px-3 py-1 text-xs tabular-nums font-semibold rounded-lg bg-subtle border border-border/80 text-foreground min-h-11"
               />
               {currentFromDate && (
                 <button
@@ -308,7 +308,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
 
         {/* Filter Chips */}
         {viewMode === 'ZMCC_LAB' ? (
-          <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-border/60 text-xs">
+          <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-border/60 text-xs">
             <span className="text-xs font-semibold text-muted-foreground mr-1">Filter:</span>
             {([
               { id: 'ALL', label: 'All' },
@@ -331,7 +331,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
             ))}
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-border/60 text-xs">
+          <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-border/60 text-xs">
             <span className="text-xs font-semibold text-muted-foreground mr-1">Filter:</span>
             {PLANT_FILTER_OPTIONS.map((opt) => (
               <button

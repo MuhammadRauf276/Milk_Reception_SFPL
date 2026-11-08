@@ -66,7 +66,7 @@ export function ReceiptModal({
                   onClose();
                   onReturnToPhe();
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-semibold shadow-2xs transition flex items-center justify-center space-x-1.5 min-h-[44px]"
+                className="w-full py-2 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-semibold shadow-2xs transition flex items-center justify-center space-x-1.5 min-h-[44px]"
               >
                 <Truck className="w-4 h-4" />
                 <span>Return to PHE (All Shops Visited)</span>
@@ -84,7 +84,7 @@ export function ReceiptModal({
               <button
                 type="button"
                 onClick={() => onClose()}
-                className="w-full py-2.5 px-4 rounded-xl border border-border text-secondary-foreground hover:bg-subtle text-xs font-semibold transition min-h-[44px]"
+                className="w-full py-2 px-4 rounded-xl border border-border text-secondary-foreground hover:bg-subtle text-xs font-semibold transition min-h-[44px]"
               >
                 Done / Proceed to Next Shop
               </button>
@@ -95,7 +95,7 @@ export function ReceiptModal({
                     onClose();
                     onReturnToPhe();
                   }}
-                  className="min-h-11 min-w-11 w-full py-1.5 text-center text-xs font-medium text-muted-foreground hover:text-foreground transition"
+                  className="min-h-11 min-w-11 w-full py-2 text-center text-xs font-medium text-muted-foreground hover:text-foreground transition"
                 >
                   Finish Route Early & Return to PHE →
                 </button>

@@ -77,7 +77,7 @@ export function ExecutiveLiveVehicles({ showPhotos }: { showPhotos: boolean }) {
   };
 
   const tabClass = (active: boolean) =>
-    `min-h-9 px-3.5 py-1.5 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${
+    `min-h-9 px-4 py-2 text-xs font-semibold rounded-md transition flex items-center justify-center gap-2 flex-1 sm:flex-initial ${
       active ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
     }`;
 

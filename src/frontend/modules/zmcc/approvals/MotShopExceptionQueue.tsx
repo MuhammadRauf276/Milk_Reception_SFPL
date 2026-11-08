@@ -156,7 +156,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
           >
             {t === 'PENDING' ? 'Waiting Review' : 'Decided History'}
             {t === 'PENDING' && items.length > 0 && tab === 'PENDING' && (
-              <span className="ml-2 rounded-md bg-white/20 px-1.5 py-0.5 text-xs text-white">
+              <span className="ml-2 rounded-md bg-white/20 px-2 py-0.5 text-xs text-white">
                 {items.length}
               </span>
             )}
@@ -197,7 +197,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
               className="flex flex-col justify-between rounded-2xl border border-border bg-card p-4 shadow-2xs transition hover:border-border-strong"
             >
               <div className="space-y-3">
-                <header className="flex items-start justify-between gap-2 border-b border-border pb-2.5">
+                <header className="flex items-start justify-between gap-2 border-b border-border pb-3">
                   <div className="min-w-0">
                     <h3 className="line-clamp-1 text-sm font-semibold text-foreground">{item.shopName}</h3>
                     <p className="text-xs text-muted-foreground">
@@ -226,7 +226,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 </div>
 
                 {/* Metrics Pill Row */}
-                <div className="bg-card border-border border grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-1.5 rounded-lg p-2 text-center text-xs">
+                <div className="bg-card border-border border grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2 rounded-lg p-2 text-center text-xs">
                   <div>
                     <span className="block text-xs text-muted-foreground">Gross</span>
                     <strong className="text-foreground tabular-nums">{item.grossLiters} L</strong>
@@ -266,7 +266,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                   <button
                     type="button"
                     onClick={() => setActiveModalItem(item)}
-                    className="min-h-11 min-w-11 flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 text-xs font-semibold text-white shadow-2xs hover:bg-violet-700"
+                    className="min-h-11 min-w-11 flex min-h-[40px] w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 text-xs font-semibold text-white shadow-2xs hover:bg-violet-700"
                   >
                     <Gavel className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Review & Decide</span>
@@ -275,7 +275,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                   <button
                     type="button"
                     onClick={() => setActiveModalItem(item)}
-                    className="min-h-11 min-w-11 flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-subtle px-3 text-xs font-semibold text-secondary-foreground hover:bg-muted"
+                    className="min-h-11 min-w-11 flex min-h-[40px] w-full items-center justify-center gap-2 rounded-lg border border-border bg-subtle px-3 text-xs font-semibold text-secondary-foreground hover:bg-muted"
                   >
                     <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>View Inspection Details</span>
@@ -336,7 +336,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
 
                 {/* Why Exception Triggered */}
                 <div className="bg-card border-border rounded-xl border p-3">
-                  <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-amber-900">
+                  <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-amber-900">
                     <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Why this needs review
                   </p>
                   <ul className="list-disc space-y-0.5 pl-5 text-xs text-amber-900">
@@ -373,7 +373,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 {/* Photo Evidence */}
                 {activeModalItem.photos.length > 0 && (
                   <div>
-                    <h4 className="mb-1.5 text-xs font-semibold text-foreground">Photo Evidence</h4>
+                    <h4 className="mb-2 text-xs font-semibold text-foreground">Photo Evidence</h4>
                     <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
                       {activeModalItem.photos.map((p) => (
                         <div key={p.captureId} className="bg-card border-border overflow-hidden rounded-xl border">
@@ -425,19 +425,19 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                         onChange={(e) => setRemarks((r) => ({ ...r, [activeModalItem.id]: e.target.value }))}
                         placeholder="Decision reason"
                         rows={2}
-                        className="min-h-11 w-full resize-none rounded-lg border border-border-strong p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="min-h-11 w-full resize-none rounded-lg border border-border-strong p-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                       {itemError[activeModalItem.id] && (
                         <p className="mt-1 text-xs font-semibold text-rose-700">{itemError[activeModalItem.id]}</p>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2.5">
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
                       <button
                         type="button"
                         disabled={busyId === activeModalItem.id}
                         onClick={() => decide(activeModalItem, 'NO')}
-                        className="flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-4 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                        className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                       >
                         {busyId === activeModalItem.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                         <span>NO (Reject Shop)</span>
@@ -447,7 +447,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                         type="button"
                         disabled={busyId === activeModalItem.id}
                         onClick={() => decide(activeModalItem, 'OKAY')}
-                        className="flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl bg-emerald-700 px-4 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-800 disabled:opacity-50"
+                        className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-800 disabled:opacity-50"
                       >
                         {busyId === activeModalItem.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                         <span>OKAY (Approve Shop)</span>

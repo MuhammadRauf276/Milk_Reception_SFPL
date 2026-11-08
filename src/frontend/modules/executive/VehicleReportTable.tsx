@@ -266,7 +266,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
       </div>
 
       {totalPages > 1 && (
-        <div className="p-3.5 rounded-2xl bg-card border border-border/80 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
           <span className="text-secondary-foreground font-semibold tabular-nums">
             Showing{' '}
             <strong className="text-foreground">
@@ -279,7 +279,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
               onClick={() => setPage(currentPage - 1)}
               disabled={currentPage <= 1}
               aria-label="Previous Page"
-              className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
+              className="inline-flex items-center space-x-1 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
               <span>Previous</span>
@@ -288,7 +288,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
               onClick={() => setPage(currentPage + 1)}
               disabled={currentPage >= totalPages}
               aria-label="Next Page"
-              className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
+              className="inline-flex items-center space-x-1 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
             >
               <span>Next</span>
               <ChevronRight className="w-3.5 h-3.5" />

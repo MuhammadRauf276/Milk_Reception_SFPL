@@ -77,8 +77,8 @@ export function PhotoEvidenceSlot({
         alt={`${testName} picture`}
         className="block max-h-56 w-full bg-slate-900 object-contain"
       />
-      <div className="space-y-2 p-2.5">
-        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white">
+      <div className="space-y-2 p-3">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">
           <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>Stamped: {employeeCode}</span>
           <span aria-hidden="true">·</span>

@@ -217,13 +217,13 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
             {/* Multi-Facility ZMCC Selector for Scoped Views */}
       {['HIERARCHY', 'MOT_JOURNEYS', 'REPORTS', 'DISPATCH_VS_PLANT', 'ANALYTICS'].includes(activeTab) && (
         <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-3 rounded-xl shadow-xs animate-panel-in">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="text-xs font-semibold text-secondary-foreground">ZMCC scope</span>
             <select
               value={selectedZmccId}
               onChange={(e) => setSelectedZmccId(e.target.value)}
-              className="text-xs bg-background border border-border rounded-lg px-3 py-1.5 font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              className="text-xs bg-background border border-border rounded-lg px-3 py-2 font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
             >
               <option value="">All ZMCCs</option>
               {telemetry?.zmccCenters?.map((zmcc) => (
@@ -303,11 +303,11 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
             {activeTab === 'REPORTS' && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between border-b border-border pb-3">
-                  <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-xl">
+                  <div className="flex items-center gap-2 bg-muted/60 p-1 rounded-xl">
                     <button
                       type="button"
                       onClick={() => setMpdReportMode('STUDIO')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                         mpdReportMode === 'STUDIO'
                           ? 'bg-background text-foreground shadow-2xs font-semibold'
                           : 'text-muted-foreground hover:text-foreground'
@@ -318,7 +318,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
                     <button
                       type="button"
                       onClick={() => setMpdReportMode('LEDGERS')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                         mpdReportMode === 'LEDGERS'
                           ? 'bg-background text-foreground shadow-2xs font-semibold'
                           : 'text-muted-foreground hover:text-foreground'

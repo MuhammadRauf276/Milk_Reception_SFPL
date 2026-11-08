@@ -207,11 +207,11 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
                 <div className="min-w-0">
                   <span className="block text-sm font-semibold text-foreground">
                     {t.name}
-                    {t.valueText ? <span className="ml-1.5 font-normal tabular-nums text-secondary-foreground">{t.valueText}</span> : null}
+                    {t.valueText ? <span className="ml-2 font-normal tabular-nums text-secondary-foreground">{t.valueText}</span> : null}
                   </span>
                   {t.note && <span className="block text-xs font-semibold text-amber-800">{t.note}</span>}
                 </div>
-                <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-semibold', s.className)}>
+                <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-md border px-3 py-1 text-xs font-semibold', s.className)}>
                   <s.Icon className="h-4 w-4" aria-hidden="true" />
                   {s.word}
                 </span>
@@ -224,7 +224,7 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
       {warnings.length > 0 && (
         <ul className="space-y-1 rounded-xl border border-border bg-card px-3 py-2 text-sm text-amber-900">
           {warnings.map((w) => (
-            <li key={w} className="flex items-start gap-1.5">
+            <li key={w} className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{w}</span>
             </li>
@@ -243,21 +243,21 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
       {personDecision && decision && decision.exceptionReasons.length > 0 && (
         <div
           className={cn(
-            'space-y-2 rounded-xl border px-3 py-2.5',
+            'space-y-2 rounded-xl border px-3 py-2',
             route === 'DECIDE_NOW' ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-violet-300 bg-violet-50 text-violet-900'
           )}
         >
-          <p className="flex items-center gap-1.5 text-sm font-semibold">
+          <p className="flex items-center gap-2 text-sm font-semibold">
             {route === 'DECIDE_NOW' ? <AlertTriangle className="h-4 w-4" aria-hidden="true" /> : <Clock className="h-4 w-4" aria-hidden="true" />}
             {route === 'DECIDE_NOW' ? 'Needs decision: you can decide it now.' : `This goes to the ${approverLabel}.`}
           </p>
-          <ul className="flex flex-wrap gap-1.5" aria-label="Exception reasons">
+          <ul className="flex flex-wrap gap-2" aria-label="Exception reasons">
             {decision.exceptionReasons.map((r) => (
               <li
                 key={r}
                 title={exceptionReasonText(r)}
                 className={cn(
-                  'rounded-md border bg-card px-2.5 py-1 text-xs font-semibold',
+                  'rounded-md border bg-card px-3 py-1 text-xs font-semibold',
                   route === 'DECIDE_NOW' ? 'border-amber-300' : 'border-violet-300'
                 )}
               >

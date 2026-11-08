@@ -586,7 +586,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
           {!isEdit && (
             <div className="sm:col-span-2">
               <span className={fieldLabelClass}>Result type *</span>
-              <div role="group" aria-label="Result type" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-1.5">
+              <div role="group" aria-label="Result type" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2">
                 {RESULT_TYPES.map((t) => (
                   <button
                     key={t.value}
@@ -666,7 +666,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
         {/* Assigned stages */}
         <div className="space-y-1.5 rounded-xl border border-border bg-card p-3">
           <span className={fieldLabelClass}>Stages<InfoTip text="Select which reception checkpoints run this test. Policies and SOP rules are maintained automatically." /></span>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-1.5 pt-1">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-2 pt-1">
             {STAGE_OPTIONS.map((st) => {
               const active = assignedStages.includes(st.id);
               return (
@@ -693,9 +693,9 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
 
         {/* SOP DECISION LIMITS & REJECTION RULES (NUMERIC / CALCULATED) */}
         {(isNumeric || isCalculated) && (
-          <div className="space-y-3 rounded-2xl border border-border bg-card p-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2.5">
-              <div className="flex items-center gap-1.5">
+          <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+              <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-foreground">
                   SOP limits
                 </span>
@@ -746,12 +746,12 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             </div>
 
             {/* Interval Mode Switcher */}
-            <div className="space-y-1.5 rounded-lg border border-border bg-subtle p-2.5">
-              <div className="flex items-center gap-1.5">
+            <div className="space-y-1.5 rounded-lg border border-border bg-subtle p-3">
+              <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-secondary-foreground">Interval mode</span>
                 <InfoTip text="Choose whether this test has both minimum and maximum limits, or only a single boundary." />
               </div>
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-1.5">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
                 {[
                   { id: 'RANGE', label: 'Min to max' },
                   { id: 'MIN_ONLY', label: 'Min only' },
@@ -761,7 +761,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                     key={m.id}
                     type="button"
                     onClick={() => setBoundaryType(m.id as 'RANGE' | 'MIN_ONLY' | 'MAX_ONLY')}
-                    className={`min-h-11 rounded-lg border px-2.5 text-center text-xs font-medium transition-colors ${
+                    className={`min-h-11 rounded-lg border px-3 text-center text-xs font-medium transition-colors ${
                       boundaryType === m.id
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-border bg-card text-secondary-foreground hover:bg-muted'
@@ -774,8 +774,8 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             </div>
 
             {/* Pass Range */}
-            <div className="space-y-1.5 rounded-lg border border-border bg-card p-2.5">
-              <div className="flex items-center gap-1.5">
+            <div className="space-y-1.5 rounded-lg border border-border bg-card p-3">
+              <div className="flex items-center gap-2">
                 <span className="size-2 rounded-full bg-emerald-500" />
                 <span className="text-xs font-medium text-foreground">Pass range</span>
                 <InfoTip text="Values within this range pass automatically and release the milk." />
@@ -818,14 +818,14 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             </div>
 
             {/* Warning Margin */}
-            <div className="space-y-2 rounded-lg border border-border bg-card p-2.5">
-              <div className="flex items-center gap-1.5">
+            <div className="space-y-2 rounded-lg border border-border bg-card p-3">
+              <div className="flex items-center gap-2">
                 <span className="size-2 rounded-full bg-amber-500" />
                 <span className="text-xs font-medium text-foreground">Warning margin</span>
                 <InfoTip text="Borderline tolerance readings that hold for QA review instead of passing or rejecting." />
               </div>
 
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-1.5">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -897,9 +897,9 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             </div>
 
             {/* Rejection Limit */}
-            <div className="space-y-1.5 rounded-lg border border-border bg-card p-2.5">
+            <div className="space-y-1.5 rounded-lg border border-border bg-card p-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <span className="size-2 rounded-full bg-rose-500" />
                   <span className="text-xs font-medium text-foreground">Rejection limit</span>
                   <InfoTip text="Values beyond this limit fail the test and trigger a rejection recommendation." />
@@ -965,7 +965,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
         {/* LIVE RULE SIMULATOR */}
         <div className="space-y-2 rounded-xl border border-border bg-subtle p-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <Eye className="size-3.5 text-muted-foreground" />
               <span className="text-xs font-medium text-foreground">Live simulator</span>
               <InfoTip text="Enter any test reading to preview the policy verdict in real time." />
@@ -984,13 +984,13 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
           {isCategorical && options.length > 0 && (
             <div className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground">Choose one to test</span>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {options.map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
                     onClick={() => setTestSimulatorVal(opt.value)}
-                    className={`min-h-11 rounded-lg border px-2.5 text-xs font-medium transition-colors ${
+                    className={`min-h-11 rounded-lg border px-3 text-xs font-medium transition-colors ${
                       testSimulatorVal.toLowerCase() === opt.value.toLowerCase() ||
                       testSimulatorVal.toLowerCase() === opt.label.toLowerCase()
                         ? 'border-primary bg-primary/10 text-primary'
@@ -1015,9 +1015,9 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
           </div>
 
           {simulatedVerdict && (
-            <div className={`rounded-lg border p-2.5 text-xs transition-[color,background-color,border-color,box-shadow,opacity,transform] ${simulatedVerdict.color}`}>
+            <div className={`rounded-lg border p-3 text-xs transition-[color,background-color,border-color,box-shadow,opacity,transform] ${simulatedVerdict.color}`}>
               <div className="flex items-center justify-between font-semibold">
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-2">
                   {simulatedVerdict.verdict === 'PASS' && <span className="size-2 rounded-full bg-emerald-500" />}
                   {simulatedVerdict.verdict === 'WARNING' && <span className="size-2 rounded-full bg-amber-500" />}
                   {simulatedVerdict.verdict === 'FAIL' && <span className="size-2 rounded-full bg-rose-500" />}

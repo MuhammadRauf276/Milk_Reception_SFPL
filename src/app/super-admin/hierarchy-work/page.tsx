@@ -42,7 +42,7 @@ const columns: DataColumn<HierarchyWorkItem>[] = [
     cell: (r) => (
       <div className="min-w-0">
         <div className="font-semibold text-foreground">{r.actualUserName}</div>
-        <span className="inline-block rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-secondary-foreground">{r.actualUserRoleLabel}</span>
+        <span className="inline-block rounded bg-muted px-2 py-0.5 text-xs font-medium text-secondary-foreground">{r.actualUserRoleLabel}</span>
       </div>
     ),
   },
@@ -151,8 +151,8 @@ export default function HierarchyWorkPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-3.5 text-xs text-secondary-foreground">
-        <div className="flex min-w-0 items-start gap-2.5">
+      <div className="rounded-2xl border border-border bg-card p-4 text-xs text-secondary-foreground">
+        <div className="flex min-w-0 items-start gap-2">
           <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0 space-y-0.5">
             <span className="font-semibold text-foreground">Audit trail</span>

@@ -85,11 +85,11 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search"
-            className="w-full pl-9 pr-4 py-2.5 min-h-[44px] text-xs tabular-nums font-semibold bg-subtle border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+            className="w-full pl-9 pr-4 py-2 min-h-[44px] text-xs tabular-nums font-semibold bg-subtle border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1">
           <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mr-1 shrink-0">
             <Filter className="w-3.5 h-3.5" />
             <span>Stage:</span>
@@ -98,7 +98,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
           <button
             type="button"
             onClick={() => setStageFilter('ALL_ACTIVE')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'ALL_ACTIVE'
                 ? 'bg-blue-900 text-white shadow-xs'
                 : 'bg-muted text-secondary-foreground hover:bg-muted'
@@ -110,7 +110,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
           <button
             type="button"
             onClick={() => setStageFilter('GATE')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'GATE'
                 ? 'bg-blue-900 text-white shadow-xs'
                 : 'bg-muted text-secondary-foreground hover:bg-muted'
@@ -122,7 +122,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
           <button
             type="button"
             onClick={() => setStageFilter('QA')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'QA'
                 ? 'bg-blue-900 text-white shadow-xs'
                 : 'bg-muted text-secondary-foreground hover:bg-muted'
@@ -134,7 +134,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
           <button
             type="button"
             onClick={() => setStageFilter('SCALE')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'SCALE'
                 ? 'bg-blue-900 text-white shadow-xs'
                 : 'bg-muted text-secondary-foreground hover:bg-muted'
@@ -146,7 +146,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
           <button
             type="button"
             onClick={() => setStageFilter('UNLOADING')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'UNLOADING'
                 ? 'bg-blue-900 text-white shadow-xs'
                 : 'bg-muted text-secondary-foreground hover:bg-muted'
@@ -158,7 +158,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
           <button
             type="button"
             onClick={() => setStageFilter('RECEIPT_PENDING')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'RECEIPT_PENDING'
                 ? 'bg-amber-900 text-white shadow-xs'
                 : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
@@ -190,7 +190,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2.5 bg-blue-50 text-blue-900 rounded-xl">
+                  <div className="p-3 bg-blue-50 text-blue-900 rounded-xl">
                     <Truck className="w-5 h-5" />
                   </div>
                   <div>
@@ -214,7 +214,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
 
                 <div className="flex items-center space-x-2 self-start sm:self-auto">
                   <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                    className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold ${
                       v.journeyStage === 'RECEIPT_PENDING'
                         ? 'bg-amber-100 text-amber-900 border border-amber-300'
                         : v.journeyStage === 'UNLOADING'
@@ -235,7 +235,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
 
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 text-center text-xs">
                 <div
-                  className={`p-2.5 rounded-xl border ${
+                  className={`p-3 rounded-xl border ${
                     v.gateEntryTimestamp
                       ? 'bg-card border-border text-emerald-800'
                       : 'bg-card border-border text-muted-foreground'
@@ -249,7 +249,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 </div>
 
                 <div
-                  className={`p-2.5 rounded-xl border ${
+                  className={`p-3 rounded-xl border ${
                     v.qaSummary.totalPortions > 0 && v.qaSummary.badgeType !== 'ALL_PENDING'
                       ? 'bg-card border-border text-emerald-800'
                       : v.journeyStage === 'PLANT_QA'
@@ -265,7 +265,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 </div>
 
                 <div
-                  className={`p-2.5 rounded-xl border ${
+                  className={`p-3 rounded-xl border ${
                     v.firstWeightTimestamp
                       ? 'bg-card border-border text-emerald-800'
                       : 'bg-card border-border text-muted-foreground'
@@ -279,7 +279,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 </div>
 
                 <div
-                  className={`p-2.5 rounded-xl border ${
+                  className={`p-3 rounded-xl border ${
                     v.unloadingEndTimestamp
                       ? 'bg-card border-border text-emerald-800'
                       : v.journeyStage === 'UNLOADING'
@@ -295,7 +295,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 </div>
 
                 <div
-                  className={`p-2.5 rounded-xl border col-span-2 sm:col-span-1 ${
+                  className={`p-3 rounded-xl border col-span-2 sm:col-span-1 ${
                     v.finalReceiptExists
                       ? 'bg-card border-border text-emerald-800'
                       : v.journeyStage === 'RECEIPT_PENDING'
@@ -315,7 +315,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 </div>
               </div>
 
-              <div className="bg-card border-border p-3.5 rounded-2xl border flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="bg-card border-border p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div className="flex items-center space-x-2">
                   <span className="text-muted-foreground font-semibold">Whole Vehicle Gross:</span>
                   <span className="tabular-nums font-semibold text-foreground">

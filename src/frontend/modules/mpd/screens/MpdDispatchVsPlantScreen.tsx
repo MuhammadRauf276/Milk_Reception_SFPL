@@ -149,11 +149,11 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-xs font-semibold text-secondary-foreground space-y-1">
           <span className="block">From</span>
-          <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} className="block rounded-lg border border-border bg-background px-2 py-1.5 text-xs" />
+          <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} className="block rounded-lg border border-border bg-background px-2 py-2 text-xs" />
         </label>
         <label className="text-xs font-semibold text-secondary-foreground space-y-1">
           <span className="block">To</span>
-          <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className="block rounded-lg border border-border bg-background px-2 py-1.5 text-xs" />
+          <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className="block rounded-lg border border-border bg-background px-2 py-2 text-xs" />
         </label>
         <p className="text-xs text-muted-foreground pb-2">ZMCC tankers sent to the plant, and what the plant received.</p>
       </div>

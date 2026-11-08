@@ -316,7 +316,7 @@ export function ZMCCComprehensiveReportsScreen({
           <button
             type="button"
             onClick={handleExportExcel}
-            className="min-h-11 flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-foreground transition"
+            className="min-h-11 flex items-center space-x-1.5 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-foreground transition"
           >
             <Download className="w-4 h-4 text-secondary-foreground" />
             <span>Export to Excel (.xlsx)</span>
@@ -324,7 +324,7 @@ export function ZMCCComprehensiveReportsScreen({
           <button
             type="button"
             onClick={handlePrint}
-            className="min-h-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground"
+            className="min-h-11 flex items-center space-x-1 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground"
           >
             <Printer className="w-4 h-4" />
             <span>Print</span>
@@ -339,7 +339,7 @@ export function ZMCCComprehensiveReportsScreen({
           <button
             type="button"
             onClick={() => handleViewChange('ROUTE_COLLECTIONS')}
-            className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap flex items-center gap-1.5 ${
+            className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap flex items-center gap-2 ${
               activeView === 'ROUTE_COLLECTIONS'
                 ? 'bg-primary text-white shadow-2xs'
                 : 'text-secondary-foreground hover:text-foreground'
@@ -351,7 +351,7 @@ export function ZMCCComprehensiveReportsScreen({
           <button
             type="button"
             onClick={() => handleViewChange('HC_SUPPLIERS')}
-            className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap flex items-center gap-1.5 ${
+            className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap flex items-center gap-2 ${
               activeView === 'HC_SUPPLIERS'
                 ? 'bg-primary text-white shadow-2xs'
                 : 'text-secondary-foreground hover:text-foreground'
@@ -363,7 +363,7 @@ export function ZMCCComprehensiveReportsScreen({
           <button
             type="button"
             onClick={() => handleViewChange('TANK_STORAGE')}
-            className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap flex items-center gap-1.5 ${
+            className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap flex items-center gap-2 ${
               activeView === 'TANK_STORAGE'
                 ? 'bg-primary text-white shadow-2xs'
                 : 'text-secondary-foreground hover:text-foreground'
@@ -377,7 +377,7 @@ export function ZMCCComprehensiveReportsScreen({
         {/* Filters */}
         {activeView !== 'TANK_STORAGE' && (
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-subtle px-2.5 py-1.5 rounded-lg border border-border text-xs">
+            <div className="flex items-center gap-1 bg-subtle px-3 py-2 rounded-lg border border-border text-xs">
               <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
               <input
                 type="date"
@@ -493,12 +493,12 @@ export function ZMCCComprehensiveReportsScreen({
             Page <span className="font-semibold text-foreground">{page}</span> of{' '}
             <span className="font-semibold text-foreground">{totalPages}</span> ({totalRecords} records)
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="p-1.5 rounded-md border border-border bg-subtle hover:bg-muted disabled:opacity-40"
+              className="p-2 rounded-md border border-border bg-subtle hover:bg-muted disabled:opacity-40"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -506,7 +506,7 @@ export function ZMCCComprehensiveReportsScreen({
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="p-1.5 rounded-md border border-border bg-subtle hover:bg-muted disabled:opacity-40"
+              className="p-2 rounded-md border border-border bg-subtle hover:bg-muted disabled:opacity-40"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

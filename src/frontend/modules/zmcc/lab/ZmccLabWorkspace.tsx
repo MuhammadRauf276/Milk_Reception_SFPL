@@ -402,7 +402,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
                 type="button"
                 onClick={() => fetchQueue()}
                 disabled={loadingQueue}
-                className="min-h-11 min-w-11 self-start sm:self-auto px-3 py-1.5 rounded-lg border border-border bg-subtle text-xs font-semibold text-secondary-foreground hover:bg-muted transition"
+                className="min-h-11 min-w-11 self-start sm:self-auto px-3 py-2 rounded-lg border border-border bg-subtle text-xs font-semibold text-secondary-foreground hover:bg-muted transition"
               >
                 {loadingQueue ? 'Refreshing…' : 'Refresh'}
               </button>
@@ -425,7 +425,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
                 {queueItems.map((item) => (
                   <div
                     key={`${item.queue_type}-${item.arrival_id}`}
-                    className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-subtle/70 transition bg-card"
+                    className="p-4 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-subtle/70 transition bg-card"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -453,7 +453,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
                       type="button"
                       disabled={loadingSession}
                       onClick={() => handleStartOrResume(item)}
-                      className="min-h-11 min-w-11 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold shadow-2xs transition flex items-center justify-center gap-1.5 shrink-0"
+                      className="min-h-11 min-w-11 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold shadow-2xs transition flex items-center justify-center gap-2 shrink-0"
                     >
                       <FlaskConical className="w-3.5 h-3.5" />
                       <span>{item.lab_session_status === 'IN_PROGRESS' ? 'Resume Testing' : 'Start Testing'}</span>

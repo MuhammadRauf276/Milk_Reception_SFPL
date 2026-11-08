@@ -220,7 +220,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
                 className={zmccInputClass}
               />
               {i > 0 && liveNets[i - 1] !== null && (
-                <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 border border-emerald-200">
+                <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 border border-emerald-200">
                   <span>{portions[i - 1].label} Net Weight (W{i} - W{i + 1}):</span>
                   <span className="font-semibold">{liveNets[i - 1]?.toLocaleString()} kg</span>
                 </div>
@@ -345,7 +345,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
                 <Warehouse className="h-4 w-4 text-secondary-foreground" />
                 <div>
                   <span className="font-semibold text-foreground">{myTanks[0].tank_code}</span>
-                  <span className="text-muted-foreground text-xs ml-1.5">({myTanks[0].tank_name})</span>
+                  <span className="text-muted-foreground text-xs ml-2">({myTanks[0].tank_name})</span>
                 </div>
               </div>
               <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">

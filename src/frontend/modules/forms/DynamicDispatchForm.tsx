@@ -1435,7 +1435,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       <div className="max-w-2xl mx-auto space-y-6 py-6 px-4">
         <div className="p-6 bg-card rounded-2xl border border-border-strong shadow-xs text-center space-y-4">
           <div className="flex justify-center">
-            <div className={`inline-flex items-center space-x-2 px-3 py-1.5 rounded-md border text-sm font-semibold ${sv.className}`}>
+            <div className={`inline-flex items-center space-x-2 px-3 py-2 rounded-md border text-sm font-semibold ${sv.className}`}>
               <SvIcon className="w-4 h-4" />
               <span>{sv.word}</span>
             </div>
@@ -1453,7 +1453,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           )}
 
           {result.totals && (
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,6rem),1fr))] gap-2.5 pt-2 text-left">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,6rem),1fr))] gap-2 pt-2 text-left">
               <div className="bg-card border-border p-3 rounded-xl border">
                 <div className="text-xs font-semibold text-muted-foreground">Gross Litres</div>
                 <div className="text-sm font-semibold text-foreground tabular-nums mt-0.5">{fmtL(result.totals.grossLiters)}</div>
@@ -1509,9 +1509,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
   return (
     <form onSubmit={handleSubmitDispatch} className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 p-4 sm:p-5 rounded-2xl bg-card border border-border-strong shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-card border border-border-strong shadow-xs">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 rounded-xl bg-primary-hover text-white">
+          <div className="p-3 rounded-xl bg-primary-hover text-white">
             <span className="font-semibold text-sm tabular-nums">MPD</span>
           </div>
           <div>
@@ -1541,7 +1541,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             </button>
           )}
 
-          <div className="bg-card border-border flex items-center space-x-2 px-3 py-1.5 rounded-xl border-strong">
+          <div className="bg-card border-border flex items-center space-x-2 px-3 py-2 rounded-xl border-strong">
             <span className="text-xs font-semibold text-muted-foreground">Source:</span>
             <span className="text-xs font-semibold text-primary-hover tabular-nums">
               {effectiveSource ? effectiveSource.name : (isSourceBound ? 'Loading source…' : 'None')}
@@ -1643,7 +1643,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               <button
                 type="button"
                 onClick={() => handleTestModeChange('COMPOSITE')}
-                className={`px-3 py-2.5 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-[44px] ${
+                className={`px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-[44px] ${
                   testMode === 'COMPOSITE'
                     ? 'border-primary-hover bg-blue-50 text-primary-hover ring-2 ring-primary-hover/20'
                     : 'border-border text-secondary-foreground hover:bg-muted'
@@ -1655,7 +1655,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               <button
                 type="button"
                 onClick={() => handleTestModeChange('PORTION_WISE')}
-                className={`px-3 py-2.5 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-[44px] ${
+                className={`px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-[44px] ${
                   testMode === 'PORTION_WISE'
                     ? 'border-primary-hover bg-blue-50 text-primary-hover ring-2 ring-primary-hover/20'
                     : 'border-border text-secondary-foreground hover:bg-muted'
@@ -1725,28 +1725,28 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           </div>
 
           {submitError && (
-            <div className="bg-card border-border p-3.5 rounded-2xl border text-rose-800 text-xs flex items-start space-x-2">
+            <div className="bg-card border-border p-4 rounded-2xl border text-rose-800 text-xs flex items-start space-x-2">
               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <span>{submitError}</span>
             </div>
           )}
 
           {sealServerError && (
-            <div className="bg-card border-border p-3.5 rounded-2xl border text-amber-900 text-xs flex items-start space-x-2">
+            <div className="bg-card border-border p-4 rounded-2xl border text-amber-900 text-xs flex items-start space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <span>{sealServerError}</span>
             </div>
           )}
 
           {reopenedNote && (
-            <div className="bg-card border-border p-3.5 rounded-2xl border text-amber-900 text-xs flex items-start space-x-2">
+            <div className="bg-card border-border p-4 rounded-2xl border text-amber-900 text-xs flex items-start space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <span>{reopenedNote}</span>
             </div>
           )}
 
           {policyError && (
-            <div className="bg-card border-border p-3.5 rounded-2xl border text-amber-900 text-xs flex items-start space-x-2">
+            <div className="bg-card border-border p-4 rounded-2xl border text-amber-900 text-xs flex items-start space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <span>{policyError}</span>
             </div>
@@ -1791,9 +1791,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           </Drawer>
 
           {formStep !== 0 && showWarning && showWhy && (
-            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-950">
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-950">
               <div className="font-semibold">{goesToApprover ? `Why this goes to ${approverLabel}` : 'Not ready yet'}</div>
-              <ul className="mt-1.5 list-disc space-y-0.5 pl-4">
+              <ul className="mt-2 list-disc space-y-0.5 pl-4">
                 {(whyLines.length > 0 ? whyLines : ['Something is outside the rules.']).map((line) => (
                   <li key={line}>{line}</li>
                 ))}

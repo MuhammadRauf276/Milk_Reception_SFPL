@@ -98,7 +98,7 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
     <div className="space-y-5 animate-panel-in">
       {/* Header aligned with Production / Security UI */}
       <div className="flex items-center justify-between border-b border-border pb-3">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <Scale className="w-5 h-5 text-muted-foreground" />
           <h1 className="text-lg font-semibold text-foreground">
             Scale queue
@@ -106,7 +106,7 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
           <InfoTip text="Progressive multi-compartment scale queue with immutable audit locks." />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold tabular-nums px-2.5 py-1 rounded-md bg-muted text-foreground border border-border">
+          <span className="text-xs font-semibold tabular-nums px-3 py-1 rounded-md bg-muted text-foreground border border-border">
             {filter === 'SCALE_ACTION'
               ? `${scaleActionVisits.length} waiting on scale`
               : filter === 'AT_SILO'
@@ -167,7 +167,7 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
               >
                 {/* Header: Reg + Token + Status Badge */}
                 <div className="flex items-center justify-between gap-2 min-w-0">
-                  <div className="flex flex-wrap items-center gap-x-1.5 min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 min-w-0">
                     <span className="font-mono tabular-nums font-semibold text-sm text-foreground">{v.vehicle_number}</span>
                     {v.token_number && (
                       <span className="font-mono tabular-nums text-xs text-muted-foreground shrink-0">
@@ -201,8 +201,8 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
 
                 {/* Accepted Portion Count & Indicator */}
                 {v.accepted_portion_count === 0 ? (
-                  <div className="p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive font-semibold flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
+                  <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive font-semibold flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>All portions rejected</span>
                     </div>
@@ -243,7 +243,7 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
                 )}
 
                 {/* Current Action / Description */}
-                <div className="text-xs font-medium text-foreground bg-muted/60 p-2.5 rounded-lg flex items-center justify-between border border-border/50">
+                <div className="text-xs font-medium text-foreground bg-muted/60 p-3 rounded-lg flex items-center justify-between border border-border/50">
                   <span className="min-w-0">{v.current_action_label}</span>
                   <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0 ml-2" />
                 </div>
@@ -494,7 +494,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
 
           {/* Partial QA Rejection Notice */}
           {visit.accepted_portion_count > 0 && visit.rejected_portion_count > 0 && (
-            <div className="flex items-center justify-between p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300 font-medium">
+            <div className="flex items-center justify-between p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300 font-medium">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>Compartment #{visit.rejected_portion_numbers?.join(', #')} rejected</span>
@@ -508,7 +508,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
           {/* Stepper Timeline: All N+1 Boxes */}
           {visit.accepted_portion_count > 0 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <h4 className="text-xs font-semibold text-muted-foreground">
                   Weighment progress ({visit.total_weighments} readings)
                 </h4>
@@ -527,10 +527,10 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                     return (
                       <div
                         key={`box-locked-${step.step_index}`}
-                        className="p-3.5 rounded-2xl border border-border/80 bg-muted/20 space-y-2 select-none"
+                        className="p-4 rounded-2xl border border-border/80 bg-muted/20 space-y-2 select-none"
                       >
                         <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                          <div className="flex items-center gap-2 font-semibold text-foreground">
                             <Lock className="w-3.5 h-3.5 text-muted-foreground" />
                             <span>
                               Step {step.step_number} of {visit.total_weighments} · {step.label}
@@ -588,7 +588,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                         className="p-4 rounded-2xl border-2 border-primary bg-primary/[0.03] shadow-xs space-y-4"
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 font-semibold text-primary text-sm">
+                          <div className="flex items-center gap-2 font-semibold text-primary text-sm">
                             <Scale className="w-4 h-4" />
                             <span>
                               Step {step.step_number} of {visit.total_weighments} · {step.label}
@@ -601,7 +601,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
 
                         {/* Reference for Tares */}
                         {step.starting_weight_kg !== null && (
-                          <div className="p-2.5 rounded-lg bg-card border border-border text-xs flex items-center justify-between">
+                          <div className="p-3 rounded-lg bg-card border border-border text-xs flex items-center justify-between">
                             <span className="text-muted-foreground font-medium">
                               Starting loaded weight
                             </span>
@@ -613,7 +613,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
 
                         {/* Numeric Scale Input */}
                         <div className="space-y-1.5">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-2">
                             <label className="text-xs font-semibold text-foreground block">
                               Scale reading (kg) *
                             </label>
@@ -635,7 +635,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                               value={activeInputKg}
                               onChange={(e) => setActiveInputKg(e.target.value)}
                               placeholder="Scale reading in kg"
-                              className="w-full min-h-12 px-3.5 py-2 font-mono text-2xl font-semibold tabular-nums rounded-xl border-2 border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                              className="w-full min-h-12 px-4 py-2 font-mono text-2xl font-semibold tabular-nums rounded-xl border-2 border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/40 focus:border-primary"
                             />
                             <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
                               KG
@@ -663,7 +663,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                             value={opDateTimeInput}
                             min={activeStep?.min_allowed_timestamp ? toDatetimeLocalInput(activeStep.min_allowed_timestamp) : undefined}
                             onChange={(e) => setOpDateTimeInput(e.target.value)}
-                            className="w-full min-h-11 px-3 py-1.5 text-sm tabular-nums rounded-lg border border-input bg-card text-foreground"
+                            className="w-full min-h-11 px-3 py-2 text-sm tabular-nums rounded-lg border border-input bg-card text-foreground"
                           />
                           {activeStep?.min_allowed_timestamp && (
                             <p className="text-xs text-muted-foreground tabular-nums">
@@ -676,7 +676,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                         <button
                           type="submit"
                           disabled={isSubmitting || !isValidNum}
-                          className="w-full min-h-11 px-4 py-2.5 rounded-xl font-semibold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                          className="w-full min-h-11 px-4 py-2 rounded-xl font-semibold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                         >
                           {isSubmitting ? (
                             <>
@@ -698,10 +698,10 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                   return (
                     <div
                       key={`box-pending-${step.step_index}`}
-                      className="p-3.5 rounded-2xl border border-dashed border-border/60 bg-muted/10 opacity-70 space-y-1 select-none"
+                      className="p-4 rounded-2xl border border-dashed border-border/60 bg-muted/10 opacity-70 space-y-1 select-none"
                     >
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1.5 font-medium">
+                        <div className="flex items-center gap-2 font-medium">
                           <Clock className="w-3.5 h-3.5" />
                           <span>
                             Step {step.step_number} of {visit.total_weighments} · {step.label}

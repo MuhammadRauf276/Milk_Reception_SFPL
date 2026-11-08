@@ -136,7 +136,7 @@ export function ApprovalInspectModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-secondary-foreground hover:bg-muted transition min-h-11 min-w-11"
+              className="p-2 rounded-lg text-muted-foreground hover:text-secondary-foreground hover:bg-muted transition min-h-11 min-w-11"
               aria-label="Close dialog"
             >
               <X className="w-5 h-5" />
@@ -213,18 +213,18 @@ export function ApprovalInspectModal({
                               ? 'State specific technical or operational reason for rejection…'
                               : 'Optional notes for audit logs…'
                           }
-                          className="w-full p-2.5 text-xs border border-border rounded-lg bg-card resize-none focus:outline-none focus:ring-1 focus:ring-primary min-h-11"
+                          className="w-full p-3 text-xs border border-border rounded-lg bg-card resize-none focus:outline-none focus:ring-1 focus:ring-primary min-h-11"
                         />
                       </div>
 
                       {decisionError && (
-                        <div className="bg-card border-border p-2.5 rounded-lg border text-rose-700 text-xs font-semibold flex items-center gap-2">
+                        <div className="bg-card border-border p-3 rounded-lg border text-rose-700 text-xs font-semibold flex items-center gap-2">
                           <AlertTriangle className="w-4 h-4 shrink-0" />
                           <span>{decisionError}</span>
                         </div>
                       )}
 
-                      <div className="flex items-center justify-end gap-2.5">
+                      <div className="flex items-center justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => {

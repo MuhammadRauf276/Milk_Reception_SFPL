@@ -175,7 +175,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
       }
     >
       <form onSubmit={submit} className="space-y-3.5">
-        <div className="grid gap-3.5 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor={`${p}-username`} className={fieldLabelClass}>
               {isEdit ? (
@@ -329,7 +329,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
                 No active {policy.allowedSourceType} sources found for role {role}.
               </p>
             )}
-            <p className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
+            <p className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
               <span>Source not listed?</span>
               <Link href="/super-admin/procurement-sources" className="shrink-0 font-semibold text-primary hover:underline">
                 Add it in Procurement Sources

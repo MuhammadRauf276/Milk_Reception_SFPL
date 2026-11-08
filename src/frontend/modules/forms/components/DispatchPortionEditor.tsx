@@ -158,7 +158,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                 key={`portion-card-${portion.clientId}`}
                 className="p-4 rounded-2xl bg-card border border-border-strong shadow-xs space-y-3 transition"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center space-x-3">
                     <div className="bg-card border-border border p-2 rounded-xl text-emerald-800 shrink-0">
                       <Check className="w-4 h-4 stroke-3" />
@@ -253,7 +253,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                 <DrawerContent>
               <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
                 <DrawerTitle className="sr-only">Portion {portion.portionNumber}</DrawerTitle>
-                <div className="flex items-center justify-between border-b pb-2.5">
+                <div className="flex items-center justify-between border-b pb-3">
                   <div className="flex items-center space-x-2">
                     <span className="font-semibold text-sm text-primary">
                       Portion {portion.portionNumber}
@@ -272,7 +272,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor={`portion-seal-input-${index}`} className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                  <label htmlFor={`portion-seal-input-${index}`} className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <Hash className="w-4 h-4" aria-hidden="true" />
                     Seal number <span className="text-rose-600">*</span>
                   </label>
@@ -283,7 +283,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                     onChange={(e) => onSealChange(index, e.target.value)}
                     placeholder="Write the seal number"
                     autoComplete="off"
-                    className={`w-full min-h-[48px] px-3.5 text-base font-semibold rounded-xl border bg-card text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition ${
+                    className={`w-full min-h-[48px] px-4 text-base font-semibold rounded-xl border bg-card text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition ${
                       sealError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-border-strong'
                     }`}
                   />
@@ -308,7 +308,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                         value={portion.quantity.value}
                         onChange={(e) => onPortionQuantityValueChange(index, e.target.value)}
                         placeholder="e.g. 8500"
-                        className={`w-full h-11 px-3.5 text-sm tabular-nums font-semibold rounded-xl border bg-card text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition ${
+                        className={`w-full h-11 px-4 text-sm tabular-nums font-semibold rounded-xl border bg-card text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition ${
                           portionErrors[index]?.quantity
                             ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500'
                             : 'border-border-strong'
@@ -321,7 +321,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                       <label htmlFor={`portion-unit-select-${index}`} className="block text-xs font-semibold text-secondary-foreground">
                         Unit * {index > 0 && <span className="text-xs font-normal text-muted-foreground">(Shared from P1)</span>}
                       </label>
-                      <div className="bg-card border-border w-full h-11 px-3.5 flex items-center justify-between rounded-lg border-strong text-foreground">
+                      <div className="bg-card border-border w-full h-11 px-4 flex items-center justify-between rounded-lg border-strong text-foreground">
                         <span className="text-xs font-semibold tabular-nums text-foreground">
                           KG
                         </span>
@@ -336,7 +336,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                       <label className="block text-xs font-semibold text-secondary-foreground">
                         Basis
                       </label>
-                      <div className="bg-card border-border w-full h-11 px-3.5 flex items-center justify-between rounded-lg border-strong text-foreground">
+                      <div className="bg-card border-border w-full h-11 px-4 flex items-center justify-between rounded-lg border-strong text-foreground">
                         <span className="text-xs font-semibold tabular-nums text-foreground">
                           Measured
                         </span>

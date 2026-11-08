@@ -266,7 +266,7 @@ export default function SuperAdminWhatsAppPage() {
                   : 'Gateway offline'}
               </h2>
               <span
-                className={`rounded-md px-2.5 py-0.5 text-xs font-semibold ${
+                className={`rounded-md px-3 py-0.5 text-xs font-semibold ${
                   isConnected
                     ? 'bg-emerald-100 text-emerald-800'
                     : isScanQr
@@ -336,14 +336,14 @@ export default function SuperAdminWhatsAppPage() {
                 <span>Send message</span>
               </h3>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 bg-card text-secondary-foreground border border-border rounded-lg">
+            <span className="text-xs font-semibold px-3 py-1 bg-card text-secondary-foreground border border-border rounded-lg">
               03176826604
             </span>
           </div>
 
           {dispatchResult && (
             <div
-              className={`p-3.5 rounded-xl border text-xs font-semibold flex items-center space-x-2 animate-panel-in ${
+              className={`p-4 rounded-xl border text-xs font-semibold flex items-center space-x-2 animate-panel-in ${
                 dispatchResult.success
                   ? 'bg-card border-border text-emerald-900'
                   : 'bg-card border-border text-rose-900'
@@ -360,14 +360,14 @@ export default function SuperAdminWhatsAppPage() {
 
           <form onSubmit={handleSendMessage} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-secondary-foreground mb-1.5">
+              <label className="block text-xs font-semibold text-secondary-foreground mb-2">
                 Send to
               </label>
               <div className="mb-2 grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-2">
                 <button
                   type="button"
                   onClick={() => setTargetMode('ALL_USER')}
-                  className={`min-h-11 rounded-xl border p-2.5 text-left text-xs font-medium transition-colors flex items-center space-x-2 ${
+                  className={`min-h-11 rounded-xl border p-3 text-left text-xs font-medium transition-colors flex items-center space-x-2 ${
                     targetMode === 'ALL_USER'
                       ? 'border-primary bg-card text-foreground ring-1 ring-primary'
                       : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
@@ -383,7 +383,7 @@ export default function SuperAdminWhatsAppPage() {
                 <button
                   type="button"
                   onClick={() => setTargetMode('SINGLE')}
-                  className={`min-h-11 rounded-xl border p-2.5 text-left text-xs font-medium transition-colors flex items-center space-x-2 ${
+                  className={`min-h-11 rounded-xl border p-3 text-left text-xs font-medium transition-colors flex items-center space-x-2 ${
                     targetMode === 'SINGLE'
                       ? 'border-primary bg-card text-foreground ring-1 ring-primary'
                       : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
@@ -409,11 +409,11 @@ export default function SuperAdminWhatsAppPage() {
             </div>
 
             <div>
-              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <label className="text-xs font-semibold text-secondary-foreground">
                   Templates
                 </label>
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate('RECEIPT')}
@@ -485,7 +485,7 @@ export default function SuperAdminWhatsAppPage() {
               <div className="p-6 text-center text-xs text-muted-foreground">No shops found.</div>
             ) : (
               shops.map((shop) => (
-                <div key={shop.id} className="flex flex-wrap items-center justify-between gap-2 p-2.5 text-xs transition-colors hover:bg-subtle">
+                <div key={shop.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-xs transition-colors hover:bg-subtle">
                   <div className="min-w-0">
                     <div className="font-semibold text-foreground">{shop.shop_name}</div>
                     <div className="text-xs text-muted-foreground">

@@ -139,7 +139,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
             type="button"
             onClick={refresh}
             disabled={isLoading}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card text-secondary-foreground hover:bg-subtle transition-colors disabled:opacity-50 min-h-11 min-w-11"
+            className="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border border-border bg-card text-secondary-foreground hover:bg-subtle transition-colors disabled:opacity-50 min-h-11 min-w-11"
           >
             {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             Refresh
@@ -151,7 +151,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
               type="button"
               onClick={handleExportExcel}
               disabled={isExporting || isLoading}
-              className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-colors disabled:opacity-50 min-h-11"
+              className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-colors disabled:opacity-50 min-h-11"
             >
               <Download className={`w-3.5 h-3.5 ${isExporting ? 'opacity-50' : ''}`} />
               <span>{isExporting ? 'Exporting…' : 'Export Excel'}</span>
@@ -180,7 +180,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
       {/* Metrics Grid */}
       {summary && (
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-card border-border p-3.5 rounded-2xl border flex flex-col justify-between">
+          <div className="bg-card border-border p-4 rounded-2xl border flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/60">
                 <div className="flex items-center space-x-1.5 text-xs font-semibold text-secondary-foreground">
@@ -222,7 +222,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
             </div>
           </div>
 
-          <div className="bg-card border-border p-3.5 rounded-2xl border flex flex-col justify-between">
+          <div className="bg-card border-border p-4 rounded-2xl border flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/60">
                 <div className="flex items-center space-x-1.5 text-xs font-semibold text-secondary-foreground">
@@ -264,7 +264,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
             </div>
           </div>
 
-          <div className="bg-card border-border p-3.5 rounded-2xl border flex flex-col justify-between">
+          <div className="bg-card border-border p-4 rounded-2xl border flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/60">
                 <div className="flex items-center space-x-1.5 text-xs font-semibold text-secondary-foreground">
@@ -272,7 +272,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
                   <span>Tier 3: Road Transit Loss</span>
                 </div>
                 {summary.tier3TransitLoss.isHighLoss ? (
-                  <span className="flex items-center px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 text-xs font-semibold">
+                  <span className="flex items-center px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-xs font-semibold">
                     <AlertTriangle className="w-3 h-3 mr-0.5" />
                     &gt; 1.0% Loss
                   </span>
@@ -315,7 +315,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
             </div>
           </div>
 
-          <div className="bg-card border-border p-3.5 rounded-2xl border flex flex-col justify-between">
+          <div className="bg-card border-border p-4 rounded-2xl border flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-blue-200/60">
                 <div className="flex items-center space-x-1.5 text-xs font-semibold text-blue-900">

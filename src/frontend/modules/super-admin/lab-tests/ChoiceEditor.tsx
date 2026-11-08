@@ -90,14 +90,14 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card p-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2">
         <span className="text-xs font-semibold text-secondary-foreground">Presets:</span>
         {QUALITATIVE_PRESETS.map((p) => (
           <button
             key={p.label}
             type="button"
             onClick={() => onChange(JSON.parse(JSON.stringify(p.options)))}
-            className="min-h-11 rounded bg-muted px-2.5 text-xs font-semibold text-secondary-foreground transition hover:bg-muted"
+            className="min-h-11 rounded bg-muted px-3 text-xs font-semibold text-secondary-foreground transition hover:bg-muted"
           >
             {p.label}
           </button>
@@ -109,7 +109,7 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
           const current = optionOutcome(opt);
           return (
             <div key={idx} className="space-y-2 rounded-lg border border-border bg-card p-2">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   required

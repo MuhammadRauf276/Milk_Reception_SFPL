@@ -83,7 +83,7 @@ export const LabQueuePanel: React.FC<LabQueuePanelProps> = ({
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
+                        className={`text-xs font-semibold px-3 py-1 rounded-md ${
                           item.queue_type === 'MOT' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
                         }`}
                       >
@@ -109,14 +109,14 @@ export const LabQueuePanel: React.FC<LabQueuePanelProps> = ({
                     </div>
 
                     {item.queue_type === 'MOT' && (
-                      <div className="bg-card border-border text-xs text-secondary-foreground p-2.5 rounded-lg border space-y-1">
+                      <div className="bg-card border-border text-xs text-secondary-foreground p-3 rounded-lg border space-y-1">
                         <div>Journey: <strong>{item.journey_number}</strong></div>
                         <div>Tester: <strong>{item.mot_name || 'N/A'}</strong></div>
                       </div>
                     )}
 
                     {item.queue_type === 'HC' && (
-                      <div className="bg-card border-border text-xs text-secondary-foreground p-2.5 rounded-lg border space-y-1">
+                      <div className="bg-card border-border text-xs text-secondary-foreground p-3 rounded-lg border space-y-1">
                         <div>Code: <strong>{item.local_supplier_code}</strong></div>
                         <div>RMR: <strong>{item.rmr_number || 'N/A'}</strong></div>
                       </div>
@@ -139,7 +139,7 @@ export const LabQueuePanel: React.FC<LabQueuePanelProps> = ({
                       <button
                         onClick={() => handleStartOrResume(item)}
                         disabled={loadingSession}
-                        className="min-h-11 min-w-11 flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-hover transition-colors shadow-xs"
+                        className="min-h-11 min-w-11 flex items-center gap-2 px-4 py-2 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-hover transition-colors shadow-xs"
                       >
                         {item.lab_session_status === 'IN_PROGRESS' ? 'Resume' : 'Start'}
                         
@@ -162,7 +162,7 @@ export const LabQueuePanel: React.FC<LabQueuePanelProps> = ({
                       type="button"
                       disabled={queuePage <= 1}
                       onClick={() => setQueuePage((p) => Math.max(1, p - 1))}
-                      className="min-h-11 min-w-11 px-3 py-1.5 rounded-lg border border-border-strong text-xs font-semibold text-secondary-foreground hover:bg-subtle disabled:opacity-40"
+                      className="min-h-11 min-w-11 px-3 py-2 rounded-lg border border-border-strong text-xs font-semibold text-secondary-foreground hover:bg-subtle disabled:opacity-40"
                     >
                       Previous
                     </button>
@@ -170,7 +170,7 @@ export const LabQueuePanel: React.FC<LabQueuePanelProps> = ({
                       type="button"
                       disabled={queuePage >= totalQueuePages}
                       onClick={() => setQueuePage((p) => Math.min(totalQueuePages, p + 1))}
-                      className="min-h-11 min-w-11 px-3 py-1.5 rounded-lg border border-border-strong text-xs font-semibold text-secondary-foreground hover:bg-subtle disabled:opacity-40"
+                      className="min-h-11 min-w-11 px-3 py-2 rounded-lg border border-border-strong text-xs font-semibold text-secondary-foreground hover:bg-subtle disabled:opacity-40"
                     >
                       Next
                     </button>

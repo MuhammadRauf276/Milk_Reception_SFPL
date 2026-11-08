@@ -103,7 +103,7 @@ export function ProfilesTab({ profiles, loading, onAdd, onEdit, onToggleActive }
             <button
               type="button"
               onClick={() => onAdd()}
-              className="flex items-center space-x-1.5 px-3.5 min-h-[44px] rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition"
+              className="flex items-center space-x-1.5 px-4 min-h-[44px] rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition"
             >
               <Plus className="w-4 h-4" />
               <span>Add tester</span>

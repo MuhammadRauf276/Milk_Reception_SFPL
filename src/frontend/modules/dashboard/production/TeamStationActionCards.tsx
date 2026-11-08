@@ -14,13 +14,13 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
   const isReceptionPumping = reception.activePumpings.length > 0;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-5">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
       {/* 1. Weighbridge Station Live Oversight */}
       <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-2xs space-y-4">
         <div className="space-y-3.5">
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-border/60">
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
                 <Scale className="h-4 w-4" />
               </div>
@@ -35,7 +35,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               variant="outline"
               className={
                 isScaleBusy
-                  ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20 font-semibold text-xs flex items-center gap-1.5'
+                  ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20 font-semibold text-xs flex items-center gap-2'
                   : 'bg-muted text-muted-foreground font-medium text-xs'
               }
             >
@@ -51,9 +51,9 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
 
           {/* Current Scale Platform State */}
           {weighbridge.currentlyOnScale ? (
-            <div className="rounded-2xl border border-blue-500/20 bg-blue-50/40 dark:bg-blue-950/20 p-3 sm:p-3.5 space-y-2">
+            <div className="rounded-2xl border border-blue-500/20 bg-blue-50/40 dark:bg-blue-950/20 p-3 sm:p-4 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                <span className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-blue-600"></span>
                   Vehicle On Scale
                 </span>
@@ -85,8 +85,8 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 text-center space-y-1">
-              <div className="flex items-center justify-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-center space-y-1">
+              <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
                 <CheckCircle2 className="h-4 w-4" />
                 <span>Scale Platform Clear</span>
               </div>
@@ -95,8 +95,8 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
           )}
 
           {/* Scale Queues Telemetry */}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2.5 pt-0.5">
-            <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 pt-0.5">
+            <div className="rounded-lg border border-border/70 bg-background/50 p-3">
               <span className="text-xs font-medium text-muted-foreground block break-words">
                 Gross Queue (1st Weight)
               </span>
@@ -105,7 +105,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
                 <span className="text-xs font-normal text-muted-foreground">tankers</span>
               </div>
             </div>
-            <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
+            <div className="rounded-lg border border-border/70 bg-background/50 p-3">
               <span className="text-xs font-medium text-muted-foreground block break-words">
                 Tare Queue (2nd Weight)
               </span>
@@ -118,7 +118,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
 
           {/* Operator and Turnaround info */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/60 gap-1">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 break-words">
                 {weighbridge.activeOperators.length > 0
@@ -149,7 +149,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
         <div className="space-y-3.5">
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-border/60">
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <Database className="h-4 w-4" />
               </div>
@@ -164,7 +164,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               variant="outline"
               className={
                 isReceptionPumping
-                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20 font-semibold text-xs flex items-center gap-1.5'
+                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20 font-semibold text-xs flex items-center gap-2'
                   : 'bg-muted text-muted-foreground font-medium text-xs'
               }
             >
@@ -186,10 +186,10 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               {reception.activePumpings.slice(0, 2).map((p, idx) => (
                 <div
                   key={`${p.vehicleNumber}-${p.bayNumber}-${idx}`}
-                  className="rounded-2xl border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 sm:p-3.5 space-y-1.5"
+                  className="rounded-2xl border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 sm:p-4 space-y-1.5"
                 >
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
                       <span className="h-2 w-2 rounded-full bg-emerald-600"></span>
                       {p.bayNumber} &rarr; {p.siloNumber}
                     </span>
@@ -211,8 +211,8 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 text-center space-y-1">
-              <div className="flex items-center justify-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-center space-y-1">
+              <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
                 <CheckCircle2 className="h-4 w-4" />
                 <span>All Unloading Bays Clear</span>
               </div>
@@ -221,8 +221,8 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
           )}
 
           {/* Reception Queues Telemetry */}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2.5 pt-0.5">
-            <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 pt-0.5">
+            <div className="rounded-lg border border-border/70 bg-background/50 p-3">
               <span className="text-xs font-medium text-muted-foreground block break-words">
                 Ready for Bay (QA Cleared)
               </span>
@@ -231,7 +231,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
                 <span className="text-xs font-normal text-muted-foreground">tankers</span>
               </div>
             </div>
-            <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
+            <div className="rounded-lg border border-border/70 bg-background/50 p-3">
               <span className="text-xs font-medium text-muted-foreground block break-words">
                 Offloaded Today
               </span>
@@ -244,7 +244,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
 
           {/* Operator and Turnaround info */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/60 gap-1">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 break-words">
                 {reception.activeOperators.length > 0

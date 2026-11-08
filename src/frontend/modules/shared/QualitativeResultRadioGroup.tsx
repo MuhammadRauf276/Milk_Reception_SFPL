@@ -46,7 +46,7 @@ export const QualitativeResultRadioGroup: React.FC<QualitativeResultRadioGroupPr
         role="radiogroup"
         {...(ariaLabelledBy ? { 'aria-labelledby': ariaLabelledBy } : { 'aria-label': accessibleGroupLabel })}
         {...(errorId ? { 'aria-describedby': errorId } : {})}
-        className="flex flex-wrap items-center gap-1.5"
+        className="flex flex-wrap items-center gap-2"
       >
         {options.map((opt, idx) => {
           const isChecked = value === opt.value;
@@ -58,7 +58,7 @@ export const QualitativeResultRadioGroup: React.FC<QualitativeResultRadioGroupPr
               key={opt.value}
               htmlFor={inputId}
               className={`inline-flex min-h-11 min-w-11 justify-center items-center cursor-pointer transition select-none font-semibold tabular-nums ${
-                compact ? 'gap-1 px-2 py-0.5 rounded-md text-xs' : 'gap-1.5 px-3 py-1.5 rounded-lg text-xs'
+                compact ? 'gap-1 px-2 py-0.5 rounded-md text-xs' : 'gap-2 px-3 py-2 rounded-lg text-xs'
               } border ${
                 disabled
                   ? 'opacity-50 cursor-not-allowed bg-muted border-border-strong text-muted-foreground'

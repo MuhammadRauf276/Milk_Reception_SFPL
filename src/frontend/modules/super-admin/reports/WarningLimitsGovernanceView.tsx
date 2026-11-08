@@ -64,7 +64,7 @@ const warningColumns: DataColumn<WarningItem>[] = [
     header: 'Status',
     label: 'Status',
     align: 'center',
-    cell: (w) => <span className="rounded-md bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">{w.status}</span>,
+    cell: (w) => <span className="rounded-md bg-amber-100 px-3 py-0.5 text-xs font-semibold text-amber-800">{w.status}</span>,
   },
 ];
 
@@ -108,12 +108,12 @@ export function WarningLimitsGovernanceView() {
       {/* Top Banner Card: Plant Reception Warning Limit Setting */}
       <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3.5">
+          <div className="flex items-start gap-4">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-semibold text-foreground">Plant reception warning limit policy</h2>
-                <span className="rounded-md bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
+                <span className="rounded-md bg-amber-100 px-3 py-0.5 text-xs font-semibold text-amber-900">
                   {threshold} vehicles / month
                 </span>
               </div>
@@ -147,7 +147,7 @@ export function WarningLimitsGovernanceView() {
 
       {/* Error Alert */}
       {error && (
-        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-semibold text-rose-800">
+        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{getErrorMessage(error) || 'Failed to load warning limit governance data'}</span>
         </div>
@@ -264,7 +264,7 @@ export function WarningLimitsGovernanceView() {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="e.g. Approved by Head of QA for seasonal winter flush transition."
-                className="w-full rounded-lg border border-border-strong p-2.5 text-xs text-foreground focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-border-strong p-3 text-xs text-foreground focus:border-primary focus:outline-none"
               />
             </div>
 

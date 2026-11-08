@@ -93,7 +93,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     type="datetime-local"
                     value={qaOpTimestamp}
                     onChange={(e) => onQaOpTimestampChange(e.target.value)}
-                    className="w-full min-h-11 px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                    className="w-full min-h-11 px-4 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
@@ -110,7 +110,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="min-h-11 px-5 py-2.5 bg-primary hover:bg-primary-hover text-white font-semibold text-xs rounded-xl transition"
+                    className="min-h-11 px-5 py-2 bg-primary hover:bg-primary-hover text-white font-semibold text-xs rounded-xl transition"
                   >
                     {isSubmitting ? 'Starting…' : 'Confirm & Start Testing'}
                   </button>
@@ -140,7 +140,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     type="datetime-local"
                     value={qaOpTimestamp}
                     onChange={(e) => onQaOpTimestampChange(e.target.value)}
-                    className="w-full min-h-11 px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                    className="w-full min-h-11 px-4 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
@@ -157,7 +157,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="min-h-11 px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white font-semibold text-xs rounded-xl transition"
+                    className="min-h-11 px-5 py-2 bg-amber-700 hover:bg-amber-800 text-white font-semibold text-xs rounded-xl transition"
                   >
                     {isSubmitting ? 'Resuming…' : 'Confirm & Resume Session'}
                   </button>
@@ -182,7 +182,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                 </div>
 
                 {hasFailedTests ? (
-                  <div className="bg-card border-border p-3.5 rounded-2xl border text-amber-900 text-xs font-semibold space-y-2">
+                  <div className="bg-card border-border p-4 rounded-2xl border text-amber-900 text-xs font-semibold space-y-2">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
@@ -194,7 +194,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-card border-border p-3.5 rounded-2xl border text-emerald-900 text-xs font-semibold space-y-1">
+                  <div className="bg-card border-border p-4 rounded-2xl border text-emerald-900 text-xs font-semibold space-y-1">
                     <p>
                       Confirming that Portion #{currentPortion?.portion_number} meets plant quality standards and is approved for weighbridge and unloading.
                     </p>
@@ -214,7 +214,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                       }}
                       placeholder="Reason"
                       rows={2}
-                      className="w-full min-w-0 resize-y break-words p-2.5 text-xs font-semibold rounded-lg border border-amber-300 bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-600 min-h-11"
+                      className="w-full min-w-0 resize-y break-words p-3 text-xs font-semibold rounded-lg border border-amber-300 bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-600 min-h-11"
                       required
                     />
                   </div>
@@ -228,7 +228,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     type="datetime-local"
                     value={qaOpTimestamp}
                     onChange={(e) => onQaOpTimestampChange(e.target.value)}
-                    className="w-full min-h-11 px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                    className="w-full min-h-11 px-4 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
@@ -245,7 +245,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   <button
                     type="submit"
                     disabled={isSubmitting || (hasFailedTests && !(exceptionReason || rejectionReason || '').trim())}
-                    className={`min-h-11 px-5 py-2.5 text-white font-semibold text-xs rounded-xl transition disabled:opacity-50 ${
+                    className={`min-h-11 px-5 py-2 text-white font-semibold text-xs rounded-xl transition disabled:opacity-50 ${
                       hasFailedTests
                         ? 'bg-amber-600 hover:bg-amber-700'
                         : 'bg-emerald-700 hover:bg-emerald-800'
@@ -276,7 +276,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                 </div>
 
                 {!hasFailedTests && (
-                  <div className="bg-card border-border p-3.5 rounded-2xl border text-amber-900 text-xs font-semibold space-y-1">
+                  <div className="bg-card border-border p-4 rounded-2xl border text-amber-900 text-xs font-semibold space-y-1">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
@@ -296,7 +296,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   <select
                     value={rejectionReason}
                     onChange={(e) => onRejectionReasonChange(e.target.value)}
-                    className="w-full min-h-11 px-3.5 py-2 text-xs font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-700"
+                    className="w-full min-h-11 px-4 py-2 text-xs font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-700"
                     required
                   >
                     <option value="">Select rejection reason</option>
@@ -332,7 +332,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     type="datetime-local"
                     value={qaOpTimestamp}
                     onChange={(e) => onQaOpTimestampChange(e.target.value)}
-                    className="w-full min-h-11 px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                    className="w-full min-h-11 px-4 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
@@ -349,7 +349,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   <button
                     type="submit"
                     disabled={isSubmitting || !rejectionReason.trim() || !rejectionRemarks.trim()}
-                    className="min-h-11 px-5 py-2.5 bg-rose-700 hover:bg-rose-800 text-white font-semibold text-xs rounded-xl transition disabled:opacity-50"
+                    className="min-h-11 px-5 py-2 bg-rose-700 hover:bg-rose-800 text-white font-semibold text-xs rounded-xl transition disabled:opacity-50"
                   >
                     {isSubmitting
                       ? 'Rejecting…'

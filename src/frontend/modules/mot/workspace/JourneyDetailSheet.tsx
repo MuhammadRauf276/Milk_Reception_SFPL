@@ -107,7 +107,7 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                   )}
 
                   {journey.summary && journey.summary.pending_shop_count > 0 && (
-                    <div className="bg-card border-border flex items-center space-x-2 text-xs font-semibold text-blue-800 p-2.5 rounded-lg border">
+                    <div className="bg-card border-border flex items-center space-x-2 text-xs font-semibold text-blue-800 p-3 rounded-lg border">
                       <Clock className="w-4 h-4 shrink-0 text-muted-foreground" />
                       <span>
                         Syncing: {journey.summary.pending_shop_count} pending

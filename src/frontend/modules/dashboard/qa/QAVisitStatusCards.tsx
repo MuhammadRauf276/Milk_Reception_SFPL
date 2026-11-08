@@ -14,7 +14,7 @@ export const QAWaitingVisitCard: React.FC<{
   <div className="bg-card border-border p-5 sm:p-6 rounded-2xl border shadow-xs space-y-5 text-foreground">
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border-strong">
       <div className="flex items-center space-x-3">
-        <div className="p-2.5 rounded-xl bg-primary text-white shadow-2xs">
+        <div className="p-3 rounded-xl bg-primary text-white shadow-2xs">
           <Truck className="w-5 h-5" />
         </div>
         <div>
@@ -27,12 +27,12 @@ export const QAWaitingVisitCard: React.FC<{
         </div>
       </div>
 
-      <span className="self-start sm:self-center px-2.5 py-1 rounded-md text-xs font-semibold bg-muted text-secondary-foreground border border-border">
+      <span className="self-start sm:self-center px-3 py-1 rounded-md text-xs font-semibold bg-muted text-secondary-foreground border border-border">
         Ready for Sampling
       </span>
     </div>
 
-    <div className="bg-card border-border grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+    <div className="bg-card border-border grid grid-cols-2 sm:grid-cols-3 gap-2 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
       <div className="space-y-0.5">
         <span className="text-muted-foreground font-sans block text-xs font-semibold">
           Portions
@@ -88,7 +88,7 @@ export const QAHeldVisitCard: React.FC<{
   <div className="bg-card border-border p-5 sm:p-6 rounded-2xl border shadow-xs space-y-5 text-foreground">
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200">
       <div className="flex items-center space-x-3">
-        <div className="p-2.5 rounded-xl bg-amber-600 text-white shadow-2xs">
+        <div className="p-3 rounded-xl bg-amber-600 text-white shadow-2xs">
           <ShieldAlert className="w-5 h-5" />
         </div>
         <div>
@@ -100,7 +100,7 @@ export const QAHeldVisitCard: React.FC<{
         </div>
       </div>
 
-      <span className="self-start sm:self-center px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+      <span className="self-start sm:self-center px-3 py-1 rounded-md text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
         On Hold
       </span>
     </div>
@@ -112,7 +112,7 @@ export const QAHeldVisitCard: React.FC<{
       <p className="text-xs font-semibold text-amber-950">{visit.hold_reason}</p>
     </div>
 
-    <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+    <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
       <div>
         <span className="text-muted-foreground font-sans block text-xs font-semibold">Chemist</span>
         <span className="text-foreground">{visit.chemist_name}</span>

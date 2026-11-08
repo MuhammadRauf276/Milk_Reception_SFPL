@@ -49,7 +49,7 @@ export function CollapsibleDisclosure({
         aria-controls={contentId}
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
-          'flex min-h-11 w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left text-xs font-semibold text-foreground transition-colors select-none',
+          'flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2 text-left text-xs font-semibold text-foreground transition-colors select-none',
           'hover:bg-muted/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring rounded-lg',
           forceOpenDesktop && 'lg:pointer-events-none lg:cursor-default',
           headerClassName
@@ -82,7 +82,7 @@ export function CollapsibleDisclosure({
           'transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-200 ease-in-out',
           isOpen || forceOpenDesktop ? 'block' : 'hidden',
           forceOpenDesktop && !isOpen && 'hidden lg:block',
-          'border-t border-border/50 px-3.5 py-3 text-xs leading-relaxed text-muted-foreground',
+          'border-t border-border/50 px-4 py-3 text-xs leading-relaxed text-muted-foreground',
           contentClassName
         )}
       >

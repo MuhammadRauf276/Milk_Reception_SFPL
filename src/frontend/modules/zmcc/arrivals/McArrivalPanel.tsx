@@ -52,7 +52,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
         <div>
           {/* Header row: Journey badge + Status pill + Volume */}
           <div className="flex items-start justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="tabular-nums text-xs font-semibold font-mono px-2 py-0.5 rounded-md bg-muted text-foreground border border-border">
                 {j.journey_number}
               </span>
@@ -75,7 +75,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
           </div>
 
           {/* Route Info */}
-          <div className="mt-2.5">
+          <div className="mt-2">
             <div className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors" title={j.route?.name || j.route?.route_code}>
               {j.route?.name || 'Route'}
             </div>
@@ -87,12 +87,12 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
           </div>
 
           {/* Key details: Vehicle & Collector */}
-          <div className="mt-3 pt-2.5 border-t border-border text-xs text-secondary-foreground grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
-            <div className="flex items-center gap-1.5 min-w-0" title={`Vehicle: ${j.mot_vehicle?.vehicle_number || '—'}`}>
+          <div className="mt-3 pt-3 border-t border-border text-xs text-secondary-foreground grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+            <div className="flex items-center gap-2 min-w-0" title={`Vehicle: ${j.mot_vehicle?.vehicle_number || '—'}`}>
               <Truck className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <span className="break-words min-w-0 font-semibold text-foreground">{j.mot_vehicle?.vehicle_number || '—'}</span>
             </div>
-            <div className="flex items-center gap-1.5 min-w-0" title={`Collector: ${j.mot_profile?.name || '—'}`}>
+            <div className="flex items-center gap-2 min-w-0" title={`Collector: ${j.mot_profile?.name || '—'}`}>
               <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <span className="break-words min-w-0 font-medium text-secondary-foreground">{j.mot_profile?.name || '—'}</span>
             </div>
@@ -100,16 +100,16 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
         </div>
 
         {/* Footer: Stops chips */}
-        <div className="mt-3 pt-2.5 border-t border-border flex items-center justify-between gap-1 text-xs">
+        <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-1 text-xs">
           <div className="flex items-center gap-1 text-xs">
-            <span className="px-1.5 py-0.5 rounded bg-muted text-secondary-foreground font-medium" title="Active shops on this journey">
+            <span className="px-2 py-0.5 rounded bg-muted text-secondary-foreground font-medium" title="Active shops on this journey">
               Active shops: <strong>{j.total_stops}</strong>
             </span>
-            <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold" title="Collected stops">
+            <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold" title="Collected stops">
               Collected: <strong>{j.visited_stops}</strong>
             </span>
             {Number(j.skipped_stops || 0) > 0 && (
-              <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold" title="Skipped stops">
+              <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold" title="Skipped stops">
                 Skipped: <strong>{j.skipped_stops}</strong>
               </span>
             )}
@@ -147,7 +147,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
             <button
               type="button"
               onClick={onRefresh}
-              className="flex items-center gap-1.5 min-h-[44px] px-3 text-xs font-semibold text-secondary-foreground hover:text-foreground rounded-lg hover:bg-muted"
+              className="flex items-center gap-2 min-h-[44px] px-3 text-xs font-semibold text-secondary-foreground hover:text-foreground rounded-lg hover:bg-muted"
             >
               {loadingJourneys && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Refresh

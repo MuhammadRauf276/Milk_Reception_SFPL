@@ -92,7 +92,7 @@ export function Combobox({
           aria-controls={listId}
           disabled={disabled}
           className={cn(
-            'flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border-strong bg-card px-3.5 text-left text-sm font-semibold text-foreground outline-hidden focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50',
+            'flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border-strong bg-card px-4 text-left text-sm font-semibold text-foreground outline-hidden focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50',
             className
           )}
         >
@@ -152,9 +152,9 @@ export function Combobox({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     {isDisabled && (
-                      <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
                         Busy
                       </span>
                     )}

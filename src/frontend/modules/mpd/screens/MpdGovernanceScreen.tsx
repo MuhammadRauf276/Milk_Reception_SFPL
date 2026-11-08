@@ -116,7 +116,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
       align: 'center',
       cell: (o) => (
         <span
-          className={`inline-block px-2.5 py-1 rounded-md text-xs font-semibold ${
+          className={`inline-block px-3 py-1 rounded-md text-xs font-semibold ${
             o.status === 'APPROVED'
               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
               : o.status === 'FLAGGED'
@@ -140,14 +140,14 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
             <button
               disabled={actionLoading === o.id}
               onClick={() => handleAction(o.id, 'APPROVED')}
-              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 min-h-11 min-w-11"
+              className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 min-h-11 min-w-11"
             >
               Approve
             </button>
             <button
               disabled={actionLoading === o.id}
               onClick={() => handleAction(o.id, 'FLAGGED')}
-              className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 min-h-11 min-w-11"
+              className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 min-h-11 min-w-11"
             >
               Flag
             </button>
@@ -178,7 +178,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
           <h3 className="text-xs font-semibold text-foreground">Incomplete unloads (30 days)</h3>
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {zmccs.filter((z) => z.leftWithoutFullUnloadingCount > 0 || z.pendingCloseRequestCount > 0).map((z) => (
-              <div key={z.id} className="bg-card border-border rounded-lg border p-2.5 text-xs">
+              <div key={z.id} className="bg-card border-border rounded-lg border p-3 text-xs">
                 <div className="font-semibold text-foreground">{z.name}</div>
                 <div className="tabular-nums text-secondary-foreground">
                   {z.leftWithoutFullUnloadingCount} left · {z.pendingCloseRequestCount} pending request(s)
@@ -190,7 +190,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
         </div>
       )}
 
-      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-2xl border">
+      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl border">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -201,10 +201,10 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
             className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border focus:outline-hidden focus:border-primary bg-subtle min-h-11"
           />
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setStageFilter('ALL')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
               stageFilter === 'ALL' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
@@ -212,7 +212,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
           </button>
           <button
             onClick={() => setStageFilter('ZMCC_GATE')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
               stageFilter === 'ZMCC_GATE' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
@@ -220,7 +220,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
           </button>
           <button
             onClick={() => setStageFilter('PLANT_RECEPTION')}
-            className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
               stageFilter === 'PLANT_RECEPTION' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
@@ -233,7 +233,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <UserCheck className="w-4 h-4 text-muted-foreground" />
-            <div className="flex items-center gap-1.5"><h2 className="text-xs font-semibold text-foreground">Overrides Log</h2><InfoTip text="Audit records of all operational manager overrides and deviations." /></div>
+            <div className="flex items-center gap-2"><h2 className="text-xs font-semibold text-foreground">Overrides Log</h2><InfoTip text="Audit records of all operational manager overrides and deviations." /></div>
           </div>
           <span className="text-xs tabular-nums font-medium text-muted-foreground">
             {filteredOverrides.length} record(s)

@@ -79,7 +79,7 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
 
               {/* Status Badge / Detail */}
               {isCurrent && (
-                <span className="mt-1 px-1.5 py-0.2 rounded text-xs font-semibold bg-blue-50 text-primary-hover border border-blue-200">
+                <span className="mt-1 px-2 py-0.2 rounded text-xs font-semibold bg-blue-50 text-primary-hover border border-blue-200">
                   Current
                 </span>
               )}
@@ -87,7 +87,7 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
               {/* Specific Stage Contexts */}
               {stage.id === 'PLANT_QA' && stage.detailText && (
                 <span
-                  className={`mt-1 text-xs tabular-nums font-semibold px-1.5 py-0.5 rounded ${
+                  className={`mt-1 text-xs tabular-nums font-semibold px-2 py-0.5 rounded ${
                     lifecycle.portionQA.badgeType === 'ALL_ACCEPTED'
                       ? 'bg-emerald-50 text-emerald-800'
                       : lifecycle.portionQA.badgeType === 'ALL_REJECTED' || lifecycle.portionQA.badgeType === 'MIXED'

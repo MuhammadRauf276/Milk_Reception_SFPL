@@ -54,7 +54,7 @@ export const MasterRecordDrawer: React.FC<Props> = ({ form, ...helpers }) => {
         <form onSubmit={form.submit} className="space-y-4">
           {ORG.includes(formProps.modalType) ? <OrgRecordForms {...formProps} /> : <OperationalRecordForms {...formProps} />}
 
-          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
             <button
               type="button"
               onClick={form.closeModal}

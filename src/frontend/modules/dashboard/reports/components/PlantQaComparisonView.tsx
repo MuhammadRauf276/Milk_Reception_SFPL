@@ -291,7 +291,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search dispatch note, tanker, or ZMCC…"
-            className="w-full pl-8 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
+            className="w-full pl-8 pr-3 py-2 bg-background border border-border rounded-lg text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
           />
         </div>
 
@@ -300,7 +300,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-background border border-border rounded-lg px-2.5 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
+            className="bg-background border border-border rounded-lg px-3 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
           >
             <option value="ALL">All Dispatches</option>
             <option value="ACCEPTED">Accepted (Normal)</option>
@@ -334,74 +334,74 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
 
               {/* Sub Column Headers */}
               <tr className="border-b border-border bg-muted/40 text-muted-foreground font-semibold text-xs">
-                <th className="py-2.5 px-3">Slip #</th>
-                <th className="py-2.5 px-3">Vehicle #</th>
-                <th className="py-2.5 px-3">Source ZMCC</th>
-                <th className="py-2.5 px-3 border-r border-border">Date & Time</th>
+                <th className="py-2 px-3">Slip #</th>
+                <th className="py-2 px-3">Vehicle #</th>
+                <th className="py-2 px-3">Source ZMCC</th>
+                <th className="py-2 px-3 border-r border-border">Date & Time</th>
 
                 {/* Dispatch */}
-                <th className="py-2.5 px-3 text-right bg-blue-50/20">Gross (L)</th>
-                <th className="py-2.5 px-3 text-right bg-blue-50/20">Fat %</th>
-                <th className="py-2.5 px-3 text-right border-r border-border bg-blue-50/20">LR</th>
+                <th className="py-2 px-3 text-right bg-blue-50/20">Gross (L)</th>
+                <th className="py-2 px-3 text-right bg-blue-50/20">Fat %</th>
+                <th className="py-2 px-3 text-right border-r border-border bg-blue-50/20">LR</th>
 
                 {/* Plant */}
-                <th className="py-2.5 px-3 text-right bg-emerald-50/20">Accepted (L)</th>
-                <th className="py-2.5 px-3 text-right bg-emerald-50/20">Fat %</th>
-                <th className="py-2.5 px-3 text-right border-r border-border bg-emerald-50/20">LR</th>
+                <th className="py-2 px-3 text-right bg-emerald-50/20">Accepted (L)</th>
+                <th className="py-2 px-3 text-right bg-emerald-50/20">Fat %</th>
+                <th className="py-2 px-3 text-right border-r border-border bg-emerald-50/20">LR</th>
 
                 {/* Delta & Status */}
-                <th className="py-2.5 px-3 text-right bg-amber-50/20">Loss (L)</th>
-                <th className="py-2.5 px-3 text-right bg-amber-50/20">Loss %</th>
-                <th className="py-2.5 px-3 text-right bg-amber-50/20">Fat Delta</th>
-                <th className="py-2.5 px-3 text-center">Audit Status</th>
+                <th className="py-2 px-3 text-right bg-amber-50/20">Loss (L)</th>
+                <th className="py-2 px-3 text-right bg-amber-50/20">Loss %</th>
+                <th className="py-2 px-3 text-right bg-amber-50/20">Fat Delta</th>
+                <th className="py-2 px-3 text-center">Audit Status</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-border/60">
               {filteredRows.map((row) => (
                 <tr key={row.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="py-2.5 px-3 font-semibold text-foreground">{row.dispatchNote}</td>
-                  <td className="py-2.5 px-3 font-mono">{row.vehicleNumber}</td>
-                  <td className="py-2.5 px-3">{row.sourceZmcc}</td>
-                  <td className="py-2.5 px-3 text-muted-foreground border-r border-border">
+                  <td className="py-2 px-3 font-semibold text-foreground">{row.dispatchNote}</td>
+                  <td className="py-2 px-3 font-mono">{row.vehicleNumber}</td>
+                  <td className="py-2 px-3">{row.sourceZmcc}</td>
+                  <td className="py-2 px-3 text-muted-foreground border-r border-border">
                     {row.dispatchDate} {row.dispatchTime}
                   </td>
 
                   {/* Dispatch Values */}
-                  <td className="py-2.5 px-3 text-right tabular-nums font-mono font-medium">
+                  <td className="py-2 px-3 text-right tabular-nums font-mono font-medium">
                     {row.dispatchedLiters.toLocaleString()} L
                   </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums font-mono">{row.dispatchFat.toFixed(2)}%</td>
-                  <td className="py-2.5 px-3 text-right tabular-nums font-mono border-r border-border">{row.dispatchLr.toFixed(1)}</td>
+                  <td className="py-2 px-3 text-right tabular-nums font-mono">{row.dispatchFat.toFixed(2)}%</td>
+                  <td className="py-2 px-3 text-right tabular-nums font-mono border-r border-border">{row.dispatchLr.toFixed(1)}</td>
 
                   {/* Plant Values */}
-                  <td className="py-2.5 px-3 text-right tabular-nums font-mono font-medium">
+                  <td className="py-2 px-3 text-right tabular-nums font-mono font-medium">
                     {row.status === 'IN_TRANSIT' ? '—' : `${row.plantAcceptedLiters.toLocaleString()} L`}
                   </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums font-mono">
+                  <td className="py-2 px-3 text-right tabular-nums font-mono">
                     {row.status === 'IN_TRANSIT' ? '—' : `${row.plantFat.toFixed(2)}%`}
                   </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums font-mono border-r border-border">
+                  <td className="py-2 px-3 text-right tabular-nums font-mono border-r border-border">
                     {row.status === 'IN_TRANSIT' ? '—' : row.plantLr.toFixed(1)}
                   </td>
 
                   {/* Deltas & Loss */}
-                  <td className="py-2.5 px-3 text-right tabular-nums font-mono font-semibold text-foreground">
+                  <td className="py-2 px-3 text-right tabular-nums font-mono font-semibold text-foreground">
                     {row.status === 'IN_TRANSIT' ? '—' : `${row.transitLossLiters} L`}
                   </td>
-                  <td className={`py-2.5 px-3 text-right tabular-nums font-mono font-semibold ${
+                  <td className={`py-2 px-3 text-right tabular-nums font-mono font-semibold ${
                     row.transitLossPct > 1.0 ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'
                   }`}>
                     {row.status === 'IN_TRANSIT' ? '—' : `${row.transitLossPct.toFixed(2)}%`}
                   </td>
-                  <td className={`py-2.5 px-3 text-right tabular-nums font-mono ${
+                  <td className={`py-2 px-3 text-right tabular-nums font-mono ${
                     Math.abs(row.fatDelta) > 0.15 ? 'text-rose-600 font-semibold' : 'text-muted-foreground'
                   }`}>
                     {row.status === 'IN_TRANSIT' ? '—' : `${row.fatDelta > 0 ? '+' : ''}${row.fatDelta.toFixed(2)}%`}
                   </td>
 
                   {/* Status Pill */}
-                  <td className="py-2.5 px-3 text-center">
+                  <td className="py-2 px-3 text-center">
                     {row.status === 'ACCEPTED' && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
                         <CheckCircle2 className="w-3 h-3" /> Reconciled

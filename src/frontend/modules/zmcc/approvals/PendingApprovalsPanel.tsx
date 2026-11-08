@@ -321,7 +321,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
                       <span className="text-xs font-semibold text-foreground">{r.name}</span>
-                      <span className="px-1.5 py-0.5 rounded text-xs font-mono bg-subtle border border-border text-secondary-foreground">
+                      <span className="px-2 py-0.5 rounded text-xs font-mono bg-subtle border border-border text-secondary-foreground">
                         {r.route_code}
                       </span>
                       <DecisionStatusBadge
@@ -430,7 +430,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
                       <span className="text-xs font-semibold text-foreground">{s.shop_name}</span>
-                      <span className="px-1.5 py-0.5 rounded text-xs font-mono bg-subtle border border-border text-secondary-foreground">
+                      <span className="px-2 py-0.5 rounded text-xs font-mono bg-subtle border border-border text-secondary-foreground">
                         {s.shop_code}
                       </span>
                       {s.geotag_status === 'VERIFIED' ? (
@@ -539,7 +539,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
                       <span className="text-xs font-semibold text-foreground">{h.name}</span>
-                      <span className="px-1.5 py-0.5 rounded text-xs font-mono bg-subtle border border-border text-secondary-foreground">
+                      <span className="px-2 py-0.5 rounded text-xs font-mono bg-subtle border border-border text-secondary-foreground">
                         {h.local_supplier_code}
                       </span>
                       <DecisionStatusBadge status="EXCEPTION" label="Needs your decision" />
@@ -627,7 +627,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Enter rejection reason…"
-                className="w-full text-xs font-medium border border-border rounded-xl p-2.5 bg-subtle text-foreground focus:ring-2 focus:ring-primary min-h-[90px]"
+                className="w-full text-xs font-medium border border-border rounded-xl p-3 bg-subtle text-foreground focus:ring-2 focus:ring-primary min-h-[90px]"
                 required
               />
             </div>
@@ -639,7 +639,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   setRejectingItem(null);
                   setRejectReason('');
                 }}
-                className="min-h-11 min-w-11 px-3.5 py-1.5 rounded-lg text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted"
+                className="min-h-11 min-w-11 px-4 py-2 rounded-lg text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted"
               >
                 Cancel
               </button>
@@ -647,7 +647,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                 type="button"
                 disabled={submittingAction || !rejectReason.trim()}
                 onClick={handleRejectConfirm}
-                className="min-h-11 min-w-11 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 inline-flex items-center space-x-1"
+                className="min-h-11 min-w-11 px-4 py-2 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 inline-flex items-center space-x-1"
               >
                 {submittingAction && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>Reject</span>

@@ -232,7 +232,7 @@ export const ZmccExitWorkspace: React.FC = () => {
                       {item.vehicle_number || 'Vehicle'}
                     </div>
                     <span
-                      className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-xs font-semibold tracking-wider ${
+                      className={`inline-block mt-0.5 px-2 py-0.2 rounded text-xs font-semibold tracking-wider ${
                         item.source_type === 'MC' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
@@ -242,7 +242,7 @@ export const ZmccExitWorkspace: React.FC = () => {
                 </div>
 
                 <span
-                  className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold shrink-0 ${
+                  className={`inline-flex items-center gap-1 rounded-md px-3 py-1 text-xs font-semibold shrink-0 ${
                     item.unloaded
                       ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-muted text-secondary-foreground'
@@ -266,7 +266,7 @@ export const ZmccExitWorkspace: React.FC = () => {
               </div>
 
               {item.close_requested && (
-                <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs font-semibold text-amber-800">
+                <div className="mt-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs font-semibold text-amber-800">
                   <Clock className="h-4 w-4 shrink-0 text-amber-700" />
                   <span>Awaiting manager approval</span>
                   <InfoTip text="The ZMCC Manager must approve closing this visit without unloading." />

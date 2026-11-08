@@ -272,7 +272,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       </div>
 
       {error && (
-        <div className="bg-card border-border flex items-center justify-between p-3.5 border rounded-2xl text-rose-800 text-xs font-semibold animate-panel-in">
+        <div className="bg-card border-border flex items-center justify-between p-4 border rounded-2xl text-rose-800 text-xs font-semibold animate-panel-in">
           <div className="flex items-center space-x-2">
             <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
             <span>{error}</span>
@@ -289,7 +289,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       )}
 
       {successMessage && (
-        <div className="bg-card border-border flex items-center justify-between p-3.5 border rounded-2xl text-emerald-800 text-xs font-semibold">
+        <div className="bg-card border-border flex items-center justify-between p-4 border rounded-2xl text-emerald-800 text-xs font-semibold">
           <div className="flex items-center space-x-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
             <span>{successMessage}</span>

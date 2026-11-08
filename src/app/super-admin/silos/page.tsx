@@ -110,7 +110,7 @@ export default function SuperAdminSilosPage() {
       actions: true,
       align: 'right',
       cell: (s) => (
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -148,7 +148,7 @@ export default function SuperAdminSilosPage() {
   return (
     <div className="w-full min-w-0 max-w-full space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <p className="text-sm text-muted-foreground">Capacity, fill level and reservations</p>
           <InfoTip text="Plant raw milk storage silos with capacity, fill levels, and allocation tracking." />
         </div>

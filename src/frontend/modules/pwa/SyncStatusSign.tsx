@@ -172,7 +172,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
           aria-expanded={open}
           aria-label={`Connection and sync status: ${label}`}
           className={cn(
-            'inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
+            'inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
             tone,
             className
           )}
@@ -194,9 +194,9 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
           </button>
         </div>
 
-        <div className="my-2.5 flex items-center justify-between rounded-lg border border-border/80 bg-muted/40 p-2.5">
+        <div className="my-2.5 flex items-center justify-between rounded-lg border border-border/80 bg-muted/40 p-3">
           <div className="space-y-0.5 pr-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
               {forced ? (
                 <WifiOff className="h-3.5 w-3.5 text-amber-600" aria-hidden />
               ) : (

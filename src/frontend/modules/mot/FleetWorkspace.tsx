@@ -145,7 +145,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
           <>
             <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${st.tone}`}>{st.label}</span>
             {r.arrival_token ? (
-              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{r.arrival_token}</span>
+              <span className="ml-2 text-xs tabular-nums text-muted-foreground">{r.arrival_token}</span>
             ) : null}
           </>
         );
@@ -225,7 +225,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-primary p-2.5 text-white">
+          <div className="rounded-xl bg-primary p-3 text-white">
             <Truck className="h-5 w-5" />
           </div>
           <div>
@@ -235,7 +235,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
         <button
           type="button"
           onClick={() => setVehicleSheet({ editing: null })}
-          className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-primary px-4 text-xs font-semibold text-white hover:bg-primary/90"
+          className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-semibold text-white hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
           Add Vehicle

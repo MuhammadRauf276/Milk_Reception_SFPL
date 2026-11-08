@@ -423,7 +423,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
             <div id="tabpanel-REPORTS" role="tabpanel" aria-labelledby="tab-REPORTS" className="space-y-6 animate-panel-in">
               {/* Studio vs Ledgers Mode Switcher */}
               <div className="flex items-center justify-between border-b border-border pb-3">
-                <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-xl">
+                <div className="flex items-center gap-2 bg-muted/60 p-1 rounded-xl">
                   <button
                     type="button"
                     onClick={() => {
@@ -434,7 +434,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                       params.delete('view');
                       router.replace(`/mpd/zmcc-manager?${params.toString()}`);
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                       reportSubMode === 'STUDIO'
                         ? 'bg-background text-foreground shadow-2xs font-semibold'
                         : 'text-muted-foreground hover:text-foreground'
@@ -452,7 +452,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                       params.delete('mode');
                       router.replace(`/mpd/zmcc-manager?${params.toString()}`);
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                       reportSubMode === 'LEDGERS'
                         ? 'bg-background text-foreground shadow-2xs font-semibold'
                         : 'text-muted-foreground hover:text-foreground'

@@ -60,7 +60,7 @@ export const WeighbridgeFirstWeightPanel: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
         {firstQuery.isPending ? (
           <SkeletonList count={3} className="md:col-span-2 lg:col-span-3" />
         ) : visits.length === 0 ? (
@@ -219,7 +219,7 @@ const FirstWeightDrawer: React.FC<{
             </button>
           </div>
 
-          <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
+          <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
             <div>
               <span className="text-muted-foreground font-sans block text-xs">Date</span>
               <span>{visit.operational_date}</span>
@@ -270,7 +270,7 @@ const FirstWeightDrawer: React.FC<{
                 min={visit.min_allowed_timestamp ? toDatetimeLocalInput(visit.min_allowed_timestamp) : undefined}
                 max={toDatetimeLocalInput(new Date())}
                 onChange={(e) => setGrossDateTimeInput(e.target.value)}
-                className="w-full min-h-12 px-3.5 py-3 text-sm tabular-nums rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                className="w-full min-h-12 px-4 py-3 text-sm tabular-nums rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
             </div>
           </div>
@@ -279,7 +279,7 @@ const FirstWeightDrawer: React.FC<{
             type="button"
             disabled={isSubmitting || !grossInputKg}
             onClick={handleRecordFirstWeight}
-            className="w-full min-h-11 py-3.5 px-4 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs transition-colors flex items-center justify-center space-x-2"
+            className="w-full min-h-11 py-4 px-4 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs transition-colors flex items-center justify-center space-x-2"
           >
             {isSubmitting ? (
               <span>Recording first weight…</span>

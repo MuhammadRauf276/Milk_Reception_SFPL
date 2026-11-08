@@ -65,7 +65,7 @@ export const LoginPage: React.FC = () => {
       {/* Top Header */}
       <header className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
         <BrandMark size="lg" />
-        <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
+        <span className="hidden items-center gap-2 text-xs text-muted-foreground sm:inline-flex">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
           Secure operator access
         </span>
@@ -95,7 +95,7 @@ export const LoginPage: React.FC = () => {
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden"
               >
-                <div className="mt-5 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800">
+                <div className="mt-5 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
                   <span>{errorMsg}</span>
                 </div>
@@ -141,7 +141,7 @@ export const LoginPage: React.FC = () => {
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute inset-y-0 right-0 flex items-center px-3.5 text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                  className="absolute inset-y-0 right-0 flex items-center px-4 text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>

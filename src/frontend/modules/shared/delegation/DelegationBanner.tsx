@@ -53,14 +53,14 @@ export const DelegationBanner: React.FC<DelegationBannerProps> = ({
       aria-label="Delegation Status Banner"
       className="w-full bg-card text-secondary-foreground border-b border-border shrink-0 z-20"
     >
-      <div className="mx-auto flex min-h-[40px] sm:min-h-[48px] w-full max-w-full flex-wrap sm:flex-nowrap items-center justify-between gap-2 px-3 py-1.5 sm:px-6">
+      <div className="mx-auto flex min-h-[40px] sm:min-h-[48px] w-full max-w-full flex-wrap sm:flex-nowrap items-center justify-between gap-2 px-3 py-2 sm:px-6">
         {/* Left Side: Static Indicator + Attribution Text */}
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2">
           <span
             className="h-2 w-2 rounded-full bg-primary shrink-0"
             aria-hidden="true"
           />
-          <div className="flex flex-wrap items-center gap-x-1.5 text-xs sm:text-sm text-secondary-foreground">
+          <div className="flex flex-wrap items-center gap-x-2 text-xs sm:text-sm text-secondary-foreground">
             <span className="text-muted-foreground">Covering:</span>
             <span className="font-semibold text-foreground">
               {delegation.subordinateRoleLabel}
@@ -90,7 +90,7 @@ export const DelegationBanner: React.FC<DelegationBannerProps> = ({
         <div className="flex shrink-0 items-center">
           <Link
             href={delegation.homeRoute}
-            className="inline-flex items-center gap-1.5 rounded-md bg-card hover:bg-subtle text-secondary-foreground px-3 py-1.5 text-xs font-medium border border-border transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary min-h-11"
+            className="inline-flex items-center gap-2 rounded-md bg-card hover:bg-subtle text-secondary-foreground px-3 py-2 text-xs font-medium border border-border transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary min-h-11"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Return to My Work</span>

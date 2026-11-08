@@ -39,7 +39,7 @@ export const McSuccessCard: React.FC<{
                     {result.zmcc_token}
                   </div>
                   {result.zmcc_token?.includes('OFFLINE') && (
-                    <div className="mt-1 text-xs font-medium text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 border border-amber-200">
+                    <div className="mt-1 text-xs font-medium text-amber-700 bg-amber-50 rounded px-2 py-0.5 border border-amber-200">
                       Saved offline on device. Will sync automatically once connected.
                     </div>
                   )}
@@ -128,7 +128,7 @@ export const McSuccessCard: React.FC<{
                   </div>
 
                   {result.journey.summary.pending_shop_count > 0 && (
-                    <div className="bg-card border-border flex items-center space-x-2 text-xs font-semibold text-blue-800 p-2.5 rounded-lg border">
+                    <div className="bg-card border-border flex items-center space-x-2 text-xs font-semibold text-blue-800 p-3 rounded-lg border">
                       <Clock className="w-4 h-4 shrink-0 text-muted-foreground" />
                       <span>
                         Waiting for delayed collection sync: {result.journey.summary.pending_shop_count} active shop records are still waiting

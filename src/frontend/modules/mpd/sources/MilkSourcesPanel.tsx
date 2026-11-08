@@ -196,14 +196,14 @@ export function MilkSourcesPanel({
               setPage(1);
             }}
             placeholder="Search"
-            className="w-full min-h-11 pl-8 pr-3 py-1.5 border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary outline-hidden"
+            className="w-full min-h-11 pl-8 pr-3 py-2 border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary outline-hidden"
           />
         </div>
 
         <button
           type="button"
           onClick={openAdd}
-          className="flex min-h-11 items-center justify-center space-x-1 px-3.5 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold transition shadow-2xs"
+          className="flex min-h-11 items-center justify-center space-x-1 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold transition shadow-2xs"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Create Milk Source</span>
@@ -284,7 +284,7 @@ export function MilkSourcesPanel({
 
                 <div>
                   <label className="block font-semibold text-foreground mb-1">Assigned ZMCCs</label>
-                  <div className="bg-card border-border max-h-36 overflow-y-auto border rounded-xl p-2.5 space-y-1">
+                  <div className="bg-card border-border max-h-36 overflow-y-auto border rounded-xl p-3 space-y-1">
                     {zmccOptions.map((z) => (
                       <label key={z.id} className="flex min-h-11 items-center space-x-2 cursor-pointer text-xs">
                         <input

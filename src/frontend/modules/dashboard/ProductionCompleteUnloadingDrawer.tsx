@@ -94,7 +94,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline px-2.5 py-1 rounded-md text-xs tabular-nums font-semibold bg-blue-100 text-primary border border-blue-300">
+              <span className="hidden sm:inline px-3 py-1 rounded-md text-xs tabular-nums font-semibold bg-blue-100 text-primary border border-blue-300">
                 Unloading Active
               </span>
               <button
@@ -154,7 +154,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
               min={minTimestamp ? toDatetimeLocalInput(minTimestamp) : undefined}
               max={toDatetimeLocalInput(new Date())}
               onChange={(e) => setCompleteOpTimestamp(e.target.value)}
-              className="w-full min-h-11 px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+              className="w-full min-h-11 px-4 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
           </div>
 
@@ -162,7 +162,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
             type="button"
             disabled={actionLoading}
             onClick={handleCompleteUnloading}
-            className="w-full min-h-11 py-3.5 px-4 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-colors flex items-center justify-center space-x-2"
+            className="w-full min-h-11 py-4 px-4 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-xs rounded-xl transition-colors flex items-center justify-center space-x-2"
           >
             {actionLoading ? (
               <span>Completing Unloading…</span>

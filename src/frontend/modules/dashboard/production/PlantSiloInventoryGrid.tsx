@@ -41,7 +41,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
       {/* 1. Overall Plant Storage Summary Card */}
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-2xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <Database className="h-4 w-4 shrink-0 text-muted-foreground" />
             <div>
               <h3 className="font-semibold text-foreground text-sm sm:text-base leading-tight">
@@ -79,25 +79,25 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
       </div>
 
       {/* 2. Filter Pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
         <button
           type="button"
           onClick={() => setStatusFilter('ALL')}
-          className={`min-h-11 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`min-h-11 px-3 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
             statusFilter === 'ALL'
               ? 'bg-primary text-primary-foreground'
               : 'border border-border bg-card text-muted-foreground hover:text-foreground'
           }`}
         >
           <span>All silos</span>
-          <span className="text-xs px-1.5 py-0.2 rounded-md bg-primary-foreground/20">
+          <span className="text-xs px-2 py-0.2 rounded-md bg-primary-foreground/20">
             {silos.length}
           </span>
         </button>
         <button
           type="button"
           onClick={() => setStatusFilter('RECEIVING')}
-          className={`min-h-11 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`min-h-11 px-3 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
             statusFilter === 'RECEIVING'
               ? 'bg-primary text-primary-foreground'
               : 'border border-border bg-card text-muted-foreground hover:text-foreground'
@@ -105,7 +105,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
         >
           <span>Receiving</span>
           {receivingCount > 0 && (
-            <span className="text-xs px-1.5 py-0.2 rounded-md bg-primary-foreground/20">
+            <span className="text-xs px-2 py-0.2 rounded-md bg-primary-foreground/20">
               {receivingCount}
             </span>
           )}
@@ -113,28 +113,28 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
         <button
           type="button"
           onClick={() => setStatusFilter('STORAGE')}
-          className={`min-h-11 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`min-h-11 px-3 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
             statusFilter === 'STORAGE'
               ? 'bg-primary text-primary-foreground'
               : 'border border-border bg-card text-muted-foreground hover:text-foreground'
           }`}
         >
           <span>In storage</span>
-          <span className="text-xs px-1.5 py-0.2 rounded-md bg-primary-foreground/20">
+          <span className="text-xs px-2 py-0.2 rounded-md bg-primary-foreground/20">
             {storageCount}
           </span>
         </button>
         <button
           type="button"
           onClick={() => setStatusFilter('EMPTY')}
-          className={`min-h-11 px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`min-h-11 px-3 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
             statusFilter === 'EMPTY'
               ? 'bg-primary text-primary-foreground'
               : 'border border-border bg-card text-muted-foreground hover:text-foreground'
           }`}
         >
           <span>Empty</span>
-          <span className="text-xs px-1.5 py-0.2 rounded-md bg-primary-foreground/20">
+          <span className="text-xs px-2 py-0.2 rounded-md bg-primary-foreground/20">
             {emptyCount}
           </span>
         </button>
@@ -217,7 +217,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
 
               {/* Receiving Indicator if active */}
               {isReceiving && silo.activePumpingVehicle && (
-                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 pt-2 border-t border-border/60">
+                <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 dark:text-emerald-300 pt-2 border-t border-border/60">
                   <Activity className="h-3.5 w-3.5 text-emerald-600" />
                   <span>Receiving tanker: <strong className="font-mono">{silo.activePumpingVehicle}</strong></span>
                 </div>
@@ -254,7 +254,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
 
             <div className="p-4 sm:p-5 space-y-4 text-xs">
               {/* Stock telemetry summary */}
-              <div className="rounded-2xl border border-border bg-muted/20 p-3.5 space-y-2">
+              <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Volume at 13% TS</span>
                   <span className="font-mono font-semibold text-base text-foreground tabular-nums">

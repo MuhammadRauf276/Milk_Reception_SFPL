@@ -240,7 +240,7 @@ export default function SuperAdminUsersPage() {
         <div className="space-y-3 border-b border-border p-3 sm:px-4 sm:py-3">
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center space-x-2">
-              <div className="flex items-center gap-1.5"><h2 className="text-sm font-semibold text-foreground">Users</h2><InfoTip text="Manage system users, access credentials, and role jurisdictions." /></div>
+              <div className="flex items-center gap-2"><h2 className="text-sm font-semibold text-foreground">Users</h2><InfoTip text="Manage system users, access credentials, and role jurisdictions." /></div>
               <span className="rounded-md border border-border bg-subtle px-2 py-0.5 text-xs tabular-nums text-secondary-foreground">
                 {pagination?.totalRecords ?? users.length}
               </span>

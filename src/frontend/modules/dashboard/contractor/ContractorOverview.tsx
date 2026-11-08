@@ -163,7 +163,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
     <div className="space-y-6">
       <div className="bg-card border-border p-5 rounded-2xl border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-xs">
+          <div className="p-3 bg-blue-900 text-white rounded-xl shadow-xs">
             <Building2 className="w-5 h-5" />
           </div>
           <div>
@@ -180,7 +180,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
       </div>
 
       {pagination && pagination.totalPages > 1 && (
-        <div className="bg-card border-border p-3.5 rounded-2xl border text-xs text-amber-800 flex items-center justify-between">
+        <div className="bg-card border-border p-4 rounded-2xl border text-xs text-amber-800 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>

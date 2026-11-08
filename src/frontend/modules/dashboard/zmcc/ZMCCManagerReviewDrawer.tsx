@@ -99,7 +99,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
             {/* Physical Reality Warning */}
             {hasExited ? (
               <div className="bg-card border-border p-3 border text-amber-900 text-xs rounded-xl space-y-1">
-                <div className="flex items-center gap-1.5 font-semibold text-amber-800">
+                <div className="flex items-center gap-2 font-semibold text-amber-800">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
                   <span>Vehicle Physically Exited</span>
                 </div>
@@ -114,7 +114,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
               </div>
             ) : (
               <div className="bg-card border-border p-3 border text-emerald-900 text-xs rounded-xl space-y-1">
-                <div className="flex items-center gap-1.5 font-semibold text-emerald-800">
+                <div className="flex items-center gap-2 font-semibold text-emerald-800">
                   <CheckCircle className="w-4 h-4 text-emerald-600" />
                   <span>Vehicle On-Site</span>
                 </div>
@@ -189,7 +189,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
                 placeholder="Enter substantive justification…"
                 rows={3}
                 required
-                className="w-full p-2.5 text-base sm:text-xs font-medium rounded-lg bg-subtle border border-border text-foreground focus:ring-2 focus:ring-primary outline-hidden min-h-11"
+                className="w-full p-3 text-base sm:text-xs font-medium rounded-lg bg-subtle border border-border text-foreground focus:ring-2 focus:ring-primary outline-hidden min-h-11"
               />
             </div>
 
@@ -205,7 +205,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
               <button
                 type="submit"
                 disabled={reviewSubmitting || reviewReason.trim().length < 3}
-                className="min-h-11 px-4 py-2 text-xs font-semibold bg-primary text-white rounded-lg hover:bg-primary/90 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 shadow-2xs flex items-center gap-1.5"
+                className="min-h-11 px-4 py-2 text-xs font-semibold bg-primary text-white rounded-lg hover:bg-primary/90 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 shadow-2xs flex items-center gap-2"
               >
                 {reviewSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>{reviewSubmitting ? 'Recording…' : 'Submit Decision'}</span>

@@ -90,7 +90,7 @@ export function StopsList({ journey, deviceGps, onRecord, onRequestShop, locked 
                       ))}
 
                       {totalStopsPages > 1 && (
-                        <div className="flex items-center justify-between p-3.5 bg-subtle border-t border-border">
+                        <div className="flex items-center justify-between p-4 bg-subtle border-t border-border">
                           <span className="text-xs text-muted-foreground font-medium">
                             Showing {(stopsPage - 1) * stopsPerPage + 1}–{Math.min(stopsPage * stopsPerPage, sortedStops.length)} of {sortedStops.length} shops
                           </span>

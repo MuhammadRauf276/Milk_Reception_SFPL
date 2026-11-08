@@ -87,7 +87,7 @@ export function ApprovalDecisionDrawer({
           <DrawerTitle className="sr-only">
             {verdict === 'OKAY' ? 'Confirm Approval' : 'Confirm Rejection'}
           </DrawerTitle>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             {verdict === 'OKAY' ? (
               <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
                 <CheckCircle2 className="w-6 h-6" />
@@ -112,7 +112,7 @@ export function ApprovalDecisionDrawer({
           {/* Super Admin Self-Approval Warning */}
           {currentUser?.id && item.submittedBy.id === String(currentUser.id) && (
             <div className="bg-card border-border p-3 border rounded-lg text-amber-900 text-xs space-y-1">
-              <p className="font-semibold flex items-center gap-1.5">
+              <p className="font-semibold flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-amber-700" />
                 <span>Self-Approval Compliance Review</span>
               </p>
@@ -124,7 +124,7 @@ export function ApprovalDecisionDrawer({
           )}
 
           {decisionError && (
-            <div className="bg-card border-border p-2.5 rounded-lg border text-rose-800 text-xs font-semibold">
+            <div className="bg-card border-border p-3 rounded-lg border text-rose-800 text-xs font-semibold">
               {decisionError}
             </div>
           )}
@@ -143,7 +143,7 @@ export function ApprovalDecisionDrawer({
                     ? 'Add any operational approval notes…'
                     : 'Specify reason for rejection or return instructions (minimum 5 letters)…'
                 }
-                className="w-full border border-border rounded-lg p-2.5 text-base sm:text-xs focus:ring-1 focus:ring-primary focus:outline-none min-h-11"
+                className="w-full border border-border rounded-lg p-3 text-base sm:text-xs focus:ring-1 focus:ring-primary focus:outline-none min-h-11"
                 autoFocus
               />
               <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
@@ -152,7 +152,7 @@ export function ApprovalDecisionDrawer({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
               <button
                 type="button"
                 onClick={onClose}
@@ -165,7 +165,7 @@ export function ApprovalDecisionDrawer({
                 type="submit"
                 disabled={isSubmittingDecision}
                 className={cn(
-                  'min-h-11 px-5 py-2 text-xs font-semibold rounded-lg text-white transition flex items-center gap-1.5',
+                  'min-h-11 px-5 py-2 text-xs font-semibold rounded-lg text-white transition flex items-center gap-2',
                   verdict === 'OKAY' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700',
                   isSubmittingDecision && 'opacity-60 cursor-not-allowed'
                 )}

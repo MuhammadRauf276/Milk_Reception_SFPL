@@ -731,7 +731,7 @@ export const LiveMapCanvas: React.FC<LiveMapProps> = ({
       </div>
 
       {(vehicles.length > 0 || pins.length > 0 || markers.length > 0 || routes.length > 0) && (
-        <div className="flex flex-wrap gap-1.5 px-1 text-xs text-slate-600 dark:text-slate-300">
+        <div className="flex flex-wrap gap-2 px-1 text-xs text-slate-600 dark:text-slate-300">
           {vehicles.length > 0 &&
             (
               [

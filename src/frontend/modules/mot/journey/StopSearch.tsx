@@ -52,7 +52,7 @@ export function StopSearch({ stops, onSelectPending }: Props) {
                             }}
                             onFocus={() => setIsSearchOpen(true)}
                             placeholder="Search shop"
-                            className="min-h-11 w-full text-xs font-semibold pl-9 pr-8 py-2.5 bg-subtle border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary focus:bg-card outline-hidden"
+                            className="min-h-11 w-full text-xs font-semibold pl-9 pr-8 py-2 bg-subtle border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary focus:bg-card outline-hidden"
                           />
                           {shopSearchQuery && (
                             <button
@@ -90,7 +90,7 @@ export function StopSearch({ stops, onSelectPending }: Props) {
                                       setShopSearchQuery('');
                                       if (!isVisited && !isSkipped && !isRejected) onSelectPending(stop);
                                     }}
-                                    className="min-h-11 min-w-11 w-full p-2.5 text-left flex items-center justify-between hover:bg-subtle transition"
+                                    className="min-h-11 min-w-11 w-full p-3 text-left flex items-center justify-between hover:bg-subtle transition"
                                   >
                                     <div className="flex items-center space-x-2">
                                       <span className="w-6 h-6 rounded-md bg-muted text-secondary-foreground text-xs font-semibold flex items-center justify-center shrink-0">
@@ -107,19 +107,19 @@ export function StopSearch({ stops, onSelectPending }: Props) {
                                     </div>
                                     <div className="flex items-center space-x-1.5">
                                       {isVisited ? (
-                                        <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
+                                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
                                           Completed
                                         </span>
                                       ) : isSkipped ? (
-                                        <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-800">
+                                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-800">
                                           Skipped
                                         </span>
                                       ) : isRejected ? (
-                                        <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-800">
+                                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-800">
                                           Rejected
                                         </span>
                                       ) : (
-                                        <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-primary text-white">
+                                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-primary text-white">
                                           Select
                                         </span>
                                       )}

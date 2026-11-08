@@ -17,7 +17,7 @@ const cardClass = (selected: boolean) =>
   }`;
 
 const statsClass = (selected: boolean) =>
-  `grid grid-cols-2 gap-2 text-xs p-2.5 rounded-lg font-mono tabular-nums font-semibold border ${
+  `grid grid-cols-2 gap-2 text-xs p-3 rounded-lg font-mono tabular-nums font-semibold border ${
     selected ? 'bg-muted/70 text-foreground border-border/50' : 'bg-muted/40 text-foreground border-border/50'
   }`;
 
@@ -70,7 +70,7 @@ export const ProductionQueueList: React.FC<{
 
   return (
     <div className="space-y-2.5">
-      <div key={activeTab} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 stagger-children">
+      <div key={activeTab} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 stagger-children">
         {isLoading ? (
           <SkeletonList count={3} className="md:col-span-2 lg:col-span-3" />
         ) : activeTab === 'READY' ? (
@@ -95,7 +95,7 @@ export const ProductionQueueList: React.FC<{
                         <span className="font-mono tabular-nums text-xs text-muted-foreground">({v.token_number})</span>
                       )}
                       {v.is_portion_wise && (
-                        <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-muted text-foreground border border-border">
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-muted text-foreground border border-border">
                           Portion #{v.active_portion_number}
                         </span>
                       )}

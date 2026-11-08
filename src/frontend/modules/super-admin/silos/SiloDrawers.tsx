@@ -158,7 +158,7 @@ export function SiloDeactivateDrawer({ silo, onClose, onSaved }: { silo: Silo; o
   return (
     <FormDrawer open onClose={onClose} busy={busy} error={error} title="Deactivate Silo Storage">
       <div className="flex items-center gap-3 text-rose-700">
-        <div className="shrink-0 rounded-xl bg-rose-100 p-2.5">
+        <div className="shrink-0 rounded-xl bg-rose-100 p-3">
           <AlertTriangle className="h-5 w-5 text-rose-700" />
         </div>
         <p className="leading-relaxed text-secondary-foreground">

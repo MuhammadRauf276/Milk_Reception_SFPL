@@ -262,7 +262,7 @@ export function PwaShell() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
             transition={{ duration: 0.2 }}
-            className={`pointer-events-auto flex w-full max-w-xl items-center gap-3 rounded-lg border px-3.5 py-2.5 text-sm shadow-lg ${banner.tone}`}
+            className={`pointer-events-auto flex w-full max-w-xl items-center gap-3 rounded-lg border px-4 py-2 text-sm shadow-lg ${banner.tone}`}
           >
             {banner.icon}
             <span className="flex-1">{banner.message}</span>

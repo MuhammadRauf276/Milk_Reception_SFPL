@@ -14,10 +14,10 @@ interface Props {
 
 export function SyncBar({ isOnline, unsyncedCount, lastSyncTime, syncFeedback, syncing, onSync }: Props) {
   return (
-          <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-card rounded-xl border border-border shadow-2xs">
+          <div className="flex items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-card rounded-xl border border-border shadow-2xs">
             <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
               <span
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center space-x-1.5 shrink-0 ${
+                className={`px-3 py-1 rounded-md text-xs font-semibold flex items-center space-x-1.5 shrink-0 ${
                   isOnline ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                 }`}
               >
@@ -57,7 +57,7 @@ export function SyncBar({ isOnline, unsyncedCount, lastSyncTime, syncFeedback, s
                 type="button"
                 onClick={onSync}
                 disabled={syncing || !isOnline}
-                className="min-h-[44px] px-3.5 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs flex items-center space-x-1.5 focus:outline-hidden focus:ring-2 focus:ring-primary"
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs flex items-center space-x-1.5 focus:outline-hidden focus:ring-2 focus:ring-primary"
               >
                 <span>{syncing ? 'Syncing…' : 'Sync Now'}</span>
               </button>

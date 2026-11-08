@@ -128,7 +128,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
         {/* Header */}
         <div className="px-5 py-4 bg-subtle border-b border-border flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700">
+            <div className="p-2 rounded-lg bg-blue-100 text-blue-700">
               <ShieldAlert className="w-4 h-4" />
             </div>
             <div>
@@ -179,7 +179,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                   setSelectedField(e.target.value);
                   setProposedValue('');
                 }}
-                className="w-full min-h-11 p-2.5 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-11 p-3 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               >
                 {availableFields.map((f) => (
                   <option key={f.field} value={f.field}>
@@ -191,7 +191,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
 
             {/* Current Value Display */}
             {currentFieldConfig?.currentValue !== undefined && currentFieldConfig.currentValue !== null && (
-              <div className="bg-card border-border flex items-center justify-between p-2.5 rounded-lg border text-secondary-foreground">
+              <div className="bg-card border-border flex items-center justify-between p-3 rounded-lg border text-secondary-foreground">
                 <span className="font-medium">Recorded now (wrong value):</span>
                 <span className="font-semibold text-foreground tabular-nums">
                   {String(currentFieldConfig.currentValue)}
@@ -208,7 +208,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                 <select
                   value={proposedValue}
                   onChange={(e) => setProposedValue(e.target.value)}
-                  className="w-full min-h-11 p-2.5 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  className="w-full min-h-11 p-3 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select correct option</option>
                   {currentFieldConfig.options.map((opt) => (
@@ -224,7 +224,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                   value={proposedValue}
                   onChange={(e) => setProposedValue(e.target.value)}
                   placeholder={`Enter correct ${currentFieldConfig?.label || 'value'}…`}
-                  className="w-full min-h-11 p-2.5 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500 tabular-nums"
+                  className="w-full min-h-11 p-3 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500 tabular-nums"
                 />
               )}
             </div>
@@ -239,7 +239,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                 onChange={(e) => setReason(e.target.value)}
                 rows={2}
                 placeholder="Reason"
-                className="w-full min-h-11 p-2.5 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-11 p-3 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               />
             </div>
 

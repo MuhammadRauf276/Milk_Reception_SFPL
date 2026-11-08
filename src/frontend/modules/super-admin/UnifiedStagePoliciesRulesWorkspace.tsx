@@ -241,7 +241,7 @@ function WorkspaceInner({
     <div className="w-full max-w-full space-y-4 overflow-x-hidden">
       {/* Error & Success Alerts */}
       {displayError && (
-        <div role="alert" className="flex items-center gap-2 rounded-2xl border border-border bg-card p-3.5 text-xs font-semibold text-rose-800">
+        <div role="alert" className="flex items-center gap-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-rose-800">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{displayError}</span>
         </div>
@@ -255,7 +255,7 @@ function WorkspaceInner({
             animate="animate"
             exit="exit"
             role="status"
-            className="flex items-center gap-2 rounded-2xl border border-border bg-card p-3.5 text-xs font-semibold text-emerald-900"
+            className="flex items-center gap-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-emerald-900"
           >
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <span>{successMsg}</span>
@@ -266,7 +266,7 @@ function WorkspaceInner({
       {/* Unified Master Catalog Workspace */}
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xs">
         {/* Master Matrix Workspace Header */}
-        <div className="border-b border-border bg-subtle p-3 sm:px-4 sm:py-3.5">
+        <div className="border-b border-border bg-subtle p-3 sm:px-4 sm:py-4">
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
             <div className="min-w-0">
               <h2 className="text-base font-semibold text-foreground">Master test matrix (all 6 stages)</h2>
@@ -274,7 +274,7 @@ function WorkspaceInner({
                 Dairy specifications and test mode policies across Mobile Tester shop, ZMCC MC, ZMCC HC, ZMCC Dispatch, Contractor Dispatch and Plant QA.
               </p>
             </div>
-            <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-secondary-foreground">
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1 text-xs font-medium text-secondary-foreground">
               <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
               <span>All 6 stages active</span>
             </div>
@@ -326,13 +326,13 @@ function WorkspaceInner({
             <table className="w-full min-w-[1330px] text-left text-xs">
               <thead className="border-b border-border bg-subtle text-secondary-foreground">
                 <tr>
-                  <th className="w-10 p-2.5 text-center font-semibold">#</th>
-                  <th className="p-2.5 font-semibold">Code</th>
-                  <th className="p-2.5 font-semibold">Test name</th>
-                  <th className="p-2.5 font-semibold">Category</th>
-                  <th className="p-2.5 font-semibold text-emerald-800">Pass range</th>
-                  <th className="p-2.5 font-semibold text-amber-800">Warning hold</th>
-                  <th className="p-2.5 font-semibold text-rose-800">Fail reject</th>
+                  <th className="w-10 p-3 text-center font-semibold">#</th>
+                  <th className="p-3 font-semibold">Code</th>
+                  <th className="p-3 font-semibold">Test name</th>
+                  <th className="p-3 font-semibold">Category</th>
+                  <th className="p-3 font-semibold text-emerald-800">Pass range</th>
+                  <th className="p-3 font-semibold text-amber-800">Warning hold</th>
+                  <th className="p-3 font-semibold text-rose-800">Fail reject</th>
                   {MATRIX_STAGES.map((ms) => (
                     <th key={ms.code} className="p-2 text-center font-semibold">
                       {ms.shortLabel}
@@ -362,17 +362,17 @@ function WorkspaceInner({
 
                     return (
                       <tr key={t.id} className={`transition-colors hover:bg-subtle ${t.isActive ? '' : 'bg-subtle text-muted-foreground'}`}>
-                        <td className="p-2.5 text-center font-semibold tabular-nums text-muted-foreground">
+                        <td className="p-3 text-center font-semibold tabular-nums text-muted-foreground">
                           {t.displayOrder}
                         </td>
-                        <td className="p-2.5 font-mono font-semibold text-foreground tabular-nums">
+                        <td className="p-3 font-mono font-semibold text-foreground tabular-nums">
                           {t.testCode}
                         </td>
-                        <td className="p-2.5 font-semibold text-foreground min-w-[8rem]">
+                        <td className="p-3 font-semibold text-foreground min-w-[8rem]">
                           <div>{t.testName}</div>
                           {t.unit && <span className="text-xs text-muted-foreground font-normal">({t.unit})</span>}
                         </td>
-                        <td className="p-2.5">
+                        <td className="p-3">
                           {isMonitoring ? (
                             <span className="inline-block rounded border border-border bg-muted px-2 py-0.5 text-xs font-medium text-secondary-foreground" title="Monitoring Norm: Compulsory to record for yield/pricing, but never rejects milk">
                               Monitoring Norm
@@ -383,12 +383,12 @@ function WorkspaceInner({
                             </span>
                           )}
                         </td>
-                        <td className="p-2.5 font-semibold text-emerald-800 tabular-nums whitespace-nowrap">
+                        <td className="p-3 font-semibold text-emerald-800 tabular-nums whitespace-nowrap">
                           <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 border border-emerald-200 shadow-2xs">
                             {t.passRangeText || '—'}
                           </span>
                         </td>
-                        <td className="p-2.5 font-semibold text-amber-800 tabular-nums whitespace-nowrap">
+                        <td className="p-3 font-semibold text-amber-800 tabular-nums whitespace-nowrap">
                           {t.warningHoldText && t.warningHoldText !== '—' ? (
                             <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 border border-amber-200 shadow-2xs">
                               {t.warningHoldText}
@@ -397,7 +397,7 @@ function WorkspaceInner({
                             <span className="text-xs text-muted-foreground font-normal">None (strict)</span>
                           )}
                         </td>
-                        <td className="p-2.5 font-semibold text-rose-800 tabular-nums whitespace-nowrap">
+                        <td className="p-3 font-semibold text-rose-800 tabular-nums whitespace-nowrap">
                           {isMonitoring ? (
                             <span className="inline-flex items-center rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium text-secondary-foreground">
                               None (norm)
@@ -420,7 +420,7 @@ function WorkspaceInner({
                           const isAppl = currentMode === 'APPLIED' || currentMode === 'OPTIONAL';
 
                           return (
-                            <td key={ms.code} className="p-1.5 text-center">
+                            <td key={ms.code} className="p-2 text-center">
                               {canEdit && t.isActive ? (
                                 <select
                                   value={currentMode}
@@ -432,7 +432,7 @@ function WorkspaceInner({
                                       mode: e.target.value,
                                     });
                                   }}
-                                  className={`min-h-11 rounded-lg px-1.5 text-xs font-semibold transition-colors focus:outline-hidden ${
+                                  className={`min-h-11 rounded-lg px-2 text-xs font-semibold transition-colors focus:outline-hidden ${
                                     isAuto
                                       ? 'bg-purple-100 text-purple-900 border border-purple-300'
                                       : isCmp
@@ -468,7 +468,7 @@ function WorkspaceInner({
                         })}
 
                         {/* Status: Inactive = off at all stages; Active = only the stages selected above */}
-                        <td className="p-2.5 text-center">
+                        <td className="p-3 text-center">
                           {canEdit ? (
                             <button
                               type="button"
@@ -477,7 +477,7 @@ function WorkspaceInner({
                                 setCatalogDrawer({ kind: 'status', test: t, action: t.isActive ? 'DEACTIVATE' : 'ACTIVATE' });
                               }}
                               title={t.isActive ? 'Active: shown at the selected stages. Click to deactivate (off at all stages).' : 'Inactive: off at all stages. Click to activate.'}
-                              className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors ${
+                              className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3 text-xs font-medium transition-colors ${
                                 t.isActive
                                   ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
                                   : 'border-border-strong bg-muted text-secondary-foreground hover:bg-muted'
@@ -487,7 +487,7 @@ function WorkspaceInner({
                               {t.isActive ? 'Active' : 'Inactive'}
                             </button>
                           ) : (
-                            <span className={`inline-block rounded-md px-2.5 py-0.5 text-xs font-semibold ${t.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-muted text-muted-foreground'}`}>
+                            <span className={`inline-block rounded-md px-3 py-0.5 text-xs font-semibold ${t.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-muted text-muted-foreground'}`}>
                               {t.isActive ? 'Active' : 'Inactive'}
                             </span>
                           )}
@@ -495,7 +495,7 @@ function WorkspaceInner({
 
                         {/* Actions */}
                         {canEdit && (
-                          <td className="sticky right-0 bg-card p-2.5 text-right whitespace-nowrap">
+                          <td className="sticky right-0 bg-card p-3 text-right whitespace-nowrap">
                             <Button
                               variant="outline"
                               size="sm"

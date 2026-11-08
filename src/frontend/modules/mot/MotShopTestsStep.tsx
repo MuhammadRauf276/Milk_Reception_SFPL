@@ -146,7 +146,7 @@ export function MotShopTestsStep({
           {chip && (
             <span
               className={cn(
-                'rounded-md border px-2.5 py-1 text-xs font-semibold tabular-nums',
+                'rounded-md border px-3 py-1 text-xs font-semibold tabular-nums',
                 out ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-border-strong bg-subtle text-secondary-foreground'
               )}
             >
@@ -209,7 +209,7 @@ export function MotShopTestsStep({
         )}
 
         {out && (
-          <p className="flex items-center gap-1.5 text-sm font-semibold text-rose-700">
+          <p className="flex items-center gap-2 text-sm font-semibold text-rose-700">
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
             Outside SOP range
           </p>
@@ -254,7 +254,7 @@ export function MotShopTestsStep({
   return (
     <div className="space-y-3">
       {active.length === 0 && (
-        <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900">
+        <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
           Test rules not loaded.
         </p>
       )}
@@ -276,7 +276,7 @@ export function MotShopTestsStep({
             <span>More tests ({more.length})</span>
             {showMore ? <ChevronUp className="h-5 w-5" aria-hidden="true" /> : <ChevronDown className="h-5 w-5" aria-hidden="true" />}
           </button>
-          {showMore && <div className="space-y-3 border-t border-border p-2.5">{more.map(testCard)}</div>}
+          {showMore && <div className="space-y-3 border-t border-border p-3">{more.map(testCard)}</div>}
         </div>
       )}
 

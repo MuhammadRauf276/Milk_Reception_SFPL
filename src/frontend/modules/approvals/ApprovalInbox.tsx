@@ -177,14 +177,14 @@ export function ApprovalInbox({
 
   const statusTabClass = (active: boolean) =>
     cn(
-      'min-h-11 px-3 py-1.5 rounded-lg transition font-semibold text-xs',
+      'min-h-11 px-3 py-2 rounded-lg transition font-semibold text-xs',
       active ? 'bg-card text-foreground shadow-2xs font-semibold' : 'text-secondary-foreground hover:text-foreground'
     );
 
   return (
     <div className={cn('flex flex-col w-full h-full min-h-[620px] bg-card rounded-2xl border border-border shadow-xs overflow-hidden', className)}>
       {/* Top Master Control Bar */}
-      <header className="flex flex-wrap items-center justify-between gap-3 p-3.5 sm:p-4 bg-card border-b border-border">
+      <header className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-4 bg-card border-b border-border">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-muted-foreground" />
@@ -194,7 +194,7 @@ export function ApprovalInbox({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 ml-auto">
+        <div className="flex items-center gap-2 ml-auto">
           {/* Status Tab (Pending vs Decided History) */}
           <div className="inline-flex rounded-xl border border-border p-1 bg-muted text-xs font-semibold">
             <button
@@ -235,12 +235,12 @@ export function ApprovalInbox({
 
       {/* Stage Filter Pills (Filtered by Role Jurisdiction) */}
       {!fixedStage && visibleStagePills.length > 1 && (
-        <nav aria-label="Approval stages" className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 bg-subtle border-b border-border text-xs font-semibold">
+        <nav aria-label="Approval stages" className="flex flex-wrap items-center gap-2 px-4 py-2 bg-subtle border-b border-border text-xs font-semibold">
           <button
             type="button"
             onClick={() => setStageFilter('ALL')}
             className={cn(
-              'min-h-11 px-3.5 py-1 rounded-md border transition shrink-0',
+              'min-h-11 px-4 py-1 rounded-md border transition shrink-0',
               stageFilter === 'ALL'
                 ? 'bg-primary text-white border-primary shadow-2xs font-semibold'
                 : 'bg-card text-secondary-foreground border-border hover:bg-muted'
@@ -254,7 +254,7 @@ export function ApprovalInbox({
               type="button"
               onClick={() => setStageFilter(pill.stage)}
               className={cn(
-                'min-h-11 px-3.5 py-1 rounded-md border transition shrink-0',
+                'min-h-11 px-4 py-1 rounded-md border transition shrink-0',
                 stageFilter === pill.stage
                   ? `${pill.active} shadow-2xs font-semibold`
                   : 'bg-card text-secondary-foreground border-border hover:bg-muted'

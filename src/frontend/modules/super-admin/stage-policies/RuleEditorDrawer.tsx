@@ -38,7 +38,7 @@ function Seg({
           type="button"
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`min-h-11 flex-1 rounded-lg border px-2.5 font-semibold transition-colors ${
+          className={`min-h-11 flex-1 rounded-lg border px-3 font-semibold transition-colors ${
             value === o.value ? o.active : 'border-border-strong bg-card text-secondary-foreground hover:bg-muted'
           }`}
         >
@@ -222,7 +222,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
             <div className="border-b border-border/80 pb-2 text-xs font-semibold text-foreground">Stage Form Configuration ({stageLabel})</div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <span className="mb-1.5 block font-semibold text-secondary-foreground">Visibility on Form</span>
+                <span className="mb-2 block font-semibold text-secondary-foreground">Visibility on Form</span>
                 <Seg
                   label="Visibility on form"
                   value={active ? 'a' : 'h'}
@@ -234,7 +234,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                 />
               </div>
               <div>
-                <span className="mb-1.5 block font-semibold text-secondary-foreground">Entry Requirement</span>
+                <span className="mb-2 block font-semibold text-secondary-foreground">Entry Requirement</span>
                 <Seg
                   label="Entry requirement"
                   value={required ? 'c' : 'o'}
@@ -255,7 +255,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                 type="button"
                 aria-pressed={photoRequired}
                 onClick={() => setPhotoRequired((p) => !p)}
-                className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3 font-semibold transition-colors ${
+                className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border px-3 font-semibold transition-colors ${
                   photoRequired ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-card text-secondary-foreground hover:bg-muted'
                 }`}
               >
@@ -270,7 +270,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
           <div className="flex items-center justify-between gap-2 border-b border-border/80 pb-2">
             <div className="text-xs font-semibold text-foreground">Quality Acceptance Rule &amp; Limits</div>
             {!isGlobalStage && (
-              <label className="flex min-h-11 cursor-pointer select-none items-center gap-1.5 font-semibold text-secondary-foreground">
+              <label className="flex min-h-11 cursor-pointer select-none items-center gap-2 font-semibold text-secondary-foreground">
                 <input
                   type="checkbox"
                   checked={recordOnly}
@@ -284,7 +284,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
 
           {recordOnly ? (
             <div className="space-y-1 rounded-lg bg-card p-3 text-secondary-foreground">
-              <div className="flex items-center gap-1.5 font-semibold text-foreground">
+              <div className="flex items-center gap-2 font-semibold text-foreground">
                 <FileCheck2 className="h-4 w-4 text-secondary-foreground" />
                 <span>Record only</span>
               </div>
@@ -293,7 +293,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
           ) : (
             <>
               <div>
-                <span className="mb-1.5 block font-semibold text-secondary-foreground">Rule Enforcement Severity</span>
+                <span className="mb-2 block font-semibold text-secondary-foreground">Rule Enforcement Severity</span>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
                     type="button"
@@ -371,18 +371,18 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
 
                   {preview && (
                     <div className="space-y-1 rounded-xl border border-border bg-card p-3 text-xs">
-                      <div className="flex items-center gap-1.5 font-semibold text-emerald-800">
+                      <div className="flex items-center gap-2 font-semibold text-emerald-800">
                         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
                         <span>Passing Range: {preview.passText}</span>
                       </div>
                       {preview.warnText && (
-                        <div className="flex items-center gap-1.5 font-semibold text-amber-800">
+                        <div className="flex items-center gap-2 font-semibold text-amber-800">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                           <span>Warning Range: {preview.warnText}</span>
                         </div>
                       )}
                       {preview.rejectText && (
-                        <div className="flex items-center gap-1.5 font-semibold text-rose-700">
+                        <div className="flex items-center gap-2 font-semibold text-rose-700">
                           <X className="h-3.5 w-3.5 shrink-0 text-rose-600" aria-hidden="true" />
                           <span>Rejection: {preview.rejectText}</span>
                         </div>
@@ -401,7 +401,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                           type="button"
                           aria-pressed={acceptable === o.value}
                           onClick={() => setAcceptable(o.value)}
-                          className={`min-h-11 rounded-lg border px-3 py-1.5 text-left text-xs font-semibold ${
+                          className={`min-h-11 rounded-lg border px-3 py-2 text-left text-xs font-semibold ${
                             acceptable === o.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-card text-foreground hover:bg-muted'
                           }`}
                         >

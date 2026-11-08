@@ -56,7 +56,7 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
           {/* Native vs Web GPS Indicator */}
           {isNative ? (
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold text-xs ${
+              className={`inline-flex items-center gap-2 px-3 py-1 rounded-md font-semibold text-xs ${
                 gpsStatus?.isTracking
                   ? 'bg-sky-950/80 text-sky-400 border border-sky-800/60'
                   : 'bg-slate-800 text-slate-400'
@@ -66,7 +66,7 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
               {gpsStatus?.isTracking ? 'Native Background GPS Active' : 'GPS Idle'}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-medium text-xs bg-slate-800 text-slate-400">
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-md font-medium text-xs bg-slate-800 text-slate-400">
               Web GPS
             </span>
           )}
@@ -108,7 +108,7 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
           <button
             type="button"
             onClick={handleSyncClick}
-            className="px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-medium text-xs transition-colors"
+            className="px-3 py-1 rounded bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-medium text-xs transition-colors"
           >
             Sync Now
           </button>

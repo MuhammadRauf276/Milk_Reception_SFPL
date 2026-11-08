@@ -119,7 +119,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
       label: 'WhatsApp Receipt Message',
       className: 'max-w-xs',
       cell: (item) => (
-        <div className="bg-card border-border p-2.5 rounded-lg border text-xs tabular-nums text-foreground whitespace-pre-line wrap-break-word font-mono">
+        <div className="bg-card border-border p-3 rounded-lg border text-xs tabular-nums text-foreground whitespace-pre-line wrap-break-word font-mono">
           {item.message_body}
         </div>
       ),
@@ -141,7 +141,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
       label: 'Status',
       cell: (item) => (
         <span
-          className={`px-2.5 py-0.5 rounded-md text-xs font-semibold inline-flex items-center space-x-1 ${
+          className={`px-3 py-0.5 rounded-md text-xs font-semibold inline-flex items-center space-x-1 ${
             item.status === 'SENT'
               ? 'bg-emerald-100 text-emerald-800'
               : item.status === 'FAILED'
@@ -168,11 +168,11 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
       actions: true,
       align: 'right',
       cell: (item) => (
-        <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
+        <div className="inline-flex flex-wrap items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => handleCopy(item.id, item.message_body)}
-            className="min-h-11 min-w-11 inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-border text-secondary-foreground hover:bg-muted transition"
+            className="min-h-11 min-w-11 inline-flex items-center space-x-1 px-3 py-2 rounded-lg text-xs font-semibold border border-border text-secondary-foreground hover:bg-muted transition"
             title="Copy receipt to clipboard"
           >
             {copiedId === item.id ? (
@@ -191,7 +191,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
             href={`https://wa.me/${item.recipient_phone.replace(/\D/g, '').replace(/^0/, '92')}?text=${encodeURIComponent(item.message_body)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition"
+            className="inline-flex items-center space-x-1 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition"
             title={`Send WhatsApp message to ${item.recipient_phone}`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
@@ -234,13 +234,13 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
           <button
             type="button"
             onClick={fetchOutbox}
-            className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
+            className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-2 rounded-lg border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
           >
             <span>Refresh</span>
           </button>
           <Link
             href="/whatsapp-gateway"
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-semibold hover:bg-emerald-100 shadow-2xs transition"
+            className="flex items-center space-x-1 px-3 py-2 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-semibold hover:bg-emerald-100 shadow-2xs transition"
             title="Scan QR Code to link WhatsApp for automated sending"
           >
             <QrCode className="w-3.5 h-3.5 text-emerald-600" />
@@ -250,7 +250,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
             type="button"
             disabled={isDispatching}
             onClick={handleDispatchAll}
-            className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-hover shadow-2xs transition disabled:opacity-50"
+            className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-hover shadow-2xs transition disabled:opacity-50"
           >
             <Send className={`w-3.5 h-3.5 ${isDispatching ? 'opacity-50' : ''}`} />
             <span>{isDispatching ? 'Dispatching…' : 'Dispatch Queue'}</span>
