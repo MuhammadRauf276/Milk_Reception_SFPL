@@ -282,6 +282,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               </label>
               <input
                 id="create-password"
+                {...validation.blurProps('password')}
                 type="password"
                 required
                 value={password}
@@ -290,6 +291,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
                 placeholder="At least 8 characters"
                 disabled={busy}
               />
+              {validation.errorFor('password') ? <p role="alert" className="mt-1 text-xs text-destructive">{validation.errorFor('password')}</p> : null}
             </div>
           )}
         </div>
