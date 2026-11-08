@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Search, X, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { fadeSlide } from '@/components/motion/presets';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
 import { Pager, pageCount, paginate } from '../../dashboard/components/Pager';
@@ -104,6 +105,60 @@ export function ContractorsPanel({
     }
   };
 
+  const columns: DataColumn<ContractorItem>[] = [
+    {
+      key: 'code',
+      header: 'Contractor Code',
+      label: 'Contractor code',
+      primary: true,
+      cell: (contractor) => <span className="font-mono font-semibold text-foreground">{contractor.code}</span>,
+    },
+    { key: 'name', header: 'Name', label: 'Name', cell: (contractor) => <span className="font-semibold text-foreground">{contractor.name}</span> },
+    {
+      key: 'erp',
+      header: 'Assigned ERP Code',
+      label: 'Assigned ERP code',
+      cell: (contractor) =>
+        contractor.erp_code ? (
+          <span className="font-mono font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+            [{contractor.erp_code}]
+          </span>
+        ) : (
+          <span className="text-amber-700 font-semibold">Missing</span>
+        ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cell: (contractor) => (
+        <span
+          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+            contractor.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-muted-foreground'
+          }`}
+        >
+          {contractor.is_active ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+    {
+      key: 'action',
+      header: 'Action',
+      label: 'Action',
+      actions: true,
+      align: 'right',
+      cell: (contractor) => (
+        <button
+          type="button"
+          onClick={() => openEdit(contractor)}
+          className="min-h-11 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-subtle rounded-lg transition min-w-11"
+        >
+          Edit ERP code
+        </button>
+      ),
+    },
+  ];
+
   return (
     <motion.div
       key="contractors"
@@ -140,61 +195,13 @@ export function ContractorsPanel({
           </button>
       </div>
 
-      <div className="overflow-x-auto border border-border rounded-xl">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-subtle text-secondary-foreground font-semibold border-b border-border">
-            <tr>
-              <th className="py-2.5 px-3">Contractor Code</th>
-              <th className="py-2.5 px-3">Name</th>
-              <th className="py-2.5 px-3">Assigned ERP Code</th>
-              <th className="py-2.5 px-3">Status</th>
-              <th className="py-2.5 px-3 text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {rows.map((contractor) => (
-              <tr key={contractor.id} className="hover:bg-subtle transition-colors">
-                <td className="py-2.5 px-3 font-mono font-semibold text-foreground">{contractor.code}</td>
-                <td className="py-2.5 px-3 font-semibold text-foreground">{contractor.name}</td>
-                <td className="py-2.5 px-3">
-                  {contractor.erp_code ? (
-                    <span className="font-mono font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                      [{contractor.erp_code}]
-                    </span>
-                  ) : (
-                    <span className="text-amber-700 font-semibold">Missing</span>
-                  )}
-                </td>
-                <td className="py-2.5 px-3">
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                      contractor.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {contractor.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td className="py-2.5 px-3 text-right">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(contractor)}
-                    className="min-h-11 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-subtle rounded-lg transition min-w-11"
-                  >
-                    Edit ERP code
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                  No contractors found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={rows}
+        getRowId={(contractor) => contractor.id}
+        emptyTitle="No contractors found."
+        tableFrom="lg"
+      />
 
       <Pager page={Math.min(page, totalPages)} totalPages={totalPages} total={filtered.length} onPageChange={setPage} />
 

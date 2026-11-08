@@ -11,6 +11,7 @@ import { AlertTriangle, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/DecisionStatusBadge';
 import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import type { LabPortionExceptionItem } from '@/backend/services/zmcc/labPortionReviewService';
 
 type Tab = 'PENDING' | 'DECIDED';
@@ -46,6 +47,38 @@ function waitingInfo(iso: string | null, now: number) {
   return { text, cls };
 }
 
+type ExceptionTest = NonNullable<LabPortionExceptionItem['details']>['tests'][number];
+
+const testColumns: DataColumn<ExceptionTest>[] = [
+  {
+    key: 'test',
+    header: 'Test',
+    label: 'Test',
+    primary: true,
+    cell: (t) => t.testName,
+  },
+  {
+    key: 'result',
+    header: 'Result',
+    label: 'Result',
+    cell: (t) => (
+      <>
+        {t.value ?? t.textValue ?? '-'}
+        {t.unit && t.value !== null ? ` ${t.unit}` : ''}
+      </>
+    ),
+  },
+  {
+    key: 'outcome',
+    header: 'Outcome',
+    label: 'Outcome',
+    cell: (t) => (
+      <span className={cn('font-semibold', t.outcome === 'FAIL' ? 'text-rose-700' : t.outcome === 'PASS' ? 'text-emerald-700' : 'text-amber-700')}>
+        {outcomeText(t.outcome)}
+      </span>
+    ),
+  },
+];
 export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> = ({ canDecide = true, currentUserId = null, onCountChange }) => {
   const [tab, setTab] = useState<Tab>('PENDING');
   const [now, setNow] = useState(() => Date.now());
@@ -186,24 +219,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
               </p>
 
               {item.details && item.details.tests.length > 0 && (
-                <div className="overflow-x-auto rounded-xl border border-border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-subtle text-left text-xs text-secondary-foreground">
-                      <tr><th className="p-2">Test</th><th className="p-2">Result</th><th className="p-2">Outcome</th></tr>
-                    </thead>
-                    <tbody>
-                      {item.details.tests.map((t) => (
-                        <tr key={t.labTestId} className="border-t border-border">
-                          <td className="p-2">{t.testName}</td>
-                          <td className="p-2">{t.value ?? t.textValue ?? '-'}{t.unit && t.value !== null ? ` ${t.unit}` : ''}</td>
-                          <td className={cn('p-2 font-semibold', t.outcome === 'FAIL' ? 'text-rose-700' : t.outcome === 'PASS' ? 'text-emerald-700' : 'text-amber-700')}>
-                            {outcomeText(t.outcome)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <DataTable columns={testColumns} rows={item.details.tests} getRowId={(t) => String(t.labTestId)} />
               )}
 
               {item.photos.length > 0 && (

@@ -2,6 +2,7 @@
 
 import { formatTime } from '@/lib/format';
 import React from 'react';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import type { JourneyItem } from './types';
 
 interface Props {
@@ -15,6 +16,92 @@ interface Props {
 }
 
 export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFilterChange, onRefresh, onViewMap, onViewStops }: Props) {
+  const columns: DataColumn<JourneyItem>[] = [
+    {
+      key: 'number',
+      header: 'Journey #',
+      label: 'Journey #',
+      primary: true,
+      cell: (j) => <span className="tabular-nums font-semibold text-primary">{j.journey_number}</span>,
+    },
+    { key: 'date', header: 'Date', label: 'Date', cell: (j) => <span className="font-medium text-secondary-foreground">{j.operational_date}</span> },
+    { key: 'route', header: 'Route', label: 'Route', cell: (j) => <span className="font-semibold text-foreground">{j.route?.route_code}</span> },
+    { key: 'tester', header: 'Mobile Tester', label: 'Mobile Tester', cell: (j) => <span className="font-semibold text-foreground">{j.mot_profile?.name}</span> },
+    {
+      key: 'vehicle',
+      header: 'Vehicle',
+      label: 'Vehicle',
+      cell: (j) => <span className="tabular-nums font-semibold text-secondary-foreground">{j.mot_vehicle?.vehicle_number}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cell: (j) => (
+        <span
+          className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${
+            j.status === 'COLLECTING'
+              ? 'bg-blue-100 text-blue-800'
+              : j.status === 'RETURNING' || j.status === 'ARRIVED'
+              ? 'bg-amber-100 text-amber-800'
+              : j.status === 'COMPLETED'
+              ? 'bg-emerald-100 text-emerald-800'
+              : 'bg-rose-100 text-rose-800'
+          }`}
+        >
+          {j.status}
+        </span>
+      ),
+    },
+    {
+      key: 'dispatched',
+      header: 'Dispatched At',
+      label: 'Dispatched At',
+      cell: (j) => <span className="font-medium text-secondary-foreground">{formatTime(j.assigned_at)}</span>,
+    },
+    {
+      key: 'outcome',
+      header: 'Outcome',
+      label: 'Outcome',
+      cell: (j) => (
+        <span className="text-secondary-foreground font-medium">
+          {j.status === 'CANCELLED' ? (
+            <span className="text-rose-700 text-xs" title={j.cancellation_reason || ''}>
+              Cancelled by {j.cancelled_by_name}: {j.cancellation_reason?.slice(0, 30)}…
+            </span>
+          ) : (
+            '—'
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (j) => (
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onViewMap(j.id)}
+            className="min-h-[44px] px-3 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100"
+          >
+            View Map
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewStops(j.id)}
+            className="min-h-[44px] px-3 rounded-lg bg-blue-50 text-primary font-semibold hover:bg-blue-100"
+          >
+            View Stops
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   return (
         <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden space-y-3 animate-panel-in">
           <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -54,83 +141,13 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
             </div>
           </div>
 
-          {loading ? (
-            <div className="p-8 text-center text-xs font-semibold text-muted-foreground">Loading journey history…</div>
-          ) : journeys.length === 0 ? (
-            <div className="p-8 text-center text-xs font-semibold text-muted-foreground">No journeys recorded.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-muted/60 text-secondary-foreground font-semibold text-xs border-b border-border">
-                  <tr>
-                    <th className="p-3">Journey #</th>
-                    <th className="p-3">Date</th>
-                    <th className="p-3">Route</th>
-                    <th className="p-3">Mobile Tester</th>
-                    <th className="p-3">Vehicle</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3">Dispatched At</th>
-                    <th className="p-3">Outcome</th>
-                    <th className="p-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {journeys.map((j) => (
-                    <tr key={j.id} className="hover:bg-subtle">
-                      <td className="p-3 tabular-nums font-semibold text-primary">{j.journey_number}</td>
-                      <td className="p-3 font-medium text-secondary-foreground">{j.operational_date}</td>
-                      <td className="p-3 font-semibold text-foreground">{j.route?.route_code}</td>
-                      <td className="p-3 font-semibold text-foreground">{j.mot_profile?.name}</td>
-                      <td className="p-3 tabular-nums font-semibold text-secondary-foreground">{j.mot_vehicle?.vehicle_number}</td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${
-                            j.status === 'COLLECTING'
-                              ? 'bg-blue-100 text-blue-800'
-                              : j.status === 'RETURNING' || j.status === 'ARRIVED'
-                              ? 'bg-amber-100 text-amber-800'
-                              : j.status === 'COMPLETED'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-rose-100 text-rose-800'
-                          }`}
-                        >
-                          {j.status}
-                        </span>
-                      </td>
-                      <td className="p-3 font-medium text-secondary-foreground">
-                        {formatTime(j.assigned_at)}
-                      </td>
-                      <td className="p-3 text-secondary-foreground font-medium">
-                        {j.status === 'CANCELLED' ? (
-                          <span className="text-rose-700 text-xs" title={j.cancellation_reason || ''}>
-                            Cancelled by {j.cancelled_by_name}: {j.cancellation_reason?.slice(0, 30)}…
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="p-3 text-right space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => onViewMap(j.id)}
-                          className="min-h-[44px] px-3 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100"
-                        >
-                          View Map
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onViewStops(j.id)}
-                          className="min-h-[44px] px-3 rounded-lg bg-blue-50 text-primary font-semibold hover:bg-blue-100"
-                        >
-                          View Stops
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            columns={columns}
+            rows={journeys}
+            getRowId={(j) => j.id}
+            loading={loading}
+            emptyTitle="No journeys recorded."
+          />
         </div>
   );
 }

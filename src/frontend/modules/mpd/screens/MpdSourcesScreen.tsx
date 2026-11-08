@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Building2, Building, CheckCircle2, Search } from 'lucide-react';
 import type { ZmccCenterTelemetry, PlantContractorTelemetry } from '../types';
 import type { MpdExecutiveTelemetry } from '@/backend/services/mpdExecutiveService';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { formatMetric, NO_DATA } from '../format';
 import { Pager, paginate, pageCount } from '@/frontend/modules/dashboard/components/Pager';
 
@@ -12,6 +13,86 @@ interface MpdSourcesScreenProps {
   contractors: PlantContractorTelemetry[];
   intakeBySource?: MpdExecutiveTelemetry['intakeBySource'];
 }
+
+type IntakeRow = MpdExecutiveTelemetry['intakeBySource'][number];
+
+const intakeColumns: DataColumn<IntakeRow>[] = [
+  {
+    key: 'source',
+    header: 'Source',
+    label: 'Source',
+    primary: true,
+    cell: (r) => (
+      <div>
+        <div className="font-semibold text-foreground">{r.sourceName}</div>
+        {r.erpCode ? <div className="text-muted-foreground tabular-nums">{r.erpCode}</div> : null}
+      </div>
+    ),
+  },
+  { key: 'netKg', header: 'Net kg', label: 'Net kg', align: 'right', cell: (r) => <span className="tabular-nums">{r.netKg.toLocaleString()}</span> },
+  { key: 'grossL', header: 'Gross L', label: 'Gross L', align: 'right', cell: (r) => <span className="tabular-nums">{r.grossLiters.toLocaleString()}</span> },
+  { key: 'ts13', header: '@13TS L', label: '@13TS L', align: 'right', cell: (r) => <span className="tabular-nums">{r.at13tsLiters.toLocaleString()}</span> },
+  {
+    key: 'quality',
+    header: 'Quality',
+    label: 'Quality',
+    align: 'center',
+    cell: (r) => (
+      <span className="tabular-nums">
+        {formatMetric(r.avgLr)} | {formatMetric(r.avgFatPercent, '%')} | {formatMetric(r.avgSnfPercent, '%')} | {formatMetric(r.avgTsPercent, '%')}
+      </span>
+    ),
+  },
+];
+
+const contractorColumns: DataColumn<PlantContractorTelemetry>[] = [
+  {
+    key: 'contractor',
+    header: 'Contractor Name / Code',
+    label: 'Contractor name / code',
+    primary: true,
+    cell: (c) => (
+      <div>
+        <div className="font-semibold text-foreground">{c.name}</div>
+        <div className="text-muted-foreground tabular-nums text-xs">{c.code}</div>
+      </div>
+    ),
+  },
+  {
+    key: 'delivered',
+    header: 'Delivered to Plant',
+    label: 'Delivered to plant',
+    align: 'right',
+    cell: (c) => <span className="tabular-nums font-semibold text-foreground">{c.deliveredLiters.toLocaleString()} L</span>,
+  },
+  {
+    key: 'qa',
+    header: 'Plant QA',
+    label: 'Plant QA',
+    align: 'center',
+    cell: (c) => (
+      <span className="tabular-nums">
+        <span className="font-semibold text-foreground">{formatMetric(c.avgFatPercent, '%')}</span>
+        <span className="text-muted-foreground mx-1">|</span>
+        <span className="font-semibold text-foreground">{formatMetric(c.avgLr)}</span>
+      </span>
+    ),
+  },
+  {
+    key: 'passRate',
+    header: 'QA Pass Rate',
+    label: 'QA pass rate',
+    align: 'center',
+    cell: (c) =>
+      c.qualityPassRatePercent === null ? (
+        <span className="text-muted-foreground">{NO_DATA}</span>
+      ) : (
+        <span className="inline-flex items-center gap-1 tabular-nums font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+          {c.qualityPassRatePercent}%
+        </span>
+      ),
+  },
+];
 
 export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
   zmccs = [],
@@ -163,35 +244,13 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
       {(sourceFilter === 'ALL' || sourceFilter === 'ZMCC') && intakeBySource.length > 0 && (
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-border text-xs font-semibold text-foreground">Received today by milk source</div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold">
-                  <th className="py-3 px-4">Source</th>
-                  <th className="py-3 px-4 text-right">Net kg</th>
-                  <th className="py-3 px-4 text-right">Gross L</th>
-                  <th className="py-3 px-4 text-right">@13TS L</th>
-                  <th className="py-3 px-4 text-center">Quality</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {paginate(intakeBySource, Math.min(IntakePage, pageCount(intakeBySource.length))).map((r) => (
-                  <tr key={r.sourceId ?? r.sourceName}>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-foreground">{r.sourceName}</div>
-                      {r.erpCode ? <div className="text-muted-foreground tabular-nums">{r.erpCode}</div> : null}
-                    </td>
-                    <td className="py-3 px-4 text-right tabular-nums">{r.netKg.toLocaleString()}</td>
-                    <td className="py-3 px-4 text-right tabular-nums">{r.grossLiters.toLocaleString()}</td>
-                    <td className="py-3 px-4 text-right tabular-nums">{r.at13tsLiters.toLocaleString()}</td>
-                    <td className="py-3 px-4 text-center tabular-nums">
-                      {formatMetric(r.avgLr)} | {formatMetric(r.avgFatPercent, '%')} | {formatMetric(r.avgSnfPercent, '%')} | {formatMetric(r.avgTsPercent, '%')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-<Pager page={Math.min(IntakePage, pageCount(intakeBySource.length))} totalPages={pageCount(intakeBySource.length)} total={intakeBySource.length} onPageChange={setIntakePage} />
+          <div className="p-3">
+            <DataTable
+              columns={intakeColumns}
+              rows={paginate(intakeBySource, Math.min(IntakePage, pageCount(intakeBySource.length)))}
+              getRowId={(r) => r.sourceId ?? r.sourceName}
+              footer={<Pager page={Math.min(IntakePage, pageCount(intakeBySource.length))} totalPages={pageCount(intakeBySource.length)} total={intakeBySource.length} onPageChange={setIntakePage} />}
+            />
           </div>
         </div>
       )}
@@ -210,53 +269,14 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
             </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold">
-                  <th className="py-3 px-4">Contractor Name / Code</th>
-                  <th className="py-3 px-4 text-right">Delivered to Plant</th>
-                  <th className="py-3 px-4 text-center">Plant QA</th>
-                  <th className="py-3 px-4 text-center">QA Pass Rate</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredContractors.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="py-6 text-center text-muted-foreground">
-                      No direct contractors found.
-                    </td>
-                  </tr>
-                ) : (
-                  paginate(filteredContractors, Math.min(ContractorPage, pageCount(filteredContractors.length))).map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-foreground">{c.name}</div>
-                        <div className="text-muted-foreground tabular-nums text-xs">{c.code}</div>
-                      </td>
-                      <td className="py-3 px-4 text-right tabular-nums font-semibold text-foreground">
-                        {c.deliveredLiters.toLocaleString()} L
-                      </td>
-                      <td className="py-3 px-4 text-center tabular-nums">
-                        <span className="font-semibold text-foreground">{formatMetric(c.avgFatPercent, '%')}</span>
-                        <span className="text-muted-foreground mx-1">|</span>
-                        <span className="font-semibold text-foreground">{formatMetric(c.avgLr)}</span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        {c.qualityPassRatePercent === null ? (
-                          <span className="text-muted-foreground">{NO_DATA}</span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 tabular-nums font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                            {c.qualityPassRatePercent}%
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-<Pager page={Math.min(ContractorPage, pageCount(filteredContractors.length))} totalPages={pageCount(filteredContractors.length)} total={filteredContractors.length} onPageChange={setContractorPage} />
+          <div className="p-3">
+            <DataTable
+              columns={contractorColumns}
+              rows={paginate(filteredContractors, Math.min(ContractorPage, pageCount(filteredContractors.length)))}
+              getRowId={(c) => c.id}
+              emptyTitle="No direct contractors found."
+              footer={<Pager page={Math.min(ContractorPage, pageCount(filteredContractors.length))} totalPages={pageCount(filteredContractors.length)} total={filteredContractors.length} onPageChange={setContractorPage} />}
+            />
           </div>
         </div>
       )}

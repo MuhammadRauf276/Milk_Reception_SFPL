@@ -22,6 +22,7 @@ import {
 import { ManagerJourneyMap } from '@/frontend/modules/mot/ManagerJourneyMap';
 import { LiveMap, type LiveMapVehicle } from '@/frontend/modules/shared/map/LiveMap';
 import { buildJourneyOverlays, type JourneyOverlayData } from '@/frontend/modules/shared/map/journeyOverlays';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { PageLoader } from '@/components/ui/spinner';
 import { StatCard } from '@/components/ui/stat-card';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
@@ -230,6 +231,101 @@ export function ZMCCOperationalJourneysScreen({
     );
   }, [historyJourneys, searchTerm]);
 
+  type ActiveJourneyRow = (typeof activeJourneys)[number];
+  type HistoryJourneyRow = (typeof filteredHistory)[number];
+
+  const activeColumns: DataColumn<ActiveJourneyRow>[] = [
+    { key: 'journey', header: 'Journey #', label: 'Journey #', primary: true, cell: (j) => <span className="tabular-nums font-semibold text-primary">#{j.journey_number}</span> },
+    { key: 'route', header: 'Route', label: 'Route', cell: (j) => <span className="font-semibold text-foreground">{j.route?.route_code} · {j.route?.name}</span> },
+    { key: 'mot', header: 'Mobile Tester', label: 'Mobile Tester', cell: (j) => <span className="text-foreground font-medium">{j.mot_profile?.name}</span> },
+    { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', cell: (j) => <span className="tabular-nums font-semibold text-slate-700">{j.mot_vehicle?.vehicle_number}</span> },
+    { key: 'dispatched', header: 'Dispatched At', label: 'Dispatched at', cell: (j) => <span className="tabular-nums text-slate-600">{formatTime(j.assigned_at)}</span> },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cell: (j) => <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">{j.status}</span>,
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (j) => (
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={() => setSelectedJourneyIdForMap(j.id)}
+            className="min-h-9 px-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition inline-flex items-center gap-1.5"
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            <span>View Trail & Map</span>
+          </button>
+          {j.status === 'RETURNING' && (
+            <span className="min-h-9 px-3 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold inline-flex items-center">
+              Coming to ZMCC
+            </span>
+          )}
+          {j.status === 'COLLECTING' && (
+            <button
+              type="button"
+              onClick={() => setCancelSheetJourney(j as unknown as JourneyItem)}
+              className="min-h-9 px-3 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold hover:bg-rose-100 transition inline-flex items-center gap-1.5"
+            >
+              <Ban className="w-3.5 h-3.5" />
+              <span>Cancel</span>
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  const historyColumns: DataColumn<HistoryJourneyRow>[] = [
+    { key: 'journey', header: 'Journey #', label: 'Journey #', primary: true, cell: (j) => <span className="tabular-nums font-semibold text-primary">#{j.journey_number}</span> },
+    { key: 'date', header: 'Date', label: 'Date', cell: (j) => <span className="tabular-nums text-slate-600 font-medium">{j.operational_date}</span> },
+    { key: 'route', header: 'Route', label: 'Route', cell: (j) => <span className="font-semibold text-foreground">{j.route?.route_code} · {j.route?.name}</span> },
+    { key: 'mot', header: 'Mobile Tester', label: 'Mobile Tester', cell: (j) => <span className="text-foreground font-medium">{j.mot_profile?.name}</span> },
+    { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', cell: (j) => <span className="tabular-nums font-semibold text-slate-700">{j.mot_vehicle?.vehicle_number}</span> },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cell: (j) => (
+        <span
+          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+            j.status === 'COMPLETED'
+              ? 'bg-emerald-100 text-emerald-800'
+              : j.status === 'CANCELLED'
+              ? 'bg-rose-100 text-rose-800'
+              : 'bg-blue-100 text-blue-800'
+          }`}
+        >
+          {j.status}
+        </span>
+      ),
+    },
+    { key: 'dispatched', header: 'Dispatched', label: 'Dispatched', cell: (j) => <span className="tabular-nums text-slate-600">{formatTime(j.assigned_at)}</span> },
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (j) => (
+        <button
+          type="button"
+          onClick={() => setSelectedJourneyIdForMap(j.id)}
+          className="min-h-9 px-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition inline-flex items-center gap-1.5"
+        >
+          <MapPin className="w-3.5 h-3.5" />
+          <span>Audit Map & Stops</span>
+        </button>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -404,68 +500,12 @@ export function ZMCCOperationalJourneysScreen({
                 No MOT journeys currently in progress.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-muted/60 text-slate-700 font-semibold text-xs border-b border-border">
-                    <tr>
-                      <th className="p-3">Journey #</th>
-                      <th className="p-3">Route</th>
-                      <th className="p-3">Mobile Tester</th>
-                      <th className="p-3">Vehicle</th>
-                      <th className="p-3">Dispatched At</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {activeJourneys.map((j) => (
-                      <tr key={j.id} className="hover:bg-subtle transition">
-                        <td className="p-3 tabular-nums font-semibold text-primary">#{j.journey_number}</td>
-                        <td className="p-3 font-semibold text-foreground">
-                          {j.route?.route_code} · {j.route?.name}
-                        </td>
-                        <td className="p-3 text-foreground font-medium">{j.mot_profile?.name}</td>
-                        <td className="p-3 tabular-nums font-semibold text-slate-700">
-                          {j.mot_vehicle?.vehicle_number}
-                        </td>
-                        <td className="p-3 tabular-nums text-slate-600">
-                          {formatTime(j.assigned_at)}
-                        </td>
-                        <td className="p-3">
-                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                            {j.status}
-                          </span>
-                        </td>
-                        <td className="p-3 text-right space-x-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedJourneyIdForMap(j.id)}
-                            className="min-h-9 px-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition inline-flex items-center gap-1.5"
-                          >
-                            <MapPin className="w-3.5 h-3.5" />
-                            <span>View Trail & Map</span>
-                          </button>
-                          {j.status === 'RETURNING' && (
-                            <span className="min-h-9 px-3 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold inline-flex items-center">
-                              Coming to ZMCC
-                            </span>
-                          )}
-                          {j.status === 'COLLECTING' && (
-                          <button
-                            type="button"
-                            onClick={() => setCancelSheetJourney(j as unknown as JourneyItem)}
-                            className="min-h-9 px-3 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold hover:bg-rose-100 transition inline-flex items-center gap-1.5"
-                          >
-                            <Ban className="w-3.5 h-3.5" />
-                            <span>Cancel</span>
-                          </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={activeColumns}
+                rows={activeJourneys}
+                getRowId={(j) => j.id}
+                tableFrom="lg"
+              />
             )}
           </div>
         </div>
@@ -526,63 +566,12 @@ export function ZMCCOperationalJourneysScreen({
                 No journey records match the selected date and filters.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-muted/60 text-slate-700 font-semibold text-xs border-b border-border">
-                    <tr>
-                      <th className="p-3">Journey #</th>
-                      <th className="p-3">Date</th>
-                      <th className="p-3">Route</th>
-                      <th className="p-3">Mobile Tester</th>
-                      <th className="p-3">Vehicle</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Dispatched</th>
-                      <th className="p-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {filteredHistory.map((j) => (
-                      <tr key={j.id} className="hover:bg-subtle transition">
-                        <td className="p-3 tabular-nums font-semibold text-primary">#{j.journey_number}</td>
-                        <td className="p-3 tabular-nums text-slate-600 font-medium">{j.operational_date}</td>
-                        <td className="p-3 font-semibold text-foreground">
-                          {j.route?.route_code} · {j.route?.name}
-                        </td>
-                        <td className="p-3 text-foreground font-medium">{j.mot_profile?.name}</td>
-                        <td className="p-3 tabular-nums font-semibold text-slate-700">
-                          {j.mot_vehicle?.vehicle_number}
-                        </td>
-                        <td className="p-3">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                              j.status === 'COMPLETED'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : j.status === 'CANCELLED'
-                                ? 'bg-rose-100 text-rose-800'
-                                : 'bg-blue-100 text-blue-800'
-                            }`}
-                          >
-                            {j.status}
-                          </span>
-                        </td>
-                        <td className="p-3 tabular-nums text-slate-600">
-                          {formatTime(j.assigned_at)}
-                        </td>
-                        <td className="p-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedJourneyIdForMap(j.id)}
-                            className="min-h-9 px-3 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition inline-flex items-center gap-1.5"
-                          >
-                            <MapPin className="w-3.5 h-3.5" />
-                            <span>Audit Map & Stops</span>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={historyColumns}
+                rows={filteredHistory}
+                getRowId={(j) => j.id}
+                tableFrom="lg"
+              />
             )}
           </div>
         </div>

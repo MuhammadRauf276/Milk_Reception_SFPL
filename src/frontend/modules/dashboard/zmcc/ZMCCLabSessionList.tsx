@@ -3,8 +3,61 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
 import { formatOperationalDatetime } from '@/lib/datetime-utils';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { Pager, pageCount, paginate } from '../components/Pager';
 import type { ZmccLabSessionItem } from './zmccQualityTypes';
+
+type LabResultRow = NonNullable<ZmccLabSessionItem['results']>[number];
+
+const resultColumns: DataColumn<LabResultRow>[] = [
+  {
+    key: 'test',
+    header: 'Test',
+    label: 'Test',
+    primary: true,
+    cell: (r) => (
+      <span className="font-sans font-semibold text-slate-800">
+        {r.test_name_snapshot} ({r.test_code_snapshot})
+      </span>
+    ),
+  },
+  {
+    key: 'value',
+    header: 'Observed Value',
+    label: 'Observed value',
+    cell: (r) => (
+      <span className="tabular-nums font-semibold text-slate-900">
+        {r.numeric_value !== null ? `${r.numeric_value}${r.unit_snapshot ? ' ' + r.unit_snapshot : ''}` : r.text_value || '—'}
+      </span>
+    ),
+  },
+  {
+    key: 'status',
+    header: 'Evaluation Status',
+    label: 'Evaluation status',
+    cell: (r) => (
+      <span
+        className={`px-2 py-0.5 rounded text-xs font-semibold ${
+          r.is_passed === true
+            ? 'bg-emerald-100 text-emerald-800'
+            : r.is_passed === false
+            ? 'bg-rose-100 text-rose-800'
+            : r.evaluation_status === 'WARNING'
+            ? 'bg-amber-100 text-amber-800'
+            : 'bg-slate-100 text-slate-600'
+        }`}
+      >
+        {r.evaluation_status}
+      </span>
+    ),
+  },
+  {
+    key: 'rule',
+    header: 'Applied SOP Rule',
+    label: 'Applied SOP rule',
+    cell: (r) => <span className="font-sans text-slate-600 text-xs">{r.applied_rule_version ? `Rule v${r.applied_rule_version}` : 'Default SOP'}</span>,
+  },
+];
 
 /** Paginated list of ZMCC lab sessions with their manager-review state. */
 export const ZMCCLabSessionList: React.FC<{
@@ -192,54 +245,8 @@ export const ZMCCLabSessionList: React.FC<{
                 <summary className="min-h-11 flex cursor-pointer select-none items-center px-3 text-xs font-semibold text-slate-700 hover:bg-subtle">
                   Observed results ({session.results.length})
                 </summary>
-                <div className="overflow-x-auto border-t border-border/80">
-                  <table className="w-full text-left text-xs tabular-nums">
-                    <thead className="bg-slate-50 text-xs font-sans font-semibold text-slate-600 border-b border-border/80">
-                      <tr>
-                        <th className="py-1.5 px-3">Test</th>
-                        <th className="py-1.5 px-3">Observed Value</th>
-                        <th className="py-1.5 px-3">Evaluation Status</th>
-                        <th className="py-1.5 px-3 font-sans">Applied SOP Rule</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/40 text-xs">
-                      {session.results.map((r) => {
-                        const valStr =
-                          r.numeric_value !== null
-                            ? `${r.numeric_value}${r.unit_snapshot ? ' ' + r.unit_snapshot : ''}`
-                            : r.text_value || '—';
-                        const isPass = r.is_passed === true;
-                        const isFail = r.is_passed === false;
-
-                        return (
-                          <tr key={r.id} className="hover:bg-subtle transition-colors">
-                            <td className="py-1.5 px-3 font-sans font-semibold text-slate-800">
-                              {r.test_name_snapshot} ({r.test_code_snapshot})
-                            </td>
-                            <td className="py-1.5 px-3 font-semibold text-slate-900">{valStr}</td>
-                            <td className="py-1.5 px-3">
-                              <span
-                                className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                                  isPass
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : isFail
-                                    ? 'bg-rose-100 text-rose-800'
-                                    : r.evaluation_status === 'WARNING'
-                                    ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-slate-100 text-slate-600'
-                                }`}
-                              >
-                                {r.evaluation_status}
-                              </span>
-                            </td>
-                            <td className="py-1.5 px-3 font-sans text-slate-600 text-xs">
-                              {r.applied_rule_version ? `Rule v${r.applied_rule_version}` : 'Default SOP'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div className="border-t border-border/80 p-2">
+                  <DataTable columns={resultColumns} rows={session.results} getRowId={(r) => r.id} />
                 </div>
               </details>
             )}

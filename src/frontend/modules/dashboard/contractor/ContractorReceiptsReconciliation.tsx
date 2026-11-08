@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { MilkProcessLog } from '@backend/core/types';
-import { ContractorReceiptsMetrics } from './contractorManagerTypes';
+import { ContractorReceiptsMetrics, ContractorVehicleVisit } from './contractorManagerTypes';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import {
   buildContractorVehicleVisits,
   computeContractorReceiptsMetrics,
@@ -16,7 +17,6 @@ import {
   Search,
   Filter,
   ShieldCheck,
-  FileSpreadsheet,
   AlertCircle,
   Building2,
 } from 'lucide-react';
@@ -73,6 +73,180 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
     });
   }, [visits, searchQuery, receiptFilter]);
 
+  const deltaCell = (value: number | null | undefined, text: string | null | undefined) =>
+    value != null ? (
+      <span
+        className={
+          value === 0 ? 'text-slate-600' : value > 0 ? 'text-emerald-700' : 'text-rose-700'
+        }
+      >
+        {text}
+      </span>
+    ) : (
+      <span className="text-slate-400 font-sans text-xs font-normal">—</span>
+    );
+
+  const columns: DataColumn<ContractorVehicleVisit>[] = [
+    {
+      key: 'vehicle',
+      header: 'Vehicle',
+      label: 'Vehicle',
+      primary: true,
+      cell: (v) => (
+        <div className="tabular-nums font-semibold text-slate-900">
+          <div>
+            <span>{v.vehicleNumber}</span>
+            {v.tokenNumber && (
+              <span className="block text-xs text-slate-400 font-normal">Tk: {v.tokenNumber}</span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'reception',
+      header: 'Reception #',
+      label: 'Reception #',
+      cell: (v) => <span className="tabular-nums text-slate-600 text-xs">{v.receptionNumber}</span>,
+    },
+    {
+      key: 'date',
+      header: 'Business Date',
+      label: 'Business Date',
+      cell: (v) => <span className="text-slate-600 tabular-nums text-xs">{v.operationalDate || '—'}</span>,
+    },
+    {
+      key: 'dispatchGross',
+      header: 'Dispatch Gross (L)',
+      label: 'Dispatch Gross (L)',
+      align: 'right',
+      cell: (v) => (
+        <span className="tabular-nums font-semibold text-slate-900">
+          {v.grossLiters != null ? `${v.grossLiters.toLocaleString()} L` : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'plantGross',
+      header: 'Plant Final Gross (L)',
+      label: 'Plant Final Gross (L)',
+      align: 'right',
+      cell: (v) => (
+        <span className="tabular-nums font-semibold">
+          {v.authoritativeFinalLiters != null ? (
+            <span className="text-emerald-700">{v.authoritativeFinalLiters.toLocaleString()} L</span>
+          ) : (
+            <span className="text-slate-400 font-sans text-xs font-normal">Pending</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'grossDelta',
+      header: 'Gross Delta',
+      label: 'Gross Delta',
+      align: 'right',
+      cell: (v) => <span className="tabular-nums font-semibold">{deltaCell(v.grossVarianceLiters, v.grossVarianceText)}</span>,
+    },
+    {
+      key: 'grossDeltaPct',
+      header: 'Gross Delta %',
+      label: 'Gross Delta %',
+      align: 'right',
+      cell: (v) => (
+        <span className="tabular-nums font-semibold">{deltaCell(v.grossVariancePercent, v.grossVariancePercentText)}</span>
+      ),
+    },
+    {
+      key: 'dispatch13',
+      header: 'Dispatch @13TS',
+      label: 'Dispatch @13TS',
+      align: 'right',
+      cell: (v) => (
+        <span className="tabular-nums text-slate-800">
+          {v.dispatch13TsLiters != null ? (
+            <span>{v.dispatch13TsLiters.toLocaleString()} L</span>
+          ) : (
+            <span className="text-slate-400 font-sans text-xs font-normal">Unavailable</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'plant13',
+      header: 'Plant Final @13TS',
+      label: 'Plant Final @13TS',
+      align: 'right',
+      cell: (v) => (
+        <span className="tabular-nums font-semibold">
+          {v.plantFinalAt13TsLiters != null ? (
+            <span className="text-slate-900">{v.plantFinalAt13TsLiters.toLocaleString()} L</span>
+          ) : v.isHistoricalReceiptWithoutCommercialSnapshot ? (
+            <span className="text-slate-500 font-sans text-xs font-semibold">Unavailable</span>
+          ) : (
+            <span className="text-slate-400 font-sans text-xs font-normal">Pending</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'delta13',
+      header: '@13TS Delta',
+      label: '@13TS Delta',
+      align: 'right',
+      cell: (v) => <span className="tabular-nums font-semibold">{deltaCell(v.at13TsVarianceLiters, v.at13TsVarianceText)}</span>,
+    },
+    {
+      key: 'delta13Pct',
+      header: '@13TS Delta %',
+      label: '@13TS Delta %',
+      align: 'right',
+      cell: (v) => (
+        <span className="tabular-nums font-semibold">{deltaCell(v.at13TsVariancePercent, v.at13TsVariancePercentText)}</span>
+      ),
+    },
+    {
+      key: 'silo',
+      header: 'Destination Silo',
+      label: 'Destination Silo',
+      cell: (v) => (
+        <span className="tabular-nums text-slate-700 text-xs">
+          {v.siloStorageId ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200 font-semibold">
+              <Building2 className="w-3 h-3 text-blue-700" />
+              <span>{v.siloStorageId}</span>
+            </span>
+          ) : (
+            '—'
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cell: (v) =>
+        v.finalReceiptExists ? (
+          <div>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+              Final Receipt
+            </span>
+            {v.finalReceiptTransactionId && (
+              <span className="block text-xs tabular-nums text-slate-400 mt-0.5">Tx #{v.finalReceiptTransactionId}</span>
+            )}
+          </div>
+        ) : v.secondWeightTimestamp ? (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+            Receipt Pending
+          </span>
+        ) : (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+            {v.journeyStageLabel}
+          </span>
+        ),
+    },
+  ];
   if (error) {
     return (
       <div className="bg-card border-border p-6 rounded-2xl border text-center space-y-2">
@@ -257,193 +431,14 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           </span>
         </div>
 
-        {isLoading ? (
-          <div className="py-12 text-center text-xs font-semibold text-slate-500">
-            Loading receipt records…
-          </div>
-        ) : filteredVisits.length === 0 ? (
-          <div className="bg-card border-border py-12 px-4 rounded-xl border border-dashed text-center space-y-2">
-            <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto" />
-            <h4 className="text-sm font-semibold text-slate-700">No Receipt Records</h4>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              No records
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-600 font-semibold text-xs bg-slate-50/70">
-                  <th className="py-2.5 px-3">Vehicle</th>
-                  <th className="py-2.5 px-3">Reception #</th>
-                  <th className="py-2.5 px-3">Business Date</th>
-                  <th className="py-2.5 px-3 text-right">Dispatch Gross (L)</th>
-                  <th className="py-2.5 px-3 text-right">Plant Final Gross (L)</th>
-                  <th className="py-2.5 px-3 text-right">Gross Delta</th>
-                  <th className="py-2.5 px-3 text-right">Gross Delta %</th>
-                  <th className="py-2.5 px-3 text-right">Dispatch @13TS</th>
-                  <th className="py-2.5 px-3 text-right">Plant Final @13TS</th>
-                  <th className="py-2.5 px-3 text-right">@13TS Delta</th>
-                  <th className="py-2.5 px-3 text-right">@13TS Delta %</th>
-                  <th className="py-2.5 px-3">Destination Silo</th>
-                  <th className="py-2.5 px-3">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredVisits.map((v) => (
-                  <tr key={v.visitId} className="hover:bg-slate-50/80 transition">
-                    <td className="py-3.5 px-3 tabular-nums font-semibold text-slate-900">
-                      <div>
-                        <span>{v.vehicleNumber}</span>
-                        {v.tokenNumber && (
-                          <span className="block text-xs text-slate-400 font-normal">
-                            Tk: {v.tokenNumber}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-3 tabular-nums text-slate-600 text-xs">
-                      {v.receptionNumber}
-                    </td>
-                    <td className="py-3.5 px-3 text-slate-600 tabular-nums text-xs">
-                      {v.operationalDate || '—'}
-                    </td>
-                    <td className="py-3.5 px-3 text-right tabular-nums font-semibold text-slate-900">
-                      {v.grossLiters != null ? `${v.grossLiters.toLocaleString()} L` : '—'}
-                    </td>
-                    <td className="py-3.5 px-3 text-right tabular-nums font-semibold">
-                      {v.authoritativeFinalLiters != null ? (
-                        <span className="text-emerald-700">
-                          {v.authoritativeFinalLiters.toLocaleString()} L
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 font-sans text-xs font-normal">Pending</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 text-right tabular-nums font-semibold">
-                      {v.grossVarianceLiters != null ? (
-                        <span
-                          className={
-                            v.grossVarianceLiters === 0
-                              ? 'text-slate-600'
-                              : v.grossVarianceLiters > 0
-                              ? 'text-emerald-700'
-                              : 'text-rose-700'
-                          }
-                        >
-                          {v.grossVarianceText}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 font-sans text-xs font-normal">—</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 text-right tabular-nums font-semibold">
-                      {v.grossVariancePercent != null ? (
-                        <span
-                          className={
-                            v.grossVariancePercent === 0
-                              ? 'text-slate-600'
-                              : v.grossVariancePercent > 0
-                              ? 'text-emerald-700'
-                              : 'text-rose-700'
-                          }
-                        >
-                          {v.grossVariancePercentText}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 font-sans text-xs font-normal">—</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 text-right tabular-nums text-slate-800">
-                      {v.dispatch13TsLiters != null ? (
-                        <span>{v.dispatch13TsLiters.toLocaleString()} L</span>
-                      ) : (
-                        <span className="text-slate-400 font-sans text-xs font-normal">Unavailable</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 text-right tabular-nums font-semibold">
-                      {v.plantFinalAt13TsLiters != null ? (
-                        <span className="text-slate-900">
-                          {v.plantFinalAt13TsLiters.toLocaleString()} L
-                        </span>
-                      ) : v.isHistoricalReceiptWithoutCommercialSnapshot ? (
-                        <span className="text-slate-500 font-sans text-xs font-semibold">Unavailable</span>
-                      ) : (
-                        <span className="text-slate-400 font-sans text-xs font-normal">Pending</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 text-right tabular-nums font-semibold">
-                      {v.at13TsVarianceLiters != null ? (
-                        <span
-                          className={
-                            v.at13TsVarianceLiters === 0
-                              ? 'text-slate-600'
-                              : v.at13TsVarianceLiters > 0
-                              ? 'text-emerald-700'
-                              : 'text-rose-700'
-                          }
-                        >
-                          {v.at13TsVarianceText}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 font-sans text-xs font-normal">—</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 text-right tabular-nums font-semibold">
-                      {v.at13TsVariancePercent != null ? (
-                        <span
-                          className={
-                            v.at13TsVariancePercent === 0
-                              ? 'text-slate-600'
-                              : v.at13TsVariancePercent > 0
-                              ? 'text-emerald-700'
-                              : 'text-rose-700'
-                          }
-                        >
-                          {v.at13TsVariancePercentText}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 font-sans text-xs font-normal">—</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3 tabular-nums text-slate-700 text-xs">
-                      {v.siloStorageId ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200 font-semibold">
-                          <Building2 className="w-3 h-3 text-blue-700" />
-                          <span>{v.siloStorageId}</span>
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="py-3.5 px-3">
-                      {v.finalReceiptExists ? (
-                        <div>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            Final Receipt
-                          </span>
-                          {v.finalReceiptTransactionId && (
-                            <span className="block text-xs tabular-nums text-slate-400 mt-0.5">
-                              Tx #{v.finalReceiptTransactionId}
-                            </span>
-                          )}
-                        </div>
-                      ) : v.secondWeightTimestamp ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                          Receipt Pending
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                          {v.journeyStageLabel}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DataTable
+          columns={columns}
+          rows={filteredVisits}
+          getRowId={(v) => String(v.visitId)}
+          loading={isLoading}
+          emptyTitle="No Receipt Records"
+          emptyDescription="No records"
+        />
       </div>
     </div>
   );

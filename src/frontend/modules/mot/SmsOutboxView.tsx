@@ -8,6 +8,7 @@ import { AlertTriangle, CheckCircle2, Clock, Send, MessageSquare, Copy, Check, Q
 import { getErrorMessage } from '@/lib/errors';
 import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 
 interface SmsOutboxViewProps {
   currentUser: User | null;
@@ -96,6 +97,109 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
     }
   };
 
+  const columns: DataColumn<SmsOutboxItem>[] = [
+    {
+      key: 'recipient',
+      header: 'Shop & Recipient',
+      label: 'Shop & Recipient',
+      primary: true,
+      cell: (item) => (
+        <div>
+          <div className="font-semibold text-foreground">{item.recipient_phone}</div>
+          <div className="text-xs text-muted-foreground">
+            {item.collection?.shop_name} ({item.collection?.shop_code})
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'message',
+      header: 'WhatsApp Receipt Message',
+      label: 'WhatsApp Receipt Message',
+      className: 'max-w-xs',
+      cell: (item) => (
+        <div className="bg-card border-border p-2.5 rounded-lg border text-xs tabular-nums text-foreground whitespace-pre-line wrap-break-word font-mono">
+          {item.message_body}
+        </div>
+      ),
+    },
+    {
+      key: 'milk',
+      header: 'Milk Details',
+      label: 'Milk Details',
+      cell: (item) => (
+        <div>
+          <div className="tabular-nums font-semibold text-blue-900">{item.collection?.collection_number}</div>
+          <div className="text-xs text-secondary-foreground">{item.collection?.gross_liters} Liters</div>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cell: (item) => (
+        <span
+          className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase inline-flex items-center space-x-1 ${
+            item.status === 'SENT'
+              ? 'bg-emerald-100 text-emerald-800'
+              : item.status === 'FAILED'
+              ? 'bg-rose-100 text-rose-800'
+              : 'bg-amber-100 text-amber-800'
+          }`}
+        >
+          {item.status === 'SENT' && <CheckCircle2 className="w-2.5 h-2.5 mr-1" />}
+          {item.status === 'PENDING' && <Clock className="w-2.5 h-2.5 mr-1" />}
+          {item.status}
+        </span>
+      ),
+    },
+    {
+      key: 'logged',
+      header: 'Logged At',
+      label: 'Logged At',
+      cell: (item) => <span className="text-muted-foreground text-xs">{formatDateTime(item.created_at)}</span>,
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (item) => (
+        <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={() => handleCopy(item.id, item.message_body)}
+            className="min-h-11 min-w-11 inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-border text-secondary-foreground hover:bg-muted transition"
+            title="Copy receipt to clipboard"
+          >
+            {copiedId === item.id ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-emerald-700">Copied</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                <span>Copy</span>
+              </>
+            )}
+          </button>
+          <a
+            href={`https://wa.me/${item.recipient_phone.replace(/\D/g, '').replace(/^0/, '92')}?text=${encodeURIComponent(item.message_body)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition"
+            title={`Send WhatsApp message to ${item.recipient_phone}`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>WhatsApp</span>
+          </a>
+        </div>
+      ),
+    },
+  ];
   return (
     <div className="space-y-4 animate-panel-in">
       <div className="p-4 bg-card rounded-2xl border border-border shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -167,111 +271,13 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
         </div>
       )}
 
-      <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-border bg-subtle text-xs font-semibold text-muted-foreground">
-                <th className="p-3">Shop & Recipient</th>
-                <th className="p-3">WhatsApp Receipt Message</th>
-                <th className="p-3">Milk Details</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Logged At</th>
-                <th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border text-xs">
-              {loading && items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground font-semibold">
-                    Loading receipts queue…
-                  </td>
-                </tr>
-              ) : items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                    No WhatsApp receipt records found.
-                  </td>
-                </tr>
-              ) : (
-                items.map((item) => (
-                  <tr key={item.id} className="hover:bg-subtle">
-                    <td className="p-3">
-                      <div className="font-semibold text-foreground">{item.recipient_phone}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {item.collection?.shop_name} ({item.collection?.shop_code})
-                      </div>
-                    </td>
-                    <td className="p-3 max-w-xs">
-                      <div className="bg-card border-border p-2.5 rounded-lg border text-xs tabular-nums text-foreground whitespace-pre-line wrap-break-word font-mono">
-                        {item.message_body}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="tabular-nums font-semibold text-blue-900">
-                        {item.collection?.collection_number}
-                      </div>
-                      <div className="text-xs text-secondary-foreground">
-                        {item.collection?.gross_liters} Liters
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase inline-flex items-center space-x-1 ${
-                          item.status === 'SENT'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : item.status === 'FAILED'
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
-                      >
-                        {item.status === 'SENT' && <CheckCircle2 className="w-2.5 h-2.5 mr-1" />}
-                        {item.status === 'PENDING' && <Clock className="w-2.5 h-2.5 mr-1" />}
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="p-3 text-muted-foreground text-xs">
-                      {formatDateTime(item.created_at)}
-                    </td>
-                    <td className="p-3 text-right">
-                      <div className="inline-flex items-center justify-end space-x-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(item.id, item.message_body)}
-                          className="min-h-11 min-w-11 inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-border text-secondary-foreground hover:bg-muted transition"
-                          title="Copy receipt to clipboard"
-                        >
-                          {copiedId === item.id ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span className="text-emerald-700">Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span>Copy</span>
-                            </>
-                          )}
-                        </button>
-                        <a
-                          href={`https://wa.me/${item.recipient_phone.replace(/\D/g, '').replace(/^0/, '92')}?text=${encodeURIComponent(item.message_body)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition"
-                          title={`Send WhatsApp message to ${item.recipient_phone}`}
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                          <span>WhatsApp</span>
-                        </a>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={items}
+        getRowId={(item) => item.id}
+        loading={loading && items.length === 0}
+        emptyTitle="No WhatsApp receipt records found."
+      />
     </div>
   );
 };

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Search } from 'lucide-react';
-import { TableWrapper } from '@/components/ui/table-wrapper';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { ZmccPager } from '../shared/ZmccDrawer';
 import { MyCorrectionTicketsButton } from '@/frontend/modules/governance/MyCorrectionTickets';
 import type { CorrectionTarget, HcArrivalRow, McArrivalRow } from './arrivalTypes';
@@ -57,32 +57,138 @@ export const HistoryPanel: React.FC<Props> = (p) => {
     </span>
   );
 
-  const actionCell = (target: CorrectionTarget, correctCls: string) =>
-    showAction && (
-      <td className="p-3 text-right">
-        {p.canDirectCorrect ? (
-          <button
-            type="button"
-            onClick={() => p.onCorrect(target)}
-            className={`min-h-[44px] px-3 text-xs font-semibold rounded-lg cursor-pointer ${correctCls}`}
-          >
-            Correct
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => p.onRequestCorrection(target.type, target.record)}
-            className="min-h-[44px] px-3 text-xs font-semibold text-amber-700 hover:bg-amber-50 rounded-lg border border-amber-200 cursor-pointer"
-          >
-            Request correction
-          </button>
-        )}
-      </td>
+  const actionButton = (target: CorrectionTarget, correctCls: string) =>
+    p.canDirectCorrect ? (
+      <button
+        type="button"
+        onClick={() => p.onCorrect(target)}
+        className={`min-h-[44px] px-3 text-xs font-semibold rounded-lg cursor-pointer ${correctCls}`}
+      >
+        Correct
+      </button>
+    ) : (
+      <button
+        type="button"
+        onClick={() => p.onRequestCorrection(target.type, target.record)}
+        className="min-h-[44px] px-3 text-xs font-semibold text-amber-700 hover:bg-amber-50 rounded-lg border border-amber-200 cursor-pointer"
+      >
+        Request correction
+      </button>
     );
 
-  const rowCls = 'hover:bg-slate-50/60 transition-colors';
-  const none = p.mcArrivals.length === 0 && p.hcArrivals.length === 0;
-  const colCount = 6 + (p.canDirectCorrect ? 1 : 0) + (showAction ? 1 : 0);
+  type HistoryRow = { kind: 'MC'; arr: McArrivalRow } | { kind: 'HC'; arr: HcArrivalRow };
+  const rows: HistoryRow[] = [
+    ...((p.historyType === 'ALL' || p.historyType === 'MC' ? p.mcArrivals : []).map((arr) => ({ kind: 'MC' as const, arr }))),
+    ...((p.historyType === 'ALL' || p.historyType === 'HC' ? p.hcArrivals : []).map((arr) => ({ kind: 'HC' as const, arr }))),
+  ];
+
+  const columns: DataColumn<HistoryRow>[] = [
+    {
+      key: 'type',
+      header: 'Type',
+      label: 'Type',
+      cell: (r) =>
+        r.kind === 'MC' ? (
+          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Mobile Tester</span>
+        ) : (
+          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">HC</span>
+        ),
+    },
+    {
+      key: 'zmcc_token',
+      header: 'ZMCC Token',
+      label: 'ZMCC Token',
+      primary: true,
+      cell: (r) => <span className="tabular-nums font-semibold text-foreground">{r.arr.zmcc_token}</span>,
+    },
+    {
+      key: 'slip_token',
+      header: 'Route / Slip Token',
+      label: 'Route / Slip Token',
+      cell: (r) =>
+        r.kind === 'MC' ? (
+          <div className="tabular-nums font-semibold text-secondary-foreground">
+            <div>{r.arr.raw_milk_token_number || '—'}</div>
+            {r.arr.route_milk_token && (
+              <div className="text-xs text-muted-foreground font-sans font-normal mt-0.5">
+                Legacy Route Milk Token: <span className="tabular-nums">{r.arr.route_milk_token}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="tabular-nums font-semibold text-emerald-900">
+            <div>{r.arr.raw_milk_token_number || '—'}</div>
+            {r.arr.rmr_number && (
+              <div className="text-xs text-muted-foreground font-sans font-normal mt-0.5">
+                Legacy RMR: <span className="tabular-nums">{r.arr.rmr_number}</span>
+              </div>
+            )}
+          </div>
+        ),
+    },
+    {
+      key: 'vehicle',
+      header: 'Vehicle / Supplier',
+      label: 'Vehicle / Supplier',
+      cell: (r) =>
+        r.kind === 'MC' ? (
+          <div>
+            <div className="font-semibold text-foreground">{r.arr.journey?.vehicle_number || '—'}</div>
+            <div className="text-xs text-muted-foreground">
+              {r.arr.journey?.journey_number} ({r.arr.journey?.route_code})
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="font-semibold text-foreground">{r.arr.vehicle_number}</div>
+            <div className="text-xs text-secondary-foreground font-medium">
+              {r.arr.local_supplier?.name}{' '}
+              <span className="tabular-nums text-muted-foreground">({r.arr.local_supplier?.local_supplier_code})</span>
+            </div>
+            {r.arr.milk_source_name_snapshot && (
+              <div className="text-xs font-semibold text-emerald-800">Source: {r.arr.milk_source_name_snapshot}</div>
+            )}
+          </div>
+        ),
+    },
+    {
+      key: 'arrival',
+      header: 'Arrival Time (PKT)',
+      label: 'Arrival Time (PKT)',
+      cell: (r) => <span className="text-secondary-foreground font-medium">{fmtTime(r.arr.arrival_timestamp)}</span>,
+    },
+    {
+      key: 'recorded_by',
+      header: 'Recorded By',
+      label: 'Recorded By',
+      cell: (r) => <span className="text-secondary-foreground">{r.arr.recorded_by?.full_name || r.arr.recorded_by?.username}</span>,
+    },
+    ...(p.canDirectCorrect
+      ? [
+          {
+            key: 'corrections',
+            header: 'Corrections',
+            label: 'Corrections',
+            cell: (r: HistoryRow) => savesBadge(r.arr.correction_count),
+          },
+        ]
+      : []),
+    ...(showAction
+      ? [
+          {
+            key: 'actions',
+            header: 'Action',
+            label: 'Action',
+            actions: true,
+            align: 'right' as const,
+            cell: (r: HistoryRow) =>
+              r.kind === 'MC'
+                ? actionButton({ type: 'MC', record: r.arr }, 'text-primary hover:bg-blue-50')
+                : actionButton({ type: 'HC', record: r.arr }, 'text-emerald-700 hover:bg-emerald-50'),
+          },
+        ]
+      : []),
+  ];
 
   return (
     <div className="space-y-4 animate-panel-in">
@@ -125,101 +231,21 @@ export const HistoryPanel: React.FC<Props> = (p) => {
         </div>
       </div>
 
-      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs">
-        <TableWrapper>
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-subtle border-b border-border text-xs text-muted-foreground font-semibold">
-                <th className="p-3">Type</th>
-                <th className="p-3">ZMCC Token</th>
-                <th className="p-3">Route / Slip Token</th>
-                <th className="p-3">Vehicle / Supplier</th>
-                <th className="p-3">Arrival Time (PKT)</th>
-                <th className="p-3">Recorded By</th>
-                {p.canDirectCorrect && <th className="p-3">Corrections</th>}
-                {showAction && <th className="p-3 text-right">Action</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {(p.historyType === 'ALL' || p.historyType === 'MC') &&
-                p.mcArrivals.map((arr) => (
-                  <tr key={`mc-${arr.id}`} className={rowCls}>
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Mobile Tester</span>
-                    </td>
-                    <td className="p-3 tabular-nums font-semibold text-foreground">{arr.zmcc_token}</td>
-                    <td className="p-3 tabular-nums font-semibold text-secondary-foreground">
-                      <div>{arr.raw_milk_token_number || '—'}</div>
-                      {arr.route_milk_token && (
-                        <div className="text-xs text-muted-foreground font-sans font-normal mt-0.5">
-                          Legacy Route Milk Token: <span className="tabular-nums">{arr.route_milk_token}</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <div className="font-semibold text-foreground">{arr.journey?.vehicle_number || '—'}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {arr.journey?.journey_number} ({arr.journey?.route_code})
-                      </div>
-                    </td>
-                    <td className="p-3 text-secondary-foreground font-medium">{fmtTime(arr.arrival_timestamp)}</td>
-                    <td className="p-3 text-secondary-foreground">{arr.recorded_by?.full_name || arr.recorded_by?.username}</td>
-                    {p.canDirectCorrect && <td className="p-3">{savesBadge(arr.correction_count)}</td>}
-                    {actionCell({ type: 'MC', record: arr }, 'text-primary hover:bg-blue-50')}
-                  </tr>
-                ))}
-
-              {(p.historyType === 'ALL' || p.historyType === 'HC') &&
-                p.hcArrivals.map((arr) => (
-                  <tr key={`hc-${arr.id}`} className={rowCls}>
-                    <td className="p-3">
-                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">HC</span>
-                    </td>
-                    <td className="p-3 tabular-nums font-semibold text-foreground">{arr.zmcc_token}</td>
-                    <td className="p-3 tabular-nums font-semibold text-emerald-900">
-                      <div>{arr.raw_milk_token_number || '—'}</div>
-                      {arr.rmr_number && (
-                        <div className="text-xs text-muted-foreground font-sans font-normal mt-0.5">
-                          Legacy RMR: <span className="tabular-nums">{arr.rmr_number}</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <div className="font-semibold text-foreground">{arr.vehicle_number}</div>
-                      <div className="text-xs text-secondary-foreground font-medium">
-                        {arr.local_supplier?.name}{' '}
-                        <span className="tabular-nums text-muted-foreground">({arr.local_supplier?.local_supplier_code})</span>
-                      </div>
-                      {arr.milk_source_name_snapshot && (
-                        <div className="text-xs font-semibold text-emerald-800">Source: {arr.milk_source_name_snapshot}</div>
-                      )}
-                    </td>
-                    <td className="p-3 text-secondary-foreground font-medium">{fmtTime(arr.arrival_timestamp)}</td>
-                    <td className="p-3 text-secondary-foreground">{arr.recorded_by?.full_name || arr.recorded_by?.username}</td>
-                    {p.canDirectCorrect && <td className="p-3">{savesBadge(arr.correction_count)}</td>}
-                    {actionCell({ type: 'HC', record: arr }, 'text-emerald-700 hover:bg-emerald-50')}
-                  </tr>
-                ))}
-
-              {none && (
-                <tr>
-                  <td colSpan={colCount} className="p-8 text-center text-xs text-muted-foreground">
-                    No records.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </TableWrapper>
-
-        <ZmccPager
-          page={p.historyPage}
-          totalPages={p.totalPages}
-          onPage={p.onPageChange}
-          disabled={p.loading}
-          summary={<> ({p.totalRecords} records)</>}
-        />
-      </div>
+      <DataTable
+        columns={columns}
+        rows={rows}
+        getRowId={(r) => `${r.kind === 'MC' ? 'mc' : 'hc'}-${r.arr.id}`}
+        emptyTitle="No records."
+        footer={
+          <ZmccPager
+            page={p.historyPage}
+            totalPages={p.totalPages}
+            onPage={p.onPageChange}
+            disabled={p.loading}
+            summary={<> ({p.totalRecords} records)</>}
+          />
+        }
+      />
     </div>
   );
 };

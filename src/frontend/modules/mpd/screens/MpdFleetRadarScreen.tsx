@@ -7,6 +7,7 @@ import { formatMetric, NO_DATA } from '../format';
 import { LiveMap, type LiveMapMarker, type LiveMapPin, type LiveMapRoute, type LiveMapVehicle } from '@/frontend/modules/shared/map/LiveMap';
 import { buildJourneyOverlays, JOURNEY_COLORS, type JourneyOverlayData } from '@/frontend/modules/shared/map/journeyOverlays';
 import { Pager, paginate, pageCount } from '@/frontend/modules/dashboard/components/Pager';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { formatTime } from '@/lib/format';
 
 /** Optional live-position fields. Shown on the map only when the overview API returns them. */
@@ -50,6 +51,159 @@ interface MpdFleetRadarScreenProps {
   routes: MotRouteTelemetry[];
   substitutes?: EmergencySubstituteTelemetry[];
 }
+
+const tankerColumns: DataColumn<InTransitTankerTelemetry>[] = [
+  { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', primary: true, cell: (t) => <div className="tabular-nums font-semibold text-foreground">{t.vehicleNumber}</div> },
+  {
+    key: 'origin',
+    header: 'Origin ZMCC',
+    label: 'Origin ZMCC',
+    cell: (t) => (
+      <div>
+        <div className="font-semibold text-foreground">{t.sourceName ?? NO_DATA}</div>
+        <div className="text-muted-foreground tabular-nums text-xs">{t.sourceCode}</div>
+      </div>
+    ),
+  },
+  {
+    key: 'volume',
+    header: 'Volume',
+    label: 'Volume',
+    align: 'right',
+    cell: (t) => (
+      <div>
+        <div className="tabular-nums font-semibold text-foreground">{t.grossLiters.toLocaleString()} L</div>
+        <div className="text-muted-foreground tabular-nums text-xs">{formatMetric(t.at13tsLiters, ' L')} @13%TS</div>
+      </div>
+    ),
+  },
+  {
+    key: 'quality',
+    header: 'Quality (Fat / LR)',
+    label: 'Quality (Fat / LR)',
+    align: 'center',
+    cell: (t) => (
+      <span className="tabular-nums">
+        <span className="font-semibold text-foreground">{formatMetric(t.fatPercent, '%')}</span>
+        <span className="text-muted-foreground mx-1">|</span>
+        <span className="font-semibold text-foreground">{formatMetric(t.lr)}</span>
+      </span>
+    ),
+  },
+  {
+    key: 'temp',
+    header: 'Temp',
+    label: 'Temp',
+    align: 'center',
+    cell: (t) =>
+      t.temperatureCelsius === null ? (
+        <span className="text-muted-foreground">{NO_DATA}</span>
+      ) : (
+        <span
+          className={`inline-flex items-center gap-1 tabular-nums font-semibold px-2 py-0.5 rounded ${
+            t.temperatureCelsius <= 4.0
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              : t.temperatureCelsius <= 6.0
+              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+              : 'bg-rose-50 text-rose-700 border border-rose-200'
+          }`}
+        >
+          <Thermometer className="w-3 h-3" />
+          {t.temperatureCelsius}°C
+        </span>
+      ),
+  },
+  {
+    key: 'departed',
+    header: 'Departed',
+    label: 'Departed',
+    cell: (t) => (
+      <div className="flex items-center gap-1 text-secondary-foreground">
+        <Clock className="w-3 h-3 text-muted-foreground" />
+        <span className="tabular-nums">{formatTime(t.departureTime)}</span>
+      </div>
+    ),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    label: 'Status',
+    align: 'center',
+    cell: (t) => (
+      <span className="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-muted text-foreground border border-border">{t.status}</span>
+    ),
+  },
+];
+
+const routeColumns: DataColumn<MotRouteTelemetry>[] = [
+  {
+    key: 'route',
+    header: 'Route / Mobile Tester',
+    label: 'Route / Mobile Tester',
+    primary: true,
+    cell: (r) => (
+      <div>
+        <div className="font-semibold text-foreground">{r.routeName ?? NO_DATA}</div>
+        <div className="text-muted-foreground text-xs">
+          <span className="tabular-nums">{r.routeCode ?? NO_DATA}</span> · Mobile Tester: <strong className="text-secondary-foreground">{r.motName ?? NO_DATA}</strong>
+        </div>
+      </div>
+    ),
+  },
+  { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', cell: (r) => <span className="tabular-nums font-semibold text-foreground">{r.vehicleNumber ?? NO_DATA}</span> },
+  {
+    key: 'shops',
+    header: 'Shop Progress',
+    label: 'Shop progress',
+    align: 'center',
+    cell: (r) => (
+      <div className="inline-flex items-center gap-1.5">
+        <span className="tabular-nums font-semibold text-foreground">
+          {r.completedShops}/{r.totalShops}
+        </span>
+        <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+          <div className="h-full bg-primary" style={{ width: `${r.totalShops > 0 ? (r.completedShops / r.totalShops) * 100 : 0}%` }} />
+        </div>
+      </div>
+    ),
+  },
+  {
+    key: 'volume',
+    header: 'Collected Volume',
+    label: 'Collected volume',
+    align: 'right',
+    cell: (r) => <span className="tabular-nums font-semibold text-foreground">{r.grossLiters.toLocaleString()} L</span>,
+  },
+  {
+    key: 'quality',
+    header: 'Quality (Fat / LR)',
+    label: 'Quality (Fat / LR)',
+    align: 'center',
+    cell: (r) => (
+      <span className="tabular-nums">
+        <span className="font-semibold text-foreground">{formatMetric(r.fatPercent, '%')}</span>
+        <span className="text-muted-foreground mx-1">|</span>
+        <span className="font-semibold text-foreground">{formatMetric(r.lr)}</span>
+      </span>
+    ),
+  },
+  { key: 'arrival', header: 'ZMCC Arrival', label: 'ZMCC arrival', cell: (r) => <span className="text-secondary-foreground font-medium">{r.etaOrArrival}</span> },
+  {
+    key: 'status',
+    header: 'Status',
+    label: 'Status',
+    align: 'center',
+    cell: (r) => (
+      <span
+        className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${
+          r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-blue-50 text-primary border border-blue-200'
+        }`}
+      >
+        {r.status}
+      </span>
+    ),
+  },
+];
 
 export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
   tankers = [],
@@ -246,82 +400,15 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
             </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold">
-                  <th className="py-3 px-4">Vehicle</th>
-                  <th className="py-3 px-4">Origin ZMCC</th>
-                  <th className="py-3 px-4 text-right">Volume</th>
-                  <th className="py-3 px-4 text-center">Quality (Fat / LR)</th>
-                  <th className="py-3 px-4 text-center">Temp</th>
-                  <th className="py-3 px-4">Departed</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredTankers.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-6 text-center text-muted-foreground">
-                      No tankers
-                    </td>
-                  </tr>
-                ) : (
-                  paginate(filteredTankers, Math.min(TankerPage, pageCount(filteredTankers.length))).map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="tabular-nums font-semibold text-foreground">{t.vehicleNumber}</div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-foreground">{t.sourceName ?? NO_DATA}</div>
-                        <div className="text-muted-foreground tabular-nums text-xs">{t.sourceCode}</div>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="tabular-nums font-semibold text-foreground">{t.grossLiters.toLocaleString()} L</div>
-                        <div className="text-muted-foreground tabular-nums text-xs">{formatMetric(t.at13tsLiters, ' L')} @13%TS</div>
-                      </td>
-                      <td className="py-3 px-4 text-center tabular-nums">
-                        <span className="font-semibold text-foreground">{formatMetric(t.fatPercent, '%')}</span>
-                        <span className="text-muted-foreground mx-1">|</span>
-                        <span className="font-semibold text-foreground">{formatMetric(t.lr)}</span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        {t.temperatureCelsius === null ? (
-                          <span className="text-muted-foreground">{NO_DATA}</span>
-                        ) : (
-                          <span
-                            className={`inline-flex items-center gap-1 tabular-nums font-semibold px-2 py-0.5 rounded ${
-                              t.temperatureCelsius <= 4.0
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : t.temperatureCelsius <= 6.0
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : 'bg-rose-50 text-rose-700 border border-rose-200'
-                            }`}
-                          >
-                            <Thermometer className="w-3 h-3" />
-                            {t.temperatureCelsius}°C
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1 text-secondary-foreground">
-                          <Clock className="w-3 h-3 text-muted-foreground" />
-                          <span className="tabular-nums">
-                            {formatTime(t.departureTime)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-muted text-foreground border border-border">
-                          {t.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-<Pager page={Math.min(TankerPage, pageCount(filteredTankers.length))} totalPages={pageCount(filteredTankers.length)} total={filteredTankers.length} onPageChange={setTankerPage} />
+          <div className="p-3">
+            <DataTable
+              columns={tankerColumns}
+              rows={paginate(filteredTankers, Math.min(TankerPage, pageCount(filteredTankers.length)))}
+              getRowId={(t) => t.id}
+              emptyTitle="No tankers"
+              tableFrom="lg"
+              footer={<Pager page={Math.min(TankerPage, pageCount(filteredTankers.length))} totalPages={pageCount(filteredTankers.length)} total={filteredTankers.length} onPageChange={setTankerPage} />}
+            />
           </div>
         </div>
       )}
@@ -340,79 +427,15 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
             </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold">
-                  <th className="py-3 px-4">Route / Mobile Tester</th>
-                  <th className="py-3 px-4">Vehicle</th>
-                  <th className="py-3 px-4 text-center">Shop Progress</th>
-                  <th className="py-3 px-4 text-right">Collected Volume</th>
-                  <th className="py-3 px-4 text-center">Quality (Fat / LR)</th>
-                  <th className="py-3 px-4">ZMCC Arrival</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredRoutes.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-6 text-center text-muted-foreground">
-                      No active Mobile Tester field routes.
-                    </td>
-                  </tr>
-                ) : (
-                  paginate(filteredRoutes, Math.min(RoutePage, pageCount(filteredRoutes.length))).map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-foreground">{r.routeName ?? NO_DATA}</div>
-                        <div className="text-muted-foreground text-xs">
-                          <span className="tabular-nums">{r.routeCode ?? NO_DATA}</span> · Mobile Tester: <strong className="text-secondary-foreground">{r.motName ?? NO_DATA}</strong>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 tabular-nums font-semibold text-foreground">
-                        {r.vehicleNumber ?? NO_DATA}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <div className="inline-flex items-center gap-1.5">
-                          <span className="tabular-nums font-semibold text-foreground">
-                            {r.completedShops}/{r.totalShops}
-                          </span>
-                          <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary"
-                              style={{ width: `${r.totalShops > 0 ? (r.completedShops / r.totalShops) * 100 : 0}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-right tabular-nums font-semibold text-foreground">
-                        {r.grossLiters.toLocaleString()} L
-                      </td>
-                      <td className="py-3 px-4 text-center tabular-nums">
-                        <span className="font-semibold text-foreground">{formatMetric(r.fatPercent, '%')}</span>
-                        <span className="text-muted-foreground mx-1">|</span>
-                        <span className="font-semibold text-foreground">{formatMetric(r.lr)}</span>
-                      </td>
-                      <td className="py-3 px-4 text-secondary-foreground font-medium">
-                        {r.etaOrArrival}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span
-                          className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            r.status === 'COMPLETED'
-                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                              : 'bg-blue-50 text-primary border border-blue-200'
-                          }`}
-                        >
-                          {r.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-<Pager page={Math.min(RoutePage, pageCount(filteredRoutes.length))} totalPages={pageCount(filteredRoutes.length)} total={filteredRoutes.length} onPageChange={setRoutePage} />
+          <div className="p-3">
+            <DataTable
+              columns={routeColumns}
+              rows={paginate(filteredRoutes, Math.min(RoutePage, pageCount(filteredRoutes.length)))}
+              getRowId={(r) => r.id}
+              emptyTitle="No active Mobile Tester field routes."
+              tableFrom="lg"
+              footer={<Pager page={Math.min(RoutePage, pageCount(filteredRoutes.length))} totalPages={pageCount(filteredRoutes.length)} total={filteredRoutes.length} onPageChange={setRoutePage} />}
+            />
           </div>
         </div>
       )}

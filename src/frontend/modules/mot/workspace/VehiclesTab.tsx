@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import type { MotVehicleItem } from './types';
 
 interface Props {
@@ -16,56 +17,55 @@ export function vehicleStatusLabel(v: MotVehicleItem): { label: string; tone: st
   return { label: 'Free', tone: 'bg-emerald-100 text-emerald-800' };
 }
 
+const vehicleColumns: DataColumn<MotVehicleItem>[] = [
+  {
+    key: 'vehicle',
+    header: 'Vehicle Number',
+    label: 'Vehicle Number',
+    primary: true,
+    cell: (v) => <span className="tabular-nums font-semibold text-primary">{v.vehicle_number}</span>,
+  },
+  {
+    key: 'zmcc',
+    header: 'ZMCC Center',
+    label: 'ZMCC Center',
+    cell: (v) => <span className="font-medium text-secondary-foreground">{v.zmcc?.name}</span>,
+  },
+  {
+    key: 'journey',
+    header: 'Journey',
+    label: 'Journey',
+    cell: (v) =>
+      v.has_active_journey ? (
+        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">
+          #{v.active_journey?.journey_number}
+        </span>
+      ) : (
+        <span className="text-muted-foreground text-xs">None</span>
+      ),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    label: 'Status',
+    cell: (v) => {
+      const st = vehicleStatusLabel(v);
+      return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${st.tone}`}>{st.label}</span>;
+    },
+  },
+];
+
 /** Read-only fleet of the user's own ZMCC. Vehicles are registered and moved by the Data Executive. */
 export function VehiclesTab({ vehicles, loading }: Props) {
   return (
     <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden space-y-3 animate-panel-in">
-
-      {loading ? (
-        <div className="p-8 text-center text-xs font-semibold text-muted-foreground">Loading vehicles…</div>
-      ) : vehicles.length === 0 ? (
-        <div className="p-8 text-center text-xs font-semibold text-muted-foreground">
-          No Mobile Tester vehicles registered for this ZMCC.
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-muted/60 text-secondary-foreground font-semibold text-xs border-b border-border">
-              <tr>
-                <th className="p-3">Vehicle Number</th>
-                <th className="p-3">ZMCC Center</th>
-                <th className="p-3">Journey</th>
-                <th className="p-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {vehicles.map((v) => {
-                const st = vehicleStatusLabel(v);
-                return (
-                  <tr key={v.id} className="hover:bg-subtle">
-                    <td className="p-3 tabular-nums font-semibold text-primary">{v.vehicle_number}</td>
-                    <td className="p-3 font-medium text-secondary-foreground">{v.zmcc?.name}</td>
-                    <td className="p-3">
-                      {v.has_active_journey ? (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">
-                          #{v.active_journey?.journey_number}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">None</span>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${st.tone}`}>
-                        {st.label}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        columns={vehicleColumns}
+        rows={vehicles}
+        getRowId={(v) => v.id}
+        loading={loading}
+        emptyTitle="No Mobile Tester vehicles registered for this ZMCC."
+      />
     </div>
   );
 }

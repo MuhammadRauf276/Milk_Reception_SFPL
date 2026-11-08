@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Edit2, Plus, Search, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { fadeSlide } from '@/components/motion/presets';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
 import { Pager, pageCount, paginate } from '../../dashboard/components/Pager';
@@ -105,6 +106,77 @@ export function MilkSourcesPanel({
     }
   };
 
+  const columns: DataColumn<ErpSourceItem>[] = [
+    {
+      key: 'erp_code',
+      header: 'ERP Code',
+      label: 'ERP code',
+      primary: true,
+      cell: (source) => <span className="font-mono font-semibold text-foreground">{source.erp_code}</span>,
+    },
+    { key: 'name', header: 'Source Name', label: 'Source name', cell: (source) => <span className="font-semibold text-foreground">{source.name}</span> },
+    {
+      key: 'zmccs',
+      header: 'Assigned to ZMCCs',
+      label: 'Assigned to ZMCCs',
+      cell: (source) => {
+        const activeVis = source.zmcc_visibilities.filter((v) => v.is_active);
+        return (
+          <div className="flex flex-wrap gap-1">
+            {activeVis.length === 0 ? (
+              <span className="text-muted-foreground text-xs">Not assigned to any ZMCC</span>
+            ) : (
+              activeVis.map((v) => {
+                const isContractor = v.source_type === 'CONTRACTOR';
+                return (
+                  <span
+                    key={v.zmcc_id}
+                    className={`px-2 py-0.5 rounded-md text-xs font-semibold border ${
+                      isContractor ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-muted text-foreground border-border'
+                    }`}
+                  >
+                    [{v.zmcc_code}] {v.zmcc_name}
+                  </span>
+                );
+              })
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cell: (source) => (
+        <span
+          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+            source.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-muted-foreground'
+          }`}
+        >
+          {source.is_active ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+    {
+      key: 'action',
+      header: 'Action',
+      label: 'Action',
+      actions: true,
+      align: 'right',
+      cell: (source) => (
+        <button
+          type="button"
+          aria-label={`Edit ${source.name}`}
+          onClick={() => openEdit(source)}
+          className="inline-flex min-h-11 min-w-11 items-center justify-center hover:bg-subtle text-secondary-foreground hover:text-primary rounded-lg transition"
+        >
+          <Edit2 className="w-3.5 h-3.5" />
+        </button>
+      ),
+    },
+  ];
+
   return (
     <motion.div
       key="sources"
@@ -138,79 +210,13 @@ export function MilkSourcesPanel({
         </button>
       </div>
 
-      <div className="overflow-x-auto border border-border rounded-xl">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-subtle text-secondary-foreground font-semibold border-b border-border">
-            <tr>
-              <th className="py-2.5 px-3">ERP Code</th>
-              <th className="py-2.5 px-3">Source Name</th>
-              <th className="py-2.5 px-3">Assigned to ZMCCs</th>
-              <th className="py-2.5 px-3">Status</th>
-              <th className="py-2.5 px-3 text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {rows.map((source) => {
-              const activeVis = source.zmcc_visibilities.filter((v) => v.is_active);
-              return (
-                <tr key={source.id} className="hover:bg-subtle transition-colors">
-                  <td className="py-2.5 px-3 font-mono font-semibold text-foreground">{source.erp_code}</td>
-                  <td className="py-2.5 px-3 font-semibold text-foreground">{source.name}</td>
-                  <td className="py-2.5 px-3">
-                    <div className="flex flex-wrap gap-1">
-                      {activeVis.length === 0 ? (
-                        <span className="text-muted-foreground text-xs">Not assigned to any ZMCC</span>
-                      ) : (
-                        activeVis.map((v) => {
-                          const isContractor = v.source_type === 'CONTRACTOR';
-                          return (
-                            <span
-                              key={v.zmcc_id}
-                              className={`px-2 py-0.5 rounded-md text-xs font-semibold border ${
-                                isContractor
-                                  ? 'bg-amber-50 text-amber-900 border-amber-200'
-                                  : 'bg-muted text-foreground border-border'
-                              }`}
-                            >
-                              [{v.zmcc_code}] {v.zmcc_name}
-                            </span>
-                          );
-                        })
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-2.5 px-3">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        source.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {source.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-right">
-                    <button
-                      type="button"
-                      aria-label={`Edit ${source.name}`}
-                      onClick={() => openEdit(source)}
-                      className="inline-flex min-h-11 min-w-11 items-center justify-center hover:bg-subtle text-secondary-foreground hover:text-primary rounded-lg transition"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                  No milk sources found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={rows}
+        getRowId={(source) => source.id}
+        emptyTitle="No milk sources found."
+        tableFrom="lg"
+      />
 
       <Pager page={Math.min(page, totalPages)} totalPages={totalPages} total={filtered.length} onPageChange={setPage} />
 

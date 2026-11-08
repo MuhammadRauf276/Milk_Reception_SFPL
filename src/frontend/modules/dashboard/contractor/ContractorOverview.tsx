@@ -2,7 +2,8 @@
 
 import React, { useMemo } from 'react';
 import { MilkProcessLog } from '@backend/core/types';
-import { ContractorOverviewMetrics } from './contractorManagerTypes';
+import { ContractorOverviewMetrics, ContractorVehicleVisit } from './contractorManagerTypes';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import {
   buildContractorVehicleVisits,
   computeContractorOverview,
@@ -13,7 +14,6 @@ import {
   Receipt,
   Scale,
   Building2,
-  FileSpreadsheet,
   AlertCircle,
   Clock,
   ShieldCheck,
@@ -56,6 +56,99 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
     return computeContractorOverview(visits);
   }, [visits]);
 
+  const columns: DataColumn<ContractorVehicleVisit>[] = [
+    {
+      key: 'vehicle',
+      header: 'Vehicle',
+      label: 'Vehicle',
+      primary: true,
+      cell: (v) => <span className="tabular-nums font-semibold text-foreground">{v.vehicleNumber}</span>,
+    },
+    {
+      key: 'reception',
+      header: 'Reception #',
+      label: 'Reception #',
+      cell: (v) => <span className="tabular-nums text-secondary-foreground text-xs">{v.receptionNumber}</span>,
+    },
+    {
+      key: 'date',
+      header: 'Business Date',
+      label: 'Business Date',
+      cell: (v) => <span className="text-secondary-foreground tabular-nums text-xs">{v.operationalDate || '—'}</span>,
+    },
+    {
+      key: 'gross',
+      header: 'Gross Liters',
+      label: 'Gross Liters',
+      align: 'right',
+      cell: (v) => (
+        <span className="tabular-nums font-semibold text-foreground">
+          {v.grossLiters ? `${v.grossLiters.toLocaleString()} L` : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'stage',
+      header: 'Journey Stage',
+      label: 'Journey Stage',
+      cell: (v) => (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+            v.journeyStage === 'COMPLETED'
+              ? 'bg-emerald-100 text-emerald-800'
+              : v.journeyStage === 'RECEIPT_PENDING'
+              ? 'bg-amber-100 text-amber-800'
+              : v.journeyStage === 'UNLOADING'
+              ? 'bg-blue-100 text-blue-800'
+              : v.journeyStage === 'WEIGHBRIDGE_GROSS'
+              ? 'bg-blue-100 text-blue-800'
+              : v.journeyStage === 'PLANT_QA'
+              ? 'bg-amber-100 text-amber-800'
+              : v.journeyStage === 'GATE_ENTRY'
+              ? 'bg-blue-50 text-blue-800'
+              : 'bg-muted text-secondary-foreground'
+          }`}
+        >
+          {v.journeyStageLabel}
+        </span>
+      ),
+    },
+    {
+      key: 'qa',
+      header: 'QA Status',
+      label: 'QA Status',
+      cell: (v) => (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+            v.qaSummary.badgeType === 'ALL_ACCEPTED'
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              : v.qaSummary.badgeType === 'ALL_REJECTED'
+              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+              : v.qaSummary.badgeType === 'HAS_HOLD'
+              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+              : 'bg-subtle text-secondary-foreground border border-border'
+          }`}
+        >
+          {v.qaSummary.summaryText}
+        </span>
+      ),
+    },
+    {
+      key: 'final',
+      header: 'Final Received',
+      label: 'Final Received',
+      align: 'right',
+      cell: (v) => (
+        <span className="tabular-nums font-semibold">
+          {v.finalReceiptExists && v.authoritativeFinalLiters != null ? (
+            <span className="text-emerald-700">{v.authoritativeFinalLiters.toLocaleString()} L</span>
+          ) : (
+            <span className="text-muted-foreground">Pending</span>
+          )}
+        </span>
+      ),
+    },
+  ];
   if (error) {
     return (
       <div className="bg-card border-border p-6 rounded-2xl border text-center space-y-2">
@@ -141,98 +234,13 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
           </span>
         </div>
 
-        {isLoading ? (
-          <div className="py-12 text-center text-xs font-semibold text-muted-foreground">
-            Loading recent records…
-          </div>
-        ) : visits.length === 0 ? (
-          <div className="bg-card border-border py-12 px-4 rounded-xl border border-dashed text-center space-y-2">
-            <FileSpreadsheet className="w-8 h-8 text-muted-foreground mx-auto" />
-            <h4 className="text-sm font-semibold text-secondary-foreground">No records</h4>
-            <p className="text-xs text-muted-foreground max-w-md mx-auto">
-              No records
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-border text-secondary-foreground font-semibold text-xs bg-slate-50/70">
-                  <th className="py-2.5 px-3">Vehicle</th>
-                  <th className="py-2.5 px-3">Reception #</th>
-                  <th className="py-2.5 px-3">Business Date</th>
-                  <th className="py-2.5 px-3 text-right">Gross Liters</th>
-                  <th className="py-2.5 px-3">Journey Stage</th>
-                  <th className="py-2.5 px-3">QA Status</th>
-                  <th className="py-2.5 px-3 text-right">Final Received</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border font-medium">
-                {visits.slice(0, 10).map((v) => (
-                  <tr key={v.visitId} className="hover:bg-slate-50/80 transition">
-                    <td className="py-3 px-3 tabular-nums font-semibold text-foreground">
-                      {v.vehicleNumber}
-                    </td>
-                    <td className="py-3 px-3 tabular-nums text-secondary-foreground text-xs">
-                      {v.receptionNumber}
-                    </td>
-                    <td className="py-3 px-3 text-secondary-foreground tabular-nums text-xs">
-                      {v.operationalDate || '—'}
-                    </td>
-                    <td className="py-3 px-3 text-right tabular-nums font-semibold text-foreground">
-                      {v.grossLiters ? `${v.grossLiters.toLocaleString()} L` : '—'}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                          v.journeyStage === 'COMPLETED'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : v.journeyStage === 'RECEIPT_PENDING'
-                            ? 'bg-amber-100 text-amber-800'
-                            : v.journeyStage === 'UNLOADING'
-                            ? 'bg-blue-100 text-blue-800'
-                            : v.journeyStage === 'WEIGHBRIDGE_GROSS'
-                            ? 'bg-blue-100 text-blue-800'
-                            : v.journeyStage === 'PLANT_QA'
-                            ? 'bg-amber-100 text-amber-800'
-                            : v.journeyStage === 'GATE_ENTRY'
-                            ? 'bg-blue-50 text-blue-800'
-                            : 'bg-muted text-secondary-foreground'
-                        }`}
-                      >
-                        {v.journeyStageLabel}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                          v.qaSummary.badgeType === 'ALL_ACCEPTED'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : v.qaSummary.badgeType === 'ALL_REJECTED'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : v.qaSummary.badgeType === 'HAS_HOLD'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-subtle text-secondary-foreground border border-border'
-                        }`}
-                      >
-                        {v.qaSummary.summaryText}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right tabular-nums font-semibold">
-                      {v.finalReceiptExists && v.authoritativeFinalLiters != null ? (
-                        <span className="text-emerald-700">
-                          {v.authoritativeFinalLiters.toLocaleString()} L
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Pending</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DataTable
+          columns={columns}
+          rows={visits.slice(0, 10)}
+          getRowId={(v) => String(v.visitId)}
+          loading={isLoading}
+          emptyTitle="No records"
+        />
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import {
   RouteLossBarChart,
   HourlyHeatmapChart,
 } from './components/BIChartCards';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { StatCard } from '@/components/ui/stat-card';
 import { PageLoader } from '@/components/ui/spinner';
 import { getErrorMessage } from '@/lib/errors';
@@ -35,6 +36,34 @@ interface ZMCCDynamicBIAnalyticsScreenProps {
   currentUser: User | null;
   targetZmccId?: string;
 }
+
+type RouteRankingRow = ZmccBIAnalyticsData['routeRankings'][number];
+
+const routeColumns: DataColumn<RouteRankingRow>[] = [
+  { key: 'code', header: 'Route Code', label: 'Route code', primary: true, cell: (r) => <span className="tabular-nums font-semibold text-primary">{r.routeCode}</span> },
+  { key: 'name', header: 'Route Name', label: 'Route name', cell: (r) => <span className="font-semibold text-foreground">{r.name}</span> },
+  { key: 'intake', header: 'Intake Volume', label: 'Intake volume', cell: (r) => <span className="tabular-nums font-semibold text-foreground">{r.totalLiters.toLocaleString()} L</span> },
+  { key: 'ts13', header: '13% TS Volume', label: '13% TS volume', cell: (r) => <span className="tabular-nums font-semibold text-emerald-700">{r.at13TsLiters.toLocaleString()} L</span> },
+  { key: 'fat', header: 'Avg Fat %', label: 'Avg fat %', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.avgFat}%</span> },
+  { key: 'snf', header: 'Avg SNF %', label: 'Avg SNF %', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.avgSnf}%</span> },
+  { key: 'shops', header: 'Shops', label: 'Shops', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.shopCount} shops</span> },
+  { key: 'loss', header: 'Route Loss', label: 'Route loss', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.routeLossLiters.toLocaleString()} L</span> },
+  {
+    key: 'lossPct',
+    header: 'Loss %',
+    label: 'Loss %',
+    align: 'right',
+    cell: (r) => (
+      <span
+        className={`tabular-nums font-semibold px-2 py-0.5 rounded-full text-xs ${
+          r.routeLossPct > 1.0 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
+        }`}
+      >
+        {r.routeLossPct}%
+      </span>
+    ),
+  },
+];
 
 export function ZMCCDynamicBIAnalyticsScreen({
   currentUser,
@@ -372,51 +401,13 @@ export function ZMCCDynamicBIAnalyticsScreen({
           <span className="text-xs text-muted-foreground font-medium">{routeRankings.length} routes active</span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-muted/50 text-secondary-foreground font-semibold text-xs border-b border-border">
-              <tr>
-                <th className="p-3">Route Code</th>
-                <th className="p-3">Route Name</th>
-                <th className="p-3">Intake Volume</th>
-                <th className="p-3">13% TS Volume</th>
-                <th className="p-3">Avg Fat %</th>
-                <th className="p-3">Avg SNF %</th>
-                <th className="p-3">Shops</th>
-                <th className="p-3">Route Loss</th>
-                <th className="p-3 text-right">Loss %</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {routeRankings.map((r) => (
-                <tr key={r.routeId} className="hover:bg-subtle transition">
-                  <td className="p-3 tabular-nums font-semibold text-primary">{r.routeCode}</td>
-                  <td className="p-3 font-semibold text-foreground">{r.name}</td>
-                  <td className="p-3 tabular-nums font-semibold text-foreground">
-                    {r.totalLiters.toLocaleString()} L
-                  </td>
-                  <td className="p-3 tabular-nums font-semibold text-emerald-700">
-                    {r.at13TsLiters.toLocaleString()} L
-                  </td>
-                  <td className="p-3 tabular-nums text-secondary-foreground">{r.avgFat}%</td>
-                  <td className="p-3 tabular-nums text-secondary-foreground">{r.avgSnf}%</td>
-                  <td className="p-3 tabular-nums text-secondary-foreground">{r.shopCount} shops</td>
-                  <td className="p-3 tabular-nums text-secondary-foreground">{r.routeLossLiters.toLocaleString()} L</td>
-                  <td className="p-3 text-right tabular-nums">
-                    <span
-                      className={`font-semibold px-2 py-0.5 rounded-full text-xs ${
-                        r.routeLossPct > 1.0
-                          ? 'bg-rose-100 text-rose-800'
-                          : 'bg-emerald-100 text-emerald-800'
-                      }`}
-                    >
-                      {r.routeLossPct}%
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="p-3">
+          <DataTable
+            columns={routeColumns}
+            rows={routeRankings}
+            getRowId={(r) => r.routeId}
+            tableFrom="lg"
+          />
         </div>
       </div>
     </div>

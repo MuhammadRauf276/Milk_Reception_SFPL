@@ -3,6 +3,7 @@
 import { formatDateTime } from '@/lib/format';
 import React from 'react';
 import { Search, Edit3 } from 'lucide-react';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { MyCorrectionTicketsButton } from '@/frontend/modules/governance/MyCorrectionTickets';
 import type { LabSession } from './labTypes';
 
@@ -51,6 +52,194 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
   openCorrection,
   openRequestCorrection,
 }) => {
+  const columns: DataColumn<LabSession>[] = [
+    {
+      key: 'session',
+      header: 'Session #',
+      label: 'Session #',
+      primary: true,
+      cell: (item) => <span className="tabular-nums font-semibold text-foreground">#{item.id}</span>,
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      label: 'Type',
+      cell: (item) => (
+        <span
+          className={`text-xs font-semibold px-2 py-0.5 rounded ${
+            item.arrival_type === 'MOT' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
+          }`}
+        >
+          {item.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}
+        </span>
+      ),
+    },
+    {
+      key: 'token',
+      header: 'Intake Token',
+      label: 'Intake Token',
+      cell: (item) => (
+        <span className="tabular-nums text-secondary-foreground">
+          {item.mot_arrival?.zmcc_token || item.local_supplier_arrival?.zmcc_token || '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'source',
+      header: 'Source / Vehicle',
+      label: 'Source / Vehicle',
+      cell: (item) => (
+        <span className="text-secondary-foreground">
+          {item.arrival_type === 'MOT' ? (
+            <span>
+              {item.mot_arrival?.journey?.route?.name || 'Route Milk'} (
+              {item.mot_arrival?.journey?.mot_vehicle?.vehicle_number || 'Mobile Tester'})
+            </span>
+          ) : (
+            <span>
+              {item.local_supplier_arrival?.local_supplier?.name || 'HC supplier'} (
+              {item.local_supplier_arrival?.vehicle_number || '—'})
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'received',
+      header: 'Received Qty',
+      label: 'Received Qty',
+      cell: (item) => (
+        <span className="tabular-nums text-foreground font-semibold">
+          {item.quantity_value != null ? (
+            <span>
+              {Number(item.quantity_value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+              <span className="text-xs text-muted-foreground font-normal">
+                {item.quantity_unit === 'LITER' ? 'Liters' : item.quantity_unit}
+              </span>
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground italic">Not captured under this version</span>
+          )}
+        </span>
+      ),
+    },
+    ...(showLitres
+      ? [
+          {
+            key: 'gross',
+            header: 'Gross Liters',
+            label: 'Gross Liters',
+            cell: (item: LabSession) => (
+              <span className="tabular-nums text-secondary-foreground">
+                {item.gross_liters != null ? `${Number(item.gross_liters).toFixed(2)} L` : '—'}
+              </span>
+            ),
+          },
+          {
+            key: 'ts13',
+            header: '@13% TS Liters',
+            label: '@13% TS Liters',
+            cell: (item: LabSession) => (
+              <span className="tabular-nums font-semibold text-emerald-700">
+                {item.at_13ts_liters != null ? `${Number(item.at_13ts_liters).toFixed(2)} L` : '—'}
+              </span>
+            ),
+          },
+        ]
+      : []),
+    {
+      key: 'tank',
+      header: 'Tank Receipt',
+      label: 'Tank Receipt',
+      cell: (item) =>
+        item.tank_receipt ? (
+          <div className="tabular-nums text-xs">
+            <span className="font-semibold text-foreground">{item.tank_receipt.tank?.tank_code || 'Tank'}</span>
+            {showLitres && (
+              <div className="text-xs text-muted-foreground font-sans">
+                {Number(item.tank_receipt.gross_liters).toFixed(2)} L
+              </div>
+            )}
+          </div>
+        ) : item.decision === 'ACCEPTED' ? (
+          <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium border border-amber-200">
+            Waiting for weighing
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    {
+      key: 'completed',
+      header: 'Completed At',
+      label: 'Completed At',
+      cell: (item) => <span className="text-muted-foreground">{item.completed_at ? formatDateTime(item.completed_at) : '—'}</span>,
+    },
+    {
+      key: 'tester',
+      header: 'Tested By',
+      label: 'Tested By',
+      cell: (item) => <span className="text-secondary-foreground">{item.completer?.full_name || item.completer?.username || '—'}</span>,
+    },
+    {
+      key: 'decision',
+      header: 'Decision',
+      label: 'Decision',
+      cell: (item) =>
+        item.manager_review_status === 'PENDING' ? (
+          <span className="text-xs font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">MANAGER REVIEW</span>
+        ) : item.decision === 'ACCEPTED' ? (
+          <span className="text-xs font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">ACCEPTED</span>
+        ) : item.decision === 'REJECTED' ? (
+          <span className="text-xs font-semibold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">REJECTED</span>
+        ) : (
+          <span className="text-xs font-semibold text-secondary-foreground bg-muted px-2 py-0.5 rounded-full">PENDING</span>
+        ),
+    },
+    ...(canDirectCorrect
+      ? [
+          {
+            key: 'corrections',
+            header: 'Corrections',
+            label: 'Corrections',
+            cell: (item: LabSession) => (
+              <div className="space-y-0.5">
+                <div className="font-semibold text-secondary-foreground">Saves: {item.correction_count ?? 0}</div>
+                {item.last_corrected_at && (
+                  <div className="text-xs text-muted-foreground">
+                    Last by {item.last_corrector?.full_name || item.last_corrector?.username || 'user'}
+                  </div>
+                )}
+              </div>
+            ),
+          },
+        ]
+      : []),
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (item) =>
+        canDirectCorrect ? (
+          <button
+            onClick={() => openCorrection(item)}
+            className="inline-flex items-center gap-1 min-h-[44px] px-3 text-xs font-semibold text-primary bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
+          >
+            <Edit3 className="w-3 h-3" />
+            Correct
+          </button>
+        ) : canRequestCorrection ? (
+          <button
+            onClick={() => openRequestCorrection(item)}
+            className="inline-flex items-center gap-1 min-h-[44px] px-3 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition-colors cursor-pointer"
+          >
+            Request correction
+          </button>
+        ) : null,
+    },
+  ];
   return (
         <div className="space-y-4 animate-panel-in">
           
@@ -98,200 +287,41 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
           </div>
 
           
-          {loadingHistory ? (
-            <div className="bg-card border-border p-12 text-center text-muted-foreground rounded-xl border">
-              Loading test history…
-            </div>
-          ) : historyItems.length === 0 ? (
-            <div className="bg-card border-border p-12 text-center text-muted-foreground rounded-xl border">
-              No completed laboratory testing records found.
-            </div>
-          ) : (
-            <>
-              <div className="bg-card border-border rounded-xl border shadow-xs overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold">
-                    <th className="py-3 px-4">Session #</th>
-                    <th className="py-3 px-4">Type</th>
-                    <th className="py-3 px-4">Intake Token</th>
-                    <th className="py-3 px-4">Source / Vehicle</th>
-                    <th className="py-3 px-4">Received Qty</th>
-                    {showLitres && <th className="py-3 px-4">Gross Liters</th>}
-                    {showLitres && <th className="py-3 px-4">@13% TS Liters</th>}
-                    <th className="py-3 px-4">Tank Receipt</th>
-                    <th className="py-3 px-4">Completed At</th>
-                    <th className="py-3 px-4">Tested By</th>
-                    <th className="py-3 px-4">Decision</th>
-                    {canDirectCorrect && <th className="py-3 px-4">Corrections</th>}
-                    <th className="py-3 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {historyItems.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/60">
-                      <td className="py-3.5 px-4 tabular-nums font-semibold text-foreground">
-                        #{item.id}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                            item.arrival_type === 'MOT' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
-                          }`}
-                        >
-                          {item.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 tabular-nums text-secondary-foreground">
-                        {item.mot_arrival?.zmcc_token ||
-                          item.local_supplier_arrival?.zmcc_token ||
-                          '—'}
-                      </td>
-                      <td className="py-3.5 px-4 text-secondary-foreground">
-                        {item.arrival_type === 'MOT' ? (
-                          <span>
-                            {item.mot_arrival?.journey?.route?.name || 'Route Milk'} (
-                            {item.mot_arrival?.journey?.mot_vehicle?.vehicle_number || 'Mobile Tester'})
-                          </span>
-                        ) : (
-                          <span>
-                            {item.local_supplier_arrival?.local_supplier?.name || 'HC supplier'} (
-                            {item.local_supplier_arrival?.vehicle_number || '—'})
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 tabular-nums text-foreground font-semibold">
-                        {item.quantity_value != null ? (
-                          <span>
-                            {Number(item.quantity_value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-                            <span className="text-xs text-muted-foreground font-normal">
-                              {item.quantity_unit === 'LITER' ? 'Liters' : item.quantity_unit}
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">Not captured under this version</span>
-                        )}
-                      </td>
-                      {showLitres && (
-                        <td className="py-3.5 px-4 tabular-nums text-secondary-foreground">
-                          {item.gross_liters != null ? `${Number(item.gross_liters).toFixed(2)} L` : '—'}
-                        </td>
-                      )}
-                      {showLitres && (
-                        <td className="py-3.5 px-4 tabular-nums font-semibold text-emerald-700">
-                          {item.at_13ts_liters != null ? `${Number(item.at_13ts_liters).toFixed(2)} L` : '—'}
-                        </td>
-                      )}
-                      <td className="py-3.5 px-4">
-                        {item.tank_receipt ? (
-                          <div className="tabular-nums text-xs">
-                            <span className="font-semibold text-foreground">
-                              {item.tank_receipt.tank?.tank_code || 'Tank'}
-                            </span>
-                            {showLitres && (
-                              <div className="text-xs text-muted-foreground font-sans">
-                                {Number(item.tank_receipt.gross_liters).toFixed(2)} L
-                              </div>
-                            )}
-                          </div>
-                        ) : item.decision === 'ACCEPTED' ? (
-                          <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium border border-amber-200">
-                            Waiting for weighing
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-muted-foreground">
-                        {item.completed_at ? formatDateTime(item.completed_at) : '—'}
-                      </td>
-                      <td className="py-3.5 px-4 text-secondary-foreground">
-                        {item.completer?.full_name || item.completer?.username || '—'}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {item.manager_review_status === 'PENDING' ? (
-                          <span className="text-xs font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
-                            MANAGER REVIEW
-                          </span>
-                        ) : item.decision === 'ACCEPTED' ? (
-                          <span className="text-xs font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
-                            ACCEPTED
-                          </span>
-                        ) : item.decision === 'REJECTED' ? (
-                          <span className="text-xs font-semibold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">
-                            REJECTED
-                          </span>
-                        ) : (
-                          <span className="text-xs font-semibold text-secondary-foreground bg-muted px-2 py-0.5 rounded-full">
-                            PENDING
-                          </span>
-                        )}
-                      </td>
-                      {canDirectCorrect && (
-                        <td className="py-3.5 px-4">
-                          <div className="space-y-0.5">
-                            <div className="font-semibold text-secondary-foreground">Saves: {item.correction_count ?? 0}</div>
-                            {item.last_corrected_at && (
-                              <div className="text-xs text-muted-foreground">
-                                Last by {item.last_corrector?.full_name || item.last_corrector?.username || 'user'}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                      <td className="py-3.5 px-4 text-right">
-                        {canDirectCorrect ? (
-                          <button
-                            onClick={() => openCorrection(item)}
-                            className="inline-flex items-center gap-1 min-h-[44px] px-3 text-xs font-semibold text-primary bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
-                          >
-                            <Edit3 className="w-3 h-3" />
-                            Correct
-                          </button>
-                        ) : canRequestCorrection ? (
-                          <button
-                            onClick={() => openRequestCorrection(item)}
-                            className="inline-flex items-center gap-1 min-h-[44px] px-3 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition-colors cursor-pointer"
-                          >
-                            Request correction
-                          </button>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            
-            {historyTotalPages > 1 && (
-              <div className="flex items-center justify-between p-3 border-t border-border bg-subtle text-xs font-semibold text-secondary-foreground">
-                <div>
-                  Page <span className="font-semibold text-primary">{historyPage}</span> of{' '}
-                  <span className="font-semibold text-primary">{historyTotalPages}</span> ({historyTotal} completed tests)
+          <DataTable
+            columns={columns}
+            rows={historyItems}
+            getRowId={(r) => String(r.id)}
+            loading={loadingHistory}
+            emptyTitle="No completed laboratory testing records found."
+            footer={
+              historyTotalPages > 1 ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border bg-subtle p-3 text-xs font-semibold text-secondary-foreground">
+                  <div>
+                    Page <span className="font-semibold text-primary">{historyPage}</span> of{' '}
+                    <span className="font-semibold text-primary">{historyTotalPages}</span> ({historyTotal} completed tests)
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      disabled={historyPage <= 1 || loadingHistory}
+                      onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                      className="min-h-11 min-w-11 px-3 py-1 bg-card border border-border-strong rounded-lg hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      type="button"
+                      disabled={historyPage >= historyTotalPages || loadingHistory}
+                      onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}
+                      className="min-h-11 min-w-11 px-3 py-1 bg-card border border-border-strong rounded-lg hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    disabled={historyPage <= 1 || loadingHistory}
-                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
-                    className="min-h-11 min-w-11 px-3 py-1 bg-card border border-border-strong rounded-lg hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    disabled={historyPage >= historyTotalPages || loadingHistory}
-                    onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}
-                    className="min-h-11 min-w-11 px-3 py-1 bg-card border border-border-strong rounded-lg hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+              ) : null
+            }
+          />
       </div>
   );
 };

@@ -1,6 +1,7 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 type Device = { id: string; user: string; role: string; deviceLabel: string | null; active: boolean; createdAt: string; revokedAt: string | null };
 const NO_ITEMS: Device[] = [];
 export function SuperAdminDeviceSubscriptions() {
@@ -16,5 +17,34 @@ export function SuperAdminDeviceSubscriptions() {
   const items = query.data?.subscriptions ?? NO_ITEMS;
   const error = revokeMutation.isError ? 'Unable to revoke device.' : query.isError ? query.error.message || 'Unable to load devices.' : '';
   const revoke = (id: string) => revokeMutation.mutate(id);
-  return <section className="rounded-2xl border bg-card p-4"><h1 className="text-xl font-semibold">Notification devices</h1>{error && <p className="mt-3 text-sm text-rose-700">{error}</p>}<div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-muted-foreground"><tr><th className="pb-2">User</th><th className="pb-2">Role</th><th className="pb-2">Device</th><th className="pb-2">State</th><th /></tr></thead><tbody>{items.map((item) => <tr key={item.id} className="border-t"><td className="py-2">{item.user}</td><td className="py-2">{item.role}</td><td className="py-2">{item.deviceLabel || 'Unnamed browser'}</td><td className="py-2">{item.active ? 'Active' : 'Revoked'}</td><td className="py-2">{item.active && <button onClick={() => revoke(item.id)} className="min-h-11 px-2 text-xs font-semibold text-rose-700 underline">Revoke</button>}</td></tr>)}</tbody></table></div></section>;
+  const columns: DataColumn<Device>[] = [
+    { key: 'user', header: 'User', label: 'User', primary: true, cell: (item) => item.user },
+    { key: 'role', header: 'Role', label: 'Role', cell: (item) => item.role },
+    { key: 'device', header: 'Device', label: 'Device', cell: (item) => item.deviceLabel || 'Unnamed browser' },
+    { key: 'state', header: 'State', label: 'State', cell: (item) => (item.active ? 'Active' : 'Revoked') },
+    {
+      key: 'revoke',
+      header: '',
+      label: 'Revoke',
+      actions: true,
+      cell: (item) =>
+        item.active ? (
+          <button onClick={() => revoke(item.id)} className="min-h-11 px-2 text-xs font-semibold text-rose-700 underline">Revoke</button>
+        ) : null,
+    },
+  ];
+  return (
+    <section className="rounded-2xl border bg-card p-4">
+      <h1 className="text-xl font-semibold">Notification devices</h1>
+      {error && <p className="mt-3 text-sm text-rose-700">{error}</p>}
+      <div className="mt-4">
+        <DataTable
+          columns={columns}
+          rows={items}
+          getRowId={(item) => item.id}
+          emptyTitle="No records"
+        />
+      </div>
+    </section>
+  );
 }

@@ -2,6 +2,7 @@
 
 import { formatTime } from '@/lib/format';
 import React from 'react';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import type { JourneyItem } from './types';
 
 interface Props {
@@ -15,6 +16,94 @@ interface Props {
 }
 
 export function ActiveJourneysTab({ journeys, loading, canCancel, onRefresh, onViewMap, onViewStops, onCancel }: Props) {
+  const columns: DataColumn<JourneyItem>[] = [
+    {
+      key: 'number',
+      header: 'Journey #',
+      label: 'Journey #',
+      primary: true,
+      cell: (j) => <span className="tabular-nums font-semibold text-primary">{j.journey_number}</span>,
+    },
+    {
+      key: 'route',
+      header: 'Route',
+      label: 'Route',
+      cell: (j) => (
+        <span className="font-semibold text-foreground">
+          {j.route?.route_code} · {j.route?.name}
+        </span>
+      ),
+    },
+    {
+      key: 'tester',
+      header: 'Mobile Tester',
+      label: 'Mobile Tester',
+      cell: (j) => (
+        <span className="font-semibold text-foreground">
+          {j.mot_profile?.name} ({j.mot_profile?.mot_code})
+        </span>
+      ),
+    },
+    {
+      key: 'vehicle',
+      header: 'Vehicle',
+      label: 'Vehicle',
+      cell: (j) => <span className="tabular-nums font-semibold text-secondary-foreground">{j.mot_vehicle?.vehicle_number}</span>,
+    },
+    {
+      key: 'stops',
+      header: 'Stops',
+      label: 'Stops',
+      cell: (j) => <span className="font-semibold text-secondary-foreground">{j.total_stops != null ? `${j.total_stops} shops` : '—'}</span>,
+    },
+    {
+      key: 'dispatched',
+      header: 'Dispatched At',
+      label: 'Dispatched At',
+      cell: (j) => <span className="font-medium text-secondary-foreground">{formatTime(j.assigned_at)}</span>,
+    },
+    {
+      key: 'dispatchedBy',
+      header: 'Dispatched By',
+      label: 'Dispatched By',
+      cell: (j) => <span className="font-medium text-secondary-foreground">{j.assigned_by_name}</span>,
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (j) => (
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => onViewMap(j.id)}
+            className="min-h-[44px] px-3 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100"
+          >
+            View Map
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewStops(j.id)}
+            className="min-h-[44px] px-3 rounded-lg bg-blue-50 text-primary font-semibold hover:bg-blue-100"
+          >
+            View Stops
+          </button>
+          {canCancel && (
+            <button
+              type="button"
+              onClick={() => onCancel(j)}
+              className="min-h-[44px] px-3 rounded-lg bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
         <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden animate-panel-in">
           <div className="p-4 border-b border-border flex items-center justify-between">
@@ -30,80 +119,13 @@ export function ActiveJourneysTab({ journeys, loading, canCancel, onRefresh, onV
             </button>
           </div>
 
-          {loading ? (
-            <div className="p-8 text-center text-xs font-semibold text-muted-foreground">Loading active journeys…</div>
-          ) : journeys.length === 0 ? (
-            <div className="p-8 text-center text-xs font-semibold text-muted-foreground">
-              No active journeys currently in progress.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-muted/60 text-secondary-foreground font-semibold text-xs border-b border-border">
-                  <tr>
-                    <th className="p-3">Journey #</th>
-                    <th className="p-3">Route</th>
-                    <th className="p-3">Mobile Tester</th>
-                    <th className="p-3">Vehicle</th>
-                    <th className="p-3">Stops</th>
-                    <th className="p-3">Dispatched At</th>
-                    <th className="p-3">Dispatched By</th>
-                    <th className="p-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {journeys.map((j) => (
-                    <tr key={j.id} className="hover:bg-subtle">
-                      <td className="p-3 tabular-nums font-semibold text-primary">
-                        {j.journey_number}
-                      </td>
-                      <td className="p-3 font-semibold text-foreground">
-                        {j.route?.route_code} · {j.route?.name}
-                      </td>
-                      <td className="p-3 font-semibold text-foreground">
-                        {j.mot_profile?.name} ({j.mot_profile?.mot_code})
-                      </td>
-                      <td className="p-3 tabular-nums font-semibold text-secondary-foreground">
-                        {j.mot_vehicle?.vehicle_number}
-                      </td>
-                      <td className="p-3 font-semibold text-secondary-foreground">
-                        {j.total_stops != null ? `${j.total_stops} shops` : '—'}
-                      </td>
-                      <td className="p-3 font-medium text-secondary-foreground">
-                        {formatTime(j.assigned_at)}
-                      </td>
-                      <td className="p-3 font-medium text-secondary-foreground">{j.assigned_by_name}</td>
-                      <td className="p-3 text-right space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => onViewMap(j.id)}
-                          className="min-h-[44px] px-3 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100"
-                        >
-                          View Map
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onViewStops(j.id)}
-                          className="min-h-[44px] px-3 rounded-lg bg-blue-50 text-primary font-semibold hover:bg-blue-100"
-                        >
-                          View Stops
-                        </button>
-                        {canCancel && (
-                          <button
-                            type="button"
-                            onClick={() => onCancel(j)}
-                            className="min-h-[44px] px-3 rounded-lg bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100"
-                          >
-                            Cancel
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            columns={columns}
+            rows={journeys}
+            getRowId={(j) => j.id}
+            loading={loading}
+            emptyTitle="No active journeys currently in progress."
+          />
         </div>
   );
 }

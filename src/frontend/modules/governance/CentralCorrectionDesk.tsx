@@ -31,6 +31,7 @@ import { SerializedCorrectionRequest } from '@/backend/services/correctionGovern
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { InfoTip } from '@/components/ui/info-tip';
 import { computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
 import { formatDate, formatDateTime } from '@/lib/format';
@@ -377,6 +378,230 @@ export const CentralCorrectionDesk: React.FC = () => {
   const userRole = currentUser?.role || 'DATA_EXECUTIVE';
   const isSuperAdmin = userRole === 'SUPER_ADMIN';
 
+  const stageColumns: DataColumn<StageRecordItem>[] = [
+    {
+      key: 'token',
+      header: 'Token / ID',
+      label: 'Token / ID',
+      primary: true,
+      cell: (rec) => (
+        <span className="font-semibold text-foreground tabular-nums">
+          <span className="bg-muted px-2 py-0.5 rounded text-foreground">{rec.token || `#${rec.id}`}</span>
+          {rec.correction_count && rec.correction_count > 0 ? (
+            <span className="ml-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded font-semibold">
+              {rec.correction_count} edits
+            </span>
+          ) : null}
+        </span>
+      ),
+    },
+    ...(selectedStage === '1'
+      ? ([
+          {
+            key: 'shop',
+            header: 'Shop & Route',
+            label: 'Shop & Route',
+            cell: (rec) => (
+              <span className="text-secondary-foreground">
+                <span className="font-semibold text-foreground">{rec.shop_name}</span>
+                <div className="text-xs text-muted-foreground">{rec.route_name}</div>
+              </span>
+            ),
+          },
+          {
+            key: 'quantity',
+            header: 'Quantity',
+            label: 'Quantity',
+            cell: (rec) => (
+              <span className="tabular-nums font-semibold text-foreground">
+                {rec.quantity_value} {rec.quantity_unit}
+              </span>
+            ),
+          },
+          {
+            key: 'chemistry',
+            header: 'Chemistry (LR / Fat)',
+            label: 'Chemistry (LR / Fat)',
+            cell: (rec) => (
+              <span className="tabular-nums text-secondary-foreground">
+                LR: <strong>{rec.lr}</strong> · Fat: <strong>{rec.fat}%</strong>
+              </span>
+            ),
+          },
+          {
+            key: 'ts13',
+            header: '13 TS Liters',
+            label: '13 TS Liters',
+            cell: (rec) => (
+              <span className="tabular-nums font-semibold text-emerald-700">
+                {rec.at_13ts_liters != null ? `${rec.at_13ts_liters} L` : '—'}
+              </span>
+            ),
+          },
+        ] as DataColumn<StageRecordItem>[])
+      : []),
+    ...(selectedStage === '2'
+      ? ([
+          {
+            key: 'vehicle',
+            header: 'Type & Vehicle',
+            label: 'Type & Vehicle',
+            cell: (rec) => (
+              <span className="text-secondary-foreground">
+                <span className="font-semibold text-foreground">{rec.vehicle_number}</span>
+                <div className="text-xs text-muted-foreground">{rec.arrival_type}</div>
+              </span>
+            ),
+          },
+          {
+            key: 'supplier',
+            header: 'Supplier / Source',
+            label: 'Supplier / Source',
+            cell: (rec) => (
+              <span className="text-secondary-foreground">
+                <span className="font-semibold">{rec.supplier_name}</span>
+                {rec.milk_source && <div className="text-xs text-blue-600">{rec.milk_source}</div>}
+              </span>
+            ),
+          },
+          {
+            key: 'decision',
+            header: 'Decision',
+            label: 'Decision',
+            cell: (rec) => (
+              <span
+                className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                  rec.decision === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                }`}
+              >
+                {rec.decision}
+              </span>
+            ),
+          },
+          {
+            key: 'quantity',
+            header: 'Quantity & Solids',
+            label: 'Quantity & Solids',
+            cell: (rec) => (
+              <span className="tabular-nums text-secondary-foreground">
+                {rec.quantity_value ? `${rec.quantity_value} ${rec.quantity_unit}` : '—'}
+                {rec.at_13ts_liters != null && (
+                  <div className="text-xs text-emerald-700 font-semibold">@13: {rec.at_13ts_liters} L</div>
+                )}
+              </span>
+            ),
+          },
+        ] as DataColumn<StageRecordItem>[])
+      : []),
+    ...(selectedStage === '3'
+      ? ([
+          {
+            key: 'vehicle',
+            header: 'Vehicle & Source',
+            label: 'Vehicle & Source',
+            cell: (rec) => (
+              <span className="text-secondary-foreground">
+                <span className="font-semibold text-foreground">{rec.vehicle_number}</span>
+                <div className="text-xs text-muted-foreground">{rec.source_name}</div>
+              </span>
+            ),
+          },
+          {
+            key: 'quantity',
+            header: 'Dispatched Quantity',
+            label: 'Dispatched Quantity',
+            cell: (rec) => (
+              <span className="tabular-nums font-semibold text-foreground">
+                {rec.quantity_value ? `${rec.quantity_value} ${rec.quantity_unit}` : '—'}
+              </span>
+            ),
+          },
+          {
+            key: 'chemistry',
+            header: 'LR & Fat',
+            label: 'LR & Fat',
+            cell: (rec) => (
+              <span className="tabular-nums text-secondary-foreground">
+                LR: {rec.lr || '—'} · Fat: {rec.fat != null ? `${rec.fat}%` : '—'}
+              </span>
+            ),
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            label: 'Status',
+            cell: (rec) => (
+              <span className="bg-muted text-secondary-foreground px-2 py-0.5 rounded text-xs font-semibold">
+                {rec.current_status}
+              </span>
+            ),
+          },
+        ] as DataColumn<StageRecordItem>[])
+      : []),
+    ...(selectedStage === '4'
+      ? ([
+          {
+            key: 'vehicle',
+            header: 'Vehicle & Source',
+            label: 'Vehicle & Source',
+            cell: (rec) => (
+              <span className="text-secondary-foreground">
+                <span className="font-semibold text-foreground">{rec.vehicle_number}</span>
+                <div className="text-xs text-muted-foreground">{rec.source_name}</div>
+              </span>
+            ),
+          },
+          {
+            key: 'grossTare',
+            header: 'Gross / Tare (KG)',
+            label: 'Gross / Tare (KG)',
+            cell: (rec) => (
+              <span className="tabular-nums text-secondary-foreground">
+                {rec.gross_weight_kg ? `${rec.gross_weight_kg} KG` : '—'} /{' '}
+                {rec.tare_weight_kg ? `${rec.tare_weight_kg} KG` : '—'}
+              </span>
+            ),
+          },
+          {
+            key: 'net',
+            header: 'Net Weight (KG)',
+            label: 'Net Weight (KG)',
+            cell: (rec) => (
+              <span className="tabular-nums font-semibold text-emerald-700">
+                {rec.net_weight_kg ? `${rec.net_weight_kg} KG` : '—'}
+              </span>
+            ),
+          },
+          {
+            key: 'silo',
+            header: 'Silo Dest.',
+            label: 'Silo Dest.',
+            cell: (rec) => (
+              <span className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded text-xs font-semibold">{rec.silo_number}</span>
+            ),
+          },
+        ] as DataColumn<StageRecordItem>[])
+      : []),
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (rec) => (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => openDirectEditDrawer(rec)}
+          className="h-8 text-xs font-semibold gap-1.5"
+        >
+          <Edit3 className="w-3.5 h-3.5 text-primary" />
+          <span>Edit Record</span>
+        </Button>
+      ),
+    },
+  ];
   return (
     <div className="space-y-6">
       {/* 1. Header & Authority Banner */}
@@ -838,184 +1063,13 @@ export const CentralCorrectionDesk: React.FC = () => {
           </div>
 
           {/* Records Table */}
-          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-border bg-subtle text-secondary-foreground">
-                  <tr>
-                    <th className="p-3 font-semibold">Token / ID</th>
-                    {selectedStage === '1' && (
-                      <>
-                        <th className="p-3 font-semibold">Shop & Route</th>
-                        <th className="p-3 font-semibold">Quantity</th>
-                        <th className="p-3 font-semibold">Chemistry (LR / Fat)</th>
-                        <th className="p-3 font-semibold">13 TS Liters</th>
-                      </>
-                    )}
-                    {selectedStage === '2' && (
-                      <>
-                        <th className="p-3 font-semibold">Type & Vehicle</th>
-                        <th className="p-3 font-semibold">Supplier / Source</th>
-                        <th className="p-3 font-semibold">Decision</th>
-                        <th className="p-3 font-semibold">Quantity & Solids</th>
-                      </>
-                    )}
-                    {selectedStage === '3' && (
-                      <>
-                        <th className="p-3 font-semibold">Vehicle & Source</th>
-                        <th className="p-3 font-semibold">Dispatched Quantity</th>
-                        <th className="p-3 font-semibold">LR & Fat</th>
-                        <th className="p-3 font-semibold">Status</th>
-                      </>
-                    )}
-                    {selectedStage === '4' && (
-                      <>
-                        <th className="p-3 font-semibold">Vehicle & Source</th>
-                        <th className="p-3 font-semibold">Gross / Tare (KG)</th>
-                        <th className="p-3 font-semibold">Net Weight (KG)</th>
-                        <th className="p-3 font-semibold">Silo Dest.</th>
-                      </>
-                    )}
-                    <th className="p-3 font-semibold text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border font-medium">
-                  {recordsQuery.isPending ? (
-                    <tr>
-                      <td colSpan={6} className="p-8 text-center text-muted-foreground font-semibold tabular-nums">
-                        Loading stage records…
-                      </td>
-                    </tr>
-                  ) : stageRecords.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-8 text-center text-muted-foreground font-medium">
-                        No records
-                      </td>
-                    </tr>
-                  ) : (
-                    stageRecords.map((rec) => (
-                      <tr key={rec.id} className="hover:bg-subtle transition-colors">
-                        <td className="p-3 font-semibold text-foreground tabular-nums">
-                          <span className="bg-muted px-2 py-0.5 rounded text-foreground">
-                            {rec.token || `#${rec.id}`}
-                          </span>
-                          {rec.correction_count && rec.correction_count > 0 ? (
-                            <span className="ml-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded font-semibold">
-                              {rec.correction_count} edits
-                            </span>
-                          ) : null}
-                        </td>
-
-                        {selectedStage === '1' && (
-                          <>
-                            <td className="p-3 text-secondary-foreground">
-                              <span className="font-semibold text-foreground">{rec.shop_name}</span>
-                              <div className="text-xs text-muted-foreground">{rec.route_name}</div>
-                            </td>
-                            <td className="p-3 tabular-nums font-semibold text-foreground">
-                              {rec.quantity_value} {rec.quantity_unit}
-                            </td>
-                            <td className="p-3 tabular-nums text-secondary-foreground">
-                              LR: <strong>{rec.lr}</strong> · Fat: <strong>{rec.fat}%</strong>
-                            </td>
-                            <td className="p-3 tabular-nums font-semibold text-emerald-700">
-                              {rec.at_13ts_liters != null ? `${rec.at_13ts_liters} L` : '—'}
-                            </td>
-                          </>
-                        )}
-
-                        {selectedStage === '2' && (
-                          <>
-                            <td className="p-3 text-secondary-foreground">
-                              <span className="font-semibold text-foreground">{rec.vehicle_number}</span>
-                              <div className="text-xs text-muted-foreground">{rec.arrival_type}</div>
-                            </td>
-                            <td className="p-3 text-secondary-foreground">
-                              <span className="font-semibold">{rec.supplier_name}</span>
-                              {rec.milk_source && <div className="text-xs text-blue-600">{rec.milk_source}</div>}
-                            </td>
-                            <td className="p-3">
-                              <span
-                                className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                                  rec.decision === 'ACCEPTED'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : 'bg-rose-100 text-rose-800'
-                                }`}
-                              >
-                                {rec.decision}
-                              </span>
-                            </td>
-                            <td className="p-3 tabular-nums text-secondary-foreground">
-                              {rec.quantity_value ? `${rec.quantity_value} ${rec.quantity_unit}` : '—'}
-                              {rec.at_13ts_liters != null && (
-                                <div className="text-xs text-emerald-700 font-semibold">
-                                  @13: {rec.at_13ts_liters} L
-                                </div>
-                              )}
-                            </td>
-                          </>
-                        )}
-
-                        {selectedStage === '3' && (
-                          <>
-                            <td className="p-3 text-secondary-foreground">
-                              <span className="font-semibold text-foreground">{rec.vehicle_number}</span>
-                              <div className="text-xs text-muted-foreground">{rec.source_name}</div>
-                            </td>
-                            <td className="p-3 tabular-nums font-semibold text-foreground">
-                              {rec.quantity_value ? `${rec.quantity_value} ${rec.quantity_unit}` : '—'}
-                            </td>
-                            <td className="p-3 tabular-nums text-secondary-foreground">
-                              LR: {rec.lr || '—'} · Fat: {rec.fat != null ? `${rec.fat}%` : '—'}
-                            </td>
-                            <td className="p-3">
-                              <span className="bg-muted text-secondary-foreground px-2 py-0.5 rounded text-xs font-semibold">
-                                {rec.current_status}
-                              </span>
-                            </td>
-                          </>
-                        )}
-
-                        {selectedStage === '4' && (
-                          <>
-                            <td className="p-3 text-secondary-foreground">
-                              <span className="font-semibold text-foreground">{rec.vehicle_number}</span>
-                              <div className="text-xs text-muted-foreground">{rec.source_name}</div>
-                            </td>
-                            <td className="p-3 tabular-nums text-secondary-foreground">
-                              {rec.gross_weight_kg ? `${rec.gross_weight_kg} KG` : '—'} /{' '}
-                              {rec.tare_weight_kg ? `${rec.tare_weight_kg} KG` : '—'}
-                            </td>
-                            <td className="p-3 tabular-nums font-semibold text-emerald-700">
-                              {rec.net_weight_kg ? `${rec.net_weight_kg} KG` : '—'}
-                            </td>
-                            <td className="p-3 text-secondary-foreground">
-                              <span className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded text-xs font-semibold">
-                                {rec.silo_number}
-                              </span>
-                            </td>
-                          </>
-                        )}
-
-                        <td className="p-3 text-right">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openDirectEditDrawer(rec)}
-                            className="h-8 text-xs font-semibold gap-1.5"
-                          >
-                            <Edit3 className="w-3.5 h-3.5 text-primary" />
-                            <span>Edit Record</span>
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <DataTable
+            columns={stageColumns}
+            rows={stageRecords}
+            getRowId={(rec) => String(rec.id)}
+            loading={recordsQuery.isPending}
+            emptyTitle="No records"
+          />
         </div>
       )}
 

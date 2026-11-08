@@ -28,6 +28,7 @@ import {
   Building2,
   UserCheck,
 } from 'lucide-react';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { StatCard } from '@/components/ui/stat-card';
 import { PageLoader } from '@/components/ui/spinner';
 import { getErrorMessage } from '@/lib/errors';
@@ -38,6 +39,95 @@ interface ZMCCSubordinateHierarchyScreenProps {
   targetZmccId?: string;
   onSelectFacility?: (id: string) => void;
 }
+
+const shopColumns: DataColumn<ZmccShopHierarchyNode>[] = [
+  { key: 'code', header: 'Shop Code', label: 'Shop code', primary: true, cell: (shop) => <span className="tabular-nums font-semibold text-primary">{shop.shopCode}</span> },
+  { key: 'name', header: 'Shop Name', label: 'Shop name', cell: (shop) => <span className="font-semibold text-foreground">{shop.shopName}</span> },
+  {
+    key: 'owner',
+    header: 'Owner & Contact',
+    label: 'Owner & contact',
+    cell: (shop) => (
+      <span className="text-slate-600">
+        {shop.ownerName}{' '}
+        <span className="text-xs text-slate-400">({shop.phoneNumber})</span>
+      </span>
+    ),
+  },
+  { key: 'chiller', header: 'Chiller', label: 'Chiller', cell: (shop) => <span className="text-slate-600">{shop.chillerOwnership}</span> },
+  {
+    key: 'geotag',
+    header: 'Geotag Status',
+    label: 'Geotag status',
+    cell: (shop) =>
+      shop.geotagStatus === 'VERIFIED' ? (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+          <CheckCircle2 className="w-2.5 h-2.5" /> Verified
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+          <MapPin className="w-2.5 h-2.5" /> Pending GPS
+        </span>
+      ),
+  },
+  {
+    key: 'liters',
+    header: 'Today Liters',
+    label: 'Today liters',
+    cell: (shop) => <span className="tabular-nums font-semibold text-foreground">{shop.todayLiters > 0 ? `${shop.todayLiters.toLocaleString()} L` : '—'}</span>,
+  },
+  { key: 'fat', header: 'Fat %', label: 'Fat %', cell: (shop) => <span className="tabular-nums font-semibold text-slate-700">{shop.todayFat ? `${shop.todayFat}%` : '—'}</span> },
+  { key: 'lr', header: 'LR', label: 'LR', cell: (shop) => <span className="tabular-nums font-semibold text-slate-700">{shop.todayLr || '—'}</span> },
+  {
+    key: 'last',
+    header: 'Last Collection',
+    label: 'Last collection',
+    align: 'right',
+    cell: (shop) => (
+      <span className="text-slate-500 tabular-nums">
+        {shop.lastCollectionAt
+          ? new Date(shop.lastCollectionAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : 'None'}
+      </span>
+    ),
+  },
+];
+
+type HcSupplierNode = ZmccHierarchyReport['hcSuppliers'][number];
+
+const supplierColumns: DataColumn<HcSupplierNode>[] = [
+  { key: 'code', header: 'Supplier Code', label: 'Supplier code', primary: true, cell: (supplier) => <span className="tabular-nums font-semibold text-primary">{supplier.supplierCode}</span> },
+  { key: 'name', header: 'Supplier Name', label: 'Supplier name', cell: (supplier) => <span className="font-semibold text-foreground">{supplier.name}</span> },
+  { key: 'contact', header: 'Contact Person', label: 'Contact person', cell: (supplier) => <span className="text-slate-600">{supplier.contactPerson || '—'}</span> },
+  { key: 'phone', header: 'Phone', label: 'Phone', cell: (supplier) => <span className="tabular-nums text-slate-600">{supplier.phoneNumber || '—'}</span> },
+  {
+    key: 'status',
+    header: 'Status',
+    label: 'Status',
+    cell: () => <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">ACTIVE</span>,
+  },
+  { key: 'arrivals', header: 'Today Arrivals', label: 'Today arrivals', cell: (supplier) => <span className="tabular-nums font-semibold text-slate-700">{supplier.todayArrivalsCount}</span> },
+  { key: 'liters', header: 'Today Liters', label: 'Today liters', cell: (supplier) => <span className="tabular-nums font-semibold text-foreground">{supplier.todayLiters.toLocaleString()} L</span> },
+  {
+    key: 'last',
+    header: 'Last Arrival',
+    label: 'Last arrival',
+    align: 'right',
+    cell: (supplier) => (
+      <span className="text-slate-500 tabular-nums">
+        {supplier.lastArrivalAt
+          ? new Date(supplier.lastArrivalAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '—'}
+      </span>
+    ),
+  },
+];
 
 export function ZMCCSubordinateHierarchyScreen({
   currentUser,
@@ -381,70 +471,13 @@ export function ZMCCSubordinateHierarchyScreen({
                               </div>
 
                               {isAreaOpen && (
-                                <div className="overflow-x-auto">
-                                  <table className="w-full text-left text-xs border-t border-border/60">
-                                    <thead className="bg-muted/40 text-slate-600 font-semibold text-xs">
-                                      <tr>
-                                        <th className="p-2.5">Shop Code</th>
-                                        <th className="p-2.5">Shop Name</th>
-                                        <th className="p-2.5">Owner & Contact</th>
-                                        <th className="p-2.5">Chiller</th>
-                                        <th className="p-2.5">Geotag Status</th>
-                                        <th className="p-2.5">Today Liters</th>
-                                        <th className="p-2.5">Fat %</th>
-                                        <th className="p-2.5">LR</th>
-                                        <th className="p-2.5 text-right">Last Collection</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border/60">
-                                      {area.shops.map((shop) => (
-                                        <tr
-                                          key={shop.id}
-                                          onClick={() => setSelectedShop(shop)}
-                                          className="hover:bg-subtle cursor-pointer transition"
-                                        >
-                                          <td className="p-2.5 tabular-nums font-semibold text-primary">
-                                            {shop.shopCode}
-                                          </td>
-                                          <td className="p-2.5 font-semibold text-foreground">{shop.shopName}</td>
-                                          <td className="p-2.5 text-slate-600">
-                                            {shop.ownerName}{' '}
-                                            <span className="text-xs text-slate-400">({shop.phoneNumber})</span>
-                                          </td>
-                                          <td className="p-2.5 text-slate-600">{shop.chillerOwnership}</td>
-                                          <td className="p-2.5">
-                                            {shop.geotagStatus === 'VERIFIED' ? (
-                                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                                                <CheckCircle2 className="w-2.5 h-2.5" /> Verified
-                                              </span>
-                                            ) : (
-                                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                                                <MapPin className="w-2.5 h-2.5" /> Pending GPS
-                                              </span>
-                                            )}
-                                          </td>
-                                          <td className="p-2.5 tabular-nums font-semibold text-foreground">
-                                            {shop.todayLiters > 0 ? `${shop.todayLiters.toLocaleString()} L` : '—'}
-                                          </td>
-                                          <td className="p-2.5 tabular-nums font-semibold text-slate-700">
-                                            {shop.todayFat ? `${shop.todayFat}%` : '—'}
-                                          </td>
-                                          <td className="p-2.5 tabular-nums font-semibold text-slate-700">
-                                            {shop.todayLr || '—'}
-                                          </td>
-                                          <td className="p-2.5 text-right text-slate-500 tabular-nums">
-                                            {shop.lastCollectionAt
-                                              ? new Date(shop.lastCollectionAt).toLocaleTimeString([], {
-                                                  hour: '2-digit',
-                                                  minute: '2-digit',
-                                                })
-                                              : 'None'}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
+                                <DataTable
+                                  columns={shopColumns}
+                                  rows={area.shops}
+                                  getRowId={(shop) => shop.id}
+                                  onRowClick={(shop) => setSelectedShop(shop)}
+                                  tableFrom="lg"
+                                />
                               )}
                             </div>
                           );
@@ -465,48 +498,13 @@ export function ZMCCSubordinateHierarchyScreen({
             <span className="text-xs text-slate-500">{reportData.hcSuppliers.length} registered suppliers</span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-muted/50 text-slate-600 font-semibold text-xs border-b border-border">
-                <tr>
-                  <th className="p-3">Supplier Code</th>
-                  <th className="p-3">Supplier Name</th>
-                  <th className="p-3">Contact Person</th>
-                  <th className="p-3">Phone</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Today Arrivals</th>
-                  <th className="p-3">Today Liters</th>
-                  <th className="p-3 text-right">Last Arrival</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {reportData.hcSuppliers.map((supplier) => (
-                  <tr key={supplier.id} className="hover:bg-subtle">
-                    <td className="p-3 tabular-nums font-semibold text-primary">{supplier.supplierCode}</td>
-                    <td className="p-3 font-semibold text-foreground">{supplier.name}</td>
-                    <td className="p-3 text-slate-600">{supplier.contactPerson || '—'}</td>
-                    <td className="p-3 tabular-nums text-slate-600">{supplier.phoneNumber || '—'}</td>
-                    <td className="p-3">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        ACTIVE
-                      </span>
-                    </td>
-                    <td className="p-3 tabular-nums font-semibold text-slate-700">{supplier.todayArrivalsCount}</td>
-                    <td className="p-3 tabular-nums font-semibold text-foreground">
-                      {supplier.todayLiters.toLocaleString()} L
-                    </td>
-                    <td className="p-3 text-right text-slate-500 tabular-nums">
-                      {supplier.lastArrivalAt
-                        ? new Date(supplier.lastArrivalAt).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="p-3">
+            <DataTable
+              columns={supplierColumns}
+              rows={reportData.hcSuppliers}
+              getRowId={(supplier) => supplier.id}
+              tableFrom="lg"
+            />
           </div>
         </div>
       )}

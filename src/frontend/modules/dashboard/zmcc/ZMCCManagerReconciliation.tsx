@@ -7,6 +7,7 @@ import {
   buildVehicleVisitGroups,
   deriveVehicleReconciliationItems,
 } from './zmccManagerHelpers';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { SupplyChainLossCard } from '@/frontend/modules/dashboard/components/SupplyChainLossCard';
 import {
   ArrowRightLeft,
@@ -119,6 +120,207 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
   }, [enrichedItems]);
 
   const showKpiPlaceholders = isLoading || error != null;
+
+  type ReconItem = (typeof enrichedItems)[number];
+  const deltaClass = (v: number) => (v === 0 ? 'text-secondary-foreground' : v > 0 ? 'text-emerald-800' : 'text-rose-800');
+  const columns: DataColumn<ReconItem>[] = [
+    {
+      key: 'vehicle',
+      header: 'Vehicle',
+      label: 'Vehicle',
+      primary: true,
+      cell: (item) => {
+        const isExpanded = expandedVisitId === item.visitId;
+        return (
+          <div className="flex items-center space-x-1.5 tabular-nums">
+            <button
+              type="button"
+              onClick={() => setExpandedVisitId(isExpanded ? null : item.visitId)}
+              className="p-1 rounded hover:bg-muted text-muted-foreground min-h-11 min-w-11"
+              title={isExpanded ? 'Collapse row' : 'Expand details'}
+            >
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+            </button>
+            <div>
+              <span className="font-semibold text-foreground block">{item.vehicleNumber}</span>
+              {item.tokenNumber && <span className="text-xs text-muted-foreground block">Tk: {item.tokenNumber}</span>}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'dispatchGross',
+      header: 'Dispatch Gross (L)',
+      label: 'Dispatch gross (L)',
+      align: 'right',
+      cell: (item) => <span className="tabular-nums font-semibold text-foreground">{item.dispatchGrossLiters != null ? `${item.dispatchGrossLiters.toLocaleString()} L` : '—'}</span>,
+    },
+    {
+      key: 'plantReceived',
+      header: 'Plant Received (L)',
+      label: 'Plant received (L)',
+      align: 'right',
+      cell: (item) => (
+        <span className="tabular-nums font-semibold">
+          {item.physicalReceivedLiters != null ? (
+            <span className="text-emerald-800">{item.physicalReceivedLiters.toLocaleString()} L</span>
+          ) : item.isReceiptPending ? (
+            <span className="text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-sans font-semibold">Receipt Pending</span>
+          ) : (
+            <span className="text-muted-foreground font-sans text-xs">Pending Reception</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'grossDelta',
+      header: 'Gross Delta',
+      label: 'Gross delta',
+      align: 'right',
+      cell: (item) => (
+        <span className="tabular-nums font-semibold">
+          {item.grossVarianceLiters != null ? (
+            <span className={deltaClass(item.grossVarianceLiters)}>{item.grossVarianceText}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'grossDeltaPct',
+      header: 'Gross Delta %',
+      label: 'Gross delta %',
+      align: 'right',
+      cell: (item) => (
+        <span className="tabular-nums font-semibold">
+          {item.grossVariancePercent != null ? (
+            <span className={deltaClass(item.grossVariancePercent)}>{item.grossVariancePercentText}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'dispatch13',
+      header: 'Dispatch @13TS',
+      label: 'Dispatch @13TS',
+      align: 'right',
+      cell: (item) => <span className="tabular-nums text-foreground">{item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : 'Unavailable'}</span>,
+    },
+    {
+      key: 'plant13',
+      header: 'Plant @13TS',
+      label: 'Plant @13TS',
+      align: 'right',
+      cell: (item) => (
+        <span className="tabular-nums font-semibold">
+          {item.plant13TsLiters != null ? (
+            <span className="text-foreground">{item.plant13TsLiters.toLocaleString()} L</span>
+          ) : item.isHistoricalReceiptWithoutCommercialSnapshot ? (
+            <span className="text-muted-foreground font-sans text-xs font-semibold">Unavailable</span>
+          ) : item.isReceiptPending ? (
+            <span className="text-muted-foreground font-sans text-xs">Pending</span>
+          ) : (
+            <span className="text-muted-foreground font-sans text-xs">Pending</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'delta13',
+      header: '@13TS Delta',
+      label: '@13TS delta',
+      align: 'right',
+      cell: (item) => (
+        <span className="tabular-nums font-semibold">
+          {item.at13TsVarianceLiters != null ? (
+            <span className={deltaClass(item.at13TsVarianceLiters)}>{item.at13TsVarianceText}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'delta13Pct',
+      header: '@13TS Delta %',
+      label: '@13TS delta %',
+      align: 'right',
+      cell: (item) => (
+        <span className="tabular-nums font-semibold">
+          {item.at13TsVariancePercent != null ? (
+            <span className={deltaClass(item.at13TsVariancePercent)}>{item.at13TsVariancePercentText}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'qa',
+      header: 'QA Summary',
+      label: 'QA summary',
+      align: 'center',
+      cell: (item) => {
+        const qaSummary = item.group.lifecycle.portionQA;
+        return (
+          <span
+            className={`inline-block px-2 py-0.5 rounded text-xs font-sans font-semibold ${
+              qaSummary.badgeType === 'ALL_ACCEPTED'
+                ? 'bg-emerald-100 text-emerald-800'
+                : qaSummary.badgeType === 'ALL_REJECTED' || qaSummary.badgeType === 'MIXED'
+                ? 'bg-rose-100 text-rose-800'
+                : qaSummary.badgeType === 'HAS_HOLD'
+                ? 'bg-amber-100 text-amber-800'
+                : 'bg-muted text-secondary-foreground'
+            }`}
+          >
+            {qaSummary.summaryText}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      align: 'center',
+      cell: (item) => (
+        <span
+          className={`inline-block px-2 py-0.5 rounded text-xs font-sans font-semibold  ${
+            item.isCompletedReceipt
+              ? 'bg-emerald-100 text-emerald-800'
+              : item.isReceiptPending
+              ? 'bg-amber-100 text-amber-800'
+              : 'bg-blue-100 text-blue-800'
+          }`}
+        >
+          {item.isCompletedReceipt ? 'Final Receipt' : item.isReceiptPending ? 'Pending' : item.lifecycleStatus}
+        </span>
+      ),
+    },
+    {
+      key: 'action',
+      header: 'Action',
+      label: 'Action',
+      actions: true,
+      align: 'center',
+      cell: (item) => (
+        <button
+          type="button"
+          onClick={() => onInspectDetails(item.group.primaryLog)}
+          className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-subtle border border-border text-xs font-sans font-semibold text-primary hover:bg-blue-50 transition min-h-11 min-w-11"
+          title="Inspect full details"
+        >
+          <span>Inspect</span>
+          <ExternalLink className="w-3 h-3" />
+        </button>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6" role="region" aria-label="ZMCC Manager Reconciliation">
@@ -278,294 +480,82 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
 
       {/* 6. Canonical Reconciliation Table */}
       {!isLoading && !error && filteredItems.length > 0 && (
-        <div className="bg-card border border-border rounded-xl shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-subtle border-b border-border text-xs font-semibold text-secondary-foreground">
-                  <th className="py-3 px-3">Vehicle</th>
-                  <th className="py-3 px-3 text-right">Dispatch Gross (L)</th>
-                  <th className="py-3 px-3 text-right">Plant Received (L)</th>
-                  <th className="py-3 px-3 text-right">Gross Delta</th>
-                  <th className="py-3 px-3 text-right">Gross Delta %</th>
-                  <th className="py-3 px-3 text-right">Dispatch @13TS</th>
-                  <th className="py-3 px-3 text-right">Plant @13TS</th>
-                  <th className="py-3 px-3 text-right">@13TS Delta</th>
-                  <th className="py-3 px-3 text-right">@13TS Delta %</th>
-                  <th className="py-3 px-3 text-center">QA Summary</th>
-                  <th className="py-3 px-3 text-center">Status</th>
-                  <th className="py-3 px-3 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60 tabular-nums text-xs">
-                {paginate(filteredItems, Math.min(page, pageCount(filteredItems.length))).map((item) => {
-                  const isExpanded = expandedVisitId === item.visitId;
-                  const qaSummary = item.group.lifecycle.portionQA;
+        <DataTable
+          columns={columns}
+          rows={paginate(filteredItems, Math.min(page, pageCount(filteredItems.length)))}
+          getRowId={(item) => String(item.visitId)}
+          tableFrom="lg"
+          rowClassName={(item) => (expandedVisitId === item.visitId ? 'bg-blue-50/30' : undefined)}
+          renderExpanded={(item) =>
+            expandedVisitId === item.visitId ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs animate-panel-in">
+                  {/* Scale & Silo Weights */}
+                  <div className="bg-card border-border p-3 rounded-lg border space-y-2">
+                    <div className="flex items-center space-x-2 font-sans font-semibold text-foreground pb-1 border-b border-border">
+                      <Warehouse className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Weighbridge & Destination Silo</span>
+                    </div>
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 pt-1 tabular-nums text-xs">
+                      <div>
+                        <span className="text-xs text-muted-foreground font-sans block">1st Weight (Gross):</span>
+                        <span className="font-semibold text-foreground">
+                          {item.firstWeightKg != null ? `${item.firstWeightKg.toLocaleString()} kg` : '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground font-sans block">2nd Weight (Tare):</span>
+                        <span className="font-semibold text-foreground">
+                          {item.secondWeightKg != null ? `${item.secondWeightKg.toLocaleString()} kg` : '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground font-sans block">Net Milk Weight:</span>
+                        <span className="font-semibold text-blue-900">
+                          {item.netMilkWeightKg != null ? `${item.netMilkWeightKg.toLocaleString()} kg` : '—'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="pt-1 text-xs">
+                      <span className="text-xs text-muted-foreground font-sans">Destination Silo: </span>
+                      <span className="font-semibold text-foreground">{item.destinationSilo || '—'}</span>
+                    </div>
+                  </div>
 
-                  return (
-                    <React.Fragment key={item.visitId}>
-                      <tr className={`hover:bg-subtle transition-colors ${isExpanded ? 'bg-blue-50/30' : ''}`}>
-                        {/* 1. Vehicle */}
-                        <td className="py-3 px-3">
-                          <div className="flex items-center space-x-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setExpandedVisitId(isExpanded ? null : item.visitId)}
-                              className="p-1 rounded hover:bg-muted text-muted-foreground min-h-11 min-w-11"
-                              title={isExpanded ? 'Collapse row' : 'Expand details'}
-                            >
-                              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                            </button>
-                            <div>
-                              <span className="font-semibold text-foreground block">{item.vehicleNumber}</span>
-                              {item.tokenNumber && (
-                                <span className="text-xs text-muted-foreground block">Tk: {item.tokenNumber}</span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* 2. Dispatch Gross Liters */}
-                        <td className="py-3 px-3 text-right font-semibold text-foreground">
-                          {item.dispatchGrossLiters != null ? `${item.dispatchGrossLiters.toLocaleString()} L` : '—'}
-                        </td>
-
-                        {/* 3. Plant Received Gross Liters */}
-                        <td className="py-3 px-3 text-right font-semibold">
-                          {item.physicalReceivedLiters != null ? (
-                            <span className="text-emerald-800">{item.physicalReceivedLiters.toLocaleString()} L</span>
-                          ) : item.isReceiptPending ? (
-                            <span className="text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-sans font-semibold">
-                              Receipt Pending
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground font-sans text-xs">Pending Reception</span>
-                          )}
-                        </td>
-
-                        {/* 4. Gross Delta */}
-                        <td className="py-3 px-3 text-right font-semibold">
-                          {item.grossVarianceLiters != null ? (
-                            <span
-                              className={
-                                item.grossVarianceLiters === 0
-                                  ? 'text-secondary-foreground'
-                                  : item.grossVarianceLiters > 0
-                                  ? 'text-emerald-800'
-                                  : 'text-rose-800'
-                              }
-                            >
-                              {item.grossVarianceText}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-
-                        {/* 5. Gross Delta % */}
-                        <td className="py-3 px-3 text-right font-semibold">
-                          {item.grossVariancePercent != null ? (
-                            <span
-                              className={
-                                item.grossVariancePercent === 0
-                                  ? 'text-secondary-foreground'
-                                  : item.grossVariancePercent > 0
-                                  ? 'text-emerald-800'
-                                  : 'text-rose-800'
-                              }
-                            >
-                              {item.grossVariancePercentText}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-
-                        {/* 6. Dispatch @13TS */}
-                        <td className="py-3 px-3 text-right text-foreground">
-                          {item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : 'Unavailable'}
-                        </td>
-
-                        {/* 7. Plant @13TS */}
-                        <td className="py-3 px-3 text-right font-semibold">
-                          {item.plant13TsLiters != null ? (
-                            <span className="text-foreground">{item.plant13TsLiters.toLocaleString()} L</span>
-                          ) : item.isHistoricalReceiptWithoutCommercialSnapshot ? (
-                            <span className="text-muted-foreground font-sans text-xs font-semibold">Unavailable</span>
-                          ) : item.isReceiptPending ? (
-                            <span className="text-muted-foreground font-sans text-xs">Pending</span>
-                          ) : (
-                            <span className="text-muted-foreground font-sans text-xs">Pending</span>
-                          )}
-                        </td>
-
-                        {/* 8. @13TS Delta */}
-                        <td className="py-3 px-3 text-right font-semibold">
-                          {item.at13TsVarianceLiters != null ? (
-                            <span
-                              className={
-                                item.at13TsVarianceLiters === 0
-                                  ? 'text-secondary-foreground'
-                                  : item.at13TsVarianceLiters > 0
-                                  ? 'text-emerald-800'
-                                  : 'text-rose-800'
-                              }
-                            >
-                              {item.at13TsVarianceText}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-
-                        {/* 9. @13TS Delta % */}
-                        <td className="py-3 px-3 text-right font-semibold">
-                          {item.at13TsVariancePercent != null ? (
-                            <span
-                              className={
-                                item.at13TsVariancePercent === 0
-                                  ? 'text-secondary-foreground'
-                                  : item.at13TsVariancePercent > 0
-                                  ? 'text-emerald-800'
-                                  : 'text-rose-800'
-                              }
-                            >
-                              {item.at13TsVariancePercentText}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-
-                        {/* 10. QA Summary */}
-                        <td className="py-3 px-3 text-center">
+                  <div className="bg-card border-border p-3 rounded-lg border space-y-2">
+                    <div className="flex items-center space-x-2 font-sans font-semibold text-foreground pb-1 border-b border-border">
+                      <FlaskConical className="w-3.5 h-3.5 text-primary" />
+                      <span>Portion QA Breakdown ({item.portions.length} Portions)</span>
+                    </div>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {item.portions.map((p, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between py-1 px-2 rounded bg-subtle text-xs"
+                        >
+                          <span className="font-semibold text-secondary-foreground">{p.portionNumber}</span>
+                          <span className="text-secondary-foreground">
+                            {`Fat: ${p.dispatchFat ?? '—'}% / ${p.plantFat ?? '—'}% · LR: ${p.dispatchLr ?? '—'} / ${p.plantLr ?? '—'}`}
+                          </span>
                           <span
-                            className={`inline-block px-2 py-0.5 rounded text-xs font-sans font-semibold ${
-                              qaSummary.badgeType === 'ALL_ACCEPTED'
+                            className={`px-1.5 py-0.5 rounded text-xs font-sans font-semibold ${
+                              p.qaDecision === 'ACCEPTED'
                                 ? 'bg-emerald-100 text-emerald-800'
-                                : qaSummary.badgeType === 'ALL_REJECTED' || qaSummary.badgeType === 'MIXED'
+                                : p.qaDecision === 'REJECTED'
                                 ? 'bg-rose-100 text-rose-800'
-                                : qaSummary.badgeType === 'HAS_HOLD'
-                                ? 'bg-amber-100 text-amber-800'
                                 : 'bg-muted text-secondary-foreground'
                             }`}
                           >
-                            {qaSummary.summaryText}
+                            {p.qaDecision}
                           </span>
-                        </td>
-
-                        {/* 11. Status */}
-                        <td className="py-3 px-3 text-center">
-                          <span
-                            className={`inline-block px-2 py-0.5 rounded text-xs font-sans font-semibold  ${
-                              item.isCompletedReceipt
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : item.isReceiptPending
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-blue-100 text-blue-800'
-                            }`}
-                          >
-                            {item.isCompletedReceipt
-                              ? 'Final Receipt'
-                              : item.isReceiptPending
-                              ? 'Pending'
-                              : item.lifecycleStatus}
-                          </span>
-                        </td>
-
-                        {/* Action */}
-                        <td className="py-3 px-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => onInspectDetails(item.group.primaryLog)}
-                            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-subtle border border-border text-xs font-sans font-semibold text-primary hover:bg-blue-50 transition min-h-11 min-w-11"
-                            title="Inspect full details"
-                          >
-                            <span>Inspect</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </button>
-                        </td>
-                      </tr>
-
-                      {/* Expandable Sub-Row: Detailed Breakdown */}
-                      {isExpanded && (
-                        <tr className="bg-slate-50/70">
-                          <td colSpan={12} className="p-4 border-b border-border">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs animate-panel-in">
-                              {/* Scale & Silo Weights */}
-                              <div className="bg-card border-border p-3 rounded-lg border space-y-2">
-                                <div className="flex items-center space-x-2 font-sans font-semibold text-foreground pb-1 border-b border-border">
-                                  <Warehouse className="w-3.5 h-3.5 text-emerald-700" />
-                                  <span>Weighbridge & Destination Silo</span>
-                                </div>
-                                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 pt-1 tabular-nums text-xs">
-                                  <div>
-                                    <span className="text-xs text-muted-foreground font-sans block">1st Weight (Gross):</span>
-                                    <span className="font-semibold text-foreground">
-                                      {item.firstWeightKg != null ? `${item.firstWeightKg.toLocaleString()} kg` : '—'}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <span className="text-xs text-muted-foreground font-sans block">2nd Weight (Tare):</span>
-                                    <span className="font-semibold text-foreground">
-                                      {item.secondWeightKg != null ? `${item.secondWeightKg.toLocaleString()} kg` : '—'}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <span className="text-xs text-muted-foreground font-sans block">Net Milk Weight:</span>
-                                    <span className="font-semibold text-blue-900">
-                                      {item.netMilkWeightKg != null ? `${item.netMilkWeightKg.toLocaleString()} kg` : '—'}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="pt-1 text-xs">
-                                  <span className="text-xs text-muted-foreground font-sans">Destination Silo: </span>
-                                  <span className="font-semibold text-foreground">{item.destinationSilo || '—'}</span>
-                                </div>
-                              </div>
-
-                              <div className="bg-card border-border p-3 rounded-lg border space-y-2">
-                                <div className="flex items-center space-x-2 font-sans font-semibold text-foreground pb-1 border-b border-border">
-                                  <FlaskConical className="w-3.5 h-3.5 text-primary" />
-                                  <span>Portion QA Breakdown ({item.portions.length} Portions)</span>
-                                </div>
-                                <div className="space-y-1 max-h-32 overflow-y-auto">
-                                  {item.portions.map((p, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="flex items-center justify-between py-1 px-2 rounded bg-subtle text-xs"
-                                    >
-                                      <span className="font-semibold text-secondary-foreground">{p.portionNumber}</span>
-                                      <span className="text-secondary-foreground">
-                                        {`Fat: ${p.dispatchFat ?? '—'}% / ${p.plantFat ?? '—'}% · LR: ${p.dispatchLr ?? '—'} / ${p.plantLr ?? '—'}`}
-                                      </span>
-                                      <span
-                                        className={`px-1.5 py-0.5 rounded text-xs font-sans font-semibold ${
-                                          p.qaDecision === 'ACCEPTED'
-                                            ? 'bg-emerald-100 text-emerald-800'
-                                            : p.qaDecision === 'REJECTED'
-                                            ? 'bg-rose-100 text-rose-800'
-                                            : 'bg-muted text-secondary-foreground'
-                                        }`}
-                                      >
-                                        {p.qaDecision}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-<Pager page={Math.min(page, pageCount(filteredItems.length))} totalPages={pageCount(filteredItems.length)} total={filteredItems.length} onPageChange={setPage} />
-          </div>
-        </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+            ) : null
+          }
+          footer={<Pager page={Math.min(page, pageCount(filteredItems.length))} totalPages={pageCount(filteredItems.length)} total={filteredItems.length} onPageChange={setPage} />}
+        />
       )}
     </div>
   );

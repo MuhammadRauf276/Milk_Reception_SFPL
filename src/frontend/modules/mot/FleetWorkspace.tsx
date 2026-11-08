@@ -6,6 +6,7 @@ import { History, Plus, Truck } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { User } from '@core/types';
 import { Combobox } from '@/components/ui/combobox';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { stationQueryKeys } from '@/lib/query/stationQueryKeys';
 import { getErrorMessage } from '@/lib/errors';
@@ -119,6 +120,106 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
     refresh();
   };
 
+  const columns: DataColumn<FleetRow>[] = [
+    {
+      key: 'vehicle',
+      header: 'Vehicle',
+      label: 'Vehicle',
+      primary: true,
+      cell: (r) => <span className="font-semibold tabular-nums text-primary">{r.vehicle_number}</span>,
+    },
+    {
+      key: 'zmcc',
+      header: 'Home ZMCC',
+      label: 'Home ZMCC',
+      cell: (r) => <span className="font-medium text-secondary-foreground">{r.zmcc_name}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cell: (r) => {
+        const st = STATUS_META[r.status];
+        return (
+          <>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${st.tone}`}>{st.label}</span>
+            {r.arrival_token ? (
+              <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{r.arrival_token}</span>
+            ) : null}
+          </>
+        );
+      },
+    },
+    {
+      key: 'last_journey',
+      header: 'Last journey',
+      label: 'Last journey',
+      cell: (r) => (
+        <span className="text-secondary-foreground">
+          {r.last_journey ? (
+            <>
+              <span className="font-semibold tabular-nums" title={r.last_journey.route_name ?? undefined}>
+                #{r.last_journey.journey_number}
+              </span>
+              <span className="block text-xs text-muted-foreground">{fmt(r.last_journey.started_at)}</span>
+            </>
+          ) : (
+            <span className="text-muted-foreground">No journey yet</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (r) => {
+        const busy = r.status === 'COLLECTING' || r.status === 'RETURNING' || r.status === 'AT_ZMCC_WAITING_UNLOAD';
+        return (
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setHistoryRow(r)}
+              className="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-muted px-3 font-semibold text-foreground hover:bg-border"
+            >
+              <History className="h-3.5 w-3.5" />
+              History{r.transfers.length > 0 ? ` (${r.transfers.length})` : ''}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTransferVehicle(toItem(r))}
+              disabled={busy}
+              title={busy ? 'The vehicle must be free to move it' : 'Move vehicle to another ZMCC'}
+              className="min-h-[44px] rounded-lg bg-blue-50 px-3 font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+            >
+              Transfer
+            </button>
+            <button
+              type="button"
+              onClick={() => setVehicleSheet({ editing: toItem(r) })}
+              className="min-h-[44px] rounded-lg bg-muted px-3 font-semibold text-foreground hover:bg-border"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleMutation.mutate({ id: r.id, is_active: !r.is_active })}
+              disabled={r.is_active && (r.status === 'COLLECTING' || r.status === 'RETURNING')}
+              className={`min-h-[44px] rounded-lg px-3 font-semibold ${
+                r.is_active
+                  ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-50'
+                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+              }`}
+            >
+              {r.is_active ? 'Deactivate' : 'Activate'}
+            </button>
+          </div>
+        );
+      },
+    },
+  ];
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
@@ -185,98 +286,13 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
-        {fleetQuery.isLoading ? (
-          <div className="p-8 text-center text-xs font-semibold text-muted-foreground">Loading fleet…</div>
-        ) : rows.length === 0 ? (
-          <div className="p-8 text-center text-xs font-semibold text-muted-foreground">No vehicles found.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-border bg-muted/60 text-xs font-semibold text-secondary-foreground">
-                <tr>
-                  <th className="p-3">Vehicle</th>
-                  <th className="p-3">Home ZMCC</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Last journey</th>
-                  <th className="p-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {pageRows.map((r) => {
-                  const st = STATUS_META[r.status];
-                  const busy =
-                    r.status === 'COLLECTING' || r.status === 'RETURNING' || r.status === 'AT_ZMCC_WAITING_UNLOAD';
-                  return (
-                    <tr key={r.id} className="hover:bg-subtle">
-                      <td className="p-3 font-semibold tabular-nums text-primary">{r.vehicle_number}</td>
-                      <td className="p-3 font-medium text-secondary-foreground">{r.zmcc_name}</td>
-                      <td className="p-3">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${st.tone}`}>
-                          {st.label}
-                        </span>
-                        {r.arrival_token ? (
-                          <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{r.arrival_token}</span>
-                        ) : null}
-                      </td>
-                      <td className="p-3 text-secondary-foreground">
-                        {r.last_journey ? (
-                          <>
-                            <span className="font-semibold tabular-nums" title={r.last_journey.route_name ?? undefined}>
-                              #{r.last_journey.journey_number}
-                            </span>
-                            <span className="block text-xs text-muted-foreground">{fmt(r.last_journey.started_at)}</span>
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground">No journey yet</span>
-                        )}
-                      </td>
-                      <td className="space-x-2 p-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setHistoryRow(r)}
-                          className="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-muted px-3 font-semibold text-foreground hover:bg-border"
-                        >
-                          <History className="h-3.5 w-3.5" />
-                          History{r.transfers.length > 0 ? ` (${r.transfers.length})` : ''}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTransferVehicle(toItem(r))}
-                          disabled={busy}
-                          title={busy ? 'The vehicle must be free to move it' : 'Move vehicle to another ZMCC'}
-                          className="min-h-[44px] rounded-lg bg-blue-50 px-3 font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                        >
-                          Transfer
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setVehicleSheet({ editing: toItem(r) })}
-                          className="min-h-[44px] rounded-lg bg-muted px-3 font-semibold text-foreground hover:bg-border"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleMutation.mutate({ id: r.id, is_active: !r.is_active })}
-                          disabled={r.is_active && (r.status === 'COLLECTING' || r.status === 'RETURNING')}
-                          className={`min-h-[44px] rounded-lg px-3 font-semibold ${
-                            r.is_active
-                              ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-50'
-                              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                          }`}
-                        >
-                          {r.is_active ? 'Deactivate' : 'Activate'}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <DataTable
+        columns={columns}
+        rows={pageRows}
+        getRowId={(r) => r.id}
+        loading={fleetQuery.isLoading}
+        emptyTitle="No vehicles found."
+      />
       <Pager page={currentPage} totalPages={totalPages} total={rows.length} onPageChange={setPage} />
 
       {vehicleSheet && (

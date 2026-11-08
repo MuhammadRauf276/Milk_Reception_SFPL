@@ -12,6 +12,7 @@ import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/Decision
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import type { MotShopExceptionItem } from '@/backend/services/mot/motShopReviewService';
 
 type Tab = 'PENDING' | 'DECIDED';
@@ -44,6 +45,42 @@ function outcomeText(o: string) {
   return 'Not done';
 }
 
+type ExceptionTest = NonNullable<MotShopExceptionItem['details']>['tests'][number];
+
+const testColumns: DataColumn<ExceptionTest>[] = [
+  {
+    key: 'testName',
+    header: 'Test Name',
+    label: 'Test Name',
+    primary: true,
+    cell: (t) => <span className="font-medium text-foreground">{t.testName}</span>,
+  },
+  {
+    key: 'result',
+    header: 'Recorded Result',
+    label: 'Recorded Result',
+    cell: (t) => <span className="tabular-nums text-secondary-foreground">{t.value ?? t.textValue ?? '—'}</span>,
+  },
+  {
+    key: 'outcome',
+    header: 'Outcome',
+    label: 'Outcome',
+    cell: (t) => (
+      <span
+        className={cn(
+          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold',
+          t.outcome === 'FAIL'
+            ? 'bg-rose-100 text-rose-800'
+            : t.outcome === 'PASS'
+              ? 'bg-emerald-100 text-emerald-800'
+              : 'bg-amber-100 text-amber-800'
+        )}
+      >
+        {outcomeText(t.outcome)}
+      </span>
+    ),
+  },
+];
 export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ canDecide = true, onCountChange }) => {
   const [tab, setTab] = useState<Tab>('PENDING');
   const [now, setNow] = useState(() => Date.now());
@@ -326,39 +363,11 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
 
                 {/* Test Results Table */}
                 {activeModalItem.details && activeModalItem.details.tests.length > 0 && (
-                  <div className="overflow-x-auto rounded-xl border border-border">
-                    <table className="w-full text-xs">
-                      <thead className="bg-subtle text-left text-xs font-semibold text-secondary-foreground">
-                        <tr>
-                          <th className="p-2.5">Test Name</th>
-                          <th className="p-2.5">Recorded Result</th>
-                          <th className="p-2.5">Outcome</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {activeModalItem.details.tests.map((t) => (
-                          <tr key={t.labTestId}>
-                            <td className="p-2.5 font-medium text-foreground">{t.testName}</td>
-                            <td className="p-2.5 tabular-nums text-secondary-foreground">{t.value ?? t.textValue ?? '—'}</td>
-                            <td className="p-2.5 font-semibold">
-                              <span
-                                className={cn(
-                                  'inline-flex items-center rounded-full px-2 py-0.5 text-xs',
-                                  t.outcome === 'FAIL'
-                                    ? 'bg-rose-100 text-rose-800'
-                                    : t.outcome === 'PASS'
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : 'bg-amber-100 text-amber-800'
-                                )}
-                              >
-                                {outcomeText(t.outcome)}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <DataTable
+                    columns={testColumns}
+                    rows={activeModalItem.details.tests}
+                    getRowId={(t) => String(t.labTestId)}
+                  />
                 )}
 
                 {/* Photo Evidence */}

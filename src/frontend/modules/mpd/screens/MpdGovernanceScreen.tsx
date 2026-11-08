@@ -6,6 +6,7 @@ import type { GovernanceOverrideTelemetry, ZmccCenterTelemetry } from '../types'
 import { InfoTip } from '@/components/ui/info-tip';
 import { NO_DATA } from '../format';
 import { Pager, paginate, pageCount } from '@/frontend/modules/dashboard/components/Pager';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { formatDateTime } from '@/lib/format';
 
 interface MpdGovernanceScreenProps {
@@ -42,6 +43,120 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
       setActionLoading(null);
     }
   };
+
+  const columns: DataColumn<GovernanceOverrideTelemetry>[] = [
+    {
+      key: 'reference',
+      header: 'Reference',
+      label: 'Reference',
+      primary: true,
+      cell: (o) => (
+        <div>
+          <div className="tabular-nums font-semibold text-foreground">{o.reference}</div>
+          <div className="text-muted-foreground text-xs tabular-nums">{o.id}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'source',
+      header: 'Source',
+      label: 'Source',
+      cell: (o) => (
+        <div>
+          <div className="font-semibold text-foreground">{o.sourceName ?? NO_DATA}</div>
+          <span className="inline-block px-2 py-0.5 mt-0.5 rounded text-xs tabular-nums font-semibold bg-muted text-secondary-foreground">{o.stage}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'parameter',
+      header: 'Parameter',
+      label: 'Parameter',
+      cell: (o) => (
+        <div>
+          <div className="font-semibold text-rose-700">{o.failedParameter}</div>
+          <div className="text-xs tabular-nums text-secondary-foreground">
+            Value: <strong>{o.failedValue}</strong> (Limit: {o.toleranceLimit})
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'justification',
+      header: 'Justification',
+      label: 'Justification',
+      className: 'max-w-xs',
+      cell: (o) => (
+        <div>
+          <div className="flex items-center gap-1 text-foreground text-xs">
+            <span>Remarks</span>
+            {o.managerJustification ? <InfoTip text={o.managerJustification} /> : <span>{NO_DATA}</span>}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            System {o.systemOutcome ?? NO_DATA} → final {o.finalDecision ?? NO_DATA}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'overruledBy',
+      header: 'Overruled By',
+      label: 'Overruled by',
+      cell: (o) => (
+        <div>
+          <div className="text-foreground font-semibold">{o.overruledBy ?? NO_DATA}</div>
+          <div className="text-muted-foreground text-xs tabular-nums">{formatDateTime(o.timestamp)}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      align: 'center',
+      cell: (o) => (
+        <span
+          className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${
+            o.status === 'APPROVED'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : o.status === 'FLAGGED'
+              ? 'bg-rose-50 text-rose-800 border border-rose-200'
+              : 'bg-amber-50 text-amber-800 border border-amber-200'
+          }`}
+        >
+          {o.status}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (o) =>
+        o.status === 'PENDING_AUDIT' ? (
+          <div className="flex items-center justify-end gap-2">
+            <button
+              disabled={actionLoading === o.id}
+              onClick={() => handleAction(o.id, 'APPROVED')}
+              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 min-h-11 min-w-11"
+            >
+              Approve
+            </button>
+            <button
+              disabled={actionLoading === o.id}
+              onClick={() => handleAction(o.id, 'FLAGGED')}
+              className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 min-h-11 min-w-11"
+            >
+              Flag
+            </button>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground italic">Audited</span>
+        ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -125,101 +240,15 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold">
-                <th className="py-3 px-4">Reference</th>
-                <th className="py-3 px-4">Source</th>
-                <th className="py-3 px-4">Parameter</th>
-                <th className="py-3 px-4">Justification</th>
-                <th className="py-3 px-4">Overruled By</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredOverrides.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-6 text-center text-muted-foreground">
-                    No overrides found.
-                  </td>
-                </tr>
-              ) : (
-                paginate(filteredOverrides, Math.min(page, pageCount(filteredOverrides.length))).map((o) => (
-                  <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="tabular-nums font-semibold text-foreground">{o.reference}</div>
-                      <div className="text-muted-foreground text-xs tabular-nums">{o.id}</div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-foreground">{o.sourceName ?? NO_DATA}</div>
-                      <span className="inline-block px-2 py-0.5 mt-0.5 rounded text-xs tabular-nums font-semibold bg-muted text-secondary-foreground">
-                        {o.stage}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-rose-700">{o.failedParameter}</div>
-                      <div className="text-xs tabular-nums text-secondary-foreground">
-                        Value: <strong>{o.failedValue}</strong> (Limit: {o.toleranceLimit})
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 max-w-xs">
-                      <div className="flex items-center gap-1 text-foreground text-xs">
-                        <span>Remarks</span>
-                        {o.managerJustification ? <InfoTip text={o.managerJustification} /> : <span>{NO_DATA}</span>}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        System {o.systemOutcome ?? NO_DATA} → final {o.finalDecision ?? NO_DATA}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="text-foreground font-semibold">{o.overruledBy ?? NO_DATA}</div>
-                      <div className="text-muted-foreground text-xs tabular-nums">
-                        {formatDateTime(o.timestamp)}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span
-                        className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          o.status === 'APPROVED'
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                            : o.status === 'FLAGGED'
-                            ? 'bg-rose-50 text-rose-800 border border-rose-200'
-                            : 'bg-amber-50 text-amber-800 border border-amber-200'
-                        }`}
-                      >
-                        {o.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      {o.status === 'PENDING_AUDIT' ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            disabled={actionLoading === o.id}
-                            onClick={() => handleAction(o.id, 'APPROVED')}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 min-h-11 min-w-11"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            disabled={actionLoading === o.id}
-                            onClick={() => handleAction(o.id, 'FLAGGED')}
-                            className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 min-h-11 min-w-11"
-                          >
-                            Flag
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">Audited</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-<Pager page={Math.min(page, pageCount(filteredOverrides.length))} totalPages={pageCount(filteredOverrides.length)} total={filteredOverrides.length} onPageChange={setPage} />
+        <div className="p-3">
+          <DataTable
+            columns={columns}
+            rows={paginate(filteredOverrides, Math.min(page, pageCount(filteredOverrides.length)))}
+            getRowId={(o) => o.id}
+            emptyTitle="No overrides found."
+            tableFrom="lg"
+            footer={<Pager page={Math.min(page, pageCount(filteredOverrides.length))} totalPages={pageCount(filteredOverrides.length)} total={filteredOverrides.length} onPageChange={setPage} />}
+          />
         </div>
       </div>
     </div>

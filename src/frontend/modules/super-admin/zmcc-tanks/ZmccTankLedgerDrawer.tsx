@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownRight, ArrowUpRight, History, Loader2, Milk, ShieldAlert } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, History, ShieldAlert } from 'lucide-react';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -74,6 +75,103 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
   const isPositiveType = (type: string) =>
     type === 'RECEIPT' || type === 'ADJUSTMENT_IN';
 
+  const columns: DataColumn<TransactionRow>[] = [
+    {
+      key: 'when',
+      header: 'Date and time',
+      label: 'Date and time',
+      primary: true,
+      cell: (tx) => (
+        <span className="tabular-nums font-medium text-foreground">
+          {new Date(tx.operational_timestamp).toLocaleString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </span>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      label: 'Type',
+      cell: (tx) => {
+        const isIn = isPositiveType(tx.transaction_type);
+        return (
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+              isIn ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+            }`}
+          >
+            {isIn ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+            <span>{tx.transaction_type}</span>
+          </span>
+        );
+      },
+    },
+    {
+      key: 'gross',
+      header: 'Gross liters',
+      label: 'Gross liters',
+      align: 'right',
+      cell: (tx) => {
+        const isIn = isPositiveType(tx.transaction_type);
+        return (
+          <span className={`tabular-nums font-semibold ${isIn ? 'text-emerald-700' : 'text-blue-700'}`}>
+            {isIn ? '+' : '-'}
+            {tx.quantity_liters.toLocaleString('en-US', { minimumFractionDigits: 2 })} L
+          </span>
+        );
+      },
+    },
+    {
+      key: 'ts13',
+      header: '@13% TS (L)',
+      label: '@13% TS (L)',
+      align: 'right',
+      cell: (tx) => {
+        const isIn = isPositiveType(tx.transaction_type);
+        return (
+          <span className={`tabular-nums font-semibold ${isIn ? 'text-emerald-600' : 'text-blue-600'}`}>
+            {tx.at_13ts_liters !== null
+              ? `${isIn ? '+' : '-'}${tx.at_13ts_liters.toLocaleString('en-US', { minimumFractionDigits: 2 })} L`
+              : '—'}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'reference',
+      header: 'Reference / notes',
+      label: 'Reference / notes',
+      className: 'min-w-[10rem]',
+      cell: (tx) => (
+        <div className="text-secondary-foreground" title={tx.notes || tx.reference_id || ''}>
+          <span className="font-semibold text-foreground block">{tx.reference_type || 'Ledger entry'}</span>
+          <span className="text-xs text-muted-foreground">{tx.notes || tx.reference_id || '—'}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'by',
+      header: 'Recorded by',
+      label: 'Recorded by',
+      cell: (tx) => (
+        <span className="text-muted-foreground">
+          {tx.performer ? (
+            <div>
+              <span className="font-medium text-foreground block">{tx.performer.full_name || tx.performer.username}</span>
+              <span className="text-xs text-muted-foreground">{tx.performer.role}</span>
+            </div>
+          ) : (
+            'System'
+          )}
+        </span>
+      ),
+    },
+  ];
   return (
     <Drawer
       open={!!tank}
@@ -130,97 +228,16 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
             </div>
           )}
 
-          {loading ? (
-            <div className="p-8 text-center flex flex-col items-center justify-center text-muted-foreground space-y-2">
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              <span className="text-xs">Loading ledger</span>
-            </div>
-          ) : transactions.length === 0 ? (
-            <div className="p-8 text-center border border-dashed border-border rounded-2xl text-muted-foreground">
-              <Milk className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="font-medium">No ledger entries for this tank</p>
-              <p className="text-xs text-muted-foreground mt-1">Milk additions and plant dispatches will appear here.</p>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-border bg-card shadow-2xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-sans">
-                  <thead className="border-b border-border bg-muted/50 text-muted-foreground font-semibold text-xs">
-                    <tr>
-                      <th className="p-3">Date and time</th>
-                      <th className="p-3">Type</th>
-                      <th className="p-3 text-right">Gross liters</th>
-                      <th className="p-3 text-right">@13% TS (L)</th>
-                      <th className="p-3">Reference / notes</th>
-                      <th className="p-3">Recorded by</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {transactions.map((tx) => {
-                      const isIn = isPositiveType(tx.transaction_type);
-                      return (
-                        <tr key={tx.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="p-3 tabular-nums font-medium text-foreground">
-                            {new Date(tx.operational_timestamp).toLocaleString('en-GB', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </td>
-                          <td className="p-3">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                isIn
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-blue-100 text-blue-800'
-                              }`}
-                            >
-                              {isIn ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                              <span>{tx.transaction_type}</span>
-                            </span>
-                          </td>
-                          <td
-                            className={`p-3 text-right tabular-nums font-semibold ${
-                              isIn ? 'text-emerald-700' : 'text-blue-700'
-                            }`}
-                          >
-                            {isIn ? '+' : '-'}
-                            {tx.quantity_liters.toLocaleString('en-US', { minimumFractionDigits: 2 })} L
-                          </td>
-                          <td
-                            className={`p-3 text-right tabular-nums font-semibold ${
-                              isIn ? 'text-emerald-600' : 'text-blue-600'
-                            }`}
-                          >
-                            {tx.at_13ts_liters !== null
-                              ? `${isIn ? '+' : '-'}${tx.at_13ts_liters.toLocaleString('en-US', { minimumFractionDigits: 2 })} L`
-                              : '—'}
-                          </td>
-                          <td className="p-3 text-secondary-foreground min-w-[10rem]" title={tx.notes || tx.reference_id || ''}>
-                            <span className="font-semibold text-foreground block">{tx.reference_type || 'Ledger entry'}</span>
-                            <span className="text-xs text-muted-foreground">{tx.notes || tx.reference_id || '—'}</span>
-                          </td>
-                          <td className="p-3 text-muted-foreground">
-                            {tx.performer ? (
-                              <div>
-                                <span className="font-medium text-foreground block">{tx.performer.full_name || tx.performer.username}</span>
-                                <span className="text-xs text-muted-foreground">{tx.performer.role}</span>
-                              </div>
-                            ) : (
-                              'System'
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between border-t border-border px-4 py-2.5 bg-subtle text-xs">
+          <DataTable
+            columns={columns}
+            rows={transactions}
+            getRowId={(tx) => tx.id}
+            loading={loading}
+            emptyTitle="No ledger entries for this tank"
+            emptyDescription="Milk additions and plant dispatches will appear here."
+            footer={
+              pagination && pagination.totalPages > 1 ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-subtle px-4 py-2.5 text-xs">
                   <span className="text-muted-foreground">
                     Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
                   </span>
@@ -245,9 +262,9 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
                     </Button>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+              ) : null
+            }
+          />
         </div>
       </DrawerContent>
     </Drawer>

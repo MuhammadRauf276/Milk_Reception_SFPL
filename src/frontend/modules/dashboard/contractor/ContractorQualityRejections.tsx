@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { MilkProcessLog } from '@backend/core/types';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import {
   ContractorVehicleVisit,
   ContractorQualityMetrics,
@@ -26,6 +27,93 @@ import {
   Truck,
 } from 'lucide-react';
 
+const portionColumns: DataColumn<MilkProcessLog>[] = [
+  {
+    key: 'portion',
+    header: 'Portion',
+    label: 'Portion',
+    primary: true,
+    cell: (p) => <span className="tabular-nums font-semibold text-slate-900">{p.portion_number}</span>,
+  },
+  {
+    key: 'qty',
+    header: 'Portion Qty (Context)',
+    label: 'Portion Qty (Context)',
+    cell: (p) => (
+      <span className="tabular-nums text-slate-600 text-xs">
+        {p.dispatch_liters_gross ? `${p.dispatch_liters_gross.toLocaleString()} L` : '—'}
+      </span>
+    ),
+  },
+  {
+    key: 'decision',
+    header: 'QA Decision',
+    label: 'QA Decision',
+    cell: (p) => {
+      const st = String(p.calculated_status || 'PENDING').toUpperCase();
+      return (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+            st === 'ACCEPTED'
+              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+              : st === 'REJECTED'
+              ? 'bg-rose-100 text-rose-800 border border-rose-200'
+              : st === 'HOLD'
+              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+              : 'bg-slate-100 text-slate-700 border border-slate-200'
+          }`}
+        >
+          {st}
+        </span>
+      );
+    },
+  },
+  {
+    key: 'lr',
+    header: `Plant LR (${PLANT_LR_TEST_CODE})`,
+    label: `Plant LR (${PLANT_LR_TEST_CODE})`,
+    align: 'right',
+    cell: (p) => (
+      <span className="tabular-nums font-semibold text-slate-800">{p.sampling_lr != null ? p.sampling_lr.toFixed(1) : '—'}</span>
+    ),
+  },
+  {
+    key: 'fat',
+    header: `Plant Fat (${PLANT_FAT_TEST_CODE})`,
+    label: `Plant Fat (${PLANT_FAT_TEST_CODE})`,
+    align: 'right',
+    cell: (p) => (
+      <span className="tabular-nums font-semibold text-slate-800">
+        {p.sampling_fat != null ? `${p.sampling_fat.toFixed(2)}%` : '—'}
+      </span>
+    ),
+  },
+  {
+    key: 'snfts',
+    header: 'SNF / TS',
+    label: 'SNF / TS',
+    align: 'right',
+    cell: (p) => (
+      <span className="tabular-nums text-slate-600 text-xs">
+        {p.computed_sampling_snf != null && p.computed_sampling_ts != null
+          ? `${p.computed_sampling_snf.toFixed(2)}% / ${p.computed_sampling_ts.toFixed(2)}%`
+          : '—'}
+      </span>
+    ),
+  },
+  {
+    key: 'remarks',
+    header: 'Remarks / Reason',
+    label: 'Remarks / Reason',
+    cell: (p) => <span className="text-slate-600 text-xs">{p.rejection_reasons || '—'}</span>,
+  },
+  {
+    key: 'time',
+    header: 'Sampling Time',
+    label: 'Sampling Time',
+    cell: (p) => <span className="text-slate-500 tabular-nums text-xs">{p.sampling_time_start || '—'}</span>,
+  },
+];
 interface ContractorQualityRejectionsProps {
   logs: MilkProcessLog[];
   serverBusinessDate: string;
@@ -331,69 +419,11 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
               </div>
 
               {/* Portion QA Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-600 font-semibold text-xs bg-slate-50/70">
-                      <th className="py-2.5 px-3">Portion</th>
-                      <th className="py-2.5 px-3">Portion Qty (Context)</th>
-                      <th className="py-2.5 px-3">QA Decision</th>
-                      <th className="py-2.5 px-3 text-right">Plant LR ({PLANT_LR_TEST_CODE})</th>
-                      <th className="py-2.5 px-3 text-right">Plant Fat ({PLANT_FAT_TEST_CODE})</th>
-                      <th className="py-2.5 px-3 text-right">SNF / TS</th>
-                      <th className="py-2.5 px-3">Remarks / Reason</th>
-                      <th className="py-2.5 px-3">Sampling Time</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
-                    {v.visiblePortions.map((p, idx) => {
-                      const st = String(p.calculated_status || 'PENDING').toUpperCase();
-                      return (
-                        <tr key={p.portion_id || idx} className="hover:bg-slate-50/80 transition">
-                          <td className="py-3 px-3 tabular-nums font-semibold text-slate-900">
-                            {p.portion_number}
-                          </td>
-                          <td className="py-3 px-3 tabular-nums text-slate-600 text-xs">
-                            {p.dispatch_liters_gross ? `${p.dispatch_liters_gross.toLocaleString()} L` : '—'}
-                          </td>
-                          <td className="py-3 px-3">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                                st === 'ACCEPTED'
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                  : st === 'REJECTED'
-                                  ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                                  : st === 'HOLD'
-                                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                  : 'bg-slate-100 text-slate-700 border border-slate-200'
-                              }`}
-                            >
-                              {st}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-right tabular-nums font-semibold text-slate-800">
-                            {p.sampling_lr != null ? p.sampling_lr.toFixed(1) : '—'}
-                          </td>
-                          <td className="py-3 px-3 text-right tabular-nums font-semibold text-slate-800">
-                            {p.sampling_fat != null ? `${p.sampling_fat.toFixed(2)}%` : '—'}
-                          </td>
-                          <td className="py-3 px-3 text-right tabular-nums text-slate-600 text-xs">
-                            {p.computed_sampling_snf != null && p.computed_sampling_ts != null
-                              ? `${p.computed_sampling_snf.toFixed(2)}% / ${p.computed_sampling_ts.toFixed(2)}%`
-                              : '—'}
-                          </td>
-                          <td className="py-3 px-3 text-slate-600 text-xs">
-                            {p.rejection_reasons || '—'}
-                          </td>
-                          <td className="py-3 px-3 text-slate-500 tabular-nums text-xs">
-                            {p.sampling_time_start || '—'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                columns={portionColumns}
+                rows={v.visiblePortions}
+                getRowId={(p) => String(p.portion_id || p.portion_number)}
+              />
             </div>
           ))
         )}

@@ -25,6 +25,7 @@ import {
   FileSpreadsheet,
   Loader2,
 } from 'lucide-react';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { SkeletonTable } from '@/components/ui/loaders';
 
 interface ZMCCManagerHistoryReportsProps {
@@ -97,6 +98,110 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
   const handlePrint = useCallback(() => {
     window.print();
   }, []);
+
+  type HistoryItem = (typeof items)[number];
+  const columns: DataColumn<HistoryItem>[] = [
+    {
+      key: 'businessDate',
+      header: 'Business Date',
+      label: 'Business date',
+      primary: true,
+      cell: (item) => <span className="tabular-nums font-semibold text-foreground">{item.businessDate || 'Pending plant completion'}</span>,
+    },
+    { key: 'vehicle', header: 'Vehicle #', label: 'Vehicle #', cell: (item) => <span className="tabular-nums font-semibold text-foreground">{item.vehicleNumber}</span> },
+    { key: 'token', header: 'Token #', label: 'Token #', cell: (item) => <span className="tabular-nums text-secondary-foreground">{item.tokenNumber || '—'}</span> },
+    {
+      key: 'stage',
+      header: 'Current Stage',
+      label: 'Current stage',
+      cell: (item) => (
+        <span
+          className={`px-2 py-0.5 rounded text-xs font-semibold  ${
+            item.isComplete
+              ? 'bg-emerald-100 text-emerald-800'
+              : item.hasRejection
+              ? 'bg-rose-100 text-rose-800'
+              : item.hasHold
+              ? 'bg-amber-100 text-amber-800'
+              : 'bg-blue-100 text-blue-800'
+          }`}
+        >
+          {item.lifecycleStageLabel}
+        </span>
+      ),
+    },
+    {
+      key: 'portionQa',
+      header: 'Portion QA',
+      label: 'Portion QA',
+      cell: (item) => <span className="font-semibold text-secondary-foreground">{item.portionQASummaryText || `${item.portionCount} portions`}</span>,
+    },
+    {
+      key: 'dispatchGross',
+      header: 'Dispatch Gross',
+      label: 'Dispatch gross',
+      cell: (item) => <span className="tabular-nums font-semibold text-foreground">{item.dispatchGrossLiters != null ? `${item.dispatchGrossLiters.toLocaleString()} L` : '—'}</span>,
+    },
+    {
+      key: 'dispatch13',
+      header: 'Dispatch @13TS',
+      label: 'Dispatch @13TS',
+      cell: (item) => <span className="tabular-nums font-semibold text-blue-900">{item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : '—'}</span>,
+    },
+    {
+      key: 'firstWeight',
+      header: 'First Weight (Loaded Vehicle)',
+      label: 'First weight (loaded vehicle)',
+      cell: (item) => <span className="tabular-nums text-secondary-foreground">{item.firstWeightKg != null ? `${item.firstWeightKg.toLocaleString()} kg` : '—'}</span>,
+    },
+    {
+      key: 'secondWeight',
+      header: 'Second Weight (After Unloading)',
+      label: 'Second weight (after unloading)',
+      cell: (item) => <span className="tabular-nums text-secondary-foreground">{item.secondWeightKg != null ? `${item.secondWeightKg.toLocaleString()} kg` : '—'}</span>,
+    },
+    {
+      key: 'netWeight',
+      header: 'Net Milk Weight',
+      label: 'Net milk weight',
+      cell: (item) => <span className="tabular-nums font-semibold text-primary">{item.netMilkWeightKg != null ? `${item.netMilkWeightKg.toLocaleString()} kg` : '—'}</span>,
+    },
+    {
+      key: 'received',
+      header: 'Physical Received',
+      label: 'Physical received',
+      cell: (item) => <span className="tabular-nums font-semibold text-emerald-800">{item.physicalReceivedLiters != null ? `${item.physicalReceivedLiters.toLocaleString()} L` : '—'}</span>,
+    },
+    {
+      key: 'received13',
+      header: 'Received @13TS',
+      label: 'Received @13TS',
+      cell: (item) => <span className="tabular-nums font-semibold text-emerald-900">{item.plant13TsLiters != null ? `${item.plant13TsLiters.toLocaleString()} L` : '—'}</span>,
+    },
+    { key: 'silo', header: 'Silo', label: 'Silo', cell: (item) => <span className="font-semibold text-foreground">{item.destinationSilo || '—'}</span> },
+    {
+      key: 'finalReceipt',
+      header: 'Final Receipt Date/Time',
+      label: 'Final receipt date/time',
+      cell: (item) => <span className="font-sans text-secondary-foreground">{item.finalReceiptTimestamp ? formatOperationalDatetime(item.finalReceiptTimestamp) : '—'}</span>,
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (item) => (
+        <button
+          onClick={() => onInspectDetails(item.group.primaryLog)}
+          className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-subtle border border-border text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-[color,background-color,border-color,box-shadow,opacity,transform] min-h-11 min-w-11"
+        >
+          <span>View</span>
+          <ExternalLink className="w-3 h-3" />
+        </button>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -294,101 +399,13 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
 
       {/* 6. Historical Transactions Table */}
       {!isLoading && !error && filteredItems.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-border/80 bg-card shadow-xs">
-          <table className="w-full text-left text-xs tabular-nums">
-            <thead className="bg-subtle text-xs font-sans font-semibold text-secondary-foreground border-b border-border/80">
-              <tr>
-                <th className="py-2.5 px-3">Business Date</th>
-                <th className="py-2.5 px-3">Vehicle #</th>
-                <th className="py-2.5 px-3">Token #</th>
-                <th className="py-2.5 px-3 font-sans">Current Stage</th>
-                <th className="py-2.5 px-3 font-sans">Portion QA</th>
-                <th className="py-2.5 px-3">Dispatch Gross</th>
-                <th className="py-2.5 px-3">Dispatch @13TS</th>
-                <th className="py-2.5 px-3">First Weight (Loaded Vehicle)</th>
-                <th className="py-2.5 px-3">Second Weight (After Unloading)</th>
-                <th className="py-2.5 px-3">Net Milk Weight</th>
-                <th className="py-2.5 px-3">Physical Received</th>
-                <th className="py-2.5 px-3">Received @13TS</th>
-                <th className="py-2.5 px-3">Silo</th>
-                <th className="py-2.5 px-3 font-sans">Final Receipt Date/Time</th>
-                <th className="py-2.5 px-3 text-right font-sans">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40 text-xs">
-              {paginate(filteredItems, Math.min(page, pageCount(filteredItems.length))).map((item) => (
-                <tr key={item.visitId} className="hover:bg-subtle transition-colors">
-                  <td className="py-2.5 px-3 font-semibold text-foreground whitespace-nowrap">
-                    {item.businessDate || 'Pending plant completion'}
-                  </td>
-                  <td className="py-2.5 px-3 font-semibold text-foreground whitespace-nowrap">
-                    {item.vehicleNumber}
-                  </td>
-                  <td className="py-2.5 px-3 text-secondary-foreground whitespace-nowrap">
-                    {item.tokenNumber || '—'}
-                  </td>
-                  <td className="py-2.5 px-3 font-sans whitespace-nowrap">
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-semibold  ${
-                        item.isComplete
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : item.hasRejection
-                          ? 'bg-rose-100 text-rose-800'
-                          : item.hasHold
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-blue-100 text-blue-800'
-                      }`}
-                    >
-                      {item.lifecycleStageLabel}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 font-sans text-xs whitespace-nowrap">
-                    <span className="font-semibold text-secondary-foreground">
-                      {item.portionQASummaryText || `${item.portionCount} portions`}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 font-semibold text-foreground whitespace-nowrap">
-                    {item.dispatchGrossLiters != null ? `${item.dispatchGrossLiters.toLocaleString()} L` : '—'}
-                  </td>
-                  <td className="py-2.5 px-3 font-semibold text-blue-900 whitespace-nowrap">
-                    {item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : '—'}
-                  </td>
-                  <td className="py-2.5 px-3 text-secondary-foreground whitespace-nowrap">
-                    {item.firstWeightKg != null ? `${item.firstWeightKg.toLocaleString()} kg` : '—'}
-                  </td>
-                  <td className="py-2.5 px-3 text-secondary-foreground whitespace-nowrap">
-                    {item.secondWeightKg != null ? `${item.secondWeightKg.toLocaleString()} kg` : '—'}
-                  </td>
-                  <td className="py-2.5 px-3 font-semibold text-primary whitespace-nowrap">
-                    {item.netMilkWeightKg != null ? `${item.netMilkWeightKg.toLocaleString()} kg` : '—'}
-                  </td>
-                  <td className="py-2.5 px-3 font-semibold text-emerald-800 whitespace-nowrap">
-                    {item.physicalReceivedLiters != null ? `${item.physicalReceivedLiters.toLocaleString()} L` : '—'}
-                  </td>
-                  <td className="py-2.5 px-3 font-semibold text-emerald-900 whitespace-nowrap">
-                    {item.plant13TsLiters != null ? `${item.plant13TsLiters.toLocaleString()} L` : '—'}
-                  </td>
-                  <td className="py-2.5 px-3 font-semibold text-foreground whitespace-nowrap">
-                    {item.destinationSilo || '—'}
-                  </td>
-                  <td className="py-2.5 px-3 font-sans text-secondary-foreground whitespace-nowrap">
-                    {item.finalReceiptTimestamp ? formatOperationalDatetime(item.finalReceiptTimestamp) : '—'}
-                  </td>
-                  <td className="py-2.5 px-3 text-right whitespace-nowrap font-sans">
-                    <button
-                      onClick={() => onInspectDetails(item.group.primaryLog)}
-                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-subtle border border-border text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-[color,background-color,border-color,box-shadow,opacity,transform] min-h-11 min-w-11"
-                    >
-                      <span>View</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-<Pager page={Math.min(page, pageCount(filteredItems.length))} totalPages={pageCount(filteredItems.length)} total={filteredItems.length} onPageChange={setPage} />
-        </div>
+        <DataTable
+          columns={columns}
+          rows={paginate(filteredItems, Math.min(page, pageCount(filteredItems.length)))}
+          getRowId={(item) => String(item.visitId)}
+          tableFrom="lg"
+          footer={<Pager page={Math.min(page, pageCount(filteredItems.length))} totalPages={pageCount(filteredItems.length)} total={filteredItems.length} onPageChange={setPage} />}
+        />
       )}
     </div>
   );

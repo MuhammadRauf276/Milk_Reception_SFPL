@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Search, History, ChevronLeft, ChevronRight, Scale, Database, Clock, User } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Scale, Database, Clock, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { TableWrapper } from '@/components/ui/table-wrapper';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import type { SubordinateWorkHistoryItem } from '@/backend/services/productionHeadOverviewService';
 
 interface SubordinateWorkHistoryFeedProps {
@@ -85,6 +85,89 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
     }
   };
 
+  const columns: DataColumn<SubordinateWorkHistoryItem>[] = [
+    {
+      key: 'timestamp',
+      header: 'Timestamp',
+      label: 'Timestamp',
+      cell: (item) => (
+        <span className="font-mono text-muted-foreground">
+          {new Date(item.timestamp).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+          })}
+        </span>
+      ),
+    },
+    {
+      key: 'station',
+      header: 'Station',
+      label: 'Station',
+      cell: (item) => (
+        <span className="font-semibold text-foreground">
+          {item.station === 'WEIGHBRIDGE' ? 'Weighbridge' : 'Silo Reception'}
+        </span>
+      ),
+    },
+    {
+      key: 'operation',
+      header: 'Operation',
+      label: 'Operation',
+      cell: (item) => getActionBadge(item.action, item.actionLabel),
+    },
+    {
+      key: 'vehicle',
+      header: 'Vehicle / Token',
+      label: 'Vehicle / Token',
+      primary: true,
+      cell: (item) => (
+        <div>
+          <div className="font-mono font-semibold uppercase text-foreground">{item.vehicleNumber}</div>
+          {item.tokenNumber && (
+            <span className="text-xs text-muted-foreground font-mono">Token #{item.tokenNumber}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'operator',
+      header: 'Operator',
+      label: 'Operator',
+      cell: (item) => (
+        <div>
+          <div className="font-medium text-foreground">{item.operatorName}</div>
+          <span className="text-xs text-muted-foreground">@{item.operatorUsername}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'details',
+      header: 'Details',
+      label: 'Details',
+      align: 'right',
+      cell: (item) => (
+        <div className="font-mono tabular-nums">
+          {item.details.netWeightKg !== undefined && (
+            <div>
+              <strong className="text-foreground font-semibold">{item.details.netWeightKg.toLocaleString()} kg</strong>{' '}
+              <span className="text-muted-foreground">net</span>
+            </div>
+          )}
+          {item.details.volumeAt13TsLiters !== undefined && (
+            <div className="text-xs text-primary font-semibold">
+              {item.details.volumeAt13TsLiters.toLocaleString()} L @13% TS
+            </div>
+          )}
+          {item.details.siloNumber && <div className="text-xs text-muted-foreground">{item.details.siloNumber}</div>}
+          {item.details.ticketNumber && (
+            <div className="text-xs text-muted-foreground">Ticket #{item.details.ticketNumber}</div>
+          )}
+        </div>
+      ),
+    },
+  ];
   return (
     <div className="space-y-4">
       {/* 1. Filter Buttons & Search Box */}
@@ -154,134 +237,50 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
       </div>
 
       {/* 2. Work History Table */}
-      <div className="rounded-xl border border-border bg-card shadow-2xs overflow-hidden">
-        {paginatedItems.length > 0 ? (
-          <div>
-            <TableWrapper>
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30 text-muted-foreground font-semibold">
-                    <th className="py-3 px-3.5">Timestamp</th>
-                    <th className="py-3 px-3.5">Station</th>
-                    <th className="py-3 px-3.5">Operation</th>
-                    <th className="py-3 px-3.5">Vehicle / Token</th>
-                    <th className="py-3 px-3.5">Operator</th>
-                    <th className="py-3 px-3.5 text-right">Details</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {paginatedItems.map((item) => {
-                    const timeStr = new Date(item.timestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit',
-                      hour12: true,
-                    });
-
-                    return (
-                      <tr key={item.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-3 px-3.5 font-mono text-muted-foreground whitespace-nowrap">
-                          {timeStr}
-                        </td>
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <span className="font-semibold text-foreground">
-                            {item.station === 'WEIGHBRIDGE' ? 'Weighbridge' : 'Silo Reception'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          {getActionBadge(item.action, item.actionLabel)}
-                        </td>
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <div className="font-mono font-semibold uppercase text-foreground">
-                            {item.vehicleNumber}
-                          </div>
-                          {item.tokenNumber && (
-                            <span className="text-xs text-muted-foreground font-mono">
-                              Token #{item.tokenNumber}
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <div className="font-medium text-foreground">{item.operatorName}</div>
-                          <span className="text-xs text-muted-foreground">@{item.operatorUsername}</span>
-                        </td>
-                        <td className="py-3 px-3.5 text-right font-mono tabular-nums whitespace-nowrap">
-                          {item.details.netWeightKg !== undefined && (
-                            <div>
-                              <strong className="text-foreground font-semibold">
-                                {item.details.netWeightKg.toLocaleString()} kg
-                              </strong>{' '}
-                              <span className="text-muted-foreground">net</span>
-                            </div>
-                          )}
-                          {item.details.volumeAt13TsLiters !== undefined && (
-                            <div className="text-xs text-primary font-semibold">
-                              {item.details.volumeAt13TsLiters.toLocaleString()} L @13% TS
-                            </div>
-                          )}
-                          {item.details.siloNumber && (
-                            <div className="text-xs text-muted-foreground">
-                              {item.details.siloNumber}
-                            </div>
-                          )}
-                          {item.details.ticketNumber && (
-                            <div className="text-xs text-muted-foreground">
-                              Ticket #{item.details.ticketNumber}
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </TableWrapper>
-
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card text-xs">
-                <span className="text-muted-foreground">
-                  Showing {startIndex + 1}–{Math.min(filteredHistory.length, startIndex + ITEMS_PER_PAGE)} of{' '}
-                  {filteredHistory.length} events
+      <DataTable
+        columns={columns}
+        rows={paginatedItems}
+        getRowId={(item) => String(item.id)}
+        emptyTitle="No Subordinate Events Found"
+        emptyDescription={
+          searchQuery
+            ? 'No weighbridge tickets or silo offloading events matched your search query.'
+            : 'No scale weighments or silo offloading operations have been recorded yet during this business day.'
+        }
+        footer={
+          totalPages > 1 && paginatedItems.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-xs">
+              <span className="text-muted-foreground">
+                Showing {startIndex + 1}–{Math.min(filteredHistory.length, startIndex + ITEMS_PER_PAGE)} of{' '}
+                {filteredHistory.length} events
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={activePage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="flex h-8 items-center gap-1 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  <span>Previous</span>
+                </button>
+                <span className="px-2 font-medium text-foreground">
+                  Page {activePage} of {totalPages}
                 </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    disabled={activePage <= 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="flex h-8 items-center gap-1 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                    <span>Previous</span>
-                  </button>
-                  <span className="px-2 font-medium text-foreground">
-                    Page {activePage} of {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={activePage >= totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    className="flex h-8 items-center gap-1 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
-                  >
-                    <span>Next</span>
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={activePage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="flex h-8 items-center gap-1 px-2.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="py-12 px-4 text-center space-y-2">
-            <History className="h-8 w-8 text-muted-foreground mx-auto opacity-50" />
-            <h4 className="font-semibold text-sm text-foreground">No Subordinate Events Found</h4>
-            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-              {searchQuery
-                ? 'No weighbridge tickets or silo offloading events matched your search query.'
-                : 'No scale weighments or silo offloading operations have been recorded yet during this business day.'}
-            </p>
-          </div>
-        )}
-      </div>
+            </div>
+          ) : null
+        }
+      />
     </div>
   );
 };

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, FlaskConical, Scale, Truck } from 'lucide-react';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import { formatMetric, NO_DATA } from '../format';
@@ -51,6 +52,12 @@ const Stat: React.FC<{ icon: React.ReactNode; label: string; dispatch: string; p
 const signed = (n: number | null | undefined, suffix = '') =>
   n === null || n === undefined ? NO_DATA : `${n > 0 ? '+' : ''}${n.toLocaleString()}${suffix}`;
 
+
+type TestRow = DispatchVsPlantReport['tests'][number];
+type TankerRow = DispatchVsPlantReport['rows'][number];
+
+const R = 'right' as const;
+
 export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab }) => {
   const [to, setTo] = useState(() => isoDay(new Date()));
   const [from, setFrom] = useState(() => isoDay(new Date(Date.now() - 6 * 86400000)));
@@ -71,6 +78,52 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
   });
   const report = query.data;
   const t = report?.totals;
+
+  const testColumns: DataColumn<TestRow>[] = [
+    {
+      key: 'test',
+      header: 'Test',
+      label: 'Test',
+      primary: true,
+      cell: (r) => (
+        <span className="font-medium text-foreground">
+          {r.testName}
+          {r.unit ? <span className="text-muted-foreground"> ({r.unit})</span> : null}
+        </span>
+      ),
+    },
+    { key: 'tankers', header: 'Tankers', label: 'Tankers', align: R, cell: (r) => <span className="tabular-nums">{r.vehicles}</span> },
+    { key: 'sent', header: 'ZMCC sent', label: 'ZMCC sent', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.dispatchAvg)}</span> },
+    { key: 'plant', header: 'Plant', label: 'Plant', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.plantAvg)}</span> },
+    { key: 'diff', header: 'Difference', label: 'Difference', align: R, cell: (r) => <span className="tabular-nums font-semibold">{signed(r.deltaAvg)}</span> },
+  ];
+
+  const tankerColumns: DataColumn<TankerRow>[] = [
+    {
+      key: 'tanker',
+      header: 'Tanker',
+      label: 'Tanker',
+      primary: true,
+      cell: (r) => (
+        <div className="font-medium text-foreground">
+          <span className="inline-flex items-center gap-1">
+            {open === r.visitId ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            {r.vehicleNumber}
+          </span>
+          <span className="block text-xs text-muted-foreground ml-5">
+            {r.operationalDate ?? NO_DATA} · {r.received ? 'Received' : 'Not received yet'}
+          </span>
+        </div>
+      ),
+    },
+    { key: 'zmcc', header: 'ZMCC', label: 'ZMCC', cell: (r) => r.zmccName || r.zmccCode || NO_DATA },
+    { key: 'sentL', header: 'Sent (L)', label: 'Sent (L)', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.dispatch.grossLiters)}</span> },
+    { key: 'plantL', header: 'Plant (L)', label: 'Plant (L)', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.plant.grossLiters)}</span> },
+    { key: 'plantKg', header: 'Plant (kg)', label: 'Plant (kg)', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.plant.netKg)}</span> },
+    { key: 'ts13sent', header: '13 TS sent', label: '13 TS sent', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.dispatch.at13tsLiters)}</span> },
+    { key: 'ts13plant', header: '13 TS plant', label: '13 TS plant', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.plant.at13tsLiters)}</span> },
+    { key: 'loss', header: 'Loss %', label: 'Loss %', align: R, cell: (r) => <span className="tabular-nums font-semibold">{signed(r.variance.grossPercent, '%')}</span> },
+  ];
 
   return (
     <div className="space-y-6">
@@ -138,120 +191,62 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
             </div>
           </div>
 
-          <section className="bg-card border border-border rounded-xl shadow-xs overflow-x-auto">
-            <h3 className="text-xs font-semibold text-foreground p-4 pb-2">Test-wise comparison (average per tanker)</h3>
-            {report.tests.length === 0 ? (
-              <p className="p-4 pt-0 text-xs text-muted-foreground">No tanker has numeric results on both sides in this period.</p>
-            ) : (
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-left text-muted-foreground border-b border-border">
-                    <th className="px-4 py-2 font-semibold">Test</th>
-                    <th className="px-2 py-2 font-semibold text-right">Tankers</th>
-                    <th className="px-2 py-2 font-semibold text-right">ZMCC sent</th>
-                    <th className="px-2 py-2 font-semibold text-right">Plant</th>
-                    <th className="px-4 py-2 font-semibold text-right">Difference</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.tests.map((r) => (
-                    <tr key={r.testId} className="border-b border-border last:border-0">
-                      <td className="px-4 py-2 font-medium text-foreground">
-                        {r.testName}
-                        {r.unit ? <span className="text-muted-foreground"> ({r.unit})</span> : null}
-                      </td>
-                      <td className="px-2 py-2 text-right tabular-nums">{r.vehicles}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{formatMetric(r.dispatchAvg)}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">{formatMetric(r.plantAvg)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums font-semibold">{signed(r.deltaAvg)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold text-foreground">Test-wise comparison (average per tanker)</h3>
+            <DataTable
+              columns={testColumns}
+              rows={report.tests}
+              getRowId={(r) => r.testId}
+              emptyTitle="No tanker has numeric results on both sides in this period."
+            />
           </section>
 
-          <section className="bg-card border border-border rounded-xl shadow-xs overflow-x-auto">
-            <h3 className="text-xs font-semibold text-foreground p-4 pb-2">Tankers</h3>
-            {report.rows.length === 0 ? (
-              <p className="p-4 pt-0 text-xs text-muted-foreground">No ZMCC tanker was dispatched in this period.</p>
-            ) : (
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-left text-muted-foreground border-b border-border">
-                    <th className="px-4 py-2 font-semibold">Tanker</th>
-                    <th className="px-2 py-2 font-semibold">ZMCC</th>
-                    <th className="px-2 py-2 font-semibold text-right">Sent (L)</th>
-                    <th className="px-2 py-2 font-semibold text-right">Plant (L)</th>
-                    <th className="px-2 py-2 font-semibold text-right">Plant (kg)</th>
-                    <th className="px-2 py-2 font-semibold text-right">13 TS sent</th>
-                    <th className="px-2 py-2 font-semibold text-right">13 TS plant</th>
-                    <th className="px-4 py-2 font-semibold text-right">Loss %</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.rows.map((r) => (
-                    <React.Fragment key={r.visitId}>
-                      <tr className="border-b border-border cursor-pointer hover:bg-muted/40" onClick={() => setOpen(open === r.visitId ? null : r.visitId)}>
-                        <td className="px-4 py-2 font-medium text-foreground">
-                          <span className="inline-flex items-center gap-1">
-                            {open === r.visitId ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                            {r.vehicleNumber}
-                          </span>
-                          <span className="block text-xs text-muted-foreground ml-5">
-                            {r.operationalDate ?? NO_DATA} · {r.received ? 'Received' : 'Not received yet'}
-                          </span>
-                        </td>
-                        <td className="px-2 py-2">{r.zmccName || r.zmccCode || NO_DATA}</td>
-                        <td className="px-2 py-2 text-right tabular-nums">{formatMetric(r.dispatch.grossLiters)}</td>
-                        <td className="px-2 py-2 text-right tabular-nums">{formatMetric(r.plant.grossLiters)}</td>
-                        <td className="px-2 py-2 text-right tabular-nums">{formatMetric(r.plant.netKg)}</td>
-                        <td className="px-2 py-2 text-right tabular-nums">{formatMetric(r.dispatch.at13tsLiters)}</td>
-                        <td className="px-2 py-2 text-right tabular-nums">{formatMetric(r.plant.at13tsLiters)}</td>
-                        <td className="px-4 py-2 text-right tabular-nums font-semibold">{signed(r.variance.grossPercent, '%')}</td>
-                      </tr>
-                      {open === r.visitId && (
-                        <tr className="border-b border-border bg-muted/30">
-                          <td colSpan={8} className="px-6 py-3">
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-xs">
-                              {[
-                                ['LR', r.dispatch.lr, r.plant.lr],
-                                ['Fat %', r.dispatch.fat, r.plant.fat],
-                                ['SNF %', r.dispatch.snf, r.plant.snf],
-                                ['TS %', r.dispatch.ts, r.plant.ts],
-                              ].map(([name, d, p]) => (
-                                <div key={String(name)} className="rounded-lg border border-border bg-card p-2">
-                                  <p className="font-semibold text-foreground">{name}</p>
-                                  <p className="tabular-nums text-secondary-foreground">
-                                    Sent {formatMetric(d as number | null)} · Plant {formatMetric(p as number | null)}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                            {r.tests.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">No test results were recorded for this tanker.</p>
-                            ) : (
-                              <table className="w-full text-xs">
-                                <tbody>
-                                  {r.tests.map((x) => (
-                                    <tr key={x.testId}>
-                                      <td className="py-1 pr-2 text-foreground">{x.testName}</td>
-                                      <td className="py-1 px-2 text-right tabular-nums">Sent {formatMetric(x.dispatch)}</td>
-                                      <td className="py-1 px-2 text-right tabular-nums">Plant {formatMetric(x.plant)}</td>
-                                      <td className="py-1 pl-2 text-right tabular-nums font-semibold">{signed(x.delta)}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold text-foreground">Tankers</h3>
+            <DataTable
+              columns={tankerColumns}
+              rows={report.rows}
+              getRowId={(r) => r.visitId}
+              emptyTitle="No ZMCC tanker was dispatched in this period."
+              onRowClick={(r) => setOpen(open === r.visitId ? null : r.visitId)}
+              renderExpanded={(r) =>
+                open === r.visitId ? (
+                  <div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-xs">
+                      {[
+                        ['LR', r.dispatch.lr, r.plant.lr],
+                        ['Fat %', r.dispatch.fat, r.plant.fat],
+                        ['SNF %', r.dispatch.snf, r.plant.snf],
+                        ['TS %', r.dispatch.ts, r.plant.ts],
+                      ].map(([name, d, p]) => (
+                        <div key={String(name)} className="rounded-lg border border-border bg-card p-2">
+                          <p className="font-semibold text-foreground">{name}</p>
+                          <p className="tabular-nums text-secondary-foreground">
+                            Sent {formatMetric(d as number | null)} · Plant {formatMetric(p as number | null)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    {r.tests.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No test results were recorded for this tanker.</p>
+                    ) : (
+                      <table className="w-full text-xs">
+                        <tbody>
+                          {r.tests.map((x) => (
+                            <tr key={x.testId}>
+                              <td className="py-1 pr-2 text-foreground">{x.testName}</td>
+                              <td className="py-1 px-2 text-right tabular-nums">Sent {formatMetric(x.dispatch)}</td>
+                              <td className="py-1 px-2 text-right tabular-nums">Plant {formatMetric(x.plant)}</td>
+                              <td className="py-1 pl-2 text-right tabular-nums font-semibold">{signed(x.delta)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                ) : null
+              }
+            />
           </section>
         </>
       )}

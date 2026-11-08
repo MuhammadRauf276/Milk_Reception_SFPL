@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { User } from '@backend/core/types';
 import type { RouteLedgerRow, HcSupplierLedgerRow, TankStorageRow } from './zmccReportTypes';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { PageLoader } from '@/components/ui/spinner';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
 import { getErrorMessage } from '@/lib/errors';
@@ -32,6 +33,137 @@ interface ZMCCComprehensiveReportsScreenProps {
   targetZmccId?: string;
   initialView?: string | null;
 }
+
+const routeColumns: DataColumn<RouteLedgerRow>[] = [
+  { key: 'journey', header: 'Journey #', label: 'Journey #', primary: true, cell: (row) => <span className="tabular-nums font-semibold text-primary">#{row.journeyNumber}</span> },
+  { key: 'date', header: 'Date', label: 'Date', cell: (row) => <span className="tabular-nums text-secondary-foreground font-medium">{row.operationalDate}</span> },
+  { key: 'route', header: 'Route', label: 'Route', cell: (row) => <span className="font-semibold text-foreground">{row.routeCode} · {row.routeName}</span> },
+  { key: 'mot', header: 'Mobile Tester', label: 'Mobile Tester', cell: (row) => <span className="text-foreground">{row.motName}</span> },
+  { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', cell: (row) => <span className="tabular-nums font-semibold text-secondary-foreground">{row.vehicleNumber}</span> },
+  { key: 'shops', header: 'Shops', label: 'Shops', cell: (row) => <span className="tabular-nums text-secondary-foreground">{row.visitedStops} / {row.plannedStops}</span> },
+  { key: 'shopL', header: 'Shop Liters', label: 'Shop liters', cell: (row) => <span className="tabular-nums font-semibold text-foreground">{row.shopLitersCollected.toLocaleString()} L</span> },
+  { key: 'arrival', header: 'ZMCC Arrival', label: 'ZMCC arrival', cell: (row) => <span className="tabular-nums font-semibold text-foreground">{row.zmccArrivalLiters.toLocaleString()} L</span> },
+  { key: 'loss', header: 'Route Loss', label: 'Route loss', cell: (row) => <span className="tabular-nums font-semibold text-amber-700">{row.routeLossLiters.toLocaleString()} L</span> },
+  {
+    key: 'lossPct',
+    header: 'Loss %',
+    label: 'Loss %',
+    cell: (row) => (
+      <span
+        className={`tabular-nums px-2 py-0.5 rounded-full text-xs font-semibold ${
+          row.routeLossPct > 1.0 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
+        }`}
+      >
+        {row.routeLossPct}%
+      </span>
+    ),
+  },
+  { key: 'shop13', header: 'Shop @13% TS', label: 'Shop @13% TS', cell: (row) => <span className="tabular-nums text-secondary-foreground">{row.at13TsLiters.toLocaleString()} L</span> },
+  {
+    key: 'zmcc13',
+    header: 'ZMCC @13% TS',
+    label: 'ZMCC @13% TS',
+    cell: (row) => <span className="tabular-nums text-secondary-foreground">{row.zmccArrivalAt13TsLiters !== null ? `${row.zmccArrivalAt13TsLiters.toLocaleString()} L` : '—'}</span>,
+  },
+  {
+    key: 'loss13',
+    header: 'Loss @13% TS',
+    label: 'Loss @13% TS',
+    cell: (row) => <span className="tabular-nums font-semibold text-amber-700">{row.routeLossAt13TsLiters !== null ? `${row.routeLossAt13TsLiters.toLocaleString()} L` : '—'}</span>,
+  },
+  { key: 'fat', header: 'Fat %', label: 'Fat %', cell: (row) => <span className="tabular-nums font-medium text-secondary-foreground">{row.avgFat}%</span> },
+  { key: 'lr', header: 'LR', label: 'LR', cell: (row) => <span className="tabular-nums font-medium text-secondary-foreground">{row.avgLr}</span> },
+  {
+    key: 'status',
+    header: 'Status',
+    label: 'Status',
+    align: 'right',
+    cell: (row) => (
+      <span
+        className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+          row.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
+        }`}
+      >
+        {row.status}
+      </span>
+    ),
+  },
+];
+
+const hcColumns: DataColumn<HcSupplierLedgerRow>[] = [
+  { key: 'token', header: 'Token #', label: 'Token #', primary: true, cell: (row) => <span className="tabular-nums font-semibold text-primary">{row.zmccToken}</span> },
+  { key: 'arrival', header: 'Arrival Time', label: 'Arrival time', cell: (row) => <span className="tabular-nums text-secondary-foreground">{formatTime(row.arrivalTimestamp)}</span> },
+  { key: 'code', header: 'Supplier Code', label: 'Supplier code', cell: (row) => <span className="tabular-nums font-semibold text-secondary-foreground">{row.supplierCode}</span> },
+  { key: 'name', header: 'Supplier Name', label: 'Supplier name', cell: (row) => <span className="font-semibold text-foreground">{row.supplierName}</span> },
+  { key: 'vehicle', header: 'Vehicle #', label: 'Vehicle #', cell: (row) => <span className="tabular-nums text-secondary-foreground">{row.vehicleNumber}</span> },
+  { key: 'gross', header: 'Gross Liters', label: 'Gross liters', cell: (row) => <span className="tabular-nums font-semibold text-foreground">{row.grossLiters.toLocaleString()} L</span> },
+  { key: 'ts13', header: '@13% TS', label: '@13% TS', cell: (row) => <span className="tabular-nums font-semibold text-foreground">{row.at13TsLiters !== null ? `${row.at13TsLiters.toLocaleString()} L` : '—'}</span> },
+  { key: 'fat', header: 'Fat %', label: 'Fat %', cell: (row) => <span className="tabular-nums text-secondary-foreground font-medium">{row.fat !== null ? `${row.fat}%` : '—'}</span> },
+  { key: 'snf', header: 'SNF %', label: 'SNF %', cell: (row) => <span className="tabular-nums text-secondary-foreground font-medium">{row.snf !== null ? `${row.snf}%` : '—'}</span> },
+  { key: 'lr', header: 'LR', label: 'LR', cell: (row) => <span className="tabular-nums text-secondary-foreground font-medium">{row.lr ?? '—'}</span> },
+  { key: 'temp', header: 'Temp °C', label: 'Temp °C', cell: (row) => <span className="tabular-nums text-secondary-foreground font-medium">{row.temperatureC !== null ? `${row.temperatureC} °C` : '—'}</span> },
+  {
+    key: 'decision',
+    header: 'Decision',
+    label: 'Decision',
+    cell: (row) => (
+      <span
+        className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+          row.decision === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+        }`}
+      >
+        {row.decision}
+      </span>
+    ),
+  },
+  { key: 'rmr', header: 'RMR #', label: 'RMR #', align: 'right', cell: (row) => <span className="tabular-nums font-semibold text-primary">{row.rmrNumber || '—'}</span> },
+];
+
+const tankColumns: DataColumn<TankStorageRow>[] = [
+  { key: 'code', header: 'Tank Code', label: 'Tank code', primary: true, cell: (tank) => <span className="tabular-nums font-semibold text-primary">{tank.tankCode}</span> },
+  { key: 'name', header: 'Tank Name', label: 'Tank name', cell: (tank) => <span className="font-semibold text-foreground">{tank.name}</span> },
+  { key: 'capacity', header: 'Capacity (L)', label: 'Capacity (L)', cell: (tank) => <span className="tabular-nums text-secondary-foreground">{tank.capacityLiters.toLocaleString()} L</span> },
+  {
+    key: 'stock13',
+    header: 'Stock @13% TS (L)',
+    label: 'Stock @13% TS (L)',
+    cell: (tank) => <span className="tabular-nums font-semibold text-foreground">{tank.currentStockAt13Ts !== null ? `${tank.currentStockAt13Ts.toLocaleString()} L` : '—'}</span>,
+  },
+  {
+    key: 'ts',
+    header: 'Composite TS %',
+    label: 'Composite TS %',
+    cell: (tank) => <span className="tabular-nums font-semibold text-blue-800">{tank.compositeTsPercent !== null ? `${tank.compositeTsPercent}%` : '—'}</span>,
+  },
+  {
+    key: 'fill',
+    header: 'Fill %',
+    label: 'Fill %',
+    cell: (tank) => (
+      <div className="flex items-center gap-2 tabular-nums">
+        <span className="font-semibold text-foreground">{tank.fillPercentage}%</span>
+        <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div style={{ width: `${Math.min(100, tank.fillPercentage)}%` }} className="bg-primary h-full rounded-full" />
+        </div>
+      </div>
+    ),
+  },
+  {
+    key: 'temp',
+    header: 'Temperature',
+    label: 'Temperature',
+    cell: (tank) => <span className="tabular-nums font-semibold text-blue-700">{tank.currentTempC !== null ? `${tank.currentTempC} °C` : '—'}</span>,
+  },
+  { key: 'receipts', header: 'Today Receipts', label: 'Today receipts', cell: (tank) => <span className="tabular-nums text-emerald-700 font-semibold">+{tank.todayReceiptsLiters.toLocaleString()} L</span> },
+  { key: 'dispatched', header: 'Dispatched', label: 'Dispatched', cell: (tank) => <span className="tabular-nums text-secondary-foreground">-{tank.todayDispatchesLiters.toLocaleString()} L</span> },
+  {
+    key: 'status',
+    header: 'Status',
+    label: 'Status',
+    align: 'right',
+    cell: () => <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>,
+  },
+];
 
 export function ZMCCComprehensiveReportsScreen({
   currentUser,
@@ -295,86 +427,12 @@ export function ZMCCComprehensiveReportsScreen({
               No route collections found for the selected date range.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-muted/50 text-secondary-foreground font-semibold text-xs border-b border-border">
-                  <tr>
-                    <th className="p-3">Journey #</th>
-                    <th className="p-3">Date</th>
-                    <th className="p-3">Route</th>
-                    <th className="p-3">Mobile Tester</th>
-                    <th className="p-3">Vehicle</th>
-                    <th className="p-3">Shops</th>
-                    <th className="p-3">Shop Liters</th>
-                    <th className="p-3">ZMCC Arrival</th>
-                    <th className="p-3">Route Loss</th>
-                    <th className="p-3">Loss %</th>
-                    <th className="p-3">Shop @13% TS</th>
-                    <th className="p-3">ZMCC @13% TS</th>
-                    <th className="p-3">Loss @13% TS</th>
-                    <th className="p-3">Fat %</th>
-                    <th className="p-3">LR</th>
-                    <th className="p-3 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {routeLedgerQuery.data?.rows.map((row) => (
-                    <tr key={row.id} className="hover:bg-subtle transition">
-                      <td className="p-3 tabular-nums font-semibold text-primary">#{row.journeyNumber}</td>
-                      <td className="p-3 tabular-nums text-secondary-foreground font-medium">{row.operationalDate}</td>
-                      <td className="p-3 font-semibold text-foreground">
-                        {row.routeCode} · {row.routeName}
-                      </td>
-                      <td className="p-3 text-foreground">{row.motName}</td>
-                      <td className="p-3 tabular-nums font-semibold text-secondary-foreground">{row.vehicleNumber}</td>
-                      <td className="p-3 tabular-nums text-secondary-foreground">
-                        {row.visitedStops} / {row.plannedStops}
-                      </td>
-                      <td className="p-3 tabular-nums font-semibold text-foreground">
-                        {row.shopLitersCollected.toLocaleString()} L
-                      </td>
-                      <td className="p-3 tabular-nums font-semibold text-foreground">
-                        {row.zmccArrivalLiters.toLocaleString()} L
-                      </td>
-                      <td className="p-3 tabular-nums font-semibold text-amber-700">
-                        {row.routeLossLiters.toLocaleString()} L
-                      </td>
-                      <td className="p-3 tabular-nums">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            row.routeLossPct > 1.0
-                              ? 'bg-rose-100 text-rose-800'
-                              : 'bg-emerald-100 text-emerald-800'
-                          }`}
-                        >
-                          {row.routeLossPct}%
-                        </span>
-                      </td>
-                      <td className="p-3 tabular-nums text-secondary-foreground">{row.at13TsLiters.toLocaleString()} L</td>
-                      <td className="p-3 tabular-nums text-secondary-foreground">
-                        {row.zmccArrivalAt13TsLiters !== null ? `${row.zmccArrivalAt13TsLiters.toLocaleString()} L` : '—'}
-                      </td>
-                      <td className="p-3 tabular-nums font-semibold text-amber-700">
-                        {row.routeLossAt13TsLiters !== null ? `${row.routeLossAt13TsLiters.toLocaleString()} L` : '—'}
-                      </td>
-                      <td className="p-3 tabular-nums font-medium text-secondary-foreground">{row.avgFat}%</td>
-                      <td className="p-3 tabular-nums font-medium text-secondary-foreground">{row.avgLr}</td>
-                      <td className="p-3 text-right">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            row.status === 'COMPLETED'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-blue-50 text-blue-700 border border-blue-200'
-                          }`}
-                        >
-                          {row.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={routeColumns}
+              rows={routeLedgerQuery.data?.rows ?? []}
+              getRowId={(r) => r.id}
+              tableFrom="lg"
+            />
           )}
         </div>
       )}
@@ -393,70 +451,12 @@ export function ZMCCComprehensiveReportsScreen({
               No supplier arrival records found for the selected date range.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-muted/50 text-secondary-foreground font-semibold text-xs border-b border-border">
-                  <tr>
-                    <th className="p-3">Token #</th>
-                    <th className="p-3">Arrival Time</th>
-                    <th className="p-3">Supplier Code</th>
-                    <th className="p-3">Supplier Name</th>
-                    <th className="p-3">Vehicle #</th>
-                    <th className="p-3">Gross Liters</th>
-                    <th className="p-3">@13% TS</th>
-                    <th className="p-3">Fat %</th>
-                    <th className="p-3">SNF %</th>
-                    <th className="p-3">LR</th>
-                    <th className="p-3">Temp °C</th>
-                    <th className="p-3">Decision</th>
-                    <th className="p-3 text-right">RMR #</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {hcLedgerQuery.data?.rows.map((row) => (
-                    <tr key={row.id} className="hover:bg-subtle transition">
-                      <td className="p-3 tabular-nums font-semibold text-primary">{row.zmccToken}</td>
-                      <td className="p-3 tabular-nums text-secondary-foreground">
-                        {formatTime(row.arrivalTimestamp)}
-                      </td>
-                      <td className="p-3 tabular-nums font-semibold text-secondary-foreground">{row.supplierCode}</td>
-                      <td className="p-3 font-semibold text-foreground">{row.supplierName}</td>
-                      <td className="p-3 tabular-nums text-secondary-foreground">{row.vehicleNumber}</td>
-                      <td className="p-3 tabular-nums font-semibold text-foreground">
-                        {row.grossLiters.toLocaleString()} L
-                      </td>
-                      <td className="p-3 tabular-nums font-semibold text-foreground">
-                        {row.at13TsLiters !== null ? `${row.at13TsLiters.toLocaleString()} L` : '—'}
-                      </td>
-                      <td className="p-3 tabular-nums text-secondary-foreground font-medium">
-                        {row.fat !== null ? `${row.fat}%` : '—'}
-                      </td>
-                      <td className="p-3 tabular-nums text-secondary-foreground font-medium">
-                        {row.snf !== null ? `${row.snf}%` : '—'}
-                      </td>
-                      <td className="p-3 tabular-nums text-secondary-foreground font-medium">{row.lr ?? '—'}</td>
-                      <td className="p-3 tabular-nums text-secondary-foreground font-medium">
-                        {row.temperatureC !== null ? `${row.temperatureC} °C` : '—'}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            row.decision === 'ACCEPTED'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-rose-50 text-rose-700 border border-rose-200'
-                          }`}
-                        >
-                          {row.decision}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right tabular-nums font-semibold text-primary">
-                        {row.rmrNumber || '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={hcColumns}
+              rows={hcLedgerQuery.data?.rows ?? []}
+              getRowId={(r) => r.id}
+              tableFrom="lg"
+            />
           )}
         </div>
       )}
@@ -475,66 +475,12 @@ export function ZMCCComprehensiveReportsScreen({
               No tanks registered at this facility.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-muted/50 text-secondary-foreground font-semibold text-xs border-b border-border">
-                  <tr>
-                    <th className="p-3">Tank Code</th>
-                    <th className="p-3">Tank Name</th>
-                    <th className="p-3">Capacity (L)</th>
-                    <th className="p-3">Stock @13% TS (L)</th>
-                    <th className="p-3">Composite TS %</th>
-                    <th className="p-3">Fill %</th>
-                    <th className="p-3">Temperature</th>
-                    <th className="p-3">Today Receipts</th>
-                    <th className="p-3">Dispatched</th>
-                    <th className="p-3 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {tankStorageQuery.data?.rows.map((tank) => (
-                    <tr key={tank.id} className="hover:bg-subtle transition">
-                      <td className="p-3 tabular-nums font-semibold text-primary">{tank.tankCode}</td>
-                      <td className="p-3 font-semibold text-foreground">{tank.name}</td>
-                      <td className="p-3 tabular-nums text-secondary-foreground">{tank.capacityLiters.toLocaleString()} L</td>
-                      <td className="p-3 tabular-nums font-semibold text-foreground">
-                        {tank.currentStockAt13Ts !== null
-                          ? `${tank.currentStockAt13Ts.toLocaleString()} L`
-                          : '—'}
-                      </td>
-                      <td className="p-3 tabular-nums font-semibold text-blue-800">
-                        {tank.compositeTsPercent !== null ? `${tank.compositeTsPercent}%` : '—'}
-                      </td>
-                      <td className="p-3 tabular-nums">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-foreground">{tank.fillPercentage}%</span>
-                          <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div
-                              style={{ width: `${Math.min(100, tank.fillPercentage)}%` }}
-                              className="bg-primary h-full rounded-full"
-                            />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-3 tabular-nums font-semibold text-blue-700">
-                        {tank.currentTempC !== null ? `${tank.currentTempC} °C` : '—'}
-                      </td>
-                      <td className="p-3 tabular-nums text-emerald-700 font-semibold">
-                        +{tank.todayReceiptsLiters.toLocaleString()} L
-                      </td>
-                      <td className="p-3 tabular-nums text-secondary-foreground">
-                        -{tank.todayDispatchesLiters.toLocaleString()} L
-                      </td>
-                      <td className="p-3 text-right">
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          Active
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={tankColumns}
+              rows={tankStorageQuery.data?.rows ?? []}
+              getRowId={(r) => r.id}
+              tableFrom="lg"
+            />
           )}
         </div>
       )}
