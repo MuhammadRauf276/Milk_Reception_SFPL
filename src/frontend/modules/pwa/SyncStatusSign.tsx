@@ -171,7 +171,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
           aria-expanded={open}
           aria-label={`Connection and sync status: ${label}`}
           className={cn(
-            'inline-flex min-h-[32px] items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition hover:opacity-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
+            'inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
             tone,
             className
           )}

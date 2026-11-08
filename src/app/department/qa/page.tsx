@@ -64,7 +64,7 @@ function QADepartmentContent() {
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      <main className="flex-1 w-full min-w-0 max-w-full p-3 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <main className="flex-1 w-full min-w-0 max-w-[100rem] mx-auto p-4 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <PageTransition>
         <QALaboratoryWorkspace
           currentUser={user}

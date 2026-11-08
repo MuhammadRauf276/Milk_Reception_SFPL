@@ -140,7 +140,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
     },
     {
       id: 'MOT_JOURNEYS',
-      label: 'MOT Journeys',
+      label: 'Mobile Tester journeys',
       icon: <RouteIcon className="w-4 h-4" />,
       count: telemetry ? telemetry.motRoutes.length : undefined,
     },
@@ -195,7 +195,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Executive Command Center Header */}
       <PageHeader
-        title="Executive command center"
+        title="Command center"
         description={
           <span className="inline-flex flex-wrap items-center gap-x-2">
             <span className="tabular-nums">{telemetry?.calendarDate || new Date().toISOString().split('T')[0]}</span>
@@ -224,7 +224,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
               onChange={(e) => setSelectedZmccId(e.target.value)}
               className="text-xs bg-background border border-border rounded-lg px-3 py-1.5 font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
             >
-              <option value="">All ZMCC Centers (Consolidated Enterprise View)</option>
+              <option value="">All ZMCCs</option>
               {telemetry?.zmccCenters?.map((zmcc) => (
                 <option key={zmcc.id} value={zmcc.id}>
                   {zmcc.code} · {zmcc.name}

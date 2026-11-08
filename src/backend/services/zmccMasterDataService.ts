@@ -1446,7 +1446,7 @@ export async function listChillerOwnerships(
     include: {
       creator: { select: { id: true, username: true, full_name: true } },
       updater: { select: { id: true, username: true, full_name: true } },
-      _count: { select: { shops: true } },
+      _count: { select: { shops: { where: { is_active: true } } } },
     },
   });
 

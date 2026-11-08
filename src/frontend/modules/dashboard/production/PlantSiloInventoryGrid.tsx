@@ -293,7 +293,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
 
               {/* Status details */}
               <div className="space-y-2">
-                <h4 className="font-semibold text-foreground">Operational Status</h4>
+                <h4 className="font-semibold text-foreground">Status</h4>
                 <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card">
                   <span className="text-muted-foreground">Current Operating State:</span>
                   <Badge variant="outline" className="text-xs font-semibold">

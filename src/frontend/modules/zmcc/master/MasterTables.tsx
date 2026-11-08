@@ -84,7 +84,7 @@ const sourceNameOnlyCols: MasterCol<MilkSourceItem>[] = [sourceNameCol, status<M
 const chillerCols: MasterCol<ChillerOwnershipItem>[] = [
   { header: 'Ownership Code', tdClass: 'tabular-nums font-semibold text-foreground', cell: (c) => c.ownership_code },
   { header: 'Owner / Brand Name', tdClass: 'font-semibold text-foreground', cell: (c) => c.name },
-  { header: 'Shops Assigned', align: 'center', tdClass: 'font-semibold tabular-nums', cell: (c) => c.shop_count || 0 },
+  { header: 'Active shops', align: 'center', tdClass: 'font-semibold tabular-nums', cell: (c) => c.shop_count || 0 },
   status<ChillerOwnershipItem>(),
 ];
 

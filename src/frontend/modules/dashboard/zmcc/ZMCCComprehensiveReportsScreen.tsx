@@ -171,7 +171,7 @@ export function ZMCCComprehensiveReportsScreen({
         <div>
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-primary" />
-            <h1 className="text-lg font-semibold text-foreground">Operational Ledgers & Reports</h1>
+            <h1 className="text-lg font-semibold text-foreground">Reports</h1>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             Detailed shift-level ledgers for Route collections, HC direct suppliers, and Silo/Tank inventory
@@ -212,7 +212,7 @@ export function ZMCCComprehensiveReportsScreen({
             }`}
           >
             <Truck className="w-3.5 h-3.5" />
-            <span>Route & MOT Collections</span>
+            <span>Route and Mobile Tester collections</span>
           </button>
           <button
             type="button"

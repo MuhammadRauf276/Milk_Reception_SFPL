@@ -84,7 +84,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
       case 'OVERVIEW':
       default:
         return {
-          title: 'Live Station Oversight',
+          title: 'Live stations',
           subtitle: 'Real-time plant intake, active scale operations & silo reception bays',
         };
     }

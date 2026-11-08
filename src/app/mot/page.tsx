@@ -251,7 +251,7 @@ export default function MotPage() {
       />
 
       <div className="flex-1 flex flex-col w-full min-w-0">
-        <main className="flex-1 w-full min-w-0 max-w-5xl mx-auto p-3 sm:p-5 lg:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-4">
+        <main className="flex-1 w-full min-w-0 max-w-5xl mx-auto p-4 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-4">
           <PageTransition>
             <SyncBar
               isOnline={isOnline}

@@ -50,7 +50,7 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             <div>
               <h4 className="font-semibold text-emerald-900 text-xs">
-                All Assigned Shops Visited
+                All active shops visited
               </h4>
               <InfoTip text="Confirming notifies the PHE Operator and MDO that this tanker is returning." />
             </div>
@@ -61,7 +61,7 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
           <div className="flex justify-between items-center text-secondary-foreground">
             <span>Route:</span>
             <strong className="text-foreground">
-              {journey.route?.name || journey.route?.route_code || 'Assigned Route'}
+              {journey.route?.name || journey.route?.route_code || 'Route'}
             </strong>
           </div>
           <div className="flex justify-between items-center text-secondary-foreground">
@@ -72,7 +72,7 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
           </div>
           <div className="grid grid-cols-4 gap-2 pt-2 border-t border-border text-center">
             <div className="p-1.5 bg-card rounded-lg border border-border">
-              <span className="text-xs text-muted-foreground block">Assigned</span>
+              <span className="text-xs text-muted-foreground block">Active shops</span>
               <strong className="text-foreground tabular-nums">{journey.stops.length}</strong>
             </div>
             <div className="p-1.5 bg-card rounded-lg border border-border">

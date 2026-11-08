@@ -4,9 +4,13 @@ import React from 'react';
 import { User } from '@core/types';
 import { usePathname } from 'next/navigation';
 import { Header } from '@/frontend/modules/shared/Header';
-import { SUPER_ADMIN_NAV_ITEMS } from './SuperAdminSidebar';
+import { SUPER_ADMIN_NAV_ITEMS } from '@/frontend/modules/shared/navigation/adminNav';
 
 const EXTRA_TITLES: [string, string][] = [
+  ['/super-admin/daily-report', 'Daily report'],
+  ['/super-admin/hierarchy-work', 'Work for lower roles'],
+  ['/super-admin/qa-warnings', 'QA warnings'],
+  ['/super-admin/master-data', 'Master data'],
   ['/super-admin/procurement-sources', 'ZMCCs'],
   ['/super-admin/sop-rules', 'SOP rules'],
   ['/super-admin/settings', 'Settings'],
@@ -24,6 +28,7 @@ interface SuperAdminHeaderProps {
 
 export const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({ currentUser, onMenuClick, menuButtonRef }) => {
   const pathname = usePathname();
+  const extra = EXTRA_TITLES.find(([p]) => pathname.startsWith(p))?.[1];
   const current =
     SUPER_ADMIN_NAV_ITEMS.find((item) => item.href === pathname) ??
     SUPER_ADMIN_NAV_ITEMS.find((item) => item.href !== '/super-admin' && pathname.startsWith(item.href));
@@ -31,7 +36,7 @@ export const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({ currentUser,
   return (
     <Header
       currentUser={currentUser}
-      title={current?.label ?? EXTRA_TITLES.find(([p]) => pathname.startsWith(p))?.[1] ?? 'Overview'}
+      title={extra ?? current?.label ?? 'Overview'}
       showBranding
       onMenuClick={onMenuClick}
       menuButtonRef={menuButtonRef}

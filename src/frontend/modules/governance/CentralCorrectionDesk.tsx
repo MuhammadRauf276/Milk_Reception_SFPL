@@ -489,7 +489,7 @@ export const CentralCorrectionDesk: React.FC = () => {
           }`}
         >
           <History className="w-4 h-4" />
-          <span>Immutable Audit Ledger</span>
+          <span>Audit log</span>
         </button>
       </div>
 

@@ -156,7 +156,7 @@ function PheContent() {
       {/* Main Full-Width Responsive Workspace */}
       <div className="flex-1 flex flex-col w-full min-w-0">
         {/* Center Content Pane with Full Canvas Width */}
-        <main className="flex-1 w-full min-w-0 max-w-full p-3 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-4">
+        <main className="flex-1 w-full min-w-0 max-w-[100rem] mx-auto p-4 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-4">
           <PageTransition>
             {section === 'arrivals' && (
               <ZmccArrivalsWorkspace

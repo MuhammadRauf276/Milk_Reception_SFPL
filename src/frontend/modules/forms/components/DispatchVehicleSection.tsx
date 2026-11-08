@@ -294,7 +294,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                 {availableMotProfiles.length > 0 && freeMotsCount === 0 && (
                   <p className="text-xs font-medium text-amber-700 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3 shrink-0" />
-                    <span>All MOT escorts currently busy</span>
+                    <span>All Mobile Testers are busy</span>
                   </p>
                 )}
               </div>

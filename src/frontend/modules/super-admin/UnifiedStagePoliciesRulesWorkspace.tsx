@@ -34,7 +34,7 @@ const STAGE_API = '/api/super-admin/stage-policies-rules';
 
 export const STAGE_FILTERS = [
   { id: 'ALL', label: 'Master Matrix (All Stages)', unit: 'All Tests', desc: 'Unified 30-Test Matrix across all 6 stages' },
-  { id: 'MOT_SHOP', label: 'MOT Shop', unit: 'Liters (L)', desc: 'Shop Intake · Can Rejection on Failure' },
+  { id: 'MOT_SHOP', label: 'Mobile Tester shop', unit: 'Liters (L)', desc: 'Shop Intake · Can Rejection on Failure' },
   { id: 'ZMCC_LAB_MC', label: 'ZMCC MC', unit: 'kg', desc: 'Route Milk · Chilled Silo vs Rejected Tank' },
   { id: 'ZMCC_LAB_HC', label: 'ZMCC HC', unit: 'kg', desc: 'Direct supplier (HC) deliveries' },
   { id: 'ZMCC_DISPATCH', label: 'ZMCC Dispatch', unit: 'kg', desc: 'ZMCC Tanker Dispatch · 0–4.5°C & Seals' },
@@ -53,7 +53,7 @@ export const STAGE_NAME_MAP: Record<string, string> = {
 };
 
 const MATRIX_STAGES: Array<{ code: TestPointCode; shortLabel: string }> = [
-  { code: 'MOT_SHOP', shortLabel: 'MOT Shop' },
+  { code: 'MOT_SHOP', shortLabel: 'Mobile Tester shop' },
   { code: 'ZMCC_LAB_MC', shortLabel: 'ZMCC MC' },
   { code: 'ZMCC_LAB_HC', shortLabel: 'ZMCC HC' },
   { code: 'ZMCC_DISPATCH', shortLabel: 'ZMCC Disp' },

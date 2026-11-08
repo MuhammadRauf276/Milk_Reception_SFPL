@@ -236,7 +236,7 @@ export function ZMCCOperationalJourneysScreen({
         <div>
           <div className="flex items-center gap-2">
             <Truck className="w-5 h-5 text-primary" />
-            <h1 className="text-lg font-semibold text-foreground">MOT Fleet Journeys & Route Radar</h1>
+            <h1 className="text-lg font-semibold text-foreground">Mobile Tester journeys & Route Radar</h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
             Track active Mobile Tester collections on the live map and review historical route trails with full audit details

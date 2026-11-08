@@ -148,7 +148,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
         ) : visits.length === 0 ? (
           <div className="bg-card border-border py-12 px-4 rounded-xl border border-dashed text-center space-y-2">
             <FileSpreadsheet className="w-8 h-8 text-muted-foreground mx-auto" />
-            <h4 className="text-sm font-semibold text-secondary-foreground">No Operational Records</h4>
+            <h4 className="text-sm font-semibold text-secondary-foreground">No records</h4>
             <p className="text-xs text-muted-foreground max-w-md mx-auto">
               No records
             </p>

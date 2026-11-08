@@ -152,7 +152,7 @@ export function HierarchyWorkView() {
             <option value="QA_OFFICER">Plant QA Officer (QAE)</option>
             <option value="QA_HEAD">QA Head / AVP Reception Lab</option>
             <option value="ZMCC_LAB_ATTENDANT">ZMCC Lab Attendant</option>
-            <option value="MOT">Mobile Tester (MOT)</option>
+            <option value="MOT">Mobile Tester</option>
             <option value="WEIGHBRIDGE_OPERATOR">Weighbridge Operator</option>
             <option value="SECURITY_GUARD">Security Gate Officer</option>
           </select>

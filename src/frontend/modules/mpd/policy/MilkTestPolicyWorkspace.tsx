@@ -864,7 +864,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                 )}
 
                 <div>
-                  <label className="block font-semibold text-secondary-foreground mb-1">Governance Audit Reason</label>
+                  <label className="block font-semibold text-secondary-foreground mb-1">Reason for change</label>
                   <input
                     type="text"
                     value={modalReason}
@@ -987,7 +987,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
               )}
 
               <div>
-                <label className="block font-semibold text-secondary-foreground mb-1">Governance Audit Reason</label>
+                <label className="block font-semibold text-secondary-foreground mb-1">Reason for change</label>
                 <input
                   type="text"
                   value={criteriaReason}

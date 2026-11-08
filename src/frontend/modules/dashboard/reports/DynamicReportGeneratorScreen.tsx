@@ -257,7 +257,7 @@ export function DynamicReportGeneratorScreen({
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-t border-border pt-3 scrollbar-none">
           <span className="text-xs font-semibold text-muted-foreground mr-1.5 shrink-0">Data Domain:</span>
           {(metaQuery.data?.domains || [
-            { id: 'MOT_COLLECTIONS', label: 'MOT Route Collections' },
+            { id: 'MOT_COLLECTIONS', label: 'Mobile Tester collections' },
             { id: 'HC_SUPPLIERS', label: 'Direct HC Suppliers' },
             { id: 'JOURNEY_RECONCILIATION', label: 'Journey Reconciliation' },
             { id: 'TANK_STORAGE', label: 'Silo Tank Inventory' },

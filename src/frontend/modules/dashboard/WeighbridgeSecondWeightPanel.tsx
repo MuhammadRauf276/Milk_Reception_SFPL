@@ -268,7 +268,7 @@ const SecondWeightDrawer: React.FC<{
               <span>{visit.gross_recorded_by_name}</span>
             </div>
             <div>
-              <span className="text-muted-foreground font-sans block text-xs">Operational Date</span>
+              <span className="text-muted-foreground font-sans block text-xs">Date</span>
               <span>{visit.operational_date}</span>
             </div>
           </div>

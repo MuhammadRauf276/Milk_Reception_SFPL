@@ -88,7 +88,7 @@ function PlantContractorManagerContent() {
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      <main className="flex-1 overflow-y-auto w-full max-w-full flex flex-col p-3 sm:p-6 space-y-6">
+      <main className="flex-1 overflow-y-auto w-full max-w-[100rem] mx-auto flex flex-col p-4 sm:p-6 space-y-6">
         <PageTransition>
           {/* Top-Level Mode Tabs */}
           <div className="bg-card border-border flex lg:hidden flex-wrap items-center gap-2 p-3 rounded-xl border shadow-2xs">

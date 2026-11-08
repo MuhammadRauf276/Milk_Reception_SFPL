@@ -70,7 +70,7 @@ export const McSuccessCard: React.FC<{
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <div className="text-xs font-semibold text-muted-foreground">Assigned Shops</div>
+                      <div className="text-xs font-semibold text-muted-foreground">Active shops</div>
                       <div className="text-sm font-semibold text-foreground">{result.journey.summary.assigned_shop_count}</div>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
@@ -130,7 +130,7 @@ export const McSuccessCard: React.FC<{
                     <div className="bg-card border-border flex items-center space-x-2 text-xs font-semibold text-blue-800 p-2.5 rounded-lg border">
                       <Clock className="w-4 h-4 shrink-0 text-blue-600" />
                       <span>
-                        Waiting for delayed collection sync: {result.journey.summary.pending_shop_count} assigned shop record(s) are still unresolved.
+                        Waiting for delayed collection sync: {result.journey.summary.pending_shop_count} active shop records are still waiting
                       </span>
                     </div>
                   )}

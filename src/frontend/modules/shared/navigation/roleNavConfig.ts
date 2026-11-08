@@ -38,6 +38,8 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { getTeamStationsForRole } from '../delegation/stations';
+import { DATA_EXECUTIVE_NAV_ITEMS, SUPER_ADMIN_NAV_ITEMS, toSection } from './adminNav';
+import { canSeeTestPolicies, isTestPolicyPath } from '@/lib/test-policy-access';
 
 export interface RoleNavLeaf {
   id: string;
@@ -59,8 +61,8 @@ export interface RoleNavSection {
 const MPD_VIEW_LINKS: RoleNavLeaf[] = [
   { id: 'mpd-v-fleet', label: 'Fleet Radar', href: '/command?view=FLEET_RADAR', icon: Truck },
   { id: 'mpd-v-hierarchy', label: 'Subordinate Hierarchy', href: '/command?view=HIERARCHY', icon: Network },
-  { id: 'mpd-v-journeys', label: 'MOT Journeys', href: '/command?view=MOT_JOURNEYS', icon: RouteIcon },
-  { id: 'mpd-v-reports', label: 'Comprehensive Reports', href: '/command?view=REPORTS', icon: FileSpreadsheet },
+  { id: 'mpd-v-journeys', label: 'Mobile Tester journeys', href: '/command?view=MOT_JOURNEYS', icon: RouteIcon },
+  { id: 'mpd-v-reports', label: 'Reports', href: '/command?view=REPORTS', icon: FileSpreadsheet },
   { id: 'mpd-v-sources', label: 'Sources & Silos', href: '/command?view=SOURCES', icon: Building2 },
   { id: 'mpd-v-quality', label: 'Quality Screening', href: '/command?view=QUALITY_FUNNEL', icon: FlaskConical },
   { id: 'mpd-v-loss', label: 'Supply Chain Loss', href: '/command?view=LOSS_DIAGNOSTICS', icon: ArrowRightLeft },
@@ -354,7 +356,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'MOT_JOURNEYS',
-        label: 'MOT Fleet & Journeys',
+        label: 'Mobile Tester fleet',
         icon: RouteIcon,
         children: [
           {
@@ -404,7 +406,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'REPORTS',
-        label: 'Comprehensive Reports',
+        label: 'Reports',
         icon: FileSpreadsheet,
         children: [
           {
@@ -762,100 +764,8 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
 
   // 11. Super Admin & Data Executive
   if (role === 'SUPER_ADMIN' || role === 'DATA_EXECUTIVE') {
-    return [
-      {
-        id: 'corrections',
-        label: 'Corrections',
-        icon: ShieldCheck,
-        children: CORRECTION_LINKS,
-      },
-      {
-        id: 'audit-ledger',
-        label: 'Audit & Correction Ledger',
-        icon: History,
-        href: '/super-admin/audit',
-      },
-      {
-        id: 'approvals-inbox',
-        label: 'Approval Inbox',
-        icon: ShieldAlert,
-        href: '/approvals',
-      },
-      {
-        id: 'command-center',
-        label: 'Command Center',
-        icon: LayoutDashboard,
-        href: '/command',
-      },
-      ...(role === 'SUPER_ADMIN'
-        ? [
-            {
-              id: 'admin-center',
-              label: 'Admin Center',
-              icon: LayoutDashboard,
-              href: '/super-admin',
-            },
-          ]
-        : []),
-      {
-        id: 'reports-governance',
-        label: 'Reports & Governance',
-        icon: FileSpreadsheet,
-        children: REPORT_GOVERNANCE_LINKS,
-      },
-      {
-        id: 'sources-ledger',
-        label: 'Sources',
-        icon: Milk,
-        children: SOURCE_LINKS,
-      },
-      ...(role === 'SUPER_ADMIN'
-        ? [
-            {
-              id: 'zmccs',
-              label: 'ZMCCs',
-              icon: Store,
-              href: '/super-admin/procurement-sources',
-            },
-            {
-              id: 'zmcc-tanks',
-              label: 'ZMCC Tanks',
-              icon: Building2,
-              href: '/super-admin/zmcc-tanks',
-            },
-            {
-              id: 'weighing-policy',
-              label: 'Weighing policy',
-              icon: FileCheck2,
-              href: '/super-admin/weighing-policy',
-            },
-          ]
-        : []),
-      {
-        id: 'fleet',
-        label: 'Fleet',
-        icon: Truck,
-        href: '/super-admin/fleet',
-      },
-      {
-        id: 'stage-policies-rules',
-        label: 'Lab Policies',
-        icon: FlaskConical,
-        href: '/super-admin/test-policies',
-      },
-      {
-        id: 'whatsapp-gateway',
-        label: 'WhatsApp Gateway',
-        icon: MessageSquare,
-        href: '/super-admin/whatsapp',
-      },
-      {
-        id: 'tv-board',
-        label: 'Yard Board',
-        icon: Tv,
-        href: '/tv-board',
-      },
-    ];
+    const items = role === 'DATA_EXECUTIVE' ? DATA_EXECUTIVE_NAV_ITEMS : SUPER_ADMIN_NAV_ITEMS;
+    return items.filter((item) => canSeeTestPolicies(role) || !isTestPolicyPath(item.href)).map(toSection);
   }
 
   // 11. Head of MPD

@@ -73,7 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <div className="sticky top-0 z-header flex flex-col w-full max-w-full shrink-0">
       {/* Main Header Bar with notch safe-area handling */}
-      <header className="flex h-16 w-full max-w-full items-center gap-2 border-b bg-card/95 px-2.5 backdrop-blur-sm supports-backdrop-filter:bg-card/80 sm:gap-3 sm:px-6 pt-safe">
+      <header className="flex h-16 w-full max-w-full items-center gap-2 border-b bg-card px-2.5 supports-backdrop-filter:bg-card/80 sm:gap-3 sm:px-6 pt-safe">
         {shouldShowMenu && (
           <Button
             ref={menuButtonRef}
@@ -116,12 +116,12 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => setIsCommandPaletteOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border bg-muted/40 hover:bg-muted text-xs text-muted-foreground transition font-medium"
-            aria-label="Open Command Palette (Ctrl+K)"
-            title="Quick Jump & Search (Ctrl+K)"
+            className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg text-sm text-muted-foreground transition-colors hover:bg-muted lg:min-h-9 lg:border lg:border-border lg:px-3"
+            aria-label="Search and jump (Ctrl+K)"
+            title="Search and jump (Ctrl+K)"
           >
-            <Search className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline text-xs">Search…</span>
+            <Search className="h-4 w-4" />
+            <span className="hidden lg:inline">Search</span>
             <kbd className="hidden lg:inline-flex items-center text-xs bg-background border px-1 rounded font-mono">
               Ctrl K
             </kbd>

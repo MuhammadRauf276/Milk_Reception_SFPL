@@ -85,7 +85,7 @@ export default function AffiliatesPage() {
         </Link>
       </header>
 
-      <main className="flex-1 w-full max-w-5xl mx-auto p-4 sm:p-8 space-y-8">
+      <main className="flex-1 w-full max-w-5xl mx-auto p-4 sm:p-6 space-y-8">
         {/* Hero Section */}
         <div className="rounded-2xl border border-border bg-card p-6 sm:p-10 shadow-xs space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">

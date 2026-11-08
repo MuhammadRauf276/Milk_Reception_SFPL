@@ -108,7 +108,7 @@ export function DailyReportDashboard() {
           <div className="flex items-center gap-2">
             <h1 className="text-base font-semibold text-foreground">Daily Report</h1>
             <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-foreground border border-border">
-              Executive Console
+              Daily
             </span>
             <InfoTip text="Audit across Village MOT collections, ZMCC lab receptions, Plant QA, exceptions, and losses." />
           </div>
@@ -350,7 +350,7 @@ export function DailyReportDashboard() {
                   : 'bg-subtle text-secondary-foreground hover:bg-muted'
               }`}
             >
-              MOT Collections ({data?.motCollections.length ?? 0})
+              Mobile Tester collections ({data?.motCollections.length ?? 0})
             </button>
             <button
               type="button"
@@ -433,7 +433,7 @@ export function DailyReportDashboard() {
                   <th className="p-3">Collection #</th>
                   <th className="p-3">Time</th>
                   <th className="p-3">Village Shop</th>
-                  <th className="p-3">Route / MOT</th>
+                  <th className="p-3">Route / Mobile Tester</th>
                   <th className="p-3">Source</th>
                   <th className="p-3 text-right">Liters</th>
                   <th className="p-3 text-right">LR</th>
@@ -447,7 +447,7 @@ export function DailyReportDashboard() {
                 {filteredMot.length === 0 ? (
                   <tr>
                     <td colSpan={11} className="p-6 text-center text-muted-foreground">
-                      No MOT collections found for the selected filters.
+                      No Mobile Tester collections found for the selected filters.
                     </td>
                   </tr>
                 ) : (

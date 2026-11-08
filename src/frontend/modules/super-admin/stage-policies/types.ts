@@ -56,7 +56,7 @@ export interface StageResponse {
 }
 
 export const STAGE_TABS = [
-  { id: 'CATALOG', label: 'Master Test Catalog', subtitle: 'All Enterprise Tests, Stage Scope & Acceptance Rule Configurations' },
+  { id: 'CATALOG', label: 'Master Test Catalog', subtitle: 'All tests, stage scope & Acceptance Rule Configurations' },
   { id: 'GLOBAL_DEFAULT', label: '0. Global Master Specs', subtitle: 'Universal Baseline Specification (Inherited by all stages)' },
   { id: 'MOT_SHOP', label: '1. Mobile Tester Shop', subtitle: 'Village Shop Intake (Liters) · Can Rejection on Failure' },
   { id: 'ZMCC_LAB_MC', label: '2. ZMCC Mobile Tester', subtitle: 'ZMCC Route Milk Intake (kg) · Chilled Silo vs Rejected Tank' },

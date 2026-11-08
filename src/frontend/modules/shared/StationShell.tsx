@@ -41,7 +41,7 @@ export function StationShell({ currentUser, title, sourceName, mainClassName, ch
           triggerButtonRef={menuButtonRef}
         />
       </Suspense>
-      <main className={cn('mx-auto w-full min-w-0 max-w-full flex-1 p-3 sm:p-6 lg:p-8 pb-[max(1.5rem,env(safe-area-inset-bottom))]', mainClassName)}>
+      <main className={cn('mx-auto w-full min-w-0 max-w-[100rem] flex-1 p-4 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]', mainClassName)}>
         <PageTransition>{children}</PageTransition>
       </main>
     </div>

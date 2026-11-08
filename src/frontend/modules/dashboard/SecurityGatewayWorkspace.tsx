@@ -401,7 +401,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     <span>{selectedEntryVisit.portion_count} Portion{selectedEntryVisit.portion_count > 1 ? 's' : ''}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground font-sans block text-xs">Operational Date</span>
+                    <span className="text-muted-foreground font-sans block text-xs">Date</span>
                     <span>{selectedEntryVisit.operational_date || 'Today'}</span>
                   </div>
                 </div>

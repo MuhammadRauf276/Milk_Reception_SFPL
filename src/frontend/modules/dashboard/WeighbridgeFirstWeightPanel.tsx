@@ -222,7 +222,7 @@ const FirstWeightDrawer: React.FC<{
 
           <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
             <div>
-              <span className="text-muted-foreground font-sans block text-xs">Operational Date</span>
+              <span className="text-muted-foreground font-sans block text-xs">Date</span>
               <span>{visit.operational_date}</span>
             </div>
             <div>

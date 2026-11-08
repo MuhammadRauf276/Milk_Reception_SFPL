@@ -75,7 +75,7 @@ export function JourneyCard({
               #{journey.journey_number}
             </h2>
             <span className="text-xs font-semibold text-foreground truncate">
-              {journey.route?.name || journey.route?.route_code || 'Assigned Route'}
+              {journey.route?.name || journey.route?.route_code || 'Route'}
             </span>
           </div>
         </div>
@@ -105,7 +105,7 @@ export function JourneyCard({
 
       <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 text-center">
         <div className="bg-card border-border p-2 sm:p-2.5 rounded-xl border">
-          <span className="text-xs font-semibold text-muted-foreground block">Assigned</span>
+          <span className="text-xs font-semibold text-muted-foreground block">Active shops</span>
           <span className="font-semibold text-xs sm:text-sm text-foreground tabular-nums">
             {journey.stops.length}
           </span>

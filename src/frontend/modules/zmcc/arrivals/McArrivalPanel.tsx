@@ -102,8 +102,8 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
         {/* Footer: Stops chips */}
         <div className="mt-3 pt-2.5 border-t border-border flex items-center justify-between gap-1 text-xs">
           <div className="flex items-center gap-1 text-xs">
-            <span className="px-1.5 py-0.5 rounded bg-muted text-secondary-foreground font-medium" title="Assigned stops">
-              Assigned: <strong>{j.total_stops}</strong>
+            <span className="px-1.5 py-0.5 rounded bg-muted text-secondary-foreground font-medium" title="Active shops on this journey">
+              Active shops: <strong>{j.total_stops}</strong>
             </span>
             <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold" title="Collected stops">
               Collected: <strong>{j.visited_stops}</strong>
@@ -233,7 +233,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
                 <>
                   <div className="grid grid-cols-4 gap-2 text-center pt-1 border-t border-border">
                     <div className="p-2 bg-card rounded-lg border border-border">
-                      <div className="text-xs font-semibold text-muted-foreground">Assigned</div>
+                      <div className="text-xs font-semibold text-muted-foreground">Active shops</div>
                       <div className="text-xs font-semibold text-foreground">{selectedJourney.total_stops}</div>
                     </div>
                     <div className="p-2 bg-card rounded-lg border border-border">

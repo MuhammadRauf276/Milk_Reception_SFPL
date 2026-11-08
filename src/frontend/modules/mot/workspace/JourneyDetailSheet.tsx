@@ -47,7 +47,7 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                     <div className="p-2 bg-card rounded-lg border border-border">
-                      <div className="text-xs font-semibold text-muted-foreground">Assigned</div>
+                      <div className="text-xs font-semibold text-muted-foreground">Active shops</div>
                       <div className="text-sm font-semibold text-foreground">{assignedCount}</div>
                     </div>
                     <div className="p-2 bg-card rounded-lg border border-border">

@@ -90,7 +90,7 @@ const ALL_COMMAND_ITEMS: CommandItem[] = [
   },
   {
     id: 'mot-journeys',
-    title: 'MOT Mobile Tester · Active Journeys',
+    title: 'Mobile Tester active journeys',
     category: 'Stations',
     href: '/mot',
     icon: Truck,

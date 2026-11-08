@@ -71,7 +71,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         onClose={() => setIsDrawerOpen(false)}
         triggerRef={hamburgerButtonRef}
       />
-      <main className="w-full min-w-0 max-w-full flex-1 p-3 sm:p-6 lg:p-8 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <main className="w-full min-w-0 max-w-[100rem] mx-auto flex-1 p-4 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <PageTransition>{children}</PageTransition>
       </main>
     </div>

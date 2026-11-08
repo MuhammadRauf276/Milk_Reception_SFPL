@@ -250,7 +250,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
         <div className="flex items-center justify-between border-b border-muted pb-3">
           <div className="flex items-center space-x-2">
             <Receipt className="w-4 h-4 text-blue-800" />
-            <h3 className="text-sm font-semibold text-slate-900">Vehicle Receipts Ledger</h3>
+            <h3 className="text-sm font-semibold text-slate-900">Vehicle receipts</h3>
           </div>
           <span className="text-xs text-slate-500 tabular-nums font-semibold">
             {filteredVisits.length} {filteredVisits.length === 1 ? 'vehicle' : 'vehicles'}

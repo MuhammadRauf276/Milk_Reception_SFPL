@@ -248,7 +248,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
           <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
             <AlertTriangle className="w-5 h-5" />
           </div>
-          <h4 className="text-sm font-semibold text-rose-800">Unable to Load Reconciliation Ledger</h4>
+          <h4 className="text-sm font-semibold text-rose-800">Reconciliation did not load</h4>
           <p className="text-xs text-rose-700 max-w-md mx-auto">{error}</p>
         </div>
       )}

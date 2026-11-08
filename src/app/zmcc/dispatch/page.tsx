@@ -95,7 +95,7 @@ function ZmccDispatchContent() {
 
       {/* Main Responsive Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 w-full max-w-full space-y-4">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-[100rem] mx-auto space-y-4">
           <PageTransition>
           <Suspense fallback={<PageLoader label="Loading dispatch workspace…" />}>
             <MPDFieldWorkspace currentUser={currentUser} hideTabBar={false} />
