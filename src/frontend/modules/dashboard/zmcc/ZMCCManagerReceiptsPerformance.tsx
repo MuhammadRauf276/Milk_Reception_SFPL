@@ -234,10 +234,10 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
               <button
                 key={opt.id}
                 onClick={() => setFilterState(opt.id)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                   isActive
                     ? 'bg-primary text-white shadow-2xs'
-                    : 'bg-subtle text-secondary-foreground hover:bg-slate-200/70 border border-border'
+                    : 'bg-subtle text-secondary-foreground hover:bg-muted/70 border border-border'
                 }`}
               >
                 {opt.label}
@@ -284,7 +284,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
           {filteredItems.map((item) => (
             <div
               key={item.visitId}
-              className={`p-5 rounded-xl bg-card border shadow-2xs space-y-4 transition-all ${
+              className={`p-5 rounded-xl bg-card border shadow-2xs space-y-4 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                 item.isCompletedReceipt
                   ? 'border-emerald-200 hover:border-emerald-400'
                   : item.isReceiptPending
@@ -411,7 +411,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 <div className="bg-card border-border p-3.5 rounded-lg border space-y-2">
                   <div className="flex items-center justify-between font-sans pb-1.5 border-b border-border/60">
                     <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                      <Warehouse className="w-3.5 h-3.5 text-primary" />
+                      <Warehouse className="w-3.5 h-3.5 text-muted-foreground" />
                       <span>Weighbridge & Storage Allocation</span>
                     </span>
                     <span className="text-xs font-semibold text-muted-foreground">Official Scale Records</span>

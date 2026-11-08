@@ -16,7 +16,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
       <div className="rounded-2xl border bg-card p-4 sm:p-5 shadow-2xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border/60">
           <div className="flex items-center gap-2">
-            <Scale className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <Scale className="h-5 w-5 text-blue-600 dark:text-muted-foreground" />
             <h3 className="font-semibold text-foreground text-sm sm:text-base">
               Weighbridge Live Status
             </h3>
@@ -141,7 +141,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
                     </p>
                   </div>
                   <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-500/30">
-                    TRANSFERRING MILK
+                    Transferring milk
                   </Badge>
                 </div>
               </div>

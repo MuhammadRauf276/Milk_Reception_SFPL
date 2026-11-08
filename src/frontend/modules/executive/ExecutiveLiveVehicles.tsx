@@ -86,7 +86,7 @@ export function ExecutiveLiveVehicles({ showPhotos }: { showPhotos: boolean }) {
       <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Truck className="w-5 h-5 text-primary" />
+            <Truck className="w-5 h-5 text-muted-foreground" />
             <h1 className="text-lg font-semibold text-foreground">{isReport ? 'Vehicle Report' : 'Vehicles, Last 7 Days'}</h1>
           </div>
           <p className="text-xs text-muted-foreground mt-1 tabular-nums">

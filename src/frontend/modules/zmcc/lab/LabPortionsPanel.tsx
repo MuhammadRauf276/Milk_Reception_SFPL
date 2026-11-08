@@ -489,11 +489,11 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xs">
         <div>
           <div className="flex items-center space-x-2">
-            <FlaskConical className="h-5 w-5 text-primary" />
+            <FlaskConical className="h-5 w-5 text-muted-foreground" />
             <h3 className="text-base font-semibold text-foreground">
               {arrivalType === 'MOT' ? 'Mobile Tester arrival testing' : 'HC arrival testing'}
             </h3>
-            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-primary">
+            <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-primary">
               {state?.testMode === 'COMPOSITE' ? 'Composite' : 'Portion-wise'}
             </span>
           </div>
@@ -629,7 +629,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
             <span className="text-xs font-semibold text-foreground">
               Portion Samples ({state.portions.length})
             </span>
-            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-primary">
+            <span className="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-primary">
               {state.testMode === 'COMPOSITE' ? 'Composite' : 'Portion-wise'}
             </span>
           </div>
@@ -739,7 +739,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 p-6 text-center text-primary transition hover:border-primary hover:bg-primary/10 shadow-2xs disabled:opacity-50"
             >
               {busy === 'add-portion' ? (
-                <Loader2 className="mb-1 h-5 w-5 animate-spin text-primary" />
+                <Loader2 className="mb-1 h-5 w-5 animate-spin text-muted-foreground" />
               ) : (
                 <span className="text-base font-semibold mb-1">+</span>
               )}
@@ -861,7 +861,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                                   <span className="text-xs font-semibold text-foreground">{t.testName}</span>
                                   <span
                                     className={cn(
-                                      'rounded-full px-2 py-0.5 text-xs font-semibold',
+                                      'rounded-md px-2 py-0.5 text-xs font-semibold',
                                       isRequired ? 'bg-primary text-white shadow-2xs' : 'bg-muted text-secondary-foreground'
                                     )}
                                   >
@@ -870,7 +870,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                                   {chip && (
                                     <span
                                       className={cn(
-                                        'rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums',
+                                        'rounded-md border px-2 py-0.5 text-xs font-semibold tabular-nums',
                                         isFail
                                           ? 'border-rose-300 bg-rose-50 text-rose-800'
                                           : isWarning

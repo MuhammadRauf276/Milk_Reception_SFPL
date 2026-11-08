@@ -64,7 +64,7 @@ const warningColumns: DataColumn<WarningItem>[] = [
     header: 'Status',
     label: 'Status',
     align: 'center',
-    cell: (w) => <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">{w.status}</span>,
+    cell: (w) => <span className="rounded-md bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">{w.status}</span>,
   },
 ];
 
@@ -106,18 +106,18 @@ export function WarningLimitsGovernanceView() {
   return (
     <div className="min-w-0 space-y-4">
       {/* Top Banner Card: Plant Reception Warning Limit Setting */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
+      <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3.5">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-semibold text-foreground">Plant reception warning limit policy</h2>
-                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
+                <span className="rounded-md bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
                   {threshold} vehicles / month
                 </span>
               </div>
-              <p className="mt-1 text-xs text-slate-600 max-w-2xl leading-relaxed">
+              <p className="mt-1 text-xs text-secondary-foreground max-w-2xl leading-relaxed">
                 Controls the Month-to-Date (MTD) warning acceptance quota per procurement source.
                 If a vehicle from a supplier exceeds <strong>{threshold} warnings</strong> in a calendar month,
                 acceptance authority automatically escalates to the <strong>AVP Reception Lab / QA Head</strong>.
@@ -154,16 +154,16 @@ export function WarningLimitsGovernanceView() {
       )}
 
       {/* Monthly Summary Per Procurement Source */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
+      <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-xs font-semibold text-slate-500">
+          <h3 className="text-xs font-semibold text-muted-foreground">
             Current month warnings by procurement source
           </h3>
-          <span className="text-xs text-slate-400">Deduplicated per vehicle per source</span>
+          <span className="text-xs text-muted-foreground">Deduplicated per vehicle per source</span>
         </div>
 
         {summary.length === 0 ? (
-          <p className="text-xs text-slate-500 py-2">No warning accumulations recorded for this month.</p>
+          <p className="text-xs text-muted-foreground py-2">No warning accumulations recorded for this month.</p>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3 text-xs">
             {summary.map((s) => {
@@ -174,12 +174,12 @@ export function WarningLimitsGovernanceView() {
                   className={`flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border p-3 transition-colors ${
                     isOverLimit
                       ? 'border-rose-300 bg-rose-50/50'
-                      : 'border-slate-200 bg-slate-50/60'
+                      : 'border-border bg-subtle/60'
                   }`}
                 >
                   <div>
-                    <div className="font-semibold text-slate-900">{s.sourceName}</div>
-                    <div className="text-xs text-slate-500">
+                    <div className="font-semibold text-foreground">{s.sourceName}</div>
+                    <div className="text-xs text-muted-foreground">
                       {s.sourceCode} · {s.sourceType}
                     </div>
                   </div>
@@ -207,8 +207,8 @@ export function WarningLimitsGovernanceView() {
       </div>
 
       {/* Warning Event Records Table */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
-        <h3 className="text-xs font-semibold text-slate-500">
+      <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs space-y-3">
+        <h3 className="text-xs font-semibold text-muted-foreground">
           Plant QA warning event log
         </h3>
 
@@ -225,21 +225,21 @@ export function WarningLimitsGovernanceView() {
       {/* Edit Threshold Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-2xs">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="text-sm font-semibold text-slate-900">Warning limit for plant reception</h3>
+          <div className="w-full max-w-md rounded-2xl border border-border bg-white p-5 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-sm font-semibold text-foreground">Warning limit for plant reception</h3>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
                 aria-label="Close"
-                className="flex min-h-11 min-w-11 items-center justify-center text-slate-400 hover:text-slate-600"
+                className="flex min-h-11 min-w-11 items-center justify-center text-muted-foreground hover:text-secondary-foreground"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-800 mb-1">
+              <label className="block text-xs font-semibold text-foreground mb-1">
                 Monthly warning limit (vehicles per source)
               </label>
               <input
@@ -248,15 +248,15 @@ export function WarningLimitsGovernanceView() {
                 max={20}
                 value={editThresholdValue}
                 onChange={(e) => setEditThresholdValue(parseInt(e.target.value, 10) || 1)}
-                className="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm font-semibold tabular-nums text-slate-900 focus:border-primary focus:outline-none"
+                className="min-h-11 w-full rounded-lg border border-border-strong px-3 text-sm font-semibold tabular-nums text-foreground focus:border-primary focus:outline-none"
               />
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Default standard: 4 vehicles/month. Any source exceeding this limit requires AVP-QA approval.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-800 mb-1">
+              <label className="block text-xs font-semibold text-foreground mb-1">
                 Reason for change (needed for the audit trail)
               </label>
               <textarea
@@ -264,11 +264,11 @@ export function WarningLimitsGovernanceView() {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="e.g. Approved by Head of QA for seasonal winter flush transition."
-                className="w-full rounded-lg border border-slate-300 p-2.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-border-strong p-2.5 text-xs text-foreground focus:border-primary focus:outline-none"
               />
             </div>
 
-            <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
+            <div className="flex justify-end gap-2 border-t border-border pt-3">
               <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                 Cancel
               </Button>

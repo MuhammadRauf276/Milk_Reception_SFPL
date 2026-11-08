@@ -288,7 +288,7 @@ function WorkspaceInner({
               <span className="text-sm font-semibold text-foreground">
                 Master matrix
               </span>
-              <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-medium tabular-nums text-secondary-foreground">
+              <span className="rounded-md border border-border bg-card px-2 py-0.5 text-xs font-medium tabular-nums text-secondary-foreground">
                 {catalogPagination?.totalRecords ?? catalogTests.length} tests
               </span>
             </div>
@@ -487,7 +487,7 @@ function WorkspaceInner({
                               {t.isActive ? 'Active' : 'Inactive'}
                             </button>
                           ) : (
-                            <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${t.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-muted text-muted-foreground'}`}>
+                            <span className={`inline-block rounded-md px-2.5 py-0.5 text-xs font-semibold ${t.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-muted text-muted-foreground'}`}>
                               {t.isActive ? 'Active' : 'Inactive'}
                             </span>
                           )}

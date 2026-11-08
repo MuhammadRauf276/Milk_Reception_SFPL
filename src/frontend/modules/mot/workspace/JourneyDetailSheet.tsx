@@ -108,7 +108,7 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
 
                   {journey.summary && journey.summary.pending_shop_count > 0 && (
                     <div className="bg-card border-border flex items-center space-x-2 text-xs font-semibold text-blue-800 p-2.5 rounded-lg border">
-                      <Clock className="w-4 h-4 shrink-0 text-blue-600" />
+                      <Clock className="w-4 h-4 shrink-0 text-muted-foreground" />
                       <span>
                         Syncing: {journey.summary.pending_shop_count} pending
                       </span>
@@ -156,15 +156,15 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                         </div>
                         <div className="shrink-0 ml-2">
                           {stop.status === 'VISITED' ? (
-                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
                               {stop.collection?.gross_liters != null ? `${Number(stop.collection.gross_liters).toFixed(1)} L` : 'Visited'}
                             </span>
                           ) : stop.status === 'SKIPPED' ? (
-                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+                            <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
                               SKIPPED {stop.skip_reason ? `· ${stop.skip_reason}` : ''}
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-muted text-secondary-foreground border border-border-strong">
+                            <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-muted text-secondary-foreground border border-border-strong">
                               Pending
                             </span>
                           )}

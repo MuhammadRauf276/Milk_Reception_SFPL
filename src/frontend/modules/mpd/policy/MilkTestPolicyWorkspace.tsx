@@ -592,7 +592,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                     <tr
                       key={policy.id}
                       className={`hover:bg-subtle transition ${
-                        !isRowActive ? 'opacity-50 bg-slate-50/60' : ''
+                        !isRowActive ? 'opacity-50 bg-subtle/60' : ''
                       }`}
                     >
                       <td className="py-3 px-4 tabular-nums font-semibold text-secondary-foreground">
@@ -725,7 +725,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
         <Modal key="modal-0" onClose={() => setIsAddModalOpen(false)} title="Assign milk test" className="max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2">
-                <FlaskConical className="w-5 h-5 text-primary" />
+                <FlaskConical className="w-5 h-5 text-muted-foreground" />
                 <h3 className="font-semibold text-base text-foreground">
                   Assign Test & Define Criteria: {activeMetadata.label}
                 </h3>
@@ -800,7 +800,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
 
               <div className="bg-card border-border p-3.5 rounded-2xl border space-y-3">
                 <div className="flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-primary" />
+                  <Sliders className="w-4 h-4 text-muted-foreground" />
                   <span className="font-semibold text-foreground">Direct Quality Acceptance Criteria</span>
                 </div>
 
@@ -898,7 +898,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
         <Modal key="modal-1" onClose={() => setIsCriteriaModalOpen(false)} title="Edit acceptance criteria" className="max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-primary" />
+                <Sliders className="w-5 h-5 text-muted-foreground" />
                 <h3 className="font-semibold text-base text-foreground">
                   Configure Acceptance Criteria
                 </h3>

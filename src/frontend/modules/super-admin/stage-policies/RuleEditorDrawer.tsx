@@ -219,7 +219,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
       <form onSubmit={submit} className="space-y-4">
         {!isGlobalStage && (
           <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
-            <div className="border-b border-slate-200/80 pb-2 text-xs font-semibold text-foreground">Stage Form Configuration ({stageLabel})</div>
+            <div className="border-b border-border/80 pb-2 text-xs font-semibold text-foreground">Stage Form Configuration ({stageLabel})</div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <span className="mb-1.5 block font-semibold text-secondary-foreground">Visibility on Form</span>
@@ -246,7 +246,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                 />
               </div>
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-slate-200/80 pt-3">
+            <div className="flex items-center justify-between gap-3 border-t border-border/80 pt-3">
               <div>
                 <div className="font-semibold text-foreground">Photo Evidence Required</div>
                 <div className="text-xs text-muted-foreground">Chemist must photograph physical tester reading</div>
@@ -267,7 +267,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
         )}
 
         <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
-          <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
+          <div className="flex items-center justify-between gap-2 border-b border-border/80 pb-2">
             <div className="text-xs font-semibold text-foreground">Quality Acceptance Rule &amp; Limits</div>
             {!isGlobalStage && (
               <label className="flex min-h-11 cursor-pointer select-none items-center gap-1.5 font-semibold text-secondary-foreground">
@@ -299,12 +299,12 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                     type="button"
                     aria-pressed={ruleCategory === 'RELEASE'}
                     onClick={() => setRuleCategory('RELEASE')}
-                    className={`min-h-11 rounded-xl border p-3 text-left transition-all ${
+                    className={`min-h-11 rounded-xl border p-3 text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                       ruleCategory === 'RELEASE' ? 'border-rose-700 bg-rose-600 text-white' : 'border-border-strong bg-card text-foreground hover:bg-rose-50/40'
                     }`}
                   >
                     <div className="text-sm font-semibold">Must Pass (Hold)</div>
-                    <div className={`mt-0.5 text-xs ${ruleCategory === 'RELEASE' ? 'text-rose-100' : 'text-slate-500'}`}>
+                    <div className={`mt-0.5 text-xs ${ruleCategory === 'RELEASE' ? 'text-rose-100' : 'text-muted-foreground'}`}>
                       Blocks Reception &amp; Requires QA Approval
                     </div>
                   </button>
@@ -312,12 +312,12 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                     type="button"
                     aria-pressed={ruleCategory === 'MONITORING'}
                     onClick={() => setRuleCategory('MONITORING')}
-                    className={`min-h-11 rounded-xl border p-3 text-left transition-all ${
+                    className={`min-h-11 rounded-xl border p-3 text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                       ruleCategory === 'MONITORING' ? 'border-amber-600 bg-amber-500 text-foreground' : 'border-border-strong bg-card text-foreground hover:bg-amber-50/40'
                     }`}
                   >
                     <div className="text-sm font-semibold">Warning Only</div>
-                    <div className={`mt-0.5 text-xs ${ruleCategory === 'MONITORING' ? 'text-slate-900' : 'text-slate-500'}`}>
+                    <div className={`mt-0.5 text-xs ${ruleCategory === 'MONITORING' ? 'text-foreground' : 'text-muted-foreground'}`}>
                       Yellow Alert Notice (Does Not Block Intake)
                     </div>
                   </button>

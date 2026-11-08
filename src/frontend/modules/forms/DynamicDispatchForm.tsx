@@ -1435,7 +1435,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       <div className="max-w-2xl mx-auto space-y-6 py-6 px-4">
         <div className="p-6 bg-card rounded-2xl border border-border-strong shadow-xs text-center space-y-4">
           <div className="flex justify-center">
-            <div className={`inline-flex items-center space-x-2 px-3 py-1.5 rounded-full border text-sm font-semibold ${sv.className}`}>
+            <div className={`inline-flex items-center space-x-2 px-3 py-1.5 rounded-md border text-sm font-semibold ${sv.className}`}>
               <SvIcon className="w-4 h-4" />
               <span>{sv.word}</span>
             </div>
@@ -1518,11 +1518,11 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             <div className="flex items-center space-x-2">
               <h2 className="font-semibold text-base text-foreground">Milk dispatch</h2>
               {draftVisitId ? (
-                <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300">
                   Draft
                 </span>
               ) : (
-                <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-primary-hover border border-blue-200">
+                <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-md bg-blue-100 text-primary-hover border border-blue-200">
                   New
                 </span>
               )}

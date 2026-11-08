@@ -41,7 +41,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
         onKeyDown={onActivateKey}
         key={j.id}
         onClick={() => form.selectJourney(j)}
-        className={`group p-4 rounded-2xl border transition-all duration-150 cursor-pointer flex flex-col justify-between shadow-2xs hover:shadow-md ${
+        className={`group p-4 rounded-2xl border transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 cursor-pointer flex flex-col justify-between shadow-2xs hover:shadow-md ${
           isSelected
             ? 'bg-primary/5 border-primary ring-2 ring-primary/20'
             : isReturning
@@ -57,13 +57,13 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
                 {j.journey_number}
               </span>
               {isReturning ? (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-300">
                   <Truck className="w-3 h-3 text-amber-700" />
-                  RETURNING
+                  Returning
                 </span>
               ) : (
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-                  COLLECTING
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 border border-blue-200">
+                  Collecting
                 </span>
               )}
             </div>
@@ -138,7 +138,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
                 Mobile Tester journeys ({arrivingJourneys.length})
               </h3>
               {returningJourneys.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold text-xs flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-semibold text-xs flex items-center gap-1">
                   <Truck className="w-3 h-3 text-amber-700" />
                   {returningJourneys.length} Incoming
                 </span>
@@ -210,12 +210,12 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
                     Journey #{selectedJourney.journey_number}
                   </span>
                   {selectedJourney.status === 'RETURNING' ? (
-                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-semibold">
-                      RETURNING TO PHE
+                    <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-xs font-semibold">
+                      Returning to PHE
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 text-xs font-semibold">
-                      COLLECTING
+                    <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 text-xs font-semibold">
+                      Collecting
                     </span>
                   )}
                 </div>
@@ -284,7 +284,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
                                 </span>
                               ) : stop.status === 'SKIPPED' ? (
                                 <span className="text-amber-700 text-xs font-semibold">
-                                  SKIPPED
+                                  Skipped
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground text-xs">Pending</span>

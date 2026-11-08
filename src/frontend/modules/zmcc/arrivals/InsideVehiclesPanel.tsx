@@ -78,7 +78,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                                   {v.vehicle_number}
                                 </div>
                                 <span
-                                  className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-xs font-semibold uppercase tracking-wider ${
+                                  className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-xs font-semibold tracking-wider ${
                                     v.arrival_type === 'MOT'
                                       ? 'bg-blue-100 text-blue-800'
                                       : 'bg-emerald-100 text-emerald-800'

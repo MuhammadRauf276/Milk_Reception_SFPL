@@ -157,7 +157,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-primary" />
+              <Building2 className="w-4 h-4 text-muted-foreground" />
               <h2 className="text-xs font-semibold text-foreground">
                 ZMCC centers
               </h2>
@@ -178,7 +178,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                     <span className="tabular-nums text-xs px-2 py-0.5 rounded bg-muted text-secondary-foreground font-semibold">
                       {z.code}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                       <CheckCircle2 className="w-3 h-3" /> Active
                     </span>
                   </div>
@@ -215,7 +215,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                             ? 'bg-amber-500'
                             : (z.siloCapacityPercent ?? 0) > 40
                             ? 'bg-primary'
-                            : 'bg-slate-300'
+                            : 'bg-border-strong'
                         }`}
                         style={{ width: `${Math.min(z.siloCapacityPercent ?? 0, 100)}%` }}
                       />
@@ -231,7 +231,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                 </div>
                 <div className="mt-2 flex items-center justify-between text-xs text-secondary-foreground">
                   <span>Not unloaded</span>
-                  <span className={`tabular-nums font-semibold ${z.leftWithoutFullUnloadingCount > 0 ? 'text-amber-700' : 'text-slate-700'}`}>
+                  <span className={`tabular-nums font-semibold ${z.leftWithoutFullUnloadingCount > 0 ? 'text-amber-700' : 'text-secondary-foreground'}`}>
                     {z.leftWithoutFullUnloadingCount}
                                                           </span>
                 </div>
@@ -259,7 +259,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Building className="w-4 h-4 text-primary" />
+              <Building className="w-4 h-4 text-muted-foreground" />
               <h2 className="text-xs font-semibold text-foreground">
                 Direct Plant Commercial Contractors
               </h2>

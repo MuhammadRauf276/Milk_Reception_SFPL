@@ -133,7 +133,7 @@ export function ContractorsPanel({
       label: 'Status',
       cell: (contractor) => (
         <span
-          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+          className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
             contractor.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-muted-foreground'
           }`}
         >

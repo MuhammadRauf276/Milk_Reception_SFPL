@@ -156,7 +156,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
       <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/80">
           <div className="flex items-center space-x-2">
-            <Truck className="w-5 h-5 text-primary" />
+            <Truck className="w-5 h-5 text-muted-foreground" />
             <div>
               <h3 className="text-sm font-semibold text-foreground">
                 {serverPaging?.title ?? 'Live vehicles'}
@@ -165,7 +165,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
           </div>
 
           <div className="flex items-center space-x-2 self-start sm:self-auto">
-            <span className="px-3 py-1 rounded-full text-xs tabular-nums font-semibold bg-blue-50 text-primary-hover border border-blue-200">
+            <span className="px-3 py-1 rounded-md text-xs tabular-nums font-semibold bg-blue-50 text-primary-hover border border-blue-200">
               {serverPaging ? `${totalVehicles} vehicles` : `${activeGroups.length} active`}
             </span>
           </div>
@@ -277,7 +277,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
               return (
                 <div
                   key={group.visitId}
-                  className={`p-5 rounded-xl border transition-all flex flex-col justify-between space-y-3.5 shadow-2xs ${
+                  className={`p-5 rounded-xl border transition-[color,background-color,border-color,box-shadow,opacity,transform] flex flex-col justify-between space-y-3.5 shadow-2xs ${
                     isFirst
                       ? 'bg-primary/5 border-primary ring-1 ring-primary'
                       : 'bg-card border-border/80 hover:border-primary/40'
@@ -287,7 +287,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                     <div className="flex items-center space-x-1.5">
                       {!serverPaging && (
                         <span
-                          className={`px-2.5 py-0.5 rounded-full text-xs font-semibold tabular-nums  shadow-2xs ${
+                          className={`px-2.5 py-0.5 rounded-md text-xs font-semibold tabular-nums  shadow-2xs ${
                             isFirst
                               ? 'bg-primary text-white'
                               : 'bg-muted text-secondary-foreground border border-border'

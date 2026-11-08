@@ -215,7 +215,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
               <button
                 type="button"
                 onClick={() => setAttempt((n) => n + 1)}
-                className="inline-flex h-12 w-full flex-1 items-center justify-center gap-2 rounded-lg bg-card px-4 text-sm font-semibold text-slate-900 shadow hover:bg-slate-100 transition-colors"
+                className="inline-flex h-12 w-full flex-1 items-center justify-center gap-2 rounded-lg bg-card px-4 text-sm font-semibold text-foreground shadow hover:bg-muted transition-colors"
               >
                 <Undo2 className="h-4 w-4" />
                 Try again

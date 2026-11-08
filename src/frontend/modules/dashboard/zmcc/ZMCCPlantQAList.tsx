@@ -36,7 +36,7 @@ export const ZMCCPlantQAList: React.FC<{
         return (
           <div
             key={`${item.visitId}-${item.portionNumber}`}
-            className={`p-4 rounded-xl bg-card border shadow-2xs space-y-3 transition-all ${
+            className={`p-4 rounded-xl bg-card border shadow-2xs space-y-3 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
               isRejected
                 ? 'border-rose-300 bg-rose-50/20'
                 : isHold

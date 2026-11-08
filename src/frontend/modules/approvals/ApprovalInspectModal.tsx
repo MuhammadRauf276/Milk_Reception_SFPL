@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
 import { STAGE_LABELS, cleanEntityTitle, formatWaitingLabel } from './approvalInboxShared';
 import { ApprovalDetailBody } from './ApprovalDetailBody';
+import { formatLabel } from '@/lib/format';
 
 export interface ApprovalInspectModalProps {
   item: UnifiedApprovalItem | null;
@@ -97,7 +98,7 @@ export function ApprovalInspectModal({
       <Drawer open={isOpen} onOpenChange={(open) => !open && !isSubmitting && onClose()}>
         <DrawerContent className="max-h-[88dvh] md:max-h-[85dvh] flex flex-col bg-card">
           {/* Header */}
-          <div className="flex items-start justify-between p-4 sm:p-5 border-b border-border bg-slate-50/70 shrink-0">
+          <div className="flex items-start justify-between p-4 sm:p-5 border-b border-border bg-subtle/70 shrink-0">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className={cn('px-2 py-0.5 rounded text-xs font-semibold border', stageMeta.color)}>
@@ -125,7 +126,7 @@ export function ApprovalInspectModal({
                   </span>
                 ) : (
                   <span className="font-semibold text-secondary-foreground">
-                    Status: {item.status}
+                    Status: {formatLabel(item.status)}
                   </span>
                 )}
               </div>
@@ -148,7 +149,7 @@ export function ApprovalInspectModal({
           </div>
 
           {/* Decision / Action Footer */}
-          <div className="p-4 sm:p-5 border-t border-border bg-slate-50/90 shrink-0">
+          <div className="p-4 sm:p-5 border-t border-border bg-subtle/90 shrink-0">
             {isPending ? (
               item.canDecide ? (
                 <form onSubmit={handleConfirmDecision} className="space-y-3">
@@ -269,7 +270,7 @@ export function ApprovalInspectModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="min-h-11 px-4 py-2 text-xs font-semibold bg-muted hover:bg-slate-300 text-foreground rounded-lg transition"
+                    className="min-h-11 px-4 py-2 text-xs font-semibold bg-muted hover:bg-border-strong text-foreground rounded-lg transition"
                   >
                     Close
                   </button>
@@ -283,7 +284,7 @@ export function ApprovalInspectModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="min-h-11 px-5 py-2 text-xs font-semibold bg-muted hover:bg-slate-300 text-foreground rounded-lg transition"
+                  className="min-h-11 px-5 py-2 text-xs font-semibold bg-muted hover:bg-border-strong text-foreground rounded-lg transition"
                 >
                   Done
                 </button>

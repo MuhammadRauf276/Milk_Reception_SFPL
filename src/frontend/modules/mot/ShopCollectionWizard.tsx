@@ -164,7 +164,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
       style={vvh ? { maxHeight: Math.min(vvh - 24, typeof window !== 'undefined' ? window.innerHeight * 0.9 : vvh) } : undefined}
     >
       {/* Header */}
-      <div className="flex-none border-b border-border bg-slate-50/80 px-4 py-3">
+      <div className="flex-none border-b border-border bg-subtle/80 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-semibold text-white shadow-2xs">
             {sequence}
@@ -223,7 +223,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                   : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
               )}
             >
-              <span className={cn('h-1.5 w-1.5 rounded-full', i === step ? 'bg-card' : 'bg-slate-300')} />
+              <span className={cn('h-1.5 w-1.5 rounded-full', i === step ? 'bg-card' : 'bg-border-strong')} />
               <span>{i + 1}. {label}</span>
             </button>
           ))}

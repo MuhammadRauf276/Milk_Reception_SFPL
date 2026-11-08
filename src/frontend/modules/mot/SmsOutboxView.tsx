@@ -9,6 +9,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { formatLabel } from '@/lib/format';
 
 interface SmsOutboxViewProps {
   currentUser: User | null;
@@ -140,7 +141,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
       label: 'Status',
       cell: (item) => (
         <span
-          className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase inline-flex items-center space-x-1 ${
+          className={`px-2.5 py-0.5 rounded-md text-xs font-semibold inline-flex items-center space-x-1 ${
             item.status === 'SENT'
               ? 'bg-emerald-100 text-emerald-800'
               : item.status === 'FAILED'
@@ -150,7 +151,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
         >
           {item.status === 'SENT' && <CheckCircle2 className="w-2.5 h-2.5 mr-1" />}
           {item.status === 'PENDING' && <Clock className="w-2.5 h-2.5 mr-1" />}
-          {item.status}
+          {formatLabel(item.status)}
         </span>
       ),
     },
@@ -251,7 +252,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
             onClick={handleDispatchAll}
             className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-hover shadow-2xs transition disabled:opacity-50"
           >
-            <Send className={`w-3.5 h-3.5 ${isDispatching ? 'animate-pulse' : ''}`} />
+            <Send className={`w-3.5 h-3.5 ${isDispatching ? 'opacity-50' : ''}`} />
             <span>{isDispatching ? 'Dispatching…' : 'Dispatch Queue'}</span>
           </button>
         </div>

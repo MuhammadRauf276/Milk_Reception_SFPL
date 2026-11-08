@@ -186,7 +186,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
             }`}
           >
             <span>All Activities</span>
-            <span className="text-xs px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
+            <span className="text-xs px-1.5 py-0.2 rounded-md bg-primary-foreground/20">
               {history.length}
             </span>
           </button>

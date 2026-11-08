@@ -209,7 +209,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
           <div className="lg:col-span-5 p-4 rounded-2xl border border-border bg-card space-y-3 shadow-2xs">
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <div className="flex items-center gap-1.5">
-                <Database className="w-4 h-4 text-primary" />
+                <Database className="w-4 h-4 text-muted-foreground" />
                 <h2 className="text-sm font-semibold text-foreground">Plant Silos</h2>
                 <InfoTip text="Live storage levels across all plant raw milk silos." />
               </div>

@@ -112,7 +112,7 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
                       </span>
                     </div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${badgeStyle}`}>
+                  <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${badgeStyle}`}>
                     {badgeText}
                   </span>
                 </div>

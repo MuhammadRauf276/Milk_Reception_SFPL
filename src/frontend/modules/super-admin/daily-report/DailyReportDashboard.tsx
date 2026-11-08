@@ -19,9 +19,9 @@ type ExceptionRow = DailyReportData['exceptions'][number];
 type PlantQaRow = DailyReportData['plantQaVisits'][number];
 
 function VerdictChip({ verdict }: { verdict: string }) {
-  if (verdict === 'ACCEPTED') return <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">Accepted</span>;
-  if (verdict === 'WARNING') return <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Warning</span>;
-  if (verdict === 'REJECTED') return <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">Rejected</span>;
+  if (verdict === 'ACCEPTED') return <span className="rounded-md bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">Accepted</span>;
+  if (verdict === 'WARNING') return <span className="rounded-md bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Warning</span>;
+  if (verdict === 'REJECTED') return <span className="rounded-md bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">Rejected</span>;
   return null;
 }
 
@@ -134,9 +134,9 @@ const exceptionColumns: DataColumn<ExceptionRow>[] = [
     align: 'center',
     cell: (e) => (
       <>
-        {e.decision === 'APPROVED' && <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">Approved</span>}
-        {e.decision === 'REJECTED' && <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">Overruled</span>}
-        {e.decision === 'PENDING' && <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Pending</span>}
+        {e.decision === 'APPROVED' && <span className="rounded-md bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">Approved</span>}
+        {e.decision === 'REJECTED' && <span className="rounded-md bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">Overruled</span>}
+        {e.decision === 'PENDING' && <span className="rounded-md bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Pending</span>}
       </>
     ),
   },
@@ -263,7 +263,7 @@ export function DailyReportDashboard() {
   return (
     <div className="w-full max-w-full space-y-4 overflow-x-hidden p-1">
       {/* Top Action Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-border bg-card p-4 shadow-2xs">
+      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
             <p className="text-sm text-muted-foreground">Mobile Tester collections, ZMCC lab portions, plant QA, exceptions and losses</p>

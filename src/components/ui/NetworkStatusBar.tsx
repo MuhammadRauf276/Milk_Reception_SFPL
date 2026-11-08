@@ -53,7 +53,7 @@ export function NetworkStatusBar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="pointer-events-auto flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md backdrop-blur-xs"
+            className="pointer-events-auto flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md backdrop-blur-xs"
           >
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
             <span>Connection restored</span>

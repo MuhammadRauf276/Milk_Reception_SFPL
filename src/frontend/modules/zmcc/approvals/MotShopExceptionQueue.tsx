@@ -68,7 +68,7 @@ const testColumns: DataColumn<ExceptionTest>[] = [
     cell: (t) => (
       <span
         className={cn(
-          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold',
+          'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold',
           t.outcome === 'FAIL'
             ? 'bg-rose-100 text-rose-800'
             : t.outcome === 'PASS'
@@ -156,7 +156,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
           >
             {t === 'PENDING' ? 'Waiting Review' : 'Decided History'}
             {t === 'PENDING' && items.length > 0 && tab === 'PENDING' && (
-              <span className="ml-2 rounded-full bg-white/20 px-1.5 py-0.5 text-xs text-white">
+              <span className="ml-2 rounded-md bg-white/20 px-1.5 py-0.5 text-xs text-white">
                 {items.length}
               </span>
             )}
@@ -246,7 +246,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                   {item.exceptionReasons.map((r) => (
                     <span
                       key={r}
-                      className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900"
+                      className="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900"
                     >
                       {reasonText(r)}
                     </span>

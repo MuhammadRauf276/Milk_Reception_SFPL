@@ -190,7 +190,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-foreground">Notifications</span>
             {visibleUnreadCount > 0 && (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                 {visibleUnreadCount} new
               </span>
             )}

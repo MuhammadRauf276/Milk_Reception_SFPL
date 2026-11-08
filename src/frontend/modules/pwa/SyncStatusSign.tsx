@@ -222,7 +222,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
             aria-label="Toggle offline mode"
             className={cn(
               'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-              forced ? 'bg-amber-600' : 'bg-slate-300'
+              forced ? 'bg-amber-600' : 'bg-border-strong'
             )}
           >
             <span

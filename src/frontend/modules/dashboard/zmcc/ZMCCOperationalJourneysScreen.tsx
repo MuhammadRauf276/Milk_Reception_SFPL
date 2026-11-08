@@ -35,6 +35,7 @@ import { CancelJourneySheet } from '@/frontend/modules/mot/workspace/CancelJourn
 import { canAssignJourney, canCreateRoute, routeNeedsApproval } from '@/frontend/modules/zmcc/stage1Capabilities';
 import type { MotProfileItem, MotVehicleItem, RouteOption, JourneyItem } from '@/frontend/modules/mot/workspace/types';
 import { formatTime } from '@/lib/format';
+import { formatLabel } from '@/lib/format';
 
 interface ZMCCOperationalJourneysScreenProps {
   currentUser: User | null;
@@ -238,13 +239,13 @@ export function ZMCCOperationalJourneysScreen({
     { key: 'journey', header: 'Journey #', label: 'Journey #', primary: true, cell: (j) => <span className="tabular-nums font-semibold text-primary">#{j.journey_number}</span> },
     { key: 'route', header: 'Route', label: 'Route', cell: (j) => <span className="font-semibold text-foreground">{j.route?.route_code} · {j.route?.name}</span> },
     { key: 'mot', header: 'Mobile Tester', label: 'Mobile Tester', cell: (j) => <span className="text-foreground font-medium">{j.mot_profile?.name}</span> },
-    { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', cell: (j) => <span className="tabular-nums font-semibold text-slate-700">{j.mot_vehicle?.vehicle_number}</span> },
-    { key: 'dispatched', header: 'Dispatched At', label: 'Dispatched at', cell: (j) => <span className="tabular-nums text-slate-600">{formatTime(j.assigned_at)}</span> },
+    { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', cell: (j) => <span className="tabular-nums font-semibold text-secondary-foreground">{j.mot_vehicle?.vehicle_number}</span> },
+    { key: 'dispatched', header: 'Dispatched At', label: 'Dispatched at', cell: (j) => <span className="tabular-nums text-secondary-foreground">{formatTime(j.assigned_at)}</span> },
     {
       key: 'status',
       header: 'Status',
       label: 'Status',
-      cell: (j) => <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">{j.status}</span>,
+      cell: (j) => <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">{formatLabel(j.status)}</span>,
     },
     {
       key: 'actions',
@@ -284,17 +285,17 @@ export function ZMCCOperationalJourneysScreen({
 
   const historyColumns: DataColumn<HistoryJourneyRow>[] = [
     { key: 'journey', header: 'Journey #', label: 'Journey #', primary: true, cell: (j) => <span className="tabular-nums font-semibold text-primary">#{j.journey_number}</span> },
-    { key: 'date', header: 'Date', label: 'Date', cell: (j) => <span className="tabular-nums text-slate-600 font-medium">{j.operational_date}</span> },
+    { key: 'date', header: 'Date', label: 'Date', cell: (j) => <span className="tabular-nums text-secondary-foreground font-medium">{j.operational_date}</span> },
     { key: 'route', header: 'Route', label: 'Route', cell: (j) => <span className="font-semibold text-foreground">{j.route?.route_code} · {j.route?.name}</span> },
     { key: 'mot', header: 'Mobile Tester', label: 'Mobile Tester', cell: (j) => <span className="text-foreground font-medium">{j.mot_profile?.name}</span> },
-    { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', cell: (j) => <span className="tabular-nums font-semibold text-slate-700">{j.mot_vehicle?.vehicle_number}</span> },
+    { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', cell: (j) => <span className="tabular-nums font-semibold text-secondary-foreground">{j.mot_vehicle?.vehicle_number}</span> },
     {
       key: 'status',
       header: 'Status',
       label: 'Status',
       cell: (j) => (
         <span
-          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+          className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
             j.status === 'COMPLETED'
               ? 'bg-emerald-100 text-emerald-800'
               : j.status === 'CANCELLED'
@@ -302,11 +303,11 @@ export function ZMCCOperationalJourneysScreen({
               : 'bg-blue-100 text-blue-800'
           }`}
         >
-          {j.status}
+          {formatLabel(j.status)}
         </span>
       ),
     },
-    { key: 'dispatched', header: 'Dispatched', label: 'Dispatched', cell: (j) => <span className="tabular-nums text-slate-600">{formatTime(j.assigned_at)}</span> },
+    { key: 'dispatched', header: 'Dispatched', label: 'Dispatched', cell: (j) => <span className="tabular-nums text-secondary-foreground">{formatTime(j.assigned_at)}</span> },
     {
       key: 'actions',
       header: 'Actions',
@@ -332,10 +333,10 @@ export function ZMCCOperationalJourneysScreen({
       <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Truck className="w-5 h-5 text-primary" />
+            <Truck className="w-5 h-5 text-muted-foreground" />
             <h1 className="text-lg font-semibold text-foreground">Mobile Tester journeys & Route Radar</h1>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Track active Mobile Tester collections on the live map and review historical route trails with full audit details
           </p>
         </div>
@@ -471,7 +472,7 @@ export function ZMCCOperationalJourneysScreen({
                   Live Mobile Tester Fleet Radar
                 </h2>
               </div>
-              <span className="text-xs font-medium text-slate-500">
+              <span className="text-xs font-medium text-muted-foreground">
                 {liveMapVehicles.length} vehicles reporting coordinates
               </span>
             </div>
@@ -496,7 +497,7 @@ export function ZMCCOperationalJourneysScreen({
             {activeJourneysQuery.isPending ? (
               <PageLoader label="Loading active journeys…" className="py-12" />
             ) : activeJourneys.length === 0 ? (
-              <div className="p-8 text-center text-xs font-semibold text-slate-500">
+              <div className="p-8 text-center text-xs font-semibold text-muted-foreground">
                 No MOT journeys currently in progress.
               </div>
             ) : (
@@ -518,7 +519,7 @@ export function ZMCCOperationalJourneysScreen({
           <div className="bg-card p-4 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1 bg-subtle px-2.5 py-1.5 rounded-lg border border-border text-xs">
-                <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type="date"
                   value={historyDate}
@@ -536,7 +537,7 @@ export function ZMCCOperationalJourneysScreen({
                     className={`min-h-8 px-3 rounded-md font-semibold transition ${
                       historyStatusFilter === st
                         ? 'bg-primary text-white shadow-2xs'
-                        : 'text-slate-600 hover:text-foreground'
+                        : 'text-secondary-foreground hover:text-foreground'
                     }`}
                   >
                     {st === 'all' ? 'All' : st}
@@ -546,7 +547,7 @@ export function ZMCCOperationalJourneysScreen({
             </div>
 
             <div className="relative w-full md:w-72">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search journey, MOT, vehicle…"
@@ -562,7 +563,7 @@ export function ZMCCOperationalJourneysScreen({
             {historyJourneysQuery.isPending ? (
               <PageLoader label="Loading journey history…" className="py-12" />
             ) : filteredHistory.length === 0 ? (
-              <div className="p-8 text-center text-xs font-semibold text-slate-500">
+              <div className="p-8 text-center text-xs font-semibold text-muted-foreground">
                 No journey records match the selected date and filters.
               </div>
             ) : (
@@ -583,7 +584,7 @@ export function ZMCCOperationalJourneysScreen({
           <div className="bg-card w-full max-w-5xl rounded-2xl border border-border shadow-2xl p-5 my-auto max-h-[92vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
-                <span className="text-xs font-semibold text-slate-500">Journey Map & Field Trail</span>
+                <span className="text-xs font-semibold text-muted-foreground">Journey Map & Field Trail</span>
                 <h3 className="text-base font-semibold text-foreground">
                   Interactive Route Map Replay
                 </h3>
@@ -591,7 +592,7 @@ export function ZMCCOperationalJourneysScreen({
               <button
                 type="button"
                 onClick={() => setSelectedJourneyIdForMap(null)}
-                className="p-1 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-foreground transition"
+                className="p-1 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition"
               >
                 <X className="w-5 h-5" />
               </button>

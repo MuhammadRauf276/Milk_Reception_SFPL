@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils';
 const TIERS = {
   station: { label: 'Station', className: 'bg-muted text-secondary-foreground' },
   manager: { label: 'Manager', className: 'bg-muted text-foreground' },
-  head: { label: 'Head', className: 'bg-accent text-accent-foreground' },
-  admin: { label: 'Administrator', className: 'bg-primary text-primary-foreground' },
+  head: { label: 'Head', className: 'bg-muted text-foreground' },
+  admin: { label: 'Administrator', className: 'bg-accent text-accent-foreground' },
 } as const;
 
 type Tier = keyof typeof TIERS;

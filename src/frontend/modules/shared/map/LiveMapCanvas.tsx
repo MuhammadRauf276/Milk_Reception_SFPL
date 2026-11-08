@@ -607,7 +607,7 @@ export const LiveMapCanvas: React.FC<LiveMapProps> = ({
   const selMarker = selection?.kind === 'marker' ? markers.find((m) => m.id === selection.id) : undefined;
   const isEmpty = allCoords.length === 0;
   const hasKind = (k: MarkerKind) => markers.some((m) => m.kind === k);
-  const chip = 'inline-flex items-center gap-1 rounded-full border border-border bg-white px-2 py-0.5 dark:bg-slate-800';
+  const chip = 'inline-flex items-center gap-1 rounded-md border border-border bg-white px-2 py-0.5 dark:bg-slate-800';
   const btn =
     'flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-slate-700 shadow-md hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
 

@@ -83,7 +83,7 @@ export const LabQueuePanel: React.FC<LabQueuePanelProps> = ({
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-full uppercase ${
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-md ${
                           item.queue_type === 'MOT' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
                         }`}
                       >
@@ -145,7 +145,7 @@ export const LabQueuePanel: React.FC<LabQueuePanelProps> = ({
                         
                       </button>
                     ) : (
-                      <span className="text-xs text-muted-foreground italic">Attendant only</span>
+                      <span className="text-xs text-muted-foreground ">Attendant only</span>
                     )}
                   </div>
                 </div>

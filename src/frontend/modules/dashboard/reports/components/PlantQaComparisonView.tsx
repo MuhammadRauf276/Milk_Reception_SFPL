@@ -248,7 +248,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
       <div className="bg-card border border-border p-4 rounded-2xl shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-            <FlaskConical className="w-4 h-4 text-primary" /> Plant QA vs. ZMCC Dispatch QA Audit
+            <FlaskConical className="w-4 h-4 text-muted-foreground" /> Plant QA vs. ZMCC Dispatch QA Audit
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Inter-facility transit audit comparing origin dispatch test values against central plant weighbridge and lab test outcomes
@@ -403,22 +403,22 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
                   {/* Status Pill */}
                   <td className="py-2.5 px-3 text-center">
                     {row.status === 'ACCEPTED' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
                         <CheckCircle2 className="w-3 h-3" /> Reconciled
                       </span>
                     )}
                     {row.status === 'FLAGGED_QA' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 text-xs font-semibold border border-rose-200 dark:border-rose-800">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 text-xs font-semibold border border-rose-200 dark:border-rose-800">
                         <AlertTriangle className="w-3 h-3" /> QA Discrepancy
                       </span>
                     )}
                     {row.status === 'FLAGGED_LOSS' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 text-xs font-semibold border border-amber-200 dark:border-amber-800">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 text-xs font-semibold border border-amber-200 dark:border-amber-800">
                         <AlertTriangle className="w-3 h-3" /> High Loss (&gt;1%)
                       </span>
                     )}
                     {row.status === 'IN_TRANSIT' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 text-xs font-semibold border border-blue-200 dark:border-blue-800">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 text-xs font-semibold border border-blue-200 dark:border-blue-800">
                         <Truck className="w-3 h-3" /> In-Transit
                       </span>
                     )}

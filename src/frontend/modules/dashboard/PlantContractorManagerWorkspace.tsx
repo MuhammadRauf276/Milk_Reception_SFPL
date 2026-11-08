@@ -82,7 +82,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
             <div>
               <div className="flex items-center space-x-2 flex-wrap">
 <span className="text-xs font-semibold text-secondary-foreground flex items-center space-x-1">
-                  <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <Building2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                   <span>{assignedSourceName}</span>
                 </span>
               </div>
@@ -94,7 +94,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
             <div className="flex items-center space-x-2 self-start sm:self-auto">
               {serverBusinessDate && (
                 <div className="flex items-center space-x-1.5 px-3 py-1.5 bg-subtle border border-border-strong rounded-xl text-xs tabular-nums font-semibold text-secondary-foreground shadow-2xs">
-                  <Calendar className="w-3.5 h-3.5 text-primary" />
+                  <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                   <span>{serverBusinessDate}</span>
                 </div>
               )}

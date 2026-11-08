@@ -55,7 +55,7 @@ const routeColumns: DataColumn<RouteRankingRow>[] = [
     align: 'right',
     cell: (r) => (
       <span
-        className={`tabular-nums font-semibold px-2 py-0.5 rounded-full text-xs ${
+        className={`tabular-nums font-semibold px-2 py-0.5 rounded-md text-xs ${
           r.routeLossPct > 1.0 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
         }`}
       >
@@ -182,7 +182,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border pb-4">
           <div>
             <div className="flex items-center gap-2">
-              <LineChart className="w-5 h-5 text-primary" />
+              <LineChart className="w-5 h-5 text-muted-foreground" />
               <h1 className="text-lg font-semibold text-foreground">
                 Business Intelligence & Statistical Analytics
               </h1>

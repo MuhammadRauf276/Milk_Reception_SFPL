@@ -173,7 +173,7 @@ function ProcurementSourcesContent() {
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
             <div className="flex items-center space-x-2">
               <h2 className="text-sm font-semibold text-foreground">Procurement sources</h2>
-              <span className="rounded-full border border-border bg-subtle px-2 py-0.5 text-xs tabular-nums text-secondary-foreground">
+              <span className="rounded-md border border-border bg-subtle px-2 py-0.5 text-xs tabular-nums text-secondary-foreground">
                 {pagination?.totalRecords ?? sources.length}
               </span>
             </div>

@@ -120,7 +120,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
             </div>
             <div className="flex items-center gap-2">
               <span
-                className={`hidden sm:inline px-2.5 py-1 rounded-full text-xs uppercase tabular-nums font-semibold ${
+                className={`hidden sm:inline px-2.5 py-1 rounded-md text-xs tabular-nums font-semibold ${
                   silo.is_active ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
                 }`}
               >

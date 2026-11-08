@@ -472,7 +472,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 { key: 'entry', header: 'Entry time', label: 'Entry time', cell: (v) => <span className="tabular-nums text-secondary-foreground">{formatTime(v.entry_timestamp)}</span> },
                 { key: 'portions', header: 'Portions', label: 'Portions', cell: (v) => <span className="tabular-nums">{v.portion_count} ({formatDispatchQuantity(v.vehicle_dispatch_quantity_value, v.vehicle_dispatch_quantity_unit)})</span> },
                 { key: 'stage', header: 'Current stage', label: 'Current stage', cell: (v) => (
-                  <span className="px-2.5 py-1 rounded-full text-xs bg-muted text-foreground border border-border">
+                  <span className="px-2.5 py-1 rounded-md text-xs bg-muted text-foreground border border-border">
                     {formatFriendlyStage(v.current_status)}
                   </span>
                 ) },
@@ -611,15 +611,15 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-foreground">Tanker wash check *</span>
                     {tankerWashed === true ? (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
                         Clean and washed
                       </span>
                     ) : tankerWashed === false ? (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300">
+                      <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300">
                         Sent to wash bay
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                      <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
                         Inspection needed
                       </span>
                     )}

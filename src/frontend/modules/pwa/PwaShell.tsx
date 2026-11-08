@@ -225,7 +225,7 @@ export function PwaShell() {
     banners.push({
       id: 'sync',
       tone: 'border-blue-200 bg-blue-50 text-blue-900',
-      icon: <Loader2 className="h-4 w-4 animate-spin text-blue-600" />,
+      icon: <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />,
       message: 'Synchronizing saved offline work…',
     });
   }

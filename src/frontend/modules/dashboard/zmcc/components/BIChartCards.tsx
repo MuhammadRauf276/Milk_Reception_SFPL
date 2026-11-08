@@ -423,7 +423,7 @@ export function RouteLossBarChart({ rankings }: { rankings: RoutePerformanceRank
                 <span className="tabular-nums font-semibold text-foreground">
                   {r.totalLiters.toLocaleString()} L
                 </span>
-                <span className={`text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full border ${lossTone}`}>
+                <span className={`text-xs tabular-nums font-semibold px-2 py-0.5 rounded-md border ${lossTone}`}>
                   {r.routeLossPct}% Loss
                 </span>
               </div>

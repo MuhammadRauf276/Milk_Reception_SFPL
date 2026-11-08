@@ -236,7 +236,7 @@ export function DynamicReportGeneratorScreen({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" /> Reports & Analytics Studio
+              <Sparkles className="w-4 h-4 text-muted-foreground" /> Reports & Analytics Studio
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Live operational reporting with custom columns, multi-clause filters, pivot cross-tabulation, and formatted exports

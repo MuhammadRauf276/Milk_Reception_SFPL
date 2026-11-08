@@ -55,18 +55,18 @@ export function JourneyCard({
               Active Journey
             </span>
             {isAtZmcc ? (
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-xs font-semibold inline-flex items-center gap-1">
+              <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 text-xs font-semibold inline-flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-emerald-700" />
                 AT ZMCC
               </span>
             ) : isReturning ? (
-              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-semibold flex items-center gap-1">
+              <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-xs font-semibold flex items-center gap-1">
                 <Truck className="w-3 h-3 text-amber-700" />
-                RETURNING TO PHE
+                Returning to PHE
               </span>
             ) : (
-              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 text-xs font-semibold">
-                COLLECTING
+              <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 text-xs font-semibold">
+                Collecting
               </span>
             )}
           </div>
@@ -170,7 +170,7 @@ export function JourneyCard({
                 <span className="text-xs font-semibold text-amber-900">
                   Returning to PHE
                 </span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-200 font-semibold text-amber-950">
+                <span className="text-xs px-2 py-0.5 rounded-md bg-amber-200 font-semibold text-amber-950">
                   En Route to ZMCC
                 </span>
               </div>

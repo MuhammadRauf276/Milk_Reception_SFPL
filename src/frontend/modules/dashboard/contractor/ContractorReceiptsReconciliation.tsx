@@ -213,7 +213,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
         <span className="tabular-nums text-slate-700 text-xs">
           {v.siloStorageId ? (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200 font-semibold">
-              <Building2 className="w-3 h-3 text-blue-700" />
+              <Building2 className="w-3 h-3 text-muted-foreground" />
               <span>{v.siloStorageId}</span>
             </span>
           ) : (
@@ -311,7 +311,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
         <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-blue-800 text-xs font-semibold">
             <span>Total Received Vol</span>
-            <Scale className="w-4 h-4 text-blue-700" />
+            <Scale className="w-4 h-4 text-muted-foreground" />
           </div>
           <p className="text-2xl font-semibold text-blue-950 tabular-nums">
             {metrics.totalAuthoritativeReceivedLiters.toLocaleString()} L
@@ -423,7 +423,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
       <div className="bg-card border-border p-5 sm:p-6 rounded-2xl border shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-muted pb-3">
           <div className="flex items-center space-x-2">
-            <Receipt className="w-4 h-4 text-blue-800" />
+            <Receipt className="w-4 h-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-slate-900">Vehicle receipts</h3>
           </div>
           <span className="text-xs text-slate-500 tabular-nums font-semibold">

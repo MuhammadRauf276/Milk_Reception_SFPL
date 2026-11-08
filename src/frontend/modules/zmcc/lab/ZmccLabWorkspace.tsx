@@ -425,7 +425,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
                 {queueItems.map((item) => (
                   <div
                     key={`${item.queue_type}-${item.arrival_id}`}
-                    className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition bg-card"
+                    className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-subtle/70 transition bg-card"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">

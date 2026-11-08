@@ -156,10 +156,10 @@ export function DynamicFilterBar({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-            <Filter className="w-4 h-4 text-primary" />
+            <Filter className="w-4 h-4 text-muted-foreground" />
             <span>Ad-Hoc Query Filters</span>
             {filters.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+              <span className="px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-semibold">
                 {filters.length} active
               </span>
             )}
@@ -355,7 +355,7 @@ export function DynamicFilterBar({
       {/* Action Bar */}
       <div className="flex items-center justify-between pt-1">
         <Button variant="outline" size="sm" onClick={addFilter} className="h-8 text-xs font-medium">
-          <Plus className="w-3.5 h-3.5 mr-1 text-primary" /> Add Filter Condition
+          <Plus className="w-3.5 h-3.5 mr-1 text-muted-foreground" /> Add Filter Condition
         </Button>
 
         {filters.length > 0 && (

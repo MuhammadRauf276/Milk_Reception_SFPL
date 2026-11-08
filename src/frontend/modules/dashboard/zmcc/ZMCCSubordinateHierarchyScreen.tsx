@@ -48,24 +48,24 @@ const shopColumns: DataColumn<ZmccShopHierarchyNode>[] = [
     header: 'Owner & Contact',
     label: 'Owner & contact',
     cell: (shop) => (
-      <span className="text-slate-600">
+      <span className="text-secondary-foreground">
         {shop.ownerName}{' '}
-        <span className="text-xs text-slate-400">({shop.phoneNumber})</span>
+        <span className="text-xs text-muted-foreground">({shop.phoneNumber})</span>
       </span>
     ),
   },
-  { key: 'chiller', header: 'Chiller', label: 'Chiller', cell: (shop) => <span className="text-slate-600">{shop.chillerOwnership}</span> },
+  { key: 'chiller', header: 'Chiller', label: 'Chiller', cell: (shop) => <span className="text-secondary-foreground">{shop.chillerOwnership}</span> },
   {
     key: 'geotag',
     header: 'Geotag Status',
     label: 'Geotag status',
     cell: (shop) =>
       shop.geotagStatus === 'VERIFIED' ? (
-        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
           <CheckCircle2 className="w-2.5 h-2.5" /> Verified
         </span>
       ) : (
-        <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
           <MapPin className="w-2.5 h-2.5" /> Pending GPS
         </span>
       ),
@@ -76,15 +76,15 @@ const shopColumns: DataColumn<ZmccShopHierarchyNode>[] = [
     label: 'Today liters',
     cell: (shop) => <span className="tabular-nums font-semibold text-foreground">{shop.todayLiters > 0 ? `${shop.todayLiters.toLocaleString()} L` : '—'}</span>,
   },
-  { key: 'fat', header: 'Fat %', label: 'Fat %', cell: (shop) => <span className="tabular-nums font-semibold text-slate-700">{shop.todayFat ? `${shop.todayFat}%` : '—'}</span> },
-  { key: 'lr', header: 'LR', label: 'LR', cell: (shop) => <span className="tabular-nums font-semibold text-slate-700">{shop.todayLr || '—'}</span> },
+  { key: 'fat', header: 'Fat %', label: 'Fat %', cell: (shop) => <span className="tabular-nums font-semibold text-secondary-foreground">{shop.todayFat ? `${shop.todayFat}%` : '—'}</span> },
+  { key: 'lr', header: 'LR', label: 'LR', cell: (shop) => <span className="tabular-nums font-semibold text-secondary-foreground">{shop.todayLr || '—'}</span> },
   {
     key: 'last',
     header: 'Last Collection',
     label: 'Last collection',
     align: 'right',
     cell: (shop) => (
-      <span className="text-slate-500 tabular-nums">
+      <span className="text-muted-foreground tabular-nums">
         {shop.lastCollectionAt
           ? new Date(shop.lastCollectionAt).toLocaleTimeString([], {
               hour: '2-digit',
@@ -101,15 +101,15 @@ type HcSupplierNode = ZmccHierarchyReport['hcSuppliers'][number];
 const supplierColumns: DataColumn<HcSupplierNode>[] = [
   { key: 'code', header: 'Supplier Code', label: 'Supplier code', primary: true, cell: (supplier) => <span className="tabular-nums font-semibold text-primary">{supplier.supplierCode}</span> },
   { key: 'name', header: 'Supplier Name', label: 'Supplier name', cell: (supplier) => <span className="font-semibold text-foreground">{supplier.name}</span> },
-  { key: 'contact', header: 'Contact Person', label: 'Contact person', cell: (supplier) => <span className="text-slate-600">{supplier.contactPerson || '—'}</span> },
-  { key: 'phone', header: 'Phone', label: 'Phone', cell: (supplier) => <span className="tabular-nums text-slate-600">{supplier.phoneNumber || '—'}</span> },
+  { key: 'contact', header: 'Contact Person', label: 'Contact person', cell: (supplier) => <span className="text-secondary-foreground">{supplier.contactPerson || '—'}</span> },
+  { key: 'phone', header: 'Phone', label: 'Phone', cell: (supplier) => <span className="tabular-nums text-secondary-foreground">{supplier.phoneNumber || '—'}</span> },
   {
     key: 'status',
     header: 'Status',
     label: 'Status',
-    cell: () => <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">ACTIVE</span>,
+    cell: () => <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">ACTIVE</span>,
   },
-  { key: 'arrivals', header: 'Today Arrivals', label: 'Today arrivals', cell: (supplier) => <span className="tabular-nums font-semibold text-slate-700">{supplier.todayArrivalsCount}</span> },
+  { key: 'arrivals', header: 'Today Arrivals', label: 'Today arrivals', cell: (supplier) => <span className="tabular-nums font-semibold text-secondary-foreground">{supplier.todayArrivalsCount}</span> },
   { key: 'liters', header: 'Today Liters', label: 'Today liters', cell: (supplier) => <span className="tabular-nums font-semibold text-foreground">{supplier.todayLiters.toLocaleString()} L</span> },
   {
     key: 'last',
@@ -117,7 +117,7 @@ const supplierColumns: DataColumn<HcSupplierNode>[] = [
     label: 'Last arrival',
     align: 'right',
     cell: (supplier) => (
-      <span className="text-slate-500 tabular-nums">
+      <span className="text-muted-foreground tabular-nums">
         {supplier.lastArrivalAt
           ? new Date(supplier.lastArrivalAt).toLocaleTimeString([], {
               hour: '2-digit',
@@ -267,7 +267,7 @@ export function ZMCCSubordinateHierarchyScreen({
 
   if (!reportData) {
     return (
-      <div className="p-12 text-center bg-card rounded-xl border border-border text-xs text-slate-500">
+      <div className="p-12 text-center bg-card rounded-xl border border-border text-xs text-muted-foreground">
         No hierarchy records found for this facility.
       </div>
     );
@@ -281,12 +281,12 @@ export function ZMCCSubordinateHierarchyScreen({
       <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Network className="w-5 h-5 text-primary" />
+            <Network className="w-5 h-5 text-muted-foreground" />
             <h1 className="text-lg font-semibold text-foreground">
               {zmcc.name} ({zmcc.code}) · Subordinate Hierarchy
             </h1>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Complete downward operational structure: Routes → Areas → Collection Shops → Field Receipts
           </p>
         </div>
@@ -297,13 +297,13 @@ export function ZMCCSubordinateHierarchyScreen({
             onClick={handleExportExcel}
             className="min-h-11 flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-foreground transition"
           >
-            <Download className="w-4 h-4 text-slate-600" />
+            <Download className="w-4 h-4 text-secondary-foreground" />
             <span>Export Directory (.xlsx)</span>
           </button>
           <button
             type="button"
             onClick={() => hierarchyQuery.refetch()}
-            className="min-h-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-slate-700"
+            className="min-h-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground"
           >
             <span>Refresh</span>
           </button>
@@ -339,7 +339,7 @@ export function ZMCCSubordinateHierarchyScreen({
             type="button"
             onClick={() => setActiveTab('ROUTES')}
             className={`min-h-9 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
-              activeTab === 'ROUTES' ? 'bg-primary text-white shadow-2xs' : 'text-slate-700 hover:text-foreground'
+              activeTab === 'ROUTES' ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
             }`}
           >
             Routes & Collection Points ({reportData.routes.length})
@@ -348,7 +348,7 @@ export function ZMCCSubordinateHierarchyScreen({
             type="button"
             onClick={() => setActiveTab('HC_SUPPLIERS')}
             className={`min-h-9 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
-              activeTab === 'HC_SUPPLIERS' ? 'bg-primary text-white shadow-2xs' : 'text-slate-700 hover:text-foreground'
+              activeTab === 'HC_SUPPLIERS' ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
             }`}
           >
             Direct HC Suppliers ({reportData.hcSuppliers.length})
@@ -356,7 +356,7 @@ export function ZMCCSubordinateHierarchyScreen({
         </div>
 
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search Route, Area, Shop or Phone…"
@@ -371,7 +371,7 @@ export function ZMCCSubordinateHierarchyScreen({
       {activeTab === 'ROUTES' ? (
         <div className="space-y-4">
           {filteredRoutes.length === 0 ? (
-            <div className="p-8 text-center bg-card rounded-2xl border border-border text-xs text-slate-500">
+            <div className="p-8 text-center bg-card rounded-2xl border border-border text-xs text-muted-foreground">
               No routes or shops matching your search term.
             </div>
           ) : (
@@ -389,7 +389,7 @@ export function ZMCCSubordinateHierarchyScreen({
                       <button
                         type="button"
                         aria-label="Toggle Route"
-                        className="p-1 rounded-md text-slate-500 hover:bg-slate-200 transition"
+                        className="p-1 rounded-md text-muted-foreground hover:bg-muted transition"
                       >
                         {isRouteOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </button>
@@ -398,12 +398,12 @@ export function ZMCCSubordinateHierarchyScreen({
                           <span className="font-semibold text-sm text-foreground">
                             {route.routeCode} · {route.name}
                           </span>
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
                             {route.origin} → {route.destination}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          Assigned MOT: <span className="font-medium text-slate-700">{route.assignedMot?.name || 'Unassigned'}</span>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          Assigned MOT: <span className="font-medium text-secondary-foreground">{route.assignedMot?.name || 'Unassigned'}</span>
                           {route.assignedMot?.vehicleNumber && ` (${route.assignedMot.vehicleNumber})`}
                         </div>
                       </div>
@@ -411,26 +411,26 @@ export function ZMCCSubordinateHierarchyScreen({
 
                     <div className="flex items-center gap-4 text-xs tabular-nums text-right">
                       <div>
-                        <span className="text-xs text-slate-500 block">Shops</span>
+                        <span className="text-xs text-muted-foreground block">Shops</span>
                         <span className="font-semibold text-foreground">
                           {route.activeShops} / {route.totalShops}
                         </span>
                       </div>
                       <div>
-                        <span className="text-xs text-slate-500 block">Today Intake</span>
+                        <span className="text-xs text-muted-foreground block">Today Intake</span>
                         <span className="font-semibold text-emerald-700">
                           {route.todayLiters.toLocaleString()} L
                         </span>
                       </div>
                       <div>
-                        <span className="text-xs text-slate-500 block">Avg Fat</span>
-                        <span className="font-semibold text-slate-700">
+                        <span className="text-xs text-muted-foreground block">Avg Fat</span>
+                        <span className="font-semibold text-secondary-foreground">
                           {route.todayAvgFat ? `${route.todayAvgFat}%` : '—'}
                         </span>
                       </div>
                       {route.routeLossPct !== null && (
                         <div>
-                          <span className="text-xs text-slate-500 block">Loss</span>
+                          <span className="text-xs text-muted-foreground block">Loss</span>
                           <span className="font-semibold text-amber-700">{route.routeLossPct}%</span>
                         </div>
                       )}
@@ -441,7 +441,7 @@ export function ZMCCSubordinateHierarchyScreen({
                   {isRouteOpen && (
                     <div className="p-4 space-y-3 bg-subtle/30">
                       {route.areas.length === 0 ? (
-                        <div className="text-xs text-slate-500 italic p-3">No areas configured on this route.</div>
+                        <div className="text-xs text-muted-foreground p-3">No areas configured on this route.</div>
                       ) : (
                         route.areas.map((area) => {
                           const isAreaOpen = expandedAreas.has(area.id) || Boolean(searchTerm);
@@ -454,18 +454,18 @@ export function ZMCCSubordinateHierarchyScreen({
                               >
                                 <div className="flex items-center gap-2">
                                   {isAreaOpen ? (
-                                    <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                                    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
                                   ) : (
-                                    <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
                                   )}
                                   <span className="font-semibold text-foreground">
                                     Area: {area.name} ({area.areaCode})
                                   </span>
-                                  <span className="text-xs text-slate-500">
+                                  <span className="text-xs text-muted-foreground">
                                     · {area.shops.length} shops ({area.verifiedGpsShops} verified GPS)
                                   </span>
                                 </div>
-                                <span className="tabular-nums font-semibold text-slate-700">
+                                <span className="tabular-nums font-semibold text-secondary-foreground">
                                   {area.todayLiters.toLocaleString()} L today
                                 </span>
                               </div>
@@ -495,7 +495,7 @@ export function ZMCCSubordinateHierarchyScreen({
         <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">Direct HC suppliers</h2>
-            <span className="text-xs text-slate-500">{reportData.hcSuppliers.length} registered suppliers</span>
+            <span className="text-xs text-muted-foreground">{reportData.hcSuppliers.length} registered suppliers</span>
           </div>
 
           <div className="p-3">
@@ -515,7 +515,7 @@ export function ZMCCSubordinateHierarchyScreen({
           <div className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-xl p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
-                <span className="text-xs font-semibold text-slate-500">Shop Details</span>
+                <span className="text-xs font-semibold text-muted-foreground">Shop Details</span>
                 <h3 className="text-base font-semibold text-foreground">
                   {selectedShop.shopName} ({selectedShop.shopCode})
                 </h3>
@@ -523,25 +523,25 @@ export function ZMCCSubordinateHierarchyScreen({
               <button
                 type="button"
                 onClick={() => setSelectedShop(null)}
-                className="p-1 rounded-md text-slate-400 hover:text-foreground"
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground"
               ><X className="w-4 h-4" /></button>
             </div>
 
             <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 text-xs">
               <div className="bg-subtle p-3 rounded-lg">
-                <span className="text-xs text-slate-500 block">Owner</span>
+                <span className="text-xs text-muted-foreground block">Owner</span>
                 <span className="font-semibold text-foreground">{selectedShop.ownerName}</span>
               </div>
               <div className="bg-subtle p-3 rounded-lg">
-                <span className="text-xs text-slate-500 block">Phone</span>
+                <span className="text-xs text-muted-foreground block">Phone</span>
                 <span className="font-semibold text-foreground">{selectedShop.phoneNumber}</span>
               </div>
               <div className="bg-subtle p-3 rounded-lg">
-                <span className="text-xs text-slate-500 block">Chiller Ownership</span>
+                <span className="text-xs text-muted-foreground block">Chiller Ownership</span>
                 <span className="font-semibold text-foreground">{selectedShop.chillerOwnership}</span>
               </div>
               <div className="bg-subtle p-3 rounded-lg">
-                <span className="text-xs text-slate-500 block">Geotag Status</span>
+                <span className="text-xs text-muted-foreground block">Geotag Status</span>
                 <span className="font-semibold text-foreground">{selectedShop.geotagStatus}</span>
               </div>
             </div>

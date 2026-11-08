@@ -27,7 +27,7 @@ export const QAWaitingVisitCard: React.FC<{
         </div>
       </div>
 
-      <span className="self-start sm:self-center px-2.5 py-1 rounded-full text-xs font-semibold bg-muted text-secondary-foreground border border-border">
+      <span className="self-start sm:self-center px-2.5 py-1 rounded-md text-xs font-semibold bg-muted text-secondary-foreground border border-border">
         Ready for Sampling
       </span>
     </div>
@@ -100,7 +100,7 @@ export const QAHeldVisitCard: React.FC<{
         </div>
       </div>
 
-      <span className="self-start sm:self-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+      <span className="self-start sm:self-center px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300">
         On Hold
       </span>
     </div>

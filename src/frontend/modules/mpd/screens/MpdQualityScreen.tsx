@@ -20,7 +20,7 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <Filter className="w-4 h-4 text-primary" />
+          <Filter className="w-4 h-4 text-muted-foreground" />
           <h2 className="text-xs font-semibold text-foreground">
             Quality Funnel
           </h2>
@@ -102,7 +102,7 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
       <div className="bg-card border-border border rounded-2xl p-5 shadow-xs">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <FlaskConical className="w-4 h-4 text-primary" />
+            <FlaskConical className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-xs font-semibold text-foreground">
               Failed Tests Today
             </h2>

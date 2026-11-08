@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { toast } from '@/frontend/lib/appToast';
 import { formatTime } from '@/lib/format';
+import { formatLabel } from '@/lib/format';
 
 type ReportView = 'ROUTE_COLLECTIONS' | 'HC_SUPPLIERS' | 'TANK_STORAGE';
 
@@ -50,7 +51,7 @@ const routeColumns: DataColumn<RouteLedgerRow>[] = [
     label: 'Loss %',
     cell: (row) => (
       <span
-        className={`tabular-nums px-2 py-0.5 rounded-full text-xs font-semibold ${
+        className={`tabular-nums px-2 py-0.5 rounded-md text-xs font-semibold ${
           row.routeLossPct > 1.0 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
         }`}
       >
@@ -80,11 +81,11 @@ const routeColumns: DataColumn<RouteLedgerRow>[] = [
     align: 'right',
     cell: (row) => (
       <span
-        className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+        className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
           row.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
         }`}
       >
-        {row.status}
+        {formatLabel(row.status)}
       </span>
     ),
   },
@@ -108,7 +109,7 @@ const hcColumns: DataColumn<HcSupplierLedgerRow>[] = [
     label: 'Decision',
     cell: (row) => (
       <span
-        className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+        className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
           row.decision === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
         }`}
       >
@@ -161,7 +162,7 @@ const tankColumns: DataColumn<TankStorageRow>[] = [
     header: 'Status',
     label: 'Status',
     align: 'right',
-    cell: () => <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>,
+    cell: () => <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>,
   },
 ];
 
@@ -303,7 +304,7 @@ export function ZMCCComprehensiveReportsScreen({
       <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 text-primary" />
+            <FileSpreadsheet className="w-5 h-5 text-muted-foreground" />
             <h1 className="text-lg font-semibold text-foreground">Reports</h1>
           </div>
           <p className="text-xs text-muted-foreground mt-1">

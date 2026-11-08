@@ -157,7 +157,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
                 </div>
 
                 <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}`}
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold border ${badgeClass}`}
                 >
                   {item.statusLabel}
                 </span>
@@ -183,7 +183,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
 
                 {item.reviewRemarks && (
                   <div className="text-xs font-medium text-foreground pt-0.5">
-                    Manager Remarks: <span className="italic font-normal text-muted-foreground">"{item.reviewRemarks}"</span>
+                    Manager Remarks: <span className=" font-normal text-muted-foreground">"{item.reviewRemarks}"</span>
                   </div>
                 )}
               </div>

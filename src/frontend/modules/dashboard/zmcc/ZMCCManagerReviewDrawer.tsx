@@ -73,7 +73,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
         <div className="overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-subtle">
             <div className="flex items-center space-x-2">
-              <ShieldCheck className="w-5 h-5 text-primary" />
+              <ShieldCheck className="w-5 h-5 text-muted-foreground" />
               <DrawerTitle className="text-sm font-semibold text-foreground">
                 Manager Quality Review: Session #{session.id}
               </DrawerTitle>
@@ -82,7 +82,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:text-secondary-foreground hover:bg-slate-200/60 transition-[color,background-color,border-color,box-shadow,opacity,transform]"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:text-secondary-foreground hover:bg-muted/60 transition-[color,background-color,border-color,box-shadow,opacity,transform]"
             >
               <X className="w-5 h-5" />
             </button>
@@ -153,7 +153,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
                 <button
                   type="button"
                   onClick={() => setReviewDecision('ACCEPTED')}
-                  className={`min-h-11 p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                  className={`min-h-11 p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                     reviewDecision === 'ACCEPTED'
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500/20'
                       : 'border-border bg-subtle text-secondary-foreground hover:bg-muted'
@@ -166,7 +166,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
                 <button
                   type="button"
                   onClick={() => setReviewDecision('REJECTED')}
-                  className={`min-h-11 p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                  className={`min-h-11 p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                     reviewDecision === 'REJECTED'
                       ? 'border-rose-500 bg-rose-50 text-rose-800 ring-2 ring-rose-500/20'
                       : 'border-border bg-subtle text-secondary-foreground hover:bg-muted'

@@ -21,7 +21,7 @@ export function ApprovalDetailBody({
     <div className="p-4 sm:p-6 space-y-6 flex-1">
       {/* 1. Immediate Actionable Summary (High Prominence) */}
       <div className="space-y-3">
-        <h3 className="text-xs font-semibold text-slate-500">
+        <h3 className="text-xs font-semibold text-muted-foreground">
           Exception Summary
         </h3>
 
@@ -99,7 +99,7 @@ export function ApprovalDetailBody({
           {/* Operator Initial Decision Card */}
           <div className="bg-card border-border p-3.5 rounded-2xl border flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-xs text-slate-700">Operator Stated Verdict</span>
+              <span className="font-semibold text-xs text-secondary-foreground">Operator Stated Verdict</span>
               <span
                 className={cn(
                   'px-2 py-0.5 rounded text-xs font-semibold',
@@ -112,12 +112,12 @@ export function ApprovalDetailBody({
               </span>
             </div>
             {item.details.personRemarks && item.details.personRemarks.trim().split(/\s+/).length > 4 ? (
-              <div className="mt-1 flex items-center gap-1 text-xs text-slate-600">
+              <div className="mt-1 flex items-center gap-1 text-xs text-secondary-foreground">
                 <span>Remarks</span>
                 <InfoTip text={item.details.personRemarks} />
               </div>
             ) : (
-              <p className="mt-2 text-xs text-slate-600 italic">{item.details.personRemarks || 'No remarks'}</p>
+              <p className="mt-2 text-xs text-secondary-foreground ">{item.details.personRemarks || 'No remarks'}</p>
             )}
           </div>
 
@@ -127,7 +127,7 @@ export function ApprovalDetailBody({
       {/* 2. Captured Proof Photos (Live Camera Evidence) */}
       {item.details.photos && item.details.photos.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+          <h3 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
             <Camera className="w-3.5 h-3.5" />
             <span>Live Camera Evidence ({item.details.photos.length})</span>
           </h3>
@@ -136,7 +136,7 @@ export function ApprovalDetailBody({
             {item.details.photos.map((photo, pIdx) => (
               <div
                 key={pIdx}
-                className="group relative rounded-xl border border-border bg-slate-100 overflow-hidden aspect-4/3 flex flex-col justify-end p-2 cursor-pointer shadow-2xs hover:shadow-xs transition"
+                className="group relative rounded-xl border border-border bg-muted overflow-hidden aspect-4/3 flex flex-col justify-end p-2 cursor-pointer shadow-2xs hover:shadow-xs transition"
                 onClick={() => photo.url && onPreviewPhoto(photo.url)}
               >
                 {photo.url ? (
@@ -148,7 +148,7 @@ export function ApprovalDetailBody({
                     className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition"
                   />
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-slate-400">
+                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
                     <Camera className="w-8 h-8 opacity-40" />
                   </div>
                 )}
@@ -164,21 +164,21 @@ export function ApprovalDetailBody({
 
       {/* 3. Progressive Disclosure Container: Calculation, Policy & Audit Details */}
       <details className="group border border-border rounded-xl bg-card overflow-hidden text-xs">
-        <summary className="min-h-11 p-3.5 font-semibold text-slate-700 flex items-center justify-between cursor-pointer select-none hover:bg-slate-100/70 transition">
+        <summary className="min-h-11 p-3.5 font-semibold text-secondary-foreground flex items-center justify-between cursor-pointer select-none hover:bg-muted/70 transition">
           <span className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-primary" />
+            <FileText className="w-4 h-4 text-muted-foreground" />
             <span>Details</span>
           </span>
-          <ChevronRight className="w-4 h-4 text-slate-400 transition group-open:rotate-90" />
+          <ChevronRight className="w-4 h-4 text-muted-foreground transition group-open:rotate-90" />
         </summary>
 
         <div className="p-4 border-t border-border bg-white space-y-4">
           {item.details.testValues && item.details.testValues.length > 0 && (
             <div>
-              <h4 className="font-semibold text-slate-700 mb-2">Complete Laboratory Results</h4>
+              <h4 className="font-semibold text-secondary-foreground mb-2">Complete Laboratory Results</h4>
               <TableWrapper className="border border-border rounded-lg">
                 <table className="w-full text-left border-collapse text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-border">
+                  <thead className="bg-subtle text-secondary-foreground font-semibold border-b border-border">
                     <tr>
                       <th className="p-2">Test Name</th>
                       <th className="p-2">Observed Value</th>
@@ -193,7 +193,7 @@ export function ApprovalDetailBody({
                           {t.name} ({t.code})
                         </td>
                         <td className="p-2 font-semibold">{t.value !== null && t.value !== undefined ? String(t.value) : '—'}</td>
-                        <td className="p-2 text-slate-500">
+                        <td className="p-2 text-muted-foreground">
                           {t.min !== undefined && t.min !== null ? `Min: ${t.min} ` : ''}
                           {t.max !== undefined && t.max !== null ? `Max: ${t.max}` : ''}
                           {!t.min && !t.max ? 'Monitoring' : ''}
@@ -218,9 +218,9 @@ export function ApprovalDetailBody({
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-600">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-secondary-foreground">
             <div className="bg-card border-border p-3 rounded-lg border space-y-1">
-              <p className="font-semibold text-slate-800">Audit & Attribution</p>
+              <p className="font-semibold text-foreground">Audit & Attribution</p>
               <p>
                 Submitter User ID: <code className="text-xs font-mono">{item.submittedBy.id}</code>
               </p>
@@ -239,8 +239,8 @@ export function ApprovalDetailBody({
 
             {item.details.formulaAudit?.gpsCoordinates && (
               <div className="bg-card border-border p-3 rounded-lg border space-y-1">
-                <p className="font-semibold text-slate-800 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-primary" />
+                <p className="font-semibold text-foreground flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
                   <span>GPS Geofence Capture</span>
                 </p>
                 <p>
@@ -275,19 +275,19 @@ export function ApprovalDetailBody({
       {/* 5. Decided Audit Stamp (if decided) */}
       {item.decision && (
         <div className="bg-card border-border p-4 rounded-2xl border space-y-1 text-xs">
-          <p className="font-semibold text-slate-800">Decision Recorded by {item.decision.decidedBy}</p>
-          <p className="text-slate-600">
+          <p className="font-semibold text-foreground">Decision Recorded by {item.decision.decidedBy}</p>
+          <p className="text-secondary-foreground">
             Verdict: <strong>{item.decision.verdict === 'OKAY' ? 'Approved' : 'Rejected'}</strong> · Decided at{' '}
             {formatDateTime(item.decision.decidedAt)}
           </p>
           {item.decision.remarks &&
             (item.decision.remarks.trim().split(/\s+/).length > 4 ? (
-              <div className="flex items-center gap-1 text-slate-700">
+              <div className="flex items-center gap-1 text-secondary-foreground">
                 <span>Remarks</span>
                 <InfoTip text={item.decision.remarks} />
               </div>
             ) : (
-              <p className="text-slate-700 italic mt-1">{item.decision.remarks}</p>
+              <p className="text-secondary-foreground mt-1">{item.decision.remarks}</p>
             ))}
         </div>
       )}

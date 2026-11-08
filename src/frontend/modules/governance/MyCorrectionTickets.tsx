@@ -26,7 +26,7 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 export const CorrectionStatusBadge: React.FC<{ label: string }> = ({ label }) => (
-  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_STYLE[label] ?? 'bg-slate-100 text-secondary-foreground'}`}>
+  <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${STATUS_STYLE[label] ?? 'bg-muted text-secondary-foreground'}`}>
     {label}
   </span>
 );

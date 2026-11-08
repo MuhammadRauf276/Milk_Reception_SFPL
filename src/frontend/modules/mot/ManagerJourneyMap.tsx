@@ -15,6 +15,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/fetch-json';
 import { LiveMap, type LiveMapVehicle } from '@/frontend/modules/shared/map/LiveMap';
 import { buildJourneyOverlays } from '@/frontend/modules/shared/map/journeyOverlays';
+import { formatLabel } from '@/lib/format';
 
 interface ManagerJourneyMapProps {
   currentUser: User | null;
@@ -266,8 +267,8 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
               <h2 className="text-lg tabular-nums font-semibold text-primary">
                 #{journey.journey_number}
               </h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-primary text-xs font-semibold">
-                {journey.status}
+              <span className="px-2.5 py-0.5 rounded-md bg-blue-100 text-primary text-xs font-semibold">
+                {formatLabel(journey.status)}
               </span>
             </div>
           </div>
@@ -338,7 +339,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                   {selectedStop.shop_name} ({selectedStop.shop_code})
                 </span>
                 <span
-                  className={`text-xs font-semibold uppercase px-2 py-0.5 rounded-full ${
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
                     selectedStop.status === 'VISITED'
                       ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-500'
                       : 'bg-amber-900/60 text-amber-300 border border-amber-500'
@@ -416,7 +417,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                   <span className="text-xs text-amber-700 font-medium">Pending Collection</span>
                 )}
                 <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${
+                  className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
                     s.status === 'VISITED'
                       ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-amber-100 text-amber-800'

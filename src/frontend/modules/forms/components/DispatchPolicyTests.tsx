@@ -109,7 +109,7 @@ export function DispatchPolicyTests({
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={photo.previewUrl} alt={`${t.testName} picture`} className="h-12 w-12 rounded-lg border border-border object-cover" />
-          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
             <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
             Picture taken
           </span>
@@ -180,7 +180,7 @@ export function DispatchPolicyTests({
             {t.testName}
             <span
               className={cn(
-                'ml-2 rounded-full px-2 py-0.5 align-middle text-xs font-semibold',
+                'ml-2 rounded-md px-2 py-0.5 align-middle text-xs font-semibold',
                 isRequired ? 'bg-primary text-white shadow-2xs' : 'bg-muted text-secondary-foreground'
               )}
             >
@@ -190,7 +190,7 @@ export function DispatchPolicyTests({
           {chip && (
             <span
               className={cn(
-                'rounded-full border px-2.5 py-0.5 text-xs font-semibold tabular-nums',
+                'rounded-md border px-2.5 py-0.5 text-xs font-semibold tabular-nums',
                 isOut ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-border-strong bg-subtle text-secondary-foreground'
               )}
             >

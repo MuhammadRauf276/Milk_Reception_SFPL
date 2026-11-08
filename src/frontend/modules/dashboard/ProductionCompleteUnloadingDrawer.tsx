@@ -94,7 +94,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline px-2.5 py-1 rounded-full text-xs tabular-nums font-semibold bg-blue-100 text-primary border border-blue-300">
+              <span className="hidden sm:inline px-2.5 py-1 rounded-md text-xs tabular-nums font-semibold bg-blue-100 text-primary border border-blue-300">
                 Unloading Active
               </span>
               <button
@@ -113,7 +113,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
             <div className="bg-card border-border p-3 rounded-xl border text-xs">
               <div className="flex items-center justify-between font-semibold text-purple-900">
                 <span className="flex items-center space-x-1.5">
-                  <Layers className="w-4 h-4 text-purple-700" />
+                  <Layers className="w-4 h-4 text-muted-foreground" />
                   <span>Portion #{activePortion.portion_number} of {acceptedPortions.length} · In Progress</span>
                 </span>
                 <span className="tabular-nums">

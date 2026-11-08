@@ -443,7 +443,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                     </h4>
                     <span
                       className={cn(
-                        'rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                        'rounded-md px-2.5 py-0.5 text-xs font-semibold',
                         p.plant_decision === 'ACCEPTED'
                           ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                           : p.plant_decision === 'REJECTED'
@@ -541,20 +541,20 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               </div>
               {hasDispatchSeal ? (
                 isSealMatched ? (
-                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
+                  <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Seal matches
                   </span>
                 ) : currentEnteredSeal ? (
-                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-muted text-secondary-foreground border border-border-strong">
+                  <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-muted text-secondary-foreground border border-border-strong">
                     Seal differs (optional)
                   </span>
                 ) : (
-                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-muted text-secondary-foreground">
+                  <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-muted text-secondary-foreground">
                     Seal not entered (optional)
                   </span>
                 )
               ) : (
-                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-muted text-secondary-foreground">
+                <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-muted text-secondary-foreground">
                   No dispatch seal
                 </span>
               )}

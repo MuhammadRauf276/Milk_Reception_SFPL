@@ -118,7 +118,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
               </span>
             </span>
           ) : (
-            <span className="text-xs text-muted-foreground italic">Not captured under this version</span>
+            <span className="text-xs text-muted-foreground ">Not captured under this version</span>
           )}
         </span>
       ),
@@ -187,13 +187,13 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
       label: 'Decision',
       cell: (item) =>
         item.manager_review_status === 'PENDING' ? (
-          <span className="text-xs font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">MANAGER REVIEW</span>
+          <span className="text-xs font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">MANAGER REVIEW</span>
         ) : item.decision === 'ACCEPTED' ? (
-          <span className="text-xs font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">ACCEPTED</span>
+          <span className="text-xs font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">ACCEPTED</span>
         ) : item.decision === 'REJECTED' ? (
-          <span className="text-xs font-semibold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">REJECTED</span>
+          <span className="text-xs font-semibold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-md">REJECTED</span>
         ) : (
-          <span className="text-xs font-semibold text-secondary-foreground bg-muted px-2 py-0.5 rounded-full">PENDING</span>
+          <span className="text-xs font-semibold text-secondary-foreground bg-muted px-2 py-0.5 rounded-md">PENDING</span>
         ),
     },
     ...(canDirectCorrect

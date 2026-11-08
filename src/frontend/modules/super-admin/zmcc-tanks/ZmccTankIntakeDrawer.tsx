@@ -206,7 +206,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
         <div className="rounded-2xl border border-border bg-card p-3 sm:p-3.5 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-              <FlaskConical className="h-4 w-4 text-primary shrink-0" />
+              <FlaskConical className="h-4 w-4 text-muted-foreground shrink-0" />
               <span>Milk Quality &amp; @13% TS Basis</span>
             </div>
             <label className="flex items-center gap-1.5 text-xs font-medium text-secondary-foreground cursor-pointer self-start sm:self-auto">
@@ -284,7 +284,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
               </div>
               <div className="border-t border-border pt-1.5 flex justify-between items-center font-semibold text-foreground">
                 <span className="flex items-center gap-1">
-                  <Calculator className="h-3.5 w-3.5 text-primary" />
+                  <Calculator className="h-3.5 w-3.5 text-muted-foreground" />
                   Calculated @13% TS Volume:
                 </span>
                 <span className="text-primary tabular-nums text-xs">

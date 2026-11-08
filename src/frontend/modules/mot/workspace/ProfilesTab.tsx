@@ -41,7 +41,7 @@ export function ProfilesTab({ profiles, loading, onAdd, onEdit, onToggleActive }
       label: 'Active Journey',
       cell: (p) =>
         p.has_active_journey ? (
-          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">
+          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-xs font-semibold">
             #{p.active_journey?.journey_number}
           </span>
         ) : (
@@ -54,7 +54,7 @@ export function ProfilesTab({ profiles, loading, onAdd, onEdit, onToggleActive }
       label: 'Status',
       cell: (p) => (
         <span
-          className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${
+          className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
             p.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-secondary-foreground'
           }`}
         >

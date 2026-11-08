@@ -114,7 +114,7 @@ export function SavedTemplateManager({
     <div className="flex flex-wrap items-center gap-2">
       {/* Templates Dropdown */}
       <div className="relative flex items-center gap-1.5">
-        <Bookmark className="w-4 h-4 text-primary shrink-0" />
+        <Bookmark className="w-4 h-4 text-muted-foreground shrink-0" />
         <span className="text-xs font-semibold text-foreground">Report Template:</span>
         <select
           value={selectedTemplateId}
@@ -161,7 +161,7 @@ export function SavedTemplateManager({
         onClick={() => setIsSaveModalOpen(true)}
         className="h-8 text-xs font-medium"
       >
-        <Plus className="w-3.5 h-3.5 mr-1 text-primary" /> Save Current View
+        <Plus className="w-3.5 h-3.5 mr-1 text-muted-foreground" /> Save Current View
       </Button>
 
       {/* Delete button if a custom template is currently selected */}
@@ -185,7 +185,7 @@ export function SavedTemplateManager({
           <div className="bg-card border border-border w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-4 animate-panel-in">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
-                <Bookmark className="w-4 h-4 text-primary" />
+                <Bookmark className="w-4 h-4 text-muted-foreground" />
                 <h3 className="text-base font-semibold text-foreground">Save Custom Report View</h3>
               </div>
               <Button variant="ghost" size="icon-sm" onClick={() => setIsSaveModalOpen(false)}>

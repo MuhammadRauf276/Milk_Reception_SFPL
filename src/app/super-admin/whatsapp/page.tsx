@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { SkeletonList } from '@/components/ui/loaders';
 import { formatDateTime } from '@/lib/format';
+import { formatLabel } from '@/lib/format';
 
 interface GatewayStatus {
   status: 'OFFLINE' | 'DISCONNECTED' | 'CONNECTING' | 'SCAN_QR' | 'CONNECTED';
@@ -72,9 +73,9 @@ const outboxColumns: DataColumn<OutboxItem>[] = [
     header: 'Status',
     label: 'Status',
     cell: (row) => (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
         <CheckCircle2 className="h-3 w-3" />
-        {row.status}
+        {formatLabel(row.status)}
       </span>
     ),
   },
@@ -265,7 +266,7 @@ export default function SuperAdminWhatsAppPage() {
                   : 'Gateway offline'}
               </h2>
               <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                className={`rounded-md px-2.5 py-0.5 text-xs font-semibold ${
                   isConnected
                     ? 'bg-emerald-100 text-emerald-800'
                     : isScanQr

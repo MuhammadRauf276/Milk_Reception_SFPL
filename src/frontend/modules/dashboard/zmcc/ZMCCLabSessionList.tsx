@@ -103,7 +103,7 @@ export const ZMCCLabSessionList: React.FC<{
         return (
           <div
             key={session.id}
-            className={`p-4 rounded-xl bg-card border shadow-2xs space-y-3 transition-all ${
+            className={`p-4 rounded-xl bg-card border shadow-2xs space-y-3 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
               isRejected
                 ? 'border-border bg-card'
                 : session.manager_review_status === 'APPROVED'

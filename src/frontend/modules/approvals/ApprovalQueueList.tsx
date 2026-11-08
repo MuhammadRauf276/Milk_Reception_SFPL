@@ -76,7 +76,7 @@ export function ApprovalQueueList({
   );
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-50/50 w-full overflow-hidden">
+    <div className="flex-1 flex flex-col bg-subtle/50 w-full overflow-hidden">
       {/* Search Bar */}
       <div className="p-3 sm:p-4 bg-card border-b border-border flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
@@ -93,7 +93,7 @@ export function ApprovalQueueList({
               setSearchQuery(e.target.value);
               setPage(1);
             }}
-            className="w-full min-h-11 pl-9 pr-9 py-2 text-xs bg-subtle hover:bg-slate-100/70 focus:bg-card border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary transition"
+            className="w-full min-h-11 pl-9 pr-9 py-2 text-xs bg-subtle hover:bg-muted/70 focus:bg-card border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary transition"
           />
           {searchQuery && (
             <button
@@ -163,7 +163,7 @@ export function ApprovalQueueList({
                       {isPending ? (
                         <span
                           className={cn(
-                            'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border shrink-0',
+                            'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border shrink-0',
                             item.slaStatus === 'BREACHED'
                               ? 'bg-rose-50 text-rose-800 border-rose-300'
                               : item.slaStatus === 'WARNING'
@@ -181,7 +181,7 @@ export function ApprovalQueueList({
                       ) : (
                         <span
                           className={cn(
-                            'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border shrink-0',
+                            'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold border shrink-0',
                             item.status === 'APPROVED'
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                               : 'bg-rose-50 text-rose-800 border-rose-300'
@@ -222,7 +222,7 @@ export function ApprovalQueueList({
                           <span className="ml-1.5 text-muted-foreground">· {formatDateTime(item.decision.decidedAt)}</span>
                         )}
                         {item.decision?.remarks && (
-                          <p className="text-secondary-foreground italic mt-1 break-words">&ldquo;{item.decision.remarks}&rdquo;</p>
+                          <p className="text-secondary-foreground mt-1 break-words">&ldquo;{item.decision.remarks}&rdquo;</p>
                         )}
                       </div>
                     )}
@@ -233,7 +233,7 @@ export function ApprovalQueueList({
                         {item.reasonChips.slice(0, 3).map((chip, idx) => (
                           <span
                             key={idx}
-                            className="px-2 py-0.5 rounded-full text-xs font-semibold bg-subtle text-secondary-foreground border border-border"
+                            className="px-2 py-0.5 rounded-md text-xs font-semibold bg-subtle text-secondary-foreground border border-border"
                           >
                             {chip}
                           </span>

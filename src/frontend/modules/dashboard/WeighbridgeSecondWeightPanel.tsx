@@ -229,7 +229,7 @@ const SecondWeightDrawer: React.FC<{
           <DrawerTitle className="sr-only">Record second weight</DrawerTitle>
           <div className="flex items-start justify-between gap-2 pb-3 border-b border-border-strong">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-foreground mb-1">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-muted text-foreground mb-1">
                 Scale pass {currentPass} of {totalPasses}
               </div>
               <h3 className="text-base font-semibold text-foreground">

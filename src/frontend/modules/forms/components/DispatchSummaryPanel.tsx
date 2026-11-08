@@ -200,7 +200,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
         <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border-strong shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-border pb-2.5">
             <div className="flex items-center space-x-2">
-              <Calculator className="w-4 h-4 text-primary" />
+              <Calculator className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-xs font-semibold text-foreground">
                 Dispatch Summary
               </h3>
@@ -234,7 +234,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
             <div className="bg-card border-border p-3 rounded-xl border-strong space-y-0.5 min-w-0">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-muted-foreground break-words min-w-0">Avg LR</span>
-                <span className="text-xs font-semibold text-muted-foreground bg-slate-200/80 px-1 py-0.5 rounded">@20°C</span>
+                <span className="text-xs font-semibold text-muted-foreground bg-muted/80 px-1 py-0.5 rounded">@20°C</span>
               </div>
               <span className="text-lg font-semibold text-foreground tabular-nums block">
                 {avgLr ? avgLr : '—'}

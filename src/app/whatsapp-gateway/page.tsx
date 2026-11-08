@@ -187,7 +187,7 @@ export default function WhatsAppGatewayPage() {
                     : 'Not connected'}
                 </h2>
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                  className={`rounded-md px-2.5 py-0.5 text-xs font-semibold ${
                     isConnected
                       ? 'bg-emerald-100 text-emerald-800'
                       : isScanQr

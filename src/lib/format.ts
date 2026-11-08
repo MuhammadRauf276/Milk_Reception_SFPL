@@ -35,3 +35,20 @@ export function formatNumber(value: number | string | null | undefined, maxDecim
   if (!Number.isFinite(n)) return PLACEHOLDER;
   return n.toLocaleString('en-US', { maximumFractionDigits: maxDecimals });
 }
+
+const KEEP_CAPS = new Set(['ZMCC', 'QA', 'HC', 'MC', 'PHE', 'MDO', 'MPD', 'SOP', 'GPS', 'SMS', 'LR', 'SNF', 'TS', 'ERP', 'MTD']);
+
+/** Turns a status code such as AT_ZMCC_WAITING_UNLOAD into words: At ZMCC waiting unload. */
+export function formatLabel(code: string | null | undefined): string {
+  if (!code) return PLACEHOLDER;
+  return code
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((word, i) => {
+      const upper = word.toUpperCase();
+      if (KEEP_CAPS.has(upper)) return upper;
+      const lower = word.toLowerCase();
+      return i === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower;
+    })
+    .join(' ');
+}

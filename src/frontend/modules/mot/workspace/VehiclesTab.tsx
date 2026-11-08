@@ -37,7 +37,7 @@ const vehicleColumns: DataColumn<MotVehicleItem>[] = [
     label: 'Journey',
     cell: (v) =>
       v.has_active_journey ? (
-        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">
+        <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-xs font-semibold">
           #{v.active_journey?.journey_number}
         </span>
       ) : (
@@ -50,7 +50,7 @@ const vehicleColumns: DataColumn<MotVehicleItem>[] = [
     label: 'Status',
     cell: (v) => {
       const st = vehicleStatusLabel(v);
-      return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${st.tone}`}>{st.label}</span>;
+      return <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${st.tone}`}>{st.label}</span>;
     },
   },
 ];

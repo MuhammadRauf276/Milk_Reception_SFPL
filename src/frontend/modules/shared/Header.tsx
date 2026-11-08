@@ -95,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
-          <h1 className="truncate text-sm font-semibold text-foreground">{title}</h1>
+          <h1 className="line-clamp-2 min-w-0 break-words text-sm font-semibold leading-tight text-foreground">{title}</h1>
 
           {/* Searchable Multi-Source Selector for System Superiors on Regional Stations (§5.5) */}
           <SourceContextSelector

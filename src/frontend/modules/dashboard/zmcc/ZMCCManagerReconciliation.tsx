@@ -417,7 +417,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                   key={opt.id}
                   type="button"
                   onClick={() => setFilterState(opt.id)}
-                  className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold shrink-0 transition-all ${
+                  className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold shrink-0 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                     active
                       ? 'bg-primary text-white shadow-2xs'
                       : 'bg-subtle text-secondary-foreground hover:bg-muted border border-border/80'
@@ -523,7 +523,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
 
                   <div className="bg-card border-border p-3 rounded-lg border space-y-2">
                     <div className="flex items-center space-x-2 font-sans font-semibold text-foreground pb-1 border-b border-border">
-                      <FlaskConical className="w-3.5 h-3.5 text-primary" />
+                      <FlaskConical className="w-3.5 h-3.5 text-muted-foreground" />
                       <span>Portion QA Breakdown ({item.portions.length} Portions)</span>
                     </div>
                     <div className="space-y-1 max-h-32 overflow-y-auto">

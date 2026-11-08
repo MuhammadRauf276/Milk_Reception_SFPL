@@ -10,6 +10,7 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { SkeletonList } from '@/components/ui/loaders';
+import { formatLabel } from '@/lib/format';
 
 type Tab = 'PENDING' | 'DECIDED';
 type Outcome = 'PASS' | 'FAIL' | 'WARN' | 'NOT_TESTED';
@@ -76,24 +77,24 @@ function waitingInfo(iso: string, now: number) {
 function OutcomeChip({ outcome }: { outcome: Outcome }) {
   if (outcome === 'PASS')
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
         <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> Pass
       </span>
     );
   if (outcome === 'FAIL')
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800">
+      <span className="inline-flex items-center gap-1 rounded-md bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800">
         <XCircle className="h-3 w-3" aria-hidden="true" /> Fail
       </span>
     );
   if (outcome === 'WARN')
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+      <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
         <AlertTriangle className="h-3 w-3" aria-hidden="true" /> Warn
       </span>
     );
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-secondary-foreground">
+    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-secondary-foreground">
       <Clock className="h-3 w-3" aria-hidden="true" /> Pending
     </span>
   );
@@ -289,7 +290,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center space-x-1.5">
-                        <Truck className="w-4 h-4 text-primary shrink-0" />
+                        <Truck className="w-4 h-4 text-muted-foreground shrink-0" />
                         <h3 className="text-sm font-semibold text-foreground tabular-nums">
                           {item.vehicleNumber}
                         </h3>
@@ -300,12 +301,12 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                     </div>
 
                     {pending ? (
-                      <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full border tabular-nums', wait.badgeCls)}>
+                      <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-md border tabular-nums', wait.badgeCls)}>
                         {wait.text}
                       </span>
                     ) : (
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-secondary-foreground border border-border">
-                        {item.status}
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-muted text-secondary-foreground border border-border">
+                        {formatLabel(item.status)}
                       </span>
                     )}
                   </div>
@@ -429,7 +430,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               <div className="p-3.5 rounded-2xl border border-border bg-card space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-secondary-foreground font-semibold">Station Submitter Verdict:</span>
-                  <span className={cn('px-2.5 py-0.5 rounded-full text-xs font-semibold', selectedItem.personDecision === 'ACCEPT' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300')}>
+                  <span className={cn('px-2.5 py-0.5 rounded-md text-xs font-semibold', selectedItem.personDecision === 'ACCEPT' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300')}>
                     {selectedItem.personDecision === 'ACCEPT' ? 'Accepted by Station' : 'Rejected by Station'}
                   </span>
                 </div>
@@ -457,7 +458,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                 </h4>
                 {selectedItem.portions.map((p) => (
                   <div key={p.portionNumber} className="rounded-2xl border border-border bg-card p-3.5 space-y-2.5">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/80 pb-2">
                       <span className="text-xs font-semibold text-foreground">
                         Portion #{p.portionNumber}
                       </span>
@@ -482,7 +483,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                     )}
 
                     {p.photos.length > 0 && (
-                      <div className="pt-2 border-t border-slate-200/60">
+                      <div className="pt-2 border-t border-border/60">
                         <span className="text-xs font-semibold text-secondary-foreground block mb-1">Portion Evidence Photos</span>
                         <div className="flex flex-wrap gap-2">
                           {p.photos.map((ph) => (
@@ -498,7 +499,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               {/* Hand-written Lab Report Photo */}
               <div className="p-3.5 rounded-2xl border border-border bg-card space-y-2">
                 <div className="flex items-center space-x-1.5 text-xs font-semibold text-foreground">
-                  <FileText className="w-4 h-4 text-primary" />
+                  <FileText className="w-4 h-4 text-muted-foreground" />
                   <span>Official Hand-written Lab Report Sheet</span>
                 </div>
                 {selectedItem.labReportPhoto ? (

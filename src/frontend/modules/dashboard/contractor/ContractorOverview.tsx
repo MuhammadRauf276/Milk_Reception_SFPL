@@ -226,7 +226,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
       <div className="bg-card border-border p-5 sm:p-6 rounded-2xl border shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-muted pb-3">
           <div className="flex items-center space-x-2">
-            <Layers className="w-4 h-4 text-blue-800" />
+            <Layers className="w-4 h-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">Recent Plant Dispatches</h3>
           </div>
           <span className="text-xs text-muted-foreground tabular-nums font-semibold">

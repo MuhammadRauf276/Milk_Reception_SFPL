@@ -92,7 +92,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
   return (
     <div className="space-y-3.5">
       <div className="flex items-center justify-between px-1">
-        <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-full bg-muted text-secondary-foreground border border-border">
+        <span className="text-xs tabular-nums font-semibold px-2 py-0.5 rounded-md bg-muted text-secondary-foreground border border-border">
           {activeTab === 'WAITING'
             ? `${waitingVisits.length} ready`
             : activeTab === 'IN_TESTING'

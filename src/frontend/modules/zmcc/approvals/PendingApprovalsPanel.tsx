@@ -298,9 +298,9 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
         <div className="bg-card border border-border rounded-xl shadow-2xs overflow-hidden">
           <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
             <div className="flex items-center space-x-2">
-              <RouteIcon className="w-4 h-4 text-primary shrink-0" />
+              <RouteIcon className="w-4 h-4 text-muted-foreground shrink-0" />
               <h3 className="text-sm font-semibold text-foreground">Route requests</h3>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+              <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
                 {routes.length} waiting
               </span>
             </div>
@@ -407,9 +407,9 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
         <div className="bg-card border border-border rounded-xl shadow-2xs overflow-hidden">
           <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
             <div className="flex items-center space-x-2">
-              <Store className="w-4 h-4 text-primary shrink-0" />
+              <Store className="w-4 h-4 text-muted-foreground shrink-0" />
               <h3 className="text-sm font-semibold text-foreground">Shop requests</h3>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+              <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
                 {shops.length} waiting
               </span>
             </div>
@@ -434,12 +434,12 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                         {s.shop_code}
                       </span>
                       {s.geotag_status === 'VERIFIED' ? (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center space-x-1">
+                        <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center space-x-1">
                           <MapPin className="w-3 h-3 text-emerald-600" />
                           <span>Geotagged</span>
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center space-x-1">
+                        <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center space-x-1">
                           <Clock className="w-3 h-3 text-amber-600" />
                           <span>Awaiting visit</span>
                         </span>
@@ -518,9 +518,9 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
         <div className="bg-card border border-border rounded-xl shadow-2xs overflow-hidden">
           <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
             <div className="flex items-center space-x-2">
-              <Milk className="w-4 h-4 text-primary shrink-0" />
+              <Milk className="w-4 h-4 text-muted-foreground shrink-0" />
               <h3 className="text-sm font-semibold text-foreground">HC requests</h3>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+              <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
                 {hcs.length} waiting
               </span>
             </div>

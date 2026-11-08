@@ -327,7 +327,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                       </div>
                     </div>
 
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 tabular-nums">
+                    <span className="px-3 py-1 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 tabular-nums">
                       Dispatched
                     </span>
                   </div>

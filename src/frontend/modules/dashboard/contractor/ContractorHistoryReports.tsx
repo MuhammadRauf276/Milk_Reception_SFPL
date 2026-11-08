@@ -346,7 +346,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
         <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
             <span>Historical Visits</span>
-            <Truck className="w-4 h-4 text-blue-700" />
+            <Truck className="w-4 h-4 text-muted-foreground" />
           </div>
           <p className="text-3xl font-semibold text-foreground tabular-nums">
             {totalRecords > 0 ? totalRecords : metrics.totalHistoryVisits}
@@ -378,7 +378,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
         <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-blue-800 text-xs font-semibold">
             <span>Received Vol {totalPages > 1 ? '(Current Page)' : ''}</span>
-            <Scale className="w-4 h-4 text-blue-700" />
+            <Scale className="w-4 h-4 text-muted-foreground" />
           </div>
           <p className="text-2xl font-semibold text-blue-950 tabular-nums">
             {metrics.totalReceivedLiters.toLocaleString()} L
@@ -419,7 +419,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
       <div className="bg-card border-border p-5 sm:p-6 rounded-2xl border shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-muted pb-3">
           <div className="flex items-center space-x-2">
-            <History className="w-4 h-4 text-blue-800" />
+            <History className="w-4 h-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">Historical Dispatches & Receipts</h3>
           </div>
           <span className="text-xs text-muted-foreground tabular-nums font-semibold">

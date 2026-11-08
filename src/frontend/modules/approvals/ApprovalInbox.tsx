@@ -187,7 +187,7 @@ export function ApprovalInbox({
       <header className="flex flex-wrap items-center justify-between gap-3 p-3.5 sm:p-4 bg-card border-b border-border">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-primary" />
+            <ShieldCheck className="w-5 h-5 text-muted-foreground" />
             <h1 className="text-base sm:text-lg font-semibold text-foreground">
               {fixedStage ? STAGE_LABELS[fixedStage]?.label : 'Approvals'}
             </h1>
@@ -228,19 +228,19 @@ export function ApprovalInbox({
             title="Refresh Queue"
             aria-label="Refresh Queue"
           >
-            {refreshing ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Undo2 className="w-4 h-4" />}
+            {refreshing ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : <Undo2 className="w-4 h-4" />}
           </button>
         </div>
       </header>
 
       {/* Stage Filter Pills (Filtered by Role Jurisdiction) */}
       {!fixedStage && visibleStagePills.length > 1 && (
-        <nav aria-label="Operational Stages" className="flex items-center gap-1.5 px-4 py-2.5 bg-subtle border-b border-border overflow-x-auto text-xs font-semibold">
+        <nav aria-label="Approval stages" className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 bg-subtle border-b border-border text-xs font-semibold">
           <button
             type="button"
             onClick={() => setStageFilter('ALL')}
             className={cn(
-              'min-h-11 px-3.5 py-1 rounded-full border transition shrink-0',
+              'min-h-11 px-3.5 py-1 rounded-md border transition shrink-0',
               stageFilter === 'ALL'
                 ? 'bg-primary text-white border-primary shadow-2xs font-semibold'
                 : 'bg-card text-secondary-foreground border-border hover:bg-muted'
@@ -254,7 +254,7 @@ export function ApprovalInbox({
               type="button"
               onClick={() => setStageFilter(pill.stage)}
               className={cn(
-                'min-h-11 px-3.5 py-1 rounded-full border transition shrink-0',
+                'min-h-11 px-3.5 py-1 rounded-md border transition shrink-0',
                 stageFilter === pill.stage
                   ? `${pill.active} shadow-2xs font-semibold`
                   : 'bg-card text-secondary-foreground border-border hover:bg-muted'

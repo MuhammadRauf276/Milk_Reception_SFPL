@@ -159,7 +159,7 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
         aria-label={`Current location: ${displayLabel}. Click to switch.`}
         className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border bg-card hover:bg-muted/80 px-2.5 py-1 text-xs font-medium text-foreground transition-colors cursor-pointer shadow-2xs max-w-[200px]"
       >
-        <MapPin className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden="true" />
+        <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
         <span className="truncate">{displayLabel}</span>
         <span className="text-xs text-muted-foreground font-normal shrink-0">(Change)</span>
         <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" aria-hidden="true" />
@@ -226,7 +226,7 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
                         <p className="truncate text-xs text-muted-foreground">{source.code}</p>
                       </div>
                       {isCurrent ? (
-                        <Check className="h-4 w-4 text-primary shrink-0" aria-hidden="true" />
+                        <Check className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
                       ) : null}
                     </button>
                   );

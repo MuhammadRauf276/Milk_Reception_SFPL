@@ -272,7 +272,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                     <span className="font-semibold text-sm text-foreground">Final decision</span>
                     <span
                       className={cn(
-                        'px-2.5 py-0.5 rounded-full text-xs font-semibold',
+                        'px-2.5 py-0.5 rounded-md text-xs font-semibold',
                         portion.plant_decision === 'ACCEPTED'
                           ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                           : 'bg-rose-50 text-rose-800 border border-rose-300'
@@ -327,20 +327,20 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                     </div>
                     {hasDispatchSeal ? (
                       isSealMatched ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                        <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Seal matches
                         </span>
                       ) : isSealMismatch ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-secondary-foreground border border-border-strong">
+                        <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-muted text-secondary-foreground border border-border-strong">
                           Seal differs (optional)
                         </span>
                       ) : (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-secondary-foreground">
+                        <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-muted text-secondary-foreground">
                           Seal not entered (optional)
                         </span>
                       )
                     ) : (
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-secondary-foreground">
+                      <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-muted text-secondary-foreground">
                         No dispatch seal
                       </span>
                     )}
@@ -446,7 +446,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                                 <span className="text-xs font-semibold text-foreground">{t.testName}</span>
                                 <span
                                   className={cn(
-                                    'rounded-full px-2 py-0.5 text-xs font-semibold',
+                                    'rounded-md px-2 py-0.5 text-xs font-semibold',
                                     isCalculated
                                       ? 'bg-purple-100 text-purple-900 border border-purple-300'
                                       : t.isRequired
@@ -459,7 +459,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                                 {chip && (
                                   <span
                                     className={cn(
-                                      'rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums',
+                                      'rounded-md border px-2 py-0.5 text-xs font-semibold tabular-nums',
                                       isOut
                                         ? 'border-rose-300 bg-rose-50 text-rose-800'
                                         : 'border-border-strong bg-subtle text-secondary-foreground'
@@ -606,7 +606,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                       <span className="inline-flex items-center gap-1.5">
                         <span
                           className={cn(
-                            'rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                            'rounded-md px-2.5 py-0.5 text-xs font-semibold',
                             systemAccepts
                               ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                               : 'bg-rose-50 text-rose-800 border border-rose-300'

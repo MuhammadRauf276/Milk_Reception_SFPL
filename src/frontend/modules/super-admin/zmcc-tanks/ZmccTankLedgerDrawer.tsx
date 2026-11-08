@@ -101,7 +101,7 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
         const isIn = isPositiveType(tx.transaction_type);
         return (
           <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold ${
               isIn ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
             }`}
           >

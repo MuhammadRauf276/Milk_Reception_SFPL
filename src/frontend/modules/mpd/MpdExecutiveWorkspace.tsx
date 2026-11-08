@@ -218,7 +218,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
       {['HIERARCHY', 'MOT_JOURNEYS', 'REPORTS', 'DISPATCH_VS_PLANT', 'ANALYTICS'].includes(activeTab) && (
         <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-3 rounded-xl shadow-xs animate-panel-in">
           <div className="flex items-center gap-2.5">
-            <Building2 className="w-4 h-4 text-primary shrink-0" />
+            <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
             <span className="text-xs font-semibold text-secondary-foreground">ZMCC scope</span>
             <select
               value={selectedZmccId}

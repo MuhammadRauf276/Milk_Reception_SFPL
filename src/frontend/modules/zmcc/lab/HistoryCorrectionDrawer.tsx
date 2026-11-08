@@ -160,7 +160,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                 <div className="bg-card border-border border rounded-xl p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-secondary-foreground flex items-center gap-1.5">
-                      <Calculator className="w-3.5 h-3.5 text-primary" />
+                      <Calculator className="w-3.5 h-3.5 text-muted-foreground" />
                       Recomputed Final Metrics Preview
                     </span>
                     <span className="text-xs text-muted-foreground tabular-nums">
@@ -223,7 +223,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                       </div>
                       <div className="w-1/2 flex items-center justify-end gap-2">
                         {isCalculated ? (
-                          <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 italic">
+                          <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 ">
                             Calculated
                           </span>
                         ) : isNumeric ? (

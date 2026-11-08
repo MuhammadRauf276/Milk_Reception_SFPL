@@ -354,7 +354,7 @@ export function DynamicPivotGrid({
             <tfoot>
               <tr className="border-t-2 border-border bg-muted/70 font-semibold text-xs sticky bottom-0 z-20">
                 <td className="py-3 px-3.5 text-foreground text-xs font-semibold sticky left-0 z-30 bg-muted/90 border-r border-border">
-                  GRAND TOTAL
+                  Grand total
                 </td>
 
                 {colKeys.map((cKey) => (

@@ -150,10 +150,10 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
       <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/80">
           <div className="flex items-center space-x-2">
-            <Truck className="w-5 h-5 text-primary" />
+            <Truck className="w-5 h-5 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">Vehicle report</h3>
           </div>
-          <span className="self-start sm:self-auto px-3 py-1 rounded-full text-xs tabular-nums font-semibold bg-blue-50 text-primary-hover border border-blue-200">
+          <span className="self-start sm:self-auto px-3 py-1 rounded-md text-xs tabular-nums font-semibold bg-blue-50 text-primary-hover border border-blue-200">
             {totalRows.toLocaleString()} portions
           </span>
         </div>
@@ -236,7 +236,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
           </thead>
           <tbody className="divide-y divide-border/40">
             {rows.map((r) => (
-              <tr key={r.key} className="hover:bg-slate-50/60">
+              <tr key={r.key} className="hover:bg-subtle/60">
                 {COLUMNS.map((c) => (
                   <td key={c.key} className={`px-2 py-2 whitespace-nowrap ${c.numeric ? 'text-right' : ''}`}>
                     {c.render(r)}

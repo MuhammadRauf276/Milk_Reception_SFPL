@@ -320,10 +320,10 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
               <button
                 key={opt.id}
                 onClick={() => setLabFilter(opt.id)}
-                className={`min-h-11 px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`min-h-11 px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                   labFilter === opt.id
                     ? 'bg-primary text-white shadow-2xs'
-                    : 'bg-subtle text-secondary-foreground hover:bg-slate-200/70 border border-border'
+                    : 'bg-subtle text-secondary-foreground hover:bg-muted/70 border border-border'
                 }`}
               >
                 {opt.label}
@@ -337,10 +337,10 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
               <button
                 key={opt.id}
                 onClick={() => setPlantFilterState(opt.id)}
-                className={`min-h-11 px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`min-h-11 px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                   plantFilterState === opt.id
                     ? 'bg-primary text-white shadow-2xs'
-                    : 'bg-subtle text-secondary-foreground hover:bg-slate-200/70 border border-border'
+                    : 'bg-subtle text-secondary-foreground hover:bg-muted/70 border border-border'
                 }`}
               >
                 {opt.label}

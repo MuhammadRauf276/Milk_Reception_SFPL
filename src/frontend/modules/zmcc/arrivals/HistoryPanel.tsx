@@ -49,7 +49,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
 
   const savesBadge = (saves: number) => (
     <span
-      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+      className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
         saves > 0 ? 'bg-amber-100 text-amber-800' : 'bg-muted text-secondary-foreground'
       }`}
     >
@@ -89,9 +89,9 @@ export const HistoryPanel: React.FC<Props> = (p) => {
       label: 'Type',
       cell: (r) =>
         r.kind === 'MC' ? (
-          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Mobile Tester</span>
+          <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">Mobile Tester</span>
         ) : (
-          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">HC</span>
+          <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-800">HC</span>
         ),
     },
     {

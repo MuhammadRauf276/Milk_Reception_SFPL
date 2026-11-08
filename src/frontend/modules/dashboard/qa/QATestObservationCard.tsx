@@ -136,7 +136,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             </span>
             <span
               className={cn(
-                'rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                'rounded-md px-2.5 py-0.5 text-xs font-semibold',
                 isCalculated
                   ? 'bg-purple-100 text-purple-900 border border-purple-300'
                   : test.isRequired
@@ -154,7 +154,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
           {sopHint && (
             <span
               className={cn(
-                'rounded-full border px-2.5 py-0.5 text-xs font-semibold tabular-nums',
+                'rounded-md border px-2.5 py-0.5 text-xs font-semibold tabular-nums',
                 isNumericFail ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-border-strong bg-subtle text-secondary-foreground'
               )}
             >
@@ -162,7 +162,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             </span>
           )}
           {test.unit && (
-            <span className="rounded-full border border-border bg-subtle px-2 py-0.5 text-xs font-semibold text-secondary-foreground tabular-nums">
+            <span className="rounded-md border border-border bg-subtle px-2 py-0.5 text-xs font-semibold text-secondary-foreground tabular-nums">
               {test.unit}
             </span>
           )}

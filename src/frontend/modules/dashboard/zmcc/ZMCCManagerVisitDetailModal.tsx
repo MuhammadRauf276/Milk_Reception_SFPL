@@ -129,7 +129,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
               <p className="text-xs text-secondary-foreground font-medium">
                 {assignedSourceName || log.zonal_contractor_name || 'Station'} · Business Date:{' '}
-                <span className={`font-semibold ${log.business_date ? 'text-slate-800' : 'text-amber-700'}`}>
+                <span className={`font-semibold ${log.business_date ? 'text-foreground' : 'text-amber-700'}`}>
                   {log.business_date ? formatOperationalDate(log.business_date) : 'Pending plant completion'}
                 </span>
               </p>
@@ -150,7 +150,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
           {/* 1. Dispatch Details */}
           <div className="p-5 rounded-2xl bg-card border border-border space-y-4 shadow-2xs">
             <div className="flex items-center space-x-2 border-b border-border/60 pb-2">
-              <FileText className="w-4 h-4 text-primary" />
+              <FileText className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-xs font-semibold text-foreground">
                 Dispatch Details
               </h3>
@@ -179,7 +179,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Business Date
                 </span>
-                <span className={`text-sm font-semibold ${log.business_date ? 'text-slate-800' : 'text-amber-700'}`}>
+                <span className={`text-sm font-semibold ${log.business_date ? 'text-foreground' : 'text-amber-700'}`}>
                   {log.business_date ? formatOperationalDate(log.business_date) : 'Pending plant completion'}
                 </span>
               </div>
@@ -231,7 +231,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
           {/* 2. Weight & Quantity */}
           <div className="p-5 rounded-2xl bg-card border border-border space-y-4 shadow-2xs">
             <div className="flex items-center space-x-2 border-b border-border/60 pb-2">
-              <Scale className="w-4 h-4 text-primary" />
+              <Scale className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-xs font-semibold text-foreground">
                 Weight & Quantity
               </h3>
@@ -315,7 +315,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
           {/* 3. Portion Quality Results */}
           <div className="p-5 rounded-2xl bg-card border border-border space-y-4 shadow-2xs">
             <div className="flex items-center space-x-2 border-b border-border/60 pb-2">
-              <FlaskConical className="w-4 h-4 text-primary" />
+              <FlaskConical className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-xs font-semibold text-foreground">
                 Portion Quality Results
               </h3>
@@ -376,7 +376,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                   </thead>
                   <tbody className="divide-y divide-border/40 tabular-nums">
                     {testNames.map((name) => (
-                      <tr key={name} className="hover:bg-slate-50/60">
+                      <tr key={name} className="hover:bg-subtle/60">
                         <td className="py-1.5 px-2 font-sans font-semibold text-foreground">{name}</td>
                         <td className="py-1.5 px-2 font-sans">
                           {portionTests.some((t) => t.get(name)?.performed) ? (
@@ -411,7 +411,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
           {/* 4. Receipt Details */}
           <div className="p-5 rounded-2xl bg-card border border-border space-y-4 shadow-2xs">
             <div className="flex items-center space-x-2 border-b border-border/60 pb-2">
-              <Receipt className="w-4 h-4 text-primary" />
+              <Receipt className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-xs font-semibold text-foreground">
                 Receipt Details
               </h3>
@@ -483,7 +483,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
         {/* Modal Footer */}
         <div className="flex items-center justify-between px-6 py-3.5 border-t border-border bg-subtle">
           <div className="flex items-center space-x-1.5 text-secondary-foreground text-xs font-semibold">
-            <ShieldCheck className="w-4 h-4 text-primary" />
+            <ShieldCheck className="w-4 h-4 text-muted-foreground" />
             <span>Station: {assignedSourceName || log.zonal_contractor_name || 'Assigned Station'}</span>
           </div>
 

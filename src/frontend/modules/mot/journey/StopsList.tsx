@@ -58,7 +58,7 @@ export function StopsList({ journey, deviceGps, onRecord, onRequestShop, locked 
                     <div className="p-3 sm:p-4 border-b border-border space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
-                          <Store className="w-4 h-4 text-primary" />
+                          <Store className="w-4 h-4 text-muted-foreground" />
                           <h3 className="text-xs sm:text-sm font-semibold text-foreground">
                             Planned Stops ({journey.stops.length})
                           </h3>

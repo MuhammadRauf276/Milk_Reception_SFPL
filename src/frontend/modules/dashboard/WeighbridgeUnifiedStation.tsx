@@ -99,7 +99,7 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
       {/* Header aligned with Production / Security UI */}
       <div className="flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-1.5">
-          <Scale className="w-5 h-5 text-primary" />
+          <Scale className="w-5 h-5 text-muted-foreground" />
           <h1 className="text-lg font-semibold text-foreground">
             Scale queue
           </h1>
@@ -229,9 +229,9 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
                             key={`step-dot-${v.id}-${idx}`}
                             className={`h-1.5 flex-1 rounded-full transition-colors ${
                               isDone
-                                ? 'bg-primary'
+                                ? 'bg-foreground'
                                 : isActive
-                                ? 'bg-primary/50 ring-1 ring-primary'
+                                ? 'bg-foreground/40 ring-1 ring-foreground'
                                 : 'bg-muted'
                             }`}
                             title={`${st.label} (${st.status})`}
@@ -441,7 +441,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
           <div className="flex items-start justify-between gap-3 pb-3 border-b border-border">
             <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-2">
-                <Scale className="w-5 h-5 text-primary shrink-0" />
+                <Scale className="w-5 h-5 text-muted-foreground shrink-0" />
                 <h3 className="text-base font-semibold text-foreground">
                   {visit.accepted_portion_count === 0
                     ? 'Rejected by QA, gate exit'

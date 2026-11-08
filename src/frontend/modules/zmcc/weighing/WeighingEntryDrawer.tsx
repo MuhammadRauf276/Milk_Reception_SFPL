@@ -348,7 +348,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
                   <span className="text-muted-foreground text-xs ml-1.5">({myTanks[0].tank_name})</span>
                 </div>
               </div>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
                 Active Tank
               </span>
             </div>

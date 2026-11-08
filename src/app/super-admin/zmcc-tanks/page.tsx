@@ -256,7 +256,7 @@ export default function SuperAdminZmccTanksPage() {
       label: 'Status',
       align: 'center',
       cell: (t) => (
-        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${t.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+        <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${t.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
           {t.is_active ? 'Active' : 'Inactive'}
         </span>
       ),

@@ -116,7 +116,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
       align: 'center',
       cell: (o) => (
         <span
-          className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${
+          className={`inline-block px-2.5 py-1 rounded-md text-xs font-semibold ${
             o.status === 'APPROVED'
               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
               : o.status === 'FLAGGED'
@@ -153,7 +153,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
             </button>
           </div>
         ) : (
-          <span className="text-xs text-muted-foreground italic">Audited</span>
+          <span className="text-xs text-muted-foreground ">Audited</span>
         ),
     },
   ];
@@ -232,7 +232,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <UserCheck className="w-4 h-4 text-primary" />
+            <UserCheck className="w-4 h-4 text-muted-foreground" />
             <div className="flex items-center gap-1.5"><h2 className="text-xs font-semibold text-foreground">Overrides Log</h2><InfoTip text="Audit records of all operational manager overrides and deviations." /></div>
           </div>
           <span className="text-xs tabular-nums font-medium text-muted-foreground">

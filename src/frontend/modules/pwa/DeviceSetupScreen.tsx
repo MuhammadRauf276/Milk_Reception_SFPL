@@ -80,7 +80,7 @@ function BannerBox({ banner }: { banner: Banner }) {
     ok: { cls: 'border-border bg-card text-emerald-900', icon: <CheckCircle2 className="size-6 text-emerald-600" aria-hidden /> },
     error: { cls: 'border-border bg-card text-rose-900', icon: <Ban className="size-6 text-rose-600" aria-hidden /> },
     wait: { cls: 'border-border bg-card text-amber-900', icon: <Loader2 className="size-6 animate-spin text-amber-600" aria-hidden /> },
-    info: { cls: 'border-sky-300 bg-sky-50 text-sky-900', icon: <AlertCircle className="size-6 text-sky-600" aria-hidden /> },
+    info: { cls: 'border-sky-300 bg-sky-50 text-sky-900', icon: <AlertCircle className="size-6 text-muted-foreground" aria-hidden /> },
   }[banner.tone];
   return (
     <div role="status" aria-live="polite" className={`flex items-center gap-3 rounded-lg border-2 p-4 text-lg font-semibold ${styles.cls}`}>

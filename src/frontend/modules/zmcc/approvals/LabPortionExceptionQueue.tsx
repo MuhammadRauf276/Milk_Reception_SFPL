@@ -254,7 +254,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                     onClick={() => decide(item, 'NO')}
                     className="flex h-14 items-center justify-center gap-2 rounded-xl bg-rose-600 text-lg font-semibold text-white disabled:opacity-50"
                   >
-                    REJECT
+                    Reject
                   </button>
                   <button
                     type="button"
@@ -262,7 +262,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                     onClick={() => decide(item, 'OKAY')}
                     className="flex h-14 items-center justify-center gap-2 rounded-xl bg-emerald-600 text-lg font-semibold text-white disabled:opacity-50"
                   >
-                    APPROVE
+                    Approve
                   </button>
                 </div>
               </div>

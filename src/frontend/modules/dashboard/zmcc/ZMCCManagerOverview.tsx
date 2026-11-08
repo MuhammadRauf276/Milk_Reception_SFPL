@@ -133,7 +133,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
       <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/80">
           <div className="flex items-center space-x-2">
-            <Layers className="w-5 h-5 text-primary" />
+            <Layers className="w-5 h-5 text-muted-foreground" />
             <div>
               <h3 className="text-sm font-semibold text-foreground">
                 {assignedSourceName} overview
@@ -146,7 +146,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
 
           <div className="flex items-center space-x-2">
             <span className="text-xs font-semibold text-secondary-foreground flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-primary" /> Period:
+              <Calendar className="w-3.5 h-3.5 text-muted-foreground" /> Period:
             </span>
             <select
               value={dateRange}
@@ -204,7 +204,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           <div className="bg-card border-border p-4 rounded-2xl border space-y-2">
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <Scale className="w-4 h-4 text-primary" />
+                <Scale className="w-4 h-4 text-muted-foreground" />
                 <span>Gross Volume</span>
               </span>
             </div>
@@ -249,7 +249,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           <div className="bg-card border-border p-4 rounded-2xl border space-y-2">
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <FlaskConical className="w-4 h-4 text-primary" />
+                <FlaskConical className="w-4 h-4 text-muted-foreground" />
                 <span>Commercial Volume</span>
               </span>
             </div>
@@ -298,7 +298,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
       <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border/80">
           <div className="flex items-center space-x-2">
-            <History className="w-4 h-4 text-primary" />
+            <History className="w-4 h-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">
               Recent dispatches
             </h3>

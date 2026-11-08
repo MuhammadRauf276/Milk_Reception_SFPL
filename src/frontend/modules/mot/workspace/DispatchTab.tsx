@@ -104,7 +104,7 @@ export function DispatchTab({
             <div>
               <h2 className="text-sm font-semibold text-foreground">Assign & dispatch</h2>
             </div>
-            <span className="px-2.5 py-1 rounded-full bg-blue-50 text-primary text-xs font-semibold border border-blue-200">
+            <span className="px-2.5 py-1 rounded-md bg-blue-50 text-primary text-xs font-semibold border border-blue-200">
               Now
             </span>
           </div>
@@ -251,7 +251,7 @@ export function DispatchTab({
             <div className="bg-card border-border p-3 rounded-lg border space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <MapPin className="w-3.5 h-3.5 text-primary" />
+                  <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
                   <span className="text-xs font-semibold text-foreground">
                     Location
                   </span>

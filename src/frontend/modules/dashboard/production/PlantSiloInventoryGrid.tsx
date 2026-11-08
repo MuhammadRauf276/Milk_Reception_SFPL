@@ -90,7 +90,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
           }`}
         >
           <span>All silos</span>
-          <span className="text-xs px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
+          <span className="text-xs px-1.5 py-0.2 rounded-md bg-primary-foreground/20">
             {silos.length}
           </span>
         </button>
@@ -105,7 +105,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
         >
           <span>Receiving</span>
           {receivingCount > 0 && (
-            <span className="text-xs px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
+            <span className="text-xs px-1.5 py-0.2 rounded-md bg-primary-foreground/20">
               {receivingCount}
             </span>
           )}
@@ -120,7 +120,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
           }`}
         >
           <span>In storage</span>
-          <span className="text-xs px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
+          <span className="text-xs px-1.5 py-0.2 rounded-md bg-primary-foreground/20">
             {storageCount}
           </span>
         </button>
@@ -134,7 +134,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
           }`}
         >
           <span>Empty</span>
-          <span className="text-xs px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
+          <span className="text-xs px-1.5 py-0.2 rounded-md bg-primary-foreground/20">
             {emptyCount}
           </span>
         </button>

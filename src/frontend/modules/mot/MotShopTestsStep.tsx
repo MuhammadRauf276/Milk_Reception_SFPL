@@ -136,7 +136,7 @@ export function MotShopTestsStep({
             {t.testName}
             <span
               className={cn(
-                'ml-2 rounded-full px-2 py-0.5 align-middle text-xs font-semibold',
+                'ml-2 rounded-md px-2 py-0.5 align-middle text-xs font-semibold',
                 required ? 'bg-primary text-white shadow-2xs' : 'bg-muted text-secondary-foreground'
               )}
             >
@@ -146,7 +146,7 @@ export function MotShopTestsStep({
           {chip && (
             <span
               className={cn(
-                'rounded-full border px-2.5 py-1 text-xs font-semibold tabular-nums',
+                'rounded-md border px-2.5 py-1 text-xs font-semibold tabular-nums',
                 out ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-border-strong bg-subtle text-secondary-foreground'
               )}
             >
@@ -234,7 +234,7 @@ export function MotShopTestsStep({
     <div className="bg-card border-border space-y-2.5 rounded-2xl border p-3 shadow-xs">
       <label htmlFor={id} className="text-base font-semibold text-foreground">
         {label}
-        <span className="ml-2 rounded-full bg-primary px-2 py-0.5 align-middle text-xs font-semibold text-white shadow-2xs">
+        <span className="ml-2 rounded-md bg-primary px-2 py-0.5 align-middle text-xs font-semibold text-white shadow-2xs">
           Required
         </span>
       </label>

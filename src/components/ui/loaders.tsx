@@ -202,7 +202,7 @@ export function PullToRefreshLoader({ refreshing, pullDistance = 0, threshold = 
   const ready = pullDistance >= threshold;
   return (
     <div className={cn('flex w-full items-center justify-center py-2', className)} role="status" aria-live="polite">
-      <div className="flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-2xs">
+      <div className="flex items-center gap-2 rounded-md border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-2xs">
         {refreshing ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
         ) : (

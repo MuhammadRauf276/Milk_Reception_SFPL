@@ -116,7 +116,7 @@ export function SegmentedTabs<T extends string>({
                 </span>
               ) : null}
               {tab.badge ? (
-                <span className="rounded-full bg-emerald-50 px-1.5 text-xs font-medium leading-5 text-emerald-700">
+                <span className="rounded-md bg-emerald-50 px-1.5 text-xs font-medium leading-5 text-emerald-700">
                   {tab.badge}
                 </span>
               ) : null}

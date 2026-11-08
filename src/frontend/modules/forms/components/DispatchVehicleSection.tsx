@@ -159,13 +159,13 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
       <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border-strong shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-2">
           <div className="flex items-center space-x-2">
-            <Truck className="w-4 h-4 text-primary" />
+            <Truck className="w-4 h-4 text-muted-foreground" />
             <h3 className="text-xs font-semibold text-foreground">
               Vehicle & Dispatch Time
             </h3>
           </div>
           {isZmccSource && (
-            <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+            <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" />
               <span>MPD Fleet & Escort</span>
             </span>
@@ -254,7 +254,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
             <div className="flex items-center justify-between">
               <label htmlFor="escort-person-input" className="block text-xs font-semibold text-foreground flex items-center gap-1">
                 <span>{isZmccSource ? 'MOT Escort *' : 'Contractor Driver *'}</span>
-                <UserCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+                <UserCheck className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               </label>
               {isZmccSource && availableMotProfiles.length > 0 && (
                 <button
@@ -339,7 +339,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
           <div className="space-y-1 min-w-0">
             <label htmlFor="dispatch-time-input" className="block text-xs font-semibold text-foreground flex items-center justify-between">
               <span>Dispatch Time *</span>
-              <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
+              <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             </label>
             <input
               id="dispatch-time-input"

@@ -105,7 +105,7 @@ function PlantContractorManagerContent() {
               <span>Approval Inbox</span>
               {pendingCount !== null && pendingCount > 0 && (
                 <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
                     isApprovals ? 'bg-card text-amber-700' : 'bg-amber-100 text-amber-800'
                   }`}
                 >

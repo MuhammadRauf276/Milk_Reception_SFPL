@@ -265,7 +265,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                     )}
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs font-semibold text-secondary-foreground bg-muted px-3 py-1 rounded-full border border-border">
+                    <span className="text-xs font-semibold text-secondary-foreground bg-muted px-3 py-1 rounded-md border border-border">
                       {progress.label}
                     </span>
                   </div>
@@ -338,7 +338,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                       </label>
                       <div className="bg-card border-border w-full h-11 px-3.5 flex items-center justify-between rounded-lg border-strong text-foreground">
                         <span className="text-xs font-semibold tabular-nums text-foreground">
-                          MEASURED
+                          Measured
                         </span>
                         <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
                           Verified

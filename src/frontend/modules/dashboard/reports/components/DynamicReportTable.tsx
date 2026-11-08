@@ -109,7 +109,7 @@ export function DynamicReportTable({
         colorClass = 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800';
       }
       return (
-        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${colorClass}`}>
+        <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-semibold ${colorClass}`}>
           {String(value)}
         </span>
       );
@@ -174,7 +174,7 @@ export function DynamicReportTable({
         {isLoading && (
           <div className="absolute inset-0 bg-background/60 backdrop-blur-2xs z-20 flex items-center justify-center">
             <div className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-xl shadow-lg">
-              <Loader2 className="w-4 h-4 text-primary animate-spin" />
+              <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
               <span className="text-xs font-medium text-foreground">Updating report data…</span>
             </div>
           </div>
@@ -203,9 +203,9 @@ export function DynamicReportTable({
                         <span className="text-slate-400">
                           {isSorted ? (
                             sortDirection === 'asc' ? (
-                              <ArrowUp className="w-3 h-3 text-primary stroke-[2.5]" />
+                              <ArrowUp className="w-3 h-3 text-muted-foreground stroke-[2.5]" />
                             ) : (
-                              <ArrowDown className="w-3 h-3 text-primary stroke-[2.5]" />
+                              <ArrowDown className="w-3 h-3 text-muted-foreground stroke-[2.5]" />
                             )
                           ) : (
                             <ArrowUpDown className="w-3 h-3 opacity-40 hover:opacity-100" />
@@ -243,12 +243,12 @@ export function DynamicReportTable({
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             {isCollapsed ? (
-                              <ChevronExpand className="w-4 h-4 text-primary shrink-0" />
+                              <ChevronExpand className="w-4 h-4 text-muted-foreground shrink-0" />
                             ) : (
-                              <ChevronDown className="w-4 h-4 text-primary shrink-0" />
+                              <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                             )}
                             <span>{groupKey}</span>
-                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                            <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-semibold">
                               {groupRows.length} records
                             </span>
                           </div>

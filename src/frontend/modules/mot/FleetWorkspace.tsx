@@ -16,6 +16,7 @@ import { VehicleSheet } from './workspace/VehicleSheet';
 import { TransferSheet } from './workspace/TransferSheet';
 import { sendJson } from './workspace/mutationUtils';
 import type { MotVehicleItem, ZmccSource } from './workspace/types';
+import { formatDateTime } from '@/lib/format';
 
 const FLEET_KEY = ['mot', 'fleet'] as const;
 
@@ -51,7 +52,7 @@ const STATUS_META: Record<FleetStatus, { label: string; tone: string }> = {
 };
 
 const fmt = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
+  iso ? formatDateTime(iso) : '-';
 
 /** Whole fleet for the Data Executive and Super Admin: register, edit, switch off and move vehicles. */
 export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
@@ -142,7 +143,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
         const st = STATUS_META[r.status];
         return (
           <>
-            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${st.tone}`}>{st.label}</span>
+            <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${st.tone}`}>{st.label}</span>
             {r.arrival_token ? (
               <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{r.arrival_token}</span>
             ) : null}

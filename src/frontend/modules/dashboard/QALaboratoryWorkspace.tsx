@@ -155,7 +155,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
           }`}
         >
           <span>Waiting</span>
-          <span className="tabular-nums px-1.5 py-0.5 rounded-full text-xs bg-muted text-secondary-foreground">
+          <span className="tabular-nums px-1.5 py-0.5 rounded-md text-xs bg-muted text-secondary-foreground">
             {waitingVisits.length}
           </span>
         </button>
@@ -171,7 +171,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
           }`}
         >
           <span>In Testing</span>
-          <span className="tabular-nums px-1.5 py-0.5 rounded-full text-xs bg-sky-100 text-sky-800">
+          <span className="tabular-nums px-1.5 py-0.5 rounded-md text-xs bg-sky-100 text-sky-800">
             {inTestingVisits.length}
           </span>
         </button>
@@ -187,7 +187,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
           }`}
         >
           <span>On Hold</span>
-          <span className="tabular-nums px-1.5 py-0.5 rounded-full text-xs bg-amber-100 text-amber-900">
+          <span className="tabular-nums px-1.5 py-0.5 rounded-md text-xs bg-amber-100 text-amber-900">
             {onHoldVisits.length}
           </span>
         </button>

@@ -131,15 +131,10 @@ export default function SuperAdminUsersPage() {
       cell: (u) => (
         <div className="min-w-0">
           <div className="font-medium text-foreground">{u.name}</div>
-          <div className="break-all text-xs text-muted-foreground">@{u.username}</div>
+          <div className="break-words text-xs text-muted-foreground">@{u.username}</div>
+          {u.email ? <div className="break-words text-xs text-muted-foreground">{u.email}</div> : <div className="text-xs text-amber-700">Email not set</div>}
         </div>
       ),
-    },
-    {
-      key: 'email',
-      header: 'Email',
-      label: 'Email',
-      cell: (u) => (u.email ? <span className="break-all">{u.email}</span> : <span className="text-amber-700">Not set</span>),
     },
     {
       key: 'role',
@@ -246,7 +241,7 @@ export default function SuperAdminUsersPage() {
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center space-x-2">
               <div className="flex items-center gap-1.5"><h2 className="text-sm font-semibold text-foreground">Users</h2><InfoTip text="Manage system users, access credentials, and role jurisdictions." /></div>
-              <span className="rounded-full border border-border bg-subtle px-2 py-0.5 text-xs tabular-nums text-secondary-foreground">
+              <span className="rounded-md border border-border bg-subtle px-2 py-0.5 text-xs tabular-nums text-secondary-foreground">
                 {pagination?.totalRecords ?? users.length}
               </span>
             </div>

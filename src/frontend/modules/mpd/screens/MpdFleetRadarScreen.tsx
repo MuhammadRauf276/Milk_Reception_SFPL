@@ -9,6 +9,7 @@ import { buildJourneyOverlays, JOURNEY_COLORS, type JourneyOverlayData } from '@
 import { Pager, paginate, pageCount } from '@/frontend/modules/dashboard/components/Pager';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { formatTime } from '@/lib/format';
+import { formatLabel } from '@/lib/format';
 
 /** Optional live-position fields. Shown on the map only when the overview API returns them. */
 interface OptionalPosition {
@@ -130,7 +131,7 @@ const tankerColumns: DataColumn<InTransitTankerTelemetry>[] = [
     label: 'Status',
     align: 'center',
     cell: (t) => (
-      <span className="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-muted text-foreground border border-border">{t.status}</span>
+      <span className="inline-block px-2.5 py-1 rounded-md text-xs font-semibold bg-muted text-foreground border border-border">{t.status}</span>
     ),
   },
 ];
@@ -195,11 +196,11 @@ const routeColumns: DataColumn<MotRouteTelemetry>[] = [
     align: 'center',
     cell: (r) => (
       <span
-        className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${
+        className={`inline-block px-2.5 py-1 rounded-md text-xs font-semibold ${
           r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-blue-50 text-primary border border-blue-200'
         }`}
       >
-        {r.status}
+        {formatLabel(r.status)}
       </span>
     ),
   },
@@ -390,7 +391,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Truck className="w-4 h-4 text-primary" />
+              <Truck className="w-4 h-4 text-muted-foreground" />
               <h2 className="text-xs font-semibold text-foreground">
                 Tankers in transit
               </h2>
@@ -417,7 +418,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Navigation className="w-4 h-4 text-primary" />
+              <Navigation className="w-4 h-4 text-muted-foreground" />
               <h2 className="text-xs font-semibold text-foreground">
                 Mobile Tester routes
               </h2>

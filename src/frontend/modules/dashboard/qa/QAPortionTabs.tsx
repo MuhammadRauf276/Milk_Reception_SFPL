@@ -28,7 +28,7 @@ export const QAPortionTabs: React.FC<QAPortionTabsProps> = ({
   <div className="space-y-3">
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-2">
-        <Layers className="w-4 h-4 text-primary" />
+        <Layers className="w-4 h-4 text-muted-foreground" />
         <span className="text-xs font-semibold text-secondary-foreground">
           Milk Portions ({visitDetail.portions.length})
         </span>

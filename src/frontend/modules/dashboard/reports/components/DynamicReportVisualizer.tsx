@@ -98,7 +98,7 @@ export function DynamicReportVisualizer({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <BarChart3 className="w-4 h-4 text-primary" /> Visual Analytics & Distributions
+            <BarChart3 className="w-4 h-4 text-muted-foreground" /> Visual Analytics & Distributions
           </span>
           <span className="text-slate-400 text-xs">·</span>
           <span className="text-xs text-muted-foreground">
@@ -196,7 +196,7 @@ export function DynamicReportVisualizer({
                   {/* Bar Body */}
                   <div
                     style={{ height: `${heightPct}%` }}
-                    className={`w-full max-w-[48px] rounded-t-md transition-all duration-200 ${
+                    className={`w-full max-w-[48px] rounded-t-md transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-200 ${
                       isHovered
                         ? 'bg-primary shadow-md shadow-primary/20 scale-y-105 origin-bottom'
                         : 'bg-primary/75 hover:bg-primary'
@@ -319,7 +319,7 @@ export function DynamicReportVisualizer({
                       isCompliant
                         ? 'fill-emerald-500/80 stroke-emerald-700'
                         : 'fill-rose-500/80 stroke-rose-700'
-                    } stroke-[1.5] hover:r-7 transition-all cursor-pointer`}
+                    } stroke-[1.5] hover:r-7 transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer`}
                   >
                     <title>{`${pt.label}: ${pt.x}% Fat, ${pt.y}% SNF`}</title>
                   </circle>

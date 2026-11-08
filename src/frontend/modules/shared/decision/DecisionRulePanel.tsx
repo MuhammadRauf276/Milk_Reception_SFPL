@@ -211,7 +211,7 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
                   </span>
                   {t.note && <span className="block text-xs font-semibold text-amber-800">{t.note}</span>}
                 </div>
-                <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold', s.className)}>
+                <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-semibold', s.className)}>
                   <s.Icon className="h-4 w-4" aria-hidden="true" />
                   {s.word}
                 </span>
@@ -257,7 +257,7 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
                 key={r}
                 title={exceptionReasonText(r)}
                 className={cn(
-                  'rounded-full border bg-card px-2.5 py-1 text-xs font-semibold',
+                  'rounded-md border bg-card px-2.5 py-1 text-xs font-semibold',
                   route === 'DECIDE_NOW' ? 'border-amber-300' : 'border-violet-300'
                 )}
               >
@@ -279,7 +279,7 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
             onChange={(e) => onRemarksChange(e.target.value)}
             placeholder="Write a short reason…"
             className={cn(
-              'min-h-12 w-full min-w-0 resize-y rounded-lg border-2 p-3 text-base focus:outline-none focus:ring-2 focus:ring-slate-900',
+              'min-h-12 w-full min-w-0 resize-y rounded-lg border-2 p-3 text-base focus:outline-none focus:ring-2 focus:ring-border',
               remarksMissing ? 'border-rose-300 bg-rose-50/40' : 'border-border-strong bg-card'
             )}
           />

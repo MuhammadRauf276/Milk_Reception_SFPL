@@ -596,7 +596,7 @@ export const CentralCorrectionDesk: React.FC = () => {
           onClick={() => openDirectEditDrawer(rec)}
           className="h-8 text-xs font-semibold gap-1.5"
         >
-          <Edit3 className="w-3.5 h-3.5 text-primary" />
+          <Edit3 className="w-3.5 h-3.5 text-muted-foreground" />
           <span>Edit Record</span>
         </Button>
       ),
@@ -674,7 +674,7 @@ export const CentralCorrectionDesk: React.FC = () => {
         <button
           type="button"
           onClick={() => setTab('REQUESTS')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-all ${
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
             activeTab === 'REQUESTS'
               ? 'bg-card text-primary shadow-xs'
               : 'text-secondary-foreground hover:text-foreground'
@@ -683,7 +683,7 @@ export const CentralCorrectionDesk: React.FC = () => {
           <Clock className="w-4 h-4" />
           <span>Correction Requests Queue</span>
           {counts.pending > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+            <span className="px-1.5 py-0.2 rounded-md text-xs font-semibold bg-amber-100 text-amber-800">
               {counts.pending}
             </span>
           )}
@@ -692,7 +692,7 @@ export const CentralCorrectionDesk: React.FC = () => {
         <button
           type="button"
           onClick={() => setTab('DIRECT_EDIT')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-all ${
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
             activeTab === 'DIRECT_EDIT'
               ? 'bg-card text-primary shadow-xs'
               : 'text-secondary-foreground hover:text-foreground'
@@ -700,7 +700,7 @@ export const CentralCorrectionDesk: React.FC = () => {
         >
           <Edit3 className="w-4 h-4" />
           <span>Direct Record Corrections (Stages 1-4)</span>
-          <span className="px-1.5 py-0.2 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+          <span className="px-1.5 py-0.2 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">
             Live Hub
           </span>
         </button>
@@ -708,7 +708,7 @@ export const CentralCorrectionDesk: React.FC = () => {
         <button
           type="button"
           onClick={() => setTab('AUDIT')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-all ${
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
             activeTab === 'AUDIT'
               ? 'bg-card text-primary shadow-xs'
               : 'text-secondary-foreground hover:text-foreground'
@@ -817,7 +817,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-border">
                       <div className="flex items-center space-x-2.5">
                         <span
-                          className={`px-2.5 py-0.5 rounded-full font-semibold text-xs  uppercase ${
+                          className={`px-2.5 py-0.5 rounded-md font-semibold text-xs ${
                             req.impact === 'HIGH'
                               ? 'bg-rose-100 text-rose-800'
                               : req.impact === 'MEDIUM'
@@ -963,14 +963,14 @@ export const CentralCorrectionDesk: React.FC = () => {
                 setSelectedStage('1');
                 setRecordPage(1);
               }}
-              className={`p-3.5 rounded-xl border text-left transition-all ${
+              className={`p-3.5 rounded-xl border text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                 selectedStage === '1'
                   ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/20'
                   : 'bg-card border-border hover:border-border-strong'
               }`}
             >
               <div className="flex items-center space-x-2">
-                <Truck className="w-4 h-4 text-primary" />
+                <Truck className="w-4 h-4 text-muted-foreground" />
                 <span className="font-semibold text-xs text-foreground">Stage 1: Field Mobile Tester</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -984,14 +984,14 @@ export const CentralCorrectionDesk: React.FC = () => {
                 setSelectedStage('2');
                 setRecordPage(1);
               }}
-              className={`p-3.5 rounded-xl border text-left transition-all ${
+              className={`p-3.5 rounded-xl border text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                 selectedStage === '2'
                   ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/20'
                   : 'bg-card border-border hover:border-border-strong'
               }`}
             >
               <div className="flex items-center space-x-2">
-                <Building className="w-4 h-4 text-primary" />
+                <Building className="w-4 h-4 text-muted-foreground" />
                 <span className="font-semibold text-xs text-foreground">Stage 2: ZMCC Intake</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -1005,14 +1005,14 @@ export const CentralCorrectionDesk: React.FC = () => {
                 setSelectedStage('3');
                 setRecordPage(1);
               }}
-              className={`p-3.5 rounded-xl border text-left transition-all ${
+              className={`p-3.5 rounded-xl border text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                 selectedStage === '3'
                   ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/20'
                   : 'bg-card border-border hover:border-border-strong'
               }`}
             >
               <div className="flex items-center space-x-2">
-                <Milk className="w-4 h-4 text-primary" />
+                <Milk className="w-4 h-4 text-muted-foreground" />
                 <span className="font-semibold text-xs text-foreground">Stage 3: Dispatch</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -1026,14 +1026,14 @@ export const CentralCorrectionDesk: React.FC = () => {
                 setSelectedStage('4');
                 setRecordPage(1);
               }}
-              className={`p-3.5 rounded-xl border text-left transition-all ${
+              className={`p-3.5 rounded-xl border text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                 selectedStage === '4'
                   ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/20'
                   : 'bg-card border-border hover:border-border-strong'
               }`}
             >
               <div className="flex items-center space-x-2">
-                <Scale className="w-4 h-4 text-primary" />
+                <Scale className="w-4 h-4 text-muted-foreground" />
                 <span className="font-semibold text-xs text-foreground">Stage 4: Plant Reception</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">

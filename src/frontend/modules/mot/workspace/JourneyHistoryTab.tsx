@@ -4,6 +4,7 @@ import { formatTime } from '@/lib/format';
 import React from 'react';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import type { JourneyItem } from './types';
+import { formatLabel } from '@/lib/format';
 
 interface Props {
   journeys: JourneyItem[];
@@ -39,7 +40,7 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
       label: 'Status',
       cell: (j) => (
         <span
-          className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${
+          className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
             j.status === 'COLLECTING'
               ? 'bg-blue-100 text-blue-800'
               : j.status === 'RETURNING' || j.status === 'ARRIVED'
@@ -49,7 +50,7 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
               : 'bg-rose-100 text-rose-800'
           }`}
         >
-          {j.status}
+          {formatLabel(j.status)}
         </span>
       ),
     },
