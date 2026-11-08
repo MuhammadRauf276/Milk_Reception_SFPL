@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { throttle } from '@/frontend/lib/throttle';
 
 export interface TableWrapperProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
@@ -33,16 +34,18 @@ export const TableWrapper = React.forwardRef<HTMLDivElement, TableWrapperProps>(
       if (!el) return;
 
       checkScroll();
-      el.addEventListener('scroll', checkScroll, { passive: true });
-      window.addEventListener('resize', checkScroll);
+      const onChange = throttle(checkScroll, 100);
+      el.addEventListener('scroll', onChange, { passive: true });
+      window.addEventListener('resize', onChange);
 
       // Mutation observer to detect content/data row updates
-      const ro = new ResizeObserver(checkScroll);
+      const ro = new ResizeObserver(onChange);
       ro.observe(el);
 
       return () => {
-        el.removeEventListener('scroll', checkScroll);
-        window.removeEventListener('resize', checkScroll);
+        onChange.cancel();
+        el.removeEventListener('scroll', onChange);
+        window.removeEventListener('resize', onChange);
         ro.disconnect();
       };
     }, [checkScroll]);

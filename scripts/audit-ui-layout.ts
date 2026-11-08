@@ -11,7 +11,7 @@
  * Safe to run: it never signs anyone in with a password, and it aborts every
  * non-GET request, so no click in this script can change data.
  *
- * Usage: npm run test:layout -- [outDir] [--quick]
+ * Usage: npm run test:layout -- [outDir] [--quick] [--only=id,id]
  * Exit code 1 when a blocking problem is found.
  */
 import 'dotenv/config';
@@ -188,7 +188,9 @@ async function main() {
   const tokens = new Map<string, string | null>();
   const rows: Record<string, unknown>[] = [];
 
+  const only = args.find((a) => a.startsWith('--only='))?.slice(7).split(',');
   for (const [id, path, username] of SCREENS) {
+    if (only && !only.includes(id)) continue;
     if (username && !tokens.has(username)) tokens.set(username, await token(username));
     if (username && !tokens.get(username)) {
       rows.push({ id, skipped: `no active user ${username}` });

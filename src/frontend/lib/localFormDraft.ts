@@ -2,6 +2,9 @@
 import type { DraftStorage } from './draftSync';
 
 const PREFIX = 'milk-form-draft:v1';
+
+/** Fired on the window when typed work has just been kept on this device. */
+export const DRAFT_SAVED_EVENT = 'milk-form-draft-saved';
 const EXPIRY_MS = 3 * 24 * 60 * 60 * 1000;
 
 export const localFormDraftKey = (userId: string, formKey: string) => `${PREFIX}:${userId}:${formKey}`;

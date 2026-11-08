@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Edit2, Power } from 'lucide-react';
-import { TableWrapper } from '@/components/ui/table-wrapper';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 
 export interface MasterCol<T> {
   header: string;
@@ -10,8 +10,6 @@ export interface MasterCol<T> {
   tdClass?: string;
   cell: (row: T) => React.ReactNode;
 }
-
-const alignCls = { left: '', center: 'text-center', right: 'text-right' } as const;
 
 export const StatusPill: React.FC<{ active: boolean; approvalStatus?: string | null }> = ({ active, approvalStatus }) => {
   // Waiting or refused records are not usable, whatever their active switch says.
@@ -25,12 +23,14 @@ export const StatusPill: React.FC<{ active: boolean; approvalStatus?: string | n
           : 'Inactive';
   return (
     <span
-      className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase ${
+      className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
         label === 'Active'
-          ? 'bg-emerald-100 text-emerald-800'
+          ? 'bg-emerald-50 text-emerald-800'
           : label === 'Waiting approval'
-            ? 'bg-amber-100 text-amber-800'
-            : 'bg-rose-100 text-rose-800'
+            ? 'bg-amber-50 text-amber-800'
+            : label === 'Rejected'
+              ? 'bg-rose-50 text-rose-800'
+              : 'bg-muted text-secondary-foreground'
       }`}
     >
       {label}
@@ -44,91 +44,68 @@ interface Props<T extends { id: string; is_active: boolean }> {
   emptyText: string;
   entity: string;
   canEdit: boolean;
-  /** Tanks hide the whole Actions column for read-only users; other tabs show a "Read-only" label. */
+  /** Kept for existing callers. Read-only users never see an Actions column. */
   hideActionsWhenReadOnly?: boolean;
   renderExtraActions?: (row: T) => React.ReactNode;
   onEdit: (row: T) => void;
   onToggle: (row: T) => void;
 }
 
-/** One master-data table: columns are declared by the caller, actions are shared. */
+/** One master-data list: columns are declared by the caller, actions are shared. */
 export function MasterTable<T extends { id: string; is_active: boolean }>({
   cols,
   rows,
   emptyText,
   entity,
   canEdit,
-  hideActionsWhenReadOnly: _hideActionsWhenReadOnly,
   renderExtraActions,
   onEdit,
   onToggle,
 }: Props<T>) {
-  const showActionsCol = canEdit;
-  const colSpan = cols.length + (showActionsCol ? 1 : 0);
-  return (
-    <TableWrapper>
-      <table className="w-full text-left text-xs border-collapse min-w-[500px]">
-        <thead>
-          <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold text-xs">
-            {cols.map((c) => (
-              <th key={c.header} className={`py-3 px-4 ${alignCls[c.align ?? 'left']}`}>
-                {c.header}
-              </th>
-            ))}
-            {showActionsCol && <th className="py-3 px-4 text-right">Actions</th>}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={colSpan} className="py-8 text-center text-muted-foreground font-semibold">
-                {emptyText}
-              </td>
-            </tr>
-          ) : (
-            rows.map((r) => (
-              <tr key={r.id} className="hover:bg-subtle/60 transition">
-                {cols.map((c) => (
-                  <td key={c.header} className={`py-3 px-4 ${alignCls[c.align ?? 'left']} ${c.tdClass ?? ''}`}>
-                    {c.cell(r)}
-                  </td>
-                ))}
-                {showActionsCol && (
-                  <td className="py-3 px-4 text-right">
-                    {canEdit && (
-                      <div className="flex items-center justify-end gap-1.5">
-                        {renderExtraActions && renderExtraActions(r)}
-                        <button
-                          type="button"
-                          onClick={() => onEdit(r)}
-                          className="p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-border hover:bg-muted text-secondary-foreground transition"
-                          title={`Edit ${entity}`}
-                          aria-label={`Edit ${entity}`}
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onToggle(r)}
-                          className={`p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border transition ${
-                            r.is_active
-                              ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
-                              : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
-                          }`}
-                          title={r.is_active ? `Deactivate ${entity}` : `Activate ${entity}`}
-                          aria-label={r.is_active ? `Deactivate ${entity}` : `Activate ${entity}`}
-                        >
-                          <Power className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                )}
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </TableWrapper>
-  );
+  const columns: DataColumn<T>[] = cols.map((c, i) => ({
+    key: c.header,
+    header: c.header,
+    label: c.header,
+    align: c.align,
+    className: c.tdClass,
+    primary: i === 0,
+    cell: c.cell,
+  }));
+
+  if (canEdit) {
+    columns.push({
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (r) => (
+        <div className="flex items-center justify-end gap-1">
+          {renderExtraActions ? renderExtraActions(r) : null}
+          <button
+            type="button"
+            onClick={() => onEdit(r)}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title={`Edit ${entity}`}
+            aria-label={`Edit ${entity}`}
+          >
+            <Edit2 className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggle(r)}
+            className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors hover:bg-muted ${
+              r.is_active ? 'text-muted-foreground hover:text-destructive' : 'text-emerald-700'
+            }`}
+            title={r.is_active ? `Deactivate ${entity}` : `Activate ${entity}`}
+            aria-label={r.is_active ? `Deactivate ${entity}` : `Activate ${entity}`}
+          >
+            <Power className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    });
+  }
+
+  return <DataTable columns={columns} rows={rows} getRowId={(r) => r.id} emptyTitle={emptyText} />;
 }

@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { formatRoleLabel } from './navigation/NavPanel';
+import { AuthorityBadge } from './AuthorityBadge';
 
 function initials(name?: string | null) {
   if (!name) return 'U';
@@ -60,9 +61,10 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
             <p className="truncate text-xs text-muted-foreground">@{currentUser.username}</p>
           ) : null}
           {currentUser?.role ? (
-            <p className="mt-1.5 inline-flex rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-secondary-foreground">
-              {formatRoleLabel(currentUser.role)}
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              <span className="text-xs text-muted-foreground">{formatRoleLabel(currentUser.role)}</span>
+              <AuthorityBadge role={currentUser.role} />
+            </div>
           ) : null}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

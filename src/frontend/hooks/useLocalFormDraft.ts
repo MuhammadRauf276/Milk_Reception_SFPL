@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 import type { DraftStorage } from '@/frontend/lib/draftSync';
-import { changedFields, localFormDraftKey, readLocalFormDraft, writeLocalFormDraft } from '@/frontend/lib/localFormDraft';
+import { DRAFT_SAVED_EVENT, changedFields, localFormDraftKey, readLocalFormDraft, writeLocalFormDraft } from '@/frontend/lib/localFormDraft';
 
 function browserStorage(): DraftStorage | null {
   try {
@@ -55,7 +55,9 @@ export function useLocalFormDraft({
   const valuesJson = JSON.stringify(values);
   useEffect(() => {
     if (!storageKey || openedKey.current !== storageKey || clearedKey.current === storageKey) return;
-    writeLocalFormDraft(browserStorage(), storageKey, changedFields(latest.current.values, initial.current));
+    const fields = changedFields(latest.current.values, initial.current);
+    writeLocalFormDraft(browserStorage(), storageKey, fields);
+    if (Object.keys(fields).length > 0) window.dispatchEvent(new Event(DRAFT_SAVED_EVENT));
   }, [valuesJson, storageKey]);
 
   /** Call after the form was submitted. */

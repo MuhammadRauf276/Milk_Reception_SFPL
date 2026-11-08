@@ -287,6 +287,11 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  html {
+    /* The app's own pull to refresh replaces the browser's. */
+    overscroll-behavior-y: contain;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     margin: 0;

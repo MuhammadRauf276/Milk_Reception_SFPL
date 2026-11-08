@@ -22,9 +22,9 @@ export function PaginationBar({ page, totalPages, totalRecords, noun = 'records'
     );
   }
   return (
-    <div className="flex items-center justify-between gap-2 border-t border-border bg-card px-3 py-2 text-xs font-semibold text-secondary-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-card px-3 py-2 text-xs font-semibold text-secondary-foreground">
       <div>
-        Page <span className="text-primary">{page}</span> of <span className="text-primary">{totalPages}</span>
+        Page <span className="tabular-nums">{page}</span> of <span className="tabular-nums">{totalPages}</span>
         <span className="hidden sm:inline">
           {' '}
           ({totalRecords.toLocaleString()} {noun})

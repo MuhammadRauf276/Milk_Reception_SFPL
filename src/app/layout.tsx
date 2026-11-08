@@ -7,6 +7,7 @@ import { PwaShell } from '@/frontend/modules/pwa/PwaShell';
 import { NetworkStatusBar } from '@/components/ui/NetworkStatusBar';
 import { ReAuthModal } from '@/components/auth/ReAuthModal';
 import { ConfirmHost } from '@/components/ui/confirm-dialog';
+import { AppBehaviours } from '@/frontend/modules/shared/AppBehaviours';
 import { QueryProvider } from '@/lib/query/QueryProvider';
 import { LiveUpdateWatcher } from '@/frontend/modules/shared/LiveUpdateWatcher';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -54,6 +55,7 @@ export default function RootLayout({
               <QueryProvider>
                 {children}
                 <LiveUpdateWatcher />
+                <AppBehaviours />
               </QueryProvider>
               <PwaShell />
               <ConfirmHost />

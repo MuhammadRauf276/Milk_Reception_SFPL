@@ -5,7 +5,7 @@ import { InfoTip } from '@/components/ui/info-tip';
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, KeyRound, Edit2, ShieldAlert, CheckCircle2, MoreHorizontal, UserX, UserCheck, Search } from 'lucide-react';
+import { Plus, KeyRound, Edit2, ShieldAlert, CheckCircle2, MoreHorizontal, UserX, UserCheck, } from 'lucide-react';
 import { CREATABLE_ROLES, CreatableRole, ROLE_ASSIGNMENT_POLICIES } from '@/lib/user-assignment-policy';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
@@ -21,7 +21,11 @@ import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { useDebouncedValue } from '@/frontend/modules/super-admin/shared/useDebouncedValue';
 import { PaginationBar } from '@/frontend/modules/super-admin/shared/PaginationBar';
-import { TableWrapper } from '@/components/ui/table-wrapper';
+import { DataFilters, FilterToggle, type ActiveFilter } from '@/components/ui/data-filters';
+import { DataTable, type BulkAction, type DataColumn } from '@/components/ui/data-table';
+import { confirmAction } from '@/components/ui/confirm-dialog';
+import { formatDateTime } from '@/lib/format';
+import { AuthorityBadge } from '@/frontend/modules/shared/AuthorityBadge';
 import { UserFormDrawer } from '@/frontend/modules/super-admin/users/UserFormDrawer';
 import { UserStatusDrawer } from '@/frontend/modules/super-admin/users/UserStatusDrawer';
 import { UserResetPasswordDrawer } from '@/frontend/modules/super-admin/users/UserResetPasswordDrawer';
@@ -75,19 +79,144 @@ export default function SuperAdminUsersPage() {
   const error = usersQuery.error ? getErrorMessage(usersQuery.error) || 'Failed to load users.' : null;
 
   const closeDialog = () => setDialog(null);
+  const updateFilter = (fn: () => void) => {
+    fn();
+    setPage(1);
+  };
+
+  const setUsersActive = async (rows: UserItem[], isActive: boolean) => {
+    const verb = isActive ? 'Activate' : 'Deactivate';
+    const ok = await confirmAction({
+      title: `${verb} ${rows.length} user${rows.length === 1 ? '' : 's'}?`,
+      description: isActive ? 'They will be able to sign in again.' : 'They will not be able to sign in until activated.',
+      confirmLabel: verb,
+      destructive: !isActive,
+    });
+    if (!ok) return;
+    const results = await Promise.allSettled(
+      rows.map((u) =>
+        fetchJson(`/api/super-admin/users/${u.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isActive }),
+        })
+      )
+    );
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    const done = rows.length - failed;
+    setSuccessMsg(failed ? `${done} updated. ${failed} could not be changed.` : `${done} updated.`);
+    await queryClient.invalidateQueries({ queryKey: ['super-admin', 'users'] });
+  };
+
+  const bulkActions: BulkAction<UserItem>[] = [
+    { label: 'Activate', onRun: (rows) => setUsersActive(rows, true) },
+    { label: 'Deactivate', destructive: true, onRun: (rows) => setUsersActive(rows, false) },
+  ];
+
+  const activeFilters: ActiveFilter[] = [
+    ...(roleFilter
+      ? [{ key: 'role', label: ROLE_ASSIGNMENT_POLICIES[roleFilter as CreatableRole]?.label ?? roleFilter, onClear: () => updateFilter(() => setRoleFilter('')) }]
+      : []),
+    ...(statusFilter
+      ? [{ key: 'status', label: statusFilter === 'active' ? 'Active' : 'Deactivated', onClear: () => updateFilter(() => setStatusFilter('')) }]
+      : []),
+  ];
+
+  const columns: DataColumn<UserItem>[] = [
+    {
+      key: 'user',
+      header: 'User',
+      label: 'User',
+      primary: true,
+      cell: (u) => (
+        <div className="min-w-0">
+          <div className="font-medium text-foreground">{u.name}</div>
+          <div className="break-all text-xs text-muted-foreground">@{u.username}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      label: 'Email',
+      cell: (u) => (u.email ? <span className="break-all">{u.email}</span> : <span className="text-amber-700">Not set</span>),
+    },
+    {
+      key: 'role',
+      header: 'Role',
+      label: 'Role',
+      cell: (u) => (
+        <div className="flex flex-wrap items-center gap-1">
+          <span>{ROLE_ASSIGNMENT_POLICIES[u.role as CreatableRole]?.label || u.role}</span>
+          <AuthorityBadge role={u.role} />
+        </div>
+      ),
+    },
+    { key: 'department', header: 'Department', label: 'Department', defaultHidden: true, cell: (u) => u.department || '—' },
+    {
+      key: 'scope',
+      header: 'Data scope',
+      label: 'Data scope',
+      cell: (u) =>
+        u.procurementSource ? (
+          <span>{u.procurementSource.name}</span>
+        ) : (
+          <span className="text-secondary-foreground">{u.scopeType === 'PROCUREMENT_SOURCE' ? 'Source' : u.scopeType === 'SYSTEM' ? 'All' : u.scopeType}</span>
+        ),
+    },
+    { key: 'login', header: 'Last login', label: 'Last login', cell: (u) => <span className="tabular-nums">{u.lastLoginAt ? formatDateTime(u.lastLoginAt) : 'Never'}</span> },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cell: (u) => (
+        <span className={`inline-flex items-center gap-1 text-sm ${u.isActive ? 'text-emerald-700' : 'text-muted-foreground'}`}>
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${u.isActive ? 'bg-emerald-500' : 'bg-border-strong'}`} />
+          {u.isActive ? 'Active' : 'Deactivated'}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (u) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={`Actions for ${u.name}`}>
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onSelect={() => setDialog({ kind: 'edit', user: u })}>
+              <Edit2 />
+              Edit details
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setDialog({ kind: 'reset', user: u })}>
+              <KeyRound />
+              Reset password
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem destructive={u.isActive} onSelect={() => setDialog({ kind: 'status', user: u, targetStatus: !u.isActive })}>
+              {u.isActive ? <UserX /> : <UserCheck />}
+              {u.isActive ? 'Deactivate' : 'Activate'}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   const handleSaved = (message: string) => {
     setSuccessMsg(message);
     setDialog(null);
     void queryClient.invalidateQueries({ queryKey: ['super-admin', 'users'] });
   };
 
-  const updateFilter = (fn: () => void) => {
-    fn();
-    setPage(1);
-  };
-
   return (
-    <div className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden">
+    <div className="w-full min-w-0 max-w-full space-y-4">
       {error && (
         <div className="flex items-center space-x-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
@@ -112,7 +241,7 @@ export default function SuperAdminUsersPage() {
         )}
       </AnimatePresence>
 
-      <div className="w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xs">
+      <div className="w-full min-w-0 max-w-full rounded-2xl border border-border/80 bg-card shadow-2xs">
         <div className="space-y-3 border-b border-border p-3 sm:px-4 sm:py-3">
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center space-x-2">
@@ -126,160 +255,44 @@ export default function SuperAdminUsersPage() {
               Add user
             </Button>
           </div>
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto]">
-            <div className="relative min-w-0">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => updateFilter(() => setSearch(e.target.value))}
-                placeholder="Search users…"
-                aria-label="Search users"
-                className="h-11 w-full rounded-lg border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+          <DataFilters
+            search={search}
+            onSearchChange={(v) => updateFilter(() => setSearch(v))}
+            searchPlaceholder="Search users"
+            active={activeFilters}
+          >
+            <div className="min-w-[min(100%,14rem)] flex-1 sm:max-w-64">
+              <Combobox
+                options={ROLE_FILTER_OPTIONS}
+                value={roleFilter}
+                onValueChange={(v) => updateFilter(() => setRoleFilter(v))}
+                placeholder="All roles"
+                searchPlaceholder="Search roles"
               />
             </div>
-            <div className="min-w-0"><Combobox
-              options={ROLE_FILTER_OPTIONS}
-              value={roleFilter}
-              onValueChange={(v) => updateFilter(() => setRoleFilter(v))}
-              placeholder="All roles"
-              searchPlaceholder="Search roles"
-            /></div>
-            <div role="group" aria-label="Status filter" className="flex min-w-0 gap-1">
-              {STATUS_OPTIONS.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  aria-pressed={statusFilter === o.value}
-                  onClick={() => updateFilter(() => setStatusFilter(o.value))}
-                  className={`h-11 flex-1 rounded-xl border px-3 text-xs font-semibold ${
-                    statusFilter === o.value
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border-strong bg-card text-secondary-foreground hover:bg-subtle'
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
+            <FilterToggle
+              label="Status filter"
+              options={STATUS_OPTIONS}
+              value={statusFilter}
+              onChange={(v) => updateFilter(() => setStatusFilter(v))}
+            />
+          </DataFilters>
         </div>
 
-        <TableWrapper>
-          <table className="w-full min-w-[700px] text-left text-xs">
-            <thead className="border-b border-border bg-subtle text-secondary-foreground">
-              <tr>
-                <th className="p-3 font-semibold">User</th>
-                <th className="p-3 font-semibold">Email</th>
-                <th className="p-3 font-semibold">Role</th>
-                <th className="p-3 font-semibold">Department</th>
-                <th className="p-3 font-semibold">Data Scope</th>
-                <th className="p-3 font-semibold">Last Login</th>
-                <th className="p-3 font-semibold">Status</th>
-                <th className="p-3 text-right font-semibold">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60 font-medium">
-              {usersQuery.isPending ? (
-                <tr>
-                  <td colSpan={8} className="p-6 text-center tabular-nums text-muted-foreground">
-                    Loading users…
-                  </td>
-                </tr>
-              ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="p-6 text-center text-muted-foreground">
-                    No users found.
-                  </td>
-                </tr>
-              ) : (
-                users.map((u) => {
-                  const displayScope = u.scopeType === 'PROCUREMENT_SOURCE' ? 'SOURCE' : u.scopeType;
-                  return (
-                    <tr key={u.id} className={`hover:bg-subtle ${usersQuery.isPlaceholderData ? 'opacity-60' : ''}`}>
-                      <td className="p-3">
-                        <div className="font-semibold text-foreground">{u.name}</div>
-                        <div className="text-xs tabular-nums text-muted-foreground">@{u.username}</div>
-                      </td>
-                      <td className="p-3 text-xs tabular-nums text-secondary-foreground">
-                        {u.email ? (
-                          u.email
-                        ) : (
-                          <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                            Not set
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`inline-block whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                            u.role === 'SUPER_ADMIN' ? 'bg-primary/10 text-primary' : 'bg-muted text-secondary-foreground'
-                          }`}
-                        >
-                          {ROLE_ASSIGNMENT_POLICIES[u.role as CreatableRole]?.label || u.role}
-                        </span>
-                      </td>
-                      <td className="p-3 text-secondary-foreground">{u.department || '—'}</td>
-                      <td className="p-3">
-                        <div className="font-semibold text-secondary-foreground">{displayScope}</div>
-                        {u.procurementSource && (
-                          <div className="text-xs tabular-nums text-muted-foreground">
-                            {u.procurementSource.name} ({u.procurementSource.sourceType})
-                          </div>
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap p-3 text-xs tabular-nums text-muted-foreground">
-                        {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : 'Never'}
-                      </td>
-                      <td className="p-3">
-                        {u.isActive ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                            <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                            Deactivated
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-11 w-11" aria-label={`Actions for ${u.name}`}>
-                              <MoreHorizontal />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem onSelect={() => setDialog({ kind: 'edit', user: u })}>
-                              <Edit2 />
-                              Edit details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setDialog({ kind: 'reset', user: u })}>
-                              <KeyRound />
-                              Reset password
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              destructive={u.isActive}
-                              onSelect={() => setDialog({ kind: 'status', user: u, targetStatus: !u.isActive })}
-                            >
-                              {u.isActive ? <UserX /> : <UserCheck />}
-                              {u.isActive ? 'Deactivate' : 'Activate'}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </TableWrapper>
+        <div className="p-3 sm:p-4">
+          <DataTable
+            columns={columns}
+            rows={users}
+            getRowId={(u) => String(u.id)}
+            loading={usersQuery.isPending}
+            stale={usersQuery.isPlaceholderData}
+            emptyTitle="No users found"
+            emptyDescription={activeFilters.length ? 'Try removing a filter.' : undefined}
+            bulkActions={bulkActions}
+            columnPickerId="super-admin-users"
+            tableFrom="lg"
+          />
+        </div>
         <PaginationBar
           page={pagination?.page ?? page}
           totalPages={pagination?.totalPages ?? 1}

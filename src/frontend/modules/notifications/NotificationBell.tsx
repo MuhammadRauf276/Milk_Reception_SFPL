@@ -95,21 +95,21 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
 
   const handleMarkAllRead = async () => {
     if (unreadCount === 0 || loading) return;
+    const before = queryClient.getQueryData<Feed>(feedKey);
+    const beforeCount = unreadRef.current ?? 0;
     setLoading(true);
+    setNotifications((prev) => prev.map((item) => ({ ...item, readAt: item.readAt || new Date().toISOString() })));
+    applyUnreadCount(0);
     try {
       const res = await fetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ markAllRead: true }),
       });
-      if (res.ok) {
-        setNotifications((prev) =>
-          prev.map((item) => ({ ...item, readAt: item.readAt || new Date().toISOString() }))
-        );
-        applyUnreadCount(0);
-      }
+      if (!res.ok) throw new Error('Refused');
     } catch (_err) {
-      // Ignore
+      queryClient.setQueryData(feedKey, before);
+      applyUnreadCount(beforeCount);
     } finally {
       setLoading(false);
     }
@@ -117,19 +117,20 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
 
   const handleItemClick = async (item: NotificationItem) => {
     if (!item.readAt) {
-      try {
-        await fetch('/api/notifications', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: item.id }),
+      setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, readAt: new Date().toISOString() } : n)));
+      applyUnreadCount(Math.max(0, (unreadRef.current ?? 0) - 1));
+      void fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id }),
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Refused');
+        })
+        .catch(() => {
+          setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, readAt: null } : n)));
+          applyUnreadCount((unreadRef.current ?? 0) + 1);
         });
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === item.id ? { ...n, readAt: new Date().toISOString() } : n))
-        );
-        applyUnreadCount(Math.max(0, (unreadRef.current ?? 0) - 1));
-      } catch (_err) {
-        // Ignore
-      }
     }
 
     setOpenForUserId(null);
