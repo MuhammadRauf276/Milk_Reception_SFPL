@@ -65,7 +65,7 @@ const CARD_CLASS = { md: '@3xl:hidden', lg: '@5xl:hidden' } as const;
 const TABLE_CLASS = { md: 'hidden @3xl:block', lg: 'hidden @5xl:block' } as const;
 
 function readHidden(id: string | undefined): string[] | null {
-  if (!id) return null;
+  if (!id || typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(`table-columns:${id}`);
     return raw ? (JSON.parse(raw) as string[]) : null;
@@ -100,12 +100,9 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(new Set());
   const [running, setRunning] = React.useState(false);
-  const [hidden, setHidden] = React.useState<string[]>(() => columns.filter((c) => c.defaultHidden).map((c) => c.key));
-
-  React.useEffect(() => {
-    const saved = readHidden(columnPickerId);
-    if (saved) setHidden(saved);
-  }, [columnPickerId]);
+  const [hidden, setHidden] = React.useState<string[]>(
+    () => readHidden(columnPickerId) ?? columns.filter((c) => c.defaultHidden).map((c) => c.key)
+  );
 
   const toggleColumn = (key: string) => {
     setHidden((prev) => {
@@ -122,18 +119,9 @@ export function DataTable<T>({
   const visible = columns.filter((c) => !hidden.includes(c.key));
   const canSelect = !!bulkActions?.length;
   const ids = rows.map(getRowId);
+  // A selection only applies to rows on screen: rows that left the list are never acted on.
   const pickedRows = rows.filter((r) => selected.has(getRowId(r)));
   const allPicked = ids.length > 0 && ids.every((id) => selected.has(id));
-
-  // A selection only applies to rows on screen.
-  const idsKey = ids.join('|');
-  React.useEffect(() => {
-    setSelected((prev) => {
-      const here = new Set(idsKey ? idsKey.split('|') : []);
-      const next = [...prev].filter((id) => here.has(id));
-      return next.length === prev.size ? prev : new Set(next);
-    });
-  }, [idsKey]);
 
   const toggleRow = (id: string) =>
     setSelected((prev) => {
