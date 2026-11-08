@@ -100,9 +100,9 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
 
   if (error && !data) {
     return (
-      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center space-y-3 max-w-lg mx-auto">
+      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center space-y-3 max-w-lg mx-auto">
         <AlertCircle className="h-7 w-7 text-destructive mx-auto" />
-        <h3 className="text-base font-bold text-foreground">Failed to Load Command Data</h3>
+        <h3 className="text-base font-semibold text-foreground">Failed to Load Command Data</h3>
         <p className="text-xs text-muted-foreground">{error}</p>
         <Button onClick={() => fetchData()} size="sm" variant="outline" className="text-xs min-h-11 px-4">
           Try Again
@@ -116,7 +116,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
       {/* 1. Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border/60">
         <div>
-          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+          <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground">
             {viewMetadata.title}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -153,7 +153,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
           onClick={() => handleTabChange('OVERVIEW')}
           className={`flex-1 min-h-10 py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
             currentTab === 'OVERVIEW'
-              ? 'bg-background text-foreground shadow-2xs font-bold'
+              ? 'bg-background text-foreground shadow-2xs font-semibold'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -165,14 +165,14 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
           onClick={() => handleTabChange('SILOS')}
           className={`flex-1 min-h-10 py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
             currentTab === 'SILOS'
-              ? 'bg-background text-foreground shadow-2xs font-bold'
+              ? 'bg-background text-foreground shadow-2xs font-semibold'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Database className="h-3.5 w-3.5" />
           <span>Plant Silos</span>
           {data && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-muted text-foreground">
+            <span className="text-xs px-1.5 py-0.2 rounded-full bg-muted text-foreground">
               {data.silos.length}
             </span>
           )}
@@ -182,7 +182,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
           onClick={() => handleTabChange('HISTORY')}
           className={`flex-1 min-h-10 py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
             currentTab === 'HISTORY'
-              ? 'bg-background text-foreground shadow-2xs font-bold'
+              ? 'bg-background text-foreground shadow-2xs font-semibold'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >

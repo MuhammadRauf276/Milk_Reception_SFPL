@@ -33,7 +33,7 @@ export function StickyActionBar({
           : undefined
       }
       className={cn(
-        'fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md shadow-lg transition-all duration-150',
+        'fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md shadow-lg transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150',
         'lg:relative lg:inset-auto lg:bottom-auto lg:z-auto lg:border-t-0 lg:bg-transparent lg:p-0 lg:pb-0 lg:backdrop-blur-none lg:shadow-none',
         className
       )}

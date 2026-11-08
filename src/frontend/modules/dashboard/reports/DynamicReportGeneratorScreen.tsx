@@ -232,7 +232,7 @@ export function DynamicReportGeneratorScreen({
   return (
     <div className="space-y-6 animate-panel-in">
       {/* Domain Selection Header */}
-      <div className="bg-card border border-border p-4 rounded-xl shadow-xs space-y-4">
+      <div className="bg-card border border-border p-4 rounded-2xl shadow-xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
@@ -332,7 +332,7 @@ export function DynamicReportGeneratorScreen({
           )}
 
           {groupByFieldId && viewMode === 'GRID' && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-[11px] font-medium border border-primary/20">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium border border-primary/20">
               <Layers className="w-3 h-3" /> Grouped by {allFields.find((f) => f.id === groupByFieldId)?.label || groupByFieldId}
             </span>
           )}
@@ -410,7 +410,7 @@ export function DynamicReportGeneratorScreen({
                 onClick={() => handleExport('CSV')}
                 className="h-8 text-xs font-medium"
               >
-                <FileText className="w-3.5 h-3.5 mr-1 text-slate-600" />
+                <FileText className="w-3.5 h-3.5 mr-1 text-secondary-foreground" />
                 CSV
               </Button>
             </>

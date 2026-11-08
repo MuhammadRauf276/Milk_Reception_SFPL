@@ -111,11 +111,11 @@ export function MilkSourcesPanel({
       variants={fadeSlide}
       initial="initial"
       animate="animate"
-      className="bg-card border-border rounded-xl border p-4 space-y-4 shadow-2xs"
+      className="bg-card border-border rounded-2xl border p-4 space-y-4 shadow-2xs"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-4" />
+          <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-4" />
           <input
             type="text"
             value={search}
@@ -124,14 +124,14 @@ export function MilkSourcesPanel({
               setPage(1);
             }}
             placeholder="Search"
-            className="w-full min-h-11 pl-8 pr-3 py-1.5 border border-border rounded-xl text-xs font-semibold focus:ring-2 focus:ring-primary outline-hidden"
+            className="w-full min-h-11 pl-8 pr-3 py-1.5 border border-border rounded-lg text-xs font-semibold focus:ring-2 focus:ring-primary outline-hidden"
           />
         </div>
 
         <button
           type="button"
           onClick={openAdd}
-          className="flex min-h-11 items-center justify-center space-x-1 px-3.5 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold transition shadow-2xs"
+          className="flex min-h-11 items-center justify-center space-x-1 px-3.5 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold transition shadow-2xs"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Create Milk Source</span>
@@ -140,7 +140,7 @@ export function MilkSourcesPanel({
 
       <div className="overflow-x-auto border border-border rounded-xl">
         <table className="w-full text-left text-xs">
-          <thead className="bg-subtle text-slate-600 font-semibold border-b border-border">
+          <thead className="bg-subtle text-secondary-foreground font-semibold border-b border-border">
             <tr>
               <th className="py-2.5 px-3">ERP Code</th>
               <th className="py-2.5 px-3">Source Name</th>
@@ -154,12 +154,12 @@ export function MilkSourcesPanel({
               const activeVis = source.zmcc_visibilities.filter((v) => v.is_active);
               return (
                 <tr key={source.id} className="hover:bg-subtle transition-colors">
-                  <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{source.erp_code}</td>
-                  <td className="py-2.5 px-3 font-semibold text-slate-800">{source.name}</td>
+                  <td className="py-2.5 px-3 font-mono font-semibold text-foreground">{source.erp_code}</td>
+                  <td className="py-2.5 px-3 font-semibold text-foreground">{source.name}</td>
                   <td className="py-2.5 px-3">
                     <div className="flex flex-wrap gap-1">
                       {activeVis.length === 0 ? (
-                        <span className="text-slate-400 text-[11px]">Not assigned to any ZMCC</span>
+                        <span className="text-muted-foreground text-xs">Not assigned to any ZMCC</span>
                       ) : (
                         activeVis.map((v) => {
                           const isContractor = v.source_type === 'CONTRACTOR';
@@ -169,7 +169,7 @@ export function MilkSourcesPanel({
                               className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
                                 isContractor
                                   ? 'bg-amber-50 text-amber-900 border-amber-200'
-                                  : 'bg-slate-100 text-slate-800 border-border'
+                                  : 'bg-muted text-foreground border-border'
                               }`}
                             >
                               [{v.zmcc_code}] {v.zmcc_name}
@@ -182,7 +182,7 @@ export function MilkSourcesPanel({
                   <td className="py-2.5 px-3">
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                        source.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
+                        source.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-muted-foreground'
                       }`}
                     >
                       {source.is_active ? 'Active' : 'Inactive'}
@@ -193,7 +193,7 @@ export function MilkSourcesPanel({
                       type="button"
                       aria-label={`Edit ${source.name}`}
                       onClick={() => openEdit(source)}
-                      className="inline-flex min-h-11 min-w-11 items-center justify-center hover:bg-subtle text-slate-600 hover:text-primary rounded-lg transition"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center hover:bg-subtle text-secondary-foreground hover:text-primary rounded-lg transition"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
@@ -203,7 +203,7 @@ export function MilkSourcesPanel({
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-slate-400">
+                <td colSpan={5} className="py-8 text-center text-muted-foreground">
                   No milk sources found.
                 </td>
               </tr>
@@ -227,7 +227,7 @@ export function MilkSourcesPanel({
                   type="button"
                   aria-label="Close"
                   onClick={() => setDrawerOpen(false)}
-                  className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:text-secondary-foreground"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -244,7 +244,7 @@ export function MilkSourcesPanel({
                     value={form.erp_code}
                     onChange={(e) => setForm((prev) => ({ ...prev, erp_code: e.target.value }))}
                     placeholder="e.g. 1042"
-                    className="w-full min-h-11 px-3 py-2 border border-border rounded-xl font-semibold bg-white"
+                    className="w-full min-h-11 px-3 py-2 border border-border rounded-lg font-semibold bg-card"
                   />
                 </div>
 
@@ -258,7 +258,7 @@ export function MilkSourcesPanel({
                     value={form.name}
                     onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g. Bhalwal Dairy Hub"
-                    className="w-full min-h-11 px-3 py-2 border border-border rounded-xl font-semibold bg-white"
+                    className="w-full min-h-11 px-3 py-2 border border-border rounded-lg font-semibold bg-card"
                   />
                 </div>
 
@@ -271,7 +271,7 @@ export function MilkSourcesPanel({
                         onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))}
                         className="w-4 h-4 rounded text-primary focus:ring-primary"
                       />
-                      <span className="font-semibold text-slate-700">Source Active Status</span>
+                      <span className="font-semibold text-secondary-foreground">Source Active Status</span>
                     </label>
                   </div>
                 )}
@@ -287,12 +287,12 @@ export function MilkSourcesPanel({
                           onChange={() => toggleZmcc(z.id)}
                           className="w-4 h-4 rounded text-primary focus:ring-primary"
                         />
-                        <span className="text-slate-800">
+                        <span className="text-foreground">
                           [{z.code}] {z.name}
                         </span>
                       </label>
                     ))}
-                    {zmccOptions.length === 0 && <span className="text-slate-400 text-xs">No ZMCCs loaded.</span>}
+                    {zmccOptions.length === 0 && <span className="text-muted-foreground text-xs">No ZMCCs loaded.</span>}
                   </div>
                 </div>
 
@@ -300,14 +300,14 @@ export function MilkSourcesPanel({
                   <button
                     type="button"
                     onClick={() => setDrawerOpen(false)}
-                    className="min-h-11 px-4 py-2 border border-border rounded-xl text-slate-600 font-semibold hover:bg-subtle"
+                    className="min-h-11 px-4 py-2 border border-border rounded-lg text-secondary-foreground font-semibold hover:bg-subtle"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="min-h-11 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl font-semibold transition disabled:opacity-50"
+                    className="min-h-11 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg font-semibold transition disabled:opacity-50"
                   >
                     {submitting ? 'Saving…' : 'Save Milk Source'}
                   </button>

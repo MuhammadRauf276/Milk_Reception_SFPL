@@ -8,10 +8,10 @@ import { StatusScreen } from '@/components/ui/status-screen';
 
 export default function GlobalError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error('Global Application Error Caught by Boundary:', error);
@@ -34,7 +34,7 @@ export default function GlobalError({
         </>
       }
     >
-      <Button onClick={() => reset()}>
+      <Button onClick={() => retry()}>
         <RotateCcw />
         Try again
       </Button>

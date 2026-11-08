@@ -71,10 +71,10 @@ export const ZMCCManagerReviewDrawer: React.FC<{
     <Drawer open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DrawerContent>
         <div className="overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+          <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-subtle">
             <div className="flex items-center space-x-2">
               <ShieldCheck className="w-5 h-5 text-primary" />
-              <DrawerTitle className="text-sm font-semibold text-slate-900">
+              <DrawerTitle className="text-sm font-semibold text-foreground">
                 Manager Quality Review: Session #{session.id}
               </DrawerTitle>
             </div>
@@ -82,7 +82,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-all"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:text-secondary-foreground hover:bg-slate-200/60 transition-[color,background-color,border-color,box-shadow,opacity,transform]"
             >
               <X className="w-5 h-5" />
             </button>
@@ -103,7 +103,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
                   <span>Vehicle Physically Exited</span>
                 </div>
-                <p className="text-[11px] leading-relaxed">
+                <p className="text-xs leading-relaxed">
                   The vehicle departed on <strong>{formatOperationalDatetime(exitTime!)}</strong>. Approving this
                   record will register an official audit review (
                   <code className="font-semibold text-amber-900 bg-amber-100 px-1 py-0.5 rounded">
@@ -118,7 +118,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
                   <CheckCircle className="w-4 h-4 text-emerald-600" />
                   <span>Vehicle On-Site</span>
                 </div>
-                <p className="text-[11px] leading-relaxed">
+                <p className="text-xs leading-relaxed">
                   Approving accepts the milk.
                 </p>
               </div>
@@ -127,20 +127,20 @@ export const ZMCCManagerReviewDrawer: React.FC<{
             {/* Session Meta */}
             <div className="bg-card border-border grid grid-cols-2 gap-2 text-xs tabular-nums p-3 rounded-xl border">
               <div>
-                <span className="text-slate-500 text-xs block font-sans uppercase font-semibold">Arrival Type</span>
-                <span className="font-semibold text-slate-900">{session.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}</span>
+                <span className="text-muted-foreground text-xs block font-sans font-semibold">Arrival Type</span>
+                <span className="font-semibold text-foreground">{session.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}</span>
               </div>
               <div>
-                <span className="text-slate-500 text-xs block font-sans uppercase font-semibold">Original Decision</span>
-                <span className="font-semibold text-slate-900">{session.decision}</span>
+                <span className="text-muted-foreground text-xs block font-sans font-semibold">Original Decision</span>
+                <span className="font-semibold text-foreground">{session.decision}</span>
               </div>
               <div>
-                <span className="text-slate-500 text-xs block font-sans uppercase font-semibold">System Outcome</span>
-                <span className="font-semibold text-slate-900">{session.system_quality_outcome || '—'}</span>
+                <span className="text-muted-foreground text-xs block font-sans font-semibold">System Outcome</span>
+                <span className="font-semibold text-foreground">{session.system_quality_outcome || '—'}</span>
               </div>
               <div>
-                <span className="text-slate-500 text-xs block font-sans uppercase font-semibold">Quantity</span>
-                <span className="font-semibold text-slate-900">
+                <span className="text-muted-foreground text-xs block font-sans font-semibold">Quantity</span>
+                <span className="font-semibold text-foreground">
                   {session.gross_liters != null ? `${session.gross_liters.toLocaleString()} L` : '—'}
                 </span>
               </div>
@@ -148,7 +148,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
 
             {/* Decision Radio Choice */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-800 block">Manager Decision</label>
+              <label className="text-xs font-semibold text-foreground block">Manager Decision</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -156,7 +156,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
                   className={`min-h-11 p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                     reviewDecision === 'ACCEPTED'
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500/20'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      : 'border-border bg-subtle text-secondary-foreground hover:bg-muted'
                   }`}
                 >
                   <CheckCircle className="w-4 h-4 text-emerald-600" />
@@ -169,7 +169,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
                   className={`min-h-11 p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                     reviewDecision === 'REJECTED'
                       ? 'border-rose-500 bg-rose-50 text-rose-800 ring-2 ring-rose-500/20'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      : 'border-border bg-subtle text-secondary-foreground hover:bg-muted'
                   }`}
                 >
                   <XCircle className="w-4 h-4 text-rose-600" />
@@ -180,7 +180,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
 
             {/* Substantive Reason Textarea */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-slate-800 block">
+              <label className="text-xs font-semibold text-foreground block">
                 Substantive Justification / Reason <span className="text-rose-600">*</span>
               </label>
               <textarea
@@ -189,23 +189,23 @@ export const ZMCCManagerReviewDrawer: React.FC<{
                 placeholder="Enter substantive justification…"
                 rows={3}
                 required
-                className="w-full p-2.5 text-base sm:text-xs font-medium rounded-xl bg-subtle border border-border text-foreground focus:ring-2 focus:ring-primary outline-hidden min-h-11"
+                className="w-full p-2.5 text-base sm:text-xs font-medium rounded-lg bg-subtle border border-border text-foreground focus:ring-2 focus:ring-primary outline-hidden min-h-11"
               />
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
               <button
                 type="button"
                 onClick={onClose}
-                className="min-h-11 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+                className="min-h-11 px-4 py-2 text-xs font-semibold text-secondary-foreground hover:bg-muted rounded-lg transition-[color,background-color,border-color,box-shadow,opacity,transform]"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={reviewSubmitting || reviewReason.trim().length < 3}
-                className="min-h-11 px-4 py-2 text-xs font-semibold bg-primary text-white rounded-xl hover:bg-primary/90 transition-all disabled:opacity-50 shadow-2xs flex items-center gap-1.5"
+                className="min-h-11 px-4 py-2 text-xs font-semibold bg-primary text-white rounded-lg hover:bg-primary/90 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 shadow-2xs flex items-center gap-1.5"
               >
                 {reviewSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>{reviewSubmitting ? 'Recording…' : 'Submit Decision'}</span>

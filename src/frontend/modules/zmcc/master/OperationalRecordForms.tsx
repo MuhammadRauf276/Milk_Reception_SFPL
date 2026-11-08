@@ -21,7 +21,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Shop Name</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Shop Name</label>
                       <input
                         type="text"
                         required
@@ -32,7 +32,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                         Shop Owner / Contractor
                       </label>
                       <input
@@ -48,7 +48,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Phone Number</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Phone Number</label>
                       <input
                         type="text"
                         required
@@ -59,7 +59,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">CNIC (13 Digits)</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">CNIC (13 Digits)</label>
                       <input
                         type="text"
                         required
@@ -74,7 +74,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                   {/* Dependent Route & Area Selection */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Route</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Route</label>
                       <Combobox
                         options={helperRoutes.map((r) => ({ value: r.id, label: `${r.name} · ${r.route_code}`, keywords: r.route_code }))}
                         value={String(formData.route_id || '')}
@@ -86,7 +86,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Collection Area</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Collection Area</label>
                       <Combobox
                         options={helperAreas
                           .filter((a) => !formData.route_id || a.route_id === formData.route_id)
@@ -105,7 +105,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Chiller Ownership</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Chiller Ownership</label>
                       <Combobox
                         options={helperChillers.map((co) => ({ value: co.id, label: co.name }))}
                         value={String(formData.chiller_ownership_id || '')}
@@ -120,8 +120,8 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                   {/* GPS Optional Coordinates */}
                   <div className="grid grid-cols-2 gap-3 pt-1 border-t border-border">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">
-                        Latitude <span className="text-xs text-slate-400 font-normal">(-90 to 90)</span>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">
+                        Latitude <span className="text-xs text-muted-foreground font-normal">(-90 to 90)</span>
                       </label>
                       <input
                         type="number"
@@ -133,8 +133,8 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">
-                        Longitude <span className="text-xs text-slate-400 font-normal">(-180 to 180)</span>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">
+                        Longitude <span className="text-xs text-muted-foreground font-normal">(-180 to 180)</span>
                       </label>
                       <input
                         type="number"
@@ -154,18 +154,18 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
               {(modalType === 'CREATE_TANK' || modalType === 'EDIT_TANK') && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Tank Code *</label>
+                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Tank Code *</label>
                     <input
                       type="text"
                       required
                       value={formData.tank_code || ''}
                       onChange={(e) => setFormData({ ...formData, tank_code: e.target.value.toUpperCase() })}
                       placeholder="e.g. TANK-01"
-                      className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold uppercase focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Tank Name *</label>
+                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Tank Name *</label>
                     <input
                       type="text"
                       required
@@ -176,7 +176,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Total Capacity (Liters) *</label>
+                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Total Capacity (Liters) *</label>
                     <input
                       type="number"
                       step="0.01"
@@ -194,7 +194,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
               {/* Toggle Active Confirmation */}
               {modalType === 'TOGGLE_ACTIVE' && (
                 <div className="space-y-3 py-2">
-                  <p className="text-xs text-slate-700 font-medium">
+                  <p className="text-xs text-secondary-foreground font-medium">
                     Are you sure you want to {activeRecord?.is_active ? 'deactivate' : 'activate'}{' '}
                     <strong className="text-foreground font-semibold">
                       {activeRecord?.name || activeRecord?.shop_name || activeRecord?.tank_name}

@@ -67,7 +67,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
 
   if (error) {
     return (
-      <div className="bg-card border-border p-6 rounded-xl border text-center space-y-2">
+      <div className="bg-card border-border p-6 rounded-2xl border text-center space-y-2">
         <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
         <h4 className="text-sm font-semibold text-rose-900">Failed to load pipeline</h4>
         <p className="text-xs text-rose-700">{error}</p>
@@ -77,20 +77,20 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="bg-card border-border p-5 rounded-xl border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-card border-border p-5 rounded-2xl border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search"
-            className="w-full pl-9 pr-4 py-2.5 min-h-[44px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+            className="w-full pl-9 pr-4 py-2.5 min-h-[44px] text-xs tabular-nums font-semibold bg-subtle border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
           />
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
-          <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 mr-1 shrink-0">
+          <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mr-1 shrink-0">
             <Filter className="w-3.5 h-3.5" />
             <span>Stage:</span>
           </span>
@@ -101,7 +101,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'ALL_ACTIVE'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             All ({activeVisits.length})
@@ -113,7 +113,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'GATE'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             Security ({activeVisits.filter((v) => v.journeyStage === 'GATE_ENTRY').length})
@@ -125,7 +125,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'QA'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             QA ({activeVisits.filter((v) => v.journeyStage === 'PLANT_QA').length})
@@ -137,7 +137,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'SCALE'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             Scale ({activeVisits.filter((v) => v.journeyStage === 'WEIGHBRIDGE_GROSS').length})
@@ -149,7 +149,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'UNLOADING'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             Unloading ({activeVisits.filter((v) => v.journeyStage === 'UNLOADING').length})
@@ -171,14 +171,14 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
 
       <div className="space-y-4">
         {isLoading ? (
-          <div className="bg-card border-border py-16 text-center text-xs font-semibold text-slate-500 rounded-xl border shadow-xs">
+          <div className="bg-card border-border py-16 text-center text-xs font-semibold text-muted-foreground rounded-xl border shadow-xs">
             Loading active pipeline visits…
           </div>
         ) : filteredVisits.length === 0 ? (
           <div className="bg-card border-border py-16 px-4 rounded-xl border border-dashed text-center space-y-2 shadow-xs">
             <Truck className="w-10 h-10 text-slate-300 mx-auto" />
-            <h4 className="text-sm font-semibold text-slate-700">No Active Tankers in Pipeline</h4>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <h4 className="text-sm font-semibold text-secondary-foreground">No Active Tankers in Pipeline</h4>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
               No active tankers
             </p>
           </div>
@@ -186,28 +186,28 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
           filteredVisits.map((v) => (
             <div
               key={v.visitId}
-              className="p-5 sm:p-6 rounded-xl bg-white border border-border shadow-xs space-y-4 hover:border-blue-300 transition"
+              className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-xs space-y-4 hover:border-blue-300 transition"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
                 <div className="flex items-center space-x-3">
                   <div className="p-2.5 bg-blue-50 text-blue-900 rounded-xl">
                     <Truck className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <h3 className="text-base font-semibold text-slate-900 tabular-nums tracking-tight">
+                      <h3 className="text-base font-semibold text-foreground tabular-nums tracking-tight">
                         {v.vehicleNumber}
                       </h3>
                       {v.tokenNumber && (
-                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] tabular-nums font-semibold border border-slate-200">
+                        <span className="px-2 py-0.5 rounded bg-muted text-secondary-foreground text-xs tabular-nums font-semibold border border-border">
                           Token: {v.tokenNumber}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 font-medium">
+                    <p className="text-xs text-muted-foreground font-medium">
                       Reception #{' '}
-                      <strong className="tabular-nums text-slate-700">{v.receptionNumber}</strong> · Date:{' '}
-                      <strong className="tabular-nums text-slate-700">{v.operationalDate || '—'}</strong>
+                      <strong className="tabular-nums text-secondary-foreground">{v.receptionNumber}</strong> · Date:{' '}
+                      <strong className="tabular-nums text-secondary-foreground">{v.operationalDate || '—'}</strong>
                     </p>
                   </div>
                 </div>
@@ -225,7 +225,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                         ? 'bg-amber-100 text-amber-900 border border-amber-300'
                         : v.journeyStage === 'GATE_ENTRY'
                         ? 'bg-blue-50 text-blue-900 border border-blue-200'
-                        : 'bg-slate-100 text-slate-800'
+                        : 'bg-muted text-foreground'
                     }`}
                   >
                     {v.journeyStageLabel}
@@ -233,17 +233,17 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 text-center text-[11px]">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 text-center text-xs">
                 <div
                   className={`p-2.5 rounded-xl border ${
                     v.gateEntryTimestamp
                       ? 'bg-card border-border text-emerald-800'
-                      : 'bg-card border-border text-slate-400'
+                      : 'bg-card border-border text-muted-foreground'
                   }`}
                 >
                   <ShieldCheck className="w-4 h-4 mx-auto mb-1 text-inherit" />
                   <span className="font-semibold block">1. Security Gate</span>
-                  <span className="text-[10px] tabular-nums">
+                  <span className="text-xs tabular-nums">
                     {v.gateEntryTimestamp ? 'Arrived' : 'Pending'}
                   </span>
                 </div>
@@ -254,12 +254,12 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                       ? 'bg-card border-border text-emerald-800'
                       : v.journeyStage === 'PLANT_QA'
                       ? 'bg-card border-border text-amber-800'
-                      : 'bg-card border-border text-slate-400'
+                      : 'bg-card border-border text-muted-foreground'
                   }`}
                 >
                   <FlaskConical className="w-4 h-4 mx-auto mb-1 text-inherit" />
                   <span className="font-semibold block">2. QA Lab</span>
-                  <span className="text-[10px] tabular-nums truncate block">
+                  <span className="text-xs tabular-nums truncate block">
                     {v.qaSummary.summaryText}
                   </span>
                 </div>
@@ -268,12 +268,12 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                   className={`p-2.5 rounded-xl border ${
                     v.firstWeightTimestamp
                       ? 'bg-card border-border text-emerald-800'
-                      : 'bg-card border-border text-slate-400'
+                      : 'bg-card border-border text-muted-foreground'
                   }`}
                 >
                   <Scale className="w-4 h-4 mx-auto mb-1 text-inherit" />
                   <span className="font-semibold block">3. 1st Weight</span>
-                  <span className="text-[10px] tabular-nums">
+                  <span className="text-xs tabular-nums">
                     {v.firstWeightKg ? `${v.firstWeightKg.toLocaleString()} kg` : 'Pending'}
                   </span>
                 </div>
@@ -284,12 +284,12 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                       ? 'bg-card border-border text-emerald-800'
                       : v.journeyStage === 'UNLOADING'
                       ? 'bg-card border-border text-blue-800'
-                      : 'bg-card border-border text-slate-400'
+                      : 'bg-card border-border text-muted-foreground'
                   }`}
                 >
                   <Building2 className="w-4 h-4 mx-auto mb-1 text-inherit" />
                   <span className="font-semibold block">4. Silo Unload</span>
-                  <span className="text-[10px] tabular-nums">
+                  <span className="text-xs tabular-nums">
                     {v.unloadingEndTimestamp ? 'Completed' : 'In Progress'}
                   </span>
                 </div>
@@ -300,12 +300,12 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                       ? 'bg-card border-border text-emerald-800'
                       : v.journeyStage === 'RECEIPT_PENDING'
                       ? 'bg-card border-border text-amber-800'
-                      : 'bg-card border-border text-slate-400'
+                      : 'bg-card border-border text-muted-foreground'
                   }`}
                 >
                   <Receipt className="w-4 h-4 mx-auto mb-1 text-inherit" />
                   <span className="font-semibold block">5. Final Receipt</span>
-                  <span className="text-[10px] tabular-nums font-semibold">
+                  <span className="text-xs tabular-nums font-semibold">
                     {v.finalReceiptExists && v.authoritativeFinalLiters != null
                       ? `${v.authoritativeFinalLiters.toLocaleString()} L`
                       : v.journeyStage === 'RECEIPT_PENDING'
@@ -315,25 +315,25 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 </div>
               </div>
 
-              <div className="bg-card border-border p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="bg-card border-border p-3.5 rounded-2xl border flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div className="flex items-center space-x-2">
-                  <span className="text-slate-500 font-semibold">Whole Vehicle Gross:</span>
-                  <span className="tabular-nums font-semibold text-slate-900">
+                  <span className="text-muted-foreground font-semibold">Whole Vehicle Gross:</span>
+                  <span className="tabular-nums font-semibold text-foreground">
                     {v.grossLiters ? `${v.grossLiters.toLocaleString()} L` : '—'}
                   </span>
                 </div>
 
                 {v.netWeightKg != null && (
                   <div className="flex items-center space-x-2">
-                    <span className="text-slate-500 font-semibold">Scale Net Weight:</span>
-                    <span className="tabular-nums font-semibold text-slate-800">
+                    <span className="text-muted-foreground font-semibold">Scale Net Weight:</span>
+                    <span className="tabular-nums font-semibold text-foreground">
                       {v.netWeightKg.toLocaleString()} kg
                     </span>
                   </div>
                 )}
 
                 <div className="flex items-center space-x-2">
-                  <span className="text-slate-500 font-semibold">Authoritative Receipt:</span>
+                  <span className="text-muted-foreground font-semibold">Authoritative Receipt:</span>
                   <span
                     className={`tabular-nums font-semibold ${
                       v.finalReceiptExists && v.authoritativeFinalLiters != null

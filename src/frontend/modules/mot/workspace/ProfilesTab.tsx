@@ -30,15 +30,15 @@ export function ProfilesTab({ profiles, loading, onAdd, onEdit, onToggleActive }
           </div>
 
           {loading ? (
-            <div className="p-8 text-center text-xs font-semibold text-slate-500">Loading profiles…</div>
+            <div className="p-8 text-center text-xs font-semibold text-muted-foreground">Loading profiles…</div>
           ) : profiles.length === 0 ? (
-            <div className="p-8 text-center text-xs font-semibold text-slate-500">
+            <div className="p-8 text-center text-xs font-semibold text-muted-foreground">
               No Mobile Tester profiles registered for this ZMCC.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-muted/60 text-slate-700 uppercase font-semibold tracking-wider text-[10px] border-b border-border">
+                <thead className="bg-muted/60 text-secondary-foreground font-semibold text-xs border-b border-border">
                   <tr>
                     <th className="p-3">Mobile Tester Code</th>
                     <th className="p-3">Name</th>
@@ -55,24 +55,24 @@ export function ProfilesTab({ profiles, loading, onAdd, onEdit, onToggleActive }
                     <tr key={p.id} className="hover:bg-subtle">
                       <td className="p-3 tabular-nums font-semibold text-primary">{p.mot_code}</td>
                       <td className="p-3 font-semibold text-foreground">{p.name}</td>
-                      <td className="p-3 font-medium text-slate-700">{p.phone_number}</td>
-                      <td className="p-3 tabular-nums text-slate-600">{p.cnic}</td>
-                      <td className="p-3 text-slate-600 font-medium">
-                        {p.user ? `@${p.user.username}` : <span className="text-slate-400">Unlinked</span>}
+                      <td className="p-3 font-medium text-secondary-foreground">{p.phone_number}</td>
+                      <td className="p-3 tabular-nums text-secondary-foreground">{p.cnic}</td>
+                      <td className="p-3 text-secondary-foreground font-medium">
+                        {p.user ? `@${p.user.username}` : <span className="text-muted-foreground">Unlinked</span>}
                       </td>
                       <td className="p-3">
                         {p.has_active_journey ? (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold">
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">
                             #{p.active_journey?.journey_number}
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[11px]">None (Available)</span>
+                          <span className="text-muted-foreground text-xs">None (Available)</span>
                         )}
                       </td>
                       <td className="p-3">
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                            p.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                            p.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-secondary-foreground'
                           }`}
                         >
                           {p.is_active ? 'Active' : 'Inactive'}
@@ -82,7 +82,7 @@ export function ProfilesTab({ profiles, loading, onAdd, onEdit, onToggleActive }
                         <button
                           type="button"
                           onClick={() => onEdit(p)}
-                          className="min-h-[44px] px-3 rounded-lg bg-muted text-slate-800 font-semibold hover:bg-border"
+                          className="min-h-[44px] px-3 rounded-lg bg-muted text-foreground font-semibold hover:bg-border"
                         >
                           Edit
                         </button>

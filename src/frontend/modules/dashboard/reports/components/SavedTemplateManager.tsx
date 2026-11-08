@@ -221,7 +221,7 @@ export function SavedTemplateManager({
                 />
               </div>
 
-              <div className="p-3 rounded-lg bg-muted/40 border border-border text-[11px] text-muted-foreground space-y-1">
+              <div className="p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground space-y-1">
                 <div>Active Columns: <strong>{activeSelectedFieldIds.length} fields</strong></div>
                 <div>Filter Clauses: <strong>{activeFilters.length} rules</strong></div>
                 {activeGroupByFieldId && <div>Grouped By: <strong>{activeGroupByFieldId}</strong></div>}

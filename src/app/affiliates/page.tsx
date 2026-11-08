@@ -24,7 +24,7 @@ const TIERS = [
     name: 'Silver Partner',
     volume: 'Up to 5,000 L / day',
     incentive: 'Base commercial rate + 0.5% quality rebate',
-    color: 'border-slate-300 bg-slate-50 text-slate-800',
+    color: 'border-border-strong bg-subtle text-foreground',
     badge: 'Tier 1',
   },
   {
@@ -78,7 +78,7 @@ export default function AffiliatesPage() {
       <header className="flex h-16 w-full items-center justify-between border-b bg-card px-4 sm:px-8">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-6 w-6 text-primary" />
-          <span className="font-bold text-base tracking-tight">Shakarganj Dairy · Partner & Affiliate Network</span>
+          <span className="font-semibold text-base tracking-tight">Shakarganj Dairy · Partner & Affiliate Network</span>
         </div>
         <Link href="/" className="text-xs font-semibold text-primary hover:underline">
           Return to Workspace →
@@ -92,7 +92,7 @@ export default function AffiliatesPage() {
             <Sparkles className="w-3.5 h-3.5" />
             <span>Milk Procurement & Logistics Affiliates</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
             Grow Your Dairy Supply Chain Partnership
           </h1>
           <p className="text-sm text-muted-foreground max-w-2xl">
@@ -115,20 +115,20 @@ export default function AffiliatesPage() {
 
         {/* Tier Based UI Indicators */}
         <div className="space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+          <h2 className="text-sm font-semibold text-muted-foreground">
             Tier-Based Volume & Quality Rebates
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {TIERS.map((tier) => (
               <div key={tier.name} className={`p-5 rounded-2xl border ${tier.color} space-y-3 shadow-2xs`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-white/70 border border-current/20">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-white/70 border border-current/20">
                     {tier.badge}
                   </span>
                   <Award className="w-4 h-4 opacity-70" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold">{tier.name}</h3>
+                  <h3 className="text-base font-semibold">{tier.name}</h3>
                   <p className="text-xs font-medium opacity-80 mt-0.5">{tier.volume}</p>
                 </div>
                 <p className="text-xs font-semibold border-t border-current/15 pt-2.5">
@@ -142,16 +142,16 @@ export default function AffiliatesPage() {
         {/* Onboarding Data Capture Form */}
         <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-xs space-y-6">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Partner Onboarding Data Capture</h2>
+            <h2 className="text-lg font-semibold text-foreground">Partner Onboarding Data Capture</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Submit your organization credentials for automated verification and route assignment.
             </p>
           </div>
 
           {submitted ? (
-            <div className="p-8 text-center border border-dashed border-emerald-300 bg-emerald-50/50 rounded-xl space-y-2">
+            <div className="p-8 text-center border border-dashed border-emerald-300 bg-emerald-50/50 rounded-2xl space-y-2">
               <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-              <h3 className="text-sm font-bold text-emerald-950">Application Successfully Logged</h3>
+              <h3 className="text-sm font-semibold text-emerald-950">Application Successfully Logged</h3>
               <p className="text-xs text-emerald-800 max-w-md mx-auto">
                 Your partnership intake file has been dispatched to MPD Governance and the Zonal Field Operations team.
                 You will receive your dispatch token and route clearance via SMS & WhatsApp.
@@ -248,7 +248,7 @@ export default function AffiliatesPage() {
               </div>
 
               <div className="pt-2 flex justify-end">
-                <Button type="submit" className="min-h-[44px] px-6 text-xs font-bold gap-2">
+                <Button type="submit" className="min-h-[44px] px-6 text-xs font-semibold gap-2">
                   <FileCheck2 className="w-4 h-4" />
                   <span>Submit Partner Onboarding</span>
                 </Button>

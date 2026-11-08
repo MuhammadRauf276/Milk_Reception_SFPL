@@ -69,7 +69,7 @@ export default function SuperAdminSilosPage() {
       </div>
 
       {error && (
-        <div className="flex items-center space-x-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
+        <div className="flex items-center space-x-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
@@ -84,7 +84,7 @@ export default function SuperAdminSilosPage() {
             animate="animate"
             exit="exit"
             role="status"
-            className="flex items-center space-x-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-emerald-800"
+            className="flex items-center space-x-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-emerald-800"
           >
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <span>{successMsg}</span>
@@ -95,7 +95,7 @@ export default function SuperAdminSilosPage() {
       <div className="w-full max-w-full overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         <div className="w-full overflow-x-auto">
           <table className="w-full min-w-[700px] text-left text-xs font-sans">
-            <thead className="border-b border-border bg-muted/50 text-muted-foreground uppercase font-semibold text-[10px] tracking-wider">
+            <thead className="border-b border-border bg-muted/50 text-muted-foreground font-semibold text-xs">
               <tr>
                 <th className="p-3">Code</th>
                 <th className="p-3">Name</th>
@@ -125,28 +125,28 @@ export default function SuperAdminSilosPage() {
                   const fillPct = Math.min(100, Math.round((s.currentStockLiters / (s.capacityLiters || 1)) * 100));
                   return (
                     <tr key={s.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="p-3 font-bold tabular-nums text-foreground">{s.siloCode}</td>
+                      <td className="p-3 font-semibold tabular-nums text-foreground">{s.siloCode}</td>
                       <td className="p-3 font-semibold text-foreground">{s.siloName}</td>
                       <td className="p-3 tabular-nums text-muted-foreground">{s.capacityLiters.toLocaleString()} L</td>
-                      <td className="p-3 tabular-nums font-bold text-foreground">
+                      <td className="p-3 tabular-nums font-semibold text-foreground">
                         {s.currentStockAt13Ts !== null && s.currentStockAt13Ts !== undefined
                           ? `${s.currentStockAt13Ts.toLocaleString()} L`
                           : '—'}
                         {s.compositeTsPercent !== null && s.compositeTsPercent !== undefined && (
-                          <span className="block text-[10px] text-muted-foreground font-normal">
+                          <span className="block text-xs text-muted-foreground font-normal">
                             Avg TS: {s.compositeTsPercent}%
                           </span>
                         )}
                       </td>
                       <td className="p-3 tabular-nums">
                         <div className="space-y-1">
-                          <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                          <div className="flex items-center justify-between text-xs font-semibold text-foreground">
                             <span>{s.currentStockLiters.toLocaleString()} L</span>
-                            <span className="text-[10px] text-muted-foreground">{fillPct}%</span>
+                            <span className="text-xs text-muted-foreground">{fillPct}%</span>
                           </div>
                           <div className="w-28 h-1.5 rounded-full bg-muted overflow-hidden">
                             <div
-                              className="h-full bg-primary rounded-full transition-all"
+                              className="h-full bg-primary rounded-full transition-[width]"
                               style={{ width: `${fillPct}%` }}
                             />
                           </div>
@@ -157,11 +157,11 @@ export default function SuperAdminSilosPage() {
                       </td>
                       <td className="p-3">
                         {s.isActive ? (
-                          <span className="rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                          <span className="rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-xs font-semibold">
                             Active
                           </span>
                         ) : (
-                          <span className="rounded-md bg-rose-50 text-rose-800 border border-rose-200 px-2 py-0.5 text-[10px] font-bold">
+                          <span className="rounded-md bg-rose-50 text-rose-800 border border-rose-200 px-2 py-0.5 text-xs font-semibold">
                             Inactive
                           </span>
                         )}

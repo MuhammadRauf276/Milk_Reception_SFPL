@@ -44,7 +44,7 @@ export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ lossTiers }) => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-card border-border border rounded-xl p-4 shadow-xs">
+      <div className="bg-card border-border border rounded-2xl p-4 shadow-xs">
         <div className="flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
             <Layers className="w-4 h-4" />
@@ -67,22 +67,22 @@ export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ lossTiers }) => {
           >
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t.tier}</span>
-                <span className="text-xs tabular-nums font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+                <span className="text-xs font-semibold text-muted-foreground">{t.tier}</span>
+                <span className="text-xs tabular-nums font-semibold text-secondary-foreground bg-muted px-2 py-0.5 rounded">
                   {formatMetric(t.loss?.lossPercent, '%')} variance
                 </span>
               </div>
               <h3 className="text-sm font-semibold text-foreground mt-2">{t.name}</h3>
 
               <div className="bg-card border-border mt-4 p-3 rounded-lg border flex items-center justify-between">
-                <span className="text-xs text-slate-600 font-medium">Loss volume</span>
+                <span className="text-xs text-secondary-foreground font-medium">Loss volume</span>
                 <span className="text-base tabular-nums font-semibold text-foreground">
                   {formatMetric(t.loss?.lossLiters, ' L')}
                 </span>
               </div>
             </div>
 
-            <div className="mt-2 flex items-center gap-1 text-xs text-slate-500">
+            <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
               How it is measured
               <InfoTip text={`${t.scope}. ${t.details}`} />
             </div>

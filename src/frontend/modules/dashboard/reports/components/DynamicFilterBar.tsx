@@ -151,7 +151,7 @@ export function DynamicFilterBar({
   };
 
   return (
-    <div className="bg-card border border-border p-4 rounded-xl space-y-4 shadow-xs animate-panel-in">
+    <div className="bg-card border border-border p-4 rounded-2xl space-y-4 shadow-xs animate-panel-in">
       {/* Top Bar: Controls & Quick Date Presets */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -159,39 +159,39 @@ export function DynamicFilterBar({
             <Filter className="w-4 h-4 text-primary" />
             <span>Ad-Hoc Query Filters</span>
             {filters.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+              <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
                 {filters.length} active
               </span>
             )}
           </div>
 
           <div className="flex items-center gap-1 ml-2">
-            <span className="text-[11px] text-muted-foreground mr-1">Horizon:</span>
+            <span className="text-xs text-muted-foreground mr-1">Horizon:</span>
             <button
               type="button"
               onClick={() => applyHorizonPreset('TODAY')}
-              className="px-2 py-1 rounded-md text-[11px] font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+              className="px-2 py-1 rounded-md text-xs font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
             >
               Today
             </button>
             <button
               type="button"
               onClick={() => applyHorizonPreset('YESTERDAY')}
-              className="px-2 py-1 rounded-md text-[11px] font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+              className="px-2 py-1 rounded-md text-xs font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
             >
               Yesterday
             </button>
             <button
               type="button"
               onClick={() => applyHorizonPreset('LAST_7')}
-              className="px-2 py-1 rounded-md text-[11px] font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+              className="px-2 py-1 rounded-md text-xs font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
             >
               Last 7 Days
             </button>
             <button
               type="button"
               onClick={() => applyHorizonPreset('MTD')}
-              className="px-2 py-1 rounded-md text-[11px] font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+              className="px-2 py-1 rounded-md text-xs font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
             >
               MTD
             </button>
@@ -229,7 +229,7 @@ export function DynamicFilterBar({
                 key={filter.id}
                 className="flex flex-wrap items-center gap-2 p-2.5 rounded-lg bg-muted/30 border border-border/70 text-xs"
               >
-                <span className="text-[10px] uppercase font-bold text-slate-400 w-10">WHERE</span>
+                <span className="text-xs font-semibold text-muted-foreground w-10">WHERE</span>
 
                 {/* Field Selector */}
                 <select
@@ -341,7 +341,7 @@ export function DynamicFilterBar({
                 <button
                   type="button"
                   onClick={() => removeFilter(filter.id)}
-                  className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors ml-auto cursor-pointer"
+                  className="p-1 rounded text-muted-foreground hover:text-rose-600 transition-colors ml-auto cursor-pointer"
                   title="Remove condition"
                 >
                   <Trash2 className="w-3.5 h-3.5" />

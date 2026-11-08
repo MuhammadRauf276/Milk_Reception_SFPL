@@ -168,7 +168,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
           {session.zmcc_token ? ` - Token ${session.zmcc_token}` : ''}
         </>
       }
-      icon={<Scale className="mt-0.5 h-5 w-5 text-slate-600" />}
+      icon={<Scale className="mt-0.5 h-5 w-5 text-secondary-foreground" />}
     >
       {manualAllowed ? (
         <div role="group" aria-label="Entry mode" className="grid grid-cols-2 gap-2">
@@ -180,7 +180,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
               disabled={busy}
               onClick={() => setMode(m)}
               className={`min-h-[44px] rounded-xl border px-3 text-sm font-semibold transition-colors ${
-                mode === m ? 'border-primary bg-primary text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
+                mode === m ? 'border-primary bg-primary text-white' : 'bg-card text-secondary-foreground hover:bg-subtle'
               }`}
             >
               {m === 'WEIGHT' ? `Weigh on scale (${n + 1} weights)` : 'Type portion net weight'}
@@ -188,16 +188,16 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
           ))}
         </div>
       ) : (
-        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        <div className="flex items-center justify-between rounded-xl border border-border bg-subtle px-3 py-2 text-xs text-secondary-foreground">
           <span className="font-medium">Stepwise scale weighing ({n + 1} weights)</span>
-          <span className="text-[11px] text-slate-500 font-mono">Enforced by Super Admin</span>
+          <span className="text-xs text-muted-foreground font-mono">Enforced by Super Admin</span>
         </div>
       )}
 
       {mode === 'WEIGHT' ? (
         <div className="space-y-3">
           <div className="flex items-center gap-1">
-            <p className="text-sm font-semibold text-slate-700">Sequential scale weights ({n + 1} total)</p>
+            <p className="text-sm font-semibold text-secondary-foreground">Sequential scale weights ({n + 1} total)</p>
             <InfoTip
               text={`Weigh the vehicle ${n + 1} times: first before unloading, then after each portion. Each weight must be less than the one before.`}
             />
@@ -222,7 +222,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
               {i > 0 && liveNets[i - 1] !== null && (
                 <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 border border-emerald-200">
                   <span>{portions[i - 1].label} Net Weight (W{i} - W{i + 1}):</span>
-                  <span className="font-bold">{liveNets[i - 1]?.toLocaleString()} kg</span>
+                  <span className="font-semibold">{liveNets[i - 1]?.toLocaleString()} kg</span>
                 </div>
               )}
             </div>
@@ -233,18 +233,18 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs space-y-1.5">
               <div className="flex items-center justify-between font-semibold text-emerald-900 border-b border-emerald-200/60 pb-1">
                 <span>Net Milk Weight Summary</span>
-                <span className="text-[11px] font-normal text-emerald-700">
+                <span className="text-xs font-normal text-emerald-700">
                   {n + 1} weights verified
                 </span>
               </div>
               <div className="space-y-1 pt-0.5">
                 {portions.map((p, idx) => (
-                  <div key={p.id} className="flex items-center justify-between text-slate-700">
+                  <div key={p.id} className="flex items-center justify-between text-secondary-foreground">
                     <span>{p.label}:</span>
                     <span className="font-medium">{liveNets[idx]?.toLocaleString()} kg</span>
                   </div>
                 ))}
-                <div className="flex items-center justify-between pt-1 border-t border-emerald-200 font-bold text-slate-900 text-sm">
+                <div className="flex items-center justify-between pt-1 border-t border-emerald-200 font-semibold text-foreground text-sm">
                   <span>Total Net Milk:</span>
                   <span className="text-emerald-800">{totalLiveNet.toLocaleString()} kg</span>
                 </div>
@@ -278,7 +278,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
                   onChange={(e) =>
                     setManual((prev) => prev.map((x, j) => (j === i ? { ...x, unit: e.target.value as Unit } : x)))
                   }
-                  className="min-h-[44px] w-28 rounded-xl border bg-white px-3 text-sm font-semibold"
+                  className="min-h-[44px] w-28 rounded-xl border bg-card px-3 text-sm font-semibold"
                 >
                   {units.map((u) => (
                     <option key={u} value={u}>
@@ -294,20 +294,20 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs space-y-1.5">
               <div className="flex items-center justify-between font-semibold text-emerald-900 border-b border-emerald-200/60 pb-1">
                 <span>Direct Net Quantity Summary</span>
-                <span className="text-[11px] font-normal text-emerald-700">
+                <span className="text-xs font-normal text-emerald-700">
                   Direct entry
                 </span>
               </div>
               <div className="space-y-1 pt-0.5">
                 {portions.map((p, idx) => (
-                  <div key={p.id} className="flex items-center justify-between text-slate-700">
+                  <div key={p.id} className="flex items-center justify-between text-secondary-foreground">
                     <span>{p.label}:</span>
                     <span className="font-medium">
                       {liveNets[idx]?.toLocaleString()} {manual[idx]?.unit.toLowerCase()}
                     </span>
                   </div>
                 ))}
-                <div className="flex items-center justify-between pt-1 border-t border-emerald-200 font-bold text-slate-900 text-sm">
+                <div className="flex items-center justify-between pt-1 border-t border-emerald-200 font-semibold text-foreground text-sm">
                   <span>Total Net Quantity:</span>
                   <span className="text-emerald-800">
                     {totalLiveNet.toLocaleString()} {manual[0]?.unit.toLowerCase() || 'kg'}
@@ -330,7 +330,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
               value={tankId}
               disabled={busy}
               onChange={(e) => setTankId(e.target.value)}
-              className={`${zmccInputClass} bg-white`}
+              className={`${zmccInputClass} bg-card`}
             >
               <option value="">Choose destination tank ({myTanks.length} available)</option>
               {myTanks.map((t) => (
@@ -340,15 +340,15 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
               ))}
             </select>
           ) : myTanks.length === 1 ? (
-            <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-slate-50 text-sm">
+            <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-subtle text-sm">
               <div className="flex items-center gap-2">
-                <Warehouse className="h-4 w-4 text-slate-600" />
+                <Warehouse className="h-4 w-4 text-secondary-foreground" />
                 <div>
-                  <span className="font-bold text-slate-900">{myTanks[0].tank_code}</span>
-                  <span className="text-slate-500 text-xs ml-1.5">({myTanks[0].tank_name})</span>
+                  <span className="font-semibold text-foreground">{myTanks[0].tank_code}</span>
+                  <span className="text-muted-foreground text-xs ml-1.5">({myTanks[0].tank_name})</span>
                 </div>
               </div>
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                 Active Tank
               </span>
             </div>
@@ -367,7 +367,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
               value={sourceId}
               disabled={busy}
               onChange={(e) => setSourceId(e.target.value)}
-              className={`${zmccInputClass} bg-white`}
+              className={`${zmccInputClass} bg-card`}
             >
               <option value="">Choose milk source</option>
               {mySources.map((s) => (
@@ -404,7 +404,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
           </button>
         </div>
         {!busy && (!complete || !unloadReady) && (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             {!complete
               ? 'Enter all weights first.'
               : myTanks.length === 0

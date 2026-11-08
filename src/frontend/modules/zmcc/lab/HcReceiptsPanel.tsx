@@ -77,26 +77,26 @@ export function HcReceiptsPanel() {
   return (
     <div className="space-y-4">
       <div className="relative">
-        <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+        <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <input
           aria-label="Search HC receipts"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search token, vehicle, HC or receipt number"
-          className="min-h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm"
+          className="min-h-11 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm"
         />
       </div>
 
       <section className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-2xs">
         <h2 className="text-sm font-semibold text-foreground">Waiting for receipt number ({waiting.length})</h2>
         {query.isPending ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <p className="text-sm text-muted-foreground">Loading…</p>
         ) : query.error ? (
           <p role="alert" className="text-sm text-rose-700">
             {getErrorMessage(query.error) || 'Could not load HC receipts.'}
           </p>
         ) : waiting.length === 0 ? (
-          <p className="flex items-center gap-2 text-sm text-slate-500">
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" />
             No HC vehicle is waiting for a receipt number.
           </p>
@@ -106,14 +106,14 @@ export function HcReceiptsPanel() {
               <p className="text-sm font-semibold text-foreground">
                 {row.vehicle_number} · {row.supplier_name}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Token {row.token} · {row.supplier_code} · Unloaded {when(row.unloaded_at)}
                 {row.net_weight_kg !== null && ` · ${row.net_weight_kg.toLocaleString()} kg`}
                 {row.gross_liters !== null && ` · ${row.gross_liters.toLocaleString()} L`}
               </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <div className="min-w-0 flex-1">
-                  <label htmlFor={`hc-rmr-${row.arrival_id}`} className="mb-1 block text-xs font-semibold text-slate-900">
+                  <label htmlFor={`hc-rmr-${row.arrival_id}`} className="mb-1 block text-xs font-semibold text-foreground">
                     RMR Token (Paper Receipt No.)
                   </label>
                   <input
@@ -145,14 +145,14 @@ export function HcReceiptsPanel() {
       <section className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-2xs">
         <h2 className="text-sm font-semibold text-foreground">Receipts already given ({issued.length})</h2>
         {issued.length === 0 ? (
-          <p className="text-sm text-slate-500">None yet.</p>
+          <p className="text-sm text-muted-foreground">None yet.</p>
         ) : (
           issued.map((row) => (
             <div key={row.arrival_id} className="rounded-xl border border-border p-3">
               <p className="text-sm font-semibold text-foreground">
                 RMR {row.receipt_number} · {row.vehicle_number} · {row.supplier_name}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Token {row.token} · By {row.issued_by ?? '—'} · {when(row.issued_at)}
               </p>
             </div>

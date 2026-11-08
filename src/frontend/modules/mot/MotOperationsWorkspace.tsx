@@ -244,7 +244,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-card rounded-xl border border-border shadow-2xs">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-card rounded-2xl border border-border shadow-2xs">
         <div className="flex items-center space-x-3">
           <div>
             <h1 className="text-base sm:text-lg font-semibold text-foreground tracking-tight">
@@ -255,7 +255,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
 
         {isCentralRole && sources.length > 0 && (
           <div className="flex items-center space-x-2">
-            <label htmlFor="zmcc-select" className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+            <label htmlFor="zmcc-select" className="text-xs font-semibold text-secondary-foreground whitespace-nowrap">
               ZMCC
             </label>
             <Combobox
@@ -272,7 +272,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       </div>
 
       {error && (
-        <div className="bg-card border-border flex items-center justify-between p-3.5 border rounded-xl text-rose-800 text-xs font-semibold animate-panel-in">
+        <div className="bg-card border-border flex items-center justify-between p-3.5 border rounded-2xl text-rose-800 text-xs font-semibold animate-panel-in">
           <div className="flex items-center space-x-2">
             <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
             <span>{error}</span>
@@ -289,7 +289,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
       )}
 
       {successMessage && (
-        <div className="bg-card border-border flex items-center justify-between p-3.5 border rounded-xl text-emerald-800 text-xs font-semibold">
+        <div className="bg-card border-border flex items-center justify-between p-3.5 border rounded-2xl text-emerald-800 text-xs font-semibold">
           <div className="flex items-center space-x-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
             <span>{successMessage}</span>
@@ -359,7 +359,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
           <div className="space-y-4 animate-panel-in">
             <div className="p-3 bg-card rounded-xl border border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center space-x-2">
-                <label className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                <label className="text-xs font-semibold text-secondary-foreground whitespace-nowrap">
                   Select Journey:
                 </label>
                 <Combobox
@@ -378,7 +378,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={refreshData}
-                className="flex min-h-[44px] items-center space-x-1 px-3 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
+                className="flex min-h-[44px] items-center space-x-1 px-3 rounded-xl border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
               >
                 <span>Refresh Journeys</span>
               </button>

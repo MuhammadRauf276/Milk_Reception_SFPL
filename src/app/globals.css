@@ -74,6 +74,7 @@
   --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
   --animate-panel-in: panel-in 220ms var(--ease-emphasized) backwards;
   --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-progress-slide: progress-slide 1.4s var(--ease-emphasized) infinite;
 
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
@@ -115,6 +116,15 @@
   from {
     opacity: 0;
     transform: translateY(4px);
+  }
+}
+
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
   }
 }
 
@@ -243,7 +253,7 @@
     --input: 214 22% 83%;
     --ring: 358 82% 46%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
     --sidebar-width: 15rem;
 
     /* ── Layering scale (z-* utilities defined above) ──────── */

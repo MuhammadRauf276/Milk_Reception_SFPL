@@ -244,7 +244,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
   return (
     <div className="space-y-5 animate-panel-in">
       {/* Top Description Banner */}
-      <div className="bg-card border border-border p-4 rounded-xl shadow-xs flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-card border border-border p-4 rounded-2xl shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
             <FlaskConical className="w-4 h-4 text-primary" /> Plant QA vs. ZMCC Dispatch QA Audit
@@ -316,7 +316,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
           <table className="w-full text-xs text-left border-collapse">
             <thead>
               {/* Category Super Header */}
-              <tr className="border-b border-border bg-muted/80 text-muted-foreground font-bold uppercase text-[9px] tracking-wider text-center">
+              <tr className="border-b border-border bg-muted/80 text-muted-foreground font-semibold text-xs text-center">
                 <th colSpan={4} className="py-2 px-3 border-r border-border text-left">
                   Tanker & Journey Identifiers
                 </th>
@@ -332,7 +332,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
               </tr>
 
               {/* Sub Column Headers */}
-              <tr className="border-b border-border bg-muted/40 text-muted-foreground font-semibold text-[10px]">
+              <tr className="border-b border-border bg-muted/40 text-muted-foreground font-semibold text-xs">
                 <th className="py-2.5 px-3">Slip #</th>
                 <th className="py-2.5 px-3">Vehicle #</th>
                 <th className="py-2.5 px-3">Source ZMCC</th>
@@ -385,7 +385,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
                   </td>
 
                   {/* Deltas & Loss */}
-                  <td className="py-2.5 px-3 text-right tabular-nums font-mono font-bold text-foreground">
+                  <td className="py-2.5 px-3 text-right tabular-nums font-mono font-semibold text-foreground">
                     {row.status === 'IN_TRANSIT' ? '—' : `${row.transitLossLiters} L`}
                   </td>
                   <td className={`py-2.5 px-3 text-right tabular-nums font-mono font-semibold ${
@@ -394,7 +394,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
                     {row.status === 'IN_TRANSIT' ? '—' : `${row.transitLossPct.toFixed(2)}%`}
                   </td>
                   <td className={`py-2.5 px-3 text-right tabular-nums font-mono ${
-                    Math.abs(row.fatDelta) > 0.15 ? 'text-rose-600 font-bold' : 'text-muted-foreground'
+                    Math.abs(row.fatDelta) > 0.15 ? 'text-rose-600 font-semibold' : 'text-muted-foreground'
                   }`}>
                     {row.status === 'IN_TRANSIT' ? '—' : `${row.fatDelta > 0 ? '+' : ''}${row.fatDelta.toFixed(2)}%`}
                   </td>
@@ -402,22 +402,22 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
                   {/* Status Pill */}
                   <td className="py-2.5 px-3 text-center">
                     {row.status === 'ACCEPTED' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px] font-semibold border border-emerald-200 dark:border-emerald-800">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
                         <CheckCircle2 className="w-3 h-3" /> Reconciled
                       </span>
                     )}
                     {row.status === 'FLAGGED_QA' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 text-[10px] font-semibold border border-rose-200 dark:border-rose-800">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 text-xs font-semibold border border-rose-200 dark:border-rose-800">
                         <AlertTriangle className="w-3 h-3" /> QA Discrepancy
                       </span>
                     )}
                     {row.status === 'FLAGGED_LOSS' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 text-[10px] font-semibold border border-amber-200 dark:border-amber-800">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 text-xs font-semibold border border-amber-200 dark:border-amber-800">
                         <AlertTriangle className="w-3 h-3" /> High Loss (&gt;1%)
                       </span>
                     )}
                     {row.status === 'IN_TRANSIT' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 text-[10px] font-semibold border border-blue-200 dark:border-blue-800">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 text-xs font-semibold border border-blue-200 dark:border-blue-800">
                         <Truck className="w-3 h-3" /> In-Transit
                       </span>
                     )}

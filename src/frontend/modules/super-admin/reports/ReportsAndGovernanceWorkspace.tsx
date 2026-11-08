@@ -30,14 +30,14 @@ function ReportsContent() {
   return (
     <div className="w-full max-w-full space-y-4 overflow-x-hidden p-1">
       {/* Sub-Tabs Navigation Bar */}
-      <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xs">
+      <div className="flex items-center gap-1 rounded-2xl border border-border bg-card p-1.5 shadow-2xs">
         <button
           type="button"
           onClick={() => handleTabChange('daily')}
           className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
             activeTab === 'daily'
               ? 'bg-primary text-white shadow-2xs'
-              : 'bg-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              : 'bg-transparent text-secondary-foreground hover:bg-subtle hover:text-foreground'
           }`}
         >
           <FileSpreadsheet className="h-4 w-4" />
@@ -50,7 +50,7 @@ function ReportsContent() {
           className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
             activeTab === 'hierarchy'
               ? 'bg-primary text-white shadow-2xs'
-              : 'bg-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              : 'bg-transparent text-secondary-foreground hover:bg-subtle hover:text-foreground'
           }`}
         >
           <UserCheck className="h-4 w-4" />
@@ -63,7 +63,7 @@ function ReportsContent() {
           className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
             activeTab === 'warnings'
               ? 'bg-primary text-white shadow-2xs'
-              : 'bg-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              : 'bg-transparent text-secondary-foreground hover:bg-subtle hover:text-foreground'
           }`}
         >
           <AlertTriangle className="h-4 w-4" />
@@ -83,7 +83,7 @@ function ReportsContent() {
 
 export function ReportsAndGovernanceWorkspace() {
   return (
-    <Suspense fallback={<div className="p-8 text-xs font-semibold text-slate-500">Loading Executive Reports…</div>}>
+    <Suspense fallback={<div className="p-8 text-xs font-semibold text-muted-foreground">Loading Executive Reports…</div>}>
       <ReportsContent />
     </Suspense>
   );

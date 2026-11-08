@@ -58,7 +58,7 @@ const OUTCOME_STYLE: Record<DecisionTestOutcome, { word: string; className: stri
   PASS: { word: 'Pass', className: 'border-emerald-300 bg-emerald-50 text-emerald-800', Icon: CheckCircle2 },
   FAIL: { word: 'Fail', className: 'border-rose-300 bg-rose-50 text-rose-800', Icon: XCircle },
   WARN: { word: 'Warning', className: 'border-amber-300 bg-amber-50 text-amber-900', Icon: AlertTriangle },
-  NOT_TESTED: { word: 'Not tested', className: 'border-slate-300 bg-slate-50 text-slate-600', Icon: MinusCircle },
+  NOT_TESTED: { word: 'Not tested', className: 'border-border-strong bg-subtle text-secondary-foreground', Icon: MinusCircle },
 };
 
 const ROUTE_BUTTON: Record<DecisionRoute, { className: string; Icon: typeof CheckCircle2 }> = {
@@ -162,14 +162,14 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
         onClick={() => onPersonDecisionChange(value)}
         disabled={disabled}
         className={cn(
-          'flex min-h-14 items-center justify-center gap-2 rounded-xl border-2 px-3 text-base font-semibold uppercase tracking-wide transition disabled:opacity-50',
+          'flex min-h-14 items-center justify-center gap-2 rounded-xl border-2 px-3 text-base font-semibold transition disabled:opacity-50',
           checked
             ? accept
               ? 'border-emerald-600 bg-emerald-600 text-white ring-2 ring-emerald-600 ring-offset-2 hover:bg-emerald-700'
               : 'border-rose-600 bg-rose-600 text-white ring-2 ring-rose-600 ring-offset-2 hover:bg-rose-700'
             : accept
-              ? 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50'
-              : 'border-rose-300 bg-white text-rose-800 hover:bg-rose-50'
+              ? 'border-emerald-300 bg-card text-emerald-800 hover:bg-emerald-50'
+              : 'border-rose-300 bg-card text-rose-800 hover:bg-rose-50'
         )}
       >
         <Icon className="h-6 w-6 shrink-0" aria-hidden="true" />
@@ -199,15 +199,15 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
       )}
 
       {tests.length > 0 && !hideTestList && (
-        <ul className="divide-y divide-slate-100 rounded-xl border border-border" aria-label="Test results">
+        <ul className="divide-y divide-border rounded-xl border border-border" aria-label="Test results">
           {tests.map((t) => {
             const s = OUTCOME_STYLE[t.outcome];
             return (
               <li key={t.key} className="flex min-h-12 items-center justify-between gap-2 px-3 py-2">
                 <div className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-900">
+                  <span className="block text-sm font-semibold text-foreground">
                     {t.name}
-                    {t.valueText ? <span className="ml-1.5 font-normal tabular-nums text-slate-600">{t.valueText}</span> : null}
+                    {t.valueText ? <span className="ml-1.5 font-normal tabular-nums text-secondary-foreground">{t.valueText}</span> : null}
                   </span>
                   {t.note && <span className="block text-xs font-semibold text-amber-800">{t.note}</span>}
                 </div>
@@ -233,7 +233,7 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
       )}
 
       <div>
-        <p className="mb-2 text-sm font-semibold text-slate-900">Your decision</p>
+        <p className="mb-2 text-sm font-semibold text-foreground">Your decision</p>
         <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2" role="radiogroup" aria-label="Your decision">
           {choice('ACCEPT')}
           {choice('REJECT')}
@@ -257,7 +257,7 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
                 key={r}
                 title={exceptionReasonText(r)}
                 className={cn(
-                  'rounded-full border bg-white px-2.5 py-1 text-xs font-semibold',
+                  'rounded-full border bg-card px-2.5 py-1 text-xs font-semibold',
                   route === 'DECIDE_NOW' ? 'border-amber-300' : 'border-violet-300'
                 )}
               >
@@ -270,7 +270,7 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
 
       {remarksNeeded && (
         <div className="space-y-2">
-          <label className="block text-sm font-semibold text-slate-900">
+          <label className="block text-sm font-semibold text-foreground">
             Reason <span className="text-rose-700">(required)</span>
           </label>
           <textarea
@@ -279,8 +279,8 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
             onChange={(e) => onRemarksChange(e.target.value)}
             placeholder="Write a short reason…"
             className={cn(
-              'min-h-12 w-full min-w-0 resize-y rounded-xl border-2 p-3 text-base focus:outline-none focus:ring-2 focus:ring-slate-900',
-              remarksMissing ? 'border-rose-300 bg-rose-50/40' : 'border-slate-300 bg-white'
+              'min-h-12 w-full min-w-0 resize-y rounded-lg border-2 p-3 text-base focus:outline-none focus:ring-2 focus:ring-slate-900',
+              remarksMissing ? 'border-rose-300 bg-rose-50/40' : 'border-border-strong bg-card'
             )}
           />
           {remarksMissing && <p className="mt-1 text-sm font-semibold text-rose-700">Please write at least 3 letters.</p>}

@@ -218,11 +218,11 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
         <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-3 rounded-xl shadow-xs animate-panel-in">
           <div className="flex items-center gap-2.5">
             <Building2 className="w-4 h-4 text-primary shrink-0" />
-            <span className="text-xs font-semibold text-slate-700">ZMCC Facility Scope:</span>
+            <span className="text-xs font-semibold text-secondary-foreground">ZMCC Facility Scope:</span>
             <select
               value={selectedZmccId}
               onChange={(e) => setSelectedZmccId(e.target.value)}
-              className="text-xs bg-background border border-border rounded-lg px-3 py-1.5 font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              className="text-xs bg-background border border-border rounded-lg px-3 py-1.5 font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
             >
               <option value="">All ZMCC Centers (Consolidated Enterprise View)</option>
               {telemetry?.zmccCenters?.map((zmcc) => (
@@ -247,7 +247,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
 
       {/* Error state */}
       {error && (
-        <div className="bg-card border-border p-4 rounded-xl border text-rose-800 text-xs font-semibold flex items-center gap-2 animate-panel-in">
+        <div className="bg-card border-border p-4 rounded-2xl border text-rose-800 text-xs font-semibold flex items-center gap-2 animate-panel-in">
           <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{error}</span>
         </div>
@@ -344,7 +344,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
             
           </>
         ) : (
-          <div className="bg-card border-border border rounded-xl p-12 text-center text-slate-500 text-xs">
+          <div className="bg-card border-border border rounded-xl p-12 text-center text-muted-foreground text-xs">
             Loading MPD Executive Telemetry…
           </div>
         )}

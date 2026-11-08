@@ -14,7 +14,7 @@ interface Props {
 export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
   const t = c.target;
   const close = () => c.setTarget(null);
-  const upper = `${zmccInputClass} tabular-nums uppercase`;
+  const upper = `${zmccInputClass} tabular-nums`;
   return (
     <ZmccDrawer
       open={!!t}
@@ -44,9 +44,9 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
                   className={upper}
                 />
                 {t.record.route_milk_token && (
-                  <div className="bg-card border-border mt-2 p-2.5 border rounded-xl text-xs text-slate-600">
-                    <span className="font-semibold text-slate-500">Legacy token:</span>{' '}
-                    <span className="tabular-nums font-semibold text-slate-800">{t.record.route_milk_token}</span>
+                  <div className="bg-card border-border mt-2 p-2.5 border rounded-xl text-xs text-secondary-foreground">
+                    <span className="font-semibold text-muted-foreground">Legacy token:</span>{' '}
+                    <span className="tabular-nums font-semibold text-foreground">{t.record.route_milk_token}</span>
                   </div>
                 )}
               </div>
@@ -75,9 +75,9 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
                   />
                 </div>
                 {t.record.rmr_number && (
-                  <div className="bg-card border-border p-2.5 border rounded-xl text-xs text-slate-600">
-                    <span className="font-semibold text-slate-500">RMR:</span>{' '}
-                    <span className="tabular-nums font-semibold text-slate-800">{t.record.rmr_number}</span>
+                  <div className="bg-card border-border p-2.5 border rounded-xl text-xs text-secondary-foreground">
+                    <span className="font-semibold text-muted-foreground">RMR:</span>{' '}
+                    <span className="tabular-nums font-semibold text-foreground">{t.record.rmr_number}</span>
                   </div>
                 )}
                 <div>
@@ -125,7 +125,7 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
                 placeholder="Reason"
                 required
                 rows={3}
-                className="min-h-11 w-full px-3 py-2 text-sm border rounded-xl"
+                className="min-h-11 w-full px-3 py-2 text-sm border rounded-lg"
               />
             </div>
 

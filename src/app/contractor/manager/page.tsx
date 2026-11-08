@@ -98,7 +98,7 @@ function PlantContractorManagerContent() {
               className={`px-4 py-2 min-h-11 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
                 isApprovals
                   ? 'bg-primary text-white shadow-xs'
-                  : 'text-slate-700 hover:bg-slate-100'
+                  : 'text-secondary-foreground hover:bg-muted'
               }`}
             >
               <ShieldAlert className="w-4 h-4" />
@@ -106,7 +106,7 @@ function PlantContractorManagerContent() {
               {pendingCount !== null && pendingCount > 0 && (
                 <span
                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    isApprovals ? 'bg-white text-amber-700' : 'bg-amber-100 text-amber-800'
+                    isApprovals ? 'bg-card text-amber-700' : 'bg-amber-100 text-amber-800'
                   }`}
                 >
                   {pendingCount}
@@ -120,7 +120,7 @@ function PlantContractorManagerContent() {
               className={`px-4 py-2 min-h-11 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
                 !isApprovals
                   ? 'bg-primary text-white shadow-xs'
-                  : 'text-slate-700 hover:bg-slate-100'
+                  : 'text-secondary-foreground hover:bg-muted'
               }`}
             >
               <Building2 className="w-4 h-4" />

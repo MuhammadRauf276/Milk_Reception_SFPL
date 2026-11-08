@@ -33,12 +33,12 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
 }) => {
   if (items.length === 0) {
     return (
-      <div className="p-6 rounded-xl bg-card border border-border/80 shadow-xs text-center space-y-2">
+      <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs text-center space-y-2">
         <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center mx-auto border border-emerald-200">
           <CheckCircle2 className="w-5 h-5" />
         </div>
         <h4 className="text-sm font-semibold text-foreground">No Items Need Attention</h4>
-        <p className="text-xs text-slate-500 max-w-md mx-auto">
+        <p className="text-xs text-muted-foreground max-w-md mx-auto">
           All on track
         </p>
       </div>
@@ -46,7 +46,7 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
   }
 
   return (
-    <div className="p-5 rounded-xl bg-card border border-border/80 shadow-xs space-y-4">
+    <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
       <div className="flex items-center justify-between pb-2 border-b border-border/80">
         <div className="flex items-center space-x-2">
           <AlertTriangle className="w-4 h-4 text-amber-700" />
@@ -63,7 +63,7 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
           let cardBg = 'bg-card border-border';
           let iconColor = 'text-primary bg-blue-50 border-blue-200';
           let badgeText = 'Notice';
-          let badgeStyle = 'bg-slate-100 text-slate-700';
+          let badgeStyle = 'bg-muted text-secondary-foreground';
 
           if (item.type === 'PLANT_QA_REJECTION') {
             cardBg = 'bg-card border-border';
@@ -87,15 +87,15 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
             badgeStyle = 'bg-amber-50 text-amber-700 border border-amber-200';
           } else if (item.type === 'IN_PLANT_DURATION') {
             cardBg = 'bg-card border-border';
-            iconColor = 'text-slate-700 bg-slate-100 border-slate-300';
+            iconColor = 'text-secondary-foreground bg-muted border-border-strong';
             badgeText = 'In Plant';
-            badgeStyle = 'bg-slate-100 text-slate-700 border border-slate-200';
+            badgeStyle = 'bg-muted text-secondary-foreground border border-border';
           }
 
           return (
             <div
               key={item.id}
-              className={`p-4 rounded-xl border flex flex-col justify-between space-y-3 transition shadow-2xs hover:shadow-xs ${cardBg}`}
+              className={`p-4 rounded-2xl border flex flex-col justify-between space-y-3 transition shadow-2xs hover:shadow-xs ${cardBg}`}
             >
               <div className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
@@ -107,12 +107,12 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
                       <span className="tabular-nums font-semibold text-xs text-foreground block">
                         {item.vehicleNumber}
                       </span>
-                      <span className="text-xs text-slate-500 font-semibold">
+                      <span className="text-xs text-muted-foreground font-semibold">
                         Visit #{item.visitId}
                       </span>
                     </div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${badgeStyle}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${badgeStyle}`}>
                     {badgeText}
                   </span>
                 </div>
@@ -126,7 +126,7 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1 tabular-nums text-xs">
                     {item.metrics.map((m, idx) => (
                       <div key={idx} className="bg-white/80 p-1.5 rounded border border-border/60">
-                        <span className="text-xs text-slate-500 block font-sans">{m.label}</span>
+                        <span className="text-xs text-muted-foreground block font-sans">{m.label}</span>
                         <span className="font-semibold text-foreground">{m.value}</span>
                       </div>
                     ))}
@@ -135,7 +135,7 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
               </div>
 
               <div className="pt-2 border-t border-border/60 flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500">
+                <span className="text-xs font-semibold text-muted-foreground">
                   {item.eventDate ? `Date: ${item.eventDate}` : ''}
                 </span>
                 <button

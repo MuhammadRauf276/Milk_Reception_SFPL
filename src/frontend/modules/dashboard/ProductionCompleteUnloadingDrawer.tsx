@@ -83,24 +83,24 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
               <div className="flex items-center space-x-2">
                 <h3 className="text-base font-semibold text-foreground">Complete Silo Unloading</h3>
                 {isPortionWise && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 border border-purple-200">
+                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200">
                     Portion-Wise Loop
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-700 font-semibold mt-0.5">
+              <p className="text-xs text-secondary-foreground font-semibold mt-0.5">
                 Vehicle: <strong className="tabular-nums text-foreground">{visit.vehicle_number}</strong> | Started by: <strong className="text-primary">{visit.started_by_name}</strong>
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline px-2.5 py-1 rounded-full text-[10px] uppercase tabular-nums font-semibold bg-blue-100 text-primary border border-blue-300">
+              <span className="hidden sm:inline px-2.5 py-1 rounded-full text-xs tabular-nums font-semibold bg-blue-100 text-primary border border-blue-300">
                 Unloading Active
               </span>
               <button
                 type="button"
                 aria-label="Close"
                 onClick={onClose}
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:text-secondary-foreground"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -127,12 +127,12 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
               {isPortionWise ? 'Active Unloading Portion & Destination Silo' : 'Assigned Silo Allocation'}
             </h4>
             {portionsToDisplay.map((p) => (
-              <div key={p.id} className="bg-card border-border p-4 rounded-xl border flex items-center justify-between text-xs tabular-nums font-semibold">
+              <div key={p.id} className="bg-card border-border p-4 rounded-2xl border flex items-center justify-between text-xs tabular-nums font-semibold">
                 <div>
                   <span className="font-semibold text-foreground block">
                     Portion #{p.portion_number}
                   </span>
-                  <span className="text-slate-600 font-sans text-[11px]">
+                  <span className="text-secondary-foreground font-sans text-xs">
                     Destination Silo: <strong className="text-primary">{p.unloading_log?.silo_code || p.unloading_log?.silo_number || 'Silo'}</strong>
                   </span>
                 </div>
@@ -153,7 +153,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
               min={minTimestamp ? toDatetimeLocalInput(minTimestamp) : undefined}
               max={toDatetimeLocalInput(new Date())}
               onChange={(e) => setCompleteOpTimestamp(e.target.value)}
-              className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+              className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
           </div>
 

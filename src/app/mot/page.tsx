@@ -293,12 +293,12 @@ export default function MotPage() {
             )}
 
             {(isCovering && (!isOnline || !coverJourneyId)) || (!isCovering && gpsProblem) ? null : loadingJourney ? (
-              <div className="p-12 text-center text-xs font-semibold text-slate-500 bg-card rounded-xl border border-border">
+              <div className="p-12 text-center text-xs font-semibold text-muted-foreground bg-card rounded-xl border border-border">
                 <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
                 Checking assigned route…
               </div>
             ) : journeyError ? (
-              <div className="bg-card border-border p-4 border rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
+              <div className="bg-card border-border p-4 border rounded-2xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{journeyError}</span>
               </div>
@@ -311,7 +311,7 @@ export default function MotPage() {
                 <button
                   type="button"
                   onClick={() => void reloadJourney()}
-                  className="min-h-11 px-4 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
+                  className="min-h-11 px-4 rounded-lg border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
                 >
                   Check again
                 </button>

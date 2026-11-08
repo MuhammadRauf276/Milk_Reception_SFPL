@@ -66,7 +66,7 @@ export function VehicleRequestsPanel({ facilityId, onDecided }: Props) {
   };
 
   return (
-    <div className="bg-card p-4 rounded-xl border border-amber-300 shadow-2xs space-y-3">
+    <div className="bg-card p-4 rounded-2xl border border-amber-300 shadow-2xs space-y-3">
       <div className="flex items-center gap-2 text-amber-900">
         <AlertTriangle className="w-4 h-4" />
         <h2 className="text-sm font-semibold">Vehicle Problems ({requests.length})</h2>
@@ -79,8 +79,8 @@ export function VehicleRequestsPanel({ facilityId, onDecided }: Props) {
             <p className="font-semibold text-foreground">
               {r.from_vehicle.vehicle_number} · {r.mot_name ?? 'MOT'} · {r.route_name ?? 'Route'} · #{r.journey_number}
             </p>
-            <p className="text-slate-700">{r.reason}</p>
-            <p className="text-slate-500">
+            <p className="text-secondary-foreground">{r.reason}</p>
+            <p className="text-muted-foreground">
               {r.shops_visited} of {r.shops_total} shops done. Remaining shops continue on the new vehicle.
             </p>
             <div className="flex flex-col sm:flex-row gap-2">

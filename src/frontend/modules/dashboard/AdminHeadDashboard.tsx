@@ -35,10 +35,10 @@ export function AdminHeadDashboard() {
     <main className="min-h-[100dvh] w-full max-w-full min-w-0 bg-background p-3 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       <h1 className="text-xl font-semibold text-foreground">Admin Head: Plant Presence</h1>
       <div className="mt-4 flex flex-wrap gap-3 text-sm">
-        <div className="flex-1 min-w-[140px] rounded-xl bg-card border border-border p-4 shadow-2xs">
+        <div className="flex-1 min-w-[140px] rounded-2xl bg-card border border-border p-4 shadow-2xs">
           Vehicles inside: <b className="text-foreground">{data.security.vehiclesInsidePlant}</b>
         </div>
-        <div className="flex-1 min-w-[140px] rounded-xl bg-card border border-border p-4 shadow-2xs">
+        <div className="flex-1 min-w-[140px] rounded-2xl bg-card border border-border p-4 shadow-2xs">
           Ready for exit: <b className="text-foreground">{data.security.pendingGateExit}</b>
         </div>
       </div>

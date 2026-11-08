@@ -98,10 +98,10 @@ export function ApprovalDecisionDrawer({
               </div>
             )}
             <div>
-              <h3 className="text-base font-bold text-foreground">
+              <h3 className="text-base font-semibold text-foreground">
                 {verdict === 'OKAY' ? 'Approve Exception' : 'Reject & Return Exception'}
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Reference: <strong>{item.referenceNumber}</strong>
               </p>
             </div>
@@ -112,7 +112,7 @@ export function ApprovalDecisionDrawer({
           {/* Super Admin Self-Approval Warning */}
           {currentUser?.id && item.submittedBy.id === String(currentUser.id) && (
             <div className="bg-card border-border p-3 border rounded-lg text-amber-900 text-xs space-y-1">
-              <p className="font-bold flex items-center gap-1.5">
+              <p className="font-semibold flex items-center gap-1.5">
                 <ShieldAlert className="w-4 h-4 text-amber-700" />
                 <span>Self-Approval Compliance Review</span>
               </p>
@@ -131,7 +131,7 @@ export function ApprovalDecisionDrawer({
 
           <form onSubmit={handleConfirmDecision} className="space-y-3 pt-2">
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-700">
+              <label className="block text-xs font-semibold text-secondary-foreground">
                 Supervisor Remarks {verdict === 'NO' ? <span className="text-rose-600">* (Required)</span> : '(Optional)'}
               </label>
               <textarea
@@ -143,10 +143,10 @@ export function ApprovalDecisionDrawer({
                     ? 'Add any operational approval notes…'
                     : 'Specify reason for rejection or return instructions (minimum 5 letters)…'
                 }
-                className="w-full border border-border rounded-xl p-2.5 text-base sm:text-xs focus:ring-1 focus:ring-primary focus:outline-none min-h-11"
+                className="w-full border border-border rounded-lg p-2.5 text-base sm:text-xs focus:ring-1 focus:ring-primary focus:outline-none min-h-11"
                 autoFocus
               />
-              <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1">
+              <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
                 <span>{verdict === 'NO' ? 'Min 5 characters' : 'Optional notes'}</span>
                 <span>{decisionRemarks.length} chars</span>
               </div>
@@ -157,7 +157,7 @@ export function ApprovalDecisionDrawer({
                 type="button"
                 onClick={onClose}
                 disabled={isSubmittingDecision}
-                className="min-h-11 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                className="min-h-11 px-4 py-2 text-xs font-semibold text-secondary-foreground hover:bg-muted rounded-lg transition"
               >
                 Cancel
               </button>
@@ -165,7 +165,7 @@ export function ApprovalDecisionDrawer({
                 type="submit"
                 disabled={isSubmittingDecision}
                 className={cn(
-                  'min-h-11 px-5 py-2 text-xs font-bold rounded-lg text-white transition flex items-center gap-1.5',
+                  'min-h-11 px-5 py-2 text-xs font-semibold rounded-lg text-white transition flex items-center gap-1.5',
                   verdict === 'OKAY' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700',
                   isSubmittingDecision && 'opacity-60 cursor-not-allowed'
                 )}

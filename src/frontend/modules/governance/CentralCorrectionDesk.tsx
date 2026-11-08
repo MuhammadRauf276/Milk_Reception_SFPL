@@ -387,7 +387,7 @@ export const CentralCorrectionDesk: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h1 className="text-lg font-bold text-foreground tracking-tight">
+                <h1 className="text-lg font-semibold text-foreground tracking-tight">
                   Corrections
                 </h1>
               </div>
@@ -411,30 +411,30 @@ export const CentralCorrectionDesk: React.FC = () => {
 
         {/* 3 Metric Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-card border-border p-4 rounded-xl border flex items-center justify-between">
+          <div className="bg-card border-border p-4 rounded-2xl border flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Pending</p>
-              <p className="text-2xl font-black text-slate-900 tabular-nums">{counts.pending}</p>
+              <p className="text-xs font-semibold text-muted-foreground">Pending</p>
+              <p className="text-2xl font-semibold text-foreground tabular-nums">{counts.pending}</p>
             </div>
             <div className="p-2.5 rounded-xl bg-amber-100/80 text-amber-700">
               <Clock className="w-5 h-5" />
             </div>
           </div>
 
-          <div className="bg-card border-border p-4 rounded-xl border flex items-center justify-between">
+          <div className="bg-card border-border p-4 rounded-2xl border flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Applied</p>
-              <p className="text-2xl font-black text-slate-900 tabular-nums">{counts.applied}</p>
+              <p className="text-xs font-semibold text-muted-foreground">Applied</p>
+              <p className="text-2xl font-semibold text-foreground tabular-nums">{counts.applied}</p>
             </div>
             <div className="p-2.5 rounded-xl bg-emerald-100/80 text-emerald-700">
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
 
-          <div className="bg-card border-border p-4 rounded-xl border flex items-center justify-between">
+          <div className="bg-card border-border p-4 rounded-2xl border flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">High impact</p>
-              <p className="text-2xl font-black text-slate-900 tabular-nums">{counts.highImpact}</p>
+              <p className="text-xs font-semibold text-muted-foreground">High impact</p>
+              <p className="text-2xl font-semibold text-foreground tabular-nums">{counts.highImpact}</p>
             </div>
             <div className="p-2.5 rounded-xl bg-rose-100/80 text-rose-700">
               <AlertTriangle className="w-5 h-5" />
@@ -444,20 +444,20 @@ export const CentralCorrectionDesk: React.FC = () => {
       </div>
 
       {/* 2. Top-Level Tab Navigation (Synchronized with ?tab=) */}
-      <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs lg:hidden">
+      <div className="flex flex-wrap items-center gap-1.5 p-1 bg-muted rounded-xl border border-border text-xs lg:hidden">
         <button
           type="button"
           onClick={() => setTab('REQUESTS')}
           className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-bold transition-all ${
             activeTab === 'REQUESTS'
-              ? 'bg-white text-primary shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-card text-primary shadow-xs'
+              : 'text-secondary-foreground hover:text-foreground'
           }`}
         >
           <Clock className="w-4 h-4" />
           <span>Correction Requests Queue</span>
           {counts.pending > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800">
+            <span className="px-1.5 py-0.2 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
               {counts.pending}
             </span>
           )}
@@ -468,13 +468,13 @@ export const CentralCorrectionDesk: React.FC = () => {
           onClick={() => setTab('DIRECT_EDIT')}
           className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-bold transition-all ${
             activeTab === 'DIRECT_EDIT'
-              ? 'bg-white text-primary shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-card text-primary shadow-xs'
+              : 'text-secondary-foreground hover:text-foreground'
           }`}
         >
           <Edit3 className="w-4 h-4" />
           <span>Direct Record Corrections (Stages 1-4)</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800">
+          <span className="px-1.5 py-0.2 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
             Live Hub
           </span>
         </button>
@@ -484,8 +484,8 @@ export const CentralCorrectionDesk: React.FC = () => {
           onClick={() => setTab('AUDIT')}
           className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-bold transition-all ${
             activeTab === 'AUDIT'
-              ? 'bg-white text-primary shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-card text-primary shadow-xs'
+              : 'text-secondary-foreground hover:text-foreground'
           }`}
         >
           <History className="w-4 h-4" />
@@ -495,14 +495,14 @@ export const CentralCorrectionDesk: React.FC = () => {
 
       {/* Action Success / Error Feedback */}
       {actionSuccessMsg && (
-        <div className="bg-card border-border p-3.5 border rounded-xl text-emerald-800 text-xs font-semibold flex items-center space-x-2 animate-in fade-in">
+        <div className="bg-card border-border p-3.5 border rounded-2xl text-emerald-800 text-xs font-semibold flex items-center space-x-2 animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{actionSuccessMsg}</span>
         </div>
       )}
 
       {actionError && (
-        <div className="bg-card border-border p-3.5 border rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-in fade-in">
+        <div className="bg-card border-border p-3.5 border rounded-2xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-in fade-in">
           <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{actionError}</span>
         </div>
@@ -514,23 +514,23 @@ export const CentralCorrectionDesk: React.FC = () => {
           {/* Filter Bar */}
           <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 border rounded-xl text-xs">
             <div className="flex items-center space-x-2 flex-1">
-              <Search className="w-4 h-4 text-slate-400 shrink-0" />
+              <Search className="w-4 h-4 text-muted-foreground shrink-0" />
               <input
                 type="text"
                 placeholder="Search"
                 value={reqSearchQuery}
                 onChange={(e) => setReqSearchQuery(e.target.value)}
-                className="w-full bg-transparent font-medium text-slate-800 focus:outline-hidden min-h-11"
+                className="w-full bg-transparent font-medium text-foreground focus:outline-hidden min-h-11"
               />
             </div>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <div className="flex items-center space-x-1.5">
-                <span className="font-semibold text-slate-600">Status:</span>
+                <span className="font-semibold text-secondary-foreground">Status:</span>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-2 rounded-lg border border-slate-300 bg-white font-medium text-slate-800 focus:outline-hidden min-h-11"
+                  className="px-2 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden min-h-11"
                 >
                   <option value="REQUESTED">Open</option>
                   <option value="APPROVED">Approved</option>
@@ -541,12 +541,12 @@ export const CentralCorrectionDesk: React.FC = () => {
               </div>
 
               <div className="flex items-center space-x-1.5">
-                <Filter className="w-3.5 h-3.5 text-slate-500" />
-                <span className="font-semibold text-slate-600">Module:</span>
+                <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="font-semibold text-secondary-foreground">Module:</span>
                 <select
                   value={moduleFilter}
                   onChange={(e) => setModuleFilter(e.target.value)}
-                  className="px-2 rounded-lg border border-slate-300 bg-white font-medium text-slate-800 focus:outline-hidden min-h-11"
+                  className="px-2 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden min-h-11"
                 >
                   <option value="ALL">All Modules</option>
                   <option value="MOT_SHOP_COLLECTION">Stage 1: Shop Collections</option>
@@ -563,14 +563,14 @@ export const CentralCorrectionDesk: React.FC = () => {
 
           {/* Requests List */}
           {requestsQuery.isPending ? (
-            <div className="p-12 text-center text-xs text-slate-400 font-semibold tabular-nums">
+            <div className="p-12 text-center text-xs text-muted-foreground font-semibold tabular-nums">
               Loading correction requests…
             </div>
           ) : filteredRequests.length === 0 ? (
             <div className="bg-card border-border p-12 text-center border rounded-2xl space-y-2">
               <FileCheck2 className="w-10 h-10 text-slate-300 mx-auto" />
-              <h3 className="font-semibold text-slate-800 text-sm">No Correction Requests Found</h3>
-              <p className="text-slate-500 text-xs">
+              <h3 className="font-semibold text-foreground text-sm">No Correction Requests Found</h3>
+              <p className="text-muted-foreground text-xs">
                 {statusFilter === 'REQUESTED'
                   ? 'Nothing pending.'
                   : 'No tickets match your active search filters.'}
@@ -586,9 +586,9 @@ export const CentralCorrectionDesk: React.FC = () => {
                 return (
                   <div
                     key={req.id}
-                    className="bg-white border border-slate-200 rounded-2xl shadow-xs p-4 space-y-3 hover:border-primary/40 transition-all text-xs"
+                    className="bg-card border border-border rounded-2xl shadow-xs p-4 space-y-3 hover:border-primary/40 transition-[color,background-color,border-color,box-shadow,opacity,transform] text-xs"
                   >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-border">
                       <div className="flex items-center space-x-2.5">
                         <span
                           className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] tracking-wide uppercase ${
@@ -601,18 +601,18 @@ export const CentralCorrectionDesk: React.FC = () => {
                         >
                           {req.impact} Impact
                         </span>
-                        <span className="font-bold text-slate-900 tabular-nums">
+                        <span className="font-semibold text-foreground tabular-nums">
                           {req.correlationId}
                         </span>
-                        <span className="text-slate-400">·</span>
-                        <span className="font-semibold text-slate-700">
+                        <span className="text-muted-foreground">·</span>
+                        <span className="font-semibold text-secondary-foreground">
                           {req.module} #{req.recordId}
                         </span>
                       </div>
 
-                      <div className="flex items-center space-x-2 text-slate-500 text-[11px]">
+                      <div className="flex items-center space-x-2 text-muted-foreground text-xs">
                         <span>
-                          From <strong className="text-slate-800">{req.requestedBy.name}</strong> (@{req.requestedBy.username})
+                          From <strong className="text-foreground">{req.requestedBy.name}</strong> (@{req.requestedBy.username})
                         </span>
                         <span>·</span>
                         <span className="tabular-nums">
@@ -623,17 +623,17 @@ export const CentralCorrectionDesk: React.FC = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="bg-card border-border p-3 rounded-xl border space-y-1.5">
-                        <p className="font-bold text-slate-700 text-[10px] uppercase tracking-wider">
+                        <p className="font-semibold text-secondary-foreground text-xs">
                           Recorded now / Proposed
                         </p>
                         <div className="space-y-1">
                           {Object.entries(req.requestedChanges).map(([k, v]) => (
-                            <div key={k} className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-white border border-slate-200">
-                              <span className="font-semibold text-slate-700">{k}:</span>
+                            <div key={k} className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-card border border-border">
+                              <span className="font-semibold text-secondary-foreground">{k}:</span>
                               <span className="tabular-nums">
                                 <span className="text-rose-700">{String(req.currentValues?.[k] ?? '—')}</span>
                                 {' → '}
-                                <span className="font-bold text-blue-700">{String(v)}</span>
+                                <span className="font-semibold text-blue-700">{String(v)}</span>
                               </span>
                             </div>
                           ))}
@@ -641,23 +641,23 @@ export const CentralCorrectionDesk: React.FC = () => {
                       </div>
 
                       <div className="bg-card border-border p-3 rounded-xl border space-y-1.5">
-                        <p className="font-bold text-slate-700 text-[10px] uppercase tracking-wider">
+                        <p className="font-semibold text-secondary-foreground text-xs">
                           Requester Rationale
                         </p>
-                        <p className="bg-card border-border p-2 rounded-lg border text-slate-800 leading-relaxed font-medium">
+                        <p className="bg-card border-border p-2 rounded-lg border text-foreground leading-relaxed font-medium">
                           &ldquo;{req.reason}&rdquo;
                         </p>
                         {req.reviewedBy && (
-                          <p className="text-[10px] text-slate-500 pt-1">
-                            Reviewed by <strong className="text-slate-800">{req.reviewedBy.name}</strong> on {req.reviewedAt && new Date(req.reviewedAt).toLocaleDateString()}
+                          <p className="text-xs text-muted-foreground pt-1">
+                            Reviewed by <strong className="text-foreground">{req.reviewedBy.name}</strong> on {req.reviewedAt && new Date(req.reviewedAt).toLocaleDateString()}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-border">
                       <div className="flex items-center space-x-2">
-                        <span className="font-semibold text-slate-600">Current Status:</span>
+                        <span className="font-semibold text-secondary-foreground">Current Status:</span>
                         <span
                           className={`px-2.5 py-0.5 rounded-md font-bold text-[10px] ${
                             isPending
@@ -684,7 +684,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                           }}
                           className="h-8 text-xs font-semibold gap-1.5"
                         >
-                          <Info className="w-3.5 h-3.5 text-slate-500" />
+                          <Info className="w-3.5 h-3.5 text-muted-foreground" />
                           <span>Inspect & Decide</span>
                         </Button>
 
@@ -740,14 +740,14 @@ export const CentralCorrectionDesk: React.FC = () => {
               className={`p-3.5 rounded-xl border text-left transition-all ${
                 selectedStage === '1'
                   ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/20'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
+                  : 'bg-card border-border hover:border-border-strong'
               }`}
             >
               <div className="flex items-center space-x-2">
                 <Truck className="w-4 h-4 text-primary" />
-                <span className="font-bold text-xs text-foreground">Stage 1: Field Mobile Tester</span>
+                <span className="font-semibold text-xs text-foreground">Stage 1: Field Mobile Tester</span>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Shop Collections, RMR Notes, LR & Fat
               </p>
             </button>
@@ -761,14 +761,14 @@ export const CentralCorrectionDesk: React.FC = () => {
               className={`p-3.5 rounded-xl border text-left transition-all ${
                 selectedStage === '2'
                   ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/20'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
+                  : 'bg-card border-border hover:border-border-strong'
               }`}
             >
               <div className="flex items-center space-x-2">
                 <Building className="w-4 h-4 text-primary" />
-                <span className="font-bold text-xs text-foreground">Stage 2: ZMCC Intake</span>
+                <span className="font-semibold text-xs text-foreground">Stage 2: ZMCC Intake</span>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Portions, Lab Sessions, HC & Tanks
               </p>
             </button>
@@ -782,14 +782,14 @@ export const CentralCorrectionDesk: React.FC = () => {
               className={`p-3.5 rounded-xl border text-left transition-all ${
                 selectedStage === '3'
                   ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/20'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
+                  : 'bg-card border-border hover:border-border-strong'
               }`}
             >
               <div className="flex items-center space-x-2">
                 <Milk className="w-4 h-4 text-primary" />
-                <span className="font-bold text-xs text-foreground">Stage 3: Dispatch</span>
+                <span className="font-semibold text-xs text-foreground">Stage 3: Dispatch</span>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Dispatches to Plant, Note #, Seals
               </p>
             </button>
@@ -803,14 +803,14 @@ export const CentralCorrectionDesk: React.FC = () => {
               className={`p-3.5 rounded-xl border text-left transition-all ${
                 selectedStage === '4'
                   ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/20'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
+                  : 'bg-card border-border hover:border-border-strong'
               }`}
             >
               <div className="flex items-center space-x-2">
                 <Scale className="w-4 h-4 text-primary" />
-                <span className="font-bold text-xs text-foreground">Stage 4: Plant Reception</span>
+                <span className="font-semibold text-xs text-foreground">Stage 4: Plant Reception</span>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Gross & Tare Weights, QA Lab, Silos
               </p>
             </button>
@@ -819,7 +819,7 @@ export const CentralCorrectionDesk: React.FC = () => {
           {/* Search Bar */}
           <div className="bg-card border-border flex items-center justify-between gap-3 p-3 border rounded-xl text-xs">
             <div className="flex items-center space-x-2 flex-1">
-              <Search className="w-4 h-4 text-slate-400 shrink-0" />
+              <Search className="w-4 h-4 text-muted-foreground shrink-0" />
               <input
                 type="text"
                 placeholder={`Search Stage ${selectedStage} records by token, vehicle, supplier, or route…`}
@@ -828,19 +828,19 @@ export const CentralCorrectionDesk: React.FC = () => {
                   setRecordSearch(e.target.value);
                   setRecordPage(1);
                 }}
-                className="w-full bg-transparent font-medium text-slate-800 focus:outline-hidden min-h-11"
+                className="w-full bg-transparent font-medium text-foreground focus:outline-hidden min-h-11"
               />
             </div>
-            <span className="text-[11px] font-semibold text-slate-500 tabular-nums shrink-0">
+            <span className="text-xs font-semibold text-muted-foreground tabular-nums shrink-0">
               {totalStageRecords} Total Records
             </span>
           </div>
 
           {/* Records Table */}
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
+                <thead className="border-b border-border bg-subtle text-secondary-foreground">
                   <tr>
                     <th className="p-3 font-semibold">Token / ID</th>
                     {selectedStage === '1' && (
@@ -878,28 +878,28 @@ export const CentralCorrectionDesk: React.FC = () => {
                     <th className="p-3 font-semibold text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <tbody className="divide-y divide-border font-medium">
                   {recordsQuery.isPending ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-400 font-semibold tabular-nums">
+                      <td colSpan={6} className="p-8 text-center text-muted-foreground font-semibold tabular-nums">
                         Loading stage records…
                       </td>
                     </tr>
                   ) : stageRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-400 font-medium">
+                      <td colSpan={6} className="p-8 text-center text-muted-foreground font-medium">
                         No records
                       </td>
                     </tr>
                   ) : (
                     stageRecords.map((rec) => (
-                      <tr key={rec.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3 font-bold text-slate-900 tabular-nums">
-                          <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800">
+                      <tr key={rec.id} className="hover:bg-subtle transition-colors">
+                        <td className="p-3 font-semibold text-foreground tabular-nums">
+                          <span className="bg-muted px-2 py-0.5 rounded text-foreground">
                             {rec.token || `#${rec.id}`}
                           </span>
                           {rec.correction_count && rec.correction_count > 0 ? (
-                            <span className="ml-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded font-semibold">
+                            <span className="ml-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded font-semibold">
                               {rec.correction_count} edits
                             </span>
                           ) : null}
@@ -907,17 +907,17 @@ export const CentralCorrectionDesk: React.FC = () => {
 
                         {selectedStage === '1' && (
                           <>
-                            <td className="p-3 text-slate-700">
-                              <span className="font-semibold text-slate-800">{rec.shop_name}</span>
-                              <div className="text-[11px] text-slate-500">{rec.route_name}</div>
+                            <td className="p-3 text-secondary-foreground">
+                              <span className="font-semibold text-foreground">{rec.shop_name}</span>
+                              <div className="text-xs text-muted-foreground">{rec.route_name}</div>
                             </td>
-                            <td className="p-3 tabular-nums font-semibold text-slate-800">
+                            <td className="p-3 tabular-nums font-semibold text-foreground">
                               {rec.quantity_value} {rec.quantity_unit}
                             </td>
-                            <td className="p-3 tabular-nums text-slate-700">
+                            <td className="p-3 tabular-nums text-secondary-foreground">
                               LR: <strong>{rec.lr}</strong> · Fat: <strong>{rec.fat}%</strong>
                             </td>
-                            <td className="p-3 tabular-nums font-bold text-emerald-700">
+                            <td className="p-3 tabular-nums font-semibold text-emerald-700">
                               {rec.at_13ts_liters != null ? `${rec.at_13ts_liters} L` : '—'}
                             </td>
                           </>
@@ -925,13 +925,13 @@ export const CentralCorrectionDesk: React.FC = () => {
 
                         {selectedStage === '2' && (
                           <>
-                            <td className="p-3 text-slate-700">
-                              <span className="font-bold text-slate-800">{rec.vehicle_number}</span>
-                              <div className="text-[11px] text-slate-500 uppercase">{rec.arrival_type}</div>
+                            <td className="p-3 text-secondary-foreground">
+                              <span className="font-semibold text-foreground">{rec.vehicle_number}</span>
+                              <div className="text-xs text-muted-foreground">{rec.arrival_type}</div>
                             </td>
-                            <td className="p-3 text-slate-700">
+                            <td className="p-3 text-secondary-foreground">
                               <span className="font-semibold">{rec.supplier_name}</span>
-                              {rec.milk_source && <div className="text-[11px] text-blue-600">{rec.milk_source}</div>}
+                              {rec.milk_source && <div className="text-xs text-blue-600">{rec.milk_source}</div>}
                             </td>
                             <td className="p-3">
                               <span
@@ -944,10 +944,10 @@ export const CentralCorrectionDesk: React.FC = () => {
                                 {rec.decision}
                               </span>
                             </td>
-                            <td className="p-3 tabular-nums text-slate-700">
+                            <td className="p-3 tabular-nums text-secondary-foreground">
                               {rec.quantity_value ? `${rec.quantity_value} ${rec.quantity_unit}` : '—'}
                               {rec.at_13ts_liters != null && (
-                                <div className="text-[11px] text-emerald-700 font-semibold">
+                                <div className="text-xs text-emerald-700 font-semibold">
                                   @13: {rec.at_13ts_liters} L
                                 </div>
                               )}
@@ -957,18 +957,18 @@ export const CentralCorrectionDesk: React.FC = () => {
 
                         {selectedStage === '3' && (
                           <>
-                            <td className="p-3 text-slate-700">
-                              <span className="font-bold text-slate-800">{rec.vehicle_number}</span>
-                              <div className="text-[11px] text-slate-500">{rec.source_name}</div>
+                            <td className="p-3 text-secondary-foreground">
+                              <span className="font-semibold text-foreground">{rec.vehicle_number}</span>
+                              <div className="text-xs text-muted-foreground">{rec.source_name}</div>
                             </td>
-                            <td className="p-3 tabular-nums font-semibold text-slate-800">
+                            <td className="p-3 tabular-nums font-semibold text-foreground">
                               {rec.quantity_value ? `${rec.quantity_value} ${rec.quantity_unit}` : '—'}
                             </td>
-                            <td className="p-3 tabular-nums text-slate-700">
+                            <td className="p-3 tabular-nums text-secondary-foreground">
                               LR: {rec.lr || '—'} · Fat: {rec.fat != null ? `${rec.fat}%` : '—'}
                             </td>
                             <td className="p-3">
-                              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-bold">
+                              <span className="bg-muted text-secondary-foreground px-2 py-0.5 rounded text-xs font-semibold">
                                 {rec.current_status}
                               </span>
                             </td>
@@ -977,19 +977,19 @@ export const CentralCorrectionDesk: React.FC = () => {
 
                         {selectedStage === '4' && (
                           <>
-                            <td className="p-3 text-slate-700">
-                              <span className="font-bold text-slate-800">{rec.vehicle_number}</span>
-                              <div className="text-[11px] text-slate-500">{rec.source_name}</div>
+                            <td className="p-3 text-secondary-foreground">
+                              <span className="font-semibold text-foreground">{rec.vehicle_number}</span>
+                              <div className="text-xs text-muted-foreground">{rec.source_name}</div>
                             </td>
-                            <td className="p-3 tabular-nums text-slate-700">
+                            <td className="p-3 tabular-nums text-secondary-foreground">
                               {rec.gross_weight_kg ? `${rec.gross_weight_kg} KG` : '—'} /{' '}
                               {rec.tare_weight_kg ? `${rec.tare_weight_kg} KG` : '—'}
                             </td>
-                            <td className="p-3 tabular-nums font-bold text-emerald-700">
+                            <td className="p-3 tabular-nums font-semibold text-emerald-700">
                               {rec.net_weight_kg ? `${rec.net_weight_kg} KG` : '—'}
                             </td>
-                            <td className="p-3 text-slate-700">
-                              <span className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded text-[11px] font-semibold">
+                            <td className="p-3 text-secondary-foreground">
+                              <span className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded text-xs font-semibold">
                                 {rec.silo_number}
                               </span>
                             </td>
@@ -1021,9 +1021,9 @@ export const CentralCorrectionDesk: React.FC = () => {
       {/* TAB 3: IMMUTABLE AUDIT LEDGER */}
       {activeTab === 'AUDIT' && (
         <div className="bg-card border-border p-6 border rounded-2xl space-y-3 text-xs">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+          <div className="flex items-center justify-between pb-3 border-b border-border">
             <div>
-              <h3 className="inline-flex items-center font-bold text-sm text-slate-900">Audit trail<InfoTip text="Every record amendment made by Data Executive and Super Admin writes an append-only row here." /></h3>
+              <h3 className="inline-flex items-center font-semibold text-sm text-foreground">Audit trail<InfoTip text="Every record amendment made by Data Executive and Super Admin writes an append-only row here." /></h3>
             </div>
             <Button
               type="button"
@@ -1044,10 +1044,10 @@ export const CentralCorrectionDesk: React.FC = () => {
         <DrawerContent className="max-w-2xl">
           <div className="p-5 border-b border-border space-y-1">
             <div className="flex items-center space-x-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary">
+              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary">
                 Review Ticket
               </span>
-              <DrawerTitle className="text-base font-bold text-foreground">
+              <DrawerTitle className="text-base font-semibold text-foreground">
                 {selectedRequest?.correlationId}
               </DrawerTitle>
             </div>
@@ -1058,37 +1058,37 @@ export const CentralCorrectionDesk: React.FC = () => {
 
           <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
             {/* Requester Info Card */}
-            <div className="bg-card border-border p-3.5 rounded-xl border grid grid-cols-2 gap-2 text-slate-700">
+            <div className="bg-card border-border p-3.5 rounded-2xl border grid grid-cols-2 gap-2 text-secondary-foreground">
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-500">Requested By</span>
-                <p className="font-semibold text-slate-900">{selectedRequest?.requestedBy.name}</p>
-                <p className="text-[11px] text-slate-500">@{selectedRequest?.requestedBy.username}</p>
+                <span className="text-xs font-semibold text-muted-foreground">Requested By</span>
+                <p className="font-semibold text-foreground">{selectedRequest?.requestedBy.name}</p>
+                <p className="text-xs text-muted-foreground">@{selectedRequest?.requestedBy.username}</p>
               </div>
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-500">Request Timestamp</span>
-                <p className="font-semibold text-slate-900">
+                <span className="text-xs font-semibold text-muted-foreground">Request Timestamp</span>
+                <p className="font-semibold text-foreground">
                   {selectedRequest?.requestedAt && new Date(selectedRequest.requestedAt).toLocaleString()}
                 </p>
-                <span className="inline-block px-2 py-0.2 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-800 mt-1">
+                <span className="inline-block px-2 py-0.2 rounded text-xs font-semibold bg-amber-100 text-amber-800 mt-1">
                   {selectedRequest?.impact} Impact
                 </span>
               </div>
             </div>
 
             {/* Proposed Modifications Diff */}
-            <div className="bg-card border-border p-3.5 rounded-xl border space-y-2">
-              <p className="font-bold text-slate-800 text-[11px] uppercase tracking-wider">
+            <div className="bg-card border-border p-3.5 rounded-2xl border space-y-2">
+              <p className="font-semibold text-foreground text-xs">
                 Recorded now / Proposed
               </p>
               <div className="space-y-1.5">
                 {selectedRequest &&
                   Object.entries(selectedRequest.requestedChanges).map(([k, v]) => (
                     <div key={k} className="bg-card border-border flex items-center justify-between gap-2 p-2 rounded-lg border">
-                      <span className="font-semibold text-slate-700">{k}</span>
+                      <span className="font-semibold text-secondary-foreground">{k}</span>
                       <span className="tabular-nums">
                         <span className="text-rose-700">{String(selectedRequest.currentValues?.[k] ?? '—')}</span>
                         {' → '}
-                        <span className="font-bold text-blue-700">{String(v)}</span>
+                        <span className="font-semibold text-blue-700">{String(v)}</span>
                       </span>
                     </div>
                   ))}
@@ -1096,11 +1096,11 @@ export const CentralCorrectionDesk: React.FC = () => {
             </div>
 
             {/* Requester Rationale */}
-            <div className="bg-card border-border p-3.5 rounded-xl border space-y-1">
-              <p className="font-bold text-slate-800 text-[11px] uppercase tracking-wider">
+            <div className="bg-card border-border p-3.5 rounded-2xl border space-y-1">
+              <p className="font-semibold text-foreground text-xs">
                 Requester Substantive Justification
               </p>
-              <p className="bg-card border-border p-2.5 rounded-lg border text-slate-800 leading-relaxed font-medium">
+              <p className="bg-card border-border p-2.5 rounded-lg border text-foreground leading-relaxed font-medium">
                 &ldquo;{selectedRequest?.reason}&rdquo;
               </p>
             </div>
@@ -1112,7 +1112,7 @@ export const CentralCorrectionDesk: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-4 border-t border-border flex items-center justify-end space-x-2 bg-slate-50">
+          <div className="p-4 border-t border-border flex items-center justify-end space-x-2 bg-subtle">
             <Button
               type="button"
               variant="outline"
@@ -1167,10 +1167,10 @@ export const CentralCorrectionDesk: React.FC = () => {
         <DrawerContent className="max-w-2xl">
           <div className="p-5 border-b border-border space-y-1">
             <div className="flex items-center space-x-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-800">
+              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">
                 Direct Record Correction
               </span>
-              <DrawerTitle className="text-base font-bold text-foreground">
+              <DrawerTitle className="text-base font-semibold text-foreground">
                 Stage {selectedStage} Record #{selectedRecord?.id}
               </DrawerTitle>
             </div>
@@ -1185,7 +1185,7 @@ export const CentralCorrectionDesk: React.FC = () => {
               {(selectedStage === '1' || selectedStage === '3') && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
+                    <label className="block font-semibold text-secondary-foreground mb-1">
                       {selectedStage === '1' ? 'Shop Receipt Token (RMR #)' : 'Raw Milk Dispatch Note #'}
                     </label>
                     <input
@@ -1193,12 +1193,12 @@ export const CentralCorrectionDesk: React.FC = () => {
                       value={editToken}
                       onChange={(e) => setEditToken(e.target.value.toUpperCase())}
                       placeholder="e.g. 001924"
-                      className="bg-card border-border w-full rounded-xl border px-3 text-xs uppercase font-mono font-semibold min-h-11"
+                      className="bg-card border-border w-full rounded-lg border px-3 text-xs uppercase font-mono font-semibold min-h-11"
                     />
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
+                    <label className="block font-semibold text-secondary-foreground mb-1">
                       Quantity Value & Unit
                     </label>
                     <div className="flex space-x-1.5">
@@ -1208,12 +1208,12 @@ export const CentralCorrectionDesk: React.FC = () => {
                         value={editQtyVal}
                         onChange={(e) => setEditQtyVal(e.target.value)}
                         placeholder="Quantity"
-                        className="bg-card border-border flex-1 rounded-xl border px-3 text-xs font-semibold tabular-nums min-h-11"
+                        className="bg-card border-border flex-1 rounded-lg border px-3 text-xs font-semibold tabular-nums min-h-11"
                       />
                       <select
                         value={editQtyUnit}
                         onChange={(e) => setEditQtyUnit(e.target.value as 'KG' | 'LITER')}
-                        className="rounded-xl border border-slate-300 px-2 text-xs font-semibold bg-white min-h-11"
+                        className="rounded-lg border border-border-strong px-2 text-xs font-semibold bg-card min-h-11"
                       >
                         <option value="KG">KG</option>
                         <option value="LITER">LITER</option>
@@ -1227,7 +1227,7 @@ export const CentralCorrectionDesk: React.FC = () => {
               {(selectedStage === '1' || selectedStage === '3') && (
                 <div className="bg-card border-border grid grid-cols-2 gap-3 p-3 rounded-xl border">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
+                    <label className="block font-semibold text-secondary-foreground mb-1">
                       Corrected LR
                     </label>
                     <input
@@ -1236,11 +1236,11 @@ export const CentralCorrectionDesk: React.FC = () => {
                       value={editLr}
                       onChange={(e) => setEditLr(e.target.value)}
                       placeholder="e.g. 28.5"
-                      className="bg-card border-border w-full rounded-xl border px-3 text-xs font-semibold tabular-nums min-h-11"
+                      className="bg-card border-border w-full rounded-lg border px-3 text-xs font-semibold tabular-nums min-h-11"
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
+                    <label className="block font-semibold text-secondary-foreground mb-1">
                       Fat %
                     </label>
                     <input
@@ -1249,7 +1249,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                       value={editFat}
                       onChange={(e) => setEditFat(e.target.value)}
                       placeholder="e.g. 4.2"
-                      className="bg-card border-border w-full rounded-xl border px-3 text-xs font-semibold tabular-nums min-h-11"
+                      className="bg-card border-border w-full rounded-lg border px-3 text-xs font-semibold tabular-nums min-h-11"
                     />
                   </div>
                 </div>
@@ -1259,7 +1259,7 @@ export const CentralCorrectionDesk: React.FC = () => {
               {selectedStage === '2' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
+                    <label className="block font-semibold text-secondary-foreground mb-1">
                       Reception Quantity (KG)
                     </label>
                     <input
@@ -1268,17 +1268,17 @@ export const CentralCorrectionDesk: React.FC = () => {
                       value={editQtyVal}
                       onChange={(e) => setEditQtyVal(e.target.value)}
                       placeholder="e.g. 4500"
-                      className="bg-card border-border w-full rounded-xl border px-3 text-xs font-semibold tabular-nums min-h-11"
+                      className="bg-card border-border w-full rounded-lg border px-3 text-xs font-semibold tabular-nums min-h-11"
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
+                    <label className="block font-semibold text-secondary-foreground mb-1">
                       Portion Decision
                     </label>
                     <select
                       value={editDecision}
                       onChange={(e) => setEditDecision(e.target.value as 'ACCEPTED' | 'REJECTED')}
-                      className="w-full rounded-xl border border-slate-300 px-2 text-xs font-semibold bg-white min-h-11"
+                      className="w-full rounded-lg border border-border-strong px-2 text-xs font-semibold bg-card min-h-11"
                     >
                       <option value="ACCEPTED">ACCEPTED (Unload to Tank)</option>
                       <option value="REJECTED">REJECTED (Direct Return)</option>
@@ -1291,29 +1291,29 @@ export const CentralCorrectionDesk: React.FC = () => {
               {selectedStage === '4' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
+                    <label className="block font-semibold text-secondary-foreground mb-1">
                       Plant Gate Token
                     </label>
                     <input
                       type="text"
                       value={editToken}
                       onChange={(e) => setEditToken(e.target.value.toUpperCase())}
-                      className="bg-card border-border w-full rounded-xl border px-3 text-xs uppercase font-mono font-semibold min-h-11"
+                      className="bg-card border-border w-full rounded-lg border px-3 text-xs uppercase font-mono font-semibold min-h-11"
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
+                    <label className="block font-semibold text-secondary-foreground mb-1">
                       Vehicle Number
                     </label>
                     <input
                       type="text"
                       value={editVehicle}
                       onChange={(e) => setEditVehicle(e.target.value.toUpperCase())}
-                      className="bg-card border-border w-full rounded-xl border px-3 text-xs uppercase font-mono font-semibold min-h-11"
+                      className="bg-card border-border w-full rounded-lg border px-3 text-xs uppercase font-mono font-semibold min-h-11"
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
+                    <label className="block font-semibold text-secondary-foreground mb-1">
                       First Weight (Gross KG)
                     </label>
                     <input
@@ -1321,11 +1321,11 @@ export const CentralCorrectionDesk: React.FC = () => {
                       step="0.01"
                       value={editGrossWeight}
                       onChange={(e) => setEditGrossWeight(e.target.value)}
-                      className="bg-card border-border w-full rounded-xl border px-3 text-xs font-semibold tabular-nums min-h-11"
+                      className="bg-card border-border w-full rounded-lg border px-3 text-xs font-semibold tabular-nums min-h-11"
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
+                    <label className="block font-semibold text-secondary-foreground mb-1">
                       Second Weight (Tare KG)
                     </label>
                     <input
@@ -1333,7 +1333,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                       step="0.01"
                       value={editTareWeight}
                       onChange={(e) => setEditTareWeight(e.target.value)}
-                      className="bg-card border-border w-full rounded-xl border px-3 text-xs font-semibold tabular-nums min-h-11"
+                      className="bg-card border-border w-full rounded-lg border px-3 text-xs font-semibold tabular-nums min-h-11"
                     />
                   </div>
                 </div>
@@ -1342,35 +1342,35 @@ export const CentralCorrectionDesk: React.FC = () => {
               {/* LIVE RECOMPUTATION PREVIEW CARD */}
               {livePreview && (
                 <div className="bg-card border-border border rounded-xl p-3 space-y-2">
-                  <div className="flex items-center justify-between text-emerald-900 font-bold">
+                  <div className="flex items-center justify-between text-emerald-900 font-semibold">
                     <span className="flex items-center gap-1.5 text-xs">
                       <Calculator className="w-3.5 h-3.5" />
                       Live Recomputed Metrics Preview
                     </span>
-                    <span className="text-[10px] bg-emerald-100 px-2 py-0.5 rounded text-emerald-800">
+                    <span className="text-xs bg-emerald-100 px-2 py-0.5 rounded text-emerald-800">
                       Auto-Calculated
                     </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Density</span>
-                      <p className="font-bold tabular-nums text-slate-900">{livePreview.density.toFixed(4)}</p>
+                      <span className="text-xs text-muted-foreground font-semibold">Density</span>
+                      <p className="font-semibold tabular-nums text-foreground">{livePreview.density.toFixed(4)}</p>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Gross Liters</span>
-                      <p className="font-bold tabular-nums text-slate-900">{livePreview.grossLiters.toFixed(2)} L</p>
+                      <span className="text-xs text-muted-foreground font-semibold">Gross Liters</span>
+                      <p className="font-semibold tabular-nums text-foreground">{livePreview.grossLiters.toFixed(2)} L</p>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">SNF %</span>
-                      <p className="font-bold tabular-nums text-slate-900">{livePreview.snf.toFixed(2)}%</p>
+                      <span className="text-xs text-muted-foreground font-semibold">SNF %</span>
+                      <p className="font-semibold tabular-nums text-foreground">{livePreview.snf.toFixed(2)}%</p>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Total Solids</span>
-                      <p className="font-bold tabular-nums text-slate-900">{livePreview.ts.toFixed(2)}%</p>
+                      <span className="text-xs text-muted-foreground font-semibold">Total Solids</span>
+                      <p className="font-semibold tabular-nums text-foreground">{livePreview.ts.toFixed(2)}%</p>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-[10px] text-emerald-800 uppercase font-bold">@13TS Liters</span>
-                      <p className="font-bold tabular-nums text-emerald-700">{livePreview.at13tsLiters.toFixed(2)} L</p>
+                      <span className="text-xs text-emerald-800 font-semibold">@13TS Liters</span>
+                      <p className="font-semibold tabular-nums text-emerald-700">{livePreview.at13tsLiters.toFixed(2)} L</p>
                     </div>
                   </div>
                 </div>
@@ -1378,7 +1378,7 @@ export const CentralCorrectionDesk: React.FC = () => {
 
               {/* MANDATORY JUSTIFICATION REASON */}
               <div>
-                <label className="block font-semibold text-slate-800 mb-1">
+                <label className="block font-semibold text-foreground mb-1">
                   Correction Reason / Justification <span className="text-rose-500">*</span>
                 </label>
                 <textarea
@@ -1387,21 +1387,21 @@ export const CentralCorrectionDesk: React.FC = () => {
                   value={editReason}
                   onChange={(e) => setEditReason(e.target.value)}
                   placeholder="Reason"
-                  className="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary focus:outline-hidden min-h-11"
+                  className="w-full p-2.5 border border-border-strong rounded-lg text-xs font-medium focus:ring-2 focus:ring-primary focus:outline-hidden min-h-11"
                 />
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Minimum 5 characters. Stamped with actor <strong>{userRole}</strong>.
                 </p>
               </div>
 
               {/* AUDIT WARNING */}
-              <div className="bg-card border-border p-3 rounded-xl border text-slate-600 flex items-start space-x-2 text-xs">
-                <Lock className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+              <div className="bg-card border-border p-3 rounded-xl border text-secondary-foreground flex items-start space-x-2 text-xs">
+                <Lock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                 <span className="inline-flex items-center">Audit logged<InfoTip text="This direct correction will atomically update the record, recompute supply chain totals, adjust tank inventory if applicable, and log a permanent change event." /></span>
               </div>
             </div>
 
-            <div className="p-4 border-t border-border flex items-center justify-end space-x-2 bg-slate-50">
+            <div className="p-4 border-t border-border flex items-center justify-end space-x-2 bg-subtle">
               <Button
                 type="button"
                 variant="outline"
@@ -1428,15 +1428,15 @@ export const CentralCorrectionDesk: React.FC = () => {
       {rejectionModalId && (
         <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
           <div className="bg-card border-border border rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-4 text-xs">
-            <h3 className="font-bold text-sm text-slate-900">Reject Correction Request</h3>
+            <h3 className="font-semibold text-sm text-foreground">Reject Correction Request</h3>
             <textarea
               rows={3}
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               placeholder="Reason"
-              className="w-full p-2.5 rounded-xl border border-slate-300 font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-rose-500 min-h-11"
+              className="w-full p-2.5 rounded-lg border border-border-strong font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-500 min-h-11"
             />
-            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-200">
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-border">
               <Button
                 type="button"
                 variant="outline"

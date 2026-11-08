@@ -23,7 +23,7 @@ function PhotoTile({ photo }: { photo: VisitPhoto }) {
   return (
     <div className="w-28 space-y-1">
       {missing ? (
-        <div className="flex h-28 w-28 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-subtle p-2 text-center text-[11px] font-semibold text-slate-500">
+        <div className="flex h-28 w-28 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-subtle p-2 text-center text-xs font-semibold text-muted-foreground">
           <ImageOff className="h-4 w-4" aria-hidden="true" />
           <span>Image file missing</span>
         </div>
@@ -39,9 +39,9 @@ function PhotoTile({ photo }: { photo: VisitPhoto }) {
           />
         </a>
       )}
-      <p className="break-words text-xs font-semibold text-slate-900">{label}</p>
-      <p className="text-[11px] tabular-nums text-slate-500">{formatOperationalDatetime(photo.capturedAt)}</p>
-      {photo.capturedBy && <p className="break-words text-[11px] text-slate-500">{photo.capturedBy}</p>}
+      <p className="break-words text-xs font-semibold text-foreground">{label}</p>
+      <p className="text-xs tabular-nums text-muted-foreground">{formatOperationalDatetime(photo.capturedAt)}</p>
+      {photo.capturedBy && <p className="break-words text-xs text-muted-foreground">{photo.capturedBy}</p>}
     </div>
   );
 }
@@ -49,9 +49,9 @@ function PhotoTile({ photo }: { photo: VisitPhoto }) {
 function StageColumn({ title, photos }: { title: string; photos: VisitPhoto[] }) {
   return (
     <div className="min-w-0 flex-1 space-y-2">
-      <h5 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{title}</h5>
+      <h5 className="text-xs font-semibold text-muted-foreground">{title}</h5>
       {photos.length === 0 ? (
-        <p className="text-xs text-slate-500">No photo</p>
+        <p className="text-xs text-muted-foreground">No photo</p>
       ) : (
         <div className="flex flex-wrap gap-3">
           {photos.map((photo) => (
@@ -80,25 +80,25 @@ export function VisitPhotosSection({ visitId }: { visitId: number }) {
     photos.filter((p) => p.portionNumber === portionNumber && p.stage === stage);
 
   return (
-    <div className="p-5 rounded-xl bg-card border border-border space-y-4 shadow-2xs">
+    <div className="p-5 rounded-2xl bg-card border border-border space-y-4 shadow-2xs">
       <div className="flex items-center space-x-2 border-b border-border/60 pb-2">
         <Camera className="w-4 h-4 text-primary" />
         <h3 className="text-xs font-semibold text-foreground">Attached Test Photos</h3>
       </div>
 
       {query.isPending ? (
-        <p className="text-xs text-slate-500">Loading photos…</p>
+        <p className="text-xs text-muted-foreground">Loading photos…</p>
       ) : query.isError ? (
         <p className="text-xs font-semibold text-rose-800" role="alert">
           Could not load the photos.
         </p>
       ) : photos.length === 0 ? (
-        <p className="text-xs text-slate-500">No photos attached to this visit.</p>
+        <p className="text-xs text-muted-foreground">No photos attached to this visit.</p>
       ) : (
         <div className="space-y-4">
           {portionNumbers.map((portionNumber) => (
-            <div key={portionNumber ?? 'vehicle'} className="bg-card border-border p-4 rounded-xl border space-y-3">
-              <h4 className="text-xs font-semibold text-slate-900">{portionTitle(portionNumber)}</h4>
+            <div key={portionNumber ?? 'vehicle'} className="bg-card border-border p-4 rounded-2xl border space-y-3">
+              <h4 className="text-xs font-semibold text-foreground">{portionTitle(portionNumber)}</h4>
               <div className="flex flex-col gap-4 sm:flex-row">
                 <StageColumn title="Dispatch" photos={photosFor(portionNumber, 'DISPATCH')} />
                 {portionNumber != null && <StageColumn title="Plant" photos={photosFor(portionNumber, 'PLANT')} />}

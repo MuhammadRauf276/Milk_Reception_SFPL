@@ -36,7 +36,7 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, lo
                                     ? 'bg-rose-100 text-rose-800 border border-rose-300'
                                     : isSkipped
                                     ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                                    : 'bg-muted text-slate-700 border border-border-strong'
+                                    : 'bg-muted text-secondary-foreground border border-border-strong'
                                 }`}
                               >
                                 {stop.planned_sequence}
@@ -46,41 +46,41 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, lo
                                   <span className="text-xs font-semibold text-foreground">
                                     {shopName}
                                   </span>
-                                  <span className="text-[10px] tabular-nums text-slate-500">
+                                  <span className="text-xs tabular-nums text-muted-foreground">
                                     ({shopCode})
                                   </span>
                                   {waitingDecision ? (
                                     <DecisionStatusBadge status="PENDING" />
                                   ) : isVisited ? (
-                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
                                       Completed ({Number(stop.collection?.gross_liters || 0).toFixed(1)} L)
                                     </span>
                                   ) : isRejected ? (
                                     <DecisionStatusBadge status="REJECTED" />
                                   ) : isSkipped ? (
-                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-rose-100 text-rose-900 border border-rose-300">
+                                    <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-rose-100 text-rose-900 border border-rose-300">
                                       SKIPPED {stop.skip_reason ? `· ${stop.skip_reason}` : ''}
                                     </span>
                                   ) : (
-                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase bg-slate-100 text-slate-700 border border-slate-300">
+                                    <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-muted text-secondary-foreground border border-border-strong">
                                       Pending
                                     </span>
                                   )}
                                   {stop.distanceKm != null && (
-                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                                    <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
                                       {formatDistance(stop.distanceKm)}
                                     </span>
                                   )}
                                 </div>
 
-                                <p className="text-[11px] text-slate-500">
+                                <p className="text-xs text-muted-foreground">
                                   Owner: {ownerName}
                                 </p>
 
-                                <div className="text-[11px] text-slate-500 flex items-center space-x-2 flex-wrap gap-y-1">
+                                <div className="text-xs text-muted-foreground flex items-center space-x-2 flex-wrap gap-y-1">
                                   {areaName && <span>Area: {areaName}</span>}
                                   {!stop.hasCoordinates && (
-                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                    <span className="px-1.5 py-0.5 rounded-md text-xs font-semibold bg-muted text-secondary-foreground border border-border">
                                       Geotag on 1st Visit
                                     </span>
                                   )}
@@ -88,7 +88,7 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, lo
 
                                 {isVisited && stop.collection && (
                                   <div className="mt-2 space-y-2">
-                                    <div className="bg-card border-border p-2 rounded-lg border text-[11px] tabular-nums font-semibold text-emerald-950 flex flex-wrap gap-x-3 gap-y-1">
+                                    <div className="bg-card border-border p-2 rounded-lg border text-xs tabular-nums font-semibold text-emerald-950 flex flex-wrap gap-x-3 gap-y-1">
                                       <span>Gross: {Number(stop.collection.gross_liters).toFixed(2)} L</span>
                                       <span>@13TS: {Number(stop.collection.at_13ts_liters).toFixed(2)} L</span>
                                       <span>LR: {stop.collection.lr}</span>
@@ -109,7 +109,7 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, lo
                                           href={`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`}
                                           target="_blank"
                                           rel="noreferrer"
-                                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                                         >
                                           <MessageSquare className="w-3.5 h-3.5" />
                                           <span>WhatsApp Receipt ({rawPhone})</span>

@@ -37,10 +37,10 @@ function outcomeText(o: string) {
 }
 
 function waitingInfo(iso: string | null, now: number) {
-  if (!iso) return { text: '-', cls: 'text-slate-600' };
+  if (!iso) return { text: '-', cls: 'text-secondary-foreground' };
   const mins = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000));
   const text = mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
-  const cls = mins >= 60 ? 'text-rose-700' : mins >= 15 ? 'text-amber-700' : 'text-slate-600';
+  const cls = mins >= 60 ? 'text-rose-700' : mins >= 15 ? 'text-amber-700' : 'text-secondary-foreground';
   return { text, cls };
 }
 
@@ -107,7 +107,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
             onClick={() => setTab(t)}
             className={cn(
               'min-h-[44px] flex-1 rounded-xl border px-4 text-base font-semibold sm:flex-none',
-              tab === t ? 'border-violet-600 bg-violet-600 text-white' : 'border-border bg-white text-slate-700'
+              tab === t ? 'border-violet-600 bg-violet-600 text-white' : 'border-border bg-card text-secondary-foreground'
             )}
           >
             {t === 'PENDING' ? 'Waiting' : 'Decided'}
@@ -116,7 +116,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
       </div>
 
       {loading && (
-        <div className="flex items-center gap-2 py-6 text-slate-600">
+        <div className="flex items-center gap-2 py-6 text-secondary-foreground">
           <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Loading…
         </div>
       )}
@@ -127,7 +127,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
         </div>
       )}
       {!loading && !error && items.length === 0 && (
-        <div className="rounded-xl border border-border bg-card p-6 text-center text-slate-600">
+        <div className="rounded-2xl border border-border bg-card p-6 text-center text-secondary-foreground">
           {tab === 'PENDING' ? 'No lab portion is waiting for you.' : 'No decided lab exceptions yet.'}
         </div>
       )}
@@ -141,12 +141,12 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
             <div className="flex-1 space-y-4 p-4">
               <header className="space-y-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-lg font-bold text-slate-900">
+                  <h3 className="text-lg font-semibold text-foreground">
                     {item.vehicleNumber || 'Vehicle'} · {item.testMode === 'PORTION_WISE' ? `Portion ${item.portionNumber} of ${item.portionCount}` : 'Composite'}
                   </h3>
                   <DecisionStatusBadge status={pending ? 'PENDING' : item.finalDecision === 'REJECTED' ? 'REJECTED' : 'ACCEPTED'} />
                 </div>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-secondary-foreground">
                   {item.point === 'ZMCC_LAB_MC' ? 'Mobile Tester (route milk)' : 'HC (supplier)'}
                   {item.sourceName ? ` · ${item.sourceName}` : ''}
                   {item.token ? ` · Token ${item.token}` : ''}
@@ -158,7 +158,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                     <Clock className="h-4 w-4" aria-hidden="true" /> Waiting {wait.text}
                   </p>
                 ) : (
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-secondary-foreground">
                     Decided {item.reviewedAt ? new Date(item.reviewedAt).toLocaleString() : ''}
                     {item.reviewRemarks ? `: ${item.reviewRemarks}` : ''}
                   </p>
@@ -166,9 +166,9 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
               </header>
 
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-slate-500">Weight (KG)</div><div className="text-base font-bold">{item.quantityValue ?? item.grossLiters ?? '-'}</div></div>
-                <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-slate-500">LR</div><div className="text-base font-bold">{item.lr ?? '-'}</div></div>
-                <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-slate-500">Fat</div><div className="text-base font-bold">{item.fat ?? '-'}</div></div>
+                <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-muted-foreground">Weight (KG)</div><div className="text-base font-semibold">{item.quantityValue ?? item.grossLiters ?? '-'}</div></div>
+                <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-muted-foreground">LR</div><div className="text-base font-semibold">{item.lr ?? '-'}</div></div>
+                <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-muted-foreground">Fat</div><div className="text-base font-semibold">{item.fat ?? '-'}</div></div>
               </div>
 
               {item.exceptionReasons.length > 0 && (
@@ -190,7 +190,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
               {item.details && item.details.tests.length > 0 && (
                 <div className="overflow-x-auto rounded-xl border border-border">
                   <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-xs text-slate-600">
+                    <thead className="bg-subtle text-left text-xs text-secondary-foreground">
                       <tr><th className="p-2">Test</th><th className="p-2">Result</th><th className="p-2">Outcome</th></tr>
                     </thead>
                     <tbody>
@@ -221,16 +221,16 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
             </div>
 
             {pending && canDecide && own && (
-              <p className="border-t border-border p-3 text-sm text-slate-600">Your own test.</p>
+              <p className="border-t border-border p-3 text-sm text-secondary-foreground">Your own test.</p>
             )}
             {pending && canDecide && !own && (
-              <div className="sticky bottom-0 space-y-2 rounded-b-2xl border-t border-border bg-white p-3">
+              <div className="sticky bottom-0 space-y-2 rounded-b-2xl border-t border-border bg-card p-3">
                 <textarea
                   value={remarks[item.id] || ''}
                   onChange={(e) => setRemarks((r) => ({ ...r, [item.id]: e.target.value }))}
                   placeholder="Reason (needed for NO)"
                   rows={2}
-                  className="min-h-11 w-full rounded-xl border border-border-strong p-2 text-base"
+                  className="min-h-11 w-full rounded-lg border border-border-strong p-2 text-base"
                 />
                 {itemError[item.id] && <p className="text-sm font-semibold text-rose-700">{itemError[item.id]}</p>}
                 <div className="grid grid-cols-2 gap-3">
@@ -238,7 +238,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                     type="button"
                     disabled={busyId === item.id}
                     onClick={() => decide(item, 'NO')}
-                    className="flex h-14 items-center justify-center gap-2 rounded-xl bg-rose-600 text-lg font-bold text-white disabled:opacity-50"
+                    className="flex h-14 items-center justify-center gap-2 rounded-xl bg-rose-600 text-lg font-semibold text-white disabled:opacity-50"
                   >
                     REJECT
                   </button>
@@ -246,7 +246,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                     type="button"
                     disabled={busyId === item.id}
                     onClick={() => decide(item, 'OKAY')}
-                    className="flex h-14 items-center justify-center gap-2 rounded-xl bg-emerald-600 text-lg font-bold text-white disabled:opacity-50"
+                    className="flex h-14 items-center justify-center gap-2 rounded-xl bg-emerald-600 text-lg font-semibold text-white disabled:opacity-50"
                   >
                     APPROVE
                   </button>

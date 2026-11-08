@@ -54,7 +54,7 @@ const ReasonFields: React.FC<{
           value={code}
           disabled={disabled}
           onChange={(e) => onCode(e.target.value)}
-          className={`${zmccInputClass} bg-white`}
+          className={`${zmccInputClass} bg-card`}
         >
           <option value="">Choose a reason</option>
           {REASONS.map((r) => (
@@ -138,17 +138,17 @@ const ExitDrawer: React.FC<{ kind: 'exit' | 'close'; item: ExitQueueItem; onClos
       onClose={onClose}
       title={kind === 'exit' ? 'Record vehicle exit' : 'Close without unloading'}
       subtitle={`${item.vehicle_number || 'Vehicle'} - ${item.source_type}`}
-      icon={<DoorOpen className="mt-0.5 h-5 w-5 text-slate-600" />}
+      icon={<DoorOpen className="mt-0.5 h-5 w-5 text-secondary-foreground" />}
     >
       {kind === 'exit' ? (
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-secondary-foreground">
           Outcome: <strong>{OUTCOME_LABEL[item.preview_outcome] ?? item.preview_outcome}</strong>
           {item.needs_reason && (
             <InfoTip text="Milk was not unloaded into the tank. An exit reason is required, and the ZMCC Manager will be notified." />
           )}
         </p>
       ) : (
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-secondary-foreground">
           Manager approval needed.
         </p>
       )}
@@ -192,27 +192,27 @@ export const ZmccExitWorkspace: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-lg font-bold text-slate-900">Vehicle exit</h2>
+        <h2 className="text-lg font-semibold text-foreground">Vehicle exit</h2>
         <button
           type="button"
           onClick={() => void queryClient.invalidateQueries({ queryKey: ['zmcc', 'exit'] })}
-          className="h-11 min-w-[44px] rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-800"
+          className="h-11 min-w-[44px] rounded-lg border border-border-strong px-4 text-sm font-semibold text-foreground"
         >
           Refresh
         </button>
       </div>
       {notice && (
-        <p role="status" className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm font-bold text-emerald-800">
+        <p role="status" className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm font-semibold text-emerald-800">
           <CheckCircle2 className="h-4 w-4" /> {notice}
         </p>
       )}
       <ZmccErrorBanner message={error} />
       {query.isFetching && (
-        <p className="flex items-center gap-2 text-sm text-slate-600">
+        <p className="flex items-center gap-2 text-sm text-secondary-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
         </p>
       )}
-      {!query.isLoading && items.length === 0 && <p className="text-sm text-slate-600">No vehicles waiting.</p>}
+      {!query.isLoading && items.length === 0 && <p className="text-sm text-secondary-foreground">No vehicles waiting.</p>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {items.map((item) => (
@@ -224,11 +224,11 @@ export const ZmccExitWorkspace: React.FC = () => {
               {/* Header row: Vehicle with Truck icon + Source Type badge + Status badge */}
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                    <Truck className="h-4 w-4 text-slate-600" />
+                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                    <Truck className="h-4 w-4 text-secondary-foreground" />
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-slate-900 tabular-nums leading-tight">
+                    <div className="text-sm font-semibold text-foreground tabular-nums leading-tight">
                       {item.vehicle_number || 'Vehicle'}
                     </div>
                     <span
@@ -245,7 +245,7 @@ export const ZmccExitWorkspace: React.FC = () => {
                   className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold shrink-0 ${
                     item.unloaded
                       ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-slate-100 text-slate-700'
+                      : 'bg-muted text-secondary-foreground'
                   }`}
                 >
                   {item.unloaded && <CheckCircle2 className="h-3.5 w-3.5" />}
@@ -255,11 +255,11 @@ export const ZmccExitWorkspace: React.FC = () => {
 
               {/* Source Name & Token */}
               <div className="mt-3 space-y-1.5">
-                <div className="text-sm font-bold text-slate-900 line-clamp-1" title={item.source_name || ''}>
+                <div className="text-sm font-semibold text-foreground line-clamp-1" title={item.source_name || ''}>
                   {item.source_name || (item.source_type === 'MC' ? 'Route Milk' : 'Direct Supplier')}
                 </div>
                 {item.zmcc_token && (
-                  <span className="inline-block font-mono text-[11px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                  <span className="inline-block font-mono text-xs font-medium px-2 py-0.5 rounded bg-muted text-secondary-foreground border border-border">
                     Token: {item.zmcc_token}
                   </span>
                 )}
@@ -275,7 +275,7 @@ export const ZmccExitWorkspace: React.FC = () => {
             </div>
 
             {/* Actions at bottom of card */}
-            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+            <div className="pt-3 border-t border-border flex flex-col gap-2">
               {item.can_exit && (
                 <button
                   type="button"

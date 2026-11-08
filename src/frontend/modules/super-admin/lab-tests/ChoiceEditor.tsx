@@ -72,7 +72,7 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
     <div className="space-y-2.5 rounded-xl border border-border bg-card p-3">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Test Choices</span>
+          <span className="text-xs font-semibold text-foreground">Test Choices</span>
           <InfoTip text="Pick a preset or customize options with a 3-tier verdict (Pass, Warning, Fail)." />
         </div>
         <button
@@ -91,13 +91,13 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card p-2">
-        <span className="text-[11px] font-semibold text-slate-600">Presets:</span>
+        <span className="text-xs font-semibold text-secondary-foreground">Presets:</span>
         {QUALITATIVE_PRESETS.map((p) => (
           <button
             key={p.label}
             type="button"
             onClick={() => onChange(JSON.parse(JSON.stringify(p.options)))}
-            className="min-h-11 rounded bg-slate-100 px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200"
+            className="min-h-11 rounded bg-muted px-2.5 text-xs font-semibold text-secondary-foreground transition hover:bg-muted"
           >
             {p.label}
           </button>
@@ -117,7 +117,7 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
                   aria-label={`Choice ${idx + 1} code`}
                   value={opt.value}
                   onChange={(e) => update(idx, { value: normalizeOptionCode(e.target.value) })}
-                  className="h-11 w-2/5 rounded border border-slate-300 px-2 font-mono text-xs font-semibold uppercase"
+                  className="h-11 w-2/5 rounded border border-border-strong px-2 font-mono text-xs font-semibold uppercase"
                 />
                 <input
                   type="text"
@@ -126,7 +126,7 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
                   aria-label={`Choice ${idx + 1} label`}
                   value={opt.label}
                   onChange={(e) => update(idx, { label: e.target.value })}
-                  className="h-11 flex-1 rounded border border-slate-300 px-2 text-xs"
+                  className="h-11 flex-1 rounded border border-border-strong px-2 text-xs"
                 />
                 <button
                   type="button"
@@ -146,7 +146,7 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
                     aria-pressed={current === o.value}
                     onClick={() => update(idx, { outcome: o.value, isPassing: o.value === 'PASS' ? true : o.value === 'FAIL' ? false : null })}
                     className={`h-11 flex-1 rounded border text-xs font-bold ${
-                      current === o.value ? o.cls : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                      current === o.value ? o.cls : 'border-border bg-card text-muted-foreground hover:bg-subtle'
                     }`}
                   >
                     {o.label}

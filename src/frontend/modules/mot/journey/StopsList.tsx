@@ -53,7 +53,7 @@ export function StopsList({ journey, deviceGps, onRecord, onRequestShop, locked 
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, delay: 0.05 }}
-      className="bg-white rounded-xl border border-border shadow-2xs overflow-hidden"
+      className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden"
     >
                     <div className="p-3 sm:p-4 border-b border-border space-y-3">
                       <div className="flex items-center justify-between">
@@ -64,7 +64,7 @@ export function StopsList({ journey, deviceGps, onRecord, onRequestShop, locked 
                           </h3>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="text-[11px] font-medium text-slate-500">
+                          <span className="text-xs font-medium text-muted-foreground">
                             {visitedCount} of {journey.stops.length} completed
                           </span>
                           {!locked && (
@@ -91,7 +91,7 @@ export function StopsList({ journey, deviceGps, onRecord, onRequestShop, locked 
 
                       {totalStopsPages > 1 && (
                         <div className="flex items-center justify-between p-3.5 bg-subtle border-t border-border">
-                          <span className="text-xs text-slate-500 font-medium">
+                          <span className="text-xs text-muted-foreground font-medium">
                             Showing {(stopsPage - 1) * stopsPerPage + 1}–{Math.min(stopsPage * stopsPerPage, sortedStops.length)} of {sortedStops.length} shops
                           </span>
                           <div className="flex items-center gap-2">
@@ -99,7 +99,7 @@ export function StopsList({ journey, deviceGps, onRecord, onRequestShop, locked 
                               type="button"
                               disabled={stopsPage === 1}
                               onClick={() => setStopsPage((p) => Math.max(1, p - 1))}
-                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-border text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-border text-secondary-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <ChevronLeft className="w-4 h-4" />
                             </button>
@@ -110,7 +110,7 @@ export function StopsList({ journey, deviceGps, onRecord, onRequestShop, locked 
                               type="button"
                               disabled={stopsPage >= totalStopsPages}
                               onClick={() => setStopsPage((p) => Math.min(totalStopsPages, p + 1))}
-                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-border text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-border text-secondary-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <ChevronRight className="w-4 h-4" />
                             </button>

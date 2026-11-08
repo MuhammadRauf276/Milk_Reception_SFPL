@@ -66,7 +66,7 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
               {gpsStatus?.isTracking ? 'Native Background GPS Active' : 'GPS Idle'}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-medium text-[11px] bg-slate-800 text-slate-400">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-medium text-xs bg-slate-800 text-slate-400">
               Web GPS
             </span>
           )}
@@ -74,7 +74,7 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
 
         {/* GPS Fix & Accuracy Badge */}
         {gpsStatus?.isTracking && gpsStatus.accuracy !== undefined && (
-          <div className="text-[11px] text-slate-400">
+          <div className="text-xs text-slate-400">
             Fix: <span className="font-semibold text-slate-200">{fixAgeMs ? getFixAgeLabel(fixAgeMs) : 'acquiring'}</span> (±{Math.round(gpsStatus.accuracy)}m)
           </div>
         )}
@@ -82,7 +82,7 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
 
       {/* Unsent Work & Sync Queue Status */}
       <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
-        <div className="flex items-center gap-3 text-[11px]">
+        <div className="flex items-center gap-3 text-xs">
           {summary ? (
             <>
               <span className={summary.unsyncedCollections > 0 ? 'text-amber-400 font-semibold' : 'text-slate-400'}>
@@ -108,7 +108,7 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
           <button
             type="button"
             onClick={handleSyncClick}
-            className="px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-medium text-[11px] transition-colors"
+            className="px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-medium text-xs transition-colors"
           >
             Sync Now
           </button>
@@ -117,12 +117,12 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
 
       {/* Battery Optimization Warning (if not disabled) */}
       {isNative && !batteryIgnored && (
-        <div className="flex items-center justify-between p-2 mt-1 rounded bg-amber-950/60 border border-amber-800/80 text-[11px] text-amber-200">
+        <div className="flex items-center justify-between p-2 mt-1 rounded bg-amber-950/60 border border-amber-800/80 text-xs text-amber-200">
           <span>Battery optimization may restrict GPS tracking when screen is locked.</span>
           <button
             type="button"
             onClick={handleBatteryWarningClick}
-            className="ml-2 px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-500 text-slate-900 font-bold shrink-0"
+            className="ml-2 px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-500 text-slate-900 font-semibold shrink-0"
           >
             Disable
           </button>

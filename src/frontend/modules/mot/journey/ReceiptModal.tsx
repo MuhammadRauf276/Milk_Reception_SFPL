@@ -24,7 +24,7 @@ export function ReceiptModal({
         <div className="bg-card border-border p-3 border rounded-xl text-emerald-950 flex items-start space-x-3">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-900">Collection Recorded Successfully</h4>
+            <h4 className="text-xs font-semibold text-emerald-900">Collection Recorded Successfully</h4>
             <p className="text-xs text-emerald-800 mt-0.5">
               {completedReceiptModal.shopName} · {completedReceiptModal.grossLiters.toFixed(1)} L (@13TS: {completedReceiptModal.at13tsLiters.toFixed(1)} L)
             </p>
@@ -32,15 +32,15 @@ export function ReceiptModal({
         </div>
 
         <div className="bg-card border-border p-3 border rounded-xl text-xs space-y-1">
-          <div className="flex justify-between text-slate-600">
+          <div className="flex justify-between text-secondary-foreground">
             <span>Shop / Recipient:</span>
             <strong className="text-foreground">{completedReceiptModal.shopName}</strong>
           </div>
-          <div className="flex justify-between text-slate-600">
+          <div className="flex justify-between text-secondary-foreground">
             <span>WhatsApp Number:</span>
             <strong className="text-foreground font-mono">{completedReceiptModal.phone}</strong>
           </div>
-          <div className="flex justify-between text-slate-600">
+          <div className="flex justify-between text-secondary-foreground">
             <span>LR / Fat:</span>
             <strong className="text-foreground">{completedReceiptModal.lr} / {completedReceiptModal.fat}%</strong>
           </div>
@@ -74,7 +74,7 @@ export function ReceiptModal({
               <button
                 type="button"
                 onClick={() => onClose()}
-                className="w-full py-2 px-4 rounded-xl border border-border text-slate-700 hover:bg-subtle text-xs font-semibold transition min-h-[44px]"
+                className="w-full py-2 px-4 rounded-xl border border-border text-secondary-foreground hover:bg-subtle text-xs font-semibold transition min-h-[44px]"
               >
                 Close & View Journey
               </button>
@@ -84,7 +84,7 @@ export function ReceiptModal({
               <button
                 type="button"
                 onClick={() => onClose()}
-                className="w-full py-2.5 px-4 rounded-xl border border-border text-slate-700 hover:bg-subtle text-xs font-semibold transition min-h-[44px]"
+                className="w-full py-2.5 px-4 rounded-xl border border-border text-secondary-foreground hover:bg-subtle text-xs font-semibold transition min-h-[44px]"
               >
                 Done / Proceed to Next Shop
               </button>
@@ -95,7 +95,7 @@ export function ReceiptModal({
                     onClose();
                     onReturnToPhe();
                   }}
-                  className="min-h-11 min-w-11 w-full py-1.5 text-center text-xs font-medium text-slate-500 hover:text-slate-800 transition"
+                  className="min-h-11 min-w-11 w-full py-1.5 text-center text-xs font-medium text-muted-foreground hover:text-foreground transition"
                 >
                   Finish Route Early & Return to PHE →
                 </button>

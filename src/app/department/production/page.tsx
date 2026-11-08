@@ -71,7 +71,7 @@ function ProductionDepartmentContent() {
       <main className="flex-1 w-full min-w-0 max-w-full p-3 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <PageTransition>
           {isSupervisor && (
-            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs sm:text-sm">
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-2xl border border-primary/20 bg-primary/5 p-3.5 text-xs sm:text-sm">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-primary">Supervisor Oversight:</span>
                 <span className="text-muted-foreground">

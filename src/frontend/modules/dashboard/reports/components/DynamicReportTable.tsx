@@ -109,7 +109,7 @@ export function DynamicReportTable({
         colorClass = 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800';
       }
       return (
-        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${colorClass}`}>
+        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${colorClass}`}>
           {String(value)}
         </span>
       );
@@ -155,7 +155,7 @@ export function DynamicReportTable({
       try {
         const d = new Date(value);
         return (
-          <span className="tabular-nums text-[11px] text-muted-foreground">
+          <span className="tabular-nums text-xs text-muted-foreground">
             {d.toISOString().slice(0, 16).replace('T', ' ')}
           </span>
         );
@@ -182,7 +182,7 @@ export function DynamicReportTable({
 
         <table className="w-full text-xs text-left border-collapse">
           <thead>
-            <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold uppercase text-[10px] tracking-wider sticky top-0 z-10">
+            <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold text-xs sticky top-0 z-10">
               {fields.map((f) => {
                 const isSorted = sortFieldId === f.id;
                 return (
@@ -248,13 +248,13 @@ export function DynamicReportTable({
                               <ChevronDown className="w-4 h-4 text-primary shrink-0" />
                             )}
                             <span>{groupKey}</span>
-                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
                               {groupRows.length} records
                             </span>
                           </div>
 
                           {subtotal && (
-                            <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-mono">
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
                               {Object.entries(subtotal.aggregations).map(([fId, val]) => {
                                 const fDef = fields.find((d) => d.id === fId);
                                 if (!fDef) return null;
@@ -318,7 +318,7 @@ export function DynamicReportTable({
                 {fields.map((f, idx) => {
                   if (idx === 0) {
                     return (
-                      <td key={f.id} className="py-3 px-3.5 text-foreground uppercase tracking-wider text-[11px] font-bold">
+                      <td key={f.id} className="py-3 px-3.5 text-foreground text-xs font-semibold">
                         TOTAL ({totalRecords})
                       </td>
                     );

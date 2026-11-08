@@ -253,7 +253,7 @@ export function DeviceSetupScreen() {
   return (
     <main className="mx-auto min-h-[100dvh] w-full max-w-xl space-y-6 p-4 pt-safe pb-[max(7rem,env(safe-area-inset-bottom))]">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">
           <Smartphone className="size-7" aria-hidden /> Phone setup
         </h1>
         <p className="flex items-center text-base text-muted-foreground">For office staff<InfoTip text="Set up this phone so it can send work by itself." /></p>
@@ -263,7 +263,7 @@ export function DeviceSetupScreen() {
 
       <section className="space-y-3 rounded-lg border bg-card p-4">
         <h2 className="flex items-center text-lg font-semibold">1. Phone ID<InfoTip text="Add this ID on the Phones screen in the office." /></h2>
-        <div className="break-all rounded-md border-2 border-dashed bg-muted/40 p-4 text-center font-mono text-2xl font-bold tracking-wide" aria-label="Phone ID">
+        <div className="break-all rounded-md border-2 border-dashed bg-muted/40 p-4 text-center font-mono text-2xl font-semibold tracking-wide" aria-label="Phone ID">
           {deviceUid || '...'}
         </div>
         <Button variant="outline" className={BIG_BTN} disabled={!deviceUid} onClick={copyUid}>

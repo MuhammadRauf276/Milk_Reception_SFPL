@@ -71,7 +71,7 @@ export const ProductionQueueList: React.FC<{
     <div className="space-y-2.5">
       <div key={activeTab} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 stagger-children">
         {isLoading ? (
-          <div className="p-8 text-center border border-dashed border-border rounded-xl text-sm text-muted-foreground md:col-span-2 lg:col-span-3">
+          <div className="p-8 text-center border border-dashed border-border rounded-2xl text-sm text-muted-foreground md:col-span-2 lg:col-span-3">
             <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-700" />
             Loading production queue…
           </div>
@@ -97,12 +97,12 @@ export const ProductionQueueList: React.FC<{
                         <span className="tabular-nums text-xs font-semibold text-primary">({v.token_number})</span>
                       )}
                       {v.is_portion_wise && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-foreground border border-border">
+                        <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-muted text-foreground border border-border">
                           Portion #{v.active_portion_number}
                         </span>
                       )}
                     </div>
-                    <span className="text-[10px] tabular-nums font-semibold flex items-center space-x-1 text-slate-500">
+                    <span className="text-xs tabular-nums font-semibold flex items-center space-x-1 text-muted-foreground">
                       <Clock className="w-3 h-3" />
                       <span>{v.waiting_minutes}m</span>
                     </span>
@@ -110,13 +110,13 @@ export const ProductionQueueList: React.FC<{
 
                   <div className={statsClass(isSelected)}>
                     <div>
-                      <span className="font-sans block text-[10px] opacity-75">
+                      <span className="font-sans block text-xs opacity-75">
                         {v.is_portion_wise ? `Portion #${v.active_portion_number} Weight` : 'Gross Weight'}
                       </span>
                       <span>{v.gross_weight_kg ? `${v.gross_weight_kg.toLocaleString()} kg` : 'N/A'}</span>
                     </div>
                     <div>
-                      <span className="font-sans block text-[10px] opacity-75">
+                      <span className="font-sans block text-xs opacity-75">
                         {v.total_accepted_at13_ts_liters !== null ? 'Volume (@13% TS)' : 'Expected Volume'}
                       </span>
                       <span>
@@ -150,11 +150,11 @@ export const ProductionQueueList: React.FC<{
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="tabular-nums font-semibold text-sm">{v.vehicle_number}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold tabular-nums bg-muted text-foreground border border-border">
+                      <span className="px-2 py-0.5 rounded text-xs font-semibold tabular-nums bg-muted text-foreground border border-border">
                         {v.is_portion_wise ? `Portion #${v.active_portion_number} Unloading` : 'Unloading Active'}
                       </span>
                     </div>
-                    <span className="text-[10px] tabular-nums font-semibold flex items-center space-x-1 text-amber-800">
+                    <span className="text-xs tabular-nums font-semibold flex items-center space-x-1 text-amber-800">
                       <Clock className="w-3 h-3" />
                       <span>{v.elapsed_minutes}m</span>
                     </span>
@@ -162,7 +162,7 @@ export const ProductionQueueList: React.FC<{
 
                   <div className={statsClass(isSelected)}>
                     <div>
-                      <span className="font-sans block text-[10px] opacity-75">
+                      <span className="font-sans block text-xs opacity-75">
                         {v.total_accepted_at13_ts_liters !== null ? 'Volume (@13% TS)' : 'Unloading Volume'}
                       </span>
                       <span>
@@ -174,7 +174,7 @@ export const ProductionQueueList: React.FC<{
                       </span>
                     </div>
                     <div>
-                      <span className="font-sans block text-[10px] opacity-75">Started By</span>
+                      <span className="font-sans block text-xs opacity-75">Started By</span>
                       <span className="truncate block">{v.started_by_name}</span>
                     </div>
                   </div>
@@ -199,7 +199,7 @@ export const ProductionQueueList: React.FC<{
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <span className="tabular-nums font-semibold text-sm">{silo.silo_code}</span>
-                    <span className="text-xs font-semibold text-slate-700">({silo.silo_name})</span>
+                    <span className="text-xs font-semibold text-secondary-foreground">({silo.silo_name})</span>
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded text-[10px] font-semibold tabular-nums ${
@@ -214,7 +214,7 @@ export const ProductionQueueList: React.FC<{
 
                 <div className={statsClass(isSelected)}>
                   <div>
-                    <span className="font-sans block text-[10px] opacity-75">{silo.current_stock_at_13ts != null ? 'Stock (@13% TS)' : silo.current_stock_liters != null ? 'Physical Stock' : 'State'}</span>
+                    <span className="font-sans block text-xs opacity-75">{silo.current_stock_at_13ts != null ? 'Stock (@13% TS)' : silo.current_stock_liters != null ? 'Physical Stock' : 'State'}</span>
                     <span className="text-sm font-semibold">
                       {silo.current_stock_at_13ts != null
                         ? `${silo.current_stock_at_13ts.toLocaleString()} L`
@@ -224,7 +224,7 @@ export const ProductionQueueList: React.FC<{
                     </span>
                   </div>
                   <div>
-                    <span className="font-sans block text-[10px] opacity-75">Capacity</span>
+                    <span className="font-sans block text-xs opacity-75">Capacity</span>
                     <span>{silo.capacity_liters != null ? `${silo.capacity_liters.toLocaleString()} L` : 'Allocated Bay'}</span>
                   </div>
                 </div>

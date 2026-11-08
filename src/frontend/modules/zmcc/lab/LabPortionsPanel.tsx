@@ -479,7 +479,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12 text-xs font-semibold text-slate-500">
+      <div className="flex items-center justify-center p-12 text-xs font-semibold text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" /> Loading…
       </div>
     );
@@ -488,20 +488,20 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
   return (
     <section className="space-y-4" aria-label="Laboratory tests">
       {/* Session Header Card */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-2xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xs">
         <div>
           <div className="flex items-center space-x-2">
             <FlaskConical className="h-5 w-5 text-primary" />
-            <h3 className="text-base font-bold text-slate-900">
+            <h3 className="text-base font-semibold text-foreground">
               {arrivalType === 'MOT' ? 'Mobile Tester Arrival Testing' : 'HC Arrival Testing'}
             </h3>
             <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-primary">
               {state?.testMode === 'COMPOSITE' ? 'Composite' : 'Portion-wise'}
             </span>
           </div>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Token: <strong className="text-slate-800 tabular-nums">{tokenNo || '—'}</strong> · Vehicle:{' '}
-            <strong className="text-slate-800">{vehicleNo || '—'}</strong>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Token: <strong className="text-foreground tabular-nums">{tokenNo || '—'}</strong> · Vehicle:{' '}
+            <strong className="text-foreground">{vehicleNo || '—'}</strong>
           </p>
         </div>
 
@@ -519,19 +519,19 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
 
       {/* Testing Method Selector: Composite vs Portion-wise (available for all arrivals) */}
       {!finished && state && (
-        <div className="space-y-2.5 rounded-xl border border-border bg-card p-4 shadow-2xs">
+        <div className="space-y-2.5 rounded-2xl border border-border bg-card p-4 shadow-2xs">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <p className="text-xs font-semibold text-foreground">
               Testing Method
             </p>
             {mode === 'PORTION_WISE' && !anyDecided && (
               <div className="flex items-center space-x-2">
-                <span className="text-xs font-semibold text-slate-600">Portions:</span>
+                <span className="text-xs font-semibold text-secondary-foreground">Portions:</span>
                 <select
                   value={count}
                   onChange={(e) => handlePortionCountChange(e.target.value)}
                   disabled={Boolean(busy)}
-                  className="min-h-11 h-8 rounded-lg border border-border px-2 text-xs font-bold bg-white text-slate-900"
+                  className="min-h-11 h-8 rounded-lg border border-border px-2 text-xs font-semibold bg-card text-foreground"
                 >
                   {[2, 3, 4, 5, 6].map((n) => (
                     <option key={n} value={n}>{n} Portions</option>
@@ -549,12 +549,12 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                 'min-h-[48px] rounded-xl border px-3 text-left text-xs font-semibold transition flex flex-col justify-center',
                 mode === 'COMPOSITE'
                   ? 'border-primary bg-primary text-white shadow-2xs'
-                  : 'border-border bg-card text-slate-700 hover:bg-slate-50',
+                  : 'border-border bg-card text-secondary-foreground hover:bg-subtle',
                 anyDecided && 'opacity-60 cursor-not-allowed'
               )}
             >
-              <div className="font-bold">Composite</div>
-              <div className={cn('text-[10px] font-normal', mode === 'COMPOSITE' ? 'text-white/80' : 'text-slate-500')}>
+              <div className="font-semibold">Composite</div>
+              <div className={cn('text-xs font-normal', mode === 'COMPOSITE' ? 'text-white/80' : 'text-muted-foreground')}>
                 One sample
               </div>
             </button>
@@ -566,12 +566,12 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                 'min-h-[48px] rounded-xl border px-3 text-left text-xs font-semibold transition flex flex-col justify-center',
                 mode === 'PORTION_WISE'
                   ? 'border-primary bg-primary text-white shadow-2xs'
-                  : 'border-border bg-card text-slate-700 hover:bg-slate-50',
+                  : 'border-border bg-card text-secondary-foreground hover:bg-subtle',
                 anyDecided && 'opacity-60 cursor-not-allowed'
               )}
             >
-              <div className="font-bold">Portion-wise</div>
-              <div className={cn('text-[10px] font-normal', mode === 'PORTION_WISE' ? 'text-white/80' : 'text-slate-500')}>
+              <div className="font-semibold">Portion-wise</div>
+              <div className={cn('text-xs font-normal', mode === 'PORTION_WISE' ? 'text-white/80' : 'text-muted-foreground')}>
                 Portions ({state.portions.length})
               </div>
             </button>
@@ -583,7 +583,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
       {finished && state && (
         <div
           className={cn(
-            'flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 shadow-2xs',
+            'flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4 shadow-2xs',
             state.rollUp.allRejected
               ? 'border-border bg-card text-rose-900'
               : 'border-border bg-card text-emerald-900'
@@ -606,7 +606,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               <button
                 type="button"
                 onClick={onViewHistory}
-                className="min-h-11 px-3 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+                className="min-h-11 px-3 text-xs font-semibold rounded-lg border border-border-strong bg-card text-secondary-foreground hover:bg-subtle transition shadow-2xs"
               >
                 View in Test History
               </button>
@@ -615,7 +615,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               <button
                 type="button"
                 onClick={onFinished}
-                className="min-h-11 px-4 text-xs font-bold rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 transition shadow-2xs"
+                className="min-h-11 px-4 text-xs font-semibold rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 transition shadow-2xs"
               >
                 Done &amp; Back to Queue
               </button>
@@ -628,10 +628,10 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
       {state && !showSetup && (
         <div className="flex items-center justify-between gap-2 pt-1">
           <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-foreground">
               Portion Samples ({state.portions.length})
             </span>
-            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-primary">
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-primary">
               {state.testMode === 'COMPOSITE' ? 'Composite' : 'Portion-wise'}
             </span>
           </div>
@@ -641,7 +641,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               type="button"
               onClick={handleAddPortion}
               disabled={Boolean(busy)}
-              className="flex min-h-11 items-center space-x-1.5 rounded-xl border border-dashed border-primary px-3.5 text-xs font-bold text-primary shadow-2xs hover:bg-primary/5 transition disabled:opacity-50"
+              className="flex min-h-11 items-center space-x-1.5 rounded-lg border border-dashed border-primary px-3.5 text-xs font-semibold text-primary shadow-2xs hover:bg-primary/5 transition disabled:opacity-50"
               title="Add another test portion"
             >
               {busy === 'add-portion' ? (
@@ -663,36 +663,36 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
             return (
               <article
                 key={p.id}
-                className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-2xs transition hover:border-slate-300"
+                className="flex flex-col justify-between rounded-2xl border border-border bg-card p-4 shadow-2xs transition hover:border-border-strong"
               >
                 <div className="space-y-2.5">
                   <header className="flex items-center justify-between gap-2 border-b border-border pb-2">
-                    <h4 className="text-sm font-bold text-slate-900">
+                    <h4 className="text-sm font-semibold text-foreground">
                       {state.testMode === 'COMPOSITE' ? 'Composite Sample' : `Portion #${p.portionNumber}`}
                     </h4>
                     {portionBadge(p)}
                   </header>
 
-                  <div className="space-y-1 text-xs text-slate-600">
+                  <div className="space-y-1 text-xs text-secondary-foreground">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Quantity:</span>
-                      <strong className="text-slate-900 tabular-nums">
+                      <span className="text-muted-foreground">Quantity:</span>
+                      <strong className="text-foreground tabular-nums">
                         {p.quantityValue ? `${p.quantityValue} KG` : p.grossLiters ? `${p.grossLiters} KG` : '—'}
                       </strong>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Quality:</span>
-                      <span className="tabular-nums font-semibold text-slate-800">
+                      <span className="text-muted-foreground">Quality:</span>
+                      <span className="tabular-nums font-semibold text-foreground">
                         {p.lr !== null || p.fat !== null ? `LR ${p.lr ?? '—'} · Fat ${p.fat ?? '—'}%` : 'Not recorded'}
                       </span>
                     </div>
                     {isPendingReview && (
-                      <p className="font-semibold text-violet-800 text-[11px] pt-1">
+                      <p className="font-semibold text-violet-800 text-xs pt-1">
                         With manager
                       </p>
                     )}
                     {p.reviewedAt && (
-                      <p className="text-[11px] text-slate-500 pt-1">
+                      <p className="text-xs text-muted-foreground pt-1">
                         Manager decided {new Date(p.reviewedAt).toLocaleDateString()}
                         {p.reviewRemarks ? `: "${p.reviewRemarks}"` : ''}
                       </p>
@@ -708,7 +708,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                       'flex w-full items-center justify-center rounded-lg text-sm font-semibold shadow-2xs transition',
                       !isCompleted && !isPendingReview
                         ? 'bg-primary text-white hover:bg-primary-hover'
-                        : 'border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                        : 'border border-border bg-subtle text-secondary-foreground hover:bg-muted'
                     )}
                   >
                     <span>{!isCompleted && !isPendingReview ? 'Test & Decide' : 'View details'}</span>
@@ -738,15 +738,15 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               type="button"
               onClick={handleAddPortion}
               disabled={Boolean(busy)}
-              className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-6 text-center text-primary transition hover:border-primary hover:bg-primary/10 shadow-2xs disabled:opacity-50"
+              className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 p-6 text-center text-primary transition hover:border-primary hover:bg-primary/10 shadow-2xs disabled:opacity-50"
             >
               {busy === 'add-portion' ? (
                 <Loader2 className="mb-1 h-5 w-5 animate-spin text-primary" />
               ) : (
-                <span className="text-base font-bold mb-1">+</span>
+                <span className="text-base font-semibold mb-1">+</span>
               )}
-              <span className="text-xs font-bold">Add Another Portion</span>
-              <span className="mt-0.5 text-[11px] font-normal text-slate-500">
+              <span className="text-xs font-semibold">Add Another Portion</span>
+              <span className="mt-0.5 text-xs font-normal text-muted-foreground">
                 Test additional chamber or compartment
               </span>
             </button>
@@ -766,11 +766,11 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
             <>
               <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
                 <div>
-                  <DrawerTitle className="text-base font-bold text-slate-900">
+                  <DrawerTitle className="text-base font-semibold text-foreground">
                     {state?.testMode === 'COMPOSITE' ? 'Composite Sample Tests & Decision' : `Portion #${modalPortion.portionNumber} Tests & Decision`}
                   </DrawerTitle>
-                  <p className="text-xs text-slate-500 font-medium">
-                    Vehicle: <strong className="text-slate-800">{vehicleNo || '—'}</strong> · Token: <strong className="text-slate-800 tabular-nums">{tokenNo || '—'}</strong>
+                  <p className="text-xs text-muted-foreground font-medium">
+                    Vehicle: <strong className="text-foreground">{vehicleNo || '—'}</strong> · Token: <strong className="text-foreground tabular-nums">{tokenNo || '—'}</strong>
                   </p>
                 </div>
                 <button
@@ -778,7 +778,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                   onClick={() => setActivePortionModal(null)}
                   disabled={Boolean(busy)}
                   aria-label="Close"
-                  className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -787,8 +787,8 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
                 {/* Read-only summary if portion is already decided */}
                 {!modalOpen && (
-                  <div className="bg-card border-border space-y-2 rounded-xl border p-4 text-xs text-slate-700">
-                    <p className="font-semibold text-slate-900">
+                  <div className="bg-card border-border space-y-2 rounded-2xl border p-4 text-xs text-secondary-foreground">
+                    <p className="font-semibold text-foreground">
                       Person Decision: <strong>{modalPortion.personDecision === 'REJECT' ? 'Reject' : modalPortion.personDecision === 'ACCEPT' ? 'Accept' : '—'}</strong>
                       {modalPortion.decisionRemarks ? ` · "${modalPortion.decisionRemarks}"` : ''}
                     </p>
@@ -860,11 +860,11 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div className="min-w-[9rem] flex-1">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs font-semibold text-slate-800">{t.testName}</span>
+                                  <span className="text-xs font-semibold text-foreground">{t.testName}</span>
                                   <span
                                     className={cn(
-                                      'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                                      isRequired ? 'bg-primary text-white shadow-2xs' : 'bg-slate-100 text-slate-600'
+                                      'rounded-full px-2 py-0.5 text-xs font-semibold',
+                                      isRequired ? 'bg-primary text-white shadow-2xs' : 'bg-muted text-secondary-foreground'
                                     )}
                                   >
                                     {isCalc ? 'Auto' : isRequired ? 'Required *' : 'Optional'}
@@ -872,19 +872,19 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                                   {chip && (
                                     <span
                                       className={cn(
-                                        'rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums',
+                                        'rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums',
                                         isFail
                                           ? 'border-rose-300 bg-rose-50 text-rose-800'
                                           : isWarning
-                                            ? 'border-amber-300 bg-amber-50 text-amber-900 font-bold'
-                                            : 'border-slate-300 bg-slate-50 text-slate-700'
+                                            ? 'border-amber-300 bg-amber-50 text-amber-900 font-semibold'
+                                            : 'border-border-strong bg-subtle text-secondary-foreground'
                                       )}
                                     >
                                       {chip}
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-[11px] text-slate-500 mt-0.5">
+                                <div className="text-xs text-muted-foreground mt-0.5">
                                   {t.unit ? `Unit: ${t.unit}` : ''}
                                 </div>
                               </div>
@@ -899,7 +899,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                                     value={calcValue !== null ? calcValue.toFixed(2) : ''}
                                     aria-label={t.testName}
                                     placeholder="Auto"
-                                    className="min-h-11 h-10 w-28 cursor-not-allowed rounded-lg border border-border bg-muted px-2 text-base sm:text-sm font-semibold tabular-nums text-slate-600"
+                                    className="min-h-11 h-10 w-28 cursor-not-allowed rounded-lg border border-border bg-muted px-2 text-base sm:text-sm font-semibold tabular-nums text-secondary-foreground"
                                   />
                                 ) : isNumeric ? (
                                   <input
@@ -984,7 +984,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                                         ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
                                         : t.photoMode === 'REQUIRED'
                                           ? 'border-amber-300 bg-amber-50 text-amber-900'
-                                          : 'border-border bg-card text-slate-700 hover:bg-slate-50'
+                                          : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
                                     )}
                                   >
                                     {photoBusy ? (
@@ -1003,7 +1003,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                             {Boolean(v) && (
                               <p
                                 className={cn(
-                                  'flex items-center gap-1 text-[11px] font-semibold',
+                                  'flex items-center gap-1 text-xs font-semibold',
                                   isFail ? 'text-rose-700' : isWarning ? 'text-amber-800' : 'text-emerald-700'
                                 )}
                               >
@@ -1024,16 +1024,16 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
 
                     {/* Decision Choice */}
                     <div>
-                      <p className="mb-1 text-xs font-semibold text-slate-900">Your Decision</p>
+                      <p className="mb-1 text-xs font-semibold text-foreground">Your Decision</p>
                       <div className="grid grid-cols-2 gap-2.5">
                         <button
                           type="button"
                           onClick={() => setDraft(modalPortion.id, { person: 'REJECT' })}
                           className={cn(
-                            'flex min-h-[48px] items-center justify-center rounded-xl border text-xs font-bold transition',
+                            'flex min-h-[48px] items-center justify-center rounded-xl border text-xs font-semibold transition',
                             modalDraft.person === 'REJECT'
                               ? 'border-rose-600 bg-rose-600 text-white shadow-2xs'
-                              : 'border-rose-300 bg-white text-rose-700 hover:bg-rose-50'
+                              : 'border-rose-300 bg-card text-rose-700 hover:bg-rose-50'
                           )}
                         >
                           <span>Reject Portion</span>
@@ -1042,10 +1042,10 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                           type="button"
                           onClick={() => setDraft(modalPortion.id, { person: 'ACCEPT' })}
                           className={cn(
-                            'flex min-h-[48px] items-center justify-center rounded-xl border text-xs font-bold transition',
+                            'flex min-h-[48px] items-center justify-center rounded-xl border text-xs font-semibold transition',
                             modalDraft.person === 'ACCEPT'
                               ? 'border-emerald-600 bg-emerald-600 text-white shadow-2xs'
-                              : 'border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50'
+                              : 'border-emerald-300 bg-card text-emerald-700 hover:bg-emerald-50'
                           )}
                         >
                           <span>Accept Portion</span>
@@ -1065,7 +1065,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                               : 'border-border bg-card text-amber-900'
                         )}
                       >
-                        <p className="font-bold">
+                        <p className="font-semibold">
                           System result: {modalPreview.systemOutcome === 'PASS' ? 'Passed' : modalPreview.route === 'SEND_TO_APPROVER' ? 'Warning (QA Review)' : 'Failed'}
                           {modalPreview.route === 'SEND_TO_APPROVER' && ' · Goes to manager'}
                           {modalPreview.route === 'DECIDE_NOW' && ' · You decide'}
@@ -1081,7 +1081,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                     )}
 
                     <div className="space-y-2">
-                      <label htmlFor="portion-remarks" className="block text-xs font-semibold text-slate-700">
+                      <label htmlFor="portion-remarks" className="block text-xs font-semibold text-secondary-foreground">
                         {modalPreview?.remarksRequired ? 'Remarks / Justification (Required)' : 'Remarks (Optional)'}
                       </label>
                       <textarea
@@ -1090,7 +1090,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                         onChange={(e) => setDraft(modalPortion.id, { remarks: e.target.value })}
                         rows={2}
                         placeholder={modalPreview?.remarksRequired ? 'Enter reason…' : 'Observations…'}
-                        className="min-h-11 w-full resize-none rounded-xl border border-border p-2.5 text-base sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="min-h-11 w-full resize-none rounded-lg border border-border p-2.5 text-base sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
 
@@ -1105,7 +1105,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                         disabled={!modalDraft.person || busy === `submit:${modalPortion.id}`}
                         onClick={() => submit(modalPortion)}
                         className={cn(
-                          'flex min-h-[48px] w-full items-center justify-center rounded-xl text-xs font-bold text-white shadow-2xs transition disabled:opacity-50',
+                          'flex min-h-[48px] w-full items-center justify-center rounded-xl text-xs font-semibold text-white shadow-2xs transition disabled:opacity-50',
                           modalPreview?.route === 'SEND_TO_APPROVER'
                             ? 'bg-violet-600 hover:bg-violet-700'
                             : modalDraft.person === 'REJECT'

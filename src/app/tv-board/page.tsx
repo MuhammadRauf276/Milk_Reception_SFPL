@@ -108,7 +108,7 @@ export default function PublicYardTVBoardPage() {
             <ShakarganjIcon className="h-10 w-10 sm:h-11 sm:w-11" />
             <div className="flex flex-col items-start justify-center">
               <ShakarganjLogo className="h-8 sm:h-9 w-auto text-primary" />
-              <span className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider block mt-0.5">
+              <span className="text-xs font-semibold text-muted-foreground block mt-0.5">
                 Plant Yard Display
               </span>
             </div>
@@ -117,7 +117,7 @@ export default function PublicYardTVBoardPage() {
           <div className="flex items-center space-x-2">
             <Link
               href="/login"
-              className="flex items-center space-x-1.5 min-h-11 px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold text-primary transition shadow-2xs"
+              className="flex items-center space-x-1.5 min-h-11 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted text-xs font-semibold text-primary transition shadow-2xs"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>Operator Login</span>
@@ -129,7 +129,7 @@ export default function PublicYardTVBoardPage() {
       <main className="flex-1 p-4 sm:p-6 flex flex-col justify-between max-w-7xl w-full mx-auto">
         <PageTransition>
           <div>
-            <div className="bg-card border border-border rounded-xl p-4 sm:p-5 shadow-2xs mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-2xs mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center space-x-3">
                 <div className="p-2.5 bg-primary text-white rounded-xl shadow-2xs shrink-0">
                   <Tv className="w-6 h-6" />
@@ -158,46 +158,46 @@ export default function PublicYardTVBoardPage() {
                     <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200">
                       <CheckCircle2 className="w-6 h-6" />
                     </div>
-                    <h2 className="text-base font-bold text-foreground">Yard All Clear</h2>
+                    <h2 className="text-base font-semibold text-foreground">Yard All Clear</h2>
                     <p className="text-xs text-muted-foreground mt-1">No tankers dispatched to the plant</p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="p-4 rounded-xl border border-border bg-card flex items-center justify-between">
+                    <div className="p-4 rounded-2xl border border-border bg-card flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <Scale className="w-5 h-5 text-primary" />
                         <div>
-                          <span className="block text-[10px] text-muted-foreground uppercase font-semibold">Station 1</span>
-                          <span className="text-xs font-bold text-foreground">Weighbridge Scale</span>
+                          <span className="block text-xs text-muted-foreground font-semibold">Station 1</span>
+                          <span className="text-xs font-semibold text-foreground">Weighbridge Scale</span>
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
                         Ready
                       </span>
                     </div>
 
-                    <div className="p-4 rounded-xl border border-border bg-card flex items-center justify-between">
+                    <div className="p-4 rounded-2xl border border-border bg-card flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <Building2 className="w-5 h-5 text-primary" />
                         <div>
-                          <span className="block text-[10px] text-muted-foreground uppercase font-semibold">Station 2</span>
-                          <span className="text-xs font-bold text-foreground">Unloading Bays</span>
+                          <span className="block text-xs text-muted-foreground font-semibold">Station 2</span>
+                          <span className="text-xs font-semibold text-foreground">Unloading Bays</span>
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
                         Ready
                       </span>
                     </div>
 
-                    <div className="p-4 rounded-xl border border-border bg-card flex items-center justify-between">
+                    <div className="p-4 rounded-2xl border border-border bg-card flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <FlaskConical className="w-5 h-5 text-primary" />
                         <div>
-                          <span className="block text-[10px] text-muted-foreground uppercase font-semibold">Station 3</span>
-                          <span className="text-xs font-bold text-foreground">QA Laboratory</span>
+                          <span className="block text-xs text-muted-foreground font-semibold">Station 3</span>
+                          <span className="text-xs font-semibold text-foreground">QA Laboratory</span>
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
                         Active
                       </span>
                     </div>
@@ -226,22 +226,22 @@ export default function PublicYardTVBoardPage() {
                           >
                             {isNext ? 'NEXT IN LINE' : `POSITION #${idx + 1}`}
                           </span>
-                          <span className="text-[11px] font-semibold text-slate-600 tabular-nums uppercase bg-subtle px-2 py-0.5 rounded border border-border">
+                          <span className="text-xs font-semibold text-slate-600 tabular-nums bg-subtle px-2 py-0.5 rounded border border-border">
                             Visit #{vehicle.visitId}
                           </span>
                         </div>
-                        <span className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 tabular-nums text-[10px] font-semibold text-emerald-800">
+                        <span className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 tabular-nums text-xs font-semibold text-emerald-800">
                           {vehicle.portionCount} Portion{vehicle.portionCount > 1 ? 's' : ''}
                         </span>
                       </div>
 
                       <div>
                         <div className="flex items-center justify-between">
-                          <h2 className="text-xl sm:text-2xl font-bold tabular-nums tracking-tight text-foreground">
+                          <h2 className="text-xl sm:text-2xl font-semibold tabular-nums tracking-tight text-foreground">
                             {vehicle.vehicleNumber}
                           </h2>
                           {lc.elapsedInPlant && (
-                            <div className="flex items-center space-x-1 text-[11px] tabular-nums font-semibold text-slate-500">
+                            <div className="flex items-center space-x-1 text-xs tabular-nums font-semibold text-slate-500">
                               <Clock className="w-3 h-3 text-slate-400" />
                               <span>{lc.elapsedInPlant}</span>
                             </div>
@@ -255,8 +255,8 @@ export default function PublicYardTVBoardPage() {
                       </div>
 
                       <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-subtle/80 border border-border/60 text-xs">
-                        <span className="text-slate-500 font-semibold text-[11px]">Station / Stage:</span>
-                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                        <span className="text-slate-500 font-semibold text-xs">Station / Stage:</span>
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
                           {lc.currentStageLabel}
                         </span>
                       </div>

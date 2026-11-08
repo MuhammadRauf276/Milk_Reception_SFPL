@@ -16,7 +16,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-5">
       {/* 1. Weighbridge Station Live Oversight */}
-      <div className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 sm:p-5 shadow-2xs space-y-4">
+      <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-2xs space-y-4">
         <div className="space-y-3.5">
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-border/60">
@@ -25,10 +25,10 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
                 <Scale className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="font-bold text-foreground text-sm sm:text-base leading-tight">
+                <h3 className="font-semibold text-foreground text-sm sm:text-base leading-tight">
                   Plant Weighbridge
                 </h3>
-                <p className="text-[11px] text-muted-foreground">Gross &amp; Tare Scale Station</p>
+                <p className="text-xs text-muted-foreground">Gross &amp; Tare Scale Station</p>
               </div>
             </div>
             <Badge
@@ -51,9 +51,9 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
 
           {/* Current Scale Platform State */}
           {weighbridge.currentlyOnScale ? (
-            <div className="rounded-xl border border-blue-500/20 bg-blue-50/40 dark:bg-blue-950/20 p-3 sm:p-3.5 space-y-2">
+            <div className="rounded-2xl border border-blue-500/20 bg-blue-50/40 dark:bg-blue-950/20 p-3 sm:p-3.5 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                <span className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-blue-600"></span>
                   Vehicle On Scale
                 </span>
@@ -65,7 +65,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
 
               <div className="flex items-baseline justify-between pt-0.5">
                 <div>
-                  <div className="font-mono text-base sm:text-lg font-bold uppercase tracking-wider text-foreground">
+                  <div className="font-mono text-base sm:text-lg font-semibold uppercase tracking-wider text-foreground">
                     {weighbridge.currentlyOnScale.vehicleNumber}
                   </div>
                   {weighbridge.currentlyOnScale.tokenNumber && (
@@ -85,31 +85,31 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-3.5 text-center space-y-1">
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 text-center space-y-1">
               <div className="flex items-center justify-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
                 <CheckCircle2 className="h-4 w-4" />
                 <span>Scale Platform Clear</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">Ready for next arriving tanker</p>
+              <p className="text-xs text-muted-foreground">Ready for next arriving tanker</p>
             </div>
           )}
 
           {/* Scale Queues Telemetry */}
           <div className="grid grid-cols-2 gap-2.5 pt-0.5">
             <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
-              <span className="text-[11px] font-medium text-muted-foreground block truncate">
+              <span className="text-xs font-medium text-muted-foreground block truncate">
                 Gross Queue (1st Weight)
               </span>
-              <div className="text-lg font-bold text-foreground tabular-nums mt-0.5">
+              <div className="text-lg font-semibold text-foreground tabular-nums mt-0.5">
                 {weighbridge.waitingForGrossCount}{' '}
                 <span className="text-xs font-normal text-muted-foreground">tankers</span>
               </div>
             </div>
             <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
-              <span className="text-[11px] font-medium text-muted-foreground block truncate">
+              <span className="text-xs font-medium text-muted-foreground block truncate">
                 Tare Queue (2nd Weight)
               </span>
-              <div className="text-lg font-bold text-foreground tabular-nums mt-0.5">
+              <div className="text-lg font-semibold text-foreground tabular-nums mt-0.5">
                 {weighbridge.waitingForTareCount}{' '}
                 <span className="text-xs font-normal text-muted-foreground">tankers</span>
               </div>
@@ -126,7 +126,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
                   : 'Weighbridge Operator'}
               </span>
             </div>
-            <div className="text-[11px] tabular-nums sm:text-right">
+            <div className="text-xs tabular-nums sm:text-right">
               {weighbridge.completedTodayCount} weighed · ~{weighbridge.avgWeighmentMinutes}m avg
             </div>
           </div>
@@ -136,7 +136,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
         <div className="pt-2">
           <Link
             href="/department/weighbridge"
-            className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl border border-input bg-background hover:bg-muted/70 px-4 text-xs font-semibold text-foreground transition-colors shadow-2xs"
+            className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-lg border border-input bg-background hover:bg-muted/70 px-4 text-xs font-semibold text-foreground transition-colors shadow-2xs"
           >
             <span>Open Weighbridge Station</span>
             <ArrowRight className="h-3.5 w-3.5" />
@@ -145,7 +145,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
       </div>
 
       {/* 2. Silo Reception Bays Live Oversight */}
-      <div className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 sm:p-5 shadow-2xs space-y-4">
+      <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-2xs space-y-4">
         <div className="space-y-3.5">
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-border/60">
@@ -154,10 +154,10 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
                 <Database className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="font-bold text-foreground text-sm sm:text-base leading-tight">
+                <h3 className="font-semibold text-foreground text-sm sm:text-base leading-tight">
                   Silo Reception
                 </h3>
-                <p className="text-[11px] text-muted-foreground">Direct Tanker Offloading Bays</p>
+                <p className="text-xs text-muted-foreground">Direct Tanker Offloading Bays</p>
               </div>
             </div>
             <Badge
@@ -186,10 +186,10 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               {reception.activePumpings.slice(0, 2).map((p, idx) => (
                 <div
                   key={`${p.vehicleNumber}-${p.bayNumber}-${idx}`}
-                  className="rounded-xl border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 sm:p-3.5 space-y-1.5"
+                  className="rounded-2xl border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 sm:p-3.5 space-y-1.5"
                 >
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full bg-emerald-600"></span>
                       {p.bayNumber} &rarr; {p.siloNumber}
                     </span>
@@ -200,7 +200,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
                   </div>
 
                   <div className="flex items-baseline justify-between">
-                    <span className="font-mono text-base font-bold uppercase tracking-wider text-foreground">
+                    <span className="font-mono text-base font-semibold uppercase tracking-wider text-foreground">
                       {p.vehicleNumber}
                     </span>
                     <span className="text-xs text-muted-foreground">
@@ -211,31 +211,31 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-3.5 text-center space-y-1">
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-3.5 text-center space-y-1">
               <div className="flex items-center justify-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
                 <CheckCircle2 className="h-4 w-4" />
                 <span>All Unloading Bays Clear</span>
               </div>
-              <p className="text-[11px] text-muted-foreground">Ready for next QA-cleared tanker</p>
+              <p className="text-xs text-muted-foreground">Ready for next QA-cleared tanker</p>
             </div>
           )}
 
           {/* Reception Queues Telemetry */}
           <div className="grid grid-cols-2 gap-2.5 pt-0.5">
             <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
-              <span className="text-[11px] font-medium text-muted-foreground block truncate">
+              <span className="text-xs font-medium text-muted-foreground block truncate">
                 Ready for Bay (QA Cleared)
               </span>
-              <div className="text-lg font-bold text-foreground tabular-nums mt-0.5">
+              <div className="text-lg font-semibold text-foreground tabular-nums mt-0.5">
                 {reception.waitingForUnloadingCount}{' '}
                 <span className="text-xs font-normal text-muted-foreground">tankers</span>
               </div>
             </div>
             <div className="rounded-lg border border-border/70 bg-background/50 p-2.5">
-              <span className="text-[11px] font-medium text-muted-foreground block truncate">
+              <span className="text-xs font-medium text-muted-foreground block truncate">
                 Offloaded Today
               </span>
-              <div className="text-lg font-bold text-foreground tabular-nums mt-0.5">
+              <div className="text-lg font-semibold text-foreground tabular-nums mt-0.5">
                 {reception.completedPortionsToday}{' '}
                 <span className="text-xs font-normal text-muted-foreground">portions</span>
               </div>
@@ -252,7 +252,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
                   : 'Production Operator'}
               </span>
             </div>
-            <div className="text-[11px] tabular-nums sm:text-right">
+            <div className="text-xs tabular-nums sm:text-right">
               ~{reception.avgUnloadingMinutes}m avg / portion
             </div>
           </div>
@@ -262,7 +262,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
         <div className="pt-2">
           <Link
             href="/department/production"
-            className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl border border-input bg-background hover:bg-muted/70 px-4 text-xs font-semibold text-foreground transition-colors shadow-2xs"
+            className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-lg border border-input bg-background hover:bg-muted/70 px-4 text-xs font-semibold text-foreground transition-colors shadow-2xs"
           >
             <span>Open Silo Reception Station</span>
             <ArrowRight className="h-3.5 w-3.5" />

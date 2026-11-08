@@ -46,63 +46,63 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
             ? 'bg-primary/5 border-primary ring-2 ring-primary/20'
             : isReturning
             ? 'bg-amber-50/40 border-amber-300 hover:border-amber-400'
-            : 'bg-white border-border hover:border-primary/50'
+            : 'bg-card border-border hover:border-primary/50'
         }`}
       >
         <div>
           {/* Header row: Journey badge + Status pill + Volume */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="tabular-nums text-xs font-bold font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200">
+              <span className="tabular-nums text-xs font-semibold font-mono px-2 py-0.5 rounded-md bg-muted text-foreground border border-border">
                 {j.journey_number}
               </span>
               {isReturning ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
                   <Truck className="w-3 h-3 text-amber-700 animate-pulse" />
                   RETURNING
                 </span>
               ) : (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
                   COLLECTING
                 </span>
               )}
             </div>
             <div className="text-right shrink-0">
-              <span className="font-bold text-sm text-slate-900 tabular-nums">
-                {Number(j.total_gross_liters || 0).toLocaleString()} <span className="text-xs font-semibold text-slate-500">L</span>
+              <span className="font-semibold text-sm text-foreground tabular-nums">
+                {Number(j.total_gross_liters || 0).toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">L</span>
               </span>
             </div>
           </div>
 
           {/* Route Info */}
           <div className="mt-2.5">
-            <div className="text-sm font-bold text-slate-900 line-clamp-1 group-hover:text-primary transition-colors" title={j.route?.name || j.route?.route_code}>
+            <div className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors" title={j.route?.name || j.route?.route_code}>
               {j.route?.name || 'Route'}
             </div>
             {j.route?.route_code && (
-              <div className="text-[11px] font-mono text-slate-500 mt-0.5">
+              <div className="text-xs font-mono text-muted-foreground mt-0.5">
                 {j.route.route_code}
               </div>
             )}
           </div>
 
           {/* Key details: Vehicle & Collector */}
-          <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs text-slate-600 grid grid-cols-2 gap-2">
+          <div className="mt-3 pt-2.5 border-t border-border text-xs text-secondary-foreground grid grid-cols-2 gap-2">
             <div className="flex items-center gap-1.5 min-w-0" title={`Vehicle: ${j.mot_vehicle?.vehicle_number || '—'}`}>
-              <Truck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="truncate font-semibold text-slate-800">{j.mot_vehicle?.vehicle_number || '—'}</span>
+              <Truck className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span className="truncate font-semibold text-foreground">{j.mot_vehicle?.vehicle_number || '—'}</span>
             </div>
             <div className="flex items-center gap-1.5 min-w-0" title={`Collector: ${j.mot_profile?.name || '—'}`}>
-              <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="truncate font-medium text-slate-700">{j.mot_profile?.name || '—'}</span>
+              <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span className="truncate font-medium text-secondary-foreground">{j.mot_profile?.name || '—'}</span>
             </div>
           </div>
         </div>
 
         {/* Footer: Stops chips */}
-        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1 text-xs">
-          <div className="flex items-center gap-1 text-[11px]">
-            <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-medium" title="Assigned stops">
+        <div className="mt-3 pt-2.5 border-t border-border flex items-center justify-between gap-1 text-xs">
+          <div className="flex items-center gap-1 text-xs">
+            <span className="px-1.5 py-0.5 rounded bg-muted text-secondary-foreground font-medium" title="Assigned stops">
               Assigned: <strong>{j.total_stops}</strong>
             </span>
             <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold" title="Collected stops">
@@ -134,11 +134,11 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <h3 className="text-sm font-semibold text-slate-900">
+              <h3 className="text-sm font-semibold text-foreground">
                 Mobile Tester journeys ({arrivingJourneys.length})
               </h3>
               {returningJourneys.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-xs flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold text-xs flex items-center gap-1">
                   <Truck className="w-3 h-3 text-amber-700" />
                   {returningJourneys.length} Incoming
                 </span>
@@ -147,7 +147,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
             <button
               type="button"
               onClick={onRefresh}
-              className="flex items-center gap-1.5 min-h-[44px] px-3 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100"
+              className="flex items-center gap-1.5 min-h-[44px] px-3 text-xs font-semibold text-secondary-foreground hover:text-foreground rounded-lg hover:bg-muted"
             >
               {loadingJourneys && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Refresh
@@ -155,7 +155,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
           </div>
 
           {arrivingJourneys.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border p-8 text-center text-xs text-slate-500">
+            <div className="bg-card rounded-2xl border border-border p-8 text-center text-xs text-muted-foreground">
               No Mobile Tester journeys.
             </div>
           ) : (
@@ -175,7 +175,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
               {fieldJourneys.length > 0 && (
                 <div className="space-y-2.5">
                   {returningJourneys.length > 0 && (
-                    <div className="text-xs font-semibold text-slate-600 pt-2">
+                    <div className="text-xs font-semibold text-secondary-foreground pt-2">
                       Collecting in Field ({fieldJourneys.length})
                     </div>
                   )}
@@ -206,46 +206,46 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
             <div className="bg-card border-border p-3 rounded-xl border text-xs space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <span className="font-semibold text-slate-800 tabular-nums">
+                  <span className="font-semibold text-foreground tabular-nums">
                     Journey #{selectedJourney.journey_number}
                   </span>
                   {selectedJourney.status === 'RETURNING' ? (
-                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold">
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-semibold">
                       RETURNING TO PHE
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 text-[10px] font-bold">
+                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 text-xs font-semibold">
                       COLLECTING
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] font-semibold text-slate-600">
+                <span className="text-xs font-semibold text-secondary-foreground">
                   {selectedJourney.route?.route_code} · {selectedJourney.route?.name}
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
-                <div>Vehicle: <strong className="text-slate-900">{selectedJourney.mot_vehicle?.vehicle_number}</strong></div>
-                <div>Mobile Tester: <strong className="text-slate-900">{selectedJourney.mot_profile?.name}</strong></div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-secondary-foreground">
+                <div>Vehicle: <strong className="text-foreground">{selectedJourney.mot_vehicle?.vehicle_number}</strong></div>
+                <div>Mobile Tester: <strong className="text-foreground">{selectedJourney.mot_profile?.name}</strong></div>
               </div>
 
               {isManager && (
                 <>
-                  <div className="grid grid-cols-4 gap-2 text-center pt-1 border-t border-slate-200">
+                  <div className="grid grid-cols-4 gap-2 text-center pt-1 border-t border-border">
                     <div className="p-2 bg-card rounded-lg border border-border">
-                      <div className="text-[10px] uppercase font-semibold text-slate-500">Assigned</div>
-                      <div className="text-xs font-semibold text-slate-900">{selectedJourney.total_stops}</div>
+                      <div className="text-xs font-semibold text-muted-foreground">Assigned</div>
+                      <div className="text-xs font-semibold text-foreground">{selectedJourney.total_stops}</div>
                     </div>
                     <div className="p-2 bg-card rounded-lg border border-border">
-                      <div className="text-[10px] uppercase font-semibold text-emerald-700">Collected</div>
+                      <div className="text-xs font-semibold text-emerald-700">Collected</div>
                       <div className="text-xs font-semibold text-emerald-800">{selectedJourney.visited_stops}</div>
                     </div>
                     <div className="p-2 bg-card rounded-lg border border-border">
-                      <div className="text-[10px] uppercase font-semibold text-amber-700">Skipped</div>
+                      <div className="text-xs font-semibold text-amber-700">Skipped</div>
                       <div className="text-xs font-semibold text-amber-800">{selectedJourney.skipped_stops || 0}</div>
                     </div>
                     <div className="p-2 bg-card rounded-lg border border-border">
-                      <div className="text-[10px] uppercase font-semibold text-blue-700">Pending</div>
+                      <div className="text-xs font-semibold text-blue-700">Pending</div>
                       <div className="text-xs font-semibold text-blue-800">
                         {selectedJourney.pending_stops ?? Math.max(0, selectedJourney.total_stops - selectedJourney.visited_stops - (selectedJourney.skipped_stops || 0))}
                       </div>
@@ -253,25 +253,25 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
                   </div>
 
                   {selectedJourney.stops && selectedJourney.stops.length > 0 && (
-                    <div className="space-y-1.5 pt-2 border-t border-slate-200">
-                      <div className="text-[11px] font-semibold text-slate-700">
+                    <div className="space-y-1.5 pt-2 border-t border-border">
+                      <div className="text-xs font-semibold text-secondary-foreground">
                         Journey Stops ({selectedJourney.stops.length})
                       </div>
                       <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                         {selectedJourney.stops.map((stop) => (
                           <div
                             key={stop.id}
-                            className="p-2 bg-card rounded-lg border border-border flex items-center justify-between text-[11px]"
+                            className="p-2 bg-card rounded-lg border border-border flex items-center justify-between text-xs"
                           >
                             <div className="flex items-center space-x-2">
-                              <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 font-semibold flex items-center justify-center text-[10px]">
+                              <span className="w-5 h-5 rounded-full bg-muted text-secondary-foreground font-semibold flex items-center justify-center text-xs">
                                 {stop.planned_sequence}
                               </span>
                               <div>
-                                <div className="font-semibold text-slate-800">
+                                <div className="font-semibold text-foreground">
                                   {stop.shop?.shop_name || 'Shop'}
                                 </div>
-                                <div className="text-[10px] text-slate-500">
+                                <div className="text-xs text-muted-foreground">
                                   {stop.shop?.shop_code} · {stop.shop?.owner_name}
                                 </div>
                               </div>
@@ -283,11 +283,11 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
                                   {stop.collection.gross_liters} L
                                 </span>
                               ) : stop.status === 'SKIPPED' ? (
-                                <span className="text-amber-700 text-[10px] font-semibold">
+                                <span className="text-amber-700 text-xs font-semibold">
                                   SKIPPED
                                 </span>
                               ) : (
-                                <span className="text-slate-400 text-[10px]">Pending</span>
+                                <span className="text-muted-foreground text-xs">Pending</span>
                               )}
                             </div>
                           </div>
@@ -332,7 +332,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
               <button
                 type="button"
                 onClick={() => form.setFormOpen(false)}
-                className="min-h-11 min-w-11 px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
+                className="min-h-11 min-w-11 px-4 py-2 text-xs font-semibold rounded-lg border border-border-strong text-secondary-foreground hover:bg-subtle"
               >
                 Cancel
               </button>

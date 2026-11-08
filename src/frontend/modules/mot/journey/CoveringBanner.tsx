@@ -18,11 +18,11 @@ interface Props {
 /** Shown to a superior covering MOT work (online only). */
 export function CoveringBanner({ role, isOnline, coverJourneyId, coverJourneys, coverListError, onSelectJourney }: Props) {
   return (
-            <div className="bg-card border-border p-3 sm:p-4 rounded-xl border-2 text-violet-900 space-y-3">
+            <div className="bg-card border-border p-3 sm:p-4 rounded-2xl border-2 text-violet-900 space-y-3">
               <div className="flex items-start gap-2">
                 <UserCog className="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <p className="text-sm font-bold">Covering Mobile Tester work</p>
+                  <p className="text-sm font-semibold">Covering Mobile Tester work</p>
                   <p className="text-xs">
                     You are doing Mobile Tester work as {getRoleLabel(role)}. This needs the internet.
                   </p>

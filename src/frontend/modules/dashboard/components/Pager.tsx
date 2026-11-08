@@ -27,7 +27,7 @@ export function Pager({
   if (totalPages <= 1) return null;
   return (
     <div className="flex items-center justify-between pt-2">
-      <span className="text-xs text-slate-500">
+      <span className="text-xs text-muted-foreground">
         Page {page} of {totalPages}
         {total !== undefined ? ` (${total} total)` : ''}
       </span>

@@ -120,7 +120,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
     <div className="w-full max-w-7xl mx-auto space-y-5 text-foreground animate-panel-in">
       <div className="flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-1.5">
-          <h1 className="text-lg font-bold tracking-tight text-foreground">Silo Offloading</h1>
+          <h1 className="text-lg font-semibold tracking-tight text-foreground">Silo Offloading</h1>
           <InfoTip text="Assign unloading bays, pump raw milk into storage silos, and track real-time tank capacity." />
         </div>
         <div className="flex items-center gap-2">
@@ -206,7 +206,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
           </div>
 
           {/* Right Column: Plant Silos Level Overview */}
-          <div className="lg:col-span-5 p-4 rounded-xl border border-border bg-card space-y-3 shadow-2xs">
+          <div className="lg:col-span-5 p-4 rounded-2xl border border-border bg-card space-y-3 shadow-2xs">
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <div className="flex items-center gap-1.5">
                 <Database className="w-4 h-4 text-primary" />
@@ -234,17 +234,17 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                       className="p-2.5 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition space-y-1.5"
                     >
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold tabular-nums text-foreground">{silo.silo_code}</span>
+                        <span className="font-semibold tabular-nums text-foreground">{silo.silo_code}</span>
                         {stock13Ts != null ? (
                           <span className="tabular-nums font-semibold text-xs text-foreground">
-                            {stock13Ts.toLocaleString()} L @13% TS {pct != null && <span className="text-muted-foreground font-normal text-[10px]">({pct}%)</span>}
+                            {stock13Ts.toLocaleString()} L @13% TS {pct != null && <span className="text-muted-foreground font-normal text-xs">({pct}%)</span>}
                           </span>
                         ) : stock != null ? (
                           <span className="tabular-nums font-semibold text-xs text-foreground">
-                            {stock.toLocaleString()} L {pct != null && <span className="text-muted-foreground font-normal text-[10px]">({pct}%)</span>}
+                            {stock.toLocaleString()} L {pct != null && <span className="text-muted-foreground font-normal text-xs">({pct}%)</span>}
                           </span>
                         ) : (
-                          <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                             Available
                           </span>
                         )}
@@ -252,7 +252,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                       {pct != null && (
                         <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
                           <div
-                            className="h-full bg-primary rounded-full transition-all"
+                            className="h-full bg-primary rounded-full transition-[width]"
                             style={{ width: `${pct}%` }}
                           />
                         </div>

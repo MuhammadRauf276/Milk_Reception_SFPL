@@ -46,7 +46,7 @@ export function BrandMark({
             size === 'lg' ? 'h-8 sm:h-9' : 'h-7'
           )}
         />
-        <span className="block truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-0.5 leading-none">
+        <span className="block truncate text-xs font-semibold text-muted-foreground mt-0.5 leading-none">
           Milk Reception
         </span>
       </div>
@@ -86,7 +86,7 @@ export function NavPanel({
 
       <nav aria-label="Primary" className="scrollbar-thin touch-scroll flex-1 overflow-y-auto px-3 py-4">
         {caption ? (
-          <p className="mb-2 px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <p className="mb-2 px-2.5 text-xs font-medium text-muted-foreground">
             {caption}
           </p>
         ) : null}
@@ -109,7 +109,7 @@ export function NavPanel({
                       'min-h-11',
                       active
                         ? 'bg-primary/[0.07] font-medium text-primary'
-                        : 'text-slate-600 hover:bg-muted hover:text-foreground'
+                        : 'text-secondary-foreground hover:bg-muted hover:text-foreground'
                     )}
                   >
                     {Icon ? (
@@ -135,7 +135,7 @@ export function NavPanel({
                   className={cn(
                     itemBase,
                     'min-h-11 text-left cursor-pointer',
-                    containsActive ? 'font-medium text-foreground' : 'text-slate-600 hover:bg-muted hover:text-foreground'
+                    containsActive ? 'font-medium text-foreground' : 'text-secondary-foreground hover:bg-muted hover:text-foreground'
                   )}
                 >
                   {Icon ? (
@@ -169,7 +169,7 @@ export function NavPanel({
                           <React.Fragment key={leaf.id}>
                             {showGroupHeader ? (
                               <li className="pt-2 pb-1 px-2.5">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                                <span className="text-xs font-semibold text-muted-foreground/80">
                                   {leaf.group}
                                 </span>
                               </li>
@@ -184,7 +184,7 @@ export function NavPanel({
                                   'min-h-11 pl-2',
                                   active
                                     ? 'bg-primary/[0.07] font-medium text-primary'
-                                    : 'text-slate-600 hover:bg-muted hover:text-foreground'
+                                    : 'text-secondary-foreground hover:bg-muted hover:text-foreground'
                                 )}
                               >
                                 {LeafIcon ? (

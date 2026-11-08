@@ -48,12 +48,12 @@ export function AssignTestDrawer({ stage, stageLabel, tests, onClose, onAssigned
     <FormDrawer open onClose={onClose} busy={busy} error={error} title={`Assign Test to ${stageLabel}`}>
       
       {tests.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card p-4 text-center font-semibold text-slate-500">
+        <div className="rounded-2xl border border-border bg-card p-4 text-center font-semibold text-muted-foreground">
           All assigned
         </div>
       ) : (
         <div>
-          <label className="mb-1.5 block font-bold text-slate-700">Test</label>
+          <label className="mb-1.5 block font-semibold text-secondary-foreground">Test</label>
           <Combobox
             options={options}
             value={testId}

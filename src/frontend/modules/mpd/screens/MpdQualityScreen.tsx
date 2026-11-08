@@ -27,10 +27,10 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-card border-border border rounded-xl p-4 shadow-xs">
+          <div className="bg-card border-border border rounded-2xl p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase">Station 1 · Village Shops</span>
-              <span className="tabular-nums text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+              <span className="text-xs font-semibold text-muted-foreground">Station 1 · Village Shops</span>
+              <span className="tabular-nums text-xs font-semibold text-secondary-foreground bg-muted px-2 py-0.5 rounded">
                 Mobile Tester / Shop Test
               </span>
             </div>
@@ -39,22 +39,22 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
                 {formatMetric(qualityFunnel.villageShopRejectedLiters, ' L')}
               </div>
               <div className="mt-1 flex items-center justify-between text-xs">
-                <span className="text-slate-500">Rejection Rate:</span>
-                <span className="tabular-nums font-semibold text-slate-700">
+                <span className="text-muted-foreground">Rejection Rate:</span>
+                <span className="tabular-nums font-semibold text-secondary-foreground">
                   {formatMetric(qualityFunnel.villageShopRejectionPercent, '%')}
                 </span>
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-border text-xs text-slate-600 flex items-center gap-1">
+            <div className="mt-4 pt-3 border-t border-border text-xs text-secondary-foreground flex items-center gap-1">
               Not tracked
               <InfoTip text="Mobile Tester shop collections do not record rejected milk yet." />
             </div>
           </div>
 
-          <div className="bg-card border-border border rounded-xl p-4 shadow-xs">
+          <div className="bg-card border-border border rounded-2xl p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase">Station 2 · ZMCC Reception</span>
-              <span className="tabular-nums text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+              <span className="text-xs font-semibold text-muted-foreground">Station 2 · ZMCC Reception</span>
+              <span className="tabular-nums text-xs font-semibold text-secondary-foreground bg-muted px-2 py-0.5 rounded">
                 Lab Attendant
               </span>
             </div>
@@ -63,21 +63,21 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
                 {qualityFunnel.zmccGateRejectedLiters.toLocaleString()} L
               </div>
               <div className="mt-1 flex items-center justify-between text-xs">
-                <span className="text-slate-500">Rejection Rate:</span>
+                <span className="text-muted-foreground">Rejection Rate:</span>
                 <span className="tabular-nums font-semibold text-amber-700">
                   {formatMetric(qualityFunnel.zmccGateRejectionPercent, '%')}
                 </span>
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-border text-xs text-slate-600">
+            <div className="mt-4 pt-3 border-t border-border text-xs text-secondary-foreground">
               Rejected vs tested today
             </div>
           </div>
 
-          <div className="bg-card border-border border rounded-xl p-4 shadow-xs">
+          <div className="bg-card border-border border rounded-2xl p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase">Station 3 · Plant Reception</span>
-              <span className="tabular-nums text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+              <span className="text-xs font-semibold text-muted-foreground">Station 3 · Plant Reception</span>
+              <span className="tabular-nums text-xs font-semibold text-secondary-foreground bg-muted px-2 py-0.5 rounded">
                 Plant QA Lab
               </span>
             </div>
@@ -86,20 +86,20 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
                 {qualityFunnel.plantGateRejectedLiters.toLocaleString()} L
               </div>
               <div className="mt-1 flex items-center justify-between text-xs">
-                <span className="text-slate-500">Plant Rejection:</span>
+                <span className="text-muted-foreground">Plant Rejection:</span>
                 <span className="tabular-nums font-semibold text-amber-700">
                   {formatMetric(qualityFunnel.plantGateRejectionPercent, '%')}
                 </span>
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-border text-xs text-slate-600">
+            <div className="mt-4 pt-3 border-t border-border text-xs text-secondary-foreground">
               Rejected vs decided today
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-card border-border border rounded-xl p-5 shadow-xs">
+      <div className="bg-card border-border border rounded-2xl p-5 shadow-xs">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
           <div className="flex items-center gap-2">
             <FlaskConical className="w-4 h-4 text-primary" />
@@ -107,7 +107,7 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
               Failed Tests Today
             </h2>
           </div>
-          <span className="text-xs font-medium text-slate-500">
+          <span className="text-xs font-medium text-muted-foreground">
             Failed tests today
           </span>
         </div>
@@ -115,46 +115,46 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-card border-border p-3.5 rounded-lg border">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">Formalin (Preservative)</span>
+              <span className="text-xs font-semibold text-secondary-foreground">Formalin (Preservative)</span>
               <IncidentDot count={qualityFunnel.incidents.formalinCount} />
             </div>
-            <div className="mt-2 text-xl tabular-nums font-semibold text-slate-800">
+            <div className="mt-2 text-xl tabular-nums font-semibold text-foreground">
               {qualityFunnel.incidents.formalinCount} flags
             </div>
-            <div className="mt-1 text-xs text-slate-500">Strict zero tolerance</div>
+            <div className="mt-1 text-xs text-muted-foreground">Strict zero tolerance</div>
           </div>
 
           <div className="bg-card border-border p-3.5 rounded-lg border">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">Urea</span>
+              <span className="text-xs font-semibold text-secondary-foreground">Urea</span>
               <IncidentDot count={qualityFunnel.incidents.ureaCount} />
             </div>
-            <div className="mt-2 text-xl tabular-nums font-semibold text-slate-800">
+            <div className="mt-2 text-xl tabular-nums font-semibold text-foreground">
               {qualityFunnel.incidents.ureaCount} flags
             </div>
-            <div className="mt-1 text-xs text-slate-500">Strict zero tolerance</div>
+            <div className="mt-1 text-xs text-muted-foreground">Strict zero tolerance</div>
           </div>
 
           <div className="bg-card border-border p-3.5 rounded-lg border">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">Added Water (LR out of range)</span>
+              <span className="text-xs font-semibold text-secondary-foreground">Added Water (LR out of range)</span>
               <IncidentDot count={qualityFunnel.incidents.waterLowLrCount} />
             </div>
-            <div className="mt-2 text-xl tabular-nums font-semibold text-slate-800">
+            <div className="mt-2 text-xl tabular-nums font-semibold text-foreground">
               {qualityFunnel.incidents.waterLowLrCount} flags
             </div>
-            <div className="mt-1 text-xs text-slate-500">Failed lactometer reading</div>
+            <div className="mt-1 text-xs text-muted-foreground">Failed lactometer reading</div>
           </div>
 
           <div className="bg-card border-border p-3.5 rounded-lg border">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600">Clot on Boiling Positive</span>
+              <span className="text-xs font-semibold text-secondary-foreground">Clot on Boiling Positive</span>
               <IncidentDot count={qualityFunnel.incidents.cobPositiveCount} />
             </div>
-            <div className="mt-2 text-xl tabular-nums font-semibold text-slate-800">
+            <div className="mt-2 text-xl tabular-nums font-semibold text-foreground">
               {qualityFunnel.incidents.cobPositiveCount} flags
             </div>
-            <div className="mt-1 text-xs text-slate-500">Heat stability test failed</div>
+            <div className="mt-1 text-xs text-muted-foreground">Heat stability test failed</div>
           </div>
         </div>
       </div>

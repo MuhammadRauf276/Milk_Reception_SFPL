@@ -43,16 +43,16 @@ const status = <T extends { is_active: boolean; approval_status?: string | null 
 const supplierCols: MasterCol<LocalSupplierItem>[] = [
   { header: 'Supplier Code', tdClass: 'tabular-nums font-semibold text-primary', cell: (s) => s.local_supplier_code },
   { header: 'Supplier Name', tdClass: 'font-semibold text-foreground', cell: (s) => s.name },
-  { header: 'Phone', tdClass: 'tabular-nums text-slate-600', cell: (s) => s.phone || '-' },
-  { header: 'CNIC', tdClass: 'tabular-nums text-slate-600', cell: (s) => s.cnic || '-' },
+  { header: 'Phone', tdClass: 'tabular-nums text-secondary-foreground', cell: (s) => s.phone || '-' },
+  { header: 'CNIC', tdClass: 'tabular-nums text-secondary-foreground', cell: (s) => s.cnic || '-' },
   status<LocalSupplierItem>(),
 ];
 
 const routeCols: MasterCol<RouteItem>[] = [
   { header: 'Route Code', tdClass: 'tabular-nums font-semibold text-foreground', cell: (r) => r.route_code },
   { header: 'Route Name', tdClass: 'font-semibold text-foreground', cell: (r) => r.name },
-  { header: 'Origin', tdClass: 'text-slate-600', cell: (r) => r.origin },
-  { header: 'Destination', tdClass: 'text-slate-600', cell: (r) => r.destination },
+  { header: 'Origin', tdClass: 'text-secondary-foreground', cell: (r) => r.origin },
+  { header: 'Destination', tdClass: 'text-secondary-foreground', cell: (r) => r.destination },
   { header: 'Areas', align: 'center', tdClass: 'font-semibold tabular-nums', cell: (r) => r.area_count || 0 },
   status<RouteItem>(),
 ];
@@ -62,10 +62,10 @@ const areaCols: MasterCol<AreaItem>[] = [
   { header: 'Area Name', tdClass: 'font-semibold text-foreground', cell: (a) => a.name },
   {
     header: 'Route',
-    tdClass: 'text-slate-600',
+    tdClass: 'text-secondary-foreground',
     cell: (a) => (
       <>
-        {a.route.name} <span className="text-xs tabular-nums text-slate-400">({a.route.route_code})</span>
+        {a.route.name} <span className="text-xs tabular-nums text-muted-foreground">({a.route.route_code})</span>
       </>
     ),
   },
@@ -91,10 +91,10 @@ const chillerCols: MasterCol<ChillerOwnershipItem>[] = [
 const shopCols: MasterCol<ShopItem>[] = [
   { header: 'Shop Code', tdClass: 'tabular-nums font-semibold text-foreground', cell: (s) => s.shop_code },
   { header: 'Shop Name', tdClass: 'font-semibold text-foreground', cell: (s) => s.shop_name },
-  { header: 'Owner / Contractor', tdClass: 'font-medium text-slate-700', cell: (s) => s.owner_name },
-  { header: 'Contact', tdClass: 'tabular-nums text-slate-600', cell: (s) => s.phone_number },
-  { header: 'Area & Route', tdClass: 'text-slate-700', cell: (s) => s.area.name },
-  { header: 'Chiller', tdClass: 'text-slate-700 font-medium', cell: (s) => s.chiller_ownership.name },
+  { header: 'Owner / Contractor', tdClass: 'font-medium text-secondary-foreground', cell: (s) => s.owner_name },
+  { header: 'Contact', tdClass: 'tabular-nums text-secondary-foreground', cell: (s) => s.phone_number },
+  { header: 'Area & Route', tdClass: 'text-secondary-foreground', cell: (s) => s.area.name },
+  { header: 'Chiller', tdClass: 'text-secondary-foreground font-medium', cell: (s) => s.chiller_ownership.name },
   status<ShopItem>(),
 ];
 
@@ -164,7 +164,7 @@ export const MasterTables: React.FC<Props> = (p) => {
                 <button
                   type="button"
                   onClick={() => p.onViewLedger!(tank)}
-                  className="p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-border hover:bg-slate-100 text-slate-700 transition"
+                  className="p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-border hover:bg-muted text-secondary-foreground transition"
                   title="View Stock Ledger"
                   aria-label="View Stock Ledger"
                 >

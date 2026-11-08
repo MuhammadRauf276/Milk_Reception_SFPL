@@ -242,14 +242,14 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5 shrink-0">
             <div>
-              <DrawerTitle className="text-base font-bold text-slate-900">
+              <DrawerTitle className="text-base font-semibold text-foreground">
                 {visitDetail.test_mode === 'COMPOSITE' && visitDetail.portions.length === 1
                   ? 'Composite Sample Tests & Decision'
                   : `Portion #${portion.portion_number} Tests & Decision`}
               </DrawerTitle>
-              <p className="text-xs text-slate-500 font-medium">
-                Vehicle: <strong className="text-slate-800">{visitDetail.vehicle_number || '—'}</strong> · Token:{' '}
-                <strong className="text-slate-800 tabular-nums">{visitDetail.token_number || '—'}</strong>
+              <p className="text-xs text-muted-foreground font-medium">
+                Vehicle: <strong className="text-foreground">{visitDetail.vehicle_number || '—'}</strong> · Token:{' '}
+                <strong className="text-foreground tabular-nums">{visitDetail.token_number || '—'}</strong>
               </p>
             </div>
             <button
@@ -257,7 +257,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
               onClick={onClose}
               disabled={isSubmitting}
               aria-label="Close"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-2xl border-2 border-red-500 text-slate-500 hover:bg-red-50 hover:text-red-700 transition"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-2xl border-2 border-red-500 text-muted-foreground hover:bg-red-50 hover:text-red-700 transition"
             >
               <X className="h-5 w-5" />
             </button>
@@ -266,13 +266,13 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
           <div className="space-y-4 overflow-y-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-5 flex-1">
             {/* Read-only summary if portion is already completed */}
             {!isPending && (
-              <div className="bg-card border-border space-y-3 rounded-xl border p-4 text-xs text-slate-700">
+              <div className="bg-card border-border space-y-3 rounded-2xl border p-4 text-xs text-secondary-foreground">
                 <div className="flex items-center justify-between border-b border-border pb-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-slate-900">Final Decision:</span>
+                    <span className="font-semibold text-sm text-foreground">Final Decision:</span>
                     <span
                       className={cn(
-                        'px-2.5 py-0.5 rounded-full text-xs font-bold uppercase',
+                        'px-2.5 py-0.5 rounded-full text-xs font-semibold',
                         portion.plant_decision === 'ACCEPTED'
                           ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                           : 'bg-rose-50 text-rose-800 border border-rose-300'
@@ -282,27 +282,27 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                     </span>
                   </div>
                   {portion.plant_seal_number_entered && (
-                    <span className="text-slate-600 font-mono text-xs">
-                      Seal: <strong className="text-slate-900">{portion.plant_seal_number_entered}</strong>
+                    <span className="text-secondary-foreground font-mono text-xs">
+                      Seal: <strong className="text-foreground">{portion.plant_seal_number_entered}</strong>
                     </span>
                   )}
                 </div>
 
                 {displayRejectionReason && (
                   <div className="rounded-lg bg-rose-50 border border-rose-200 p-2.5 text-rose-900">
-                    <p className="font-bold text-[11px] uppercase tracking-wide">Rejection Reason:</p>
+                    <p className="font-semibold text-xs">Rejection Reason:</p>
                     <p className="mt-0.5">{displayRejectionReason}</p>
                   </div>
                 )}
 
                 {portion.plant_results && portion.plant_results.length > 0 && (
                   <div className="space-y-1.5 pt-1">
-                    <p className="font-semibold text-slate-800">Recorded Test Results:</p>
-                    <div className="divide-y divide-border rounded-lg border border-border overflow-hidden bg-white">
+                    <p className="font-semibold text-foreground">Recorded Test Results:</p>
+                    <div className="divide-y divide-border rounded-lg border border-border overflow-hidden bg-card">
                       {portion.plant_results.map((pr) => (
                         <div key={pr.testId} className="flex items-center justify-between p-2 text-xs">
-                          <span className="font-medium text-slate-700">{pr.testName}</span>
-                          <span className="font-mono font-bold text-slate-900">
+                          <span className="font-medium text-secondary-foreground">{pr.testName}</span>
+                          <span className="font-mono font-semibold text-foreground">
                             {pr.numericValue != null ? `${pr.numericValue} ${pr.unit || ''}` : pr.textValue || '—'}
                           </span>
                         </div>
@@ -317,30 +317,30 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
             {isPending && (
               <>
                 {/* Tanker Seal Check Section */}
-                <div className="rounded-xl border border-border bg-card p-3.5 space-y-2.5 shadow-2xs">
+                <div className="rounded-2xl border border-border bg-card p-3.5 space-y-2.5 shadow-2xs">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center space-x-2">
                       <ShieldCheck className="w-4 h-4 text-primary" />
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                      <h4 className="text-xs font-semibold text-foreground">
                         Tanker Seal Check
                       </h4>
                     </div>
                     {hasDispatchSeal ? (
                       isSealMatched ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Seal Match
                         </span>
                       ) : isSealMismatch ? (
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-secondary-foreground border border-border-strong">
                           Seal differs (optional)
                         </span>
                       ) : (
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-secondary-foreground">
                           Seal not entered (optional)
                         </span>
                       )
                     ) : (
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-secondary-foreground">
                         No Dispatch Seal
                       </span>
                     )}
@@ -348,13 +348,13 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-500 block">Dispatch Seal</span>
-                      <div className="mt-1 bg-subtle p-2 rounded-lg border font-mono font-bold text-slate-900 text-xs">
+                      <span className="text-xs font-semibold text-muted-foreground block">Dispatch Seal</span>
+                      <div className="mt-1 bg-subtle p-2 rounded-lg border font-mono font-semibold text-foreground text-xs">
                         {portion.seal_number || 'None'}
                       </div>
                     </div>
                     <div>
-                      <label htmlFor="qa-entered-seal" className="text-[10px] uppercase font-bold text-slate-500 block">
+                      <label htmlFor="qa-entered-seal" className="text-xs font-semibold text-muted-foreground block">
                         Observed Tanker Seal (optional)
                       </label>
                       <input
@@ -364,7 +364,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                         onChange={(e) => onSealChange(e.target.value)}
                         placeholder="Enter seal number on tanker"
                         className={cn(
-                          'mt-1 w-full min-h-11 rounded-lg border border-border p-2 text-base sm:text-xs font-mono font-bold focus:outline-hidden focus:border-primary'
+                          'mt-1 w-full min-h-11 rounded-lg border border-border p-2 text-base sm:text-xs font-mono font-semibold focus:outline-hidden focus:border-primary'
                         )}
                       />
                     </div>
@@ -373,12 +373,12 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
 
                 {/* Laboratory Test Observations */}
                 <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
-                  <div className="bg-slate-50 border-b border-border p-3 flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  <div className="bg-subtle border-b border-border p-3 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-foreground">
                       Laboratory Tests ({sortedTests.length})
                     </span>
-                    <span className="text-[11px] font-semibold text-slate-500">
-                      Performed: <strong className="text-slate-900">{performedCount}</strong> / {sortedTests.length}
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      Performed: <strong className="text-foreground">{performedCount}</strong> / {sortedTests.length}
                     </span>
                   </div>
 
@@ -443,15 +443,15 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="min-w-[9rem] flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-semibold text-slate-800">{t.testName}</span>
+                                <span className="text-xs font-semibold text-foreground">{t.testName}</span>
                                 <span
                                   className={cn(
-                                    'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                                    'rounded-full px-2 py-0.5 text-xs font-semibold',
                                     isCalculated
                                       ? 'bg-purple-100 text-purple-900 border border-purple-300'
                                       : t.isRequired
                                       ? 'bg-red-600 text-white shadow-2xs'
-                                      : 'bg-slate-100 text-slate-600'
+                                      : 'bg-muted text-secondary-foreground'
                                   )}
                                 >
                                   {isCalculated ? 'AUTO' : t.isRequired ? 'REQUIRED *' : 'OPTIONAL'}
@@ -459,17 +459,17 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                                 {chip && (
                                   <span
                                     className={cn(
-                                      'rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums',
+                                      'rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums',
                                       isOut
                                         ? 'border-rose-300 bg-rose-50 text-rose-800'
-                                        : 'border-slate-300 bg-slate-50 text-slate-700'
+                                        : 'border-border-strong bg-subtle text-secondary-foreground'
                                     )}
                                   >
                                     {chip}
                                   </span>
                                 )}
                               </div>
-                              <div className="text-[11px] text-slate-500 mt-0.5 font-medium">
+                              <div className="text-xs text-muted-foreground mt-0.5 font-medium">
                                 {t.unit ? `Unit: ${t.unit}` : ''}
                               </div>
                             </div>
@@ -482,7 +482,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                                     readOnly
                                     value={calcVal != null ? `${calcVal.toFixed(2)} ${t.unit || '%'}` : !lrNum && !fatNum ? 'Awaiting LR & Fat' : !lrNum ? 'Awaiting LR' : 'Awaiting Fat'}
                                     aria-label={t.testName}
-                                    className="min-h-11 h-10 w-32 rounded-lg border border-purple-300 bg-purple-50/50 px-2 text-xs font-bold text-purple-950 tabular-nums focus:outline-hidden"
+                                    className="min-h-11 h-10 w-32 rounded-lg border border-purple-300 bg-purple-50/50 px-2 text-xs font-semibold text-purple-950 tabular-nums focus:outline-hidden"
                                   />
                                 </div>
                               ) : isNumeric ? (
@@ -553,7 +553,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                                     'min-h-11 min-w-11 flex items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition',
                                     hasPhoto
                                       ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
-                                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                                      : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
                                   )}
                                 >
                                   <Camera className="h-4 w-4" />
@@ -564,19 +564,19 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                           </div>
 
                           {isAppliedOnly && (
-                            <p className="text-[10px] text-sky-700 font-medium">
+                            <p className="text-xs text-sky-700 font-medium">
                               Not under SOP: Optional test, system rules not applied.
                             </p>
                           )}
                           {isCalculated && (
-                            <p className="text-[10px] text-purple-700 font-medium flex items-center gap-1">
+                            <p className="text-xs text-purple-700 font-medium flex items-center gap-1">
                               <Calculator className="h-3 w-3" /> Auto-calculated by Richmond canonical formula
                             </p>
                           )}
                           {!isCalculated && !isAppliedOnly && Boolean(isNumeric ? effectiveVal : state.textValue) && (
                             <p
                               className={cn(
-                                'flex items-center gap-1 text-[11px] font-semibold mt-1',
+                                'flex items-center gap-1 text-xs font-semibold mt-1',
                                 isFail ? 'text-rose-700' : isWarning ? 'text-amber-800' : 'text-emerald-700'
                               )}
                             >
@@ -597,16 +597,16 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                 </div>
 
                 {/* Person Decision & Remarks */}
-                <div className="rounded-xl border border-border bg-card p-3.5 space-y-3 shadow-2xs">
+                <div className="rounded-2xl border border-border bg-card p-3.5 space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    <span className="text-xs font-semibold text-foreground">
                       Your Decision
                     </span>
                     {liveDecision && (
                       <span className="inline-flex items-center gap-1.5">
                         <span
                           className={cn(
-                            'rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase',
+                            'rounded-full px-2.5 py-0.5 text-xs font-semibold',
                             systemAccepts
                               ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
                               : 'bg-rose-50 text-rose-800 border border-rose-300'
@@ -626,8 +626,8 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                               </button>
                             </PopoverTrigger>
                             <PopoverContent align="end" className="w-72 space-y-1.5 p-3 text-xs">
-                              <p className="font-bold text-slate-800">Why the system rejects</p>
-                              <ul className="list-disc space-y-1 pl-4 text-slate-700">
+                              <p className="font-semibold text-foreground">Why the system rejects</p>
+                              <ul className="list-disc space-y-1 pl-4 text-secondary-foreground">
                                 {systemRejectReasons.map((r) => (
                                   <li key={r}>{r}</li>
                                 ))}
@@ -644,10 +644,10 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                       type="button"
                       onClick={() => onPersonDecisionChange?.('ACCEPT')}
                       className={cn(
-                        'flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition',
+                        'flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition',
                         personDecision === 'ACCEPT'
                           ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
                       )}
                     >
                       {mustRequestAvp ? <Send className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -657,10 +657,10 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                       type="button"
                       onClick={() => onPersonDecisionChange?.('REJECT')}
                       className={cn(
-                        'flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition',
+                        'flex min-h-11 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition',
                         personDecision === 'REJECT'
                           ? 'border-rose-600 bg-rose-600 text-white shadow-xs'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
                       )}
                     >
                       <XCircle className="h-4 w-4" />
@@ -669,7 +669,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="qa-decision-remarks" className="text-[10px] uppercase font-bold text-slate-500 block">
+                    <label htmlFor="qa-decision-remarks" className="text-xs font-semibold text-muted-foreground block">
                       Decision Remarks / Notes {personDecision === 'REJECT' || mustRequestAvp ? '*' : '(Optional)'}
                     </label>
                     <input
@@ -690,7 +690,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                     disabled={isSubmitting || !personDecision || ((personDecision === 'REJECT' || mustRequestAvp) && !decisionRemarks.trim())}
                     onClick={handleSubmit}
                     className={cn(
-                      'w-full min-h-12 rounded-xl text-white font-bold text-sm shadow-xs transition flex items-center justify-center space-x-2 disabled:opacity-50',
+                      'w-full min-h-12 rounded-lg text-white font-semibold text-sm shadow-xs transition flex items-center justify-center space-x-2 disabled:opacity-50',
                       personDecision === 'REJECT'
                         ? 'bg-rose-600 hover:bg-rose-700'
                         : 'bg-primary hover:bg-primary-hover'

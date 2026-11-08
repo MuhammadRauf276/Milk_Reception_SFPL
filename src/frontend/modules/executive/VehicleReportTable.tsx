@@ -34,7 +34,7 @@ const decisionClass = (d: string) =>
     ? 'bg-rose-50 text-rose-800 border-rose-200'
     : d === 'HOLD'
     ? 'bg-amber-50 text-amber-800 border-amber-200'
-    : 'bg-slate-100 text-slate-700 border-slate-200';
+    : 'bg-muted text-secondary-foreground border-border';
 
 interface Column {
   key: ReportColumnKey;
@@ -51,7 +51,7 @@ const num = (key: ReportColumnKey, label: string, pick: (r: VehiclePortionRow) =
 });
 
 const COLUMNS: Column[] = [
-  { key: 'vehicle', label: 'Vehicle', render: (r) => <span className="font-semibold text-slate-900">{r.vehicle}</span> },
+  { key: 'vehicle', label: 'Vehicle', render: (r) => <span className="font-semibold text-foreground">{r.vehicle}</span> },
   { key: 'token', label: 'Token', render: (r) => r.token || EMPTY },
   { key: 'source', label: 'Source', render: (r) => r.source },
   { key: 'date', label: 'Dispatched', render: (r) => r.date },
@@ -61,7 +61,7 @@ const COLUMNS: Column[] = [
     key: 'decision',
     label: 'Decision',
     render: (r) => (
-      <span className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${decisionClass(r.decision)}`}>{r.decision}</span>
+      <span className={`px-2 py-0.5 rounded border text-xs font-semibold ${decisionClass(r.decision)}`}>{r.decision}</span>
     ),
   },
   {
@@ -147,7 +147,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
 
   return (
     <div className="space-y-4" role="region" aria-label="Vehicle report table">
-      <div className="p-5 rounded-xl bg-card border border-border/80 shadow-xs space-y-4">
+      <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/80">
           <div className="flex items-center space-x-2">
             <Truck className="w-5 h-5 text-primary" />
@@ -158,7 +158,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
           </span>
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <label className="text-xs font-semibold text-slate-600 space-y-1">
+          <label className="text-xs font-semibold text-secondary-foreground space-y-1">
             <span className="block">From</span>
             <input
               type="date"
@@ -171,7 +171,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
               className={inputClass}
             />
           </label>
-          <label className="text-xs font-semibold text-slate-600 space-y-1">
+          <label className="text-xs font-semibold text-secondary-foreground space-y-1">
             <span className="block">To</span>
             <input
               type="date"
@@ -184,7 +184,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
               className={inputClass}
             />
           </label>
-          <p className="text-xs text-slate-500 pb-3">Up to {REPORT_MAX_RANGE_DAYS} days at a time</p>
+          <p className="text-xs text-muted-foreground pb-3">Up to {REPORT_MAX_RANGE_DAYS} days at a time</p>
         </div>
         {rangeProblem && (
           <p className="text-xs font-semibold text-rose-800" role="alert">
@@ -194,11 +194,11 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
       </div>
 
       {reportQuery.isError && !rangeProblem && (
-        <div className="bg-card border-border p-6 rounded-xl border text-center space-y-3" role="alert">
+        <div className="bg-card border-border p-6 rounded-2xl border text-center space-y-3" role="alert">
           <p className="text-xs font-semibold text-rose-800">{reportQuery.error.message || 'Failed to load the report.'}</p>
           <button
             onClick={() => void reportQuery.refetch()}
-            className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition min-h-11"
+            className="px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition min-h-11"
           >
             Retry Loading
           </button>
@@ -208,7 +208,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
       <div className={`overflow-x-auto rounded-xl bg-card border border-border/80 shadow-2xs transition-opacity ${reportQuery.isFetching ? 'opacity-70' : ''}`}>
         <table className="w-full text-left text-xs tabular-nums">
           <thead>
-            <tr className="border-b border-border text-slate-500 uppercase tracking-wider">
+            <tr className="border-b border-border text-muted-foreground">
               {COLUMNS.map((c) => (
                 <th key={c.key} className={`px-2 py-2 font-semibold whitespace-nowrap ${c.numeric ? 'text-right' : ''}`}>
                   {c.label}
@@ -246,7 +246,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
                   <button
                     onClick={() => setInspectVisitId(r.visitId)}
                     aria-label={`Inspect ${r.vehicle}`}
-                    className="inline-flex items-center gap-1 px-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-[11px] font-semibold transition min-h-9"
+                    className="inline-flex items-center gap-1 px-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition min-h-9"
                   >
                     <Eye className="w-3 h-3" />
                     <span>Inspect</span>
@@ -256,7 +256,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
             ))}
             {rows.length === 0 && !rangeProblem && (
               <tr>
-                <td colSpan={COLUMNS.length + 1} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={COLUMNS.length + 1} className="px-4 py-8 text-center text-muted-foreground">
                   {reportQuery.isPending ? 'Loading report…' : 'No vehicles match these dates and searches.'}
                 </td>
               </tr>
@@ -266,8 +266,8 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
       </div>
 
       {totalPages > 1 && (
-        <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <span className="text-slate-600 font-semibold tabular-nums">
+        <div className="p-3.5 rounded-2xl bg-card border border-border/80 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <span className="text-secondary-foreground font-semibold tabular-nums">
             Showing{' '}
             <strong className="text-foreground">
               {((currentPage - 1) * pageSize + 1).toLocaleString()}–{Math.min(currentPage * pageSize, totalRows).toLocaleString()}
@@ -279,7 +279,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
               onClick={() => setPage(currentPage - 1)}
               disabled={currentPage <= 1}
               aria-label="Previous Page"
-              className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
+              className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
               <span>Previous</span>
@@ -288,7 +288,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
               onClick={() => setPage(currentPage + 1)}
               disabled={currentPage >= totalPages}
               aria-label="Next Page"
-              className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
+              className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
             >
               <span>Next</span>
               <ChevronRight className="w-3.5 h-3.5" />

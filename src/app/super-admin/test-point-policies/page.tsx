@@ -18,13 +18,13 @@ export default function SuperAdminTestPointPoliciesRedirectPage() {
         <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
           <Sliders className="w-6 h-6" />
         </div>
-        <h1 className="text-lg font-bold text-slate-900">
+        <h1 className="text-lg font-semibold text-foreground">
           Consolidated into Stage Policies &amp; Rules
         </h1>
 
         <Link
           href="/super-admin/test-policies"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary-hover transition-colors"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-hover transition-colors"
         >
           <span>Go to Stage Policies &amp; Rules</span>
           <ArrowRight className="w-4 h-4" />

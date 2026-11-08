@@ -148,7 +148,7 @@ export function VehicleProblem({ journey, vehicleRequests, coverHeaders, open, o
               </span>
             </div>
             {r.visited_shops.length > 0 && (
-              <p className="pl-6 text-[11px] text-blue-800">
+              <p className="pl-6 text-xs text-blue-800">
                 Shops on {r.from_vehicle.vehicle_number}: {r.visited_shops.map((s) => s.shop_name).join(', ')}
               </p>
             )}
@@ -158,10 +158,10 @@ export function VehicleProblem({ journey, vehicleRequests, coverHeaders, open, o
       {open && (
         <Modal onClose={onClose} title="Send Request" className="max-w-md">
           <div className="p-4 space-y-3">
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-secondary-foreground">
               Only if this vehicle cannot continue. The Zonal Manager will give you a new vehicle. Your collected milk and finished shops stay on this journey.
             </p>
-            <label htmlFor="vehicle-problem-reason" className="block text-xs font-semibold text-slate-700">
+            <label htmlFor="vehicle-problem-reason" className="block text-xs font-semibold text-secondary-foreground">
               What happened to the vehicle? <span className="text-rose-600">*</span>
             </label>
             <textarea
@@ -175,7 +175,7 @@ export function VehicleProblem({ journey, vehicleRequests, coverHeaders, open, o
               type="button"
               onClick={submit}
               disabled={sending || !reason.trim()}
-              className="min-h-11 w-full rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold disabled:opacity-50"
+              className="min-h-11 w-full rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold disabled:opacity-50"
             >
               {sending ? 'Sending…' : 'Send to Zonal Manager'}
             </button>

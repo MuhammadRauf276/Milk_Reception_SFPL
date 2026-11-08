@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function vehicleStatusLabel(v: MotVehicleItem): { label: string; tone: string } {
-  if (!v.is_active) return { label: 'Inactive', tone: 'bg-slate-200 text-slate-700' };
+  if (!v.is_active) return { label: 'Inactive', tone: 'bg-muted text-secondary-foreground' };
   if (v.active_journey?.status === 'RETURNING') return { label: 'Returning', tone: 'bg-blue-100 text-blue-800' };
   if (v.has_active_journey) return { label: 'Collecting', tone: 'bg-amber-100 text-amber-800' };
   if (v.at_zmcc_waiting_unload) return { label: 'At ZMCC waiting unload', tone: 'bg-violet-100 text-violet-800' };
@@ -22,15 +22,15 @@ export function VehiclesTab({ vehicles, loading }: Props) {
     <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden space-y-3 animate-panel-in">
 
       {loading ? (
-        <div className="p-8 text-center text-xs font-semibold text-slate-500">Loading vehicles…</div>
+        <div className="p-8 text-center text-xs font-semibold text-muted-foreground">Loading vehicles…</div>
       ) : vehicles.length === 0 ? (
-        <div className="p-8 text-center text-xs font-semibold text-slate-500">
+        <div className="p-8 text-center text-xs font-semibold text-muted-foreground">
           No Mobile Tester vehicles registered for this ZMCC.
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-muted/60 text-slate-700 uppercase font-semibold tracking-wider text-[10px] border-b border-border">
+            <thead className="bg-muted/60 text-secondary-foreground font-semibold text-xs border-b border-border">
               <tr>
                 <th className="p-3">Vehicle Number</th>
                 <th className="p-3">ZMCC Center</th>
@@ -44,18 +44,18 @@ export function VehiclesTab({ vehicles, loading }: Props) {
                 return (
                   <tr key={v.id} className="hover:bg-subtle">
                     <td className="p-3 tabular-nums font-semibold text-primary">{v.vehicle_number}</td>
-                    <td className="p-3 font-medium text-slate-700">{v.zmcc?.name}</td>
+                    <td className="p-3 font-medium text-secondary-foreground">{v.zmcc?.name}</td>
                     <td className="p-3">
                       {v.has_active_journey ? (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold">
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">
                           #{v.active_journey?.journey_number}
                         </span>
                       ) : (
-                        <span className="text-slate-400 text-[11px]">None</span>
+                        <span className="text-muted-foreground text-xs">None</span>
                       )}
                     </td>
                     <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${st.tone}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${st.tone}`}>
                         {st.label}
                       </span>
                     </td>

@@ -25,14 +25,14 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
     <div className="space-y-4 animate-panel-in">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">
+              <h3 className="text-sm font-semibold text-foreground">
                 Inside ({insideTotalCount > insideVehicles.length ? `${insideVehicles.length} of ${insideTotalCount}` : insideVehicles.length})
               </h3>
             </div>
             <button
               type="button"
               onClick={fetchInsideVehicles}
-              className="flex items-center space-x-1.5 min-h-[44px] px-4 bg-white border border-border rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+              className="flex items-center space-x-1.5 min-h-[44px] px-4 bg-card border border-border rounded-xl text-xs font-semibold text-secondary-foreground hover:bg-subtle transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer"
             >
               {loadingInside && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               <span>Refresh</span>
@@ -49,7 +49,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
           )}
 
           {insideVehicles.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border p-12 text-center text-xs text-slate-400">
+            <div className="bg-card rounded-xl border border-border p-12 text-center text-xs text-muted-foreground">
               <Truck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
               <span>No vehicles inside.</span>
             </div>
@@ -65,16 +65,16 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                     {currentInsideVehicles.map((v) => (
                       <div
                         key={`${v.arrival_type}-${v.id}`}
-                        className="bg-white rounded-2xl border border-border p-4 shadow-2xs flex flex-col justify-between space-y-3 hover:border-slate-300 transition-all"
+                        className="bg-card rounded-2xl border border-border p-4 shadow-2xs flex flex-col justify-between space-y-3 hover:border-border-strong transition-[color,background-color,border-color,box-shadow,opacity,transform]"
                       >
                         <div className="space-y-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                                <Truck className="h-4 w-4 text-slate-600" />
+                              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                                <Truck className="h-4 w-4 text-secondary-foreground" />
                               </div>
                               <div>
-                                <div className="text-sm font-bold text-slate-900 tabular-nums leading-tight">
+                                <div className="text-sm font-semibold text-foreground tabular-nums leading-tight">
                                   {v.vehicle_number}
                                 </div>
                                 <span
@@ -91,27 +91,27 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                           </div>
 
                           <div className="space-y-1.5">
-                            <div className="text-sm font-bold text-slate-800 line-clamp-1" title={v.source_name}>
+                            <div className="text-sm font-semibold text-foreground line-clamp-1" title={v.source_name}>
                               {v.source_name}
                             </div>
                             <div className="flex flex-wrap items-center gap-1.5">
                               {v.zmcc_token && (
-                                <span className="font-mono text-[11px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                <span className="font-mono text-xs font-medium px-2 py-0.5 rounded bg-muted text-secondary-foreground border border-border">
                                   Token: {v.zmcc_token}
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-500 flex items-center gap-1 pt-0.5 min-w-0">
-                              <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <div className="text-xs text-muted-foreground flex items-center gap-1 pt-0.5 min-w-0">
+                              <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                               <span className="truncate">Entered: {new Date(v.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT</span>
                             </div>
                           </div>
 
-                          <div className="pt-2.5 border-t border-slate-100 flex flex-wrap gap-1.5 items-center">
+                          <div className="pt-2.5 border-t border-border flex flex-wrap gap-1.5 items-center">
                             <span
                               className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
                                 v.lab_status === 'COMPLETED'
-                                  ? 'bg-slate-100 text-slate-800'
+                                  ? 'bg-muted text-foreground'
                                   : 'bg-amber-100 text-amber-800'
                               }`}
                             >
@@ -129,15 +129,15 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                               </span>
                             )}
                             {v.has_tank_receipt && (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-100 text-blue-800">
+                              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">
                                 Tank Received
                               </span>
                             )}
                           </div>
                         </div>
 
-                        <div className="bg-slate-50 p-2 rounded-xl border border-slate-200 text-center">
-                          <span className="text-[11px] font-medium text-slate-500">Old record. Gate exit is no longer used.</span>
+                        <div className="bg-subtle p-2 rounded-xl border border-border text-center">
+                          <span className="text-xs font-medium text-muted-foreground">Old record. Gate exit is no longer used.</span>
                         </div>
                       </div>
                     ))}
@@ -145,7 +145,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
 
                   {totalInsidePages > 1 && (
                     <div className="flex items-center justify-between pt-3 border-t border-border">
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-muted-foreground">
                         Page {insidePage} of {totalInsidePages}
                       </span>
                       <div className="flex items-center space-x-2">
@@ -153,7 +153,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                           type="button"
                           disabled={insidePage <= 1}
                           onClick={() => setInsidePage((p) => Math.max(1, p - 1))}
-                          className="min-h-[44px] px-4 rounded-xl border border-border text-xs font-semibold text-slate-700 disabled:opacity-40 hover:bg-slate-50 cursor-pointer"
+                          className="min-h-[44px] px-4 rounded-xl border border-border text-xs font-semibold text-secondary-foreground disabled:opacity-40 hover:bg-subtle cursor-pointer"
                         >
                           Previous
                         </button>
@@ -161,7 +161,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                           type="button"
                           disabled={insidePage >= totalInsidePages}
                           onClick={() => setInsidePage((p) => Math.min(totalInsidePages, p + 1))}
-                          className="min-h-[44px] px-4 rounded-xl border border-border text-xs font-semibold text-slate-700 disabled:opacity-40 hover:bg-slate-50 cursor-pointer"
+                          className="min-h-[44px] px-4 rounded-xl border border-border text-xs font-semibold text-secondary-foreground disabled:opacity-40 hover:bg-subtle cursor-pointer"
                         >
                           Next
                         </button>

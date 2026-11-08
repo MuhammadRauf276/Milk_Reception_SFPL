@@ -93,7 +93,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
 
   if (error) {
     return (
-      <div className="bg-card border-border p-6 rounded-xl border text-center space-y-2">
+      <div className="bg-card border-border p-6 rounded-2xl border text-center space-y-2">
         <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
         <h4 className="text-sm font-semibold text-rose-900">Failed to Load Quality & Rejections</h4>
         <p className="text-xs text-rose-700">{error}</p>
@@ -104,7 +104,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
   return (
     <div className="space-y-6">
       {/* 1. Header Scope Banner */}
-      <div className="bg-card border-border p-5 rounded-xl border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-card border-border p-5 rounded-2xl border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 bg-blue-900 text-white rounded-xl shadow-xs">
             <FlaskConical className="w-5 h-5" />
@@ -125,7 +125,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
       {/* 2. Four Summary Portion Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Accepted Portions */}
-        <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-2">
+        <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-emerald-700 text-xs font-semibold">
             <span>Accepted Portions</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -133,13 +133,13 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
           <p className="text-3xl font-semibold text-emerald-950 tabular-nums">
             {metrics.acceptedPortions}
           </p>
-          <p className="text-[11px] text-emerald-700 font-medium">
+          <p className="text-xs text-emerald-700 font-medium">
             Passed Plant QA criteria
           </p>
         </div>
 
         {/* Rejected Portions */}
-        <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-2">
+        <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-rose-700 text-xs font-semibold">
             <span>Rejected Portions</span>
             <XCircle className="w-4 h-4 text-rose-600" />
@@ -147,13 +147,13 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
           <p className="text-3xl font-semibold text-rose-950 tabular-nums">
             {metrics.rejectedPortions}
           </p>
-          <p className="text-[11px] text-rose-700 font-medium">
+          <p className="text-xs text-rose-700 font-medium">
             Failed Plant QA standards
           </p>
         </div>
 
         {/* Hold Portions */}
-        <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-2">
+        <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-amber-700 text-xs font-semibold">
             <span>Hold Portions</span>
             <AlertTriangle className="w-4 h-4 text-amber-600" />
@@ -161,13 +161,13 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
           <p className="text-3xl font-semibold text-amber-950 tabular-nums">
             {metrics.holdPortions}
           </p>
-          <p className="text-[11px] text-amber-700 font-medium">
+          <p className="text-xs text-amber-700 font-medium">
             Under supervisory hold
           </p>
         </div>
 
         {/* Pending Portions */}
-        <div className="bg-card border-border p-5 rounded-xl border shadow-xs space-y-2">
+        <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
           <div className="flex items-center justify-between text-slate-600 text-xs font-semibold">
             <span>Pending Testing</span>
             <Clock className="w-4 h-4 text-slate-500" />
@@ -175,14 +175,14 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
           <p className="text-3xl font-semibold text-slate-900 tabular-nums">
             {metrics.pendingPortions}
           </p>
-          <p className="text-[11px] text-slate-500 font-medium">
+          <p className="text-xs text-slate-500 font-medium">
             Awaiting lab evaluation
           </p>
         </div>
       </div>
 
       {/* 3. Search & Decision Filters */}
-      <div className="bg-card border-border p-5 rounded-xl border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-card border-border p-5 rounded-2xl border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Search */}
         <div className="relative w-full md:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -197,7 +197,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
 
         {/* Decision Filter Chips */}
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1">
-          <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 mr-1 shrink-0">
+          <span className="text-xs font-semibold text-slate-500 flex items-center gap-1 mr-1 shrink-0">
             <Filter className="w-3.5 h-3.5" />
             <span>Decision:</span>
           </span>
@@ -282,7 +282,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
           filteredVisits.map((v) => (
             <div
               key={v.visitId}
-              className="bg-card border-border p-5 sm:p-6 rounded-xl border shadow-xs space-y-4"
+              className="bg-card border-border p-5 sm:p-6 rounded-2xl border shadow-xs space-y-4"
             >
               {/* Vehicle Header Bar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
@@ -296,7 +296,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
                         {v.vehicleNumber}
                       </h3>
                       {v.tokenNumber && (
-                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] tabular-nums font-semibold border border-slate-200">
+                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs tabular-nums font-semibold border border-slate-200">
                           Token: {v.tokenNumber}
                         </span>
                       )}
@@ -334,7 +334,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider bg-slate-50/70">
+                    <tr className="border-b border-slate-200 text-slate-600 font-semibold text-xs bg-slate-50/70">
                       <th className="py-2.5 px-3">Portion</th>
                       <th className="py-2.5 px-3">Portion Qty (Context)</th>
                       <th className="py-2.5 px-3">QA Decision</th>
@@ -353,7 +353,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
                           <td className="py-3 px-3 tabular-nums font-semibold text-slate-900">
                             {p.portion_number}
                           </td>
-                          <td className="py-3 px-3 tabular-nums text-slate-600 text-[11px]">
+                          <td className="py-3 px-3 tabular-nums text-slate-600 text-xs">
                             {p.dispatch_liters_gross ? `${p.dispatch_liters_gross.toLocaleString()} L` : '—'}
                           </td>
                           <td className="py-3 px-3">
@@ -377,7 +377,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
                           <td className="py-3 px-3 text-right tabular-nums font-semibold text-slate-800">
                             {p.sampling_fat != null ? `${p.sampling_fat.toFixed(2)}%` : '—'}
                           </td>
-                          <td className="py-3 px-3 text-right tabular-nums text-slate-600 text-[11px]">
+                          <td className="py-3 px-3 text-right tabular-nums text-slate-600 text-xs">
                             {p.computed_sampling_snf != null && p.computed_sampling_ts != null
                               ? `${p.computed_sampling_snf.toFixed(2)}% / ${p.computed_sampling_ts.toFixed(2)}%`
                               : '—'}
@@ -385,7 +385,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
                           <td className="py-3 px-3 text-slate-600 text-xs">
                             {p.rejection_reasons || '—'}
                           </td>
-                          <td className="py-3 px-3 text-slate-500 tabular-nums text-[11px]">
+                          <td className="py-3 px-3 text-slate-500 tabular-nums text-xs">
                             {p.sampling_time_start || '—'}
                           </td>
                         </tr>

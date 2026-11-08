@@ -93,7 +93,7 @@ export function DynamicReportVisualizer({
   const maxBarValue = Math.max(...barData.map((d) => d.value), 1);
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5 space-y-5 shadow-xs animate-panel-in">
+    <div className="bg-card border border-border rounded-2xl p-5 space-y-5 shadow-xs animate-panel-in">
       {/* Header Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <div className="flex items-center gap-2">
@@ -183,13 +183,13 @@ export function DynamicReportVisualizer({
                 >
                   {/* Floating Tooltip */}
                   {isHovered && (
-                    <div className="absolute -top-12 z-20 bg-slate-900 text-white text-[11px] font-medium py-1 px-2.5 rounded-lg shadow-xl whitespace-nowrap pointer-events-none">
+                    <div className="absolute -top-12 z-20 bg-slate-900 text-white text-xs font-medium py-1 px-2.5 rounded-lg shadow-xl whitespace-nowrap pointer-events-none">
                       <span className="font-semibold">{d.label}</span>: {d.value.toLocaleString()} {selectedMetricDef?.unit || ''}
                     </div>
                   )}
 
                   {/* Value badge */}
-                  <span className="text-[10px] tabular-nums font-mono text-muted-foreground mb-1 group-hover:text-primary transition-colors">
+                  <span className="text-xs tabular-nums font-mono text-muted-foreground mb-1 group-hover:text-primary transition-colors">
                     {d.value >= 1000 ? `${(d.value / 1000).toFixed(1)}k` : d.value.toFixed(0)}
                   </span>
 
@@ -208,7 +208,7 @@ export function DynamicReportVisualizer({
           </div>
 
           {/* Labels row */}
-          <div className="flex items-center gap-2 px-2 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-2 px-2 text-xs text-muted-foreground">
             {barData.map((d, i) => (
               <div key={i} className="flex-1 text-center truncate font-medium" title={d.label}>
                 {d.label}
@@ -280,7 +280,7 @@ export function DynamicReportVisualizer({
                   cx={x}
                   cy={y}
                   r="4"
-                  className="fill-background stroke-primary stroke-[2.5] hover:r-6 transition-all cursor-pointer"
+                  className="fill-background stroke-primary stroke-[2.5] hover:r-6 transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer"
                 />
               );
             })}
@@ -296,7 +296,7 @@ export function DynamicReportVisualizer({
             <span>Y-Axis: SNF % (7.5% to 9.5%)</span>
           </div>
 
-          <div className="h-64 w-full relative bg-muted/20 border border-border rounded-xl p-4 overflow-hidden">
+          <div className="h-64 w-full relative bg-muted/20 border border-border rounded-2xl p-4 overflow-hidden">
             <svg className="w-full h-full" viewBox="0 0 500 200" preserveAspectRatio="none">
               {/* Reference Baseline 3.5% Fat & 8.5% SNF */}
               <line x1="120" y1="0" x2="120" y2="200" stroke="#f43f5e" strokeWidth="1" strokeDasharray="4 4" />

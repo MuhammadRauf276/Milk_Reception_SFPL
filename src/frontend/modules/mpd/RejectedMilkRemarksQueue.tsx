@@ -68,12 +68,12 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
         <div className="flex items-center gap-2">
           <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
           <h2 className="text-base font-semibold text-foreground">Rejected milk: your remarks</h2>
-          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
             {waiting} waiting
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {loading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+          {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
           <button
             type="button"
             onClick={() => setShowDone((v) => !v)}
@@ -92,12 +92,12 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
       )}
 
       {items.length === 0 && !loading ? (
-        <div className="p-6 text-center text-sm font-medium text-slate-500">No pending remarks</div>
+        <div className="p-6 text-center text-sm font-medium text-muted-foreground">No pending remarks</div>
       ) : (
         <div className="divide-y divide-border">
           {items.map((item) => (
             <div key={item.entity_id} className="p-4 space-y-3">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-700">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-secondary-foreground">
                 <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
                   item.entity_type === 'PLANT_PORTION' ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-blue-100 text-blue-800 border border-blue-200'
                 }`}>
@@ -110,7 +110,7 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
                 {item.rejected_at && <span>{new Date(item.rejected_at).toLocaleDateString()}</span>}
               </div>
               {item.reject_reason && (
-                <div className="flex items-center gap-1 text-sm text-slate-600">
+                <div className="flex items-center gap-1 text-sm text-secondary-foreground">
                   <span>Reason</span>
                   <InfoTip text={item.reject_reason} />
                 </div>
@@ -132,13 +132,13 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
                     value={drafts[item.entity_id] || ''}
                     onChange={(e) => setDrafts((d) => ({ ...d, [item.entity_id]: e.target.value }))}
                     placeholder="Remarks"
-                    className="w-full text-sm font-medium border border-border rounded-xl p-3 bg-subtle text-foreground focus:ring-2 focus:ring-primary min-h-[90px] min-h-11"
+                    className="w-full text-sm font-medium border border-border rounded-lg p-3 bg-subtle text-foreground focus:ring-2 focus:ring-primary min-h-[90px] min-h-11"
                   />
                   <button
                     type="button"
                     disabled={savingId === item.entity_id || !(drafts[item.entity_id] || '').trim()}
                     onClick={() => save(item)}
-                    className="w-full sm:w-auto px-6 min-h-[56px] rounded-xl text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 inline-flex items-center justify-center gap-2 min-h-11"
+                    className="w-full sm:w-auto px-6 min-h-[56px] rounded-lg text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 inline-flex items-center justify-center gap-2 min-h-11"
                   >
                     {savingId === item.entity_id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                     <span>Save remarks</span>

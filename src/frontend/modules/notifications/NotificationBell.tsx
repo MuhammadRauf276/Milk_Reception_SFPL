@@ -172,7 +172,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
           {visibleUnreadCount > 0 && (
             <motion.span
               key="unread-badge"
-              className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-card"
+              className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-xs font-semibold leading-none text-white ring-2 ring-card"
               initial={{ scale: 0.4, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.4, opacity: 0 }}
@@ -189,7 +189,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-foreground">Notifications</span>
             {visibleUnreadCount > 0 && (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                 {visibleUnreadCount} new
               </span>
             )}
@@ -237,17 +237,17 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
                       />
                       <span className="min-w-0 flex-1 space-y-1">
                         <span className="flex items-start justify-between gap-2">
-                          <span className={cn('truncate text-sm', isUnread ? 'font-medium text-foreground' : 'text-slate-600')}>
+                          <span className={cn('truncate text-sm', isUnread ? 'font-medium text-foreground' : 'text-secondary-foreground')}>
                             {item.title}
                           </span>
                           {isHighPriority && (
-                            <span className="shrink-0 rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-700">
+                            <span className="shrink-0 rounded bg-rose-50 px-1.5 py-0.5 text-xs font-medium text-rose-700">
                               {item.priority}
                             </span>
                           )}
                         </span>
                         <span className="line-clamp-2 block text-xs text-muted-foreground">{item.body}</span>
-                        <span className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span className="flex items-center justify-between text-xs text-muted-foreground">
                           <span className="tabular-nums">
                             {item.createdAt
                               ? new Date(item.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })

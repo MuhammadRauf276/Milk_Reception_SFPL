@@ -39,7 +39,7 @@ function Seg({
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
           className={`h-11 flex-1 rounded-lg border px-2.5 font-bold transition ${
-            value === o.value ? o.active : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+            value === o.value ? o.active : 'border-border-strong bg-card text-secondary-foreground hover:bg-muted'
           }`}
         >
           {o.label}
@@ -209,7 +209,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
       title={
         <span className="block">
           {isGlobalStage ? 'Universal Baseline Spec' : stageLabel}: {item.labTest.testName}
-          <span className="mt-0.5 block font-mono text-[11px] font-normal text-slate-500">
+          <span className="mt-0.5 block font-mono text-xs font-normal text-muted-foreground">
             {item.labTest.testCode} · {item.labTest.resultType}
             {item.labTest.unit ? ` (${item.labTest.unit})` : ''}
           </span>
@@ -218,11 +218,11 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
     >
       <form onSubmit={submit} className="space-y-4">
         {!isGlobalStage && (
-          <div className="space-y-3 rounded-xl border border-border bg-card p-4">
-            <div className="border-b border-slate-200/80 pb-2 text-xs font-bold text-slate-800">Stage Form Configuration ({stageLabel})</div>
+          <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+            <div className="border-b border-slate-200/80 pb-2 text-xs font-semibold text-foreground">Stage Form Configuration ({stageLabel})</div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <span className="mb-1.5 block font-bold text-slate-700">Visibility on Form</span>
+                <span className="mb-1.5 block font-semibold text-secondary-foreground">Visibility on Form</span>
                 <Seg
                   label="Visibility on form"
                   value={active ? 'a' : 'h'}
@@ -234,7 +234,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                 />
               </div>
               <div>
-                <span className="mb-1.5 block font-bold text-slate-700">Entry Requirement</span>
+                <span className="mb-1.5 block font-semibold text-secondary-foreground">Entry Requirement</span>
                 <Seg
                   label="Entry requirement"
                   value={required ? 'c' : 'o'}
@@ -248,15 +248,15 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
             </div>
             <div className="flex items-center justify-between gap-3 border-t border-slate-200/80 pt-3">
               <div>
-                <div className="font-bold text-slate-800">Photo Evidence Required</div>
-                <div className="text-[11px] text-slate-500">Chemist must photograph physical tester reading</div>
+                <div className="font-semibold text-foreground">Photo Evidence Required</div>
+                <div className="text-xs text-muted-foreground">Chemist must photograph physical tester reading</div>
               </div>
               <button
                 type="button"
                 aria-pressed={photoRequired}
                 onClick={() => setPhotoRequired((p) => !p)}
                 className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3 font-bold transition-colors ${
-                  photoRequired ? 'border-sky-600 bg-sky-600 text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                  photoRequired ? 'border-sky-600 bg-sky-600 text-white' : 'border-border-strong bg-card text-secondary-foreground hover:bg-muted'
                 }`}
               >
                 <Camera className="h-3.5 w-3.5" />
@@ -266,16 +266,16 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
           </div>
         )}
 
-        <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+        <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
-            <div className="text-xs font-bold text-slate-800">Quality Acceptance Rule &amp; Limits</div>
+            <div className="text-xs font-semibold text-foreground">Quality Acceptance Rule &amp; Limits</div>
             {!isGlobalStage && (
-              <label className="flex min-h-11 cursor-pointer select-none items-center gap-1.5 font-bold text-slate-700">
+              <label className="flex min-h-11 cursor-pointer select-none items-center gap-1.5 font-semibold text-secondary-foreground">
                 <input
                   type="checkbox"
                   checked={recordOnly}
                   onChange={(e) => setRecordOnly(e.target.checked)}
-                  className="size-5 rounded border-slate-300 text-primary"
+                  className="size-5 rounded border-border-strong text-primary"
                 />
                 <span>Record Only (No Pass/Fail Rule)</span>
               </label>
@@ -283,9 +283,9 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
           </div>
 
           {recordOnly ? (
-            <div className="space-y-1 rounded-lg bg-card p-3 text-slate-600">
-              <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                <FileCheck2 className="h-4 w-4 text-slate-600" />
+            <div className="space-y-1 rounded-lg bg-card p-3 text-secondary-foreground">
+              <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                <FileCheck2 className="h-4 w-4 text-secondary-foreground" />
                 <span>Record only</span>
               </div>
               <InfoTip text="Collected for recording only. No limits or pass/fail evaluation are applied." />
@@ -293,18 +293,18 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
           ) : (
             <>
               <div>
-                <span className="mb-1.5 block font-bold text-slate-700">Rule Enforcement Severity</span>
+                <span className="mb-1.5 block font-semibold text-secondary-foreground">Rule Enforcement Severity</span>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
                     type="button"
                     aria-pressed={ruleCategory === 'RELEASE'}
                     onClick={() => setRuleCategory('RELEASE')}
                     className={`min-h-11 rounded-xl border p-3 text-left transition-all ${
-                      ruleCategory === 'RELEASE' ? 'border-rose-700 bg-rose-600 text-white' : 'border-slate-300 bg-white text-slate-800 hover:bg-rose-50/40'
+                      ruleCategory === 'RELEASE' ? 'border-rose-700 bg-rose-600 text-white' : 'border-border-strong bg-card text-foreground hover:bg-rose-50/40'
                     }`}
                   >
-                    <div className="text-sm font-extrabold">Must Pass (Hold)</div>
-                    <div className={`mt-0.5 text-[11px] ${ruleCategory === 'RELEASE' ? 'text-rose-100' : 'text-slate-500'}`}>
+                    <div className="text-sm font-semibold">Must Pass (Hold)</div>
+                    <div className={`mt-0.5 text-xs ${ruleCategory === 'RELEASE' ? 'text-rose-100' : 'text-slate-500'}`}>
                       Blocks Reception &amp; Requires QA Approval
                     </div>
                   </button>
@@ -313,11 +313,11 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                     aria-pressed={ruleCategory === 'MONITORING'}
                     onClick={() => setRuleCategory('MONITORING')}
                     className={`min-h-11 rounded-xl border p-3 text-left transition-all ${
-                      ruleCategory === 'MONITORING' ? 'border-amber-600 bg-amber-500 text-slate-950' : 'border-slate-300 bg-white text-slate-800 hover:bg-amber-50/40'
+                      ruleCategory === 'MONITORING' ? 'border-amber-600 bg-amber-500 text-foreground' : 'border-border-strong bg-card text-foreground hover:bg-amber-50/40'
                     }`}
                   >
-                    <div className="text-sm font-extrabold">Warning Only</div>
-                    <div className={`mt-0.5 text-[11px] ${ruleCategory === 'MONITORING' ? 'text-slate-900' : 'text-slate-500'}`}>
+                    <div className="text-sm font-semibold">Warning Only</div>
+                    <div className={`mt-0.5 text-xs ${ruleCategory === 'MONITORING' ? 'text-slate-900' : 'text-slate-500'}`}>
                       Yellow Alert Notice (Does Not Block Intake)
                     </div>
                   </button>
@@ -328,17 +328,17 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                 <div className="space-y-3 pt-2">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1 block font-semibold text-slate-700">Minimum Allowable {unitSuffix}</label>
-                      <input type="number" step="any" value={min} onChange={(e) => setMin(e.target.value)} placeholder="e.g. 0.0" className={`${fieldInputClass} font-mono font-bold`} />
+                      <label className="mb-1 block font-semibold text-secondary-foreground">Minimum Allowable {unitSuffix}</label>
+                      <input type="number" step="any" value={min} onChange={(e) => setMin(e.target.value)} placeholder="e.g. 0.0" className={`${fieldInputClass} font-mono font-semibold`} />
                     </div>
                     <div>
-                      <label className="mb-1 block font-semibold text-slate-700">Maximum Allowable {unitSuffix}</label>
-                      <input type="number" step="any" value={max} onChange={(e) => setMax(e.target.value)} placeholder="e.g. 10.0" className={`${fieldInputClass} font-mono font-bold`} />
+                      <label className="mb-1 block font-semibold text-secondary-foreground">Maximum Allowable {unitSuffix}</label>
+                      <input type="number" step="any" value={max} onChange={(e) => setMax(e.target.value)} placeholder="e.g. 10.0" className={`${fieldInputClass} font-mono font-semibold`} />
                     </div>
                   </div>
 
                   <div>
-                    <span className="mb-1 block font-semibold text-slate-700">Warning Applies To</span>
+                    <span className="mb-1 block font-semibold text-secondary-foreground">Warning Applies To</span>
                     <div role="group" aria-label="Warning applies to" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                       {WARNING_OPTIONS.map((o) => (
                         <button
@@ -347,7 +347,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                           aria-pressed={trigger === o.value}
                           onClick={() => setTrigger(o.value)}
                           className={`min-h-11 rounded-lg border px-2 py-1 text-[11px] font-bold leading-tight ${
-                            trigger === o.value ? 'border-primary bg-primary/10 text-primary' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                            trigger === o.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-card text-secondary-foreground hover:bg-muted'
                           }`}
                         >
                           {o.label}
@@ -356,7 +356,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1 block font-semibold text-slate-700">Warning Tolerance Margin ({item.labTest.unit || 'units'})</label>
+                    <label className="mb-1 block font-semibold text-secondary-foreground">Warning Tolerance Margin ({item.labTest.unit || 'units'})</label>
                     <input
                       type="number"
                       step="any"
@@ -365,18 +365,18 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                       value={offset}
                       onChange={(e) => setOffset(e.target.value)}
                       placeholder={trigger === 'NONE' ? 'Disabled' : 'e.g. 2.0'}
-                      className={`${fieldInputClass} font-mono font-bold disabled:bg-slate-100 disabled:text-slate-400`}
+                      className={`${fieldInputClass} font-mono font-semibold disabled:bg-muted disabled:text-muted-foreground`}
                     />
                   </div>
 
                   {preview && (
-                    <div className="space-y-1 rounded-xl border border-border bg-card p-3 text-[11px]">
-                      <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                    <div className="space-y-1 rounded-xl border border-border bg-card p-3 text-xs">
+                      <div className="flex items-center gap-1.5 font-semibold text-emerald-800">
                         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
                         <span>Passing Range: {preview.passText}</span>
                       </div>
                       {preview.warnText && (
-                        <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                        <div className="flex items-center gap-1.5 font-semibold text-amber-800">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                           <span>Warning Range: {preview.warnText}</span>
                         </div>
@@ -392,7 +392,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                 </div>
               ) : (
                 <div className="space-y-2 pt-2">
-                  <label className="block font-semibold text-slate-700">Standard Acceptable Option</label>
+                  <label className="block font-semibold text-secondary-foreground">Standard Acceptable Option</label>
                   {acceptableOptions.length <= 8 ? (
                     <div role="group" aria-label="Standard acceptable option" className="grid gap-2 sm:grid-cols-2">
                       {acceptableOptions.map((o) => (
@@ -402,7 +402,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                           aria-pressed={acceptable === o.value}
                           onClick={() => setAcceptable(o.value)}
                           className={`min-h-11 rounded-lg border px-3 py-1.5 text-left text-xs font-bold ${
-                            acceptable === o.value ? 'border-primary bg-primary/10 text-primary' : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-100'
+                            acceptable === o.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-card text-foreground hover:bg-muted'
                           }`}
                         >
                           {o.label}
@@ -419,7 +419,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
         </div>
 
         <div>
-          <label className="mb-1 block font-bold text-slate-700">Reason for Update (Audit Trail)</label>
+          <label className="mb-1 block font-semibold text-secondary-foreground">Reason for Update (Audit Trail)</label>
           <input
             type="text"
             required

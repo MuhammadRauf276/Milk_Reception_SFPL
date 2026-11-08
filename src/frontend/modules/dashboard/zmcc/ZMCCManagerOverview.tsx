@@ -94,7 +94,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
   // Error State Render: Never show KPI numbers or zeros on error
   if (error) {
     return (
-      <div className="bg-card border-border p-8 rounded-xl border text-center space-y-3" role="alert">
+      <div className="bg-card border-border p-8 rounded-2xl border text-center space-y-3" role="alert">
         <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
           <AlertTriangle className="w-6 h-6" />
         </div>
@@ -103,7 +103,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
         {onRetry && (
           <button
             onClick={onRetry}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-rose-700 text-white text-xs font-semibold hover:bg-rose-800 transition min-h-11"
+            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-rose-700 text-white text-xs font-semibold hover:bg-rose-800 transition min-h-11"
           >
             <span>Retry Loading</span>
           </button>
@@ -116,11 +116,11 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
   if (isLoading && logs.length === 0) {
     return (
       <div className="space-y-6" aria-busy="true" aria-label="Loading overview data">
-        <div className="p-5 rounded-xl bg-card border border-border/80 shadow-xs animate-pulse space-y-4">
-          <div className="h-6 bg-slate-200 rounded w-1/3" />
+        <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs animate-pulse space-y-4">
+          <div className="h-6 bg-muted rounded w-1/3" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-24 bg-slate-100 rounded-xl" />
+              <div key={i} className="h-24 bg-muted rounded-xl" />
             ))}
           </div>
         </div>
@@ -130,7 +130,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
 
   return (
     <div className="space-y-6" role="region" aria-label="ZMCC Manager Overview">
-      <div className="p-5 rounded-xl bg-card border border-border/80 shadow-xs space-y-4">
+      <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/80">
           <div className="flex items-center space-x-2">
             <Layers className="w-5 h-5 text-primary" />
@@ -145,7 +145,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
-            <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+            <span className="text-xs font-semibold text-secondary-foreground flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5 text-primary" /> Period:
             </span>
             <select
@@ -201,7 +201,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-2 border-t border-border/80 tabular-nums">
-          <div className="bg-card border-border p-4 rounded-xl border space-y-2">
+          <div className="bg-card border-border p-4 rounded-2xl border space-y-2">
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <Scale className="w-4 h-4 text-primary" />
@@ -210,7 +210,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs pt-1">
               <div>
-                <span className="text-xs text-slate-500 font-sans block">Dispatch gross</span>
+                <span className="text-xs text-muted-foreground font-sans block">Dispatch gross</span>
                 <span className="font-semibold text-foreground">
                   {metrics.totalDispatchGrossLiters != null
                     ? `${metrics.totalDispatchGrossLiters.toLocaleString()} L`
@@ -218,7 +218,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 </span>
               </div>
               <div>
-                <span className="text-xs text-slate-500 font-sans block">Physical received</span>
+                <span className="text-xs text-muted-foreground font-sans block">Physical received</span>
                 <span className="font-semibold text-emerald-800">
                   {metrics.totalPhysicalReceivedLiters != null
                     ? `${metrics.totalPhysicalReceivedLiters.toLocaleString()} L`
@@ -226,11 +226,11 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 </span>
               </div>
               <div>
-                <span className="text-xs text-slate-500 font-sans block">Difference</span>
+                <span className="text-xs text-muted-foreground font-sans block">Difference</span>
                 <span
                   className={`font-semibold ${
                     metrics.quantityDifferenceLiters == null
-                      ? 'text-slate-500'
+                      ? 'text-muted-foreground'
                       : metrics.quantityDifferenceLiters >= 0
                       ? 'text-emerald-800'
                       : 'text-rose-800'
@@ -246,7 +246,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             </div>
           </div>
 
-          <div className="bg-card border-border p-4 rounded-xl border space-y-2">
+          <div className="bg-card border-border p-4 rounded-2xl border space-y-2">
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <FlaskConical className="w-4 h-4 text-primary" />
@@ -255,7 +255,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs pt-1">
               <div>
-                <span className="text-xs text-slate-500 font-sans block">Dispatch @13% TS</span>
+                <span className="text-xs text-muted-foreground font-sans block">Dispatch @13% TS</span>
                 <span className="font-semibold text-foreground">
                   {metrics.totalDispatch13TsLiters != null
                     ? `${metrics.totalDispatch13TsLiters.toLocaleString()} L`
@@ -263,7 +263,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 </span>
               </div>
               <div>
-                <span className="text-xs text-slate-500 font-sans block">Plant @13% TS</span>
+                <span className="text-xs text-muted-foreground font-sans block">Plant @13% TS</span>
                 <span className="font-semibold text-foreground">
                   {metrics.totalPlant13TsLiters != null
                     ? `${metrics.totalPlant13TsLiters.toLocaleString()} L`
@@ -271,11 +271,11 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 </span>
               </div>
               <div>
-                <span className="text-xs text-slate-500 font-sans block">TS variance</span>
+                <span className="text-xs text-muted-foreground font-sans block">TS variance</span>
                 <span
                   className={`font-semibold ${
                     metrics.tsDifferenceLiters == null
-                      ? 'text-slate-500'
+                      ? 'text-muted-foreground'
                       : metrics.tsDifferenceLiters >= 0
                       ? 'text-emerald-800'
                       : 'text-rose-800'
@@ -295,7 +295,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
 
       <ManagerAttentionPanel items={attentionItems} onInspectDetails={onInspectDetails} />
 
-      <div className="p-5 rounded-xl bg-card border border-border/80 shadow-xs space-y-4">
+      <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border/80">
           <div className="flex items-center space-x-2">
             <History className="w-4 h-4 text-primary" />
@@ -313,7 +313,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
         </div>
 
         {logs.length === 0 ? (
-          <div className="py-6 text-center text-xs text-slate-500 font-semibold">
+          <div className="py-6 text-center text-xs text-muted-foreground font-semibold">
             No dispatches
           </div>
         ) : (
@@ -324,17 +324,17 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 className="py-2.5 flex items-center justify-between hover:bg-subtle transition-colors rounded px-2"
               >
                 <div className="flex items-center space-x-3">
-                  <span className="font-semibold text-slate-900 tabular-nums">
+                  <span className="font-semibold text-foreground tabular-nums">
                     {log.vehicle_number}
                   </span>
                   {log.token_number && (
-                    <span className="text-[11px] tabular-nums text-slate-500">{log.token_number}</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">{log.token_number}</span>
                   )}
-                  <span className="text-[11px] text-slate-600">{log.dispatch_date || '—'}</span>
+                  <span className="text-xs text-secondary-foreground">{log.dispatch_date || '—'}</span>
                 </div>
 
                 <div className="flex items-center space-x-3">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-slate-100 text-slate-800">
+                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-muted text-foreground">
                     {log.status || 'In Progress'}
                   </span>
                   <button

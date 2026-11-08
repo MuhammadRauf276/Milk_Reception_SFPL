@@ -108,7 +108,7 @@ export function SegmentedTabs<T extends string>({
               {typeof tab.count === 'number' ? (
                 <span
                   className={cn(
-                    'min-w-5 rounded-full px-1.5 text-center text-[11px] font-medium tabular-nums leading-5',
+                    'min-w-5 rounded-full px-1.5 text-center text-xs font-medium tabular-nums leading-5',
                     active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
                   )}
                 >
@@ -116,7 +116,7 @@ export function SegmentedTabs<T extends string>({
                 </span>
               ) : null}
               {tab.badge ? (
-                <span className="rounded-full bg-emerald-50 px-1.5 text-[11px] font-medium leading-5 text-emerald-700">
+                <span className="rounded-full bg-emerald-50 px-1.5 text-xs font-medium leading-5 text-emerald-700">
                   {tab.badge}
                 </span>
               ) : null}

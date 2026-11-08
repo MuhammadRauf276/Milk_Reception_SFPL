@@ -299,7 +299,7 @@ export function CommandPalette({ isOpen, onClose, currentUser }: CommandPaletteP
               <X className="w-4 h-4" />
             </button>
           )}
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border text-muted-foreground font-mono">
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 text-xs bg-muted px-1.5 py-0.5 rounded border border-border text-muted-foreground font-mono">
             ESC
           </kbd>
         </div>
@@ -347,7 +347,7 @@ export function CommandPalette({ isOpen, onClose, currentUser }: CommandPaletteP
                     {item.badge && (
                       <span
                         className={cn(
-                          'text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider',
+                          'text-xs px-2 py-0.5 rounded-md font-semibold',
                           isSelected
                             ? 'bg-primary-foreground/20 text-primary-foreground'
                             : 'bg-muted border border-border text-muted-foreground'
@@ -365,7 +365,7 @@ export function CommandPalette({ isOpen, onClose, currentUser }: CommandPaletteP
         </div>
 
         {/* Footer shortcuts info */}
-        <div className="px-4 py-2 bg-muted/30 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
+        <div className="px-4 py-2 bg-muted/30 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-3">
             <span>↑↓ Navigate</span>
             <span>↵ Select</span>

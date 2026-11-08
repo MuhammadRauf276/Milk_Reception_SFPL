@@ -95,10 +95,10 @@ export function StationNameCardLogin() {
 
   return (
     <main className="mx-auto flex min-h-[100dvh] w-full max-w-3xl flex-col gap-6 px-4 py-6 pt-safe pb-safe">
-      <h1 className="text-2xl font-bold text-slate-900">{selected ? `Hello, ${selected.name}` : 'Who are you?'}</h1>
+      <h1 className="text-2xl font-semibold text-slate-900">{selected ? `Hello, ${selected.name}` : 'Who are you?'}</h1>
 
       {notStation ? (
-        <p role="alert" className="flex items-center gap-2 rounded-xl border-2 border-border bg-card p-4 text-lg text-rose-900">
+        <p role="alert" className="flex items-center gap-2 rounded-2xl border-2 border-border bg-card p-4 text-lg text-rose-900">
           <AlertTriangle className="size-6 shrink-0" aria-hidden /> {NOT_STATION}
         </p>
       ) : cards === null ? (

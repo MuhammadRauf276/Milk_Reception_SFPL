@@ -209,7 +209,7 @@ export default function SuperAdminWhatsAppPage() {
             <MessageSquare className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-foreground">
+            <h1 className="text-lg font-semibold text-foreground">
               WhatsApp gateway
             </h1>
           </div>
@@ -220,7 +220,7 @@ export default function SuperAdminWhatsAppPage() {
             type="button"
             onClick={() => fetchGatewayStatus()}
             disabled={refreshing}
-            className="inline-flex items-center space-x-1.5 min-h-11 px-3 py-1.5 rounded-xl border border-border bg-card text-xs font-semibold text-slate-700 hover:bg-muted transition shadow-2xs"
+            className="inline-flex items-center space-x-1.5 min-h-11 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-secondary-foreground hover:bg-muted transition shadow-2xs"
           >
             <span>Refresh</span>
           </button>
@@ -249,7 +249,7 @@ export default function SuperAdminWhatsAppPage() {
 
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-base font-bold text-foreground">
+              <h2 className="text-base font-semibold text-foreground">
                 {isConnected
                   ? 'Connected'
                   : isScanQr
@@ -268,7 +268,7 @@ export default function SuperAdminWhatsAppPage() {
                 {gateway?.status || 'UNKNOWN'}
               </span>
             </div>
-            <p className="text-xs text-slate-600 mt-0.5 flex items-center">
+            <p className="text-xs text-secondary-foreground mt-0.5 flex items-center">
               {isConnected
                 ? `${gateway?.user?.name || 'Shakarganj Milk Reception'} (${gateway?.user?.id || 'Connected'})`
                 : isScanQr
@@ -283,7 +283,7 @@ export default function SuperAdminWhatsAppPage() {
           <button
             type="button"
             onClick={handleDisconnect}
-            className="inline-flex items-center space-x-1.5 min-h-11 px-4 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-semibold transition shadow-2xs self-start md:self-auto"
+            className="inline-flex items-center space-x-1.5 min-h-11 px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-semibold transition shadow-2xs self-start md:self-auto"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Disconnect</span>
@@ -293,8 +293,8 @@ export default function SuperAdminWhatsAppPage() {
 
       {isScanQr && gateway?.qr && (
         <div className="bg-card rounded-2xl border border-border shadow-2xs p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center animate-panel-in">
-          <div className="flex flex-col items-center justify-center p-4 bg-card border border-border rounded-xl space-y-2">
-            <div className="p-3 bg-white rounded-xl shadow-md border border-slate-200">
+          <div className="flex flex-col items-center justify-center p-4 bg-card border border-border rounded-2xl space-y-2">
+            <div className="p-3 bg-card rounded-xl shadow-md border border-border">
               <Image
                 src={gateway.qr}
                 alt="WhatsApp QR Code"
@@ -304,20 +304,20 @@ export default function SuperAdminWhatsAppPage() {
                 className="w-56 h-56 rounded-lg"
               />
             </div>
-            <div className="text-[11px] font-semibold text-emerald-700 flex items-center space-x-1">
+            <div className="text-xs font-semibold text-emerald-700 flex items-center space-x-1">
               <Loader2 className="w-3 h-3 animate-spin" />
               <span>Waiting for scan…</span>
             </div>
           </div>
 
-          <div className="space-y-3 text-xs text-slate-700">
-            <h3 className="font-bold text-sm text-foreground">Steps</h3>
-            <ol className="list-decimal list-inside space-y-2 text-slate-600 pl-1 font-medium">
+          <div className="space-y-3 text-xs text-secondary-foreground">
+            <h3 className="font-semibold text-sm text-foreground">Steps</h3>
+            <ol className="list-decimal list-inside space-y-2 text-secondary-foreground pl-1 font-medium">
               <li>Open WhatsApp on the phone with the Shakarganj logo profile.</li>
               <li>Tap Settings / ⋮ &gt; <strong>Linked Devices</strong>.</li>
               <li>Tap <strong>Link a Device</strong> and point your camera at the QR code.</li>
             </ol>
-            <div className="text-[11px] text-slate-600 flex items-center">Branding<InfoTip text="Once linked, all dairy shops receive messages from this account with your Shakarganj profile name and logo." /></div>
+            <div className="text-xs text-secondary-foreground flex items-center">Branding<InfoTip text="Once linked, all dairy shops receive messages from this account with your Shakarganj profile name and logo." /></div>
           </div>
         </div>
       )}
@@ -326,12 +326,12 @@ export default function SuperAdminWhatsAppPage() {
         <div className="lg:col-span-7 bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4">
           <div className="border-b border-border pb-3 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-foreground flex items-center space-x-2">
+              <h3 className="text-sm font-semibold text-foreground flex items-center space-x-2">
                 <Send className="w-4 h-4 text-emerald-600" />
                 <span>Send message</span>
               </h3>
             </div>
-            <span className="text-[11px] font-semibold px-2.5 py-1 bg-card text-slate-700 border border-border rounded-lg">
+            <span className="text-xs font-semibold px-2.5 py-1 bg-card text-secondary-foreground border border-border rounded-lg">
               03176826604
             </span>
           </div>
@@ -355,7 +355,7 @@ export default function SuperAdminWhatsAppPage() {
 
           <form onSubmit={handleSendMessage} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-semibold text-secondary-foreground mb-1.5">
                 Send to
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
@@ -365,13 +365,13 @@ export default function SuperAdminWhatsAppPage() {
                   className={`p-2.5 rounded-xl border text-left text-xs font-semibold transition flex items-center space-x-2 ${
                     targetMode === 'ALL_USER'
                       ? 'border-primary bg-card text-foreground ring-1 ring-primary'
-                      : 'border-border bg-white text-slate-700 hover:bg-subtle'
+                      : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
                   }`}
                 >
                   <Radio className="w-4 h-4 text-emerald-600 shrink-0" />
                   <div>
-                    <div className="font-bold">Demo shops ({userShops.length || 14})</div>
-                    <div className="text-[10px] text-slate-500 font-mono">03176826604</div>
+                    <div className="font-semibold">Demo shops ({userShops.length || 14})</div>
+                    <div className="text-xs text-muted-foreground font-mono">03176826604</div>
                   </div>
                 </button>
 
@@ -381,12 +381,12 @@ export default function SuperAdminWhatsAppPage() {
                   className={`p-2.5 rounded-xl border text-left text-xs font-semibold transition flex items-center space-x-2 ${
                     targetMode === 'SINGLE'
                       ? 'border-primary bg-card text-foreground ring-1 ring-primary'
-                      : 'border-border bg-white text-slate-700 hover:bg-subtle'
+                      : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
                   }`}
                 >
                   <Store className="w-4 h-4 text-emerald-600 shrink-0" />
                   <div>
-                    <div className="font-bold">One shop</div>
+                    <div className="font-semibold">One shop</div>
                     
                   </div>
                 </button>
@@ -405,28 +405,28 @@ export default function SuperAdminWhatsAppPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-slate-700">
+                <label className="text-xs font-semibold text-secondary-foreground">
                   Templates
                 </label>
                 <div className="flex items-center space-x-1.5">
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate('RECEIPT')}
-                    className="min-h-11 px-3 py-0.5 rounded-md text-[10px] font-semibold bg-card text-slate-700 border border-border hover:bg-subtle transition"
+                    className="min-h-11 px-3 py-0.5 rounded-md text-xs font-semibold bg-card text-secondary-foreground border border-border hover:bg-subtle transition"
                   >
                     Collection Receipt
                   </button>
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate('RATE')}
-                    className="min-h-11 px-3 py-0.5 rounded-md text-[10px] font-semibold bg-card text-slate-700 border border-border hover:bg-subtle transition"
+                    className="min-h-11 px-3 py-0.5 rounded-md text-xs font-semibold bg-card text-secondary-foreground border border-border hover:bg-subtle transition"
                   >
                     Rate Advisory
                   </button>
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate('CHILLING')}
-                    className="min-h-11 px-3 py-0.5 rounded-md text-[10px] font-semibold bg-card text-slate-700 border border-border hover:bg-subtle transition"
+                    className="min-h-11 px-3 py-0.5 rounded-md text-xs font-semibold bg-card text-secondary-foreground border border-border hover:bg-subtle transition"
                   >
                     Chilling Alert
                   </button>
@@ -441,7 +441,7 @@ export default function SuperAdminWhatsAppPage() {
                 placeholder="Type WhatsApp message here…"
                 className="w-full text-xs font-mono border border-border rounded-xl p-3 bg-card text-foreground focus:ring-2 focus:ring-emerald-500 outline-hidden leading-relaxed shadow-2xs"
               />
-              <div className="flex justify-between text-[11px] text-slate-400 mt-1">
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
                 <span className="flex items-center">Formatting<InfoTip text="Supports WhatsApp formatting: *bold*, _italics_" /></span>
                 <span>{messageText.length} characters</span>
               </div>
@@ -450,7 +450,7 @@ export default function SuperAdminWhatsAppPage() {
             <button
               type="submit"
               disabled={isSending || !isConnected}
-              className="w-full min-h-11 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md transition disabled:opacity-50"
+              className="w-full min-h-11 flex items-center justify-center space-x-2 py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md transition disabled:opacity-50"
             >
               <Send className={`w-4 h-4 ${isSending ? 'animate-pulse' : ''}`} />
               <span>
@@ -466,32 +466,32 @@ export default function SuperAdminWhatsAppPage() {
 
         <div className="lg:col-span-5 bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4 flex flex-col">
           <div className="border-b border-border pb-3 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-foreground flex items-center space-x-2">
+            <h3 className="text-sm font-semibold text-foreground flex items-center space-x-2">
               <Users className="w-4 h-4 text-primary" />
               <span>Shops</span>
             </h3>
-            <span className="text-[10px] font-bold uppercase text-slate-700 bg-card border border-border px-2 py-0.5 rounded-md">
+            <span className="text-xs font-semibold text-secondary-foreground bg-card border border-border px-2 py-0.5 rounded-md">
               03176826604
             </span>
           </div>
 
-          <p className="text-xs text-slate-500 flex items-center">Sent to your number<InfoTip text="All active Hasilpur demonstration shops are set to this number." /></p>
+          <p className="text-xs text-muted-foreground flex items-center">Sent to your number<InfoTip text="All active Hasilpur demonstration shops are set to this number." /></p>
 
           <div className="flex-1 overflow-y-auto max-h-[360px] divide-y divide-border border border-border rounded-xl">
             {loadingShops ? (
-              <div className="p-6 text-center text-xs text-slate-400">Loading…</div>
+              <div className="p-6 text-center text-xs text-muted-foreground">Loading…</div>
             ) : shops.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-400">No shops found.</div>
+              <div className="p-6 text-center text-xs text-muted-foreground">No shops found.</div>
             ) : (
               shops.map((shop) => (
                 <div key={shop.id} className="p-2.5 hover:bg-subtle transition flex items-center justify-between text-xs">
                   <div>
                     <div className="font-semibold text-foreground">{shop.shop_name}</div>
-                    <div className="text-[10px] text-slate-500">
+                    <div className="text-xs text-muted-foreground">
                       {shop.shop_code} · {shop.owner_name}
                     </div>
                   </div>
-                  <span className="font-mono text-[11px] font-semibold text-slate-700 bg-card px-2 py-0.5 rounded-md border border-border">
+                  <span className="font-mono text-xs font-semibold text-secondary-foreground bg-card px-2 py-0.5 rounded-md border border-border">
                     {shop.phone_number}
                   </span>
                 </div>
@@ -505,14 +505,14 @@ export default function SuperAdminWhatsAppPage() {
         <div className="p-4 border-b border-border flex items-center justify-between bg-subtle">
           <div className="flex items-center space-x-2">
             <FileText className="w-4 h-4 text-primary" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+            <h3 className="text-xs font-semibold text-foreground">
               Dispatch log
             </h3>
           </div>
           <button
             type="button"
             onClick={loadOutbox}
-            className="min-h-11 px-3 text-xs text-slate-600 hover:text-slate-900 flex items-center space-x-1"
+            className="min-h-11 px-3 text-xs text-secondary-foreground hover:text-foreground flex items-center space-x-1"
           >
             <span>Reload</span>
           </button>
@@ -521,7 +521,7 @@ export default function SuperAdminWhatsAppPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-border bg-slate-50 text-[10px] font-semibold uppercase text-slate-500 tracking-wider">
+              <tr className="border-b border-border bg-subtle text-xs font-semibold text-muted-foreground">
                 <th className="p-3">Recipient</th>
                 <th className="p-3">Shop Name</th>
                 <th className="p-3">Message</th>
@@ -532,11 +532,11 @@ export default function SuperAdminWhatsAppPage() {
             <tbody className="divide-y divide-border">
               {loadingOutbox && outbox.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-6 text-center text-slate-400">Loading…</td>
+                  <td colSpan={5} className="p-6 text-center text-muted-foreground">Loading…</td>
                 </tr>
               ) : outbox.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-6 text-center text-slate-400">No dispatch records found.</td>
+                  <td colSpan={5} className="p-6 text-center text-muted-foreground">No dispatch records found.</td>
                 </tr>
               ) : (
                 outbox.map((row) => (
@@ -544,21 +544,21 @@ export default function SuperAdminWhatsAppPage() {
                     <td className="p-3 font-mono font-semibold text-foreground">
                       {row.recipient_phone}
                     </td>
-                    <td className="p-3 text-slate-700">
+                    <td className="p-3 text-secondary-foreground">
                       {row.collection?.shop_name || 'Bismillah Dairy Center'}
                     </td>
                     <td className="p-3 max-w-sm">
-                      <div className="p-2 rounded-lg bg-card border border-border text-[11px] font-mono text-slate-800 whitespace-pre-line wrap-break-word">
+                      <div className="p-2 rounded-lg bg-card border border-border text-xs font-mono text-foreground whitespace-pre-line wrap-break-word">
                         {row.message_body}
                       </div>
                     </td>
                     <td className="p-3">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-800 inline-flex items-center space-x-1">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 inline-flex items-center space-x-1">
                         <CheckCircle2 className="w-2.5 h-2.5 mr-1" />
                         <span>{row.status}</span>
                       </span>
                     </td>
-                    <td className="p-3 text-[11px] text-slate-500">
+                    <td className="p-3 text-xs text-muted-foreground">
                       {new Date(row.created_at).toLocaleString()}
                     </td>
                   </tr>

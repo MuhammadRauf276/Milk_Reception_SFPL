@@ -53,7 +53,7 @@ export function CancelJourneySheet({ journey, onClose, onDone }: Props) {
     <MotSheet title="Cancel Collection Journey" onClose={onClose}>
       <div className="flex items-start gap-2 text-rose-700">
         <Ban className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-        <p className="text-xs font-medium text-slate-600">
+        <p className="text-xs font-medium text-secondary-foreground">
           You are cancelling active Journey <strong>#{journey.journey_number}</strong>. This operation is authoritative and cannot be undone.
         </p>
       </div>
@@ -67,7 +67,7 @@ export function CancelJourneySheet({ journey, onClose, onDone }: Props) {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason"
-            className="min-h-11 w-full rounded-xl border border-border bg-subtle p-3 text-sm font-medium text-foreground focus:ring-2 focus:ring-rose-500"
+            className="min-h-11 w-full rounded-lg border border-border bg-subtle p-3 text-sm font-medium text-foreground focus:ring-2 focus:ring-rose-500"
             rows={3}
             required
           />

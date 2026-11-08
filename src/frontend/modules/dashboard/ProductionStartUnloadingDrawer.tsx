@@ -119,24 +119,24 @@ export const ProductionStartUnloadingDrawer: React.FC<{
               <div className="flex items-center space-x-2">
                 <h3 className="text-base font-semibold text-foreground">Start Silo Unloading</h3>
                 {isPortionWise && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 border border-purple-200">
+                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200">
                     Portion-Wise Loop
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-700 font-semibold mt-0.5">
+              <p className="text-xs text-secondary-foreground font-semibold mt-0.5">
                 Vehicle: <strong className="tabular-nums text-foreground">{visit.vehicle_number}</strong> | Token: <strong className="tabular-nums text-primary">{visit.token_number || 'NO-TOKEN'}</strong>
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline px-2.5 py-1 rounded-full text-[10px] uppercase tabular-nums font-semibold bg-blue-100 text-primary border border-blue-300">
+              <span className="hidden sm:inline px-2.5 py-1 rounded-full text-xs tabular-nums font-semibold bg-blue-100 text-primary border border-blue-300">
                 Ready for Unloading
               </span>
               <button
                 type="button"
                 aria-label="Close"
                 onClick={onClose}
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:text-secondary-foreground"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -156,10 +156,10 @@ export const ProductionStartUnloadingDrawer: React.FC<{
                 </span>
               </div>
               {completedPortions.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-purple-200 flex flex-wrap gap-2 text-[11px] text-purple-800">
+                <div className="mt-2 pt-2 border-t border-purple-200 flex flex-wrap gap-2 text-xs text-purple-800">
                   <span className="font-semibold">Completed:</span>
                   {completedPortions.map((cp) => (
-                    <span key={cp.id} className="inline-flex items-center space-x-1 bg-white px-2 py-0.5 rounded border border-purple-200">
+                    <span key={cp.id} className="inline-flex items-center space-x-1 bg-card px-2 py-0.5 rounded border border-purple-200">
                       <CheckCircle className="w-3 h-3 text-emerald-600" />
                       <span>Portion #{cp.portion_number} ({cp.net_weight_kg ? `${cp.net_weight_kg.toLocaleString()} kg net` : 'Unloaded'})</span>
                     </span>
@@ -174,7 +174,7 @@ export const ProductionStartUnloadingDrawer: React.FC<{
               {isPortionWise ? 'Destination Silo Assignment' : 'Accepted Portions & Destination Silos'}
             </h4>
             {portionsToAssign.map((p) => (
-              <div key={p.id} className="bg-card border-border p-4 rounded-xl border space-y-3">
+              <div key={p.id} className="bg-card border-border p-4 rounded-2xl border space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="tabular-nums font-semibold text-sm text-foreground">
                     Portion #{p.portion_number}
@@ -218,7 +218,7 @@ export const ProductionStartUnloadingDrawer: React.FC<{
               min={minTimestamp ? toDatetimeLocalInput(minTimestamp) : undefined}
               max={toDatetimeLocalInput(new Date())}
               onChange={(e) => setStartOpTimestamp(e.target.value)}
-              className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+              className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
           </div>
 

@@ -95,36 +95,36 @@ export function ApprovalInspectModal({
   return (
     <>
       <Drawer open={isOpen} onOpenChange={(open) => !open && !isSubmitting && onClose()}>
-        <DrawerContent className="max-h-[88dvh] md:max-h-[85dvh] flex flex-col bg-white">
+        <DrawerContent className="max-h-[88dvh] md:max-h-[85dvh] flex flex-col bg-card">
           {/* Header */}
           <div className="flex items-start justify-between p-4 sm:p-5 border-b border-border bg-slate-50/70 shrink-0">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className={cn('px-2 py-0.5 rounded text-[11px] font-bold border', stageMeta.color)}>
+                <span className={cn('px-2 py-0.5 rounded text-xs font-semibold border', stageMeta.color)}>
                   {stageMeta.label}
                 </span>
-                <DrawerTitle className="text-base sm:text-lg font-bold text-foreground">
+                <DrawerTitle className="text-base sm:text-lg font-semibold text-foreground">
                   {item.referenceNumber}
                 </DrawerTitle>
               </div>
-              <p className="text-xs text-slate-600 font-medium">{cleanEntityTitle(item.details.entityTitle)}</p>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 pt-0.5">
+              <p className="text-xs text-secondary-foreground font-medium">{cleanEntityTitle(item.details.entityTitle)}</p>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground pt-0.5">
                 <span>
-                  Source: <strong className="text-slate-700">{item.sourceName || 'ZMCC Area'}</strong>
+                  Source: <strong className="text-secondary-foreground">{item.sourceName || 'ZMCC Area'}</strong>
                 </span>
                 <span>·</span>
                 <span>
-                  By: <strong className="text-slate-700">{item.submittedBy.name}</strong> (
+                  By: <strong className="text-secondary-foreground">{item.submittedBy.name}</strong> (
                   {getRoleLabel(item.submittedBy.role)})
                 </span>
                 <span>·</span>
                 {isPending ? (
-                  <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
-                    <Clock className="w-3 h-3 text-slate-400" />
+                  <span className="inline-flex items-center gap-1 font-semibold text-secondary-foreground">
+                    <Clock className="w-3 h-3 text-muted-foreground" />
                     Waiting: {formatWaitingLabel(item.waitingMinutes)}
                   </span>
                 ) : (
-                  <span className="font-semibold text-slate-700">
+                  <span className="font-semibold text-secondary-foreground">
                     Status: {item.status}
                   </span>
                 )}
@@ -135,7 +135,7 @@ export function ApprovalInspectModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition min-h-11 min-w-11"
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-secondary-foreground hover:bg-muted transition min-h-11 min-w-11"
               aria-label="Close dialog"
             >
               <X className="w-5 h-5" />
@@ -161,7 +161,7 @@ export function ApprovalInspectModal({
                         setDecisionError(null);
                       }}
                       className={cn(
-                        'flex-1 min-h-11 px-4 py-2 rounded-xl text-xs font-bold border-2 transition flex items-center justify-center gap-2',
+                        'flex-1 min-h-11 px-4 py-2 rounded-lg text-xs font-semibold border-2 transition flex items-center justify-center gap-2',
                         verdict === 'OKAY'
                           ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs'
                           : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
@@ -178,7 +178,7 @@ export function ApprovalInspectModal({
                         setDecisionError(null);
                       }}
                       className={cn(
-                        'flex-1 min-h-11 px-4 py-2 rounded-xl text-xs font-bold border-2 transition flex items-center justify-center gap-2',
+                        'flex-1 min-h-11 px-4 py-2 rounded-lg text-xs font-semibold border-2 transition flex items-center justify-center gap-2',
                         verdict === 'NO'
                           ? 'border-rose-600 bg-rose-600 text-white shadow-xs'
                           : 'border-rose-300 bg-rose-50 text-rose-800 hover:bg-rose-100'
@@ -194,7 +194,7 @@ export function ApprovalInspectModal({
                     <div className="space-y-3 pt-1 animate-panel-in">
                       {/* Remarks Textarea */}
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                        <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                           {verdict === 'NO' ? (
                             <span>
                               Rejection Justification <span className="text-rose-600">* (Min 5 chars)</span>
@@ -212,7 +212,7 @@ export function ApprovalInspectModal({
                               ? 'State specific technical or operational reason for rejection…'
                               : 'Optional notes for audit logs…'
                           }
-                          className="w-full p-2.5 text-xs border border-border rounded-lg bg-white resize-none focus:outline-none focus:ring-1 focus:ring-primary min-h-11"
+                          className="w-full p-2.5 text-xs border border-border rounded-lg bg-card resize-none focus:outline-none focus:ring-1 focus:ring-primary min-h-11"
                         />
                       </div>
 
@@ -231,7 +231,7 @@ export function ApprovalInspectModal({
                             setDecisionError(null);
                           }}
                           disabled={isSubmitting}
-                          className="min-h-11 px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-200 transition"
+                          className="min-h-11 px-4 py-2 text-xs font-semibold text-secondary-foreground hover:text-foreground rounded-lg hover:bg-muted transition"
                         >
                           Cancel
                         </button>
@@ -239,7 +239,7 @@ export function ApprovalInspectModal({
                           type="submit"
                           disabled={isSubmitting}
                           className={cn(
-                            'min-h-11 px-5 py-2 text-xs font-bold text-white rounded-lg transition flex items-center gap-2 shadow-xs',
+                            'min-h-11 px-5 py-2 text-xs font-semibold text-white rounded-lg transition flex items-center gap-2 shadow-xs',
                             verdict === 'OKAY'
                               ? 'bg-emerald-600 hover:bg-emerald-700'
                               : 'bg-rose-600 hover:bg-rose-700'
@@ -260,7 +260,7 @@ export function ApprovalInspectModal({
                 </form>
               ) : (
                 <div className="flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2 text-slate-500">
+                  <div className="flex items-center gap-2 text-muted-foreground">
                     <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>
                       {item.disabledReason || 'Action disabled: Segregation of duties applies.'}
@@ -269,7 +269,7 @@ export function ApprovalInspectModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="min-h-11 px-4 py-2 text-xs font-bold bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg transition"
+                    className="min-h-11 px-4 py-2 text-xs font-semibold bg-muted hover:bg-slate-300 text-foreground rounded-lg transition"
                   >
                     Close
                   </button>
@@ -277,13 +277,13 @@ export function ApprovalInspectModal({
               )
             ) : (
               <div className="flex items-center justify-between gap-3">
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-muted-foreground">
                   Audit record only · Decisions cannot be modified.
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="min-h-11 px-5 py-2 text-xs font-bold bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg transition"
+                  className="min-h-11 px-5 py-2 text-xs font-semibold bg-muted hover:bg-slate-300 text-foreground rounded-lg transition"
                 >
                   Done
                 </button>
@@ -310,7 +310,7 @@ export function ApprovalInspectModal({
               <button
                 type="button"
                 onClick={() => setPreviewPhotoUrl(null)}
-                className="min-h-11 px-4 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg"
+                className="min-h-11 px-4 py-2 text-xs font-semibold bg-muted hover:bg-muted text-foreground rounded-lg"
               >
                 Close
               </button>

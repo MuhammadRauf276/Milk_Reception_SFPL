@@ -16,13 +16,13 @@ interface PaginationBarProps {
 export function PaginationBar({ page, totalPages, totalRecords, noun = 'records', disabled, onPageChange }: PaginationBarProps) {
   if (totalPages <= 1) {
     return (
-      <div className="border-t border-border px-4 py-2 text-[11px] font-semibold text-slate-500">
+      <div className="border-t border-border px-4 py-2 text-xs font-semibold text-muted-foreground">
         {totalRecords.toLocaleString()} {noun}
       </div>
     );
   }
   return (
-    <div className="flex items-center justify-between gap-2 border-t border-border bg-white px-3 py-2 text-xs font-semibold text-slate-700">
+    <div className="flex items-center justify-between gap-2 border-t border-border bg-card px-3 py-2 text-xs font-semibold text-secondary-foreground">
       <div>
         Page <span className="text-primary">{page}</span> of <span className="text-primary">{totalPages}</span>
         <span className="hidden sm:inline">

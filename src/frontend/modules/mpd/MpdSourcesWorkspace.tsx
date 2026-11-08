@@ -64,7 +64,7 @@ export function MpdSourcesWorkspace() {
 
   const tabClass = (active: boolean) =>
     `min-h-11 px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
-      active ? 'bg-primary text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+      active ? 'bg-primary text-white shadow-xs' : 'text-secondary-foreground hover:bg-muted'
     }`;
 
   return (
@@ -107,7 +107,7 @@ export function MpdSourcesWorkspace() {
       {isLoading ? (
         <div className="bg-card border-border flex items-center justify-center p-12 rounded-xl border">
           <Spinner className="w-6 h-6 text-primary" />
-          <span className="ml-2 text-xs text-slate-500 font-medium">Loading…</span>
+          <span className="ml-2 text-xs text-muted-foreground font-medium">Loading…</span>
         </div>
       ) : activeSubTab === 'SOURCES' ? (
         <MilkSourcesPanel sources={sources} zmccOptions={zmccOptions} onFeedback={setFeedback} onChanged={handleChanged} />

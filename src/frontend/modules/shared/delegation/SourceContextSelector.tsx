@@ -161,7 +161,7 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
       >
         <MapPin className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden="true" />
         <span className="truncate">{displayLabel}</span>
-        <span className="text-[10px] text-muted-foreground font-normal shrink-0">(Change)</span>
+        <span className="text-xs text-muted-foreground font-normal shrink-0">(Change)</span>
         <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" aria-hidden="true" />
       </button>
 

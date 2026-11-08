@@ -44,7 +44,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="bg-card border-border border rounded-xl p-4 shadow-xs">
+      <div className="bg-card border-border border rounded-2xl p-4 shadow-xs">
         <div className="flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-700 shrink-0">
             <ShieldAlert className="w-4 h-4" />
@@ -58,25 +58,25 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
       </div>
 
       {zmccs.some((z) => z.leftWithoutFullUnloadingCount > 0 || z.pendingCloseRequestCount > 0) && (
-        <div className="bg-card border-border border rounded-xl p-4 shadow-xs">
+        <div className="bg-card border-border border rounded-2xl p-4 shadow-xs">
           <h3 className="text-xs font-semibold text-foreground">Incomplete unloads (30 days)</h3>
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {zmccs.filter((z) => z.leftWithoutFullUnloadingCount > 0 || z.pendingCloseRequestCount > 0).map((z) => (
               <div key={z.id} className="bg-card border-border rounded-lg border p-2.5 text-xs">
                 <div className="font-semibold text-foreground">{z.name}</div>
-                <div className="tabular-nums text-slate-600">
+                <div className="tabular-nums text-secondary-foreground">
                   {z.leftWithoutFullUnloadingCount} left · {z.pendingCloseRequestCount} pending request(s)
                 </div>
-                <div className="tabular-nums text-slate-500">{z.acceptedNotReceivedLiters.toLocaleString()} L accepted, not received</div>
+                <div className="tabular-nums text-muted-foreground">{z.acceptedNotReceivedLiters.toLocaleString()} L accepted, not received</div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-xl border">
+      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-2xl border">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search"
@@ -89,7 +89,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
           <button
             onClick={() => setStageFilter('ALL')}
             className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
-              stageFilter === 'ALL' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              stageFilter === 'ALL' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             All ({(overrides ?? []).length})
@@ -97,7 +97,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
           <button
             onClick={() => setStageFilter('ZMCC_GATE')}
             className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
-              stageFilter === 'ZMCC_GATE' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              stageFilter === 'ZMCC_GATE' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             ZMCC Gate
@@ -105,7 +105,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
           <button
             onClick={() => setStageFilter('PLANT_RECEPTION')}
             className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
-              stageFilter === 'PLANT_RECEPTION' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              stageFilter === 'PLANT_RECEPTION' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             Plant Reception
@@ -119,7 +119,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
             <UserCheck className="w-4 h-4 text-primary" />
             <div className="flex items-center gap-1.5"><h2 className="text-xs font-semibold text-foreground">Overrides Log</h2><InfoTip text="Audit records of all operational manager overrides and deviations." /></div>
           </div>
-          <span className="text-xs tabular-nums font-medium text-slate-500">
+          <span className="text-xs tabular-nums font-medium text-muted-foreground">
             {filteredOverrides.length} record(s)
           </span>
         </div>
@@ -127,7 +127,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-subtle border-b border-border text-slate-600 font-semibold">
+              <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold">
                 <th className="py-3 px-4">Reference</th>
                 <th className="py-3 px-4">Source</th>
                 <th className="py-3 px-4">Parameter</th>
@@ -140,7 +140,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
             <tbody className="divide-y divide-border">
               {filteredOverrides.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center text-slate-500">
+                  <td colSpan={7} className="py-6 text-center text-muted-foreground">
                     No overrides found.
                   </td>
                 </tr>
@@ -149,32 +149,32 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
                   <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4">
                       <div className="tabular-nums font-semibold text-foreground">{o.reference}</div>
-                      <div className="text-slate-500 text-xs tabular-nums">{o.id}</div>
+                      <div className="text-muted-foreground text-xs tabular-nums">{o.id}</div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-800">{o.sourceName ?? NO_DATA}</div>
-                      <span className="inline-block px-2 py-0.5 mt-0.5 rounded text-xs tabular-nums font-semibold bg-slate-100 text-slate-700">
+                      <div className="font-semibold text-foreground">{o.sourceName ?? NO_DATA}</div>
+                      <span className="inline-block px-2 py-0.5 mt-0.5 rounded text-xs tabular-nums font-semibold bg-muted text-secondary-foreground">
                         {o.stage}
                       </span>
                     </td>
                     <td className="py-3 px-4">
                       <div className="font-semibold text-rose-700">{o.failedParameter}</div>
-                      <div className="text-xs tabular-nums text-slate-600">
+                      <div className="text-xs tabular-nums text-secondary-foreground">
                         Value: <strong>{o.failedValue}</strong> (Limit: {o.toleranceLimit})
                       </div>
                     </td>
                     <td className="py-3 px-4 max-w-xs">
-                      <div className="flex items-center gap-1 text-slate-800 text-xs">
+                      <div className="flex items-center gap-1 text-foreground text-xs">
                         <span>Remarks</span>
                         {o.managerJustification ? <InfoTip text={o.managerJustification} /> : <span>{NO_DATA}</span>}
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">
+                      <div className="mt-1 text-xs text-muted-foreground">
                         System {o.systemOutcome ?? NO_DATA} → final {o.finalDecision ?? NO_DATA}
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="text-slate-800 font-semibold">{o.overruledBy ?? NO_DATA}</div>
-                      <div className="text-slate-500 text-xs tabular-nums">
+                      <div className="text-foreground font-semibold">{o.overruledBy ?? NO_DATA}</div>
+                      <div className="text-muted-foreground text-xs tabular-nums">
                         {new Date(o.timestamp).toLocaleString()}
                       </div>
                     </td>
@@ -210,7 +210,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
                           </button>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-500 italic">Audited</span>
+                        <span className="text-xs text-muted-foreground italic">Audited</span>
                       )}
                     </td>
                   </tr>

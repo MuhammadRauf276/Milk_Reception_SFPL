@@ -53,7 +53,7 @@ function renderAuditSummary(summary: string) {
       return (
         <div className="flex items-center justify-between gap-1.5 max-w-xs">
           <span className="truncate text-xs font-semibold text-foreground">{brief}</span>
-          <InfoTip text={<pre className="text-[10px] tabular-nums font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">{formattedJson}</pre>} label="Full record" />
+          <InfoTip text={<pre className="text-xs tabular-nums font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">{formattedJson}</pre>} label="Full record" />
         </div>
       );
     }
@@ -87,12 +87,12 @@ export default function SuperAdminOverviewPage() {
   const error = query.error ? getErrorMessage(query.error) || 'Failed to load overview data.' : null;
 
   if (loading) {
-    return <div className="p-8 text-xs tabular-nums font-semibold text-slate-600">Loading…</div>;
+    return <div className="p-8 text-xs tabular-nums font-semibold text-secondary-foreground">Loading…</div>;
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-card border border-border rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
+      <div className="p-4 bg-card border border-border rounded-2xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
         <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
         <span>{error}</span>
       </div>
@@ -106,7 +106,7 @@ export default function SuperAdminOverviewPage() {
         actions={
           <Link
             href="/super-admin/daily-report"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white shadow-2xs hover:bg-primary-hover transition"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-primary-hover transition"
           >
             <FileSpreadsheet className="h-4 w-4" />
             <span>Daily Report</span>
@@ -142,7 +142,7 @@ export default function SuperAdminOverviewPage() {
       </div>
 
       {/* RECENT AUDIT LOG TABLE */}
-      <div className="bg-card rounded-xl border border-border shadow-2xs p-5 space-y-3">
+      <div className="bg-card rounded-2xl border border-border shadow-2xs p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <h2 className="text-sm font-semibold text-foreground">Recent Activity</h2>
@@ -154,7 +154,7 @@ export default function SuperAdminOverviewPage() {
         </div>
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-left text-xs font-sans">
-            <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase font-semibold text-[10px] tracking-wider whitespace-nowrap">
+            <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold text-xs whitespace-nowrap">
               <tr>
                 <th className="p-3">Time</th>
                 <th className="p-3">User</th>
@@ -178,7 +178,7 @@ export default function SuperAdminOverviewPage() {
                     </td>
                     <td className="p-3 font-semibold text-foreground whitespace-nowrap">{item.user}</td>
                     <td className="p-3 whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded-md bg-muted text-foreground border border-border tabular-nums text-[10px] font-semibold">
+                      <span className="px-2 py-0.5 rounded-md bg-muted text-foreground border border-border tabular-nums text-xs font-semibold">
                         {item.action}
                       </span>
                     </td>

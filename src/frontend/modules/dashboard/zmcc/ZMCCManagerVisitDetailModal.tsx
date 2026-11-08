@@ -78,7 +78,7 @@ const decisionClass = (d: string) =>
     ? 'bg-rose-100 text-rose-800 border border-rose-300'
     : d === 'HOLD'
     ? 'bg-amber-100 text-amber-800 border border-amber-300'
-    : 'bg-slate-100 text-slate-700 border border-slate-300';
+    : 'bg-muted text-secondary-foreground border border-border-strong';
 
 export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalProps> = ({
   isOpen,
@@ -127,7 +127,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                   Visit: {log.vehicle_number}
                 </h2>
               </div>
-              <p className="text-xs text-slate-600 font-medium">
+              <p className="text-xs text-secondary-foreground font-medium">
                 {assignedSourceName || log.zonal_contractor_name || 'Station'} · Business Date:{' '}
                 <span className={`font-semibold ${log.business_date ? 'text-slate-800' : 'text-amber-700'}`}>
                   {log.business_date ? formatOperationalDate(log.business_date) : 'Pending plant completion'}
@@ -138,7 +138,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
           <button
             onClick={onClose}
-            className="p-2 min-h-[44px] min-w-[44px] rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all flex items-center justify-center"
+            className="p-2 min-h-[44px] min-w-[44px] rounded-xl text-muted-foreground hover:text-secondary-foreground hover:bg-muted transition-[color,background-color,border-color,box-shadow,opacity,transform] flex items-center justify-center"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
@@ -148,7 +148,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
           {/* 1. Dispatch Details */}
-          <div className="p-5 rounded-xl bg-card border border-border space-y-4 shadow-2xs">
+          <div className="p-5 rounded-2xl bg-card border border-border space-y-4 shadow-2xs">
             <div className="flex items-center space-x-2 border-b border-border/60 pb-2">
               <FileText className="w-4 h-4 text-primary" />
               <h3 className="text-xs font-semibold text-foreground">
@@ -158,25 +158,25 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 tabular-nums">
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Vehicle Number
                 </span>
-                <span className="text-sm font-semibold text-slate-900">
+                <span className="text-sm font-semibold text-foreground">
                   {log.vehicle_number || 'Not recorded'}
                 </span>
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Station
                 </span>
-                <span className="text-sm font-semibold text-slate-800">
+                <span className="text-sm font-semibold text-foreground">
                   {assignedSourceName || log.zonal_contractor_name || 'Not recorded'}
                 </span>
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Business Date
                 </span>
                 <span className={`text-sm font-semibold ${log.business_date ? 'text-slate-800' : 'text-amber-700'}`}>
@@ -185,16 +185,16 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Dispatch Date
                 </span>
-                <span className="text-sm font-semibold text-slate-800">
+                <span className="text-sm font-semibold text-foreground">
                   {log.dispatch_date ? formatOperationalDate(log.dispatch_date) : 'Not recorded'}
                 </span>
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Dispatch Quantity (@13% TS)
                 </span>
                 <span className="text-sm font-semibold text-primary">
@@ -209,19 +209,19 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Dispatch Time
                 </span>
-                <span className="text-xs font-semibold text-slate-800">
+                <span className="text-xs font-semibold text-foreground">
                   {log.dispatch_timestamp ? formatOperationalDatetime(log.dispatch_timestamp) : 'Not recorded'}
                 </span>
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Gate Entry Time
                 </span>
-                <span className="text-xs font-semibold text-slate-800">
+                <span className="text-xs font-semibold text-foreground">
                   {log.gate_entry_timestamp ? formatOperationalDatetime(log.gate_entry_timestamp) : 'Pending'}
                 </span>
               </div>
@@ -229,7 +229,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
           </div>
 
           {/* 2. Weight & Quantity */}
-          <div className="p-5 rounded-xl bg-card border border-border space-y-4 shadow-2xs">
+          <div className="p-5 rounded-2xl bg-card border border-border space-y-4 shadow-2xs">
             <div className="flex items-center space-x-2 border-b border-border/60 pb-2">
               <Scale className="w-4 h-4 text-primary" />
               <h3 className="text-xs font-semibold text-foreground">
@@ -239,10 +239,10 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 tabular-nums">
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Gross Weight
                 </span>
-                <span className="text-sm font-semibold text-slate-800">
+                <span className="text-sm font-semibold text-foreground">
                   {log.first_weight_of_vehicle != null
                     ? `${log.first_weight_of_vehicle.toLocaleString()} kg`
                     : 'Not recorded'}
@@ -250,10 +250,10 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Tare Weight
                 </span>
-                <span className="text-sm font-semibold text-slate-800">
+                <span className="text-sm font-semibold text-foreground">
                   {log.second_weight_of_vehicle != null
                     ? `${log.second_weight_of_vehicle.toLocaleString()} kg`
                     : log.first_weight_of_vehicle != null
@@ -263,7 +263,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Net Milk Weight
                 </span>
                 <span className="text-sm font-semibold text-primary">
@@ -274,7 +274,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Received Quantity (@13% TS)
                 </span>
                 <span className="text-sm font-semibold text-emerald-800">
@@ -289,19 +289,19 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   First Weight Time
                 </span>
-                <span className="text-xs font-semibold text-slate-800">
+                <span className="text-xs font-semibold text-foreground">
                   {log.first_weight_timestamp ? formatOperationalDatetime(log.first_weight_timestamp) : 'Not recorded'}
                 </span>
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Second Weight Time
                 </span>
-                <span className="text-xs font-semibold text-slate-800">
+                <span className="text-xs font-semibold text-foreground">
                   {log.second_weight_timestamp
                     ? formatOperationalDatetime(log.second_weight_timestamp)
                     : log.first_weight_of_vehicle != null
@@ -313,7 +313,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
           </div>
 
           {/* 3. Portion Quality Results */}
-          <div className="p-5 rounded-xl bg-card border border-border space-y-4 shadow-2xs">
+          <div className="p-5 rounded-2xl bg-card border border-border space-y-4 shadow-2xs">
             <div className="flex items-center space-x-2 border-b border-border/60 pb-2">
               <FlaskConical className="w-4 h-4 text-primary" />
               <h3 className="text-xs font-semibold text-foreground">
@@ -325,13 +325,13 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               {displayPortions.map((p, idx) => {
                 const decisionUpper = (p.calculated_status || 'Pending').toUpperCase();
                 return (
-                  <div key={p.portion_id || idx} className="bg-card border-border p-4 rounded-xl border space-y-2">
+                  <div key={p.portion_id || idx} className="bg-card border-border p-4 rounded-2xl border space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs font-semibold text-slate-900">Portion #{portionLabel(p, idx)}</span>
-                        <span className="text-xs text-slate-500 tabular-nums">
+                        <span className="text-xs font-semibold text-foreground">Portion #{portionLabel(p, idx)}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">
                           (Quantity:{' '}
-                          <span className="font-semibold text-slate-800">
+                          <span className="font-semibold text-foreground">
                             {p.dispatch_liters_gross != null
                               ? `${p.dispatch_liters_gross.toLocaleString()} L`
                               : p.dispatch_kg_gross != null
@@ -341,7 +341,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                           )
                         </span>
                       </div>
-                      <span className={`px-2.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${decisionClass(decisionUpper)}`}>
+                      <span className={`px-2.5 py-0.5 rounded text-xs font-semibold ${decisionClass(decisionUpper)}`}>
                         {decisionUpper}
                       </span>
                     </div>
@@ -355,10 +355,10 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 );
               })}
 
-              <div className="overflow-x-auto bg-card border-border p-4 rounded-xl border">
+              <div className="overflow-x-auto bg-card border-border p-4 rounded-2xl border">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-border text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <tr className="border-b border-border text-xs font-semibold text-muted-foreground">
                       <th className="py-1.5 px-2">Lab Test</th>
                       <th className="py-1.5 px-2">Status</th>
                       {displayPortions.map((p, idx) => (
@@ -377,25 +377,25 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                   <tbody className="divide-y divide-border/40 tabular-nums">
                     {testNames.map((name) => (
                       <tr key={name} className="hover:bg-slate-50/60">
-                        <td className="py-1.5 px-2 font-sans font-semibold text-slate-900">{name}</td>
+                        <td className="py-1.5 px-2 font-sans font-semibold text-foreground">{name}</td>
                         <td className="py-1.5 px-2 font-sans">
                           {portionTests.some((t) => t.get(name)?.performed) ? (
                             <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Performed</span>
                           ) : (
-                            <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-500">Not performed</span>
+                            <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-muted text-muted-foreground">Not performed</span>
                           )}
                         </td>
                         {portionTests.map((tests, i) => (
-                          <td key={`d-${i}`} className="py-1.5 px-2 text-slate-700">
+                          <td key={`d-${i}`} className="py-1.5 px-2 text-secondary-foreground">
                             {tests.get(name)?.dispatchResult ?? 'Not recorded'}
                           </td>
                         ))}
                         {portionTests.map((tests, i) => (
-                          <td key={`p-${i}`} className="py-1.5 px-2 font-semibold text-slate-900">
+                          <td key={`p-${i}`} className="py-1.5 px-2 font-semibold text-foreground">
                             {tests.get(name)?.plantResult ?? 'Pending'}
                           </td>
                         ))}
-                        <td className="py-1.5 px-2 font-sans text-slate-500">
+                        <td className="py-1.5 px-2 font-sans text-muted-foreground">
                           {portionTests.map((t) => t.get(name)?.unit).find((u) => u) ?? '-'}
                         </td>
                       </tr>
@@ -409,7 +409,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
           {extraSection}
 
           {/* 4. Receipt Details */}
-          <div className="p-5 rounded-xl bg-card border border-border space-y-4 shadow-2xs">
+          <div className="p-5 rounded-2xl bg-card border border-border space-y-4 shadow-2xs">
             <div className="flex items-center space-x-2 border-b border-border/60 pb-2">
               <Receipt className="w-4 h-4 text-primary" />
               <h3 className="text-xs font-semibold text-foreground">
@@ -419,7 +419,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 tabular-nums">
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Receipt Status
                 </span>
                 <span
@@ -436,19 +436,19 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Destination Silo
                 </span>
-                <span className="text-sm font-semibold text-slate-800">
+                <span className="text-sm font-semibold text-foreground">
                   {log.silo_storage_id || 'Pending'}
                 </span>
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Unloading Start
                 </span>
-                <span className="text-xs font-semibold text-slate-800">
+                <span className="text-xs font-semibold text-foreground">
                   {log.unloading_start_timestamp
                     ? formatOperationalDatetime(log.unloading_start_timestamp)
                     : 'Pending'}
@@ -456,10 +456,10 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Unloading End
                 </span>
-                <span className="text-xs font-semibold text-slate-800">
+                <span className="text-xs font-semibold text-foreground">
                   {log.unloading_end_timestamp
                     ? formatOperationalDatetime(log.unloading_end_timestamp)
                     : 'Pending'}
@@ -467,7 +467,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
               </div>
 
               <div className="bg-card border-border p-3 rounded-lg border /60">
-                <span className="text-xs font-sans font-semibold text-slate-500 uppercase block">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Final Receipt Time
                 </span>
                 <span className="text-xs font-semibold text-emerald-800">
@@ -482,14 +482,14 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
         {/* Modal Footer */}
         <div className="flex items-center justify-between px-6 py-3.5 border-t border-border bg-subtle">
-          <div className="flex items-center space-x-1.5 text-slate-600 text-xs font-semibold">
+          <div className="flex items-center space-x-1.5 text-secondary-foreground text-xs font-semibold">
             <ShieldCheck className="w-4 h-4 text-primary" />
             <span>Station: {assignedSourceName || log.zonal_contractor_name || 'Assigned Station'}</span>
           </div>
 
           <button
             onClick={onClose}
-            className="min-h-[44px] min-w-[80px] px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all shadow-2xs flex items-center justify-center focus:outline-hidden focus:ring-2 focus:ring-primary"
+            className="min-h-[44px] min-w-[80px] px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-[color,background-color,border-color,box-shadow,opacity,transform] shadow-2xs flex items-center justify-center focus:outline-hidden focus:ring-2 focus:ring-primary"
           >
             Close
           </button>

@@ -45,7 +45,7 @@ const FIELD_OPTIONS: Record<Field, { title: string; options: Option[] }> = {
 
 const TONE_ACTIVE: Record<Tone, string> = {
   good: 'bg-emerald-600 text-white border-emerald-700',
-  warn: 'bg-amber-500 text-slate-900 border-amber-600',
+  warn: 'bg-amber-500 text-foreground border-amber-600',
   off: 'bg-slate-600 text-white border-slate-700',
 };
 
@@ -147,25 +147,25 @@ export function TestPointPolicyMatrix() {
     }
   };
 
-  if (loading) return <div className="p-8 text-sm font-semibold text-slate-600">Loading test matrix…</div>;
+  if (loading) return <div className="p-8 text-sm font-semibold text-secondary-foreground">Loading test matrix…</div>;
 
   return (
     <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center text-xl font-bold text-slate-900">Test Matrix<InfoTip text="What is tested, how rules act and which photos are needed at each point." /></h1>
+          <h1 className="flex items-center text-xl font-semibold text-foreground">Test Matrix<InfoTip text="What is tested, how rules act and which photos are needed at each point." /></h1>
         </div>
         {canEdit ? (
           <button
             type="button"
             disabled={changedCells.length === 0}
             onClick={() => setShowReason(true)}
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-emerald-700 px-5 text-sm font-bold text-white disabled:opacity-40"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-emerald-700 px-5 text-sm font-semibold text-white disabled:opacity-40"
           >
             <Save className="h-4 w-4" /> Save changes ({changedCells.length})
           </button>
         ) : (
-          <span className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-slate-100 px-4 text-sm font-semibold text-slate-700">
+          <span className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-muted px-4 text-sm font-semibold text-secondary-foreground">
             <Lock className="h-4 w-4" /> View only
           </span>
         )}
@@ -185,10 +185,10 @@ export function TestPointPolicyMatrix() {
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
         <table className="min-w-full border-collapse text-left text-xs">
           <thead>
-            <tr className="bg-slate-50">
-              <th className="sticky left-0 z-10 min-w-[160px] bg-slate-50 p-3 text-sm font-bold text-slate-800">Test</th>
+            <tr className="bg-subtle">
+              <th className="sticky left-0 z-10 min-w-[160px] bg-subtle p-3 text-sm font-semibold text-foreground">Test</th>
               {points.map((p) => (
-                <th key={p} className="min-w-[210px] p-3 text-sm font-bold text-slate-800">
+                <th key={p} className="min-w-[210px] p-3 text-sm font-semibold text-foreground">
                   {TEST_POINT_LABELS[p]}
                 </th>
               ))}
@@ -196,10 +196,10 @@ export function TestPointPolicyMatrix() {
           </thead>
           <tbody>
             {tests.map((t) => (
-              <tr key={t.id} className="border-t border-slate-200 align-top">
-                <th scope="row" className="sticky left-0 z-10 bg-white p-3 text-sm font-semibold text-slate-900">
+              <tr key={t.id} className="border-t border-border align-top">
+                <th scope="row" className="sticky left-0 z-10 bg-card p-3 text-sm font-semibold text-foreground">
                   {t.name}
-                  <div className="text-[11px] font-normal text-slate-500">{t.code}</div>
+                  <div className="text-xs font-normal text-muted-foreground">{t.code}</div>
                 </th>
                 {points.map((p) => {
                   const c = byKey.get(cellKey(t.id, p));
@@ -210,8 +210,8 @@ export function TestPointPolicyMatrix() {
                       <div className="space-y-2">
                         {FIELDS.map((f) => (
                           <div key={f} role="radiogroup" aria-label={`${t.name} ${TEST_POINT_LABELS[p]} ${FIELD_OPTIONS[f].title}`}>
-                            <div className="mb-0.5 text-[11px] font-bold uppercase text-slate-500">{FIELD_OPTIONS[f].title}</div>
-                            <div className="flex overflow-hidden rounded-lg border border-slate-300">
+                            <div className="mb-0.5 text-xs font-semibold text-muted-foreground">{FIELD_OPTIONS[f].title}</div>
+                            <div className="flex overflow-hidden rounded-lg border border-border-strong">
                               {FIELD_OPTIONS[f].options.map((o) => {
                                 const active = valueOf(c, f) === o.value;
                                 const Icon = o.icon;
@@ -224,7 +224,7 @@ export function TestPointPolicyMatrix() {
                                     disabled={!canEdit}
                                     onClick={() => setField(c, f, o.value)}
                                     className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 border-l border-slate-300 px-1 text-[11px] font-bold first:border-l-0 ${
-                                      active ? TONE_ACTIVE[o.tone] : 'bg-white text-slate-600'
+                                      active ? TONE_ACTIVE[o.tone] : 'bg-card text-secondary-foreground'
                                     } ${canEdit ? '' : 'cursor-default'}`}
                                   >
                                     <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -235,7 +235,7 @@ export function TestPointPolicyMatrix() {
                             </div>
                           </div>
                         ))}
-                        <div className="text-[10px] text-slate-500">
+                        <div className="text-xs text-muted-foreground">
                           {c.source === 'DEFAULT' ? 'Default (not saved yet)' : `Version ${c.version}`}
                         </div>
                       </div>
@@ -250,30 +250,30 @@ export function TestPointPolicyMatrix() {
 
       {showReason && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label="Reason for change">
-          <div className="w-full max-w-md space-y-3 rounded-xl bg-card p-5 shadow-xl">
+          <div className="w-full max-w-md space-y-3 rounded-2xl bg-card p-5 shadow-xl">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">Why are you changing this?</h2>
-              <button type="button" onClick={() => setShowReason(false)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-600">
+              <h2 className="text-lg font-semibold text-foreground">Why are you changing this?</h2>
+              <button type="button" onClick={() => setShowReason(false)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-lg text-secondary-foreground">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <p className="text-sm text-slate-600">{changedCells.length} cell(s) will change. New records use the new rules; old records keep theirs.</p>
+            <p className="text-sm text-secondary-foreground">{changedCells.length} cell(s) will change. New records use the new rules; old records keep theirs.</p>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
               placeholder="Write the reason (at least 5 letters)"
-              className="w-full rounded-lg border border-slate-300 p-3 text-sm"
+              className="w-full rounded-lg border border-border-strong p-3 text-sm"
             />
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowReason(false)} className="min-h-[44px] flex-1 rounded-lg border border-slate-300 text-sm font-bold text-slate-700">
+              <button type="button" onClick={() => setShowReason(false)} className="min-h-[44px] flex-1 rounded-lg border border-border-strong text-sm font-semibold text-secondary-foreground">
                 Cancel
               </button>
               <button
                 type="button"
                 disabled={saving || reason.trim().length < 5}
                 onClick={() => void save()}
-                className="min-h-[44px] flex-1 rounded-lg bg-emerald-700 text-sm font-bold text-white disabled:opacity-40"
+                className="min-h-[44px] flex-1 rounded-lg bg-emerald-700 text-sm font-semibold text-white disabled:opacity-40"
               >
                 {saving ? 'Saving…' : 'Confirm and save'}
               </button>

@@ -13,7 +13,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* 1. Weighbridge Sub-Station Live Progress */}
-      <div className="rounded-xl border bg-card p-4 sm:p-5 shadow-2xs space-y-4">
+      <div className="rounded-2xl border bg-card p-4 sm:p-5 shadow-2xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border/60">
           <div className="flex items-center gap-2">
             <Scale className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -23,7 +23,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
           </div>
           <Badge
             variant={weighbridge.currentlyOnScale ? 'destructive' : 'secondary'}
-            className="text-[11px]"
+            className="text-xs"
           >
             {weighbridge.currentlyOnScale ? 'SCALE IN USE' : 'SCALE CLEAR'}
           </Badge>
@@ -33,7 +33,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
         {weighbridge.currentlyOnScale ? (
           <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
@@ -48,7 +48,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
 
             <div className="flex items-baseline justify-between pt-1">
               <div>
-                <p className="text-lg font-bold text-foreground">
+                <p className="text-lg font-semibold text-foreground">
                   {weighbridge.currentlyOnScale.vehicleNumber}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -72,14 +72,14 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
         <div className="grid grid-cols-2 gap-3 pt-1">
           <div className="p-3 rounded-lg border bg-background/50">
             <span className="text-xs text-muted-foreground">Waiting for Gross (1st)</span>
-            <p className="text-xl font-bold text-foreground mt-1">
+            <p className="text-xl font-semibold text-foreground mt-1">
               {weighbridge.waitingForGrossCount}{' '}
               <span className="text-xs font-normal text-muted-foreground">trucks</span>
             </p>
           </div>
           <div className="p-3 rounded-lg border bg-background/50">
             <span className="text-xs text-muted-foreground">Waiting for Tare (2nd)</span>
-            <p className="text-xl font-bold text-foreground mt-1">
+            <p className="text-xl font-semibold text-foreground mt-1">
               {weighbridge.waitingForTareCount}{' '}
               <span className="text-xs font-normal text-muted-foreground">trucks</span>
             </p>
@@ -93,7 +93,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
       </div>
 
       {/* 2. Silo Reception Bays Live Progress */}
-      <div className="rounded-xl border bg-card p-4 sm:p-5 shadow-2xs space-y-4">
+      <div className="rounded-2xl border bg-card p-4 sm:p-5 shadow-2xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border/60">
           <div className="flex items-center gap-2">
             <Database className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -103,7 +103,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
           </div>
           <Badge
             variant={reception.activeBaysCount > 0 ? 'default' : 'secondary'}
-            className="text-[11px]"
+            className="text-xs"
           >
             {reception.activeBaysCount > 0
               ? `${reception.activeBaysCount} BAYS PUMPING`
@@ -120,7 +120,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
                 className="p-3.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 space-y-2"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -135,7 +135,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
 
                 <div className="flex items-baseline justify-between pt-1">
                   <div>
-                    <p className="text-base font-bold text-foreground">{p.vehicleNumber}</p>
+                    <p className="text-base font-semibold text-foreground">{p.vehicleNumber}</p>
                     <p className="text-xs text-muted-foreground">
                       Portion #{p.portionNumber} · Operator: {p.startedByName}
                     </p>
@@ -159,14 +159,14 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
         <div className="grid grid-cols-2 gap-3 pt-1">
           <div className="p-3 rounded-lg border bg-background/50">
             <span className="text-xs text-muted-foreground">Waiting for Bay Allocation</span>
-            <p className="text-xl font-bold text-foreground mt-1">
+            <p className="text-xl font-semibold text-foreground mt-1">
               {reception.waitingForUnloadingCount}{' '}
               <span className="text-xs font-normal text-muted-foreground">ready</span>
             </p>
           </div>
           <div className="p-3 rounded-lg border bg-background/50">
             <span className="text-xs text-muted-foreground">Avg Unload Duration</span>
-            <p className="text-xl font-bold text-foreground mt-1">
+            <p className="text-xl font-semibold text-foreground mt-1">
               ~{reception.avgUnloadingMinutes}{' '}
               <span className="text-xs font-normal text-muted-foreground">mins/truck</span>
             </p>

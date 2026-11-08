@@ -179,12 +179,12 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
       >
         <div className="max-w-4xl mx-auto space-y-4">
           {/* Header & Date Controls */}
-          <div className="bg-card border-border p-4 sm:p-5 rounded-xl border shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-card border-border p-4 sm:p-5 rounded-2xl border shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center space-x-2">
                 <h2 className="text-base font-semibold text-foreground">Recent Dispatches</h2>
               </div>
-              <span className="text-xs tabular-nums font-semibold text-slate-600 bg-muted px-2.5 py-1 rounded-lg border border-border-strong">
+              <span className="text-xs tabular-nums font-semibold text-secondary-foreground bg-muted px-2.5 py-1 rounded-lg border border-border-strong">
                 {pagination.totalRecords} records
               </span>
             </div>
@@ -197,7 +197,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                 className={`h-9 rounded-lg text-xs font-semibold transition ${
                   dateRange === 'today'
                     ? 'bg-primary-hover text-white shadow-xs'
-                    : 'text-slate-700 hover:bg-white/60'
+                    : 'text-secondary-foreground hover:bg-white/60'
                 }`}
               >
                 Today
@@ -208,7 +208,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                 className={`h-9 rounded-lg text-xs font-semibold transition ${
                   dateRange === '7d'
                     ? 'bg-primary-hover text-white shadow-xs'
-                    : 'text-slate-700 hover:bg-white/60'
+                    : 'text-secondary-foreground hover:bg-white/60'
                 }`}
               >
                 Last 7 Days
@@ -219,7 +219,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                 className={`h-9 rounded-lg text-xs font-semibold transition ${
                   dateRange === '30d'
                     ? 'bg-primary-hover text-white shadow-xs'
-                    : 'text-slate-700 hover:bg-white/60'
+                    : 'text-secondary-foreground hover:bg-white/60'
                 }`}
               >
                 Last 30 Days
@@ -230,7 +230,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                 className={`h-9 rounded-lg text-xs font-semibold transition ${
                   dateRange === 'custom'
                     ? 'bg-primary-hover text-white shadow-xs'
-                    : 'text-slate-700 hover:bg-white/60'
+                    : 'text-secondary-foreground hover:bg-white/60'
                 }`}
               >
                 Custom
@@ -239,24 +239,24 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
             {/* Custom Date Controls */}
             {dateRange === 'custom' && (
-              <div className="pt-3 border-t border-slate-100 space-y-3">
+              <div className="pt-3 border-t border-border space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-600">From Date</label>
+                    <label className="block text-xs font-semibold text-secondary-foreground">From Date</label>
                     <input
                       type="date"
                       value={fromDate}
                       onChange={(e) => setFromDate(e.target.value)}
-                      className="w-full h-11 px-3.5 rounded-xl border border-border-strong bg-white tabular-nums text-xs text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden min-h-11"
+                      className="w-full h-11 px-3.5 rounded-lg border border-border-strong bg-card tabular-nums text-xs text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden min-h-11"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-600">To Date</label>
+                    <label className="block text-xs font-semibold text-secondary-foreground">To Date</label>
                     <input
                       type="date"
                       value={toDate}
                       onChange={(e) => setToDate(e.target.value)}
-                      className="w-full h-11 px-3.5 rounded-xl border border-border-strong bg-white tabular-nums text-xs text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden min-h-11"
+                      className="w-full h-11 px-3.5 rounded-lg border border-border-strong bg-card tabular-nums text-xs text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden min-h-11"
                     />
                   </div>
                 </div>
@@ -265,14 +265,14 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                   <button
                     type="button"
                     onClick={handleClearCustomDate}
-                    className="px-3.5 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition min-h-11"
+                    className="px-3.5 text-xs font-semibold text-secondary-foreground hover:text-foreground rounded-lg hover:bg-muted transition min-h-11"
                   >
                     Clear
                   </button>
                   <button
                     type="button"
                     onClick={handleApplyCustomDate}
-                    className="px-4 bg-primary-hover text-white font-semibold text-xs rounded-xl shadow-xs hover:bg-blue-800 transition min-h-11"
+                    className="px-4 bg-primary-hover text-white font-semibold text-xs rounded-lg shadow-xs hover:bg-blue-800 transition min-h-11"
                   >
                     Apply Filter
                   </button>
@@ -302,7 +302,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
               dbDispatches.map((log) => (
                 <div
                   key={`mpd-dispatch-${String(log.id)}`}
-                  className="bg-card border-border p-4 sm:p-5 rounded-xl border text-foreground shadow-xs space-y-3 transition"
+                  className="bg-card border-border p-4 sm:p-5 rounded-2xl border text-foreground shadow-xs space-y-3 transition"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2.5">
@@ -322,22 +322,22 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                               Note: {log.raw_milk_dispatch_note_number}
                             </span>
                           )}
-                          <span className="text-xs font-medium text-slate-600">
+                          <span className="text-xs font-medium text-secondary-foreground">
                             {log.zonal_contractor_name}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 tabular-nums">
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 tabular-nums">
                       Dispatched
                     </span>
                   </div>
 
                   <div className="bg-card border-border grid grid-cols-2 gap-2 p-2.5 rounded-xl border text-xs tabular-nums font-semibold">
                     <div>
-                      <span className="text-slate-500 font-sans block text-xs font-semibold">Vehicle Quantity</span>
-                      <span className="text-slate-900 font-semibold text-sm">
+                      <span className="text-muted-foreground font-sans block text-xs font-semibold">Vehicle Quantity</span>
+                      <span className="text-foreground font-semibold text-sm">
                         {log.vehicle_dispatch_quantity_value != null && log.vehicle_dispatch_quantity_unit
                           ? `${Number(log.vehicle_dispatch_quantity_value).toLocaleString()} ${log.vehicle_dispatch_quantity_unit}`
                           : '—'}
@@ -354,8 +354,8 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                       )}
                     </div>
                     <div>
-                      <span className="text-slate-500 font-sans block text-xs font-semibold">Dispatch Date</span>
-                      <span className="text-slate-900 font-semibold text-sm">
+                      <span className="text-muted-foreground font-sans block text-xs font-semibold">Dispatch Date</span>
+                      <span className="text-foreground font-semibold text-sm">
                         {log.dispatch_date || '—'}
                       </span>
                     </div>
@@ -367,8 +367,8 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
           {/* Server-side Pagination Footer */}
           {pagination.totalRecords > 0 && (
-            <div className="bg-card border-border p-3.5 rounded-xl border shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-semibold">
-              <span className="text-slate-600 font-sans text-xs">
+            <div className="bg-card border-border p-3.5 rounded-2xl border shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-semibold">
+              <span className="text-secondary-foreground font-sans text-xs">
                 Showing {Math.min((pagination.page - 1) * pagination.pageSize + 1, pagination.totalRecords)}–{Math.min(pagination.page * pagination.pageSize, pagination.totalRecords)} of {pagination.totalRecords} dispatches
               </span>
 
@@ -385,7 +385,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                     <span>Previous</span>
                   </button>
 
-                  <span className="tabular-nums text-slate-700 px-2">
+                  <span className="tabular-nums text-secondary-foreground px-2">
                     Page {pagination.page} of {pagination.totalPages}
                   </span>
 

@@ -164,7 +164,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
 
   if (!isAuthorized) {
     return (
-      <div className="bg-card border-border p-8 border rounded-xl text-rose-800 text-center space-y-2">
+      <div className="bg-card border-border p-8 border rounded-2xl text-rose-800 text-center space-y-2">
         <AlertTriangle className="w-8 h-8 text-rose-600 mx-auto" />
         <h3 className="text-base font-semibold">Access Denied</h3>
         <p className="text-xs">
@@ -197,7 +197,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
 
   if (error || !mapData) {
     return (
-      <div className="bg-card border-border p-6 border rounded-xl text-rose-800 space-y-3">
+      <div className="bg-card border-border p-6 border rounded-2xl text-rose-800 space-y-3">
         <div className="flex items-center space-x-2">
           <AlertTriangle className="w-5 h-5 text-rose-600" />
           <h3 className="text-sm font-semibold">Failed to load journey map</h3>
@@ -206,7 +206,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         <button
           type="button"
           onClick={() => fetchMapData(journeyId)}
-          className="min-h-11 min-w-11 px-3 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700"
+          className="min-h-11 min-w-11 px-3 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-semibold hover:bg-rose-700"
         >
           Retry
         </button>
@@ -244,7 +244,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
           <button
             type="button"
             onClick={() => fetchMapData(journeyId)}
-            className="min-h-11 min-w-11 flex items-center space-x-1 px-2.5 py-1 bg-white border border-emerald-300 rounded-lg text-[11px] font-semibold text-emerald-900 hover:bg-emerald-100"
+            className="min-h-11 min-w-11 flex items-center space-x-1 px-2.5 py-1 bg-white border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
           >
             <span>Refresh Map</span>
           </button>
@@ -260,10 +260,10 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         </div>
       </div>
 
-      <div className="p-5 bg-card rounded-xl border border-border shadow-2xs space-y-4">
+      <div className="p-5 bg-card rounded-2xl border border-border shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border pb-3">
           <div>
-            <span className="text-[10px] font-semibold uppercase text-slate-500 tracking-wider">
+            <span className="text-xs font-semibold text-slate-500">
               Journey Trail & Map
             </span>
             <div className="flex items-center space-x-2">
@@ -287,29 +287,29 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="bg-card border-border p-3 rounded-xl border">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase block">Stops Visited</span>
+            <span className="text-xs font-semibold text-slate-500 block">Stops Visited</span>
             <span className="text-sm font-semibold text-foreground">
               {totals.visited_stops} / {totals.total_stops}
             </span>
           </div>
           <div className="bg-card border-border p-3 rounded-xl border">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase block">Pending Stops</span>
+            <span className="text-xs font-semibold text-slate-500 block">Pending Stops</span>
             <span className="text-sm font-semibold text-amber-600">{totals.pending_stops}</span>
           </div>
           <div className="bg-card border-border p-3 rounded-xl border">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase block">Total Gross Ltr</span>
+            <span className="text-xs font-semibold text-slate-500 block">Total Gross Ltr</span>
             <span className="text-sm font-semibold text-emerald-700">{totals.total_gross_liters} L</span>
           </div>
           <div className="bg-card border-border p-3 rounded-xl border">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase block">@13 TS Liters</span>
+            <span className="text-xs font-semibold text-slate-500 block">@13 TS Liters</span>
             <span className="text-sm font-semibold text-emerald-700">{totals.total_at_13ts_liters} L</span>
           </div>
           <div className="bg-card border-border p-3 rounded-xl border">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase block">GPS Points / Sync</span>
+            <span className="text-xs font-semibold text-slate-500 block">GPS Points / Sync</span>
             <span className="text-xs font-semibold text-slate-700">
               {totals.gps_point_count} pts
             </span>
-            <span className="text-[10px] text-slate-400 block">
+            <span className="text-xs text-slate-400 block">
               {new Date(totals.last_sync_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
@@ -327,7 +327,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
           emptyMessage="No GPS trail or stop coordinates recorded for this journey yet."
           onPinSelect={(id) => setSelectedStop(id ? stops.find((s) => s.id === id) ?? null : null)}
         />
-        <div className="px-3 pb-2 text-[11px] font-semibold text-slate-600">
+        <div className="px-3 pb-2 text-xs font-semibold text-slate-600">
           Endpoint: <span className="text-amber-600">{journey.endpoint_status}</span>
         </div>
 
@@ -372,7 +372,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         )}
       </div>
 
-      <div className="p-4 bg-card rounded-xl border border-border shadow-2xs space-y-3">
+      <div className="p-4 bg-card rounded-2xl border border-border shadow-2xs space-y-3">
         <h3 className="text-xs font-semibold text-slate-500">
           Journey Stops & Collections ({stops.length})
         </h3>
@@ -402,7 +402,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                   <p className="text-xs font-semibold text-foreground">
                     {s.shop_name} <span className="tabular-nums text-slate-500">({s.shop_code})</span>
                   </p>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     {s.owner_name} · {s.phone_number} · {s.area_name}
                   </p>
                 </div>
@@ -412,7 +412,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                 {s.collection ? (
                   <div className="text-xs">
                     <span className="font-semibold text-emerald-800">{s.collection.gross_liters} L</span>
-                    <span className="text-[10px] text-slate-500 block">
+                    <span className="text-xs text-slate-500 block">
                       Fat {s.collection.fat}% · LR {s.collection.lr}
                     </span>
                   </div>

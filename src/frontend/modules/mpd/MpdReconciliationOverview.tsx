@@ -31,66 +31,66 @@ export function MpdReconciliationOverview() {
       <SupplyChainLossCard />
 
       {error ? (
-        <section className="bg-card border-border rounded-xl border p-4 text-sm text-amber-900">
+        <section className="bg-card border-border rounded-2xl border p-4 text-sm text-amber-900">
           MPD overview unavailable: {error}
         </section>
       ) : !report || !vehicles ? (
-        <section className="bg-card border-border rounded-xl border p-4 text-sm text-slate-500">
+        <section className="bg-card border-border rounded-2xl border p-4 text-sm text-muted-foreground">
           Loading MPD operational exceptions…
         </section>
       ) : (
         <section className="space-y-3" aria-label="MPD reconciliation overview">
           <div>
-            <h2 className="inline-flex items-center text-lg font-semibold text-slate-900">Reconciliation<InfoTip text="Cross-source Mobile Tester-to-ZMCC result. Pending journeys are shown separately and are not counted as finalized loss." /></h2>
+            <h2 className="inline-flex items-center text-lg font-semibold text-foreground">Reconciliation<InfoTip text="Cross-source Mobile Tester-to-ZMCC result. Pending journeys are shown separately and are not counted as finalized loss." /></h2>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="bg-card border-border rounded-xl border p-4">
-              <p className="text-xs font-semibold text-slate-500">13TS loss / gain</p>
+            <div className="bg-card border-border rounded-2xl border p-4">
+              <p className="text-xs font-semibold text-muted-foreground">13TS loss / gain</p>
               <p className="mt-1 text-lg font-semibold">
                 {number(report.summary.at13tsLossLiters)} / {number(report.summary.at13tsGainLiters)} L
               </p>
             </div>
-            <div className="bg-card border-border rounded-xl border p-4">
-              <p className="text-xs font-semibold text-slate-500">Gross loss / gain</p>
+            <div className="bg-card border-border rounded-2xl border p-4">
+              <p className="text-xs font-semibold text-muted-foreground">Gross loss / gain</p>
               <p className="mt-1 text-lg font-semibold">
                 {number(report.summary.grossLossLiters)} / {number(report.summary.grossGainLiters)} L
               </p>
             </div>
-            <div className="bg-card border-border rounded-xl border p-4">
-              <p className="text-xs font-semibold text-slate-500">Finalized journeys</p>
+            <div className="bg-card border-border rounded-2xl border p-4">
+              <p className="text-xs font-semibold text-muted-foreground">Finalized journeys</p>
               <p className="mt-1 text-lg font-semibold">{report.summary.finalizedJourneys}</p>
             </div>
-            <div className="bg-card border-border rounded-xl border p-4">
-              <p className="text-xs font-semibold text-slate-500">Unresolved exposure</p>
+            <div className="bg-card border-border rounded-2xl border p-4">
+              <p className="text-xs font-semibold text-muted-foreground">Unresolved exposure</p>
               <p className="mt-1 text-lg font-semibold">
                 {report.summary.unresolvedJourneys} journeys · {number(report.summary.unresolvedOriginAt13tsLiters)} L
               </p>
             </div>
           </div>
           <div className="grid gap-3 lg:grid-cols-2">
-            <div className="bg-card border-border rounded-xl border p-4 text-sm">
+            <div className="bg-card border-border rounded-2xl border p-4 text-sm">
               <p className="font-semibold">Latest Mobile Tester-to-ZMCC journeys</p>
               {report.items.length ? (
                 report.items.map((item) => (
-                  <p key={item.journeyId} className="mt-2 text-slate-600">
+                  <p key={item.journeyId} className="mt-2 text-secondary-foreground">
                     {item.source.code} · {item.route.code} · {item.journeyNumber} · {item.vehicleNumber} · {item.isResolved ? 'finalized' : 'unresolved'}
                   </p>
                 ))
               ) : (
-                <p className="mt-2 text-slate-500">No journeys</p>
+                <p className="mt-2 text-muted-foreground">No journeys</p>
               )}
             </div>
-            <div className="bg-card border-border rounded-xl border p-4 text-sm">
+            <div className="bg-card border-border rounded-2xl border p-4 text-sm">
               <p className="font-semibold">Vehicle exceptions ({vehicles.total})</p>
               {vehicles.items.length ? (
                 vehicles.items.map((item) => (
-                  <p key={item.visitId} className="mt-2 text-slate-600">
+                  <p key={item.visitId} className="mt-2 text-secondary-foreground">
                     {item.source.code} · {item.vehicleNumber} · {item.stage}
                     {item.exception ? ` · ${item.exception.kind}` : ''}
                   </p>
                 ))
               ) : (
-                <p className="mt-2 text-slate-500">No active vehicle exceptions.</p>
+                <p className="mt-2 text-muted-foreground">No active vehicle exceptions.</p>
               )}
             </div>
           </div>

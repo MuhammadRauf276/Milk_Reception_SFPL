@@ -77,7 +77,7 @@ export const LoginPage: React.FC = () => {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-          className="w-full max-w-[420px] rounded-xl border bg-card p-6 shadow-sm sm:p-8"
+          className="w-full max-w-[420px] rounded-2xl border bg-card p-6 shadow-sm sm:p-8"
           aria-labelledby="sign-in-heading"
         >
           <div>
@@ -148,7 +148,7 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
 
-            <label className="flex w-fit cursor-pointer select-none items-center gap-2 text-sm text-slate-600">
+            <label className="flex w-fit cursor-pointer select-none items-center gap-2 text-sm text-secondary-foreground">
               <input
                 type="checkbox"
                 checked={rememberMe}

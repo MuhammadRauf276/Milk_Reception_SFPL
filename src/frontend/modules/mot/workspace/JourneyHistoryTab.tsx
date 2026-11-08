@@ -36,7 +36,7 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
                     onClick={() => onStatusFilterChange(v)}
                     aria-pressed={statusFilter === v}
                     className={`min-h-[44px] px-3 rounded-lg text-xs font-semibold ${
-                      statusFilter === v ? 'bg-primary text-white' : 'text-slate-700'
+                      statusFilter === v ? 'bg-primary text-white' : 'text-secondary-foreground'
                     }`}
                   >
                     {l}
@@ -46,7 +46,7 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
               <button
                 type="button"
                 onClick={onRefresh}
-                className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
+                className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
               >
                 <span>Refresh</span>
               </button>
@@ -54,13 +54,13 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
           </div>
 
           {loading ? (
-            <div className="p-8 text-center text-xs font-semibold text-slate-500">Loading journey history…</div>
+            <div className="p-8 text-center text-xs font-semibold text-muted-foreground">Loading journey history…</div>
           ) : journeys.length === 0 ? (
-            <div className="p-8 text-center text-xs font-semibold text-slate-500">No journeys recorded.</div>
+            <div className="p-8 text-center text-xs font-semibold text-muted-foreground">No journeys recorded.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-muted/60 text-slate-700 uppercase font-semibold tracking-wider text-[10px] border-b border-border">
+                <thead className="bg-muted/60 text-secondary-foreground font-semibold text-xs border-b border-border">
                   <tr>
                     <th className="p-3">Journey #</th>
                     <th className="p-3">Date</th>
@@ -77,10 +77,10 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
                   {journeys.map((j) => (
                     <tr key={j.id} className="hover:bg-subtle">
                       <td className="p-3 tabular-nums font-semibold text-primary">{j.journey_number}</td>
-                      <td className="p-3 font-medium text-slate-600">{j.operational_date}</td>
+                      <td className="p-3 font-medium text-secondary-foreground">{j.operational_date}</td>
                       <td className="p-3 font-semibold text-foreground">{j.route?.route_code}</td>
                       <td className="p-3 font-semibold text-foreground">{j.mot_profile?.name}</td>
-                      <td className="p-3 tabular-nums font-semibold text-slate-700">{j.mot_vehicle?.vehicle_number}</td>
+                      <td className="p-3 tabular-nums font-semibold text-secondary-foreground">{j.mot_vehicle?.vehicle_number}</td>
                       <td className="p-3">
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
@@ -96,12 +96,12 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
                           {j.status}
                         </span>
                       </td>
-                      <td className="p-3 font-medium text-slate-600">
+                      <td className="p-3 font-medium text-secondary-foreground">
                         {new Date(j.assigned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </td>
-                      <td className="p-3 text-slate-600 font-medium">
+                      <td className="p-3 text-secondary-foreground font-medium">
                         {j.status === 'CANCELLED' ? (
-                          <span className="text-rose-700 text-[11px]" title={j.cancellation_reason || ''}>
+                          <span className="text-rose-700 text-xs" title={j.cancellation_reason || ''}>
                             Cancelled by {j.cancelled_by_name}: {j.cancellation_reason?.slice(0, 30)}…
                           </span>
                         ) : (

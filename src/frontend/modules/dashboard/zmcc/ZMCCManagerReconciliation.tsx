@@ -126,7 +126,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
       <SupplyChainLossCard />
 
       {/* 1. Header & Summary Banner */}
-      <div className="p-5 rounded-xl bg-card border border-border/80 shadow-xs space-y-4">
+      <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-border/80">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-primary/10 text-primary">
@@ -145,7 +145,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                 type="button"
                 onClick={onRetry}
                 disabled={isLoading}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all disabled:opacity-50 min-h-11"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 min-h-11"
               >
                 <span>{isLoading ? 'Syncing…' : 'Refresh'}</span>
               </button>
@@ -161,43 +161,43 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                 Reconciliation metrics, filters, and search below apply to the visible page ({pagination.page} of {pagination.totalPages}). The full query contains {pagination.totalRecords} visits.
               </span>
             </div>
-            <span className="text-[11px] font-semibold text-amber-700">Bounded page metrics</span>
+            <span className="text-xs font-semibold text-amber-700">Bounded page metrics</span>
           </div>
         )}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 tabular-nums">
           <div className="bg-card border-border p-3 rounded-lg border">
-            <span className="text-xs font-sans text-slate-500 block uppercase font-semibold">Visits on Page</span>
-            <span className="text-lg font-semibold text-slate-900">
+            <span className="text-xs font-sans text-muted-foreground block font-semibold">Visits on Page</span>
+            <span className="text-lg font-semibold text-foreground">
               {showKpiPlaceholders ? '—' : summary.total}
             </span>
           </div>
           <div className="bg-card border-border p-3 rounded-lg border">
-            <span className="text-xs font-sans text-emerald-700 block uppercase font-semibold">Completed on Page</span>
+            <span className="text-xs font-sans text-emerald-700 block font-semibold">Completed on Page</span>
             <span className="text-lg font-semibold text-emerald-900">
               {showKpiPlaceholders ? '—' : summary.completed}
             </span>
           </div>
           <div className="bg-card border-border p-3 rounded-lg border">
-            <span className="text-xs font-sans text-amber-700 block uppercase font-semibold">Pending on Page</span>
+            <span className="text-xs font-sans text-amber-700 block font-semibold">Pending on Page</span>
             <span className="text-lg font-semibold text-amber-900">
               {showKpiPlaceholders ? '—' : summary.pendingReceipt}
             </span>
           </div>
           <div className="bg-card border-border p-3 rounded-lg border">
-            <span className="text-xs font-sans text-slate-700 block uppercase font-semibold">Qty Delta on Page</span>
-            <span className="text-lg font-semibold text-slate-900">
+            <span className="text-xs font-sans text-secondary-foreground block font-semibold">Qty Delta on Page</span>
+            <span className="text-lg font-semibold text-foreground">
               {showKpiPlaceholders ? '—' : summary.qtyDiffCount}
             </span>
           </div>
           <div className="bg-card border-border p-3 rounded-lg border">
-            <span className="text-xs font-sans text-blue-700 block uppercase font-semibold">13% TS Delta on Page</span>
+            <span className="text-xs font-sans text-blue-700 block font-semibold">13% TS Delta on Page</span>
             <span className="text-lg font-semibold text-blue-900">
               {showKpiPlaceholders ? '—' : summary.tsDiffCount}
             </span>
           </div>
           <div className="bg-card border-border p-3 rounded-lg border">
-            <span className="text-xs font-sans text-rose-700 block uppercase font-semibold">QA Rejections on Page</span>
+            <span className="text-xs font-sans text-rose-700 block font-semibold">QA Rejections on Page</span>
             <span className="text-lg font-semibold text-rose-900">
               {showKpiPlaceholders ? '—' : summary.rejectedCount}
             </span>
@@ -218,7 +218,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                   className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold shrink-0 transition-all ${
                     active
                       ? 'bg-primary text-white shadow-2xs'
-                      : 'bg-subtle text-slate-700 hover:bg-muted border border-border/80'
+                      : 'bg-subtle text-secondary-foreground hover:bg-muted border border-border/80'
                   }`}
                 >
                   {opt.label}
@@ -229,14 +229,14 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
 
           {/* Search Box */}
           <div className="relative min-w-[240px]">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search"
               aria-label="Search current page vehicle or token"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-subtle border border-border text-xs text-foreground placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-primary min-h-11"
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-subtle border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary min-h-11"
             />
           </div>
         </div>
@@ -244,7 +244,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
 
       {/* 3. Error Alert */}
       {error && (
-        <div className="bg-card border-border p-6 rounded-xl border text-center space-y-2 animate-panel-in" role="alert">
+        <div className="bg-card border-border p-6 rounded-2xl border text-center space-y-2 animate-panel-in" role="alert">
           <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
             <AlertTriangle className="w-5 h-5" />
           </div>
@@ -255,11 +255,11 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
 
       {/* 4. Loading Skeleton */}
       {isLoading && enrichedItems.length === 0 && (
-        <div className="p-8 rounded-xl bg-card border border-border/80 space-y-4 animate-pulse">
-          <div className="h-6 bg-slate-200 rounded w-1/4" />
+        <div className="p-8 rounded-2xl bg-card border border-border/80 space-y-4 animate-pulse">
+          <div className="h-6 bg-muted rounded w-1/4" />
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-12 bg-slate-100 rounded-lg" />
+              <div key={i} className="h-12 bg-muted rounded-lg" />
             ))}
           </div>
         </div>
@@ -269,8 +269,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
       {!isLoading && !error && filteredItems.length === 0 && (
         <div className="p-10 rounded-xl bg-card border border-border/80 text-center space-y-2">
           <ArrowRightLeft className="w-8 h-8 text-slate-300 mx-auto" />
-          <h4 className="text-sm font-semibold text-slate-700">No Reconciliation Records Found</h4>
-          <p className="text-xs text-slate-500">
+          <h4 className="text-sm font-semibold text-secondary-foreground">No Reconciliation Records Found</h4>
+          <p className="text-xs text-muted-foreground">
             No records
           </p>
         </div>
@@ -282,7 +282,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-border text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                <tr className="bg-subtle border-b border-border text-xs font-semibold text-secondary-foreground">
                   <th className="py-3 px-3">Vehicle</th>
                   <th className="py-3 px-3 text-right">Dispatch Gross (L)</th>
                   <th className="py-3 px-3 text-right">Plant Received (L)</th>
@@ -311,22 +311,22 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                             <button
                               type="button"
                               onClick={() => setExpandedVisitId(isExpanded ? null : item.visitId)}
-                              className="p-1 rounded hover:bg-slate-200 text-slate-500 min-h-11 min-w-11"
+                              className="p-1 rounded hover:bg-muted text-muted-foreground min-h-11 min-w-11"
                               title={isExpanded ? 'Collapse row' : 'Expand details'}
                             >
                               <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                             </button>
                             <div>
-                              <span className="font-semibold text-slate-900 block">{item.vehicleNumber}</span>
+                              <span className="font-semibold text-foreground block">{item.vehicleNumber}</span>
                               {item.tokenNumber && (
-                                <span className="text-xs text-slate-500 block">Tk: {item.tokenNumber}</span>
+                                <span className="text-xs text-muted-foreground block">Tk: {item.tokenNumber}</span>
                               )}
                             </div>
                           </div>
                         </td>
 
                         {/* 2. Dispatch Gross Liters */}
-                        <td className="py-3 px-3 text-right font-semibold text-slate-900">
+                        <td className="py-3 px-3 text-right font-semibold text-foreground">
                           {item.dispatchGrossLiters != null ? `${item.dispatchGrossLiters.toLocaleString()} L` : '—'}
                         </td>
 
@@ -339,7 +339,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                               Receipt Pending
                             </span>
                           ) : (
-                            <span className="text-slate-400 font-sans text-[11px]">Pending Reception</span>
+                            <span className="text-muted-foreground font-sans text-xs">Pending Reception</span>
                           )}
                         </td>
 
@@ -349,7 +349,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                             <span
                               className={
                                 item.grossVarianceLiters === 0
-                                  ? 'text-slate-600'
+                                  ? 'text-secondary-foreground'
                                   : item.grossVarianceLiters > 0
                                   ? 'text-emerald-800'
                                   : 'text-rose-800'
@@ -358,7 +358,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                               {item.grossVarianceText}
                             </span>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </td>
 
@@ -368,7 +368,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                             <span
                               className={
                                 item.grossVariancePercent === 0
-                                  ? 'text-slate-600'
+                                  ? 'text-secondary-foreground'
                                   : item.grossVariancePercent > 0
                                   ? 'text-emerald-800'
                                   : 'text-rose-800'
@@ -377,25 +377,25 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                               {item.grossVariancePercentText}
                             </span>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </td>
 
                         {/* 6. Dispatch @13TS */}
-                        <td className="py-3 px-3 text-right text-slate-800">
+                        <td className="py-3 px-3 text-right text-foreground">
                           {item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : 'Unavailable'}
                         </td>
 
                         {/* 7. Plant @13TS */}
                         <td className="py-3 px-3 text-right font-semibold">
                           {item.plant13TsLiters != null ? (
-                            <span className="text-slate-900">{item.plant13TsLiters.toLocaleString()} L</span>
+                            <span className="text-foreground">{item.plant13TsLiters.toLocaleString()} L</span>
                           ) : item.isHistoricalReceiptWithoutCommercialSnapshot ? (
-                            <span className="text-slate-500 font-sans text-[11px] font-semibold">Unavailable</span>
+                            <span className="text-muted-foreground font-sans text-xs font-semibold">Unavailable</span>
                           ) : item.isReceiptPending ? (
-                            <span className="text-slate-400 font-sans text-[11px]">Pending</span>
+                            <span className="text-muted-foreground font-sans text-xs">Pending</span>
                           ) : (
-                            <span className="text-slate-400 font-sans text-[11px]">Pending</span>
+                            <span className="text-muted-foreground font-sans text-xs">Pending</span>
                           )}
                         </td>
 
@@ -405,7 +405,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                             <span
                               className={
                                 item.at13TsVarianceLiters === 0
-                                  ? 'text-slate-600'
+                                  ? 'text-secondary-foreground'
                                   : item.at13TsVarianceLiters > 0
                                   ? 'text-emerald-800'
                                   : 'text-rose-800'
@@ -414,7 +414,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                               {item.at13TsVarianceText}
                             </span>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </td>
 
@@ -424,7 +424,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                             <span
                               className={
                                 item.at13TsVariancePercent === 0
-                                  ? 'text-slate-600'
+                                  ? 'text-secondary-foreground'
                                   : item.at13TsVariancePercent > 0
                                   ? 'text-emerald-800'
                                   : 'text-rose-800'
@@ -433,7 +433,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                               {item.at13TsVariancePercentText}
                             </span>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-muted-foreground">—</span>
                           )}
                         </td>
 
@@ -447,7 +447,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                 ? 'bg-rose-100 text-rose-800'
                                 : qaSummary.badgeType === 'HAS_HOLD'
                                 ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-100 text-slate-700'
+                                : 'bg-muted text-secondary-foreground'
                             }`}
                           >
                             {qaSummary.summaryText}
@@ -478,7 +478,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                           <button
                             type="button"
                             onClick={() => onInspectDetails(item.group.primaryLog)}
-                            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-[11px] font-sans font-semibold text-primary hover:bg-blue-50 transition min-h-11 min-w-11"
+                            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-subtle border border-border text-xs font-sans font-semibold text-primary hover:bg-blue-50 transition min-h-11 min-w-11"
                             title="Inspect full details"
                           >
                             <span>Inspect</span>
@@ -494,38 +494,38 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs animate-panel-in">
                               {/* Scale & Silo Weights */}
                               <div className="bg-card border-border p-3 rounded-lg border space-y-2">
-                                <div className="flex items-center space-x-2 font-sans font-semibold text-slate-800 pb-1 border-b border-slate-100">
+                                <div className="flex items-center space-x-2 font-sans font-semibold text-foreground pb-1 border-b border-border">
                                   <Warehouse className="w-3.5 h-3.5 text-emerald-700" />
                                   <span>Weighbridge & Destination Silo</span>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2 pt-1 tabular-nums text-[11px]">
+                                <div className="grid grid-cols-3 gap-2 pt-1 tabular-nums text-xs">
                                   <div>
-                                    <span className="text-xs text-slate-500 font-sans block">1st Weight (Gross):</span>
-                                    <span className="font-semibold text-slate-900">
+                                    <span className="text-xs text-muted-foreground font-sans block">1st Weight (Gross):</span>
+                                    <span className="font-semibold text-foreground">
                                       {item.firstWeightKg != null ? `${item.firstWeightKg.toLocaleString()} kg` : '—'}
                                     </span>
                                   </div>
                                   <div>
-                                    <span className="text-xs text-slate-500 font-sans block">2nd Weight (Tare):</span>
-                                    <span className="font-semibold text-slate-900">
+                                    <span className="text-xs text-muted-foreground font-sans block">2nd Weight (Tare):</span>
+                                    <span className="font-semibold text-foreground">
                                       {item.secondWeightKg != null ? `${item.secondWeightKg.toLocaleString()} kg` : '—'}
                                     </span>
                                   </div>
                                   <div>
-                                    <span className="text-xs text-slate-500 font-sans block">Net Milk Weight:</span>
+                                    <span className="text-xs text-muted-foreground font-sans block">Net Milk Weight:</span>
                                     <span className="font-semibold text-blue-900">
                                       {item.netMilkWeightKg != null ? `${item.netMilkWeightKg.toLocaleString()} kg` : '—'}
                                     </span>
                                   </div>
                                 </div>
-                                <div className="pt-1 text-[11px]">
-                                  <span className="text-xs text-slate-500 font-sans">Destination Silo: </span>
-                                  <span className="font-semibold text-slate-800">{item.destinationSilo || '—'}</span>
+                                <div className="pt-1 text-xs">
+                                  <span className="text-xs text-muted-foreground font-sans">Destination Silo: </span>
+                                  <span className="font-semibold text-foreground">{item.destinationSilo || '—'}</span>
                                 </div>
                               </div>
 
                               <div className="bg-card border-border p-3 rounded-lg border space-y-2">
-                                <div className="flex items-center space-x-2 font-sans font-semibold text-slate-800 pb-1 border-b border-slate-100">
+                                <div className="flex items-center space-x-2 font-sans font-semibold text-foreground pb-1 border-b border-border">
                                   <FlaskConical className="w-3.5 h-3.5 text-primary" />
                                   <span>Portion QA Breakdown ({item.portions.length} Portions)</span>
                                 </div>
@@ -533,10 +533,10 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                   {item.portions.map((p, idx) => (
                                     <div
                                       key={idx}
-                                      className="flex items-center justify-between py-1 px-2 rounded bg-slate-50 text-[11px]"
+                                      className="flex items-center justify-between py-1 px-2 rounded bg-subtle text-xs"
                                     >
-                                      <span className="font-semibold text-slate-700">{p.portionNumber}</span>
-                                      <span className="text-slate-600">
+                                      <span className="font-semibold text-secondary-foreground">{p.portionNumber}</span>
+                                      <span className="text-secondary-foreground">
                                         {`Fat: ${p.dispatchFat ?? '—'}% / ${p.plantFat ?? '—'}% · LR: ${p.dispatchLr ?? '—'} / ${p.plantLr ?? '—'}`}
                                       </span>
                                       <span
@@ -545,7 +545,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                                             ? 'bg-emerald-100 text-emerald-800'
                                             : p.qaDecision === 'REJECTED'
                                             ? 'bg-rose-100 text-rose-800'
-                                            : 'bg-slate-100 text-slate-700'
+                                            : 'bg-muted text-secondary-foreground'
                                         }`}
                                       >
                                         {p.qaDecision}

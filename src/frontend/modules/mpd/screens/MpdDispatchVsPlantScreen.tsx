@@ -26,25 +26,25 @@ const REPORT_GUIDE: Array<{ tab: MpdTabId; title: string; about: string }> = [
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
 const Stat: React.FC<{ icon: React.ReactNode; label: string; dispatch: string; plant: string; variance: string; note?: string }> = ({ icon, label, dispatch, plant, variance, note }) => (
-  <div className="bg-card border border-border rounded-xl p-4 shadow-xs space-y-2">
-    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+  <div className="bg-card border border-border rounded-2xl p-4 shadow-xs space-y-2">
+    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
       {icon}
       <span>{label}</span>
     </div>
     <div className="grid grid-cols-2 gap-2 text-xs">
       <div>
-        <p className="text-slate-500">ZMCC sent</p>
+        <p className="text-muted-foreground">ZMCC sent</p>
         <p className="text-sm font-semibold tabular-nums text-foreground">{dispatch}</p>
       </div>
       <div>
-        <p className="text-slate-500">Plant received</p>
+        <p className="text-muted-foreground">Plant received</p>
         <p className="text-sm font-semibold tabular-nums text-foreground">{plant}</p>
       </div>
     </div>
-    <p className="text-xs text-slate-600">
+    <p className="text-xs text-secondary-foreground">
       Difference: <span className="font-semibold tabular-nums">{variance}</span>
     </p>
-    {note && <p className="text-[11px] text-slate-500">{note}</p>}
+    {note && <p className="text-xs text-muted-foreground">{note}</p>}
   </div>
 );
 
@@ -75,7 +75,7 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
   return (
     <div className="space-y-6">
       {onOpenTab && (
-        <div className="bg-card border border-border rounded-xl p-4 shadow-xs space-y-3">
+        <div className="bg-card border border-border rounded-2xl p-4 shadow-xs space-y-3">
           <h2 className="text-xs font-semibold text-foreground">Reports in this Command Center</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {REPORT_GUIDE.map((g) => (
@@ -86,7 +86,7 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
                 className="text-left rounded-lg border border-border p-3 hover:border-primary/40 hover:bg-muted/40 transition"
               >
                 <p className="text-xs font-semibold text-foreground">{g.title}</p>
-                <p className="text-xs text-slate-600 mt-0.5">{g.about}</p>
+                <p className="text-xs text-secondary-foreground mt-0.5">{g.about}</p>
               </button>
             ))}
           </div>
@@ -94,21 +94,21 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
       )}
 
       <div className="flex flex-wrap items-end gap-3">
-        <label className="text-xs font-semibold text-slate-700 space-y-1">
+        <label className="text-xs font-semibold text-secondary-foreground space-y-1">
           <span className="block">From</span>
           <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} className="block rounded-lg border border-border bg-background px-2 py-1.5 text-xs" />
         </label>
-        <label className="text-xs font-semibold text-slate-700 space-y-1">
+        <label className="text-xs font-semibold text-secondary-foreground space-y-1">
           <span className="block">To</span>
           <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className="block rounded-lg border border-border bg-background px-2 py-1.5 text-xs" />
         </label>
-        <p className="text-xs text-slate-500 pb-2">ZMCC tankers sent to the plant, and what the plant received.</p>
+        <p className="text-xs text-muted-foreground pb-2">ZMCC tankers sent to the plant, and what the plant received.</p>
       </div>
 
       {query.error && (
-        <div className="bg-card border border-border rounded-xl p-4 text-xs font-semibold text-rose-800">{getErrorMessage(query.error)}</div>
+        <div className="bg-card border border-border rounded-2xl p-4 text-xs font-semibold text-rose-800">{getErrorMessage(query.error)}</div>
       )}
-      {query.isPending && <div className="bg-card border border-border rounded-xl p-8 text-center text-xs text-slate-500">Loading report…</div>}
+      {query.isPending && <div className="bg-card border border-border rounded-2xl p-8 text-center text-xs text-muted-foreground">Loading report…</div>}
 
       {report && t && (
         <>
@@ -128,24 +128,24 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
               plant={formatMetric(t.plantAt13tsLiters, ' L')}
               variance={signed(t.at13tsVarianceLiters, ' L')}
             />
-            <div className="bg-card border border-border rounded-xl p-4 shadow-xs space-y-2">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <div className="bg-card border border-border rounded-2xl p-4 shadow-xs space-y-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                 <Scale className="w-4 h-4" />
                 <span>Plant weight</span>
               </div>
               <p className="text-sm font-semibold tabular-nums text-foreground">{formatMetric(t.plantNetKg, ' kg')}</p>
-              <p className="text-xs text-slate-600">Net weight at the plant weighbridge for the received tankers.</p>
+              <p className="text-xs text-secondary-foreground">Net weight at the plant weighbridge for the received tankers.</p>
             </div>
           </div>
 
           <section className="bg-card border border-border rounded-xl shadow-xs overflow-x-auto">
             <h3 className="text-xs font-semibold text-foreground p-4 pb-2">Test-wise comparison (average per tanker)</h3>
             {report.tests.length === 0 ? (
-              <p className="p-4 pt-0 text-xs text-slate-500">No tanker has numeric results on both sides in this period.</p>
+              <p className="p-4 pt-0 text-xs text-muted-foreground">No tanker has numeric results on both sides in this period.</p>
             ) : (
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-left text-slate-500 border-b border-border">
+                  <tr className="text-left text-muted-foreground border-b border-border">
                     <th className="px-4 py-2 font-semibold">Test</th>
                     <th className="px-2 py-2 font-semibold text-right">Tankers</th>
                     <th className="px-2 py-2 font-semibold text-right">ZMCC sent</th>
@@ -158,7 +158,7 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
                     <tr key={r.testId} className="border-b border-border last:border-0">
                       <td className="px-4 py-2 font-medium text-foreground">
                         {r.testName}
-                        {r.unit ? <span className="text-slate-400"> ({r.unit})</span> : null}
+                        {r.unit ? <span className="text-muted-foreground"> ({r.unit})</span> : null}
                       </td>
                       <td className="px-2 py-2 text-right tabular-nums">{r.vehicles}</td>
                       <td className="px-2 py-2 text-right tabular-nums">{formatMetric(r.dispatchAvg)}</td>
@@ -174,11 +174,11 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
           <section className="bg-card border border-border rounded-xl shadow-xs overflow-x-auto">
             <h3 className="text-xs font-semibold text-foreground p-4 pb-2">Tankers</h3>
             {report.rows.length === 0 ? (
-              <p className="p-4 pt-0 text-xs text-slate-500">No ZMCC tanker was dispatched in this period.</p>
+              <p className="p-4 pt-0 text-xs text-muted-foreground">No ZMCC tanker was dispatched in this period.</p>
             ) : (
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-left text-slate-500 border-b border-border">
+                  <tr className="text-left text-muted-foreground border-b border-border">
                     <th className="px-4 py-2 font-semibold">Tanker</th>
                     <th className="px-2 py-2 font-semibold">ZMCC</th>
                     <th className="px-2 py-2 font-semibold text-right">Sent (L)</th>
@@ -198,7 +198,7 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
                             {open === r.visitId ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                             {r.vehicleNumber}
                           </span>
-                          <span className="block text-[10px] text-slate-500 ml-5">
+                          <span className="block text-xs text-muted-foreground ml-5">
                             {r.operationalDate ?? NO_DATA} · {r.received ? 'Received' : 'Not received yet'}
                           </span>
                         </td>
@@ -222,14 +222,14 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
                               ].map(([name, d, p]) => (
                                 <div key={String(name)} className="rounded-lg border border-border bg-card p-2">
                                   <p className="font-semibold text-foreground">{name}</p>
-                                  <p className="tabular-nums text-slate-600">
+                                  <p className="tabular-nums text-secondary-foreground">
                                     Sent {formatMetric(d as number | null)} · Plant {formatMetric(p as number | null)}
                                   </p>
                                 </div>
                               ))}
                             </div>
                             {r.tests.length === 0 ? (
-                              <p className="text-xs text-slate-500">No test results were recorded for this tanker.</p>
+                              <p className="text-xs text-muted-foreground">No test results were recorded for this tanker.</p>
                             ) : (
                               <table className="w-full text-xs">
                                 <tbody>

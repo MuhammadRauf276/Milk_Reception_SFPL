@@ -34,7 +34,7 @@ export function SyncBar({ isOnline, unsyncedCount, lastSyncTime, syncFeedback, s
                 )}
               </span>
 
-              <span className="text-xs text-slate-600 font-semibold truncate">
+              <span className="text-xs text-secondary-foreground font-semibold truncate">
                 {unsyncedCount > 0 ? (
                   <span className="text-primary font-semibold">{unsyncedCount} pending sync</span>
                 ) : (
@@ -43,7 +43,7 @@ export function SyncBar({ isOnline, unsyncedCount, lastSyncTime, syncFeedback, s
               </span>
 
               {lastSyncTime && (
-                <span className="hidden md:inline text-[11px] text-slate-400 tabular-nums">
+                <span className="hidden md:inline text-xs text-muted-foreground tabular-nums">
                   Synced {lastSyncTime}
                 </span>
               )}

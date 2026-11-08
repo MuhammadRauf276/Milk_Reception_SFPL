@@ -78,18 +78,18 @@ export function ExecutiveLiveVehicles({ showPhotos }: { showPhotos: boolean }) {
 
   const tabClass = (active: boolean) =>
     `min-h-9 px-3.5 py-1.5 text-xs font-semibold rounded-md transition flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${
-      active ? 'bg-primary text-white shadow-2xs' : 'text-slate-600 hover:text-foreground'
+      active ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
     }`;
 
   return (
     <div className="space-y-6">
-      <div className="bg-card p-5 rounded-xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <Truck className="w-5 h-5 text-primary" />
             <h1 className="text-lg font-semibold text-foreground">{isReport ? 'Vehicle Report' : 'Vehicles, Last 7 Days'}</h1>
           </div>
-          <p className="text-xs text-slate-500 mt-1 tabular-nums">
+          <p className="text-xs text-muted-foreground mt-1 tabular-nums">
             {isReport
               ? 'Choose your own dates. All sources.'
               : fromDate && toDate

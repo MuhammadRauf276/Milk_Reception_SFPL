@@ -60,7 +60,7 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
             <p className="truncate text-xs text-muted-foreground">@{currentUser.username}</p>
           ) : null}
           {currentUser?.role ? (
-            <p className="mt-1.5 inline-flex rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+            <p className="mt-1.5 inline-flex rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-secondary-foreground">
               {formatRoleLabel(currentUser.role)}
             </p>
           ) : null}
@@ -95,7 +95,7 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
           >
             <span
               className={cn(
-                'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-card shadow-xs ring-0 transition duration-200 ease-in-out',
                 forcedOffline ? 'translate-x-4' : 'translate-x-0'
               )}
             />

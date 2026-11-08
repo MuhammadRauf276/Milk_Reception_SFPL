@@ -98,7 +98,7 @@ export function SiloFormDrawer({ silo, onClose, onSaved }: FormProps) {
               required
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className={`${fieldInputClass} uppercase tabular-nums`}
+              className={`${fieldInputClass} tabular-nums`}
               placeholder="e.g. SILO-05"
               disabled={busy}
             />
@@ -161,7 +161,7 @@ export function SiloDeactivateDrawer({ silo, onClose, onSaved }: { silo: Silo; o
         <div className="shrink-0 rounded-xl bg-rose-100 p-2.5">
           <AlertTriangle className="h-5 w-5 text-rose-700" />
         </div>
-        <p className="leading-relaxed text-slate-600">
+        <p className="leading-relaxed text-secondary-foreground">
           Are you sure you want to deactivate silo <strong className="tabular-nums text-foreground">{silo.siloCode}</strong> ({silo.siloName})?
         </p>
       </div>

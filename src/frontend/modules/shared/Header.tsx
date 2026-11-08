@@ -121,8 +121,8 @@ export const Header: React.FC<HeaderProps> = ({
             title="Quick Jump & Search (Ctrl+K)"
           >
             <Search className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline text-[11px]">Search…</span>
-            <kbd className="hidden lg:inline-flex items-center text-[10px] bg-background border px-1 rounded font-mono">
+            <span className="hidden lg:inline text-xs">Search…</span>
+            <kbd className="hidden lg:inline-flex items-center text-xs bg-background border px-1 rounded font-mono">
               Ctrl K
             </kbd>
           </button>

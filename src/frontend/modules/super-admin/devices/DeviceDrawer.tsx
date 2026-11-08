@@ -86,7 +86,7 @@ const EVENT_WORDS: Record<string, string> = {
 };
 
 const BTN = 'min-h-11 px-4';
-const FIELD = 'min-h-11 w-full rounded-xl border border-border-strong bg-white px-3 text-sm';
+const FIELD = 'min-h-11 w-full rounded-lg border border-border-strong bg-card px-3 text-sm';
 
 export function formatTime(iso: string | null): string {
   if (!iso) return 'Never';
@@ -113,7 +113,7 @@ function KeyQr({ deviceUid, syncKey }: { deviceUid: string; syncKey: string }) {
       <p className="flex items-center text-sm text-muted-foreground">Scan with phone<InfoTip text="Shown only once. Close it only after the phone is set up." /></p>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="QR code for phone setup" width={240} height={240} className="mx-auto rounded-md border bg-white" />
+        <img src={src} alt="QR code for phone setup" width={240} height={240} className="mx-auto rounded-md border bg-card" />
       ) : null}
       <div className="break-all rounded-md border bg-muted p-3 text-xs">
         <div>

@@ -49,7 +49,7 @@ export const ZMCCPlantQAList: React.FC<{
                 <span className="text-base font-semibold tabular-nums text-foreground tracking-tight">
                   {item.vehicleNumber}
                 </span>
-                <span className="px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wider bg-slate-900 text-white">
+                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-900 text-white">
                   {item.portionNumber}
                 </span>
                 {item.tokenNumber && (
@@ -78,7 +78,7 @@ export const ZMCCPlantQAList: React.FC<{
               <div>
                 <button
                   onClick={() => onInspectDetails(item.log)}
-                  className="flex min-h-11 items-center space-x-1 px-3 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-all"
+                  className="flex min-h-11 items-center space-x-1 px-3 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-[color,background-color,border-color,box-shadow,opacity,transform]"
                 >
                   <span>View Details</span>
                   <ExternalLink className="w-3 h-3" />
@@ -90,7 +90,7 @@ export const ZMCCPlantQAList: React.FC<{
               <div className="bg-card border-border p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 border text-rose-900">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-700" />
                 <div>
-                  <span className="font-semibold uppercase text-xs block">Official Plant Rejection Reason:</span>
+                  <span className="font-semibold text-xs block">Official Plant Rejection Reason:</span>
                   <span>{item.rejectionReasons || '—'}</span>
                 </div>
               </div>
@@ -98,7 +98,7 @@ export const ZMCCPlantQAList: React.FC<{
 
             <div className="overflow-x-auto rounded-lg border border-border/80">
               <table className="w-full text-left text-xs tabular-nums">
-                <thead className="bg-slate-50 text-xs font-sans font-semibold uppercase tracking-wider text-slate-600 border-b border-border/80">
+                <thead className="bg-slate-50 text-xs font-sans font-semibold text-slate-600 border-b border-border/80">
                   <tr>
                     <th className="py-1.5 px-3">Parameter</th>
                     <th className="py-1.5 px-3">Dispatch QA</th>
@@ -113,7 +113,7 @@ export const ZMCCPlantQAList: React.FC<{
                     <td className="py-1.5 px-3 text-slate-700">{item.dispatchLr != null ? item.dispatchLr : '—'}</td>
                     <td className="py-1.5 px-3 font-semibold text-slate-900">{item.plantLr != null ? item.plantLr : '—'}</td>
                     <td className={`py-1.5 px-3 font-semibold ${diffClass(item.lrDiff)}`}>{item.lrDiffText}</td>
-                    <td className="py-1.5 px-3 font-sans text-slate-600 text-[11px]">
+                    <td className="py-1.5 px-3 font-sans text-slate-600 text-xs">
                       {item.qaEventTimestamp ? formatOperationalDatetime(item.qaEventTimestamp) : '—'}
                     </td>
                   </tr>
@@ -126,7 +126,7 @@ export const ZMCCPlantQAList: React.FC<{
                       {item.plantFat != null ? `${item.plantFat}%` : '—'}
                     </td>
                     <td className={`py-1.5 px-3 font-semibold ${diffClass(item.fatDiff)}`}>{item.fatDiffText}</td>
-                    <td className="py-1.5 px-3 font-sans text-slate-600 text-[11px]">
+                    <td className="py-1.5 px-3 font-sans text-slate-600 text-xs">
                       {item.qaEventTimestamp ? formatOperationalDatetime(item.qaEventTimestamp) : '—'}
                     </td>
                   </tr>

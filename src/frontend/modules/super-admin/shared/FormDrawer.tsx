@@ -68,5 +68,5 @@ export function DrawerActions({
 }
 
 export const fieldInputClass =
-  'h-11 w-full rounded-xl border border-border-strong bg-white px-3 text-sm focus:outline-hidden focus:border-primary disabled:opacity-60';
-export const fieldLabelClass = 'mb-1 block font-semibold text-slate-700';
+  'h-11 w-full rounded-lg border border-border-strong bg-card px-3 text-sm focus:outline-hidden focus:border-primary disabled:opacity-60';
+export const fieldLabelClass = 'mb-1 block font-semibold text-secondary-foreground';

@@ -218,7 +218,7 @@ export function ShopRequestSheet({ routeId, routeName, deviceGps, gpsBadge, onCl
             </select>
           </div>
         )}
-        <div className="bg-card border-border flex items-center justify-between rounded-xl border p-2.5 text-[11px] text-slate-600">
+        <div className="bg-card border-border flex items-center justify-between rounded-xl border p-2.5 text-xs text-secondary-foreground">
           <span className="flex items-center gap-2 font-medium">Device GPS: {gpsBadge}</span>
           <span className="font-semibold text-foreground">
             {deviceGps ? `${deviceGps.latitude.toFixed(6)}, ${deviceGps.longitude.toFixed(6)}` : 'Waiting for GPS…'}

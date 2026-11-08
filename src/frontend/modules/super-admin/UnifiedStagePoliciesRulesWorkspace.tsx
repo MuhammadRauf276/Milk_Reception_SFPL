@@ -238,7 +238,7 @@ function WorkspaceInner({
     <div className="w-full max-w-full space-y-4 overflow-x-hidden">
       {/* Error & Success Alerts */}
       {displayError && (
-        <div role="alert" className="flex items-center gap-2 rounded-xl border border-border bg-card p-3.5 text-xs font-semibold text-rose-800">
+        <div role="alert" className="flex items-center gap-2 rounded-2xl border border-border bg-card p-3.5 text-xs font-semibold text-rose-800">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{displayError}</span>
         </div>
@@ -252,7 +252,7 @@ function WorkspaceInner({
             animate="animate"
             exit="exit"
             role="status"
-            className="flex items-center gap-2 rounded-xl border border-border bg-card p-3.5 text-xs font-semibold text-emerald-900"
+            className="flex items-center gap-2 rounded-2xl border border-border bg-card p-3.5 text-xs font-semibold text-emerald-900"
           >
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <span>{successMsg}</span>
@@ -263,15 +263,15 @@ function WorkspaceInner({
       {/* Unified Master Catalog Workspace */}
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         {/* Master Matrix Workspace Header */}
-        <div className="border-b border-slate-200 bg-slate-100/90 p-3 sm:px-4 sm:py-3.5">
+        <div className="border-b border-border bg-slate-100/90 p-3 sm:px-4 sm:py-3.5">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Master Test Matrix (All 6 Stages)</h2>
-              <p className="text-xs text-slate-500">
+              <h2 className="text-base font-semibold text-foreground">Master Test Matrix (All 6 Stages)</h2>
+              <p className="text-xs text-muted-foreground">
                 Authoritative dairy specifications & test mode policies across MOT Shop, ZMCC MC, ZMCC HC, ZMCC Dispatch, Contractor Dispatch, and Plant QA Reception.
               </p>
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg px-2.5 py-1">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-secondary-foreground bg-card border border-border rounded-lg px-2.5 py-1">
               <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
               <span>All 6 Stages Active</span>
             </div>
@@ -279,13 +279,13 @@ function WorkspaceInner({
         </div>
 
         {/* Toolbar: Search, Status Filter & Add Lab Test */}
-        <div className="space-y-3 border-b border-slate-200 bg-slate-50 p-3 sm:px-4 sm:py-3">
+        <div className="space-y-3 border-b border-border bg-subtle p-3 sm:px-4 sm:py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-slate-900">
+              <span className="text-sm font-semibold text-foreground">
                 Master Matrix
               </span>
-              <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-700">
+              <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-secondary-foreground">
                 {catalogPagination?.totalRecords ?? catalogTests.length} tests
               </span>
             </div>
@@ -293,7 +293,7 @@ function WorkspaceInner({
               <button
                 type="button"
                 onClick={() => setCatalogDrawer({ kind: 'create' })}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-white shadow-2xs transition-colors hover:bg-primary-hover"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white shadow-2xs transition-colors hover:bg-primary-hover"
               >
                 <Plus className="h-4 w-4" />
                 <span>Add test</span>
@@ -304,7 +304,7 @@ function WorkspaceInner({
           {/* Search & Status Filters */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <input
                 type="search"
                 value={catalogSearch}
@@ -314,7 +314,7 @@ function WorkspaceInner({
                 }}
                 placeholder="Search tests…"
                 aria-label="Search lab tests"
-                className="h-10 w-full rounded-xl border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+                className="h-10 w-full rounded-lg border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
               />
             </div>
             <div role="group" aria-label="Status filter" className="flex gap-1">
@@ -330,7 +330,7 @@ function WorkspaceInner({
                   className={`h-10 rounded-xl border px-3 text-xs font-semibold transition-colors ${
                     catalogStatus === o.value
                       ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border-strong bg-white text-slate-600 hover:bg-slate-50'
+                      : 'border-border-strong bg-card text-secondary-foreground hover:bg-subtle'
                   }`}
                 >
                   {o.label}
@@ -343,34 +343,34 @@ function WorkspaceInner({
         {/* Master Catalog Table: Master Matrix (All 6 Stages Side-by-Side) */}
         <div className="w-full overflow-x-auto">
             <table className="w-full min-w-[1330px] text-left text-xs">
-              <thead className="border-b border-slate-200 bg-slate-100/90 text-slate-700">
+              <thead className="border-b border-border bg-slate-100/90 text-secondary-foreground">
                 <tr>
-                  <th className="w-10 p-2.5 text-center font-bold">#</th>
-                  <th className="p-2.5 font-bold">Code</th>
-                  <th className="p-2.5 font-bold">Test Name</th>
-                  <th className="p-2.5 font-bold">Category</th>
-                  <th className="p-2.5 font-bold text-emerald-800">Pass Range</th>
-                  <th className="p-2.5 font-bold text-amber-800">Warning Hold</th>
-                  <th className="p-2.5 font-bold text-rose-800">Fail Reject</th>
+                  <th className="w-10 p-2.5 text-center font-semibold">#</th>
+                  <th className="p-2.5 font-semibold">Code</th>
+                  <th className="p-2.5 font-semibold">Test Name</th>
+                  <th className="p-2.5 font-semibold">Category</th>
+                  <th className="p-2.5 font-semibold text-emerald-800">Pass Range</th>
+                  <th className="p-2.5 font-semibold text-amber-800">Warning Hold</th>
+                  <th className="p-2.5 font-semibold text-rose-800">Fail Reject</th>
                   {MATRIX_STAGES.map((ms) => (
-                    <th key={ms.code} className="p-2 text-center font-bold">
+                    <th key={ms.code} className="p-2 text-center font-semibold">
                       {ms.shortLabel}
                     </th>
                   ))}
-                  <th className="p-2 text-center font-bold">Status</th>
-                  {canEdit && <th className="sticky right-0 bg-slate-100 p-2 text-right font-bold">Actions</th>}
+                  <th className="p-2 text-center font-semibold">Status</th>
+                  {canEdit && <th className="sticky right-0 bg-muted p-2 text-right font-semibold">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 font-medium">
                 {catalogQuery.isPending ? (
                   <tr>
-                    <td colSpan={15} className="p-8 text-center font-semibold text-slate-400">
+                    <td colSpan={15} className="p-8 text-center font-semibold text-muted-foreground">
                       Loading matrix…
                     </td>
                   </tr>
                 ) : catalogTests.length === 0 ? (
                   <tr>
-                    <td colSpan={15} className="p-8 text-center text-slate-400">
+                    <td colSpan={15} className="p-8 text-center text-muted-foreground">
                       No tests found.
                     </td>
                   </tr>
@@ -380,53 +380,53 @@ function WorkspaceInner({
                     const stageModes = t.stageModes || {};
 
                     return (
-                      <tr key={t.id} className={`transition-colors hover:bg-slate-50 ${t.isActive ? '' : 'bg-slate-50/70 text-slate-400'}`}>
-                        <td className="p-2.5 text-center font-semibold tabular-nums text-slate-400">
+                      <tr key={t.id} className={`transition-colors hover:bg-subtle ${t.isActive ? '' : 'bg-slate-50/70 text-muted-foreground'}`}>
+                        <td className="p-2.5 text-center font-semibold tabular-nums text-muted-foreground">
                           {t.displayOrder}
                         </td>
-                        <td className="p-2.5 font-mono font-bold text-slate-900 tabular-nums">
+                        <td className="p-2.5 font-mono font-semibold text-foreground tabular-nums">
                           {t.testCode}
                         </td>
-                        <td className="p-2.5 font-bold text-slate-900 max-w-[180px]">
+                        <td className="p-2.5 font-semibold text-foreground max-w-[180px]">
                           <div>{t.testName}</div>
-                          {t.unit && <span className="text-[10px] text-slate-500 font-normal">({t.unit})</span>}
+                          {t.unit && <span className="text-xs text-muted-foreground font-normal">({t.unit})</span>}
                         </td>
                         <td className="p-2.5">
                           {isMonitoring ? (
-                            <span className="inline-block rounded bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200" title="Monitoring Norm: Compulsory to record for yield/pricing, but never rejects milk">
+                            <span className="inline-block rounded bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 border border-purple-200" title="Monitoring Norm: Compulsory to record for yield/pricing, but never rejects milk">
                               Monitoring Norm
                             </span>
                           ) : (
-                            <span className="inline-block rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
+                            <span className="inline-block rounded bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200">
                               Complete SOP
                             </span>
                           )}
                         </td>
                         <td className="p-2.5 font-semibold text-emerald-800 tabular-nums whitespace-nowrap">
-                          <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200 shadow-2xs">
+                          <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 border border-emerald-200 shadow-2xs">
                             {t.passRangeText || '—'}
                           </span>
                         </td>
                         <td className="p-2.5 font-semibold text-amber-800 tabular-nums whitespace-nowrap">
                           {t.warningHoldText && t.warningHoldText !== '—' ? (
-                            <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200 shadow-2xs">
+                            <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 border border-amber-200 shadow-2xs">
                               {t.warningHoldText}
                             </span>
                           ) : (
-                            <span className="text-[11px] text-slate-400 font-normal">None (Strict)</span>
+                            <span className="text-xs text-muted-foreground font-normal">None (Strict)</span>
                           )}
                         </td>
                         <td className="p-2.5 font-semibold text-rose-800 tabular-nums whitespace-nowrap">
                           {isMonitoring ? (
-                            <span className="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
+                            <span className="inline-flex items-center rounded-md bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 border border-purple-200">
                               None (Norm)
                             </span>
                           ) : t.failRejectText && t.failRejectText !== '—' ? (
-                            <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-800 border border-rose-200 shadow-2xs">
+                            <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-800 border border-rose-200 shadow-2xs">
                               {t.failRejectText}
                             </span>
                           ) : (
-                            <span className="text-[11px] text-slate-400 font-normal">—</span>
+                            <span className="text-xs text-muted-foreground font-normal">—</span>
                           )}
                         </td>
 
@@ -458,7 +458,7 @@ function WorkspaceInner({
                                       ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                                       : isAppl
                                       ? 'bg-sky-100 text-sky-900 border border-sky-300'
-                                      : 'bg-slate-100 text-slate-500 border border-slate-200'
+                                      : 'bg-muted text-muted-foreground border border-border'
                                   }`}
                                   title={`${TEST_POINT_LABELS[ms.code]}: Click to change mode`}
                                 >
@@ -476,7 +476,7 @@ function WorkspaceInner({
                                       ? 'bg-emerald-100 text-emerald-900'
                                       : isAppl
                                       ? 'bg-sky-100 text-sky-900'
-                                      : 'bg-slate-100 text-slate-400'
+                                      : 'bg-muted text-muted-foreground'
                                   }`}
                                 >
                                   {isAuto ? 'AUTO' : isCmp ? 'CMP' : isAppl ? 'APPL' : 'OFF'}
@@ -499,14 +499,14 @@ function WorkspaceInner({
                               className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold transition ${
                                 t.isActive
                                   ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                                  : 'border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                  : 'border-border-strong bg-muted text-secondary-foreground hover:bg-muted'
                               }`}
                             >
                               <span className={`h-2 w-2 rounded-full ${t.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                               {t.isActive ? 'Active' : 'Inactive'}
                             </button>
                           ) : (
-                            <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold ${t.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
+                            <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${t.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-muted-foreground'}`}>
                               {t.isActive ? 'Active' : 'Inactive'}
                             </span>
                           )}
@@ -514,14 +514,14 @@ function WorkspaceInner({
 
                         {/* Actions */}
                         {canEdit && (
-                          <td className="sticky right-0 bg-white p-2.5 text-right whitespace-nowrap">
+                          <td className="sticky right-0 bg-card p-2.5 text-right whitespace-nowrap">
                             <button
                               type="button"
                               onClick={() => {
                                 resetNotices();
                                 setCatalogDrawer({ kind: 'edit', test: t });
                               }}
-                              className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-300 bg-slate-100 px-2 py-1 text-xs font-bold text-slate-800 transition hover:bg-slate-200"
+                              className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-border-strong bg-muted px-2 py-1 text-xs font-semibold text-foreground transition hover:bg-muted"
                             >
                               <Edit2 className="h-3 w-3" />
                               <span>Edit</span>
@@ -588,7 +588,7 @@ export const UnifiedStagePoliciesRulesWorkspace: React.FC<UnifiedStagePoliciesRu
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center p-12 text-xs font-semibold text-slate-500">
+        <div className="flex items-center justify-center p-12 text-xs font-semibold text-muted-foreground">
           Loading Laboratory Workspace…
         </div>
       }

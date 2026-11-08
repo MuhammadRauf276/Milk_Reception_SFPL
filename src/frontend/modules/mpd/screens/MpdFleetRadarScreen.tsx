@@ -161,9 +161,9 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-xl border">
+      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-2xl border">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search"
@@ -180,7 +180,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
               className={`px-3 py-1.5 min-h-11 shrink-0 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
                 activeFilter === filter
                   ? 'bg-primary text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  : 'bg-muted text-secondary-foreground hover:bg-muted'
               }`}
             >
               {filter === 'ALL' && 'All'}
@@ -197,7 +197,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
             type="button"
             onClick={() => setFocusId(null)}
             className={`px-3 min-h-11 shrink-0 rounded-lg text-xs font-semibold whitespace-nowrap ${
-              focusId === null ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              focusId === null ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             All
@@ -208,7 +208,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
               type="button"
               onClick={() => setFocusId(focusId === r.id ? null : r.id)}
               className={`px-3 min-h-11 shrink-0 rounded-lg text-xs font-semibold whitespace-nowrap tabular-nums ${
-                focusId === r.id ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                focusId === r.id ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
               }`}
             >
               {shortLabel(r.vehicleNumber ?? r.routeCode ?? 'Vehicle')}
@@ -240,7 +240,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
                 Tankers in transit
               </h2>
             </div>
-            <span className="text-xs tabular-nums font-medium text-slate-500">
+            <span className="text-xs tabular-nums font-medium text-muted-foreground">
               {filteredTankers.length} active shipments
             </span>
           </div>
@@ -248,7 +248,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-subtle border-b border-border text-slate-600 font-semibold">
+                <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold">
                   <th className="py-3 px-4">Vehicle</th>
                   <th className="py-3 px-4">Origin ZMCC</th>
                   <th className="py-3 px-4 text-right">Volume</th>
@@ -261,7 +261,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
               <tbody className="divide-y divide-border">
                 {filteredTankers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-6 text-center text-slate-500">
+                    <td colSpan={7} className="py-6 text-center text-muted-foreground">
                       No tankers
                     </td>
                   </tr>
@@ -272,21 +272,21 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
                         <div className="tabular-nums font-semibold text-foreground">{t.vehicleNumber}</div>
                       </td>
                       <td className="py-3 px-4">
-                        <div className="font-semibold text-slate-800">{t.sourceName ?? NO_DATA}</div>
-                        <div className="text-slate-500 tabular-nums text-xs">{t.sourceCode}</div>
+                        <div className="font-semibold text-foreground">{t.sourceName ?? NO_DATA}</div>
+                        <div className="text-muted-foreground tabular-nums text-xs">{t.sourceCode}</div>
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="tabular-nums font-semibold text-foreground">{t.grossLiters.toLocaleString()} L</div>
-                        <div className="text-slate-500 tabular-nums text-xs">{formatMetric(t.at13tsLiters, ' L')} @13%TS</div>
+                        <div className="text-muted-foreground tabular-nums text-xs">{formatMetric(t.at13tsLiters, ' L')} @13%TS</div>
                       </td>
                       <td className="py-3 px-4 text-center tabular-nums">
-                        <span className="font-semibold text-slate-800">{formatMetric(t.fatPercent, '%')}</span>
-                        <span className="text-slate-400 mx-1">|</span>
-                        <span className="font-semibold text-slate-800">{formatMetric(t.lr)}</span>
+                        <span className="font-semibold text-foreground">{formatMetric(t.fatPercent, '%')}</span>
+                        <span className="text-muted-foreground mx-1">|</span>
+                        <span className="font-semibold text-foreground">{formatMetric(t.lr)}</span>
                       </td>
                       <td className="py-3 px-4 text-center">
                         {t.temperatureCelsius === null ? (
-                          <span className="text-slate-400">{NO_DATA}</span>
+                          <span className="text-muted-foreground">{NO_DATA}</span>
                         ) : (
                           <span
                             className={`inline-flex items-center gap-1 tabular-nums font-semibold px-2 py-0.5 rounded ${
@@ -303,8 +303,8 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        <div className="flex items-center gap-1 text-slate-600">
-                          <Clock className="w-3 h-3 text-slate-400" />
+                        <div className="flex items-center gap-1 text-secondary-foreground">
+                          <Clock className="w-3 h-3 text-muted-foreground" />
                           <span className="tabular-nums">
                             {new Date(t.departureTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
@@ -334,7 +334,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
                 Mobile Tester routes
               </h2>
             </div>
-            <span className="text-xs tabular-nums font-medium text-slate-500">
+            <span className="text-xs tabular-nums font-medium text-muted-foreground">
               {filteredRoutes.length} active routes
             </span>
           </div>
@@ -342,7 +342,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-subtle border-b border-border text-slate-600 font-semibold">
+                <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold">
                   <th className="py-3 px-4">Route / Mobile Tester</th>
                   <th className="py-3 px-4">Vehicle</th>
                   <th className="py-3 px-4 text-center">Shop Progress</th>
@@ -355,7 +355,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
               <tbody className="divide-y divide-border">
                 {filteredRoutes.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-6 text-center text-slate-500">
+                    <td colSpan={7} className="py-6 text-center text-muted-foreground">
                       No active Mobile Tester field routes.
                     </td>
                   </tr>
@@ -364,19 +364,19 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
                     <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4">
                         <div className="font-semibold text-foreground">{r.routeName ?? NO_DATA}</div>
-                        <div className="text-slate-500 text-xs">
-                          <span className="tabular-nums">{r.routeCode ?? NO_DATA}</span> · Mobile Tester: <strong className="text-slate-700">{r.motName ?? NO_DATA}</strong>
+                        <div className="text-muted-foreground text-xs">
+                          <span className="tabular-nums">{r.routeCode ?? NO_DATA}</span> · Mobile Tester: <strong className="text-secondary-foreground">{r.motName ?? NO_DATA}</strong>
                         </div>
                       </td>
-                      <td className="py-3 px-4 tabular-nums font-semibold text-slate-800">
+                      <td className="py-3 px-4 tabular-nums font-semibold text-foreground">
                         {r.vehicleNumber ?? NO_DATA}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <div className="inline-flex items-center gap-1.5">
-                          <span className="tabular-nums font-semibold text-slate-800">
+                          <span className="tabular-nums font-semibold text-foreground">
                             {r.completedShops}/{r.totalShops}
                           </span>
-                          <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
                             <div
                               className="h-full bg-primary"
                               style={{ width: `${r.totalShops > 0 ? (r.completedShops / r.totalShops) * 100 : 0}%` }}
@@ -388,11 +388,11 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
                         {r.grossLiters.toLocaleString()} L
                       </td>
                       <td className="py-3 px-4 text-center tabular-nums">
-                        <span className="font-semibold text-slate-800">{formatMetric(r.fatPercent, '%')}</span>
-                        <span className="text-slate-400 mx-1">|</span>
-                        <span className="font-semibold text-slate-800">{formatMetric(r.lr)}</span>
+                        <span className="font-semibold text-foreground">{formatMetric(r.fatPercent, '%')}</span>
+                        <span className="text-muted-foreground mx-1">|</span>
+                        <span className="font-semibold text-foreground">{formatMetric(r.lr)}</span>
                       </td>
-                      <td className="py-3 px-4 text-slate-700 font-medium">
+                      <td className="py-3 px-4 text-secondary-foreground font-medium">
                         {r.etaOrArrival}
                       </td>
                       <td className="py-3 px-4 text-center">

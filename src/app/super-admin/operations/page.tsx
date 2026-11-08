@@ -84,7 +84,7 @@ export default function SuperAdminOperationsPage() {
         {/* SEARCH FORM */}
         <form onSubmit={(e) => e.preventDefault()} className="flex items-center space-x-2">
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-3.5" />
             <input
               type="text"
               value={searchQuery}
@@ -93,12 +93,12 @@ export default function SuperAdminOperationsPage() {
                 setPage(1);
               }}
               placeholder="Search Vehicle / Visit #…"
-              className="pl-9 pr-3 min-h-11 rounded-xl border border-border-strong text-xs bg-card focus:outline-hidden focus:border-primary w-64"
+              className="pl-9 pr-3 min-h-11 rounded-lg border border-border-strong text-xs bg-card focus:outline-hidden focus:border-primary w-64"
             />
           </div>
           <button
             type="submit"
-            className="min-h-11 px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary-hover transition"
+            className="min-h-11 px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary-hover transition"
           >
             Search
           </button>
@@ -106,7 +106,7 @@ export default function SuperAdminOperationsPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-card border border-border rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
+        <div className="p-4 bg-card border border-border rounded-2xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
           <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{error}</span>
         </div>
@@ -121,12 +121,12 @@ export default function SuperAdminOperationsPage() {
             <Skeleton className="h-28 w-full rounded-xl" />
           </div>
         ) : visits.length === 0 ? (
-          <div className="p-8 bg-card rounded-xl border border-border text-center text-slate-400 text-xs font-medium">
+          <div className="p-8 bg-card rounded-2xl border border-border text-center text-muted-foreground text-xs font-medium">
             No vehicle visits found.
           </div>
         ) : (
           visits.map((v) => (
-            <div key={v.id} className="bg-card rounded-xl border border-border/80 p-5 space-y-4 shadow-2xs">
+            <div key={v.id} className="bg-card rounded-2xl border border-border/80 p-5 space-y-4 shadow-2xs">
               <div className="flex items-center justify-between border-b border-border/60 pb-3">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-blue-50 text-primary rounded-lg">
@@ -135,9 +135,9 @@ export default function SuperAdminOperationsPage() {
                   <div>
                     <h3 className="font-semibold text-foreground text-sm flex items-center space-x-2">
                       <span>{v.vehicleNumber}</span>
-                      <span className="tabular-nums text-xs text-slate-500 font-semibold">({v.visitNumber})</span>
+                      <span className="tabular-nums text-xs text-muted-foreground font-semibold">({v.visitNumber})</span>
                     </h3>
-                    <div className="text-[11px] text-slate-500 font-medium">
+                    <div className="text-xs text-muted-foreground font-medium">
                       Token: <span className="tabular-nums font-semibold">{v.tokenNumber || 'N/A'}</span> | Created:{' '}
                       <span className="tabular-nums">{new Date(v.createdAt).toLocaleString()}</span>
                     </div>
@@ -154,27 +154,27 @@ export default function SuperAdminOperationsPage() {
               {/* TIMELINE MILESTONE SUMMARY */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-card p-3 rounded-lg border border-border/60">
                 <div>
-                  <span className="text-[10px] uppercase font-semibold text-slate-400 block">Gate Security</span>
-                  <div className="font-semibold text-slate-700 mt-0.5">
+                  <span className="text-xs font-semibold text-muted-foreground block">Gate Security</span>
+                  <div className="font-semibold text-secondary-foreground mt-0.5">
                     Entry: {v.gateLog?.entryTimestamp ? new Date(v.gateLog.entryTimestamp).toLocaleTimeString() : 'Pending'}
                   </div>
-                  <div className="font-semibold text-slate-700">
+                  <div className="font-semibold text-secondary-foreground">
                     Exit: {v.gateLog?.exitTimestamp ? new Date(v.gateLog.exitTimestamp).toLocaleTimeString() : 'Pending'}
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-[10px] uppercase font-semibold text-slate-400 block">Weighbridge Tickets</span>
-                  <div className="font-semibold text-slate-700 mt-0.5">
+                  <span className="text-xs font-semibold text-muted-foreground block">Weighbridge Tickets</span>
+                  <div className="font-semibold text-secondary-foreground mt-0.5">
                     Gross: {v.weightTicket?.grossWeightKg ? `${v.weightTicket.grossWeightKg.toLocaleString()} kg` : 'Pending'}
                   </div>
-                  <div className="font-semibold text-slate-700">
+                  <div className="font-semibold text-secondary-foreground">
                     Tare: {v.weightTicket?.tareWeightKg ? `${v.weightTicket.tareWeightKg.toLocaleString()} kg` : 'Pending'}
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-[10px] uppercase font-semibold text-slate-400 block">Net Reception Volume</span>
+                  <span className="text-xs font-semibold text-muted-foreground block">Net Reception Volume</span>
                   <div className="tabular-nums font-semibold text-emerald-800 text-sm mt-0.5">
                     {v.weightTicket?.netWeightKg ? `${v.weightTicket.netWeightKg.toLocaleString()} kg Net` : 'Pending'}
                   </div>
@@ -183,11 +183,11 @@ export default function SuperAdminOperationsPage() {
 
               {/* PORTIONS BREAKDOWN */}
               <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-slate-700">Milk Portions ({v.portions.length})</h4>
+                <h4 className="text-xs font-semibold text-secondary-foreground">Milk Portions ({v.portions.length})</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                   {v.portions.map((p) => (
                     <div key={p.id} className="p-3 bg-card border border-border rounded-lg space-y-1">
-                      <div className="flex justify-between items-center font-semibold text-slate-800">
+                      <div className="flex justify-between items-center font-semibold text-foreground">
                         <span>Portion #{p.portionNumber} ({p.contractorName})</span>
                         <span className={`px-2 py-0.5 rounded text-[10px] ${
                           p.plantDecision === 'ACCEPTED'
@@ -199,11 +199,11 @@ export default function SuperAdminOperationsPage() {
                           {p.plantDecision || 'PENDING'}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-600">
+                      <div className="text-xs text-secondary-foreground">
                         Dispatch Qty: <strong>{formatDispatchQuantity(p.dispatchQuantityValue, p.dispatchQuantityUnit)}</strong>
                       </div>
                       {p.unloadingLog && (
-                        <div className="text-[11px] text-slate-600">
+                        <div className="text-xs text-secondary-foreground">
                           Silo: <strong>{p.unloadingLog.siloCode}</strong> ({p.unloadingLog.siloName})
                         </div>
                       )}
@@ -218,7 +218,7 @@ export default function SuperAdminOperationsPage() {
 
       {/* PAGINATION CONTROLS */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between bg-card px-4 py-3 border border-border rounded-xl text-xs font-semibold text-slate-700">
+        <div className="flex items-center justify-between bg-card px-4 py-3 border border-border rounded-xl text-xs font-semibold text-secondary-foreground">
           <div>
             Showing page <span className="font-semibold text-primary">{currentPage}</span> of{' '}
             <span className="font-semibold text-primary">{totalPages}</span> ({totalRecords.toLocaleString()} total visits)
@@ -228,7 +228,7 @@ export default function SuperAdminOperationsPage() {
               type="button"
               disabled={currentPage <= 1 || query.isFetching}
               onClick={() => goToPage(Math.max(1, currentPage - 1))}
-              className="min-h-11 px-3 py-1.5 rounded-lg border border-border-strong hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
+              className="min-h-11 px-3 py-1.5 rounded-lg border border-border-strong hover:bg-subtle disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
             >
               Previous
             </button>
@@ -236,7 +236,7 @@ export default function SuperAdminOperationsPage() {
               type="button"
               disabled={currentPage >= totalPages || query.isFetching}
               onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
-              className="min-h-11 px-3 py-1.5 rounded-lg border border-border-strong hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
+              className="min-h-11 px-3 py-1.5 rounded-lg border border-border-strong hover:bg-subtle disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
             >
               Next
             </button>

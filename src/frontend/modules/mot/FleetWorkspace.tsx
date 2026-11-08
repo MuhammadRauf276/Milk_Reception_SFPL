@@ -46,7 +46,7 @@ const STATUS_META: Record<FleetStatus, { label: string; tone: string }> = {
   COLLECTING: { label: 'Collecting', tone: 'bg-amber-100 text-amber-800' },
   RETURNING: { label: 'Returning', tone: 'bg-blue-100 text-blue-800' },
   AT_ZMCC_WAITING_UNLOAD: { label: 'Waiting unload', tone: 'bg-violet-100 text-violet-800' },
-  INACTIVE: { label: 'Inactive', tone: 'bg-slate-200 text-slate-700' },
+  INACTIVE: { label: 'Inactive', tone: 'bg-muted text-secondary-foreground' },
 };
 
 const fmt = (iso: string | null) =>
@@ -121,7 +121,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-primary p-2.5 text-white">
             <Truck className="h-5 w-5" />
@@ -187,13 +187,13 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
 
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         {fleetQuery.isLoading ? (
-          <div className="p-8 text-center text-xs font-semibold text-slate-500">Loading fleet…</div>
+          <div className="p-8 text-center text-xs font-semibold text-muted-foreground">Loading fleet…</div>
         ) : rows.length === 0 ? (
-          <div className="p-8 text-center text-xs font-semibold text-slate-500">No vehicles found.</div>
+          <div className="p-8 text-center text-xs font-semibold text-muted-foreground">No vehicles found.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-border bg-muted/60 text-[10px] font-semibold uppercase tracking-wider text-slate-700">
+              <thead className="border-b border-border bg-muted/60 text-xs font-semibold text-secondary-foreground">
                 <tr>
                   <th className="p-3">Vehicle</th>
                   <th className="p-3">Home ZMCC</th>
@@ -210,32 +210,32 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
                   return (
                     <tr key={r.id} className="hover:bg-subtle">
                       <td className="p-3 font-semibold tabular-nums text-primary">{r.vehicle_number}</td>
-                      <td className="p-3 font-medium text-slate-700">{r.zmcc_name}</td>
+                      <td className="p-3 font-medium text-secondary-foreground">{r.zmcc_name}</td>
                       <td className="p-3">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${st.tone}`}>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${st.tone}`}>
                           {st.label}
                         </span>
                         {r.arrival_token ? (
-                          <span className="ml-1.5 text-[10px] tabular-nums text-slate-500">{r.arrival_token}</span>
+                          <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{r.arrival_token}</span>
                         ) : null}
                       </td>
-                      <td className="p-3 text-slate-700">
+                      <td className="p-3 text-secondary-foreground">
                         {r.last_journey ? (
                           <>
                             <span className="font-semibold tabular-nums" title={r.last_journey.route_name ?? undefined}>
                               #{r.last_journey.journey_number}
                             </span>
-                            <span className="block text-[10px] text-slate-500">{fmt(r.last_journey.started_at)}</span>
+                            <span className="block text-xs text-muted-foreground">{fmt(r.last_journey.started_at)}</span>
                           </>
                         ) : (
-                          <span className="text-slate-400">No journey yet</span>
+                          <span className="text-muted-foreground">No journey yet</span>
                         )}
                       </td>
                       <td className="space-x-2 whitespace-nowrap p-3 text-right">
                         <button
                           type="button"
                           onClick={() => setHistoryRow(r)}
-                          className="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-muted px-3 font-semibold text-slate-800 hover:bg-border"
+                          className="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-muted px-3 font-semibold text-foreground hover:bg-border"
                         >
                           <History className="h-3.5 w-3.5" />
                           History{r.transfers.length > 0 ? ` (${r.transfers.length})` : ''}
@@ -252,7 +252,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
                         <button
                           type="button"
                           onClick={() => setVehicleSheet({ editing: toItem(r) })}
-                          className="min-h-[44px] rounded-lg bg-muted px-3 font-semibold text-slate-800 hover:bg-border"
+                          className="min-h-[44px] rounded-lg bg-muted px-3 font-semibold text-foreground hover:bg-border"
                         >
                           Edit
                         </button>
@@ -306,7 +306,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
           onClose={() => setHistoryRow(null)}
         >
           {historyRow.transfers.length === 0 ? (
-            <p className="text-xs font-semibold text-slate-500">
+            <p className="text-xs font-semibold text-muted-foreground">
               This vehicle has never been moved. Home ZMCC: {historyRow.zmcc_name}.
             </p>
           ) : (
@@ -316,7 +316,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
                   <p className="font-semibold text-foreground">
                     {t.from_zmcc ?? 'Unknown'} to {t.to_zmcc ?? 'Unknown'}
                   </p>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-muted-foreground">
                     {fmt(t.at)}
                     {t.by ? ` · by ${t.by}` : ''}
                   </p>

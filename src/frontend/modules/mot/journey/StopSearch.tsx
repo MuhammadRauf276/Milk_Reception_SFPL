@@ -40,7 +40,7 @@ export function StopSearch({ stops, onSelectPending }: Props) {
   return (
                       <div ref={searchDropdownRef} className="relative">
                         <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground">
                             <Search className="w-4 h-4" />
                           </div>
                           <input
@@ -52,7 +52,7 @@ export function StopSearch({ stops, onSelectPending }: Props) {
                             }}
                             onFocus={() => setIsSearchOpen(true)}
                             placeholder="Search shop"
-                            className="min-h-11 w-full text-xs font-semibold pl-9 pr-8 py-2.5 bg-subtle border border-border rounded-xl text-foreground focus:ring-2 focus:ring-primary focus:bg-white outline-hidden"
+                            className="min-h-11 w-full text-xs font-semibold pl-9 pr-8 py-2.5 bg-subtle border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary focus:bg-card outline-hidden"
                           />
                           {shopSearchQuery && (
                             <button
@@ -61,7 +61,7 @@ export function StopSearch({ stops, onSelectPending }: Props) {
                                 setShopSearchQuery('');
                                 setIsSearchOpen(false);
                               }}
-                              className="min-h-11 min-w-11 absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                              className="min-h-11 min-w-11 absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-secondary-foreground"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -71,7 +71,7 @@ export function StopSearch({ stops, onSelectPending }: Props) {
                         {isSearchOpen && (
                           <div className="absolute z-30 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-card border border-border rounded-xl shadow-lg divide-y divide-border">
                             {matchingSearchStops.length === 0 ? (
-                              <div className="p-3 text-center text-xs text-slate-400">
+                              <div className="p-3 text-center text-xs text-muted-foreground">
                                 No matching shops found
                               </div>
                             ) : (
@@ -93,33 +93,33 @@ export function StopSearch({ stops, onSelectPending }: Props) {
                                     className="min-h-11 min-w-11 w-full p-2.5 text-left flex items-center justify-between hover:bg-subtle transition"
                                   >
                                     <div className="flex items-center space-x-2">
-                                      <span className="w-6 h-6 rounded-md bg-muted text-slate-700 text-xs font-semibold flex items-center justify-center shrink-0">
+                                      <span className="w-6 h-6 rounded-md bg-muted text-secondary-foreground text-xs font-semibold flex items-center justify-center shrink-0">
                                         {stop.planned_sequence}
                                       </span>
                                       <div>
                                         <div className="text-xs font-semibold text-foreground">
-                                          {sName} <span className="text-[10px] text-slate-500 font-normal">({sCode})</span>
+                                          {sName} <span className="text-xs text-muted-foreground font-normal">({sCode})</span>
                                         </div>
-                                        <div className="text-[10px] text-slate-500">
+                                        <div className="text-xs text-muted-foreground">
                                           {stop.area_name || stop.area_code || 'No area'}
                                         </div>
                                       </div>
                                     </div>
                                     <div className="flex items-center space-x-1.5">
                                       {isVisited ? (
-                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                                        <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
                                           Completed
                                         </span>
                                       ) : isSkipped ? (
-                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800">
+                                        <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-800">
                                           Skipped
                                         </span>
                                       ) : isRejected ? (
-                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800">
+                                        <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-800">
                                           Rejected
                                         </span>
                                       ) : (
-                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary text-white">
+                                        <span className="px-1.5 py-0.5 rounded text-xs font-semibold bg-primary text-white">
                                           Select
                                         </span>
                                       )}

@@ -100,7 +100,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
   return (
     <div className="space-y-6">
       {/* 1. Header & Quick Actions */}
-      <div className="p-5 rounded-xl bg-card border border-border/80 shadow-xs space-y-4">
+      <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-border/80">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-primary/10 text-primary">
@@ -117,7 +117,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
             <button
               onClick={handleExportCsv}
               disabled={isLoading || error != null || filteredItems.length === 0}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-all disabled:opacity-50 min-h-11"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 min-h-11"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export CSV</span>
@@ -126,7 +126,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
             <button
               onClick={handlePrint}
               disabled={isLoading || error != null || filteredItems.length === 0}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-all disabled:opacity-50 min-h-11"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 min-h-11"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print View</span>
@@ -136,7 +136,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
               <button
                 onClick={onRetry}
                 disabled={isLoading}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-all disabled:opacity-50 min-h-11"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 min-h-11"
               >
                 <span>{isLoading ? 'Syncing…' : 'Refresh'}</span>
               </button>
@@ -145,7 +145,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
         </div>
 
         {/* Record Count Badge */}
-        <div className="flex items-center justify-between text-xs text-slate-500 tabular-nums">
+        <div className="flex items-center justify-between text-xs text-muted-foreground tabular-nums">
           <span>
             {isLoading || error != null ? (
               <span>—</span>
@@ -156,7 +156,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
             )}
           </span>
           {!isLoading && !error && (currentFromDate || currentToDate) ? (
-            <span className="text-[11px] font-semibold text-primary">
+            <span className="text-xs font-semibold text-primary">
               {currentFromDate || 'Start'} to {currentToDate || 'End'}
             </span>
           ) : null}
@@ -164,11 +164,11 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
       </div>
 
       {/* 2. Filters & Search Bar */}
-      <div className="p-4 rounded-xl bg-card border border-border/80 shadow-xs space-y-3">
+      <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Search */}
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               value={searchQuery}
@@ -181,14 +181,14 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
           {/* Business Date Range Filter */}
           {onDateFilterChange && (
             <div className="flex items-center gap-2 text-xs flex-wrap">
-              <span className="font-semibold text-slate-600 text-[11px]">Business Date From:</span>
+              <span className="font-semibold text-secondary-foreground text-xs">Business Date From:</span>
               <input
                 type="date"
                 value={currentFromDate}
                 onChange={(e) => onDateFilterChange(e.target.value || null, currentToDate || null)}
                 className="px-2.5 py-1 text-xs tabular-nums font-semibold rounded-lg bg-subtle border border-border/80 text-foreground min-h-11"
               />
-              <span className="font-semibold text-slate-600 text-[11px]">To:</span>
+              <span className="font-semibold text-secondary-foreground text-xs">To:</span>
               <input
                 type="date"
                 value={currentToDate}
@@ -198,7 +198,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
               {(currentFromDate || currentToDate) && (
                 <button
                   onClick={() => onDateFilterChange(null, null)}
-                  className="px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded min-h-11 min-w-11"
+                  className="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded min-h-11 min-w-11"
                 >
                   Clear
                 </button>
@@ -211,11 +211,11 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
         <div className="flex items-center gap-3 overflow-x-auto pt-2 border-t border-border/60 text-xs flex-wrap">
           {/* Lifecycle Filter */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase">Stage:</span>
+            <span className="text-xs font-semibold text-muted-foreground">Stage:</span>
             <select
               value={lifecycleFilter}
               onChange={(e) => setLifecycleFilter(e.target.value as HistoryLifecycleFilter)}
-              className="px-2 py-1 text-xs font-semibold rounded bg-slate-50 border border-slate-200 text-slate-700 outline-hidden min-h-11"
+              className="px-2 py-1 text-xs font-semibold rounded bg-subtle border border-border text-secondary-foreground outline-hidden min-h-11"
             >
               <option value="ALL">All stages</option>
               <option value="IN_TRANSIT">In transit</option>
@@ -228,11 +228,11 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
 
           {/* QA Decision Filter */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase">QA Decision:</span>
+            <span className="text-xs font-semibold text-muted-foreground">QA Decision:</span>
             <select
               value={qaFilter}
               onChange={(e) => setQaFilter(e.target.value as HistoryQAFilter)}
-              className="px-2 py-1 text-xs font-semibold rounded bg-slate-50 border border-slate-200 text-slate-700 outline-hidden min-h-11"
+              className="px-2 py-1 text-xs font-semibold rounded bg-subtle border border-border text-secondary-foreground outline-hidden min-h-11"
             >
               <option value="ALL">All QA</option>
               <option value="ACCEPTED">Accepted</option>
@@ -244,11 +244,11 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
 
           {/* Receipt Filter */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase">Receipt:</span>
+            <span className="text-xs font-semibold text-muted-foreground">Receipt:</span>
             <select
               value={receiptFilter}
               onChange={(e) => setReceiptFilter(e.target.value as HistoryReceiptFilter)}
-              className="px-2 py-1 text-xs font-semibold rounded bg-slate-50 border border-slate-200 text-slate-700 outline-hidden min-h-11"
+              className="px-2 py-1 text-xs font-semibold rounded bg-subtle border border-border text-secondary-foreground outline-hidden min-h-11"
             >
               <option value="ALL">All receipts</option>
               <option value="FINAL_RECEIPT_EXISTS">Receipt done</option>
@@ -260,7 +260,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
 
       {/* 3. Error Banner */}
       {error && (
-        <div className="bg-card border-border p-4 rounded-xl border text-rose-800 text-xs font-semibold flex items-center justify-between animate-panel-in">
+        <div className="bg-card border-border p-4 rounded-2xl border text-rose-800 text-xs font-semibold flex items-center justify-between animate-panel-in">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-600" />
             <span>{error}</span>
@@ -275,7 +275,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
 
       {/* 4. Loading State */}
       {isLoading && (
-        <div className="p-8 text-center bg-card rounded-xl border border-border/80 text-xs text-slate-500 font-semibold flex items-center justify-center gap-2">
+        <div className="p-8 text-center bg-card rounded-2xl border border-border/80 text-xs text-muted-foreground font-semibold flex items-center justify-center gap-2">
           <Loader2 className="w-4 h-4 animate-spin text-primary" />
           <span>Loading historical transactions…</span>
         </div>
@@ -284,10 +284,10 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
       {/* 5. Empty State */}
       {!isLoading && !error && filteredItems.length === 0 && (
         <div className="p-12 text-center bg-card rounded-xl border border-border/80 space-y-2">
-          <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto" />
-          <h3 className="text-sm font-semibold text-slate-800">No records</h3>
+          <FileSpreadsheet className="w-8 h-8 text-muted-foreground mx-auto" />
+          <h3 className="text-sm font-semibold text-foreground">No records</h3>
           {onRetry && (
-            <button type="button" onClick={onRetry} className="inline-flex min-h-11 items-center rounded-xl border border-border bg-card px-4 text-xs font-semibold text-primary hover:bg-subtle">
+            <button type="button" onClick={onRetry} className="inline-flex min-h-11 items-center rounded-lg border border-border bg-card px-4 text-xs font-semibold text-primary hover:bg-subtle">
               Refresh
             </button>
           )}
@@ -298,7 +298,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
       {!isLoading && !error && filteredItems.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-border/80 bg-card shadow-xs">
           <table className="w-full text-left text-xs tabular-nums">
-            <thead className="bg-slate-50 text-[10px] font-sans font-semibold uppercase tracking-wider text-slate-600 border-b border-border/80">
+            <thead className="bg-subtle text-xs font-sans font-semibold text-secondary-foreground border-b border-border/80">
               <tr>
                 <th className="py-2.5 px-3">Business Date</th>
                 <th className="py-2.5 px-3">Vehicle #</th>
@@ -320,13 +320,13 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
             <tbody className="divide-y divide-border/40 text-xs">
               {paginate(filteredItems, Math.min(page, pageCount(filteredItems.length))).map((item) => (
                 <tr key={item.visitId} className="hover:bg-subtle transition-colors">
-                  <td className="py-2.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                  <td className="py-2.5 px-3 font-semibold text-foreground whitespace-nowrap">
                     {item.businessDate || 'Pending plant completion'}
                   </td>
                   <td className="py-2.5 px-3 font-semibold text-foreground whitespace-nowrap">
                     {item.vehicleNumber}
                   </td>
-                  <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
+                  <td className="py-2.5 px-3 text-secondary-foreground whitespace-nowrap">
                     {item.tokenNumber || '—'}
                   </td>
                   <td className="py-2.5 px-3 font-sans whitespace-nowrap">
@@ -344,21 +344,21 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
                       {item.lifecycleStageLabel}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 font-sans text-[11px] whitespace-nowrap">
-                    <span className="font-semibold text-slate-700">
+                  <td className="py-2.5 px-3 font-sans text-xs whitespace-nowrap">
+                    <span className="font-semibold text-secondary-foreground">
                       {item.portionQASummaryText || `${item.portionCount} portions`}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
+                  <td className="py-2.5 px-3 font-semibold text-foreground whitespace-nowrap">
                     {item.dispatchGrossLiters != null ? `${item.dispatchGrossLiters.toLocaleString()} L` : '—'}
                   </td>
                   <td className="py-2.5 px-3 font-semibold text-blue-900 whitespace-nowrap">
                     {item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : '—'}
                   </td>
-                  <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
+                  <td className="py-2.5 px-3 text-secondary-foreground whitespace-nowrap">
                     {item.firstWeightKg != null ? `${item.firstWeightKg.toLocaleString()} kg` : '—'}
                   </td>
-                  <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
+                  <td className="py-2.5 px-3 text-secondary-foreground whitespace-nowrap">
                     {item.secondWeightKg != null ? `${item.secondWeightKg.toLocaleString()} kg` : '—'}
                   </td>
                   <td className="py-2.5 px-3 font-semibold text-primary whitespace-nowrap">
@@ -370,16 +370,16 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
                   <td className="py-2.5 px-3 font-semibold text-emerald-900 whitespace-nowrap">
                     {item.plant13TsLiters != null ? `${item.plant13TsLiters.toLocaleString()} L` : '—'}
                   </td>
-                  <td className="py-2.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                  <td className="py-2.5 px-3 font-semibold text-foreground whitespace-nowrap">
                     {item.destinationSilo || '—'}
                   </td>
-                  <td className="py-2.5 px-3 font-sans text-slate-600 whitespace-nowrap">
+                  <td className="py-2.5 px-3 font-sans text-secondary-foreground whitespace-nowrap">
                     {item.finalReceiptTimestamp ? formatOperationalDatetime(item.finalReceiptTimestamp) : '—'}
                   </td>
                   <td className="py-2.5 px-3 text-right whitespace-nowrap font-sans">
                     <button
                       onClick={() => onInspectDetails(item.group.primaryLog)}
-                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-all min-h-11 min-w-11"
+                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded bg-subtle border border-border text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-[color,background-color,border-color,box-shadow,opacity,transform] min-h-11 min-w-11"
                     >
                       <span>View</span>
                       <ExternalLink className="w-3 h-3" />

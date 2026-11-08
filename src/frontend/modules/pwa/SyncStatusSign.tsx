@@ -121,30 +121,30 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
   const help = counts.needsAttention + counts.oldNeedsAttention;
   const waiting = counts.waiting + counts.oldWaiting;
 
-  let tone = 'border-2 border-black bg-[#eef7ee] text-emerald-950';
+  let tone = 'border border-border bg-card text-foreground';
   let icon = <Wifi className="h-3.5 w-3.5 text-emerald-700" aria-hidden />;
   let label = 'Online';
 
   if (!online || forced) {
     tone = forced
-      ? 'border-2 border-amber-600 bg-[#fffbeb] text-amber-950'
-      : 'border-2 border-black bg-[#fffbeb] text-amber-950';
+      ? 'border border-amber-300 bg-amber-50 text-amber-900'
+      : 'border border-amber-300 bg-amber-50 text-amber-900';
     icon = <WifiOff className="h-3.5 w-3.5 text-amber-800" aria-hidden />;
     label = waiting > 0 ? `Offline (${waiting})` : 'Offline';
   } else if (device?.state === 'BLOCKED') {
-    tone = 'border-2 border-black bg-rose-50 text-rose-950';
+    tone = 'border border-rose-200 bg-rose-50 text-rose-800';
     icon = <ShieldAlert className="h-3.5 w-3.5 text-rose-700" aria-hidden />;
     label = 'Blocked';
   } else if (help > 0) {
-    tone = 'border-2 border-black bg-rose-50 text-rose-950';
+    tone = 'border border-rose-200 bg-rose-50 text-rose-800';
     icon = <AlertCircle className="h-3.5 w-3.5 text-rose-700" aria-hidden />;
     label = `Help (${help})`;
   } else if (sending) {
-    tone = 'border-2 border-black bg-[#eef7ee] text-emerald-950';
+    tone = 'border border-border bg-card text-foreground';
     icon = <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-700" aria-hidden />;
     label = waiting > 0 ? `Online (${waiting})` : 'Online';
   } else if (waiting > 0) {
-    tone = 'border-2 border-black bg-[#eef7ee] text-emerald-950';
+    tone = 'border border-border bg-card text-foreground';
     icon = <Wifi className="h-3.5 w-3.5 text-emerald-700" aria-hidden />;
     label = `Online (${waiting})`;
   }
@@ -171,7 +171,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
           aria-expanded={open}
           aria-label={`Connection and sync status: ${label}`}
           className={cn(
-            'inline-flex min-h-[32px] items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold shadow-xs transition hover:opacity-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
+            'inline-flex min-h-[32px] items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition hover:opacity-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
             tone,
             className
           )}
@@ -203,7 +203,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
               )}
               <span>Offline Mode</span>
             </div>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {forced ? 'Work is queued locally on device' : 'Connected to server in real time'}
             </p>
           </div>
@@ -227,7 +227,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
             <span
               aria-hidden="true"
               className={cn(
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-card shadow-md ring-0 transition duration-200 ease-in-out',
                 forced ? 'translate-x-5' : 'translate-x-0'
               )}
             />
@@ -265,7 +265,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
                 <li key={r.clientUuid} className="flex min-h-[36px] items-center justify-between gap-2 border-b py-1 text-xs last:border-b-0">
                   <span className="truncate">
                     <span className="block font-medium truncate">{KIND_LABELS[r.item.kind] ?? r.item.kind}</span>
-                    <span className="block text-[11px] text-muted-foreground">{timeLabel(r.item.capturedAt)}</span>
+                    <span className="block text-xs text-muted-foreground">{timeLabel(r.item.capturedAt)}</span>
                   </span>
                   <span className={`shrink-0 text-right font-semibold ${st.tone}`}>{st.word}</span>
                 </li>

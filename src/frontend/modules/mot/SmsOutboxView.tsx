@@ -97,7 +97,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
 
   return (
     <div className="space-y-4 animate-panel-in">
-      <div className="p-4 bg-card rounded-xl border border-border shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="p-4 bg-card rounded-2xl border border-border shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center space-x-3">
           <div>
             <h2 className="text-base font-semibold text-foreground">WhatsApp receipts</h2>
@@ -118,7 +118,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                 aria-pressed={statusFilter === v}
                 onClick={() => setStatusFilter(v)}
                 className={`min-h-[44px] px-3 rounded-lg text-xs font-semibold ${
-                  statusFilter === v ? 'bg-primary text-white' : 'text-slate-700'
+                  statusFilter === v ? 'bg-primary text-white' : 'text-secondary-foreground'
                 }`}
               >
                 {l}
@@ -128,7 +128,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
           <button
             type="button"
             onClick={fetchOutbox}
-            className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
+            className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
           >
             <span>Refresh</span>
           </button>
@@ -144,7 +144,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
             type="button"
             disabled={isDispatching}
             onClick={handleDispatchAll}
-            className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-hover shadow-2xs transition disabled:opacity-50"
+            className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-hover shadow-2xs transition disabled:opacity-50"
           >
             <Send className={`w-3.5 h-3.5 ${isDispatching ? 'animate-pulse' : ''}`} />
             <span>{isDispatching ? 'Dispatching…' : 'Dispatch Queue'}</span>
@@ -160,7 +160,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
       )}
 
       {error && (
-        <div className="bg-card border-border p-4 border rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
+        <div className="bg-card border-border p-4 border rounded-2xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
           <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{error}</span>
         </div>
@@ -170,7 +170,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-border bg-subtle text-[10px] font-semibold uppercase text-slate-500 tracking-wider">
+              <tr className="border-b border-border bg-subtle text-xs font-semibold text-muted-foreground">
                 <th className="p-3">Shop & Recipient</th>
                 <th className="p-3">WhatsApp Receipt Message</th>
                 <th className="p-3">Milk Details</th>
@@ -182,13 +182,13 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
             <tbody className="divide-y divide-border text-xs">
               {loading && items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500 font-semibold">
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground font-semibold">
                     Loading receipts queue…
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
                     No WhatsApp receipt records found.
                   </td>
                 </tr>
@@ -197,12 +197,12 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                   <tr key={item.id} className="hover:bg-subtle">
                     <td className="p-3">
                       <div className="font-semibold text-foreground">{item.recipient_phone}</div>
-                      <div className="text-[11px] text-slate-500">
+                      <div className="text-xs text-muted-foreground">
                         {item.collection?.shop_name} ({item.collection?.shop_code})
                       </div>
                     </td>
                     <td className="p-3 max-w-xs">
-                      <div className="bg-card border-border p-2.5 rounded-lg border text-[11px] tabular-nums text-slate-800 whitespace-pre-line wrap-break-word font-mono">
+                      <div className="bg-card border-border p-2.5 rounded-lg border text-xs tabular-nums text-foreground whitespace-pre-line wrap-break-word font-mono">
                         {item.message_body}
                       </div>
                     </td>
@@ -210,7 +210,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                       <div className="tabular-nums font-semibold text-blue-900">
                         {item.collection?.collection_number}
                       </div>
-                      <div className="text-[11px] text-slate-600">
+                      <div className="text-xs text-secondary-foreground">
                         {item.collection?.gross_liters} Liters
                       </div>
                     </td>
@@ -229,7 +229,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                         {item.status}
                       </span>
                     </td>
-                    <td className="p-3 text-slate-500 text-[11px]">
+                    <td className="p-3 text-muted-foreground text-xs">
                       {new Date(item.created_at).toLocaleString()}
                     </td>
                     <td className="p-3 text-right">
@@ -237,7 +237,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                         <button
                           type="button"
                           onClick={() => handleCopy(item.id, item.message_body)}
-                          className="min-h-11 min-w-11 inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-border text-slate-700 hover:bg-slate-100 transition"
+                          className="min-h-11 min-w-11 inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-border text-secondary-foreground hover:bg-muted transition"
                           title="Copy receipt to clipboard"
                         >
                           {copiedId === item.id ? (
@@ -247,7 +247,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                             </>
                           ) : (
                             <>
-                              <Copy className="w-3.5 h-3.5 text-slate-500" />
+                              <Copy className="w-3.5 h-3.5 text-muted-foreground" />
                               <span>Copy</span>
                             </>
                           )}

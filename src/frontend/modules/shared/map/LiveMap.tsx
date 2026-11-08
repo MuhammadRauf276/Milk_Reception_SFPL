@@ -11,7 +11,7 @@ export * from './mapTypes';
 export const LiveMap = dynamic<LiveMapProps>(() => import('./LiveMapCanvas').then((m) => m.LiveMapCanvas), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full min-h-[320px] w-full items-center justify-center rounded-xl border border-border bg-subtle text-xs text-slate-500">
+    <div className="flex h-full min-h-[320px] w-full items-center justify-center rounded-xl border border-border bg-subtle text-xs text-muted-foreground">
       <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading map…
     </div>
   ),

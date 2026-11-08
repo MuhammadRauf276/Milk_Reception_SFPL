@@ -123,7 +123,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
         isOut
           ? 'border-rose-300 bg-rose-50/20'
           : hasValue
-            ? 'border-border bg-white'
+            ? 'border-border bg-card'
             : 'border-border bg-subtle'
       )}
     >
@@ -136,18 +136,18 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             </span>
             <span
               className={cn(
-                'rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
+                'rounded-full px-2.5 py-0.5 text-xs font-semibold',
                 isCalculated
                   ? 'bg-purple-100 text-purple-900 border border-purple-300'
                   : test.isRequired
                   ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-slate-100 text-slate-600'
+                  : 'bg-muted text-secondary-foreground'
               )}
             >
               {isCalculated ? 'AUTO (Formula)' : test.isRequired ? 'Required *' : 'Optional (Applied)'}
             </span>
           </div>
-          <span className="text-xs font-mono text-slate-500 block mt-0.5">{test.testCode}</span>
+          <span className="text-xs font-mono text-muted-foreground block mt-0.5">{test.testCode}</span>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
@@ -155,14 +155,14 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             <span
               className={cn(
                 'rounded-full border px-2.5 py-0.5 text-xs font-semibold tabular-nums',
-                isNumericFail ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-slate-300 bg-slate-50 text-slate-700'
+                isNumericFail ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-border-strong bg-subtle text-secondary-foreground'
               )}
             >
               {sopHint}
             </span>
           )}
           {test.unit && (
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-700 tabular-nums">
+            <span className="rounded-full border border-border bg-subtle px-2 py-0.5 text-xs font-semibold text-secondary-foreground tabular-nums">
               {test.unit}
             </span>
           )}
@@ -173,10 +173,10 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
       {isCalculated ? (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-slate-700 block">
+            <label className="text-xs font-semibold text-secondary-foreground block">
               Auto-Calculated Value {test.unit ? `(${test.unit})` : ''}
             </label>
-            <span className="inline-flex items-center gap-1 rounded bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
+            <span className="inline-flex items-center gap-1 rounded bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 border border-purple-200">
               <Calculator className="h-3 w-3" />
               <span>Richmond Canonical Formula</span>
             </span>
@@ -186,15 +186,15 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             readOnly
             value={calculatedValue != null ? `${calculatedValue.toFixed(2)} ${test.unit || '%'}` : ''}
             placeholder="Auto-calculating (awaiting LR & Fat)…"
-            className="w-full min-w-0 min-h-[48px] rounded-xl border border-purple-200 bg-purple-50/40 p-3 text-base font-bold text-purple-950 tabular-nums focus:outline-hidden"
+            className="w-full min-w-0 min-h-[48px] rounded-xl border border-purple-200 bg-purple-50/40 p-3 text-base font-semibold text-purple-950 tabular-nums focus:outline-hidden"
           />
-          <p className="text-[11px] text-purple-800 font-medium">
+          <p className="text-xs text-purple-800 font-medium">
             Calculated automatically from Lactometer Reading (LR) and Fat. Preserves canonical milk solids balance.
           </p>
         </div>
       ) : test.resultType === 'NUMERIC' ? (
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-700 block">
+          <label className="text-xs font-semibold text-secondary-foreground block">
             Observed Value {test.unit ? `(${test.unit})` : ''}
           </label>
           <input
@@ -214,14 +214,14 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             )}
           />
           {isAppliedOnly && !hasValue && (
-            <p className="text-[11px] text-slate-500 font-medium">
+            <p className="text-xs text-muted-foreground font-medium">
               Optional test — leave blank if not conducted.
             </p>
           )}
         </div>
       ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-700 block">Select Observation Result</label>
+          <label className="text-xs font-semibold text-secondary-foreground block">Select Observation Result</label>
           <div className="flex flex-wrap gap-2" role="group" aria-label={test.testName}>
             {test.resultOptions.map((opt) => {
               const isSelected = state.textValue === opt.value;
@@ -238,7 +238,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
                       ? isOptionFail && !isAppliedOnly
                         ? 'border-rose-600 bg-rose-600 text-white shadow-xs'
                         : 'border-primary bg-primary text-white shadow-xs'
-                      : 'border-border bg-white text-slate-700 hover:bg-muted'
+                      : 'border-border bg-card text-secondary-foreground hover:bg-muted'
                   )}
                 >
                   {opt.label || opt.value}
@@ -247,14 +247,14 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             })}
           </div>
           {isAppliedOnly && !hasValue && (
-            <p className="text-[11px] text-slate-500 font-medium">
+            <p className="text-xs text-muted-foreground font-medium">
               Optional test — leave blank if not conducted.
             </p>
           )}
         </div>
       ) : (
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-700 block">Observation Notes / Findings</label>
+          <label className="text-xs font-semibold text-secondary-foreground block">Observation Notes / Findings</label>
           <input
             type="text"
             value={state.textValue}
@@ -266,7 +266,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             )}
           />
           {isAppliedOnly && !hasValue && (
-            <p className="text-[11px] text-slate-500 font-medium">
+            <p className="text-xs text-muted-foreground font-medium">
               Optional test — leave blank if not conducted.
             </p>
           )}

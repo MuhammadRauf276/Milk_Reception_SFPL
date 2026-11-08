@@ -39,27 +39,27 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
   return (
     <div className="space-y-4">
       {/* 1. Overall Plant Storage Summary Card */}
-      <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-2xs space-y-3">
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-2xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
               <Database className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="font-bold text-foreground text-sm sm:text-base leading-tight">
+              <h3 className="font-semibold text-foreground text-sm sm:text-base leading-tight">
                 Plant Silo Storage Overview
               </h3>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Total plant reception silos stock calculated @13% Total Solids
               </p>
             </div>
           </div>
           <div className="text-right sm:text-right">
-            <div className="text-lg sm:text-xl font-bold tracking-tight text-foreground tabular-nums">
+            <div className="text-lg sm:text-xl font-semibold tracking-tight text-foreground tabular-nums">
               {totalStock13Ts.toLocaleString()}{' '}
               <span className="text-xs font-normal text-muted-foreground">L @13% TS</span>
             </div>
-            <p className="text-[11px] text-muted-foreground tabular-nums">
+            <p className="text-xs text-muted-foreground tabular-nums">
               {totalPhysical.toLocaleString()} L physical · {overallUtil}% of {totalCapacity.toLocaleString()} L
             </p>
           </div>
@@ -69,11 +69,11 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
         <div className="space-y-1">
           <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
             <div
-              className={`h-full transition-all duration-300 ${getProgressColor(overallUtil)}`}
+              className={`h-full transition-[width] duration-300 ${getProgressColor(overallUtil)}`}
               style={{ width: `${Math.min(100, overallUtil)}%` }}
             />
           </div>
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground tabular-nums">
+          <div className="flex items-center justify-between text-xs text-muted-foreground tabular-nums">
             <span>Overall Tanker Reception Utilization</span>
             <span>{overallUtil}% Full · {(totalCapacity - totalPhysical).toLocaleString()} L Available Headspace</span>
           </div>
@@ -92,7 +92,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
           }`}
         >
           <span>All Silos</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
+          <span className="text-xs px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
             {silos.length}
           </span>
         </button>
@@ -107,7 +107,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
         >
           <span>Receiving</span>
           {receivingCount > 0 && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
+            <span className="text-xs px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
               {receivingCount}
             </span>
           )}
@@ -122,7 +122,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
           }`}
         >
           <span>In Storage</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
+          <span className="text-xs px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
             {storageCount}
           </span>
         </button>
@@ -136,7 +136,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
           }`}
         >
           <span>Empty</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
+          <span className="text-xs px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
             {emptyCount}
           </span>
         </button>
@@ -154,12 +154,12 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
             <div
               key={silo.id}
               onClick={() => setSelectedSilo(silo)}
-              className="group cursor-pointer rounded-xl border border-border bg-card p-4 shadow-2xs space-y-3 hover:border-primary/50 hover:shadow-xs transition-all"
+              className="group cursor-pointer rounded-2xl border border-border bg-card p-4 shadow-2xs space-y-3 hover:border-primary/50 hover:shadow-xs transition-[color,background-color,border-color,box-shadow,opacity,transform]"
             >
               {/* Top row: Code, Name, Status Badge */}
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="font-mono text-base font-bold uppercase tracking-wider text-foreground">
+                  <span className="font-mono text-base font-semibold uppercase tracking-wider text-foreground">
                     {silo.silo_code}
                   </span>
                   <span className="text-xs text-muted-foreground ml-2">
@@ -188,7 +188,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
 
               {/* Primary @13% TS Metric */}
               <div className="flex items-baseline justify-between pt-0.5">
-                <div className="text-xl font-bold tracking-tight text-foreground tabular-nums">
+                <div className="text-xl font-semibold tracking-tight text-foreground tabular-nums">
                   {silo.current_stock_at_13ts !== null
                     ? silo.current_stock_at_13ts.toLocaleString()
                     : silo.current_stock_liters > 0
@@ -207,11 +207,11 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
               <div className="space-y-1.5">
                 <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-300 ${getProgressColor(fillPercent)}`}
+                    className={`h-full rounded-full transition-[width] duration-300 ${getProgressColor(fillPercent)}`}
                     style={{ width: `${fillPercent}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-muted-foreground tabular-nums">
+                <div className="flex justify-between text-xs text-muted-foreground tabular-nums">
                   <span>Physical: {silo.current_stock_liters.toLocaleString()} L</span>
                   <span>{fillPercent}% ({availableLiters.toLocaleString()} L free)</span>
                 </div>
@@ -238,7 +238,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
                 <div className="flex items-center gap-2">
                   <Database className="h-5 w-5 text-primary" />
                   <div>
-                    <DrawerTitle className="font-mono text-lg font-bold uppercase tracking-wider text-foreground">
+                    <DrawerTitle className="font-mono text-lg font-semibold uppercase tracking-wider text-foreground">
                       {selectedSilo.silo_code}
                     </DrawerTitle>
                     <p className="text-xs text-muted-foreground">{selectedSilo.silo_name}</p>
@@ -256,10 +256,10 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
 
             <div className="p-4 sm:p-5 space-y-4 text-xs">
               {/* Stock telemetry summary */}
-              <div className="rounded-xl border border-border bg-muted/20 p-3.5 space-y-2">
+              <div className="rounded-2xl border border-border bg-muted/20 p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Standardized @13% TS Volume:</span>
-                  <span className="font-bold text-base text-foreground tabular-nums">
+                  <span className="font-semibold text-base text-foreground tabular-nums">
                     {selectedSilo.current_stock_at_13ts?.toLocaleString() || '0'} L
                   </span>
                 </div>
@@ -303,7 +303,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
                 {selectedSilo.activePumpingVehicle && (
                   <div className="flex items-center justify-between p-3 rounded-lg border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-200">
                     <span>Active Inflow Tanker:</span>
-                    <span className="font-mono font-bold uppercase">{selectedSilo.activePumpingVehicle}</span>
+                    <span className="font-mono font-semibold uppercase">{selectedSilo.activePumpingVehicle}</span>
                   </div>
                 )}
               </div>
@@ -312,7 +312,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
                 <button
                   type="button"
                   onClick={() => setSelectedSilo(null)}
-                  className="w-full min-h-11 rounded-xl bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition shadow-2xs"
+                  className="w-full min-h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition shadow-2xs"
                 >
                   Close Inspection
                 </button>

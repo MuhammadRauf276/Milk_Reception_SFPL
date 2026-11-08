@@ -64,13 +64,13 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
       icon={<ShieldAlert className="mt-0.5 h-5 w-5 text-amber-600" aria-hidden="true" />}
       subtitle={`Correction: Session #${selectedHistorySession.id}`}
     >
-            <div className="bg-card border-border text-xs text-slate-600 p-3 rounded-xl border">
+            <div className="bg-card border-border text-xs text-secondary-foreground p-3 rounded-xl border">
               <strong>Correction policy:</strong> corrections are unlimited, but every change is counted and permanently audited.
             </div>
 
             
             <div>
-              <label className="block text-xs font-semibold text-slate-800 mb-1">
+              <label className="block text-xs font-semibold text-foreground mb-1">
                 Correction Reason *
               </label>
               <input
@@ -79,20 +79,20 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                 value={correctionReason}
                 onChange={(e) => setCorrectionReason(e.target.value)}
                 placeholder="Reason"
-                className="min-h-11 w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-primary"
+                className="min-h-11 w-full p-2.5 border border-border-strong rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
             </div>
 
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                   Corrected Decision
                 </label>
                 <select
                   value={correctionDecision}
                   onChange={(e) => setCorrectionDecision(e.target.value as 'ACCEPTED' | 'REJECTED')}
-                  className="min-h-11 w-full p-2.5 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
+                  className="min-h-11 w-full p-2.5 border border-border-strong rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-primary"
                 >
                   <option value="ACCEPTED">ACCEPTED</option>
                   <option value="REJECTED">REJECTED</option>
@@ -110,7 +110,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                     value={correctionRejectionReason}
                     onChange={(e) => setCorrectionRejectionReason(e.target.value)}
                     placeholder="Reason for rejection…"
-                    className="min-h-11 w-full p-2.5 border border-rose-300 rounded-xl text-xs focus:outline-hidden focus:ring-1 focus:ring-rose-500"
+                    className="min-h-11 w-full p-2.5 border border-rose-300 rounded-lg text-xs focus:outline-hidden focus:ring-1 focus:ring-rose-500"
                   />
                 </div>
               )}
@@ -119,7 +119,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
             
             <div className="bg-card border-border grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl border">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                   Actual Reception Quantity
                 </label>
                 <input
@@ -129,18 +129,18 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                   value={correctionQuantityValue}
                   onChange={(e) => setCorrectionQuantityValue(e.target.value)}
                   placeholder="e.g. 5000"
-                  className="min-h-11 w-full p-2.5 border border-slate-300 rounded-xl text-xs tabular-nums focus:outline-hidden focus:ring-2 focus:ring-primary"
+                  className="min-h-11 w-full p-2.5 border border-border-strong rounded-lg text-xs tabular-nums focus:outline-hidden focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                   Quantity Unit
                 </label>
-                <div className="bg-card border-border w-full h-9 px-3 flex items-center justify-between rounded-xl border text-slate-900">
-                  <span className="text-xs font-bold tabular-nums tracking-wider">
+                <div className="bg-card border-border w-full h-9 px-3 flex items-center justify-between rounded-lg border text-foreground">
+                  <span className="text-xs font-semibold tabular-nums">
                     KG
                   </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                  <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
                     Standard
                   </span>
                 </div>
@@ -159,41 +159,41 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
               return (
                 <div className="bg-card border-border border rounded-xl p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-secondary-foreground flex items-center gap-1.5">
                       <Calculator className="w-3.5 h-3.5 text-primary" />
                       Recomputed Final Metrics Preview
                     </span>
-                    <span className="text-xs text-slate-500 tabular-nums">
+                    <span className="text-xs text-muted-foreground tabular-nums">
                       {corrPreview ? 'Recomputed' : 'Awaiting valid inputs'}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-xs text-slate-500 uppercase font-semibold">Density</span>
-                      <p className="text-xs font-semibold tabular-nums text-slate-800">
+                      <span className="text-xs text-muted-foreground font-semibold">Density</span>
+                      <p className="text-xs font-semibold tabular-nums text-foreground">
                         {corrPreview ? corrPreview.density.toFixed(4) : (selectedHistorySession.density != null ? Number(selectedHistorySession.density).toFixed(4) : '—')}
                       </p>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-xs text-slate-500 uppercase font-semibold">Gross Liters</span>
-                      <p className="text-xs font-semibold tabular-nums text-slate-800">
+                      <span className="text-xs text-muted-foreground font-semibold">Gross Liters</span>
+                      <p className="text-xs font-semibold tabular-nums text-foreground">
                         {corrPreview ? `${corrPreview.grossLiters.toFixed(2)} L` : (selectedHistorySession.gross_liters != null ? `${Number(selectedHistorySession.gross_liters).toFixed(2)} L` : '—')}
                       </p>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-xs text-slate-500 uppercase font-semibold">SNF</span>
-                      <p className="text-xs font-semibold tabular-nums text-slate-800">
+                      <span className="text-xs text-muted-foreground font-semibold">SNF</span>
+                      <p className="text-xs font-semibold tabular-nums text-foreground">
                         {corrPreview ? `${corrPreview.snf.toFixed(2)}%` : (selectedHistorySession.snf != null ? `${Number(selectedHistorySession.snf).toFixed(2)}%` : '—')}
                       </p>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-xs text-slate-500 uppercase font-semibold">Total Solids</span>
-                      <p className="text-xs font-semibold tabular-nums text-slate-800">
+                      <span className="text-xs text-muted-foreground font-semibold">Total Solids</span>
+                      <p className="text-xs font-semibold tabular-nums text-foreground">
                         {corrPreview ? `${corrPreview.ts.toFixed(2)}%` : (selectedHistorySession.ts != null ? `${Number(selectedHistorySession.ts).toFixed(2)}%` : '—')}
                       </p>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-xs text-slate-500 uppercase font-semibold">@13TS Liters</span>
+                      <span className="text-xs text-muted-foreground font-semibold">@13TS Liters</span>
                       <p className="text-xs font-semibold tabular-nums text-emerald-700">
                         {corrPreview ? `${corrPreview.at13tsLiters.toFixed(2)} L` : (selectedHistorySession.at_13ts_liters != null ? `${Number(selectedHistorySession.at_13ts_liters).toFixed(2)} L` : '—')}
                       </p>
@@ -205,7 +205,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
 
             
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-2">
+              <label className="block text-xs font-semibold text-secondary-foreground mb-2">
                 Override Parameter Values
               </label>
               <div className="bg-card border-border max-h-60 overflow-y-auto border rounded-xl p-3 space-y-2">
@@ -216,10 +216,10 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                   const isNumeric = res.result_type_snapshot === 'NUMERIC';
 
                   return (
-                    <div key={testId} className="flex items-center justify-between text-xs py-1 border-b border-slate-100 last:border-0">
+                    <div key={testId} className="flex items-center justify-between text-xs py-1 border-b border-border last:border-0">
                       <div className="w-1/2">
-                        <span className="font-semibold text-slate-800">{res.test_name_snapshot}</span>
-                        <span className="text-xs text-slate-400 tabular-nums ml-2">({res.test_code_snapshot})</span>
+                        <span className="font-semibold text-foreground">{res.test_name_snapshot}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums ml-2">({res.test_code_snapshot})</span>
                       </div>
                       <div className="w-1/2 flex items-center justify-end gap-2">
                         {isCalculated ? (
@@ -237,7 +237,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                                 [testId]: { ...current, numeric_value: e.target.value },
                               })
                             }
-                            className="min-h-11 w-28 px-2 py-1 border border-slate-300 rounded text-xs tabular-nums"
+                            className="min-h-11 w-28 px-2 py-1 border border-border-strong rounded text-xs tabular-nums"
                           />
                         ) : (
                           <input
@@ -249,10 +249,10 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                                 [testId]: { ...current, text_value: e.target.value },
                               })
                             }
-                            className="min-h-11 w-28 px-2 py-1 border border-slate-300 rounded text-xs"
+                            className="min-h-11 w-28 px-2 py-1 border border-border-strong rounded text-xs"
                           />
                         )}
-                        <span className="text-xs text-slate-400 tabular-nums w-10">
+                        <span className="text-xs text-muted-foreground tabular-nums w-10">
                           {res.unit_snapshot || ''}
                         </span>
                       </div>
@@ -267,7 +267,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                 type="button"
                 onClick={() => setShowCorrectionModal(false)}
                 disabled={savingCorrection}
-                className="min-h-11 min-w-11 px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50"
+                className="min-h-11 min-w-11 px-4 py-2 border border-border-strong text-secondary-foreground text-xs font-semibold rounded-lg hover:bg-subtle"
               >
                 Cancel
               </button>
@@ -275,7 +275,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                 type="button"
                 onClick={handleSaveCorrection}
                 disabled={savingCorrection}
-                className="min-h-11 min-w-11 px-5 py-2 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-primary-hover transition-colors"
+                className="min-h-11 min-w-11 px-5 py-2 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-hover transition-colors"
               >
                 {savingCorrection ? 'Saving…' : 'Apply Correction'}
               </button>

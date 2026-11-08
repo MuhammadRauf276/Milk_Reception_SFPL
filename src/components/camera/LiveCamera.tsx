@@ -201,9 +201,9 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             <TriangleAlert className="h-10 w-10 text-amber-400" />
             <p className="text-base font-semibold text-rose-300">{errorText}</p>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-4 text-xs text-left space-y-2 text-slate-300 w-full shadow-inner">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 text-xs text-left space-y-2 text-slate-300 w-full shadow-inner">
               <p className="font-semibold text-amber-300">How to unblock permissions in Chrome:</p>
-              <ol className="list-decimal pl-4 space-y-1.5 text-slate-300 text-[11px] leading-relaxed">
+              <ol className="list-decimal pl-4 space-y-1.5 text-slate-300 text-xs leading-relaxed">
                 <li>Click the <strong>Tune / Padlock</strong> icon on the left of the URL bar (next to <code className="text-emerald-400">mpd.sfpl.com.pk</code>).</li>
                 <li>Set <strong>Camera</strong> to <strong>Allow</strong>.</li>
                 <li>Set <strong>Location</strong> to <strong>Allow</strong>.</li>
@@ -215,7 +215,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
               <button
                 type="button"
                 onClick={() => setAttempt((n) => n + 1)}
-                className="inline-flex h-12 w-full flex-1 items-center justify-center gap-2 rounded-xl bg-card px-4 text-sm font-bold text-slate-900 shadow hover:bg-slate-100 transition-colors"
+                className="inline-flex h-12 w-full flex-1 items-center justify-center gap-2 rounded-lg bg-card px-4 text-sm font-semibold text-slate-900 shadow hover:bg-slate-100 transition-colors"
               >
                 <Undo2 className="h-4 w-4" />
                 Try again
@@ -223,7 +223,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex h-12 w-full flex-1 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-sm font-bold text-white shadow hover:bg-sky-500 transition-colors"
+                className="inline-flex h-12 w-full flex-1 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white shadow hover:bg-sky-500 transition-colors"
               >
                 <Camera className="h-4 w-4" />
                 Device Camera / Upload
@@ -247,7 +247,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             type="button"
             onClick={() => void handleTake()}
             disabled={phase === 'working'}
-            className="inline-flex h-14 min-w-[220px] items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 text-lg font-bold text-white shadow-lg disabled:opacity-60 hover:bg-emerald-600 transition-colors"
+            className="inline-flex h-14 min-w-[220px] items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 text-lg font-semibold text-white shadow-lg disabled:opacity-60 hover:bg-emerald-600 transition-colors"
           >
             {phase === 'working' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
             {phase === 'working' ? 'Please wait' : 'Take photo'}
@@ -258,7 +258,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             <button
               type="button"
               onClick={handleRetake}
-              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-white/15 px-4 text-base font-bold hover:bg-white/25 transition-colors"
+              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-white/15 px-4 text-base font-semibold hover:bg-white/25 transition-colors"
             >
               <Undo2 className="h-5 w-5" />
               Retake
@@ -266,7 +266,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             <button
               type="button"
               onClick={() => onCapture(result)}
-              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-base font-bold text-white shadow-lg hover:bg-emerald-600 transition-colors"
+              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-base font-semibold text-white shadow-lg hover:bg-emerald-600 transition-colors"
             >
               <Check className="h-5 w-5" />
               Use this photo

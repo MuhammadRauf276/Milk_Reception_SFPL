@@ -77,7 +77,7 @@ export function Modal({
       <DialogPrimitive.Portal forceMount>
         <DialogPrimitive.Overlay asChild forceMount>
           <motion.div
-            className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto touch-scroll bg-slate-950/40 p-3 pt-safe pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-[2px] sm:items-center sm:p-6"
+            className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto touch-scroll bg-slate-950/40 p-3 pt-safe pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -99,14 +99,14 @@ export function Modal({
                 ref={contentRef}
                 tabIndex={-1}
                 className={cn(
-                  'relative my-auto w-full max-w-full rounded-xl border border-border bg-card text-card-foreground shadow-xl outline-hidden',
+                  'relative my-auto w-full max-w-full rounded-2xl border border-border bg-card text-card-foreground shadow-xl outline-hidden',
                   SIZE_CLASSES[size],
                   className
                 )}
-                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 8 }}
-                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 4 }}
-                transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.8 }}
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }}
+                transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
               >
                 {showHeader ? (
                   <div className="flex items-start justify-between gap-4 border-b px-4 py-3 sm:px-5 sm:py-4">

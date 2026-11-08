@@ -223,7 +223,7 @@ export function DynamicPivotGrid({
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col space-y-4 p-4 animate-panel-in">
+    <div className="bg-card border border-border rounded-2xl shadow-xs overflow-hidden flex flex-col space-y-4 p-4 animate-panel-in">
       {/* Pivot Dimension Pickers */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border">
         <div className="flex flex-wrap items-center gap-3">
@@ -296,7 +296,7 @@ export function DynamicPivotGrid({
         ) : (
           <table className="w-full text-xs text-left border-collapse">
             <thead>
-              <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold uppercase text-[10px] tracking-wider">
+              <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold text-xs">
                 {/* Top Left Header */}
                 <th className="py-3 px-3.5 text-foreground bg-muted/80 sticky left-0 z-20 border-r border-border min-w-[160px]">
                   {dimensionFields.find((f) => f.id === rowDimension)?.label || rowDimension} \ {dimensionFields.find((f) => f.id === colDimension)?.label || colDimension}
@@ -310,7 +310,7 @@ export function DynamicPivotGrid({
                 ))}
 
                 {/* Row Total Header */}
-                <th className="py-3 px-3.5 text-right font-bold text-foreground bg-muted/80 sticky right-0 z-10 border-l border-border min-w-[120px]">
+                <th className="py-3 px-3.5 text-right font-semibold text-foreground bg-muted/80 sticky right-0 z-10 border-l border-border min-w-[120px]">
                   Total / Avg
                 </th>
               </tr>
@@ -343,7 +343,7 @@ export function DynamicPivotGrid({
                   })}
 
                   {/* Row Total (Sticky Right) */}
-                  <td className="py-2 px-3.5 text-right tabular-nums font-mono font-bold text-foreground bg-card sticky right-0 z-10 border-l border-border">
+                  <td className="py-2 px-3.5 text-right tabular-nums font-mono font-semibold text-foreground bg-card sticky right-0 z-10 border-l border-border">
                     {formatCellValue(rowTotals[rKey])}
                   </td>
                 </tr>
@@ -353,17 +353,17 @@ export function DynamicPivotGrid({
             {/* Column Grand Totals Footer */}
             <tfoot>
               <tr className="border-t-2 border-border bg-muted/70 font-semibold text-xs sticky bottom-0 z-20">
-                <td className="py-3 px-3.5 text-foreground uppercase tracking-wider text-[11px] font-bold sticky left-0 z-30 bg-muted/90 border-r border-border">
+                <td className="py-3 px-3.5 text-foreground text-xs font-semibold sticky left-0 z-30 bg-muted/90 border-r border-border">
                   GRAND TOTAL
                 </td>
 
                 {colKeys.map((cKey) => (
-                  <td key={`tot-${cKey}`} className="py-3 px-3 text-right tabular-nums font-mono font-bold text-foreground">
+                  <td key={`tot-${cKey}`} className="py-3 px-3 text-right tabular-nums font-mono font-semibold text-foreground">
                     {formatCellValue(colTotals[cKey])}
                   </td>
                 ))}
 
-                <td className="py-3 px-3.5 text-right tabular-nums font-mono font-black text-primary bg-muted/90 sticky right-0 z-30 border-l border-border text-sm">
+                <td className="py-3 px-3.5 text-right tabular-nums font-mono font-semibold text-primary bg-muted/90 sticky right-0 z-30 border-l border-border text-sm">
                   {formatCellValue(grandTotal)}
                 </td>
               </tr>

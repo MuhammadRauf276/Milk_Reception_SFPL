@@ -124,7 +124,7 @@ export function CompactColumnPopover({
               <button
                 type="button"
                 onClick={handleResetDefaults}
-                className="text-[11px] font-medium text-primary hover:underline cursor-pointer"
+                className="text-xs font-medium text-primary hover:underline cursor-pointer"
               >
                 Reset Defaults
               </button>
@@ -132,7 +132,7 @@ export function CompactColumnPopover({
               <button
                 type="button"
                 onClick={handleSelectAll}
-                className="text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-foreground cursor-pointer"
+                className="text-xs font-medium text-secondary-foreground dark:text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 Select All
               </button>
@@ -166,7 +166,7 @@ export function CompactColumnPopover({
           <div className="max-h-72 overflow-y-auto p-2 divide-y divide-border/40 space-y-2">
             {Array.from(categorizedFields.entries()).map(([cat, fields]) => (
               <div key={cat} className="pt-2 first:pt-0">
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 block mb-1">
+                <span className="text-xs font-semibold text-muted-foreground px-2 block mb-1">
                   {CATEGORY_NAMES[cat] || cat}
                 </span>
 
@@ -192,7 +192,7 @@ export function CompactColumnPopover({
                           <span>{f.label}</span>
                         </div>
                         {f.unit && (
-                          <span className="text-[10px] text-muted-foreground font-mono">
+                          <span className="text-xs text-muted-foreground font-mono">
                             {f.unit}
                           </span>
                         )}
@@ -206,7 +206,7 @@ export function CompactColumnPopover({
 
           {/* Active Columns Sequence & Quick Reorder Bar */}
           <div className="p-2.5 bg-muted/40 border-t border-border flex flex-col gap-1.5">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+            <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
               <Layers className="w-3 h-3 text-primary" /> Active Column Order ({selectedFieldIds.length})
             </span>
 
@@ -217,26 +217,26 @@ export function CompactColumnPopover({
                 return (
                   <div
                     key={fId}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border border-border text-[11px] font-medium text-foreground shrink-0 shadow-2xs"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border border-border text-xs font-medium text-foreground shrink-0 shadow-2xs"
                   >
                     <span>{def.label}</span>
                     <button
                       type="button"
                       disabled={idx === 0}
                       onClick={() => moveColumn(idx, 'left')}
-                      className="text-slate-400 hover:text-foreground disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
+                      className="text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
                       title="Move left"
                     >
-                      <span className="text-[10px] font-bold select-none">&larr;</span>
+                      <span className="text-xs font-semibold select-none">&larr;</span>
                     </button>
                     <button
                       type="button"
                       disabled={idx === selectedFieldIds.length - 1}
                       onClick={() => moveColumn(idx, 'right')}
-                      className="text-slate-400 hover:text-foreground disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
+                      className="text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
                       title="Move right"
                     >
-                      <span className="text-[10px] font-bold select-none">&rarr;</span>
+                      <span className="text-xs font-semibold select-none">&rarr;</span>
                     </button>
                   </div>
                 );
@@ -246,7 +246,7 @@ export function CompactColumnPopover({
 
           {/* Footer */}
           <div className="p-2 border-t border-border bg-background flex items-center justify-between">
-            <span className="text-[11px] text-muted-foreground font-medium pl-1">
+            <span className="text-xs text-muted-foreground font-medium pl-1">
               {selectedFieldIds.length} active
             </span>
             <Button variant="default" size="sm" onClick={() => setIsOpen(false)} className="h-7 text-xs px-3">

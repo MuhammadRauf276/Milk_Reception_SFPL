@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 
 const btn =
-  'inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-xs font-semibold text-primary hover:bg-subtle';
+  'inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-card px-4 text-xs font-semibold text-primary hover:bg-subtle';
 
 /** Short empty message plus one clear action (refresh or a link to the next page). */
 export function EmptyAction({
@@ -22,7 +22,7 @@ export function EmptyAction({
 }) {
   return (
     <div
-      className={`flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground ${className}`}
+      className={`flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground ${className}`}
     >
       <span>{message}</span>
       {href ? (

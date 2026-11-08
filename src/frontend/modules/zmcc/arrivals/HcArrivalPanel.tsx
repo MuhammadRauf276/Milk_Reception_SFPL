@@ -31,15 +31,15 @@ export const HcArrivalPanel: React.FC<Props> = ({
   const selectedLocalSupplierId = form.selectedLocalSupplierId;
   const localSupplierGps = form.gps;
   return (
-    <div className="bg-card border-border max-w-xl mx-auto rounded-xl border p-6 shadow-2xs space-y-4 animate-panel-in">
+    <div className="bg-card border-border max-w-xl mx-auto rounded-2xl border p-6 shadow-2xs space-y-4 animate-panel-in">
       <div className="flex items-center justify-between gap-2 border-b border-emerald-100 pb-3">
         <div className="flex items-center space-x-2">
-          <h3 className="text-sm font-semibold text-slate-900">HC arrival</h3>
+          <h3 className="text-sm font-semibold text-foreground">HC arrival</h3>
         </div>
         <button
           type="button"
           onClick={onAddSupplier}
-          className="flex items-center space-x-1 min-h-[44px] px-3 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+          className="flex items-center space-x-1 min-h-[44px] px-3 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer"
         >
           <UserPlus className="w-3.5 h-3.5 text-emerald-700" />
           <span>Add supplier</span>
@@ -47,7 +47,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
       </div>
 
       {localSupplierSuccessResult ? (
-            <div className="bg-card border-border border rounded-xl p-6 space-y-4">
+            <div className="bg-card border-border border rounded-2xl p-6 space-y-4">
               <div className="flex items-center space-x-3 text-emerald-800">
                 <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                 <div>
@@ -59,28 +59,28 @@ export const HcArrivalPanel: React.FC<Props> = ({
                 <div className="pb-1.5">
                   ZMCC Token: <strong className="tabular-nums text-emerald-900 text-sm font-semibold">{localSupplierSuccessResult.zmcc_token}</strong>
                   {localSupplierSuccessResult.zmcc_token?.includes('OFFLINE') && (
-                    <div className="mt-1 text-[11px] font-medium text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 border border-amber-200">
+                    <div className="mt-1 text-xs font-medium text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 border border-amber-200">
                       Saved offline on device. Will sync automatically once connected.
                     </div>
                   )}
                 </div>
                 <div className="py-1.5">
-                  Raw Milk Token: <strong className="tabular-nums text-slate-800">{localSupplierSuccessResult.raw_milk_token_number || '—'}</strong>
+                  Raw Milk Token: <strong className="tabular-nums text-foreground">{localSupplierSuccessResult.raw_milk_token_number || '—'}</strong>
                   {localSupplierSuccessResult.rmr_number && (
-                    <span className="text-slate-500 text-xs ml-2">
-                      (Legacy RMR: <strong className="tabular-nums text-slate-700">{localSupplierSuccessResult.rmr_number}</strong>)
+                    <span className="text-muted-foreground text-xs ml-2">
+                      (Legacy RMR: <strong className="tabular-nums text-secondary-foreground">{localSupplierSuccessResult.rmr_number}</strong>)
                     </span>
                   )}
                 </div>
                 <div className="py-1.5">
-                  Vehicle: <strong className="tabular-nums text-slate-800">{localSupplierSuccessResult.vehicle_number}</strong>
+                  Vehicle: <strong className="tabular-nums text-foreground">{localSupplierSuccessResult.vehicle_number}</strong>
                 </div>
                 <div className="py-1.5">
-                  Supplier: <strong className="text-slate-900">{localSupplierSuccessResult.local_supplier?.name}</strong>{' '}
-                  <span className="text-slate-500 tabular-nums text-xs">({localSupplierSuccessResult.local_supplier?.local_supplier_code})</span>
+                  Supplier: <strong className="text-foreground">{localSupplierSuccessResult.local_supplier?.name}</strong>{' '}
+                  <span className="text-muted-foreground tabular-nums text-xs">({localSupplierSuccessResult.local_supplier?.local_supplier_code})</span>
                 </div>
                 <div className="pt-1.5">
-                  Arrival Date: <strong className="text-slate-800">{localSupplierSuccessResult.arrival_date}</strong>
+                  Arrival Date: <strong className="text-foreground">{localSupplierSuccessResult.arrival_date}</strong>
                 </div>
               </div>
 
@@ -90,7 +90,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
                   form.setSuccessResult(null);
                   form.reset();
                 }}
-                className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all cursor-pointer"
+                className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer"
               >
                 Record Another HC Supplier
               </button>
@@ -98,7 +98,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
       ) : (
         <div className="space-y-3 py-4 text-center">
           <Users className="mx-auto h-8 w-8 text-slate-300" aria-hidden="true" />
-          <p className="text-sm font-semibold text-slate-700">No HC arrival yet</p>
+          <p className="text-sm font-semibold text-secondary-foreground">No HC arrival yet</p>
           <button
             type="button"
             onClick={() => form.setFormOpen(true)}
@@ -125,7 +125,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-slate-700">
+                  <label className="block text-xs font-semibold text-secondary-foreground">
                     HC Supplier <span className="text-rose-500">*</span>
                   </label>
                   <button
@@ -191,7 +191,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
                   onChange={(e) => form.setVehicleNumber(e.target.value.toUpperCase())}
                   placeholder="e.g. LES-4029"
                   required
-                  className={`${zmccInputClass} font-semibold tabular-nums uppercase`}
+                  className={`${zmccInputClass} font-semibold tabular-nums`}
                 />
               </div>
 
@@ -213,7 +213,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
               <button
                 type="submit"
                 disabled={form.submitting}
-                className="w-full min-h-[44px] py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer"
+                className="w-full min-h-[44px] py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 cursor-pointer"
               >
                 {form.submitting ? 'Recording Arrival…' : 'Record HC Arrival & Generate Token'}
               </button>

@@ -70,21 +70,21 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
   return (
     <div className="w-full max-w-xl space-y-4">
       {error && (
-        <div role="alert" className="flex items-center gap-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-rose-800">
+        <div role="alert" className="flex items-center gap-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-rose-800">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
       )}
       {notice && (
-        <div role="status" className="flex items-center gap-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-emerald-800">
+        <div role="status" className="flex items-center gap-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-emerald-800">
           <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
           <span>{notice}</span>
         </div>
       )}
 
-      <div className="space-y-4 rounded-xl border border-border/80 bg-card p-4 shadow-2xs sm:p-5">
+      <div className="space-y-4 rounded-2xl border border-border/80 bg-card p-4 shadow-2xs sm:p-5">
         {query.isPending ? (
-          <p className="flex items-center gap-2 text-sm text-slate-500">
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading…
           </p>
         ) : (
@@ -106,7 +106,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
             </label>
 
             <div>
-              <label htmlFor="weighing-units" className="mb-1 block text-xs font-semibold text-slate-700">
+              <label htmlFor="weighing-units" className="mb-1 block text-xs font-semibold text-secondary-foreground">
                 Manual units
               </label>
               <select
@@ -125,7 +125,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
             </div>
 
             <div>
-              <label htmlFor="mot-units" className="mb-1 block text-xs font-semibold text-slate-700">
+              <label htmlFor="mot-units" className="mb-1 block text-xs font-semibold text-secondary-foreground">
                 Mobile Tester shop form units
               </label>
               <select
@@ -141,7 +141,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-slate-500">Phones pick up a change the next time they load the shop form.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Phones pick up a change the next time they load the shop form.</p>
             </div>
 
             {canEdit ? (
@@ -158,7 +158,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
                 {save.isPending ? 'Saving…' : 'Save setting'}
               </button>
             ) : (
-              <p className="text-xs text-slate-500">Only the Super Admin can change this setting.</p>
+              <p className="text-xs text-muted-foreground">Only the Super Admin can change this setting.</p>
             )}
           </>
         )}

@@ -16,7 +16,7 @@ const STATUS_VIEW: Record<DeviceStatus, { word: string; icon: React.ReactNode; c
   ACTIVE: { word: 'Working', icon: <CheckCircle2 className="size-4" aria-hidden />, cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
   PENDING: { word: 'Waiting', icon: <Clock className="size-4" aria-hidden />, cls: 'bg-amber-100 text-amber-900 border-amber-300' },
   BLOCKED: { word: 'Blocked', icon: <Ban className="size-4" aria-hidden />, cls: 'bg-rose-100 text-rose-900 border-rose-300' },
-  RELEASED: { word: 'Back in office', icon: <Undo2 className="size-4" aria-hidden />, cls: 'bg-slate-100 text-slate-800 border-slate-300' },
+  RELEASED: { word: 'Back in office', icon: <Undo2 className="size-4" aria-hidden />, cls: 'bg-muted text-foreground border-border-strong' },
 };
 
 const STATUS_FILTERS: Array<{ value: '' | DeviceStatus; label: string }> = [
@@ -82,7 +82,7 @@ export function DevicesWorkspace() {
 
       <div className="space-y-2">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <input
             type="search"
             value={search}
@@ -92,7 +92,7 @@ export function DevicesWorkspace() {
             }}
             placeholder="Search phones…"
             aria-label="Search phones"
-            className="h-11 w-full rounded-xl border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+            className="h-11 w-full rounded-lg border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
           />
         </div>
         <div role="group" aria-label="Status filter" className="flex flex-wrap gap-1">
@@ -106,7 +106,7 @@ export function DevicesWorkspace() {
                 setPage(1);
               }}
               className={`h-11 rounded-xl border px-4 text-xs font-semibold ${
-                status === f.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-white text-slate-600 hover:bg-slate-50'
+                status === f.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-card text-secondary-foreground hover:bg-subtle'
               }`}
             >
               {f.label}

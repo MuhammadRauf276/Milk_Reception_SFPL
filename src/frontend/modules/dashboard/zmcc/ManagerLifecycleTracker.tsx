@@ -42,8 +42,8 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
           const isCompleted = stage.status === 'COMPLETED';
           const isCurrent = stage.status === 'CURRENT';
 
-          let circleBg = 'bg-slate-100 border-slate-300 text-slate-400';
-          let labelColor = 'text-slate-500';
+          let circleBg = 'bg-muted border-border-strong text-muted-foreground';
+          let labelColor = 'text-muted-foreground';
 
           if (isCompleted) {
             circleBg = 'bg-emerald-700 border-emerald-700 text-white shadow-xs';
@@ -60,26 +60,26 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
             >
               {/* Step Circle Indicator */}
               <div
-                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${circleBg}`}
+                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-[color,background-color,border-color,box-shadow,opacity,transform] ${circleBg}`}
                 title={`${stage.label}: ${stage.status}`}
               >
                 {isCompleted ? (
                   <CheckCircle2 className="w-4 h-4" />
                 ) : isCurrent ? (
-                  <div className="w-2.5 h-2.5 bg-white rounded-full animate-pulse" />
+                  <div className="w-2.5 h-2.5 bg-card rounded-full animate-pulse" />
                 ) : (
                   <Icon className="w-3.5 h-3.5" />
                 )}
               </div>
 
               {/* Stage Title */}
-              <span className={`text-[11px] mt-2 block leading-tight ${labelColor}`}>
+              <span className={`text-xs mt-2 block leading-tight ${labelColor}`}>
                 {compact ? stage.shortLabel : stage.label}
               </span>
 
               {/* Status Badge / Detail */}
               {isCurrent && (
-                <span className="mt-1 px-1.5 py-0.2 rounded text-[10px] font-semibold uppercase bg-blue-50 text-primary-hover border border-blue-200">
+                <span className="mt-1 px-1.5 py-0.2 rounded text-xs font-semibold bg-blue-50 text-primary-hover border border-blue-200">
                   Current
                 </span>
               )}
@@ -94,7 +94,7 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
                       ? 'bg-rose-50 text-rose-800'
                       : lifecycle.portionQA.badgeType === 'HAS_HOLD'
                       ? 'bg-amber-50 text-amber-700'
-                      : 'bg-slate-100 text-slate-700'
+                      : 'bg-muted text-secondary-foreground'
                   }`}
                 >
                   {stage.detailText}
@@ -102,13 +102,13 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
               )}
 
               {stage.metricText && (
-                <span className="mt-0.5 text-[10px] tabular-nums font-semibold text-slate-700">
+                <span className="mt-0.5 text-xs tabular-nums font-semibold text-secondary-foreground">
                   {stage.metricText}
                 </span>
               )}
 
               {stage.id === 'UNLOADING' && stage.detailText && (
-                <span className="mt-0.5 text-[10px] tabular-nums text-slate-600">
+                <span className="mt-0.5 text-xs tabular-nums text-secondary-foreground">
                   {stage.detailText}
                 </span>
               )}
@@ -117,19 +117,19 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
               {stage.id === 'UNLOADING' ? (
                 <div className="mt-0.5 space-y-0.5">
                   {stage.eventTimestamp && (
-                    <span className="text-[10px] tabular-nums text-slate-500 block leading-tight">
+                    <span className="text-xs tabular-nums text-muted-foreground block leading-tight">
                       Started: {stage.eventTimestamp}
                     </span>
                   )}
                   {stage.eventTimestampEnd && (
-                    <span className="text-[10px] tabular-nums text-slate-500 block leading-tight">
+                    <span className="text-xs tabular-nums text-muted-foreground block leading-tight">
                       Completed: {stage.eventTimestampEnd}
                     </span>
                   )}
                 </div>
               ) : (
                 stage.eventTimestamp && (
-                  <span className="mt-0.5 text-[10px] tabular-nums text-slate-500 block leading-tight">
+                  <span className="mt-0.5 text-xs tabular-nums text-muted-foreground block leading-tight">
                     {stage.eventTimestamp}
                   </span>
                 )

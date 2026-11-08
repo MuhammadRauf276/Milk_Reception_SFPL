@@ -178,7 +178,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               readOnly={isEdit}
               value={isEdit ? user!.username : username}
               onChange={(e) => setUsername(e.target.value)}
-              className={`${fieldInputClass} ${isEdit ? 'cursor-not-allowed bg-slate-100 tabular-nums text-slate-600' : ''}`}
+              className={`${fieldInputClass} ${isEdit ? 'cursor-not-allowed bg-muted tabular-nums text-secondary-foreground' : ''}`}
               placeholder="e.g. john.doe"
               disabled={busy}
             />
@@ -189,7 +189,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               {!isEdit ? (
                 <span className="text-rose-600">*</span>
               ) : user!.email ? (
-                <span className="font-normal text-slate-400">(Cannot be cleared)</span>
+                <span className="font-normal text-muted-foreground">(Cannot be cleared)</span>
               ) : (
                 <span className="font-normal text-amber-600">(Required to activate)</span>
               )}
@@ -300,11 +300,11 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               disabled={busy}
             />
             {!sourcesQuery.isLoading && compatible.length === 0 && (
-              <p className="mt-1 text-[11px] text-amber-700">
+              <p className="mt-1 text-xs text-amber-700">
                 No active {policy.allowedSourceType} sources found for role {role}.
               </p>
             )}
-            <p className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
+            <p className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
               <span>Source not listed?</span>
               <Link href="/super-admin/procurement-sources" className="shrink-0 font-semibold text-primary hover:underline">
                 Add it in Procurement Sources
@@ -313,15 +313,15 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
           </div>
         )}
 
-        <div className="space-y-1 rounded-xl border border-border bg-card p-3 text-slate-600">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Assignment Details</div>
+        <div className="space-y-1 rounded-xl border border-border bg-card p-3 text-secondary-foreground">
+          <div className="text-xs font-semibold text-muted-foreground">Assignment Details</div>
           <div className="flex items-center justify-between">
-            <span className="font-medium text-slate-500">Department:</span>
-            <span className="font-semibold text-slate-800">{policy.department}</span>
+            <span className="font-medium text-muted-foreground">Department:</span>
+            <span className="font-semibold text-foreground">{policy.department}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="font-medium text-slate-500">Data Scope:</span>
-            <span className="font-semibold text-slate-800">{policy.summaryLabel}</span>
+            <span className="font-medium text-muted-foreground">Data Scope:</span>
+            <span className="font-semibold text-foreground">{policy.summaryLabel}</span>
           </div>
         </div>
 

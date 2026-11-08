@@ -248,7 +248,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
       {/* Header Banner */}
-      <div className="bg-card p-5 rounded-xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <div>
             <h1 className="text-lg sm:text-xl font-semibold text-foreground">
@@ -261,7 +261,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
         <div className="flex items-center gap-3">
           {isSuperAdmin ? (
             <div className="bg-card border-border flex items-center gap-2 px-3.5 py-2 rounded-xl border">
-              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">ZMCC</span>
+              <span className="text-xs font-semibold text-secondary-foreground">ZMCC</span>
               <Combobox
                 options={sources.map((s) => ({ value: s.id, label: `${s.name} · ${s.code}`, keywords: s.code }))}
                 value={selectedZmccId}
@@ -273,7 +273,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             </div>
           ) : (
             <div className="bg-card border-border flex items-center gap-2 px-3.5 py-2 rounded-xl border">
-              <span className="text-xs font-semibold text-primary uppercase tracking-wider">ZMCC</span>
+              <span className="text-xs font-semibold text-primary">ZMCC</span>
               <span className="text-xs font-semibold text-foreground">
                 {currentZmccName} ({currentUser?.procurement_source?.code || 'ZMCC'})
               </span>
@@ -284,13 +284,13 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
 
       {/* Success/Error Banners */}
       {form.successMsg && (
-        <div className="bg-card border-border p-3.5 border rounded-xl text-xs font-semibold text-emerald-800 flex items-center gap-2 animate-panel-in">
+        <div className="bg-card border-border p-3.5 border rounded-2xl text-xs font-semibold text-emerald-800 flex items-center gap-2 animate-panel-in">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
           <span>{form.successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="bg-card border-border p-3.5 border rounded-xl text-xs font-semibold text-rose-800 flex items-center gap-2 animate-panel-in">
+        <div className="bg-card border-border p-3.5 border rounded-2xl text-xs font-semibold text-rose-800 flex items-center gap-2 animate-panel-in">
           <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
           <span>{errorMsg}</span>
         </div>
@@ -312,23 +312,23 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             </div>
           ) : (
             <>
-              <div className="bg-card p-4 rounded-xl border border-border flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
+              <div className="bg-card p-4 rounded-2xl border border-border flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
                 <div className="flex flex-wrap items-center gap-2.5 flex-1">
                   <div className="relative flex-1 min-w-[200px] max-w-sm">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <input
                       type="text"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       placeholder="Search code or name…"
-                      className="w-full pl-9 pr-3 py-2 min-h-[44px] bg-subtle border border-border rounded-xl text-xs font-medium text-foreground placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-primary"
+                      className="w-full pl-9 pr-3 py-2 min-h-[44px] bg-subtle border border-border rounded-xl text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     />
                   </div>
 
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as 'all' | 'true' | 'false')}
-                    className="px-3 py-2 min-h-[44px] bg-subtle border border-border rounded-xl text-xs font-semibold text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-primary"
+                    className="px-3 py-2 min-h-[44px] bg-subtle border border-border rounded-xl text-xs font-semibold text-secondary-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     aria-label="Filter by Status"
                   >
                     <option value="all">All statuses</option>
@@ -399,7 +399,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
 
               <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden">
                 {loading ? (
-                  <div className="p-12 text-center flex flex-col items-center justify-center text-slate-500 space-y-2">
+                  <div className="p-12 text-center flex flex-col items-center justify-center text-muted-foreground space-y-2">
                     <Loader2 className="w-6 h-6 animate-spin text-primary" />
                     <span className="text-xs font-semibold">Loading master data…</span>
                   </div>

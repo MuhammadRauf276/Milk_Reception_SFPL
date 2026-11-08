@@ -677,12 +677,12 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                   onClick={() => toggleStage(st.id)}
                   className={`flex min-h-11 items-center justify-between rounded-xl border px-3 text-left transition-all ${
                     active
-                      ? 'border-primary bg-primary/10 font-bold text-primary shadow-xs'
+                      ? 'border-primary bg-primary/10 font-semibold text-primary shadow-xs'
                       : 'border-slate-200 bg-white font-medium text-slate-600 hover:bg-slate-100'
                   }`}
                 >
                   <span className="text-xs">{st.label}</span>
-                  <span className={`text-[10px] uppercase tracking-wider ${active ? 'font-bold text-primary' : 'text-slate-400'}`}>
+                  <span className={`text-xs ${active ? 'font-bold text-primary' : 'text-slate-400'}`}>
                     {active ? 'Assigned' : 'Off'}
                   </span>
                 </button>
@@ -693,20 +693,20 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
 
         {/* SOP DECISION LIMITS & REJECTION RULES (NUMERIC / CALCULATED) */}
         {(isNumeric || isCalculated) && (
-          <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs">
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                <span className="text-xs font-semibold text-slate-800">
                   SOP Limits
                 </span>
                 <InfoTip text="Standard operating limits for auto-release, tolerance warning hold, and rejection." />
               </div>
               {category === 'MONITORING' ? (
-                <span className="rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200">
+                <span className="rounded-md bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 border border-purple-200">
                   Monitoring Norm
                 </span>
               ) : (
-                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200">
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 border border-slate-200">
                   Complete SOP
                 </span>
               )}
@@ -715,31 +715,31 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             {/* Clean Neutral Summary Strip */}
             <div className="grid grid-cols-3 gap-2 rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center text-xs">
               <div className="space-y-0.5">
-                <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-slate-600">
+                <div className="flex items-center justify-center gap-1 text-xs font-semibold text-slate-600">
                   <span className="size-2 rounded-full bg-emerald-500" />
                   <span>Pass</span>
                 </div>
-                <div className="truncate font-mono text-xs font-bold text-slate-900">
+                <div className="truncate font-mono text-xs font-semibold text-slate-900">
                   {computedSopRules.passText}
                 </div>
               </div>
 
               <div className="space-y-0.5 border-x border-slate-200 px-1">
-                <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-slate-600">
+                <div className="flex items-center justify-center gap-1 text-xs font-semibold text-slate-600">
                   <span className="size-2 rounded-full bg-amber-500" />
                   <span>Warning</span>
                 </div>
-                <div className="truncate font-mono text-xs font-bold text-slate-900">
+                <div className="truncate font-mono text-xs font-semibold text-slate-900">
                   {computedSopRules.warnText !== '—' ? computedSopRules.warnText : 'None'}
                 </div>
               </div>
 
               <div className="space-y-0.5">
-                <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-slate-600">
+                <div className="flex items-center justify-center gap-1 text-xs font-semibold text-slate-600">
                   <span className="size-2 rounded-full bg-rose-500" />
                   <span>Reject</span>
                 </div>
-                <div className="truncate font-mono text-xs font-bold text-slate-900">
+                <div className="truncate font-mono text-xs font-semibold text-slate-900">
                   {computedSopRules.rejectText}
                 </div>
               </div>
@@ -784,7 +784,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
               <div className={`grid gap-2 pt-0.5 ${boundaryType === 'RANGE' ? 'grid-cols-2' : 'grid-cols-1'}`}>
                 {boundaryType !== 'MAX_ONLY' && (
                   <div>
-                    <label htmlFor="lt-min" className="text-[11px] font-medium text-slate-600">
+                    <label htmlFor="lt-min" className="text-xs font-medium text-slate-600">
                       Min Value {unit ? `(${unit})` : ''}
                     </label>
                     <input
@@ -800,7 +800,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                 )}
                 {boundaryType !== 'MIN_ONLY' && (
                   <div>
-                    <label htmlFor="lt-max" className="text-[11px] font-medium text-slate-600">
+                    <label htmlFor="lt-max" className="text-xs font-medium text-slate-600">
                       Max Value {unit ? `(${unit})` : ''}
                     </label>
                     <input
@@ -858,7 +858,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                 <div className={`grid gap-2 pt-1 ${boundaryType === 'RANGE' ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   {boundaryType !== 'MAX_ONLY' && (
                     <div>
-                      <label className="text-[11px] font-medium text-slate-600">
+                      <label className="text-xs font-medium text-slate-600">
                         Low Margin {unit ? `(${unit})` : ''}
                       </label>
                       <input
@@ -869,14 +869,14 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                         placeholder="e.g. 6.60"
                         className={fieldInputClass}
                       />
-                      <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">
+                      <span className="text-xs text-slate-500 font-mono mt-0.5 block">
                         Hold: [{warnLowFloor || '?'} to {minValue || 'Min'})
                       </span>
                     </div>
                   )}
                   {boundaryType !== 'MIN_ONLY' && (
                     <div>
-                      <label className="text-[11px] font-medium text-slate-600">
+                      <label className="text-xs font-medium text-slate-600">
                         High Margin {unit ? `(${unit})` : ''}
                       </label>
                       <input
@@ -887,7 +887,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                         placeholder="e.g. 7.00"
                         className={fieldInputClass}
                       />
-                      <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">
+                      <span className="text-xs text-slate-500 font-mono mt-0.5 block">
                         Hold: ({maxValue || 'Max'} to {warnHighCeil || '?'}]
                       </span>
                     </div>
@@ -904,12 +904,12 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                   <span className="text-xs font-semibold text-slate-800">Rejection Limit</span>
                   <InfoTip text="Values beyond this limit fail the test and trigger a rejection recommendation." />
                 </div>
-                <span className="text-[10px] font-semibold text-slate-500">
+                <span className="text-xs font-semibold text-slate-500">
                   {category === 'MONITORING' ? 'Monitoring Norm' : 'Auto-Derived'}
                 </span>
               </div>
 
-              <div className="font-mono text-xs font-bold text-slate-900 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+              <div className="font-mono text-xs font-semibold text-slate-900 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
                 {computedSopRules.rejectText}
               </div>
             </div>
@@ -974,7 +974,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
               <button
                 type="button"
                 onClick={() => setTestSimulatorVal('')}
-                className="text-[11px] font-medium text-slate-500 hover:text-slate-800"
+                className="text-xs font-medium text-slate-500 hover:text-slate-800"
               >
                 Clear
               </button>
@@ -983,7 +983,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
 
           {isCategorical && options.length > 0 && (
             <div className="space-y-1">
-              <span className="text-[11px] font-medium text-slate-500">Click choice to test:</span>
+              <span className="text-xs font-medium text-slate-500">Click choice to test:</span>
               <div className="flex flex-wrap gap-1.5">
                 {options.map((opt) => (
                   <button
@@ -1015,17 +1015,17 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
           </div>
 
           {simulatedVerdict && (
-            <div className={`rounded-lg border p-2.5 text-xs transition-all ${simulatedVerdict.color}`}>
-              <div className="flex items-center justify-between font-bold">
+            <div className={`rounded-lg border p-2.5 text-xs transition-[color,background-color,border-color,box-shadow,opacity,transform] ${simulatedVerdict.color}`}>
+              <div className="flex items-center justify-between font-semibold">
                 <span className="flex items-center gap-1.5">
                   {simulatedVerdict.verdict === 'PASS' && <span className="size-2 rounded-full bg-emerald-500" />}
                   {simulatedVerdict.verdict === 'WARNING' && <span className="size-2 rounded-full bg-amber-500" />}
                   {simulatedVerdict.verdict === 'FAIL' && <span className="size-2 rounded-full bg-rose-500" />}
                   <span>{simulatedVerdict.label}</span>
                 </span>
-                <span className="text-[10px] font-semibold opacity-75">Verdict</span>
+                <span className="text-xs font-semibold opacity-75">Verdict</span>
               </div>
-              <div className="text-[11px] font-normal opacity-90 mt-0.5">
+              <div className="text-xs font-normal opacity-90 mt-0.5">
                 {simulatedVerdict.detail}
               </div>
             </div>

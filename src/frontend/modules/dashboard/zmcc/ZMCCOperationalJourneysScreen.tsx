@@ -232,7 +232,7 @@ export function ZMCCOperationalJourneysScreen({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-card p-5 rounded-xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <Truck className="w-5 h-5 text-primary" />
@@ -370,7 +370,7 @@ export function ZMCCOperationalJourneysScreen({
             <div className="p-4 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                <h2 className="text-xs font-semibold text-foreground">
                   Live Mobile Tester Fleet Radar
                 </h2>
               </div>
@@ -405,7 +405,7 @@ export function ZMCCOperationalJourneysScreen({
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-muted/60 text-slate-700 uppercase font-semibold text-[10px] border-b border-border">
+                  <thead className="bg-muted/60 text-slate-700 font-semibold text-xs border-b border-border">
                     <tr>
                       <th className="p-3">Journey #</th>
                       <th className="p-3">Route</th>
@@ -431,7 +431,7 @@ export function ZMCCOperationalJourneysScreen({
                           {new Date(j.assigned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </td>
                         <td className="p-3">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-blue-100 text-blue-800">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
                             {j.status}
                           </span>
                         </td>
@@ -474,7 +474,7 @@ export function ZMCCOperationalJourneysScreen({
       {activeTab === 'HISTORY' && (
         <div className="space-y-4">
           {/* Controls: Date Picker, Status Filter, Search */}
-          <div className="bg-card p-4 rounded-xl border border-border shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div className="bg-card p-4 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1 bg-subtle px-2.5 py-1.5 rounded-lg border border-border text-xs">
                 <Calendar className="w-3.5 h-3.5 text-slate-500" />
@@ -527,7 +527,7 @@ export function ZMCCOperationalJourneysScreen({
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-muted/60 text-slate-700 uppercase font-semibold text-[10px] border-b border-border">
+                  <thead className="bg-muted/60 text-slate-700 font-semibold text-xs border-b border-border">
                     <tr>
                       <th className="p-3">Journey #</th>
                       <th className="p-3">Date</th>
@@ -593,7 +593,7 @@ export function ZMCCOperationalJourneysScreen({
           <div className="bg-card w-full max-w-5xl rounded-2xl border border-border shadow-2xl p-5 my-auto max-h-[92vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
-                <span className="text-[10px] font-semibold uppercase text-slate-500">Journey Map & Field Trail</span>
+                <span className="text-xs font-semibold text-slate-500">Journey Map & Field Trail</span>
                 <h3 className="text-base font-semibold text-foreground">
                   Interactive Route Map Replay
                 </h3>

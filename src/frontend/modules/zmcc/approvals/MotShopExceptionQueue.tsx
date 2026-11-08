@@ -31,7 +31,7 @@ export function reasonText(reason: string): string {
 function waitingInfo(iso: string, now: number) {
   const mins = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000));
   const text = mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)} h ${mins % 60} min`;
-  const cls = mins >= 60 ? 'text-rose-700' : mins >= 15 ? 'text-amber-700' : 'text-slate-600';
+  const cls = mins >= 60 ? 'text-rose-700' : mins >= 15 ? 'text-amber-700' : 'text-secondary-foreground';
   return { text, cls };
 }
 
@@ -112,12 +112,12 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
               'min-h-[40px] rounded-xl border px-4 text-xs font-semibold transition',
               tab === t
                 ? 'border-violet-600 bg-violet-600 text-white shadow-2xs'
-                : 'border-border bg-white text-slate-700 hover:bg-slate-50'
+                : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
             )}
           >
             {t === 'PENDING' ? 'Waiting Review' : 'Decided History'}
             {t === 'PENDING' && items.length > 0 && tab === 'PENDING' && (
-              <span className="ml-2 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] text-white">
+              <span className="ml-2 rounded-full bg-white/20 px-1.5 py-0.5 text-xs text-white">
                 {items.length}
               </span>
             )}
@@ -126,7 +126,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
       </div>
 
       {loading && (
-        <div className="flex items-center justify-center gap-2 py-8 text-xs font-medium text-slate-500">
+        <div className="flex items-center justify-center gap-2 py-8 text-xs font-medium text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
           <span>Loading exception records…</span>
         </div>
@@ -143,7 +143,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
       )}
 
       {!loading && !error && items.length === 0 && (
-        <div className="rounded-xl border border-border bg-card p-8 text-center text-xs text-slate-500">
+        <div className="rounded-2xl border border-border bg-card p-8 text-center text-xs text-muted-foreground">
           {tab === 'PENDING' ? 'Nothing is waiting for review.' : 'No decided exceptions in history.'}
         </div>
       )}
@@ -160,14 +160,14 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
               initial="initial"
               animate="animate"
               key={item.id}
-              className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-2xs transition hover:border-slate-300"
+              className="flex flex-col justify-between rounded-2xl border border-border bg-card p-4 shadow-2xs transition hover:border-border-strong"
             >
               <div className="space-y-3">
                 <header className="flex items-start justify-between gap-2 border-b border-border pb-2.5">
                   <div className="min-w-0">
-                    <h3 className="line-clamp-1 text-sm font-bold text-slate-900">{item.shopName}</h3>
-                    <p className="text-[11px] text-slate-500">
-                      RMR: <strong className="tabular-nums text-slate-800">{item.collectionNumber}</strong> · Journey #{item.journeyNumber}
+                    <h3 className="line-clamp-1 text-sm font-semibold text-foreground">{item.shopName}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      RMR: <strong className="tabular-nums text-foreground">{item.collectionNumber}</strong> · Journey #{item.journeyNumber}
                     </p>
                   </div>
                   <DecisionStatusBadge
@@ -176,16 +176,16 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 </header>
 
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="text-[11px] text-slate-600">
+                  <span className="text-xs text-secondary-foreground">
                     By <strong>{item.motName}</strong>
                     {item.isDelegated && item.performedAsRole ? ` (${item.performedAsRole.replace(/_/g, ' ').toLowerCase()})` : ''}
                   </span>
                   {pending ? (
-                    <span className={cn('flex items-center gap-1 text-[11px] font-semibold tabular-nums', wait.cls)}>
+                    <span className={cn('flex items-center gap-1 text-xs font-semibold tabular-nums', wait.cls)}>
                       <Clock className="h-3 w-3" aria-hidden="true" /> {wait.text}
                     </span>
                   ) : (
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-xs text-muted-foreground">
                       {item.reviewedAt ? new Date(item.reviewedAt).toLocaleDateString() : ''}
                     </span>
                   )}
@@ -194,16 +194,16 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 {/* Metrics Pill Row */}
                 <div className="bg-card border-border border grid grid-cols-3 gap-1.5 rounded-lg p-2 text-center text-xs">
                   <div>
-                    <span className="block text-[10px] text-slate-500">Gross</span>
-                    <strong className="text-slate-900 tabular-nums">{item.grossLiters} L</strong>
+                    <span className="block text-xs text-muted-foreground">Gross</span>
+                    <strong className="text-foreground tabular-nums">{item.grossLiters} L</strong>
                   </div>
                   <div>
-                    <span className="block text-[10px] text-slate-500">LR</span>
-                    <strong className="text-slate-900 tabular-nums">{item.lr}</strong>
+                    <span className="block text-xs text-muted-foreground">LR</span>
+                    <strong className="text-foreground tabular-nums">{item.lr}</strong>
                   </div>
                   <div>
-                    <span className="block text-[10px] text-slate-500">Fat</span>
-                    <strong className="text-slate-900 tabular-nums">{item.fat}%</strong>
+                    <span className="block text-xs text-muted-foreground">Fat</span>
+                    <strong className="text-foreground tabular-nums">{item.fat}%</strong>
                   </div>
                 </div>
 
@@ -212,15 +212,15 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                   {item.exceptionReasons.map((r) => (
                     <span
                       key={r}
-                      className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900"
+                      className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900"
                     >
                       {reasonText(r)}
                     </span>
                   ))}
                 </div>
 
-                <div className="text-[11px] text-slate-600">
-                  <span className="font-semibold text-slate-700">Tester choice:</span>{' '}
+                <div className="text-xs text-secondary-foreground">
+                  <span className="font-semibold text-secondary-foreground">Tester choice:</span>{' '}
                   {item.personDecision === 'ACCEPT' ? 'Accept' : 'Reject'}
                   {item.decisionRemarks ? ` ("${item.decisionRemarks}")` : ''}
                 </div>
@@ -241,7 +241,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                   <button
                     type="button"
                     onClick={() => setActiveModalItem(item)}
-                    className="min-h-11 min-w-11 flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                    className="min-h-11 min-w-11 flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-subtle px-3 text-xs font-semibold text-secondary-foreground hover:bg-muted"
                   >
                     <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>View Inspection Details</span>
@@ -265,11 +265,11 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
             <>
               <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
                 <div>
-                  <DrawerTitle className="text-base font-bold text-slate-900">
+                  <DrawerTitle className="text-base font-semibold text-foreground">
                     {activeModalItem.reviewStatus === 'PENDING' ? 'Decide Shop Exception' : 'Shop Exception Record'}
                   </DrawerTitle>
-                  <p className="text-xs text-slate-500 font-medium">
-                    {activeModalItem.shopName} · RMR: <strong className="text-slate-800">{activeModalItem.collectionNumber}</strong> · Journey #{activeModalItem.journeyNumber}
+                  <p className="text-xs text-muted-foreground font-medium">
+                    {activeModalItem.shopName} · RMR: <strong className="text-foreground">{activeModalItem.collectionNumber}</strong> · Journey #{activeModalItem.journeyNumber}
                   </p>
                 </div>
                 <button
@@ -277,7 +277,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                   onClick={() => setActiveModalItem(null)}
                   disabled={Boolean(busyId)}
                   aria-label="Close"
-                  className="min-h-11 min-w-11 flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  className="min-h-11 min-w-11 flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -287,16 +287,16 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 {/* Summary Metrics */}
                 <div className="bg-card border-border border grid grid-cols-3 gap-2 rounded-xl p-3 text-center text-xs">
                   <div>
-                    <span className="block text-[10px] text-slate-500">Gross Quantity</span>
-                    <strong className="text-base text-slate-900 tabular-nums">{activeModalItem.grossLiters} L</strong>
+                    <span className="block text-xs text-muted-foreground">Gross Quantity</span>
+                    <strong className="text-base text-foreground tabular-nums">{activeModalItem.grossLiters} L</strong>
                   </div>
                   <div>
-                    <span className="block text-[10px] text-slate-500">Lactometer (LR)</span>
-                    <strong className="text-base text-slate-900 tabular-nums">{activeModalItem.lr}</strong>
+                    <span className="block text-xs text-muted-foreground">Lactometer (LR)</span>
+                    <strong className="text-base text-foreground tabular-nums">{activeModalItem.lr}</strong>
                   </div>
                   <div>
-                    <span className="block text-[10px] text-slate-500">Fat Percentage</span>
-                    <strong className="text-base text-slate-900 tabular-nums">{activeModalItem.fat}%</strong>
+                    <span className="block text-xs text-muted-foreground">Fat Percentage</span>
+                    <strong className="text-base text-foreground tabular-nums">{activeModalItem.fat}%</strong>
                   </div>
                 </div>
 
@@ -313,15 +313,15 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 </div>
 
                 {/* Tester choice & remarks */}
-                <div className="bg-card border-border rounded-xl border p-3 text-xs text-slate-700 space-y-1">
+                <div className="bg-card border-border rounded-xl border p-3 text-xs text-secondary-foreground space-y-1">
                   <p>
-                    <span className="font-semibold text-slate-900">Tester Decision:</span>{' '}
-                    <span className="font-bold">{activeModalItem.personDecision === 'ACCEPT' ? 'Accept Milk' : 'Reject Milk'}</span>
+                    <span className="font-semibold text-foreground">Tester Decision:</span>{' '}
+                    <span className="font-semibold">{activeModalItem.personDecision === 'ACCEPT' ? 'Accept Milk' : 'Reject Milk'}</span>
                     {activeModalItem.decisionRemarks && (
-                      <span className="text-slate-600"> · &ldquo;{activeModalItem.decisionRemarks}&rdquo;</span>
+                      <span className="text-secondary-foreground"> · &ldquo;{activeModalItem.decisionRemarks}&rdquo;</span>
                     )}
                   </p>
-                  <p className="text-slate-500 text-[11px]">
+                  <p className="text-muted-foreground text-xs">
                     Recorded by {activeModalItem.motName}
                     {activeModalItem.isDelegated && activeModalItem.performedAsRole ? ` (as ${activeModalItem.performedAsRole.replace(/_/g, ' ').toLowerCase()})` : ''}
                   </p>
@@ -331,7 +331,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 {activeModalItem.details && activeModalItem.details.tests.length > 0 && (
                   <div className="overflow-x-auto rounded-xl border border-border">
                     <table className="w-full text-xs">
-                      <thead className="bg-slate-50 text-left text-[11px] font-semibold text-slate-600">
+                      <thead className="bg-subtle text-left text-xs font-semibold text-secondary-foreground">
                         <tr>
                           <th className="p-2.5">Test Name</th>
                           <th className="p-2.5">Recorded Result</th>
@@ -341,12 +341,12 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                       <tbody className="divide-y divide-border">
                         {activeModalItem.details.tests.map((t) => (
                           <tr key={t.labTestId}>
-                            <td className="p-2.5 font-medium text-slate-800">{t.testName}</td>
-                            <td className="p-2.5 tabular-nums text-slate-700">{t.value ?? t.textValue ?? '—'}</td>
+                            <td className="p-2.5 font-medium text-foreground">{t.testName}</td>
+                            <td className="p-2.5 tabular-nums text-secondary-foreground">{t.value ?? t.textValue ?? '—'}</td>
                             <td className="p-2.5 font-semibold">
                               <span
                                 className={cn(
-                                  'inline-flex items-center rounded-full px-2 py-0.5 text-[10px]',
+                                  'inline-flex items-center rounded-full px-2 py-0.5 text-xs',
                                   t.outcome === 'FAIL'
                                     ? 'bg-rose-100 text-rose-800'
                                     : t.outcome === 'PASS'
@@ -367,7 +367,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 {/* Photo Evidence */}
                 {activeModalItem.photos.length > 0 && (
                   <div>
-                    <h4 className="mb-1.5 text-xs font-semibold text-slate-900">Photo Evidence</h4>
+                    <h4 className="mb-1.5 text-xs font-semibold text-foreground">Photo Evidence</h4>
                     <div className="grid grid-cols-2 gap-2">
                       {activeModalItem.photos.map((p) => (
                         <div key={p.captureId} className="bg-card border-border overflow-hidden rounded-xl border">
@@ -392,8 +392,8 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
 
                 {/* Decided info if already decided */}
                 {activeModalItem.reviewStatus !== 'PENDING' && (
-                  <div className="bg-card border-border rounded-xl border p-3 text-xs text-slate-700">
-                    <p className="font-semibold text-slate-900">Decision History</p>
+                  <div className="bg-card border-border rounded-xl border p-3 text-xs text-secondary-foreground">
+                    <p className="font-semibold text-foreground">Decision History</p>
                     <p className="mt-0.5">
                       Verdict: <strong>{activeModalItem.finalDecision}</strong>
                       {activeModalItem.reviewedAt && (
@@ -401,7 +401,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                       )}
                     </p>
                     {activeModalItem.reviewRemarks && (
-                      <p className="mt-1 text-slate-600">Remarks: &ldquo;{activeModalItem.reviewRemarks}&rdquo;</p>
+                      <p className="mt-1 text-secondary-foreground">Remarks: &ldquo;{activeModalItem.reviewRemarks}&rdquo;</p>
                     )}
                   </div>
                 )}
@@ -410,7 +410,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 {activeModalItem.reviewStatus === 'PENDING' && canDecide && (
                   <div className="space-y-3 pt-2 border-t border-border">
                     <div>
-                      <label htmlFor="modal-exception-remarks" className="mb-1 block text-xs font-semibold text-slate-900">
+                      <label htmlFor="modal-exception-remarks" className="mb-1 block text-xs font-semibold text-foreground">
                         Zonal Manager Remarks / Justification
                       </label>
                       <textarea
@@ -419,7 +419,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                         onChange={(e) => setRemarks((r) => ({ ...r, [activeModalItem.id]: e.target.value }))}
                         placeholder="Decision reason"
                         rows={2}
-                        className="min-h-11 w-full resize-none rounded-xl border border-slate-300 p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="min-h-11 w-full resize-none rounded-lg border border-border-strong p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                       {itemError[activeModalItem.id] && (
                         <p className="mt-1 text-xs font-semibold text-rose-700">{itemError[activeModalItem.id]}</p>
@@ -431,7 +431,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                         type="button"
                         disabled={busyId === activeModalItem.id}
                         onClick={() => decide(activeModalItem, 'NO')}
-                        className="flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-4 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                        className="flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-4 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                       >
                         {busyId === activeModalItem.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                         <span>NO (Reject Shop)</span>
@@ -441,7 +441,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                         type="button"
                         disabled={busyId === activeModalItem.id}
                         onClick={() => decide(activeModalItem, 'OKAY')}
-                        className="flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl bg-emerald-700 px-4 text-xs font-bold text-white shadow-2xs hover:bg-emerald-800 disabled:opacity-50"
+                        className="flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl bg-emerald-700 px-4 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-800 disabled:opacity-50"
                       >
                         {busyId === activeModalItem.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                         <span>OKAY (Approve Shop)</span>

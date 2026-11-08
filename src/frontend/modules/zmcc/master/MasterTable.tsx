@@ -69,7 +69,7 @@ export function MasterTable<T extends { id: string; is_active: boolean }>({
     <TableWrapper>
       <table className="w-full text-left text-xs border-collapse min-w-[500px]">
         <thead>
-          <tr className="bg-subtle border-b border-border text-slate-600 font-semibold uppercase text-xs tracking-wider">
+          <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold text-xs">
             {cols.map((c) => (
               <th key={c.header} className={`py-3 px-4 ${alignCls[c.align ?? 'left']}`}>
                 {c.header}
@@ -81,7 +81,7 @@ export function MasterTable<T extends { id: string; is_active: boolean }>({
         <tbody className="divide-y divide-border">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={colSpan} className="py-8 text-center text-slate-400 font-semibold">
+              <td colSpan={colSpan} className="py-8 text-center text-muted-foreground font-semibold">
                 {emptyText}
               </td>
             </tr>
@@ -101,7 +101,7 @@ export function MasterTable<T extends { id: string; is_active: boolean }>({
                         <button
                           type="button"
                           onClick={() => onEdit(r)}
-                          className="p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-border hover:bg-slate-100 text-slate-700 transition"
+                          className="p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-border hover:bg-muted text-secondary-foreground transition"
                           title={`Edit ${entity}`}
                           aria-label={`Edit ${entity}`}
                         >

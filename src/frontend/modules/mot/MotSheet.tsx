@@ -32,13 +32,13 @@ export function MotSheet({ title, subtitle, onClose, children }: MotSheetProps) 
           <div className="flex items-start justify-between gap-3 border-b border-border pb-3">
             <div className="min-w-0">
               <DrawerTitle>{title}</DrawerTitle>
-              {subtitle && <p className="mt-0.5 text-xs font-medium text-slate-500">{subtitle}</p>}
+              {subtitle && <p className="mt-0.5 text-xs font-medium text-muted-foreground">{subtitle}</p>}
             </div>
             <button
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-border text-slate-500 hover:bg-muted"
+              className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted"
             >
               <X className="h-5 w-5" aria-hidden="true" />
             </button>

@@ -101,15 +101,15 @@ export default function HierarchyWorkPage() {
           {canSeeTestPolicies(currentUser?.role) && (
             <Link
               href="/super-admin/test-policies"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-secondary-foreground shadow-2xs transition hover:bg-subtle"
             >
               <ArrowLeft className="h-4 w-4" />
               <span>Back to Lab Policies</span>
             </Link>
           )}
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Work Done for Lower Roles</h1>
-            <p className="text-xs text-slate-500">
+            <h1 className="text-xl font-semibold text-foreground">Work Done for Lower Roles</h1>
+            <p className="text-xs text-muted-foreground">
               Cross-role activity log: when senior users or Super Admins work in subordinate workspaces
             </p>
           </div>
@@ -120,7 +120,7 @@ export default function HierarchyWorkPage() {
             type="button"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-secondary-foreground shadow-2xs transition hover:bg-subtle disabled:opacity-50"
           >
             <Loader2 className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
@@ -138,7 +138,7 @@ export default function HierarchyWorkPage() {
       </div>
 
       {/* Info Card */}
-      <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3.5 text-xs text-sky-900">
+      <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-3.5 text-xs text-sky-900">
         <div className="flex items-start gap-2.5">
           <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
           <div className="space-y-0.5">
@@ -153,24 +153,24 @@ export default function HierarchyWorkPage() {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by user name, tanker token, station, or note…"
-            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs focus:border-primary focus:bg-white focus:outline-hidden"
+            className="h-10 w-full rounded-lg border border-border bg-subtle pl-9 pr-3 text-xs focus:border-primary focus:bg-card focus:outline-hidden"
           />
         </div>
 
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-slate-400" />
+          <Filter className="h-4 w-4 text-muted-foreground" />
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-700 focus:border-primary focus:bg-white focus:outline-hidden"
+            className="h-10 rounded-lg border border-border bg-subtle px-3 text-xs font-medium text-secondary-foreground focus:border-primary focus:bg-card focus:outline-hidden"
           >
             <option value="">All Lower Roles</option>
             <option value="QA_OFFICER">Plant QA Officer (QAE)</option>
@@ -191,37 +191,37 @@ export default function HierarchyWorkPage() {
       )}
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-left text-xs">
-            <thead className="border-b border-slate-200 bg-slate-100/80 text-slate-700">
+            <thead className="border-b border-border bg-slate-100/80 text-secondary-foreground">
               <tr>
-                <th className="p-3 font-bold">Date & Time</th>
-                <th className="p-3 font-bold">Actual User</th>
-                <th className="p-3 font-bold">Workspace Used</th>
-                <th className="p-3 font-bold">Action Taken</th>
-                <th className="p-3 font-bold">Station</th>
-                <th className="p-3 font-bold">Reference #</th>
-                <th className="p-3 font-bold">Reason / Notes</th>
+                <th className="p-3 font-semibold">Date & Time</th>
+                <th className="p-3 font-semibold">Actual User</th>
+                <th className="p-3 font-semibold">Workspace Used</th>
+                <th className="p-3 font-semibold">Action Taken</th>
+                <th className="p-3 font-semibold">Station</th>
+                <th className="p-3 font-semibold">Reference #</th>
+                <th className="p-3 font-semibold">Reason / Notes</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
                     Loading cross-role activity records…
                   </td>
                 </tr>
               ) : filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
                     No cross-role activities recorded matching the selected filter.
                   </td>
                 </tr>
               ) : (
                 filteredRecords.map((r) => (
                   <tr key={r.id} className="transition-colors hover:bg-slate-50/80">
-                    <td className="p-3 font-mono text-[11px] tabular-nums text-slate-500 whitespace-nowrap">
+                    <td className="p-3 font-mono text-xs tabular-nums text-muted-foreground whitespace-nowrap">
                       {new Date(r.timestamp).toLocaleString('en-GB', {
                         day: '2-digit',
                         month: 'short',
@@ -231,26 +231,26 @@ export default function HierarchyWorkPage() {
                       })}
                     </td>
                     <td className="p-3">
-                      <div className="font-bold text-slate-900">{r.actualUserName}</div>
-                      <span className="inline-block rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700">
+                      <div className="font-semibold text-foreground">{r.actualUserName}</div>
+                      <span className="inline-block rounded bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold text-indigo-700">
                         {r.actualUserRoleLabel}
                       </span>
                     </td>
                     <td className="p-3">
-                      <span className="inline-block rounded bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
+                      <span className="inline-block rounded bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 border border-amber-200">
                         {r.performedRoleLabel}
                       </span>
                     </td>
-                    <td className="p-3 font-semibold text-slate-800">
+                    <td className="p-3 font-semibold text-foreground">
                       {r.actionTaken}
                     </td>
-                    <td className="p-3 text-slate-600">
+                    <td className="p-3 text-secondary-foreground">
                       {r.station}
                     </td>
-                    <td className="p-3 font-mono font-bold text-slate-900">
+                    <td className="p-3 font-mono font-semibold text-foreground">
                       {r.referenceNumber}
                     </td>
-                    <td className="p-3 text-slate-600 max-w-xs truncate" title={r.reason}>
+                    <td className="p-3 text-secondary-foreground max-w-xs truncate" title={r.reason}>
                       {r.reason}
                     </td>
                   </tr>

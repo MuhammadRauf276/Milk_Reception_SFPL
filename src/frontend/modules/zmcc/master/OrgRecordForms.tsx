@@ -13,14 +13,14 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                   {modalType === 'EDIT_LOCAL_SUPPLIER' && (
                     <div className="bg-card border-border p-3 rounded-xl border text-xs space-y-1">
                       <div className="flex justify-between">
-                        <span className="font-semibold text-slate-500">Supplier Code:</span>
+                        <span className="font-semibold text-muted-foreground">Supplier Code:</span>
                         <span className="tabular-nums font-semibold text-primary">{activeRecord?.local_supplier_code}</span>
                       </div>
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                       Supplier Name *
                     </label>
                     <input
@@ -36,7 +36,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                         Phone Number *
                       </label>
                       <input
@@ -50,7 +50,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                         CNIC *
                       </label>
                       <input
@@ -72,7 +72,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
               {(modalType === 'CREATE_ROUTE' || modalType === 'EDIT_ROUTE') && (
                 <>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Route Name</label>
+                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Route Name</label>
                     <input
                       type="text"
                       required
@@ -84,7 +84,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Origin</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Origin</label>
                       <input
                         type="text"
                         required
@@ -95,7 +95,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Destination</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Destination</label>
                       <input
                         type="text"
                         required
@@ -115,7 +115,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                   {modalType === 'CREATE_AREA' && (
                     <>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">Parent Route</label>
+                        <label className="block text-xs font-semibold text-secondary-foreground mb-1">Parent Route</label>
                         <Combobox
                           options={helperRoutes.map((r) => ({ value: r.id, label: `${r.name} · ${r.route_code}`, keywords: r.route_code }))}
                           value={String(formData.route_id || '')}
@@ -128,7 +128,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                     </>
                   )}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Area Name</label>
+                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Area Name</label>
                     <input
                       type="text"
                       required
@@ -146,19 +146,19 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                 <>
                   {(
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">ERP Code</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">ERP Code</label>
                       <input
                         type="text"
                         required
                         value={formData.erp_code || ''}
                         onChange={(e) => setFormData({ ...formData, erp_code: e.target.value.toUpperCase() })}
                         placeholder="e.g. SRC-ERP-901"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold uppercase focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                   )}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Source Name</label>
+                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Source Name</label>
                     <input
                       type="text"
                       required
@@ -176,19 +176,19 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                 <>
                   {modalType === 'CREATE_CHILLER' && (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Ownership Code</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Ownership Code</label>
                       <input
                         type="text"
                         required
                         value={formData.ownership_code || ''}
                         onChange={(e) => setFormData({ ...formData, ownership_code: e.target.value.toUpperCase() })}
                         placeholder="e.g. CHL-BRAND-01"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold uppercase focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                   )}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Owner / Brand Name</label>
+                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Owner / Brand Name</label>
                     <input
                       type="text"
                       required

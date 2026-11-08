@@ -33,9 +33,9 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-xl border">
+      <div className="bg-card border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-2xl border">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search"
@@ -48,7 +48,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
           <button
             onClick={() => setSourceFilter('ALL')}
             className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
-              sourceFilter === 'ALL' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              sourceFilter === 'ALL' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             All ({(zmccs ?? []).length + (contractors ?? []).length})
@@ -56,7 +56,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
           <button
             onClick={() => setSourceFilter('ZMCC')}
             className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
-              sourceFilter === 'ZMCC' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              sourceFilter === 'ZMCC' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             ZMCC ({(zmccs ?? []).length})
@@ -64,7 +64,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
           <button
             onClick={() => setSourceFilter('CONTRACTORS')}
             className={`px-3 py-1.5 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
-              sourceFilter === 'CONTRACTORS' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              sourceFilter === 'CONTRACTORS' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             Contractors ({(contractors ?? []).length})
@@ -81,7 +81,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                 ZMCC centers
               </h2>
             </div>
-            <span className="text-xs tabular-nums font-medium text-slate-500">
+            <span className="text-xs tabular-nums font-medium text-muted-foreground">
               {filteredZmccs.length} centers active
             </span>
           </div>
@@ -90,11 +90,11 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
             {filteredZmccs.map((z) => (
               <div
                 key={z.id}
-                className="bg-card border border-border rounded-xl p-4 shadow-xs hover:border-primary/50 transition-all flex flex-col justify-between"
+                className="bg-card border border-border rounded-2xl p-4 shadow-xs hover:border-primary/50 transition-[color,background-color,border-color,box-shadow,opacity,transform] flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="tabular-nums text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">
+                    <span className="tabular-nums text-xs px-2 py-0.5 rounded bg-muted text-secondary-foreground font-semibold">
                       {z.code}
                     </span>
                     <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -105,14 +105,14 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
 
                   <div className="bg-card border-border mt-3 grid grid-cols-2 gap-2 p-2.5 rounded-lg border">
                     <div>
-                      <div className="text-xs text-slate-500 font-medium">Received today</div>
-                      <div className="tabular-nums font-semibold text-slate-800 text-xs">
+                      <div className="text-xs text-muted-foreground font-medium">Received today</div>
+                      <div className="tabular-nums font-semibold text-foreground text-xs">
                         {z.intakeLiters.toLocaleString()} L
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-slate-500 font-medium">Dispatch Fat / LR</div>
-                      <div className="tabular-nums font-semibold text-slate-800 text-xs">
+                      <div className="text-xs text-muted-foreground font-medium">Dispatch Fat / LR</div>
+                      <div className="tabular-nums font-semibold text-foreground text-xs">
                         {formatMetric(z.avgFatPercent, '%')} | {formatMetric(z.avgLr)}
                       </div>
                     </div>
@@ -120,14 +120,14 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
 
                   <div className="mt-3">
                     <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-slate-600 font-medium">Tank stock (@13% TS)</span>
-                      <span className="tabular-nums font-semibold text-slate-800">
+                      <span className="text-secondary-foreground font-medium">Tank stock (@13% TS)</span>
+                      <span className="tabular-nums font-semibold text-foreground">
                         {z.siloStockAt13tsLiters != null
                           ? `${z.siloStockAt13tsLiters.toLocaleString()} L @13% TS (${formatMetric(z.siloCapacityPercent, '%')})`
                           : `${z.siloStockLiters.toLocaleString()} L (${formatMetric(z.siloCapacityPercent, '%')})`}
                       </span>
                     </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                       <div
                         className={`h-full ${
                           (z.siloCapacityPercent ?? 0) > 85
@@ -142,13 +142,13 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-slate-600">
+                <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-secondary-foreground">
                   <span>Dispatched Today:</span>
                   <span className="tabular-nums font-semibold text-primary">
                     {z.dispatchedLiters.toLocaleString()} L ({z.dispatchedTankerCount} tankers)
                   </span>
                 </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
+                <div className="mt-2 flex items-center justify-between text-xs text-secondary-foreground">
                   <span>Not unloaded</span>
                   <span className={`tabular-nums font-semibold ${z.leftWithoutFullUnloadingCount > 0 ? 'text-amber-700' : 'text-slate-700'}`}>
                     {z.leftWithoutFullUnloadingCount}
@@ -166,7 +166,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-subtle border-b border-border text-slate-600 font-semibold">
+                <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold">
                   <th className="py-3 px-4">Source</th>
                   <th className="py-3 px-4 text-right">Net kg</th>
                   <th className="py-3 px-4 text-right">Gross L</th>
@@ -179,7 +179,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                   <tr key={r.sourceId ?? r.sourceName}>
                     <td className="py-3 px-4">
                       <div className="font-semibold text-foreground">{r.sourceName}</div>
-                      {r.erpCode ? <div className="text-slate-500 tabular-nums">{r.erpCode}</div> : null}
+                      {r.erpCode ? <div className="text-muted-foreground tabular-nums">{r.erpCode}</div> : null}
                     </td>
                     <td className="py-3 px-4 text-right tabular-nums">{r.netKg.toLocaleString()}</td>
                     <td className="py-3 px-4 text-right tabular-nums">{r.grossLiters.toLocaleString()}</td>
@@ -205,7 +205,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                 Direct Plant Commercial Contractors
               </h2>
             </div>
-            <span className="text-xs tabular-nums font-medium text-slate-500">
+            <span className="text-xs tabular-nums font-medium text-muted-foreground">
               {filteredContractors.length} active contractors
             </span>
           </div>
@@ -213,7 +213,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-subtle border-b border-border text-slate-600 font-semibold">
+                <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold">
                   <th className="py-3 px-4">Contractor Name / Code</th>
                   <th className="py-3 px-4 text-right">Delivered to Plant</th>
                   <th className="py-3 px-4 text-center">Plant QA</th>
@@ -223,7 +223,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
               <tbody className="divide-y divide-border">
                 {filteredContractors.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-6 text-center text-slate-500">
+                    <td colSpan={4} className="py-6 text-center text-muted-foreground">
                       No direct contractors found.
                     </td>
                   </tr>
@@ -232,19 +232,19 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                     <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4">
                         <div className="font-semibold text-foreground">{c.name}</div>
-                        <div className="text-slate-500 tabular-nums text-xs">{c.code}</div>
+                        <div className="text-muted-foreground tabular-nums text-xs">{c.code}</div>
                       </td>
                       <td className="py-3 px-4 text-right tabular-nums font-semibold text-foreground">
                         {c.deliveredLiters.toLocaleString()} L
                       </td>
                       <td className="py-3 px-4 text-center tabular-nums">
-                        <span className="font-semibold text-slate-800">{formatMetric(c.avgFatPercent, '%')}</span>
-                        <span className="text-slate-400 mx-1">|</span>
-                        <span className="font-semibold text-slate-800">{formatMetric(c.avgLr)}</span>
+                        <span className="font-semibold text-foreground">{formatMetric(c.avgFatPercent, '%')}</span>
+                        <span className="text-muted-foreground mx-1">|</span>
+                        <span className="font-semibold text-foreground">{formatMetric(c.avgLr)}</span>
                       </td>
                       <td className="py-3 px-4 text-center">
                         {c.qualityPassRatePercent === null ? (
-                          <span className="text-slate-400">{NO_DATA}</span>
+                          <span className="text-muted-foreground">{NO_DATA}</span>
                         ) : (
                           <span className="inline-flex items-center gap-1 tabular-nums font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                             {c.qualityPassRatePercent}%

@@ -75,24 +75,24 @@ function waitingInfo(iso: string, now: number) {
 function OutcomeChip({ outcome }: { outcome: Outcome }) {
   if (outcome === 'PASS')
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
         <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> Pass
       </span>
     );
   if (outcome === 'FAIL')
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
+      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800">
         <XCircle className="h-3 w-3" aria-hidden="true" /> Fail
       </span>
     );
   if (outcome === 'WARN')
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
         <AlertTriangle className="h-3 w-3" aria-hidden="true" /> Warn
       </span>
     );
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-secondary-foreground">
       <Clock className="h-3 w-3" aria-hidden="true" /> Pending
     </span>
   );
@@ -101,7 +101,7 @@ function OutcomeChip({ outcome }: { outcome: Outcome }) {
 function Photo({ photo, label }: { photo: PhotoRef; label: string }) {
   if (!photo.received) {
     return (
-      <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-dashed border-amber-300 bg-amber-50/60 p-2 text-center text-[10px] font-semibold text-amber-800">
+      <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-dashed border-amber-300 bg-amber-50/60 p-2 text-center text-xs font-semibold text-amber-800">
         Photo not received yet
       </div>
     );
@@ -235,7 +235,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               'min-h-[44px] flex-1 sm:flex-none rounded-xl border px-4 text-xs font-semibold transition cursor-pointer',
               tab === t
                 ? 'border-primary bg-primary text-white shadow-2xs'
-                : 'border-border bg-white text-slate-700 hover:bg-slate-50'
+                : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
             )}
           >
             {t === 'PENDING' ? `Waiting for Approval (${items.length})` : 'Decided History'}
@@ -244,13 +244,13 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
       </div>
 
       {approvalsQuery.isPending && (
-        <div className="flex items-center justify-center gap-2 py-12 text-slate-500 text-xs">
+        <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground text-xs">
           <Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading dispatch review queue…
         </div>
       )}
 
       {approvalsQuery.isError && (
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-3.5 text-xs text-rose-800">
+        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card p-3.5 text-xs text-rose-800">
           <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{getErrorMessage(approvalsQuery.error) || 'Failed to load dispatch queue.'}</span>
           <button
@@ -264,7 +264,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
       )}
 
       {!approvalsQuery.isPending && !approvalsQuery.isError && items.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-xs text-slate-500">
+        <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-xs text-muted-foreground">
           {tab === 'PENDING' ? 'No dispatch requests currently waiting for manager review.' : 'No decided dispatches found.'}
         </div>
       )}
@@ -284,28 +284,28 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.18 }}
                 onClick={() => handleOpenItem(item)}
-                className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-2xs hover:shadow-2xs hover:border-border transition cursor-pointer"
+                className="flex flex-col justify-between rounded-2xl border border-border bg-card p-4 shadow-2xs hover:shadow-2xs hover:border-border transition cursor-pointer"
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center space-x-1.5">
                         <Truck className="w-4 h-4 text-primary shrink-0" />
-                        <h3 className="text-sm font-semibold text-slate-900 tabular-nums">
+                        <h3 className="text-sm font-semibold text-foreground tabular-nums">
                           {item.vehicleNumber}
                         </h3>
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {item.sourceName} · {item.dispatchNumber}
                       </p>
                     </div>
 
                     {pending ? (
-                      <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full border tabular-nums', wait.badgeCls)}>
+                      <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full border tabular-nums', wait.badgeCls)}>
                         {wait.text}
                       </span>
                     ) : (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-secondary-foreground border border-border">
                         {item.status}
                       </span>
                     )}
@@ -314,26 +314,26 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                   {/* Summary Metrics */}
                   <div className="grid grid-cols-4 gap-1.5 bg-card p-2.5 rounded-xl border border-border text-center">
                     <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Litres</span>
-                      <p className="text-xs font-semibold tabular-nums text-slate-900 mt-0.5">
+                      <span className="text-xs text-muted-foreground font-semibold">Litres</span>
+                      <p className="text-xs font-semibold tabular-nums text-foreground mt-0.5">
                         {item.totals.grossLiters.toLocaleString()}
                       </p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Avg LR</span>
-                      <p className="text-xs font-semibold tabular-nums text-slate-900 mt-0.5">
+                      <span className="text-xs text-muted-foreground font-semibold">Avg LR</span>
+                      <p className="text-xs font-semibold tabular-nums text-foreground mt-0.5">
                         {item.totals.weightedLr || '—'}
                       </p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Avg Fat</span>
-                      <p className="text-xs font-semibold tabular-nums text-slate-900 mt-0.5">
+                      <span className="text-xs text-muted-foreground font-semibold">Avg Fat</span>
+                      <p className="text-xs font-semibold tabular-nums text-foreground mt-0.5">
                         {item.totals.weightedFat ? `${item.totals.weightedFat}%` : '—'}
                       </p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">13 TS</span>
-                      <p className="text-xs font-semibold tabular-nums text-slate-900 mt-0.5">
+                      <span className="text-xs text-muted-foreground font-semibold">13 TS</span>
+                      <p className="text-xs font-semibold tabular-nums text-foreground mt-0.5">
                         {item.totals.weightedTs13 ? Number(item.totals.weightedTs13).toFixed(1) : '—'}
                       </p>
                     </div>
@@ -341,22 +341,22 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
 
                   {/* Exceptions & Info pills */}
                   <div className="flex flex-wrap gap-1.5 items-center">
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
                       {item.portions.length} Portion{item.portions.length > 1 ? 's' : ''}
                     </span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-muted text-secondary-foreground">
                       {item.testMode === 'COMPOSITE' ? 'Composite' : 'Portion-wise'}
                     </span>
                     {item.exceptionReasons.length > 0 && (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
                         {item.exceptionReasons.length} Exception{item.exceptionReasons.length > 1 ? 's' : ''}
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 mt-3 flex items-center justify-between text-xs">
-                  <span className="text-slate-500">By {item.submittedBy}</span>
+                <div className="pt-3 border-t border-border mt-3 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">By {item.submittedBy}</span>
                   <span className="font-semibold text-primary flex items-center">
                     {pending && canDecide ? 'Review & Decide' : 'View Details'} <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
                   </span>
@@ -373,17 +373,17 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
           <DrawerContent>
             <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-6">
               <div>
-                <DrawerTitle className="text-base font-semibold text-slate-900">
+                <DrawerTitle className="text-base font-semibold text-foreground">
                   {selectedItem.status === 'PENDING_APPROVAL' ? 'Review & Decide Dispatch' : 'Dispatch Details'}
                 </DrawerTitle>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Vehicle: <strong className="text-slate-900">{selectedItem.vehicleNumber}</strong> · {selectedItem.sourceName} ({selectedItem.dispatchNumber})
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Vehicle: <strong className="text-foreground">{selectedItem.vehicleNumber}</strong> · {selectedItem.sourceName} ({selectedItem.dispatchNumber})
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-secondary-foreground cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -401,46 +401,46 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               {/* Quality Totals Header */}
               <div className="grid grid-cols-4 gap-2 bg-card p-3 rounded-xl border border-border text-center">
                 <div>
-                  <span className="text-[10px] text-slate-500 font-semibold uppercase">Total Litres</span>
-                  <p className="text-sm font-semibold tabular-nums text-slate-900 mt-0.5">
+                  <span className="text-xs text-muted-foreground font-semibold">Total Litres</span>
+                  <p className="text-sm font-semibold tabular-nums text-foreground mt-0.5">
                     {selectedItem.totals.grossLiters.toLocaleString()} L
                   </p>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 font-semibold uppercase">Weighted LR</span>
-                  <p className="text-sm font-semibold tabular-nums text-slate-900 mt-0.5">
+                  <span className="text-xs text-muted-foreground font-semibold">Weighted LR</span>
+                  <p className="text-sm font-semibold tabular-nums text-foreground mt-0.5">
                     {selectedItem.totals.weightedLr || '—'}
                   </p>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 font-semibold uppercase">Weighted Fat</span>
-                  <p className="text-sm font-semibold tabular-nums text-slate-900 mt-0.5">
+                  <span className="text-xs text-muted-foreground font-semibold">Weighted Fat</span>
+                  <p className="text-sm font-semibold tabular-nums text-foreground mt-0.5">
                     {selectedItem.totals.weightedFat ? `${selectedItem.totals.weightedFat}%` : '—'}
                   </p>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 font-semibold uppercase">13 Total Solids</span>
-                  <p className="text-sm font-semibold tabular-nums text-slate-900 mt-0.5">
+                  <span className="text-xs text-muted-foreground font-semibold">13 Total Solids</span>
+                  <p className="text-sm font-semibold tabular-nums text-foreground mt-0.5">
                     {selectedItem.totals.weightedTs13 ? Number(selectedItem.totals.weightedTs13).toFixed(1) : '—'}
                   </p>
                 </div>
               </div>
 
               {/* Person Decision & Exception Reasons */}
-              <div className="p-3.5 rounded-xl border border-border bg-card space-y-2">
+              <div className="p-3.5 rounded-2xl border border-border bg-card space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-600 font-semibold">Station Submitter Verdict:</span>
+                  <span className="text-secondary-foreground font-semibold">Station Submitter Verdict:</span>
                   <span className={cn('px-2.5 py-0.5 rounded-full text-xs font-semibold', selectedItem.personDecision === 'ACCEPT' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300')}>
                     {selectedItem.personDecision === 'ACCEPT' ? 'Accepted by Station' : 'Rejected by Station'}
                   </span>
                 </div>
                 {selectedItem.decisionRemarks && (
-                  <p className="text-xs text-slate-700 bg-card p-2.5 rounded-lg border border-border">
-                    <strong className="text-slate-900">Submitter Remarks:</strong> {selectedItem.decisionRemarks}
+                  <p className="text-xs text-secondary-foreground bg-card p-2.5 rounded-lg border border-border">
+                    <strong className="text-foreground">Submitter Remarks:</strong> {selectedItem.decisionRemarks}
                   </p>
                 )}
                 {selectedItem.exceptionReasons.length > 0 && (
-                  <div className="space-y-1 pt-1.5 border-t border-slate-100">
+                  <div className="space-y-1 pt-1.5 border-t border-border">
                     <span className="text-xs font-semibold text-amber-900">Triggered Escalations:</span>
                     <ul className="list-disc pl-5 text-xs text-amber-800 space-y-0.5">
                       {selectedItem.exceptionReasons.map((r) => (
@@ -453,16 +453,16 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
 
               {/* Portions & Tests List */}
               <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-slate-800 uppercase tracking-wide">
+                <h4 className="text-xs font-semibold text-foreground">
                   Portion Breakdown & Lab Tests
                 </h4>
                 {selectedItem.portions.map((p) => (
-                  <div key={p.portionNumber} className="rounded-xl border border-border bg-card p-3.5 space-y-2.5">
+                  <div key={p.portionNumber} className="rounded-2xl border border-border bg-card p-3.5 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
-                      <span className="text-xs font-semibold text-slate-900">
+                      <span className="text-xs font-semibold text-foreground">
                         Portion #{p.portionNumber}
                       </span>
-                      <div className="flex items-center space-x-2 text-xs tabular-nums text-slate-700 font-semibold">
+                      <div className="flex items-center space-x-2 text-xs tabular-nums text-secondary-foreground font-semibold">
                         <span>Quantity: <strong>{p.quantityLiters.toLocaleString()} L</strong></span>
                         <span>·</span>
                         <span>Seal: <strong className="text-primary">{p.sealNumber}</strong></span>
@@ -473,7 +473,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
                         {p.tests.map((t) => (
                           <div key={t.testCode} className="flex items-center justify-between p-2 rounded-lg bg-card border border-border text-xs">
-                            <span className="text-slate-800 font-medium">
+                            <span className="text-foreground font-medium">
                               {t.testName} {t.value !== null ? `(${t.value})` : ''}
                             </span>
                             <OutcomeChip outcome={t.outcome} />
@@ -484,7 +484,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
 
                     {p.photos.length > 0 && (
                       <div className="pt-2 border-t border-slate-200/60">
-                        <span className="text-[11px] font-semibold text-slate-600 block mb-1">Portion Evidence Photos</span>
+                        <span className="text-xs font-semibold text-secondary-foreground block mb-1">Portion Evidence Photos</span>
                         <div className="flex flex-wrap gap-2">
                           {p.photos.map((ph) => (
                             <Photo key={ph.captureId} photo={ph} label={`Portion ${p.portionNumber} photo`} />
@@ -497,8 +497,8 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               </div>
 
               {/* Hand-written Lab Report Photo */}
-              <div className="p-3.5 rounded-xl border border-border bg-card space-y-2">
-                <div className="flex items-center space-x-1.5 text-xs font-semibold text-slate-800">
+              <div className="p-3.5 rounded-2xl border border-border bg-card space-y-2">
+                <div className="flex items-center space-x-1.5 text-xs font-semibold text-foreground">
                   <FileText className="w-4 h-4 text-primary" />
                   <span>Official Hand-written Lab Report Sheet</span>
                 </div>
@@ -516,7 +516,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               {/* Decision Section for Authorised Manager */}
               {canDecide && selectedItem.status === 'PENDING_APPROVAL' && (
                 <div className="pt-2 space-y-3">
-                  <label className="block text-xs font-semibold text-slate-700">
+                  <label className="block text-xs font-semibold text-secondary-foreground">
                     Supervisor / Manager Remarks {remarks.trim().length === 0 && <span className="text-amber-600 font-normal">(Required if rejecting)</span>}
                   </label>
                   <textarea
@@ -524,7 +524,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                     onChange={(e) => setRemarks(e.target.value)}
                     placeholder="Enter approval rationale or rejection reasoning…"
                     rows={2}
-                    className="w-full text-xs font-semibold p-3 border rounded-xl outline-hidden focus:ring-2 focus:ring-primary bg-slate-50"
+                    className="w-full text-xs font-semibold p-3 border rounded-xl outline-hidden focus:ring-2 focus:ring-primary bg-subtle"
                   />
 
                   <div className="grid grid-cols-2 gap-3 pt-2">

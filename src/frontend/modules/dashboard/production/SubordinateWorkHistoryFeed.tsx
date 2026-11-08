@@ -103,7 +103,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
             }`}
           >
             <span>All Activities</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
+            <span className="text-xs px-1.5 py-0.2 rounded-full bg-primary-foreground/20">
               {history.length}
             </span>
           </button>
@@ -192,40 +192,40 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
                           {getActionBadge(item.action, item.actionLabel)}
                         </td>
                         <td className="py-3 px-3.5 whitespace-nowrap">
-                          <div className="font-mono font-bold uppercase tracking-wider text-foreground">
+                          <div className="font-mono font-semibold uppercase tracking-wider text-foreground">
                             {item.vehicleNumber}
                           </div>
                           {item.tokenNumber && (
-                            <span className="text-[11px] text-muted-foreground font-mono">
+                            <span className="text-xs text-muted-foreground font-mono">
                               Token #{item.tokenNumber}
                             </span>
                           )}
                         </td>
                         <td className="py-3 px-3.5 whitespace-nowrap">
                           <div className="font-medium text-foreground">{item.operatorName}</div>
-                          <span className="text-[11px] text-muted-foreground">@{item.operatorUsername}</span>
+                          <span className="text-xs text-muted-foreground">@{item.operatorUsername}</span>
                         </td>
                         <td className="py-3 px-3.5 text-right font-mono tabular-nums whitespace-nowrap">
                           {item.details.netWeightKg !== undefined && (
                             <div>
-                              <strong className="text-foreground font-bold">
+                              <strong className="text-foreground font-semibold">
                                 {item.details.netWeightKg.toLocaleString()} kg
                               </strong>{' '}
                               <span className="text-muted-foreground">net</span>
                             </div>
                           )}
                           {item.details.volumeAt13TsLiters !== undefined && (
-                            <div className="text-[11px] text-primary font-semibold">
+                            <div className="text-xs text-primary font-semibold">
                               {item.details.volumeAt13TsLiters.toLocaleString()} L @13% TS
                             </div>
                           )}
                           {item.details.siloNumber && (
-                            <div className="text-[11px] text-muted-foreground">
+                            <div className="text-xs text-muted-foreground">
                               {item.details.siloNumber}
                             </div>
                           )}
                           {item.details.ticketNumber && (
-                            <div className="text-[10px] text-muted-foreground">
+                            <div className="text-xs text-muted-foreground">
                               Ticket #{item.details.ticketNumber}
                             </div>
                           )}

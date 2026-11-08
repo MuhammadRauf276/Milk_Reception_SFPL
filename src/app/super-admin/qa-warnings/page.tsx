@@ -50,21 +50,21 @@ export default function SuperAdminQaWarningsPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-card border border-border rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
+        <div className="p-4 bg-card border border-border rounded-2xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
           <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {/* MONTHLY SUMMARY PER SOURCE */}
-      <div className="bg-card p-5 rounded-xl border border-border/80 shadow-2xs space-y-3">
+      <div className="bg-card p-5 rounded-2xl border border-border/80 shadow-2xs space-y-3">
         <h2 className="text-sm font-semibold text-foreground">Monthly warnings</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
           {summary.map((s) => (
             <div key={s.sourceId} className="p-3 rounded-lg bg-card border border-border flex justify-between items-center">
               <div>
                 <div className="font-semibold text-foreground">{s.sourceName}</div>
-                <div className="tabular-nums text-[10px] text-slate-500">{s.sourceCode} ({s.sourceType})</div>
+                <div className="tabular-nums text-xs text-muted-foreground">{s.sourceCode} ({s.sourceType})</div>
               </div>
               <div className="tabular-nums text-sm font-semibold px-2.5 py-1 rounded bg-amber-100 text-amber-900">
                 {s.activeWarningCount} Warnings
@@ -75,7 +75,7 @@ export default function SuperAdminQaWarningsPage() {
       </div>
 
       {/* WARNING EVENT RECORDS TABLE */}
-      <div className="bg-card rounded-xl border border-border/80 shadow-2xs overflow-hidden space-y-2 p-4">
+      <div className="bg-card rounded-2xl border border-border/80 shadow-2xs overflow-hidden space-y-2 p-4">
         <h2 className="text-sm font-semibold text-foreground flex items-center space-x-2">
           <AlertTriangle className="w-4 h-4 text-amber-600" />
           <span>Warning log</span>
@@ -83,7 +83,7 @@ export default function SuperAdminQaWarningsPage() {
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-subtle text-slate-600 border-b border-border">
+            <thead className="bg-subtle text-secondary-foreground border-b border-border">
               <tr>
                 <th className="p-3 font-semibold">Timestamp</th>
                 <th className="p-3 font-semibold">Procurement Source</th>
@@ -96,32 +96,32 @@ export default function SuperAdminQaWarningsPage() {
             <tbody className="divide-y divide-border/60 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-slate-400 tabular-nums">
+                  <td colSpan={6} className="p-6 text-center text-muted-foreground tabular-nums">
                     Loading warning events…
                   </td>
                 </tr>
               ) : warnings.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground font-medium">
                     <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
                     No warnings
                   </td>
                 </tr>
               ) : (
                 warnings.map((w) => (
-                  <tr key={w.id} className="hover:bg-slate-50">
-                    <td className="p-3 tabular-nums text-[11px] text-slate-500">
+                  <tr key={w.id} className="hover:bg-subtle">
+                    <td className="p-3 tabular-nums text-xs text-muted-foreground">
                       {new Date(w.createdAt).toLocaleString()}
                     </td>
                     <td className="p-3">
                       <div className="font-semibold text-foreground">{w.procurementSource.name}</div>
-                      <div className="tabular-nums text-[10px] text-slate-500">{w.procurementSource.code}</div>
+                      <div className="tabular-nums text-xs text-muted-foreground">{w.procurementSource.code}</div>
                     </td>
-                    <td className="p-3 tabular-nums text-slate-700">{w.labTest?.name || '-'}</td>
-                    <td className="p-3 text-slate-800">{w.reason}</td>
-                    <td className="p-3 text-slate-600">{w.createdBy}</td>
+                    <td className="p-3 tabular-nums text-secondary-foreground">{w.labTest?.name || '-'}</td>
+                    <td className="p-3 text-foreground">{w.reason}</td>
+                    <td className="p-3 text-secondary-foreground">{w.createdBy}</td>
                     <td className="p-3">
-                      <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 tabular-nums text-[10px] font-semibold">
+                      <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 tabular-nums text-xs font-semibold">
                         {w.status}
                       </span>
                     </td>

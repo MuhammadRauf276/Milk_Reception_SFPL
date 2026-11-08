@@ -51,7 +51,7 @@ export const DelegationBanner: React.FC<DelegationBannerProps> = ({
     <aside
       role="region"
       aria-label="Delegation Status Banner"
-      className="w-full bg-white text-slate-700 border-b border-border shrink-0 z-20"
+      className="w-full bg-card text-secondary-foreground border-b border-border shrink-0 z-20"
     >
       <div className="mx-auto flex min-h-[40px] sm:min-h-[48px] w-full max-w-full flex-wrap sm:flex-nowrap items-center justify-between gap-2 px-3 py-1.5 sm:px-6">
         {/* Left Side: Static Indicator + Attribution Text */}
@@ -60,28 +60,28 @@ export const DelegationBanner: React.FC<DelegationBannerProps> = ({
             className="h-2 w-2 rounded-full bg-primary shrink-0"
             aria-hidden="true"
           />
-          <div className="flex flex-wrap items-center gap-x-1.5 text-xs sm:text-sm text-slate-700">
-            <span className="text-slate-500">Covering:</span>
-            <span className="font-semibold text-slate-900">
+          <div className="flex flex-wrap items-center gap-x-1.5 text-xs sm:text-sm text-secondary-foreground">
+            <span className="text-muted-foreground">Covering:</span>
+            <span className="font-semibold text-foreground">
               {delegation.subordinateRoleLabel}
             </span>
-            <span className="text-slate-500" aria-hidden="true">
+            <span className="text-muted-foreground" aria-hidden="true">
               ·
             </span>
             {delegation.isRegional && onSwitchSource ? (
               <button
                 type="button"
                 onClick={onSwitchSource}
-                className="group inline-flex items-center gap-1 font-medium text-slate-700 hover:text-slate-900 underline decoration-slate-400 underline-offset-2 transition-colors cursor-pointer"
+                className="group inline-flex items-center gap-1 font-medium text-secondary-foreground hover:text-foreground underline decoration-slate-400 underline-offset-2 transition-colors cursor-pointer"
                 title="Change source location"
               >
                 <span>{resolvedSourceName}</span>
-                <span className="text-[10px] text-slate-500 group-hover:text-slate-700">
+                <span className="text-xs text-muted-foreground group-hover:text-secondary-foreground">
                   (change)
                 </span>
               </button>
             ) : (
-              <span className="font-medium text-slate-700">{resolvedSourceName}</span>
+              <span className="font-medium text-secondary-foreground">{resolvedSourceName}</span>
             )}
           </div>
         </div>
@@ -90,7 +90,7 @@ export const DelegationBanner: React.FC<DelegationBannerProps> = ({
         <div className="flex shrink-0 items-center">
           <Link
             href={delegation.homeRoute}
-            className="inline-flex items-center gap-1.5 rounded-md bg-white hover:bg-subtle text-slate-700 px-3 py-1.5 text-xs font-medium border border-border transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary min-h-11"
+            className="inline-flex items-center gap-1.5 rounded-md bg-card hover:bg-subtle text-secondary-foreground px-3 py-1.5 text-xs font-medium border border-border transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary min-h-11"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Return to My Work</span>

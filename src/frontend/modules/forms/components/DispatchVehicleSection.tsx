@@ -133,7 +133,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
     <div className="space-y-4">
       {/* Fallback for global admin only. Never shown to source-assigned users. */}
       {!isSourceBound && availableSources.length > 0 && (
-        <div className="bg-card border-border p-4 rounded-xl border text-xs space-y-1.5 shadow-xs">
+        <div className="bg-card border-border p-4 rounded-2xl border text-xs space-y-1.5 shadow-xs">
           <label className="block font-semibold text-amber-950">
             Procurement source
           </label>
@@ -151,13 +151,13 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
       )}
 
       {!isSourceBound && !selectedSourceId && (
-        <div className="bg-card border-border p-4 rounded-xl border text-blue-900 text-xs font-semibold">
+        <div className="bg-card border-border p-4 rounded-2xl border text-blue-900 text-xs font-semibold">
           Select a source.
         </div>
       )}
 
-      <div className="p-4 sm:p-5 rounded-xl bg-card border border-border-strong shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+      <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border-strong shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-border pb-2">
           <div className="flex items-center space-x-2">
             <Truck className="w-4 h-4 text-primary" />
             <h3 className="text-xs font-semibold text-foreground">
@@ -165,7 +165,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
             </h3>
           </div>
           {isZmccSource && (
-            <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+            <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" />
               <span>MPD Fleet & Escort</span>
             </span>
@@ -189,7 +189,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                       onSelectVehicle('', vehicleNumber);
                     }
                   }}
-                  className="text-[11px] text-primary hover:underline font-medium"
+                  className="text-xs text-primary hover:underline font-medium"
                 >
                   {isManualVehicle ? '← Select from fleet' : 'Manual Entry →'}
                 </button>
@@ -220,7 +220,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                   className={vehicleNumberError ? 'border-rose-500 ring-1 ring-rose-500' : ''}
                 />
                 {availableVehicles.length > 0 && freeVehiclesCount === 0 && (
-                  <p className="text-[11px] font-medium text-amber-700 flex items-center gap-1">
+                  <p className="text-xs font-medium text-amber-700 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3 shrink-0" />
                     <span>All vehicles currently busy</span>
                   </p>
@@ -266,7 +266,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                       onSelectMotProfileId?.('');
                     }
                   }}
-                  className="text-[11px] text-primary hover:underline font-medium"
+                  className="text-xs text-primary hover:underline font-medium"
                 >
                   {isManualEscort ? '← Select MOT escort' : 'Manual Entry →'}
                 </button>
@@ -292,7 +292,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                   className={motError ? 'border-rose-500 ring-1 ring-rose-500' : ''}
                 />
                 {availableMotProfiles.length > 0 && freeMotsCount === 0 && (
-                  <p className="text-[11px] font-medium text-amber-700 flex items-center gap-1">
+                  <p className="text-xs font-medium text-amber-700 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3 shrink-0" />
                     <span>All MOT escorts currently busy</span>
                   </p>
@@ -331,7 +331,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
               value={rawMilkDispatchNoteNumber || ''}
               onChange={(e) => onRawMilkDispatchNoteNumberChange?.(e.target.value.replace(/[^0-9]/g, ''))}
               placeholder="e.g. 008124"
-              className="w-full min-w-0 h-11 px-3.5 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition"
+              className="w-full min-w-0 h-11 px-3.5 text-xs tabular-nums font-semibold rounded-lg border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden transition"
             />
           </div>
 
@@ -347,7 +347,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
               value={dispatchOpDatetime}
               max={maxDatetime}
               onChange={(e) => onDispatchOpDatetimeChange(e.target.value)}
-              className="w-full min-w-0 h-11 px-3.5 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:ring-2 focus:ring-primary outline-hidden transition"
+              className="w-full min-w-0 h-11 px-3.5 text-xs tabular-nums font-semibold rounded-lg border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden transition"
               required
             />
           </div>

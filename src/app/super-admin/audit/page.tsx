@@ -63,7 +63,7 @@ export default function SuperAdminAuditPage() {
 
       <div className="grid gap-2 sm:grid-cols-[1fr_16rem]">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <input
             type="search"
             value={actionSearch}
@@ -73,7 +73,7 @@ export default function SuperAdminAuditPage() {
             }}
             placeholder="Search action…"
             aria-label="Search audit action"
-            className="h-11 w-full rounded-xl border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+            className="h-11 w-full rounded-lg border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
           />
         </div>
         <Combobox
@@ -88,7 +88,7 @@ export default function SuperAdminAuditPage() {
       </div>
 
       {error && (
-        <div className="flex items-center space-x-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
+        <div className="flex items-center space-x-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
@@ -97,7 +97,7 @@ export default function SuperAdminAuditPage() {
       <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xs">
         <TableWrapper>
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-border bg-subtle text-slate-600">
+            <thead className="border-b border-border bg-subtle text-secondary-foreground">
               <tr>
                 <th className="p-3 font-semibold">Timestamp</th>
                 <th className="p-3 font-semibold">User</th>
@@ -110,13 +110,13 @@ export default function SuperAdminAuditPage() {
             <tbody className="divide-y divide-border/60 font-medium">
               {query.isPending ? (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center tabular-nums text-slate-400">
+                  <td colSpan={6} className="p-6 text-center tabular-nums text-muted-foreground">
                     Loading audit trail…
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-slate-400">
+                  <td colSpan={6} className="p-6 text-center text-muted-foreground">
                     No audit records.
                   </td>
                 </tr>
@@ -128,9 +128,9 @@ export default function SuperAdminAuditPage() {
                     <tr
                       key={l.id}
                       onClick={() => setExpanded(open ? null : l.id)}
-                      className={`cursor-pointer align-top hover:bg-slate-50 ${query.isPlaceholderData ? 'opacity-60' : ''}`}
+                      className={`cursor-pointer align-top hover:bg-subtle ${query.isPlaceholderData ? 'opacity-60' : ''}`}
                     >
-                      <td className="whitespace-nowrap p-3 text-[11px] tabular-nums text-slate-500">
+                      <td className="whitespace-nowrap p-3 text-xs tabular-nums text-muted-foreground">
                         <span className="inline-flex items-center gap-1">
                           <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : '-rotate-90'}`} aria-hidden="true" />
                           {new Date(l.createdAt).toLocaleString()}
@@ -138,13 +138,13 @@ export default function SuperAdminAuditPage() {
                       </td>
                       <td className="p-3 font-semibold text-foreground">{l.user}</td>
                       <td className="p-3">
-                        <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-blue-900">{l.action}</span>
+                        <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-blue-900">{l.action}</span>
                       </td>
-                      <td className="p-3 tabular-nums text-slate-700">{l.tableName}</td>
-                      <td className={`p-3 text-[10px] tabular-nums text-slate-500 ${cellClass}`}>
+                      <td className="p-3 tabular-nums text-secondary-foreground">{l.tableName}</td>
+                      <td className={`p-3 text-xs tabular-nums text-muted-foreground ${cellClass}`}>
                         {l.oldValues ? JSON.stringify(l.oldValues) : '-'}
                       </td>
-                      <td className={`p-3 text-[10px] tabular-nums text-slate-700 ${cellClass}`}>
+                      <td className={`p-3 text-xs tabular-nums text-secondary-foreground ${cellClass}`}>
                         {l.newValues ? JSON.stringify(l.newValues) : '-'}
                       </td>
                     </tr>

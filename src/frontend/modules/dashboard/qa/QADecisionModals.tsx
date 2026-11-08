@@ -76,7 +76,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   </div>
                   <div>
                     <h3 className="font-semibold text-base text-foreground">Start QA Testing Session</h3>
-                    <p className="text-xs text-slate-700 font-semibold">
+                    <p className="text-xs text-secondary-foreground font-semibold">
                       Vehicle: <strong className="tabular-nums">{targetWaitingVisit?.vehicle_number || 'Selected'}</strong>
                     </p>
                   </div>
@@ -90,7 +90,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     type="datetime-local"
                     value={qaOpTimestamp}
                     onChange={(e) => onQaOpTimestampChange(e.target.value)}
-                    className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                    className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
@@ -100,7 +100,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     type="button"
                     disabled={isSubmitting}
                     onClick={onCloseModal}
-                    className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-700 hover:text-foreground"
+                    className="min-h-[44px] px-4 py-2 text-xs font-semibold text-secondary-foreground hover:text-foreground"
                   >
                     Cancel
                   </button>
@@ -123,7 +123,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   </div>
                   <div>
                     <h3 className="font-semibold text-base text-foreground">Resume QA Testing Session</h3>
-                    <p className="text-xs text-slate-700 font-semibold">
+                    <p className="text-xs text-secondary-foreground font-semibold">
                       Vehicle: <strong className="tabular-nums">{targetHeldVisit?.vehicle_number || 'Selected'}</strong>
                     </p>
                   </div>
@@ -137,7 +137,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     type="datetime-local"
                     value={qaOpTimestamp}
                     onChange={(e) => onQaOpTimestampChange(e.target.value)}
-                    className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                    className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
@@ -147,7 +147,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     type="button"
                     disabled={isSubmitting}
                     onClick={onCloseModal}
-                    className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-700 hover:text-foreground"
+                    className="min-h-[44px] px-4 py-2 text-xs font-semibold text-secondary-foreground hover:text-foreground"
                   >
                     Cancel
                   </button>
@@ -172,14 +172,14 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     <h3 className="font-semibold text-base text-foreground">
                       {hasFailedTests ? 'Confirm Exception Decision' : 'Accept Portion for Reception'}
                     </h3>
-                    <p className="text-xs text-slate-700 font-semibold">
+                    <p className="text-xs text-secondary-foreground font-semibold">
                       Portion #{currentPortion?.portion_number} of {visitDetail?.vehicle_number}
                     </p>
                   </div>
                 </div>
 
                 {hasFailedTests ? (
-                  <div className="bg-card border-border p-3.5 rounded-xl border text-amber-900 text-xs font-semibold space-y-2">
+                  <div className="bg-card border-border p-3.5 rounded-2xl border text-amber-900 text-xs font-semibold space-y-2">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
@@ -191,7 +191,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-card border-border p-3.5 rounded-xl border text-emerald-900 text-xs font-semibold space-y-1">
+                  <div className="bg-card border-border p-3.5 rounded-2xl border text-emerald-900 text-xs font-semibold space-y-1">
                     <p>
                       Confirming that Portion #{currentPortion?.portion_number} meets plant quality standards and is approved for weighbridge and unloading.
                     </p>
@@ -211,7 +211,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                       }}
                       placeholder="Reason"
                       rows={2}
-                      className="w-full min-w-0 resize-y break-words p-2.5 text-xs font-semibold rounded-xl border border-amber-300 bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-600 min-h-11"
+                      className="w-full min-w-0 resize-y break-words p-2.5 text-xs font-semibold rounded-lg border border-amber-300 bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-600 min-h-11"
                       required
                     />
                   </div>
@@ -225,7 +225,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     type="datetime-local"
                     value={qaOpTimestamp}
                     onChange={(e) => onQaOpTimestampChange(e.target.value)}
-                    className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                    className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
@@ -235,7 +235,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     type="button"
                     disabled={isSubmitting}
                     onClick={onCloseModal}
-                    className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-700 hover:text-foreground"
+                    className="min-h-[44px] px-4 py-2 text-xs font-semibold text-secondary-foreground hover:text-foreground"
                   >
                     Cancel
                   </button>
@@ -266,14 +266,14 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   </div>
                   <div>
                     <h3 className="font-semibold text-base text-foreground">Reject Portion</h3>
-                    <p className="text-xs text-slate-700 font-semibold">
+                    <p className="text-xs text-secondary-foreground font-semibold">
                       Portion #{currentPortion?.portion_number} of {visitDetail?.vehicle_number}
                     </p>
                   </div>
                 </div>
 
                 {!hasFailedTests && (
-                  <div className="bg-card border-border p-3.5 rounded-xl border text-amber-900 text-xs font-semibold space-y-1">
+                  <div className="bg-card border-border p-3.5 rounded-2xl border text-amber-900 text-xs font-semibold space-y-1">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
@@ -293,7 +293,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   <select
                     value={rejectionReason}
                     onChange={(e) => onRejectionReasonChange(e.target.value)}
-                    className="w-full min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-700"
+                    className="w-full min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-700"
                     required
                   >
                     <option value="">Select rejection reason</option>
@@ -316,7 +316,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     onChange={(e) => onRejectionRemarksChange(e.target.value)}
                     placeholder="Notes"
                     rows={2}
-                    className="w-full min-w-0 resize-y break-words p-3 text-xs font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-700 min-h-11"
+                    className="w-full min-w-0 resize-y break-words p-3 text-xs font-semibold rounded-lg border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-700 min-h-11"
                     required
                   />
                 </div>
@@ -329,7 +329,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     type="datetime-local"
                     value={qaOpTimestamp}
                     onChange={(e) => onQaOpTimestampChange(e.target.value)}
-                    className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                    className="w-full min-h-[44px] px-3.5 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
@@ -339,7 +339,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     type="button"
                     disabled={isSubmitting}
                     onClick={onCloseModal}
-                    className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-700 hover:text-foreground"
+                    className="min-h-[44px] px-4 py-2 text-xs font-semibold text-secondary-foreground hover:text-foreground"
                   >
                     Cancel
                   </button>

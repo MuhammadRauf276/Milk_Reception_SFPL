@@ -139,37 +139,37 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Tank State Summary Card */}
-        <div className="rounded-xl border border-border bg-subtle p-3 sm:p-3.5 space-y-2.5">
+        <div className="rounded-2xl border border-border bg-subtle p-3 sm:p-3.5 space-y-2.5">
           <div className="flex justify-between items-center text-xs font-semibold text-foreground">
             <span>Tank Storage State</span>
-            <span className="text-[11px] text-muted-foreground uppercase truncate max-w-[150px]">
+            <span className="text-xs text-muted-foreground truncate max-w-[150px]">
               {tank.zmcc?.name || 'Assigned ZMCC'}
             </span>
           </div>
 
           <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-center text-xs">
             <div className="bg-card p-2 rounded-lg border border-border overflow-hidden">
-              <span className="text-[10px] text-muted-foreground block uppercase font-medium">Capacity</span>
-              <span className="font-bold text-foreground tabular-nums block truncate">
+              <span className="text-xs text-muted-foreground block font-medium">Capacity</span>
+              <span className="font-semibold text-foreground tabular-nums block truncate">
                 {tank.capacity_liters.toLocaleString()} L
               </span>
             </div>
             <div className="bg-card p-2 rounded-lg border border-border overflow-hidden">
-              <span className="text-[10px] text-muted-foreground block uppercase font-medium">Current Stock</span>
-              <span className="font-bold text-blue-700 tabular-nums block truncate">
+              <span className="text-xs text-muted-foreground block font-medium">Current Stock</span>
+              <span className="font-semibold text-blue-700 tabular-nums block truncate">
                 {tank.current_stock.toLocaleString()} L
               </span>
             </div>
             <div className="bg-card p-2 rounded-lg border border-border overflow-hidden">
-              <span className="text-[10px] text-muted-foreground block uppercase font-medium">Available</span>
-              <span className="font-bold text-emerald-700 tabular-nums block truncate">
+              <span className="text-xs text-muted-foreground block font-medium">Available</span>
+              <span className="font-semibold text-emerald-700 tabular-nums block truncate">
                 {availableCap.toLocaleString()} L
               </span>
             </div>
           </div>
 
           {tank.current_commercial_stock_at_13ts !== undefined && tank.current_commercial_stock_at_13ts !== null && (
-            <div className="text-[11px] text-slate-600 bg-card px-2.5 py-1.5 rounded-lg border border-border flex justify-between items-center">
+            <div className="text-xs text-secondary-foreground bg-card px-2.5 py-1.5 rounded-lg border border-border flex justify-between items-center">
               <span>Current Commercial Stock (@13% TS):</span>
               <span className="font-semibold tabular-nums text-foreground">{Number(tank.current_commercial_stock_at_13ts).toLocaleString()} L</span>
             </div>
@@ -194,7 +194,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
             className={fieldInputClass}
             disabled={mutation.isPending}
           />
-          <div className="flex justify-between text-[11px] text-muted-foreground">
+          <div className="flex justify-between text-xs text-muted-foreground">
             <span>Free space: {availableCap.toLocaleString()} L</span>
             {isOverCapacity && (
               <span className="text-rose-600 font-semibold">Exceeds available capacity!</span>
@@ -203,13 +203,13 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
         </div>
 
         {/* Quality Parameters Section */}
-        <div className="rounded-xl border border-border bg-card p-3 sm:p-3.5 space-y-3">
+        <div className="rounded-2xl border border-border bg-card p-3 sm:p-3.5 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
               <FlaskConical className="h-4 w-4 text-primary shrink-0" />
               <span>Milk Quality &amp; @13% TS Basis</span>
             </div>
-            <label className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600 cursor-pointer self-start sm:self-auto">
+            <label className="flex items-center gap-1.5 text-xs font-medium text-secondary-foreground cursor-pointer self-start sm:self-auto">
               <input
                 type="checkbox"
                 checked={useCustom13Ts}
@@ -276,7 +276,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
             </div>
           ) : (
             /* Live Calculated Preview */
-            <div className="bg-subtle rounded-lg p-2.5 border border-border text-[11px] space-y-1.5">
+            <div className="bg-subtle rounded-lg p-2.5 border border-border text-xs space-y-1.5">
               <div className="flex items-center justify-between text-muted-foreground font-medium">
                 <span>Density: <strong className="text-foreground font-semibold tabular-nums">{density.toFixed(4)}</strong></span>
                 <span>SNF: <strong className="text-foreground font-semibold tabular-nums">{snf.toFixed(2)}%</strong></span>
@@ -317,7 +317,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
             <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
               <span className="font-semibold block">Projected Tank Stock After Intake</span>
-              <span className="text-[11px] text-emerald-800">
+              <span className="text-xs text-emerald-800">
                 Gross Physical Stock: <strong className="tabular-nums font-semibold">{afterStock.toLocaleString('en-US', { minimumFractionDigits: 2 })} L</strong> ({((afterStock / tank.capacity_liters) * 100).toFixed(1)}% full)
               </span>
             </div>

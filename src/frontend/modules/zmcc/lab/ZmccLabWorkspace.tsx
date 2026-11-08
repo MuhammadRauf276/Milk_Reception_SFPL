@@ -388,20 +388,20 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
       {activeTab === 'TESTING' && canTest && !activeSession && (
         <div className="space-y-4 animate-panel-in">
           <div className="bg-card rounded-2xl border border-border p-6 shadow-2xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
                   <FlaskConical className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-foreground">Testing desk</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Testing desk</h3>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => fetchQueue()}
                 disabled={loadingQueue}
-                className="min-h-11 min-w-11 self-start sm:self-auto px-3 py-1.5 rounded-lg border border-border bg-slate-50 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition"
+                className="min-h-11 min-w-11 self-start sm:self-auto px-3 py-1.5 rounded-lg border border-border bg-subtle text-xs font-semibold text-secondary-foreground hover:bg-muted transition"
               >
                 {loadingQueue ? 'Refreshing…' : 'Refresh'}
               </button>
@@ -410,11 +410,11 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
             {queueItems.length === 0 ? (
               <div className="text-center py-8 space-y-2">
                 <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                <p className="text-xs font-bold text-slate-800">No arrivals waiting</p>
+                <p className="text-xs font-semibold text-foreground">No arrivals waiting</p>
                 <button
                   type="button"
                   onClick={() => fetchQueue()}
-                  className="min-h-11 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="min-h-11 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-secondary-foreground hover:bg-subtle"
                 >
                   Refresh
                 </button>
@@ -424,23 +424,23 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
                 {queueItems.map((item) => (
                   <div
                     key={`${item.queue_type}-${item.arrival_id}`}
-                    className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition bg-white"
+                    className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition bg-card"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-800">
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">
                           {item.queue_type === 'MOT' ? 'Mobile Tester' : 'HC'}
                         </span>
-                        <span className="text-xs font-bold text-slate-900">
+                        <span className="text-xs font-semibold text-foreground">
                           Token #{item.zmcc_token || '—'}
                         </span>
                         {item.vehicle_number && (
-                          <span className="font-mono text-xs text-slate-600">
+                          <span className="font-mono text-xs text-secondary-foreground">
                             ({item.vehicle_number})
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-muted-foreground">
                         {item.queue_type === 'MOT' && (item.route_name || item.route_code ? `Route: ${item.route_name || item.route_code}` : 'Mobile Tester Route')}
                         {item.queue_type === 'HC' && (item.local_supplier_name || 'HC supplier')}
                         <span className="mx-1.5">·</span>
@@ -452,7 +452,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
                       type="button"
                       disabled={loadingSession}
                       onClick={() => handleStartOrResume(item)}
-                      className="min-h-11 min-w-11 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-bold shadow-2xs transition flex items-center justify-center gap-1.5 shrink-0"
+                      className="min-h-11 min-w-11 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold shadow-2xs transition flex items-center justify-center gap-1.5 shrink-0"
                     >
                       <FlaskConical className="w-3.5 h-3.5" />
                       <span>{item.lab_session_status === 'IN_PROGRESS' ? 'Resume Testing' : 'Start Testing'}</span>
@@ -468,25 +468,25 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
       {activeTab === 'TESTING' && canTest && activeSession && (
         <div className="space-y-6 animate-panel-in">
           
-          <div className="bg-card border-border p-6 rounded-xl border shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-4">
+          <div className="bg-card border-border p-6 rounded-2xl border shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-border pb-4">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
                     {activeSession.arrival_type}
                   </span>
-                  <h2 className="text-lg font-semibold text-slate-800">
+                  <h2 className="text-lg font-semibold text-foreground">
                     Testing Session #{activeSession.id}
                   </h2>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Started at {new Date(activeSession.started_at).toLocaleString()} by {activeSession.starter?.full_name || activeSession.starter?.username}
                 </p>
               </div>
 
               <div className="text-right">
-                <span className="text-xs text-slate-500">ZMCC Intake Token</span>
-                <p className="tabular-nums font-semibold text-slate-800 text-sm">
+                <span className="text-xs text-muted-foreground">ZMCC Intake Token</span>
+                <p className="tabular-nums font-semibold text-foreground text-sm">
                   {activeSession.mot_arrival?.zmcc_token ||
                     activeSession.local_supplier_arrival?.zmcc_token ||
                     '—'}

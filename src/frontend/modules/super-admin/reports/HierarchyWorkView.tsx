@@ -92,13 +92,13 @@ export function HierarchyWorkView() {
   return (
     <div className="space-y-4">
       {/* Top Banner / Info Card */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-sky-200 bg-sky-50/70 p-4 shadow-2xs">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-sky-200 bg-sky-50/70 p-4 shadow-2xs">
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
             <UserCheck className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-sky-950">Work Done for Lower Roles (Executive Audit Log)</h2>
+            <h2 className="text-sm font-semibold text-sky-950">Work Done for Lower Roles (Executive Audit Log)</h2>
             <p className="mt-0.5 text-xs text-sky-800 leading-relaxed">
               Transparent audit trail tracking when senior accounts (Super Admin, QA Head, ZMCC Manager) stepped in to perform
               actions on behalf of subordinate roles during operator absence or escalation.
@@ -111,7 +111,7 @@ export function HierarchyWorkView() {
             type="button"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-secondary-foreground shadow-2xs transition hover:bg-subtle disabled:opacity-50"
           >
             <Loader2 className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
@@ -129,24 +129,24 @@ export function HierarchyWorkView() {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by user name, tanker token, station, or note…"
-            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs focus:border-primary focus:bg-white focus:outline-hidden"
+            className="h-10 w-full rounded-lg border border-border bg-subtle pl-9 pr-3 text-xs focus:border-primary focus:bg-card focus:outline-hidden"
           />
         </div>
 
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-slate-400" />
+          <Filter className="h-4 w-4 text-muted-foreground" />
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-700 focus:border-primary focus:bg-white focus:outline-hidden"
+            className="h-10 rounded-lg border border-border bg-subtle px-3 text-xs font-medium text-secondary-foreground focus:border-primary focus:bg-card focus:outline-hidden"
           >
             <option value="">All Lower Roles</option>
             <option value="QA_OFFICER">Plant QA Officer (QAE)</option>
@@ -161,17 +161,17 @@ export function HierarchyWorkView() {
 
       {/* Error Alert */}
       {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-semibold text-rose-800">
+        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-semibold text-rose-800">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{getErrorMessage(error) || 'Failed to load hierarchy work records'}</span>
         </div>
       )}
 
       {/* Records Table */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-medium text-slate-800">
-            <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+          <table className="w-full text-left text-xs font-medium text-foreground">
+            <thead className="border-b border-border bg-slate-50/80 text-xs font-semibold text-secondary-foreground">
               <tr>
                 <th className="p-3">Timestamp</th>
                 <th className="p-3">Actual User</th>
@@ -182,36 +182,36 @@ export function HierarchyWorkView() {
                 <th className="p-3">Reason / Context</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500">
+                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
                     Loading cross-role activity records…
                   </td>
                 </tr>
               ) : filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500">
+                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
                     No cross-role actions recorded for this filter.
                   </td>
                 </tr>
               ) : (
                 filteredRecords.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50/70 transition">
-                    <td className="p-3 tabular-nums text-slate-500 whitespace-nowrap">{r.timestamp}</td>
-                    <td className="p-3 font-semibold text-slate-900 whitespace-nowrap">
+                    <td className="p-3 tabular-nums text-muted-foreground whitespace-nowrap">{r.timestamp}</td>
+                    <td className="p-3 font-semibold text-foreground whitespace-nowrap">
                       {r.actualUserName}
-                      <span className="block text-[10px] text-slate-400 font-normal">{r.actualUserRoleLabel}</span>
+                      <span className="block text-xs text-muted-foreground font-normal">{r.actualUserRoleLabel}</span>
                     </td>
                     <td className="p-3 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 border border-amber-200">
                         {r.performedRoleLabel}
                       </span>
                     </td>
-                    <td className="p-3 font-semibold text-slate-800 whitespace-nowrap">{r.actionTaken}</td>
-                    <td className="p-3 text-slate-600 whitespace-nowrap">{r.station}</td>
-                    <td className="p-3 tabular-nums font-mono text-slate-700 whitespace-nowrap">{r.referenceNumber}</td>
-                    <td className="p-3 text-slate-600 max-w-xs truncate" title={r.reason}>
+                    <td className="p-3 font-semibold text-foreground whitespace-nowrap">{r.actionTaken}</td>
+                    <td className="p-3 text-secondary-foreground whitespace-nowrap">{r.station}</td>
+                    <td className="p-3 tabular-nums font-mono text-secondary-foreground whitespace-nowrap">{r.referenceNumber}</td>
+                    <td className="p-3 text-secondary-foreground max-w-xs truncate" title={r.reason}>
                       {r.reason}
                     </td>
                   </tr>

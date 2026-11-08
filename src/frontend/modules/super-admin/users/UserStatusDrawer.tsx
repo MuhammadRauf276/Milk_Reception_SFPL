@@ -33,18 +33,18 @@ export function UserStatusDrawer({ user, targetStatus, open, onClose, onSaved }:
 
   return (
     <FormDrawer open={open} onClose={onClose} busy={busy} error={error} title={`Confirm ${targetStatus ? 'Activation' : 'Deactivation'}`}>
-      <p className="text-xs text-slate-500">
-        Target Account: <span className="font-semibold tabular-nums text-slate-800">@{user.username}</span>
+      <p className="text-xs text-muted-foreground">
+        Target Account: <span className="font-semibold tabular-nums text-foreground">@{user.username}</span>
       </p>
-      <div className="space-y-2 rounded-xl border border-border bg-card p-3.5">
+      <div className="space-y-2 rounded-2xl border border-border bg-card p-3.5">
         <div className="flex justify-between">
-          <span className="font-medium text-slate-500">Current Status:</span>
+          <span className="font-medium text-muted-foreground">Current Status:</span>
           <span className={`font-semibold ${user.isActive ? 'text-emerald-700' : 'text-rose-700'}`}>
             {user.isActive ? 'Active' : 'Deactivated'}
           </span>
         </div>
         <div className="flex justify-between">
-          <span className="font-medium text-slate-500">Requested Status:</span>
+          <span className="font-medium text-muted-foreground">Requested Status:</span>
           <span className={`font-semibold ${targetStatus ? 'text-emerald-700' : 'text-rose-700'}`}>
             {targetStatus ? 'Active' : 'Deactivated'}
           </span>
@@ -55,7 +55,7 @@ export function UserStatusDrawer({ user, targetStatus, open, onClose, onSaved }:
           Access removed immediately.
         </p>
       ) : (
-        <p className="font-medium text-slate-600">Access restored.</p>
+        <p className="font-medium text-secondary-foreground">Access restored.</p>
       )}
       {targetStatus && !user.email && (
         <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-3 text-amber-800">

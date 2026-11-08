@@ -64,10 +64,10 @@ export function SourceCreateDrawer({ onClose, onSaved }: { onClose: () => void; 
             value={code}
             onChange={(e) => setCode(e.target.value)}
             disabled={busy}
-            className={`${fieldInputClass} uppercase tabular-nums`}
+            className={`${fieldInputClass} tabular-nums`}
             placeholder="e.g. ZMCC-FAISALABAD"
           />
-          <p className="mt-1 text-[10px] text-slate-400">Code is immutable once created.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Code is immutable once created.</p>
         </div>
         <div>
           <label htmlFor="src-name" className={fieldLabelClass}>Source Name *</label>
@@ -96,14 +96,14 @@ export function SourceCreateDrawer({ onClose, onSaved }: { onClose: () => void; 
                 disabled={busy}
                 onClick={() => setSourceType(o.value)}
                 className={`h-11 flex-1 rounded-xl border text-sm font-semibold ${
-                  sourceType === o.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-white text-slate-600'
+                  sourceType === o.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-card text-secondary-foreground'
                 }`}
               >
                 {o.label}
               </button>
             ))}
           </div>
-          <p className="mt-1 text-[10px] text-slate-400">Source type is immutable once created.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Source type is immutable once created.</p>
         </div>
         {sourceType === 'CONTRACTOR' && (
           <div>
@@ -155,7 +155,7 @@ export function SourceEditDrawer({ source, onClose, onSaved }: { source: Source;
     });
   };
 
-  const readOnly = 'h-11 w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 px-3 text-sm tabular-nums text-slate-500';
+  const readOnly = 'h-11 w-full cursor-not-allowed rounded-lg border border-border bg-muted px-3 text-sm tabular-nums text-muted-foreground';
   return (
     <FormDrawer open onClose={onClose} busy={busy} error={error} title="Edit Procurement Source">
       <form onSubmit={submit} className="space-y-3.5">
@@ -163,12 +163,12 @@ export function SourceEditDrawer({ source, onClose, onSaved }: { source: Source;
           <div>
             <label className={fieldLabelClass}>Source Code</label>
             <input type="text" disabled value={source.code} className={readOnly} />
-            <p className="mt-1 text-[10px] text-slate-400">Source code is immutable and cannot be modified.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Source code is immutable and cannot be modified.</p>
           </div>
           <div>
             <label className={fieldLabelClass}>Source Type</label>
             <input type="text" disabled value={source.sourceType} className={readOnly} />
-            <p className="mt-1 text-[10px] text-slate-400">Source type is immutable and cannot be modified.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Source type is immutable and cannot be modified.</p>
           </div>
         </div>
         <div>
@@ -234,15 +234,15 @@ export function SourceStatusDrawer({
         <div className={`shrink-0 rounded-xl p-2 ${targetStatus ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
           <AlertTriangle className="h-5 w-5" />
         </div>
-        <p className="text-xs tabular-nums text-slate-500">{source.code}</p>
+        <p className="text-xs tabular-nums text-muted-foreground">{source.code}</p>
       </div>
-      <div className="space-y-2 text-slate-600">
+      <div className="space-y-2 text-secondary-foreground">
         <p>
           Are you sure you want to {targetStatus ? 'activate' : 'deactivate'}{' '}
-          <strong className="font-semibold text-slate-800">{source.name}</strong>?
+          <strong className="font-semibold text-foreground">{source.name}</strong>?
         </p>
         {!targetStatus ? (
-          <div className="space-y-1 rounded-lg border border-border bg-card p-3 text-[11px] font-medium text-amber-900">
+          <div className="space-y-1 rounded-lg border border-border bg-card p-3 text-xs font-medium text-amber-900">
             <p className="font-semibold">Deactivation Effects & Guards:</p>
             <ul className="list-inside list-disc space-y-0.5 text-amber-800">
               <li>Will be excluded from active operational dispatch selectors.</li>
@@ -252,7 +252,7 @@ export function SourceStatusDrawer({
             </ul>
           </div>
         ) : (
-          <div className="space-y-1 rounded-lg border border-border bg-card p-3 text-[11px] font-medium text-emerald-900">
+          <div className="space-y-1 rounded-lg border border-border bg-card p-3 text-xs font-medium text-emerald-900">
             <p className="font-semibold">Activation Effects:</p>
             
           </div>

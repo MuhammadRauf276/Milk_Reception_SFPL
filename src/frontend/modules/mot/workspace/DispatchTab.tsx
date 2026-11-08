@@ -99,12 +99,12 @@ export function DispatchTab({
   };
 
   return (
-        <div className="max-w-4xl mx-auto bg-card p-5 rounded-xl border border-border shadow-2xs space-y-4 animate-panel-in">
+        <div className="max-w-4xl mx-auto bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-4 animate-panel-in">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div>
               <h2 className="text-sm font-semibold text-foreground">Assign & dispatch</h2>
             </div>
-            <span className="px-2.5 py-1 rounded-full bg-blue-50 text-primary text-[10px] font-semibold uppercase tracking-wider border border-blue-200">
+            <span className="px-2.5 py-1 rounded-full bg-blue-50 text-primary text-xs font-semibold border border-blue-200">
               Now
             </span>
           </div>
@@ -116,7 +116,7 @@ export function DispatchTab({
           )}
 
           {profiles.length > 0 && profiles.every((p) => p.has_active_journey) && (
-            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <p className="font-semibold text-amber-950">All registered Mobile Testers are currently on active journeys</p>
@@ -159,7 +159,7 @@ export function DispatchTab({
                   </div>
                 )}
                 {routes.length === 0 && (
-                  <p className="text-[11px] text-amber-700 font-semibold mt-1">
+                  <p className="text-xs text-amber-700 font-semibold mt-1">
                     No approved routes.
                   </p>
                 )}
@@ -198,7 +198,7 @@ export function DispatchTab({
                   }))}
                 />
                 {profiles.length > 0 && profiles.every((p) => p.has_active_journey) && (
-                  <p className="text-[11px] font-semibold text-amber-800 mt-1">
+                  <p className="text-xs font-semibold text-amber-800 mt-1">
                     All testers are currently busy on active journeys.
                   </p>
                 )}
@@ -241,7 +241,7 @@ export function DispatchTab({
                   }))}
                 />
                 {vehicles.length === 0 ? (
-                  <p className="text-[11px] font-semibold text-amber-800">
+                  <p className="text-xs font-semibold text-amber-800">
                     No vehicle registered.
                   </p>
                 ) : null}
@@ -260,7 +260,7 @@ export function DispatchTab({
                   type="button"
                   onClick={acquireGps}
                   disabled={displayedGpsStatus === 'ACQUIRING'}
-                  className="flex items-center space-x-1 min-h-[44px] px-3 rounded-md bg-card border border-border text-[11px] font-semibold text-slate-700 hover:bg-muted"
+                  className="flex items-center space-x-1 min-h-[44px] px-3 rounded-md bg-card border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
                 >
                   <span>{displayedGpsStatus === 'ACQUIRING' ? 'Acquiring…' : 'Refresh GPS'}</span>
                 </button>
@@ -274,7 +274,7 @@ export function DispatchTab({
                       Lat: {gpsLocation.latitude.toFixed(6)}, Lng: {gpsLocation.longitude.toFixed(6)}
                     </span>
                     {gpsLocation.accuracy != null && (
-                      <span className="text-[11px] text-emerald-700 ml-1.5">
+                      <span className="text-xs text-emerald-700 ml-1.5">
                         (±{Math.round(gpsLocation.accuracy)}m live)
                       </span>
                     )}
@@ -289,12 +289,12 @@ export function DispatchTab({
                     <span className="font-medium truncate">
                       Lat: {gpsLocation.latitude.toFixed(6)}, Lng: {gpsLocation.longitude.toFixed(6)}
                     </span>
-                    <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-800">
+                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-800">
                       {gpsLocation.source === 'FACILITY_DEFAULT' ? 'Center Coords' : 'Offline Cache'}
                     </span>
                   </div>
                   {displayedGpsErrorMsg && (
-                    <p className="text-[11px] text-amber-700 leading-tight truncate">{displayedGpsErrorMsg}</p>
+                    <p className="text-xs text-amber-700 leading-tight truncate">{displayedGpsErrorMsg}</p>
                   )}
                 </div>
               )}
@@ -309,7 +309,7 @@ export function DispatchTab({
                     <button
                       type="button"
                       onClick={() => requestGpsPosition(true)}
-                      className="inline-flex items-center space-x-1.5 min-h-[44px] px-3 rounded-md bg-white border border-rose-300 text-rose-900 text-[11px] font-semibold hover:bg-rose-100 shadow-2xs transition"
+                      className="inline-flex items-center space-x-1.5 min-h-[44px] px-3 rounded-md bg-card border border-rose-300 text-rose-900 text-xs font-semibold hover:bg-rose-100 shadow-2xs transition"
                     >
                       <MapPin className="w-3 h-3 text-rose-600" />
                       <span>Use ZMCC location</span>
@@ -319,7 +319,7 @@ export function DispatchTab({
               )}
 
               {displayedGpsStatus === 'IDLE' && (
-                <p className="text-xs text-slate-500">Getting GPS…</p>
+                <p className="text-xs text-muted-foreground">Getting GPS…</p>
               )}
             </div>
 

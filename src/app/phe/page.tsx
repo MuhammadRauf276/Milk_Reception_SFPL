@@ -180,12 +180,12 @@ function PheContent() {
 
             {section === 'exit' && !isMdoOnly && <ZmccExitWorkspace />}
             {section === 'exit' && isMdoOnly && (
-              <div className="bg-card border border-border rounded-xl p-6 text-center space-y-3">
+              <div className="bg-card border border-border rounded-2xl p-6 text-center space-y-3">
                 <p className="text-sm font-semibold text-foreground">Vehicle exit is done by the PHE Operator.</p>
                 <button
                   type="button"
                   onClick={() => router.push('/phe?section=arrivals&view=history')}
-                  className="min-h-11 px-4 rounded-xl bg-primary text-white text-xs font-semibold"
+                  className="min-h-11 px-4 rounded-lg bg-primary text-white text-xs font-semibold"
                 >
                   Arrival history
                 </button>

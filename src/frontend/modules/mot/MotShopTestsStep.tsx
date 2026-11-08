@@ -50,7 +50,7 @@ export interface MotShopTestsStepProps {
 }
 
 const INPUT_CLASS =
-  'h-14 w-full min-w-0 rounded-xl border-2 bg-white px-3 text-xl font-semibold tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-60';
+  'h-14 w-full min-w-0 rounded-xl border-2 bg-card px-3 text-xl font-semibold tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary disabled:opacity-60';
 
 function isNumeric(t: MotShopPolicyTest): boolean {
   const rt = (t.resultType || '').toUpperCase();
@@ -132,12 +132,12 @@ export function MotShopTestsStep({
     return (
       <div key={t.labTestId} className="bg-card border-border space-y-2.5 rounded-2xl border p-3 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <label htmlFor={inputId} className="text-base font-semibold text-slate-900">
+          <label htmlFor={inputId} className="text-base font-semibold text-foreground">
             {t.testName}
             <span
               className={cn(
-                'ml-2 rounded-full px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide',
-                required ? 'bg-primary text-white shadow-2xs' : 'bg-slate-100 text-slate-600'
+                'ml-2 rounded-full px-2 py-0.5 align-middle text-xs font-semibold',
+                required ? 'bg-primary text-white shadow-2xs' : 'bg-muted text-secondary-foreground'
               )}
             >
               {isCalc ? 'Auto' : required ? 'Required *' : 'Optional'}
@@ -147,7 +147,7 @@ export function MotShopTestsStep({
             <span
               className={cn(
                 'rounded-full border px-2.5 py-1 text-xs font-semibold tabular-nums',
-                out ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-slate-300 bg-slate-50 text-slate-700'
+                out ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-border-strong bg-subtle text-secondary-foreground'
               )}
             >
               {chip}
@@ -164,7 +164,7 @@ export function MotShopTestsStep({
             aria-readonly="true"
             value={calcValue !== null ? calcValue.toFixed(2) : ''}
             placeholder="Auto"
-            className={cn('min-h-11', INPUT_CLASS, 'border-slate-300 bg-muted text-slate-600 cursor-not-allowed')}
+            className={cn('min-h-11', INPUT_CLASS, 'border-border-strong bg-muted text-secondary-foreground cursor-not-allowed')}
           />
         ) : numeric ? (
           <input
@@ -176,7 +176,7 @@ export function MotShopTestsStep({
             onChange={(e) => setValue(t, e.target.value)}
             disabled={disabled}
             aria-invalid={out || undefined}
-            className={cn('min-h-11', INPUT_CLASS, out ? 'border-rose-400 bg-rose-50/40' : 'border-slate-300')}
+            className={cn('min-h-11', INPUT_CLASS, out ? 'border-rose-400 bg-rose-50/40' : 'border-border-strong')}
           />
         ) : t.options && t.options.length > 0 ? (
           <div id={inputId} role="radiogroup" aria-label={t.testName} className="flex flex-wrap gap-2">
@@ -189,8 +189,8 @@ export function MotShopTestsStep({
                 onClick={() => onValueChange(t.labTestId, { text: text === o ? '' : o })}
                 disabled={disabled}
                 className={cn(
-                  'min-h-12 rounded-xl border-2 px-4 text-base font-semibold transition disabled:opacity-60',
-                  text === o ? 'border-primary bg-primary text-white shadow-2xs' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                  'min-h-12 rounded-lg border-2 px-4 text-base font-semibold transition disabled:opacity-60',
+                  text === o ? 'border-primary bg-primary text-white shadow-2xs' : 'border-border-strong bg-card text-secondary-foreground hover:bg-subtle'
                 )}
               >
                 {o}
@@ -204,7 +204,7 @@ export function MotShopTestsStep({
             value={text}
             onChange={(e) => onValueChange(t.labTestId, { text: e.target.value })}
             disabled={disabled}
-            className={cn('min-h-11', INPUT_CLASS, 'border-slate-300 text-base')}
+            className={cn('min-h-11', INPUT_CLASS, 'border-border-strong text-base')}
           />
         )}
 
@@ -232,9 +232,9 @@ export function MotShopTestsStep({
 
   const fallbackField = (id: string, label: string, value: string, onChange: (v: string) => void) => (
     <div className="bg-card border-border space-y-2.5 rounded-2xl border p-3 shadow-xs">
-      <label htmlFor={id} className="text-base font-semibold text-slate-900">
+      <label htmlFor={id} className="text-base font-semibold text-foreground">
         {label}
-        <span className="ml-2 rounded-full bg-primary px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide text-white shadow-2xs">
+        <span className="ml-2 rounded-full bg-primary px-2 py-0.5 align-middle text-xs font-semibold text-white shadow-2xs">
           Required
         </span>
       </label>
@@ -246,7 +246,7 @@ export function MotShopTestsStep({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={cn('min-h-11', INPUT_CLASS, 'border-slate-300')}
+        className={cn('min-h-11', INPUT_CLASS, 'border-border-strong')}
       />
     </div>
   );
@@ -271,12 +271,12 @@ export function MotShopTestsStep({
             type="button"
             onClick={() => setShowMore((s) => !s)}
             aria-expanded={showMore}
-            className="flex min-h-12 w-full items-center justify-between px-3 text-base font-semibold text-slate-900"
+            className="flex min-h-12 w-full items-center justify-between px-3 text-base font-semibold text-foreground"
           >
             <span>More tests ({more.length})</span>
             {showMore ? <ChevronUp className="h-5 w-5" aria-hidden="true" /> : <ChevronDown className="h-5 w-5" aria-hidden="true" />}
           </button>
-          {showMore && <div className="space-y-3 border-t border-slate-200 p-2.5">{more.map(testCard)}</div>}
+          {showMore && <div className="space-y-3 border-t border-border p-2.5">{more.map(testCard)}</div>}
         </div>
       )}
 

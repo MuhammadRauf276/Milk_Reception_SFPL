@@ -244,12 +244,12 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
 
   if (!canSeeRoutes && !canApproveShops && !canDecideHcs) {
     return (
-      <div className="bg-card border border-border rounded-xl p-6 text-center space-y-3">
+      <div className="bg-card border border-border rounded-2xl p-6 text-center space-y-3">
         <p className="text-sm font-semibold text-foreground">No requests here</p>
         <button
           type="button"
           onClick={() => void loadData()}
-          className="min-h-11 px-4 rounded-xl border border-border text-xs font-semibold text-slate-700 hover:bg-muted"
+          className="min-h-11 px-4 rounded-lg border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
         >
           Refresh
         </button>
@@ -299,15 +299,15 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
             <div className="flex items-center space-x-2">
               <RouteIcon className="w-4 h-4 text-primary shrink-0" />
               <h3 className="text-sm font-semibold text-foreground">Route requests</h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
                 {routes.length} waiting
               </span>
             </div>
-            {loading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+            {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
           </div>
 
           {routes.length === 0 && !loading ? (
-            <div className="p-6 text-center text-xs font-medium text-slate-500">
+            <div className="p-6 text-center text-xs font-medium text-muted-foreground">
               No route requests.
             </div>
           ) : (
@@ -319,8 +319,8 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                 >
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
-                      <span className="text-xs font-bold text-foreground">{r.name}</span>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-subtle border border-border text-slate-700">
+                      <span className="text-xs font-semibold text-foreground">{r.name}</span>
+                      <span className="px-1.5 py-0.5 rounded text-xs font-mono bg-subtle border border-border text-secondary-foreground">
                         {r.route_code}
                       </span>
                       <DecisionStatusBadge
@@ -328,7 +328,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                         label={canApproveRoutes ? 'Needs your decision' : 'With Zonal Manager'}
                       />
                     </div>
-                    <div className="text-xs text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <div className="text-xs text-secondary-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span>Origin: <strong className="text-foreground">{r.origin}</strong></span>
                       <span>Destination: <strong className="text-foreground">{r.destination}</strong></span>
                       {r.areas.length > 0 && (
@@ -338,7 +338,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] text-slate-400 flex items-center space-x-2">
+                    <div className="text-xs text-muted-foreground flex items-center space-x-2">
                       <span>Requested by {r.creator_name}</span>
                       <span>·</span>
                       <span>{new Date(r.created_at).toLocaleDateString()}</span>
@@ -375,7 +375,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
           )}
 
           {totalRoutePages > 1 && (
-            <div className="p-3 border-t border-border flex items-center justify-between text-xs text-slate-600 bg-muted/10">
+            <div className="p-3 border-t border-border flex items-center justify-between text-xs text-secondary-foreground bg-muted/10">
               <span>
                 Page {routesPage} of {totalRoutePages}
               </span>
@@ -408,15 +408,15 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
             <div className="flex items-center space-x-2">
               <Store className="w-4 h-4 text-primary shrink-0" />
               <h3 className="text-sm font-semibold text-foreground">Shop requests</h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
                 {shops.length} waiting
               </span>
             </div>
-            {loading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+            {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
           </div>
 
           {shops.length === 0 && !loading ? (
-            <div className="p-6 text-center text-xs font-medium text-slate-500">
+            <div className="p-6 text-center text-xs font-medium text-muted-foreground">
               No shop requests.
             </div>
           ) : (
@@ -428,30 +428,30 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                 >
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
-                      <span className="text-xs font-bold text-foreground">{s.shop_name}</span>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-subtle border border-border text-slate-700">
+                      <span className="text-xs font-semibold text-foreground">{s.shop_name}</span>
+                      <span className="px-1.5 py-0.5 rounded text-xs font-mono bg-subtle border border-border text-secondary-foreground">
                         {s.shop_code}
                       </span>
                       {s.geotag_status === 'VERIFIED' ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center space-x-1">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center space-x-1">
                           <MapPin className="w-3 h-3 text-emerald-600" />
                           <span>Geotagged</span>
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center space-x-1">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center space-x-1">
                           <Clock className="w-3 h-3 text-amber-600" />
                           <span>Awaiting visit</span>
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <div className="text-xs text-secondary-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span>Owner: <strong className="text-foreground">{s.owner_name}</strong></span>
                       <span>Phone: <strong className="text-foreground">{s.phone_number}</strong></span>
                       <span>CNIC: <strong className="text-foreground font-mono">{s.cnic}</strong></span>
                       <span>Route: <strong className="text-foreground">{s.route_name}</strong></span>
                       <span>Area: <strong className="text-foreground">{s.area_name}</strong></span>
                     </div>
-                    <div className="text-[11px] text-slate-400 flex items-center space-x-2">
+                    <div className="text-xs text-muted-foreground flex items-center space-x-2">
                       <span>Requested by {s.creator_name}</span>
                       <span>·</span>
                       <span>{new Date(s.created_at).toLocaleDateString()}</span>
@@ -486,7 +486,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
           )}
 
           {totalShopPages > 1 && (
-            <div className="p-3 border-t border-border flex items-center justify-between text-xs text-slate-600 bg-muted/10">
+            <div className="p-3 border-t border-border flex items-center justify-between text-xs text-secondary-foreground bg-muted/10">
               <span>
                 Page {shopsPage} of {totalShopPages}
               </span>
@@ -519,15 +519,15 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
             <div className="flex items-center space-x-2">
               <Milk className="w-4 h-4 text-primary shrink-0" />
               <h3 className="text-sm font-semibold text-foreground">HC requests</h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
                 {hcs.length} waiting
               </span>
             </div>
-            {loading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+            {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
           </div>
 
           {hcs.length === 0 && !loading ? (
-            <div className="p-6 text-center text-xs font-medium text-slate-500">No HC requests.</div>
+            <div className="p-6 text-center text-xs font-medium text-muted-foreground">No HC requests.</div>
           ) : (
             <div className="divide-y divide-border">
               {paginatedHcs.map((h) => (
@@ -537,18 +537,18 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                 >
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
-                      <span className="text-xs font-bold text-foreground">{h.name}</span>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-subtle border border-border text-slate-700">
+                      <span className="text-xs font-semibold text-foreground">{h.name}</span>
+                      <span className="px-1.5 py-0.5 rounded text-xs font-mono bg-subtle border border-border text-secondary-foreground">
                         {h.local_supplier_code}
                       </span>
                       <DecisionStatusBadge status="EXCEPTION" label="Needs your decision" />
                     </div>
-                    <div className="text-xs text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <div className="text-xs text-secondary-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span>Phone: <strong className="text-foreground">{h.phone ?? '-'}</strong></span>
                       <span>CNIC: <strong className="text-foreground font-mono">{h.cnic ?? '-'}</strong></span>
                       {h.zmcc && <span>ZMCC: <strong className="text-foreground">{h.zmcc.name}</strong></span>}
                     </div>
-                    <div className="text-[11px] text-slate-400">
+                    <div className="text-xs text-muted-foreground">
                       Added {new Date(h.created_at).toLocaleDateString()}
                     </div>
                   </div>
@@ -579,7 +579,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
           )}
 
           {totalHcPages > 1 && (
-            <div className="p-3 border-t border-border flex items-center justify-between text-xs text-slate-600 bg-muted/10">
+            <div className="p-3 border-t border-border flex items-center justify-between text-xs text-secondary-foreground bg-muted/10">
               <span>
                 Page {hcsPage} of {totalHcPages}
               </span>
@@ -638,7 +638,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   setRejectingItem(null);
                   setRejectReason('');
                 }}
-                className="min-h-11 min-w-11 px-3.5 py-1.5 rounded-xl text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted"
+                className="min-h-11 min-w-11 px-3.5 py-1.5 rounded-lg text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted"
               >
                 Cancel
               </button>
@@ -646,7 +646,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                 type="button"
                 disabled={submittingAction || !rejectReason.trim()}
                 onClick={handleRejectConfirm}
-                className="min-h-11 min-w-11 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 inline-flex items-center space-x-1"
+                className="min-h-11 min-w-11 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 inline-flex items-center space-x-1"
               >
                 {submittingAction && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>Reject</span>

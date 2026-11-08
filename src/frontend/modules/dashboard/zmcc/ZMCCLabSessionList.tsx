@@ -64,7 +64,7 @@ export const ZMCCLabSessionList: React.FC<{
                 <span className="text-base font-semibold tabular-nums text-foreground tracking-tight">
                   {vehicleNumber}
                 </span>
-                <span className="px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wider bg-slate-900 text-white">
+                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-900 text-white">
                   {session.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}
                 </span>
                 <span className="px-2 py-0.5 rounded text-xs tabular-nums font-semibold bg-slate-100 text-slate-700 border border-slate-200">
@@ -83,7 +83,7 @@ export const ZMCCLabSessionList: React.FC<{
                   <button
                     type="button"
                     onClick={() => onReview(session)}
-                    className="flex min-h-11 items-center space-x-1 px-3 py-1 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-2xs transition-all"
+                    className="flex min-h-11 items-center space-x-1 px-3 py-1 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-2xs transition-[color,background-color,border-color,box-shadow,opacity,transform]"
                   >
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>
@@ -168,7 +168,7 @@ export const ZMCCLabSessionList: React.FC<{
               <div className="bg-card border-border p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 border text-rose-900">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-700" />
                 <div>
-                  <span className="font-semibold uppercase text-xs block">Rejection Reason:</span>
+                  <span className="font-semibold text-xs block">Rejection Reason:</span>
                   <span>{session.rejection_reason}</span>
                 </div>
               </div>
@@ -178,7 +178,7 @@ export const ZMCCLabSessionList: React.FC<{
               <div className="bg-card border-border p-2.5 rounded-lg text-xs font-semibold flex items-start gap-2 border text-slate-800">
                 <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-700" />
                 <div>
-                  <span className="font-semibold uppercase text-xs block">
+                  <span className="font-semibold text-xs block">
                     Manager Review Justification ({session.manager_review_status}):
                   </span>
                   <span>{session.manager_review_reason}</span>
@@ -194,7 +194,7 @@ export const ZMCCLabSessionList: React.FC<{
                 </summary>
                 <div className="overflow-x-auto border-t border-border/80">
                   <table className="w-full text-left text-xs tabular-nums">
-                    <thead className="bg-slate-50 text-xs font-sans font-semibold uppercase tracking-wider text-slate-600 border-b border-border/80">
+                    <thead className="bg-slate-50 text-xs font-sans font-semibold text-slate-600 border-b border-border/80">
                       <tr>
                         <th className="py-1.5 px-3">Test</th>
                         <th className="py-1.5 px-3">Observed Value</th>
@@ -232,7 +232,7 @@ export const ZMCCLabSessionList: React.FC<{
                                 {r.evaluation_status}
                               </span>
                             </td>
-                            <td className="py-1.5 px-3 font-sans text-slate-600 text-[11px]">
+                            <td className="py-1.5 px-3 font-sans text-slate-600 text-xs">
                               {r.applied_rule_version ? `Rule v${r.applied_rule_version}` : 'Default SOP'}
                             </td>
                           </tr>

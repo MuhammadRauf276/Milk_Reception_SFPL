@@ -79,7 +79,7 @@ export function CollapsibleDisclosure({
         id={contentId}
         role="region"
         className={cn(
-          'transition-all duration-200 ease-in-out',
+          'transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-200 ease-in-out',
           isOpen || forceOpenDesktop ? 'block' : 'hidden',
           forceOpenDesktop && !isOpen && 'hidden lg:block',
           'border-t border-border/50 px-3.5 py-3 text-xs leading-relaxed text-muted-foreground',

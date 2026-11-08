@@ -127,13 +127,13 @@ export default function WhatsAppGatewayPage() {
   const isOffline = gateway?.status === 'OFFLINE' || gateway?.status === 'DISCONNECTED';
 
   return (
-    <div className="min-h-screen bg-slate-50 text-foreground flex flex-col">
-      <header className="bg-white border-b border-border shadow-2xs sticky top-0 z-30">
+    <div className="min-h-screen bg-subtle text-foreground flex flex-col">
+      <header className="bg-card border-b border-border shadow-2xs sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Link
               href="/phe?section=mot&view=sms"
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-muted transition"
+              className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition"
               title="Return to Mobile Tester Receipts"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -143,7 +143,7 @@ export default function WhatsAppGatewayPage() {
                 <MessageSquare className="w-5 h-5" />
               </div>
               <div>
-                <h1 className="text-sm sm:text-base font-bold text-foreground">
+                <h1 className="text-sm sm:text-base font-semibold text-foreground">
                   WhatsApp gateway
                 </h1>
               </div>
@@ -155,7 +155,7 @@ export default function WhatsAppGatewayPage() {
               type="button"
               onClick={() => fetchStatus(false)}
               disabled={refreshing}
-              className="inline-flex items-center space-x-1.5 min-h-11 px-3 py-1.5 rounded-xl border border-border bg-card text-xs font-semibold text-slate-700 hover:bg-muted transition shadow-2xs"
+              className="inline-flex items-center space-x-1.5 min-h-11 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-secondary-foreground hover:bg-muted transition shadow-2xs"
             >
               <span>Refresh</span>
             </button>
@@ -186,7 +186,7 @@ export default function WhatsAppGatewayPage() {
 
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-base font-bold text-foreground">
+                <h2 className="text-base font-semibold text-foreground">
                   {isConnected
                     ? 'Connected'
                     : isScanQr
@@ -205,7 +205,7 @@ export default function WhatsAppGatewayPage() {
                   {gateway?.status || 'UNKNOWN'}
                 </span>
               </div>
-              <p className="text-xs text-slate-600 mt-0.5">
+              <p className="text-xs text-secondary-foreground mt-0.5">
                 {isConnected
                   ? `Authenticated as: ${gateway?.user?.name || 'Shakarganj Milk Reception'} (${gateway?.user?.id || 'Active Session'})`
                   : isScanQr
@@ -222,7 +222,7 @@ export default function WhatsAppGatewayPage() {
               type="button"
               disabled={loggingOut}
               onClick={handleLogout}
-              className="inline-flex items-center space-x-1.5 min-h-11 px-4 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-semibold transition shadow-2xs self-start md:self-auto"
+              className="inline-flex items-center space-x-1.5 min-h-11 px-4 py-2 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-semibold transition shadow-2xs self-start md:self-auto"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>{loggingOut ? 'Disconnecting…' : 'Disconnect'}</span>
@@ -233,7 +233,7 @@ export default function WhatsAppGatewayPage() {
         {isScanQr && gateway?.qr && (
           <div className="bg-card rounded-2xl border border-border shadow-2xs overflow-hidden">
             <div className="p-5 sm:p-6 border-b border-border bg-slate-50/50">
-              <h3 className="text-sm font-bold text-foreground flex items-center space-x-2">
+              <h3 className="text-sm font-semibold text-foreground flex items-center space-x-2">
                 <Smartphone className="w-4 h-4 text-primary" />
                 <span>Link phone</span>
               </h3>
@@ -241,7 +241,7 @@ export default function WhatsAppGatewayPage() {
 
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
               <div className="flex flex-col items-center justify-center p-6 bg-card border border-border rounded-2xl space-y-3">
-                <div className="p-3 bg-white rounded-xl shadow-md border border-slate-200">
+                <div className="p-3 bg-card rounded-xl shadow-md border border-border">
                   <Image
                     src={gateway.qr}
                     alt="WhatsApp QR Code"
@@ -251,15 +251,15 @@ export default function WhatsAppGatewayPage() {
                     className="w-64 h-64 rounded-lg"
                   />
                 </div>
-                <div className="flex items-center space-x-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 animate-pulse">
+                <div className="flex items-center space-x-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 animate-pulse">
                   <Loader2 className="w-3 h-3 animate-spin" />
                   <span>Waiting for scan…</span>
                 </div>
               </div>
 
-              <div className="space-y-4 text-xs text-slate-700">
-                <div className="font-bold text-sm text-foreground">Steps</div>
-                <ol className="list-decimal list-inside space-y-3 font-medium text-slate-600 pl-1">
+              <div className="space-y-4 text-xs text-secondary-foreground">
+                <div className="font-semibold text-sm text-foreground">Steps</div>
+                <ol className="list-decimal list-inside space-y-3 font-medium text-secondary-foreground pl-1">
                   <li className="leading-relaxed">
                     Open <strong className="text-foreground">WhatsApp</strong> or <strong className="text-foreground">WhatsApp Business</strong> on your mobile phone.
                   </li>
@@ -271,7 +271,7 @@ export default function WhatsAppGatewayPage() {
                   </li>
                 </ol>
 
-                <div className="p-3.5 bg-card border border-border rounded-xl text-blue-950 text-[11px] space-y-1">
+                <div className="p-3.5 bg-card border border-border rounded-2xl text-blue-950 text-xs space-y-1">
                   <div className="font-semibold text-blue-900 flex items-center space-x-1">
                     <Flame className="w-3.5 h-3.5 text-blue-700" />
                     <span>Profile tip</span>
@@ -287,7 +287,7 @@ export default function WhatsAppGatewayPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4">
               <div className="border-b border-border pb-3">
-                <h3 className="text-sm font-bold text-foreground flex items-center space-x-2">
+                <h3 className="text-sm font-semibold text-foreground flex items-center space-x-2">
                   <Send className="w-4 h-4 text-emerald-600" />
                   <span>Send test</span>
                 </h3>
@@ -312,7 +312,7 @@ export default function WhatsAppGatewayPage() {
                 )}
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                     Phone number
                   </label>
                   <input
@@ -326,7 +326,7 @@ export default function WhatsAppGatewayPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                     Message
                   </label>
                   <textarea
@@ -351,12 +351,12 @@ export default function WhatsAppGatewayPage() {
 
             <div className="bg-card rounded-2xl border border-border shadow-2xs p-5 sm:p-6 space-y-4">
               <div className="border-b border-border pb-3">
-                <h3 className="text-sm font-bold text-foreground">
+                <h3 className="text-sm font-semibold text-foreground">
                   Status
                 </h3>
               </div>
 
-              <div className="space-y-3 text-xs text-slate-700">
+              <div className="space-y-3 text-xs text-secondary-foreground">
                 <div className="p-3 bg-card border border-border rounded-xl flex items-start space-x-2.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
@@ -365,18 +365,18 @@ export default function WhatsAppGatewayPage() {
                 </div>
 
                 <div className="p-3 bg-card border border-border rounded-xl space-y-2">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-slate-500">Gateway Port:</span>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Gateway Port:</span>
                     <span className="font-mono font-semibold text-foreground">127.0.0.1:3001</span>
                   </div>
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-slate-500">Connected User:</span>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Connected User:</span>
                     <span className="font-mono font-semibold text-foreground">
                       {gateway?.user?.name || 'Shakarganj'} ({gateway?.user?.id?.split('@')[0] || 'Active'})
                     </span>
                   </div>
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-slate-500">Encryption:</span>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Encryption:</span>
                     <span className="font-semibold text-emerald-700">End-to-End Encrypted (E2EE)</span>
                   </div>
                 </div>
@@ -396,7 +396,7 @@ export default function WhatsAppGatewayPage() {
 
         {isOffline && (
           <div className="bg-card border border-border rounded-2xl p-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-1 font-bold text-sm text-foreground">
+            <div className="flex items-center gap-1 font-semibold text-sm text-foreground">
               <AlertTriangle className="w-5 h-5 text-rose-600" />
               <span>Gateway offline</span>
               <InfoTip text={'Start it with "npm run whatsapp:gateway", then retry.'} />
@@ -405,7 +405,7 @@ export default function WhatsAppGatewayPage() {
               type="button"
               onClick={() => fetchStatus(false)}
               disabled={refreshing}
-              className="inline-flex min-h-11 items-center px-4 rounded-xl bg-primary text-white text-xs font-semibold disabled:opacity-50"
+              className="inline-flex min-h-11 items-center px-4 rounded-lg bg-primary text-white text-xs font-semibold disabled:opacity-50"
             >
               Retry
             </button>

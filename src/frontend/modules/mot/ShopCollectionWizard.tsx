@@ -57,7 +57,7 @@ export interface ShopCollectionWizardProps {
 const STEPS = ['Source & Tests', 'Quantity & Comments'] as const;
 
 const FIELD_CLASS =
-  'h-12 w-full min-w-0 rounded-xl border border-border bg-white px-3 text-base font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary';
+  'h-12 w-full min-w-0 rounded-lg border border-border bg-card px-3 text-base font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary';
 
 
 
@@ -164,17 +164,17 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
       style={vvh ? { maxHeight: Math.min(vvh - 24, typeof window !== 'undefined' ? window.innerHeight * 0.9 : vvh) } : undefined}
     >
       {/* Header */}
-      <div className="flex-none border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+      <div className="flex-none border-b border-border bg-slate-50/80 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-semibold text-white shadow-2xs">
             {sequence}
           </span>
           <div className="min-w-0 flex-1">
-            <h3 className="line-clamp-1 text-sm font-semibold text-slate-900">{shopLabel}</h3>
+            <h3 className="line-clamp-1 text-sm font-semibold text-foreground">{shopLabel}</h3>
             <p
               className={cn(
-                'flex items-center gap-1 text-[11px] font-medium',
-                gpsStatus === 'CAPTURED' ? 'text-emerald-700' : gpsStatus === 'UNAVAILABLE' ? 'text-slate-500' : 'text-amber-700'
+                'flex items-center gap-1 text-xs font-medium',
+                gpsStatus === 'CAPTURED' ? 'text-emerald-700' : gpsStatus === 'UNAVAILABLE' ? 'text-muted-foreground' : 'text-amber-700'
               )}
             >
               <Navigation className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -187,7 +187,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
             onClick={onSaveDraft}
             disabled={busy}
             title="Save draft for later"
-            className="min-h-11 min-w-11 inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+            className="min-h-11 min-w-11 inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-border-strong bg-card px-2.5 text-xs font-semibold text-secondary-foreground hover:bg-muted disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" aria-hidden="true" />
             <span className="hidden min-[420px]:inline">Draft</span>
@@ -196,7 +196,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="min-h-11 min-w-11 inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 hover:text-slate-900"
+            className="min-h-11 min-w-11 inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -220,10 +220,10 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                 'flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg border text-xs font-semibold transition',
                 i === step
                   ? 'border-primary bg-primary text-white shadow-2xs'
-                  : 'border-border bg-white text-slate-600 hover:bg-subtle'
+                  : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
               )}
             >
-              <span className={cn('h-1.5 w-1.5 rounded-full', i === step ? 'bg-white' : 'bg-slate-300')} />
+              <span className={cn('h-1.5 w-1.5 rounded-full', i === step ? 'bg-card' : 'bg-slate-300')} />
               <span>{i + 1}. {label}</span>
             </button>
           ))}
@@ -262,7 +262,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
               >
                 {/* 1. RMR Token */}
                 <div>
-                  <label htmlFor="mot-rmr" className="mb-1 block text-xs font-semibold text-slate-900">
+                  <label htmlFor="mot-rmr" className="mb-1 block text-xs font-semibold text-foreground">
                     RMR Token (Paper Receipt No.)
                   </label>
                   <input
@@ -274,13 +274,13 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                     value={rmrNumber}
                     onChange={(e) => onRmrNumberChange(e.target.value.replace(/[^0-9]/g, ''))}
                     placeholder="e.g. 004821"
-                    className={cn(FIELD_CLASS, 'h-12 text-lg tracking-wider tabular-nums')}
+                    className={cn(FIELD_CLASS, 'h-12 text-lg tabular-nums')}
                   />
                 </div>
 
                 {/* 2. Milk Source: required, assigned to this ZMCC, name only */}
                 <div>
-                  <label htmlFor="mot-source" className="mb-1 block text-xs font-semibold text-slate-900">
+                  <label htmlFor="mot-source" className="mb-1 block text-xs font-semibold text-foreground">
                     Milk Source <span className="text-red-600">*</span>
                   </label>
                   <Combobox
@@ -297,7 +297,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                     }))}
                   />
                   {sources.length === 0 ? (
-                    <p className="mt-1 text-[11px] font-semibold text-amber-800">
+                    <p className="mt-1 text-xs font-semibold text-amber-800">
                       No milk source assigned.
                     </p>
                   ) : null}
@@ -306,7 +306,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                 {/* 3. Assigned tests from super admin to mot level user with sops */}
                 <div className="pt-1">
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <span className="text-xs font-semibold text-muted-foreground">
                       Assigned Quality Tests (SOP)
                     </span>
                   </div>
@@ -326,7 +326,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
               >
                 {/* 4. Gross Liters / Quantity */}
                 <div>
-                  <label htmlFor="mot-qty" className="mb-1 block text-xs font-semibold text-slate-900">
+                  <label htmlFor="mot-qty" className="mb-1 block text-xs font-semibold text-foreground">
                     Gross Quantity <span className="text-rose-600">*</span>
                   </label>
                   <div className="flex gap-2">
@@ -352,7 +352,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                           onClick={() => onUnitChange(u)}
                           className={cn('min-h-11 min-w-11', 
                             'min-w-14 px-3 text-sm font-semibold transition',
-                            unit === u ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-subtle'
+                            unit === u ? 'bg-primary text-white' : 'bg-card text-secondary-foreground hover:bg-subtle'
                           )}
                         >
                           {u === 'LITER' ? 'L' : 'KG'}
@@ -366,14 +366,14 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                 {livePreview && parseFloat(quantity) > 0 && (
                   <div className="bg-card border-border grid grid-cols-2 gap-2 rounded-xl border p-2.5">
                     <div>
-                      <p className="text-[10px] font-semibold uppercase text-slate-500">Gross Liters</p>
-                      <p className="text-base font-bold tabular-nums text-slate-900">{livePreview.grossLiters} L</p>
-                      <p className="text-[10px] text-slate-600">Density: {livePreview.density}</p>
+                      <p className="text-xs font-semibold text-muted-foreground">Gross Liters</p>
+                      <p className="text-base font-semibold tabular-nums text-foreground">{livePreview.grossLiters} L</p>
+                      <p className="text-xs text-secondary-foreground">Density: {livePreview.density}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-semibold uppercase text-emerald-800">At 13 TS Liters</p>
-                      <p className="text-base font-bold tabular-nums text-emerald-700">{livePreview.at13TsLiters} L</p>
-                      <p className="text-[10px] text-slate-600">
+                      <p className="text-xs font-semibold text-emerald-800">At 13 TS Liters</p>
+                      <p className="text-base font-semibold tabular-nums text-emerald-700">{livePreview.at13TsLiters} L</p>
+                      <p className="text-xs text-secondary-foreground">
                         SNF {livePreview.snf}% · TS {livePreview.totalSolids}%
                       </p>
                     </div>
@@ -382,7 +382,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
 
                 {/* 5. Comments (if any) */}
                 <div className="space-y-2">
-                  <label htmlFor="mot-notes" className="block text-xs font-semibold text-slate-700">
+                  <label htmlFor="mot-notes" className="block text-xs font-semibold text-secondary-foreground">
                     Comments / Field Notes (Optional)
                   </label>
                   <textarea
@@ -391,7 +391,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                     value={notes}
                     onChange={(e) => onNotesChange(e.target.value)}
                     placeholder="Enter notes…"
-                    className="min-h-11 w-full resize-none rounded-xl border border-border bg-white p-2.5 text-base sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    className="min-h-11 w-full resize-none rounded-lg border border-border bg-card p-2.5 text-base sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                   />
                 </div>
               </motion.div>
@@ -400,14 +400,14 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
         </div>
 
         {/* Minimalist sticky footer */}
-        <div className="flex flex-none items-center gap-2 border-t border-slate-200 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="flex flex-none items-center gap-2 border-t border-border bg-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {step > 0 && (
             <button
               type="button"
               onClick={goBack}
               disabled={busy}
               aria-label="Back"
-              className="inline-flex min-h-[48px] min-w-[48px] shrink-0 items-center justify-center gap-1 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="inline-flex min-h-[48px] min-w-[48px] shrink-0 items-center justify-center gap-1 rounded-xl border border-border-strong bg-card px-3 text-sm font-semibold text-secondary-foreground hover:bg-subtle disabled:opacity-50"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Back</span>
@@ -441,11 +441,11 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
         <DrawerContent className="max-w-lg">
           <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
             <div>
-              <DrawerTitle className="text-base font-bold text-slate-900">
+              <DrawerTitle className="text-base font-semibold text-foreground">
                 Shop Collection Decision
               </DrawerTitle>
-              <p className="text-xs text-slate-500 font-medium">
-                {shopLabel} · RMR: <strong className="text-slate-800">{rmrNumber || 'None'}</strong>
+              <p className="text-xs text-muted-foreground font-medium">
+                {shopLabel} · RMR: <strong className="text-foreground">{rmrNumber || 'None'}</strong>
               </p>
             </div>
             <button
@@ -453,7 +453,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
               onClick={() => setDecideOpen(false)}
               disabled={busy}
               aria-label="Close decision"
-              className="min-h-11 min-w-11 flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              className="min-h-11 min-w-11 flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
             >
               <X className="h-5 w-5" />
             </button>
@@ -463,14 +463,14 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
             {livePreview && (
               <div className="bg-card border-border grid grid-cols-2 gap-2 rounded-xl border p-3">
                 <div>
-                  <span className="text-[10px] font-semibold uppercase text-slate-500">Gross Quantity</span>
-                  <p className="text-lg font-bold tabular-nums text-slate-900">{livePreview.grossLiters} L</p>
-                  <p className="text-xs text-slate-600">Density: {livePreview.density}</p>
+                  <span className="text-xs font-semibold text-muted-foreground">Gross Quantity</span>
+                  <p className="text-lg font-semibold tabular-nums text-foreground">{livePreview.grossLiters} L</p>
+                  <p className="text-xs text-secondary-foreground">Density: {livePreview.density}</p>
                 </div>
                 <div>
-                  <span className="text-[10px] font-semibold uppercase text-emerald-800">At 13 TS Quantity</span>
-                  <p className="text-lg font-bold tabular-nums text-emerald-700">{livePreview.at13TsLiters} L</p>
-                  <p className="text-xs text-slate-600">
+                  <span className="text-xs font-semibold text-emerald-800">At 13 TS Quantity</span>
+                  <p className="text-lg font-semibold tabular-nums text-emerald-700">{livePreview.at13TsLiters} L</p>
+                  <p className="text-xs text-secondary-foreground">
                     SNF: {livePreview.snf}% · TS: {livePreview.totalSolids}%
                   </p>
                 </div>

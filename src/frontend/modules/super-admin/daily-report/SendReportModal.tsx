@@ -116,11 +116,11 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-primary">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-primary">
               <Mail className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900">Send Daily Report to Executives</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Send Daily Report to Executives</h2>
               <p className="text-xs text-slate-500">Dispatch report summary via Email, Gmail, or WhatsApp</p>
             </div>
           </div>
@@ -137,7 +137,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
         <div className="flex-1 space-y-4 overflow-y-auto p-5 text-xs">
           {/* Recipient Selection */}
           <div>
-            <label className="mb-1.5 block font-bold text-slate-800">Select Recipients</label>
+            <label className="mb-1.5 block font-semibold text-slate-800">Select Recipients</label>
             <div className="flex flex-wrap gap-1.5">
               {PRESET_STAKEHOLDERS.map((s) => {
                 const active = selectedEmails.includes(s.email);
@@ -171,7 +171,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
             />
             <button
               type="submit"
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 font-bold text-slate-700 hover:bg-slate-50"
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 font-semibold text-slate-700 hover:bg-slate-50"
             >
               Add
             </button>
@@ -180,11 +180,11 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
           {/* Active Email Tags */}
           {selectedEmails.length > 0 && (
             <div className="flex flex-wrap gap-1.5 rounded-lg bg-slate-50 p-2.5 border border-slate-200">
-              <span className="text-[11px] font-bold text-slate-500 mr-1 self-center">Recipients:</span>
+              <span className="text-xs font-semibold text-slate-500 mr-1 self-center">Recipients:</span>
               {selectedEmails.map((email) => (
                 <span
                   key={email}
-                  className="inline-flex items-center gap-1 rounded-md bg-white border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-800 shadow-2xs"
+                  className="inline-flex items-center gap-1 rounded-md bg-white border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-800 shadow-2xs"
                 >
                   {email}
                   <button
@@ -199,7 +199,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
 
           {/* Executive Note */}
           <div>
-            <label className="mb-1 block font-bold text-slate-800">Executive Remarks / Note (Optional)</label>
+            <label className="mb-1 block font-semibold text-slate-800">Executive Remarks / Note (Optional)</label>
             <textarea
               rows={2}
               value={executiveNote}
@@ -211,8 +211,8 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
 
           {/* Live Preview of Email Body */}
           <div>
-            <label className="mb-1 block font-bold text-slate-800">Dispatch Summary Preview</label>
-            <pre className="max-h-44 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-[11px] text-slate-700 leading-relaxed">
+            <label className="mb-1 block font-semibold text-slate-800">Dispatch Summary Preview</label>
+            <pre className="max-h-44 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-700 leading-relaxed">
               {summaryText}
             </pre>
           </div>
@@ -225,7 +225,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
               type="button"
               onClick={handleOpenGmail}
               disabled={isSending}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
               title="Open pre-filled in Gmail"
             >
               <ExternalLink className="h-3.5 w-3.5 text-rose-600" />
@@ -235,7 +235,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
               type="button"
               onClick={handleShareWhatsApp}
               disabled={isSending}
-              className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
               title="Share report summary via WhatsApp"
             >
               <MessageSquare className="h-3.5 w-3.5 text-emerald-600" />
@@ -248,7 +248,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
               type="button"
               onClick={onClose}
               disabled={isSending}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               Cancel
             </button>
@@ -256,7 +256,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
               type="button"
               onClick={handleDirectSend}
               disabled={isSending || selectedEmails.length === 0}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-primary-hover disabled:opacity-50 transition"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-primary-hover disabled:opacity-50 transition"
             >
               {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               <span>Send Email</span>

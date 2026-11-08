@@ -167,13 +167,13 @@ export function ZMCCComprehensiveReportsScreen({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-card p-5 rounded-xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-primary" />
             <h1 className="text-lg font-semibold text-foreground">Operational Ledgers & Reports</h1>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Detailed shift-level ledgers for Route collections, HC direct suppliers, and Silo/Tank inventory
           </p>
         </div>
@@ -184,13 +184,13 @@ export function ZMCCComprehensiveReportsScreen({
             onClick={handleExportExcel}
             className="min-h-11 flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-foreground transition"
           >
-            <Download className="w-4 h-4 text-slate-600" />
+            <Download className="w-4 h-4 text-secondary-foreground" />
             <span>Export to Excel (.xlsx)</span>
           </button>
           <button
             type="button"
             onClick={handlePrint}
-            className="min-h-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-slate-700"
+            className="min-h-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground"
           >
             <Printer className="w-4 h-4" />
             <span>Print</span>
@@ -199,7 +199,7 @@ export function ZMCCComprehensiveReportsScreen({
       </div>
 
       {/* Subtabs & Date Controls */}
-      <div className="bg-card p-4 rounded-xl border border-border shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="bg-card p-4 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         {/* Subtabs */}
         <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border overflow-x-auto">
           <button
@@ -208,7 +208,7 @@ export function ZMCCComprehensiveReportsScreen({
             className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap flex items-center gap-1.5 ${
               activeView === 'ROUTE_COLLECTIONS'
                 ? 'bg-primary text-white shadow-2xs'
-                : 'text-slate-600 hover:text-foreground'
+                : 'text-secondary-foreground hover:text-foreground'
             }`}
           >
             <Truck className="w-3.5 h-3.5" />
@@ -220,7 +220,7 @@ export function ZMCCComprehensiveReportsScreen({
             className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap flex items-center gap-1.5 ${
               activeView === 'HC_SUPPLIERS'
                 ? 'bg-primary text-white shadow-2xs'
-                : 'text-slate-600 hover:text-foreground'
+                : 'text-secondary-foreground hover:text-foreground'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -232,7 +232,7 @@ export function ZMCCComprehensiveReportsScreen({
             className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap flex items-center gap-1.5 ${
               activeView === 'TANK_STORAGE'
                 ? 'bg-primary text-white shadow-2xs'
-                : 'text-slate-600 hover:text-foreground'
+                : 'text-secondary-foreground hover:text-foreground'
             }`}
           >
             <Building2 className="w-3.5 h-3.5" />
@@ -244,7 +244,7 @@ export function ZMCCComprehensiveReportsScreen({
         {activeView !== 'TANK_STORAGE' && (
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-subtle px-2.5 py-1.5 rounded-lg border border-border text-xs">
-              <Calendar className="w-3.5 h-3.5 text-slate-500" />
+              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
               <input
                 type="date"
                 value={fromDate}
@@ -252,9 +252,9 @@ export function ZMCCComprehensiveReportsScreen({
                   setFromDate(e.target.value);
                   setPage(1);
                 }}
-                className="bg-transparent text-slate-700 font-medium focus:outline-hidden"
+                className="bg-transparent text-secondary-foreground font-medium focus:outline-hidden"
               />
-              <span className="text-slate-400">to</span>
+              <span className="text-muted-foreground">to</span>
               <input
                 type="date"
                 value={toDate}
@@ -262,7 +262,7 @@ export function ZMCCComprehensiveReportsScreen({
                   setToDate(e.target.value);
                   setPage(1);
                 }}
-                className="bg-transparent text-slate-700 font-medium focus:outline-hidden"
+                className="bg-transparent text-secondary-foreground font-medium focus:outline-hidden"
               />
             </div>
 
@@ -272,7 +272,7 @@ export function ZMCCComprehensiveReportsScreen({
                 routeLedgerQuery.refetch();
                 hcLedgerQuery.refetch();
               }}
-              className="p-2 rounded-lg border border-border bg-subtle hover:bg-muted text-slate-700"
+              className="p-2 rounded-lg border border-border bg-subtle hover:bg-muted text-secondary-foreground"
               title="Apply & Refresh"
             >
               </button>
@@ -290,13 +290,13 @@ export function ZMCCComprehensiveReportsScreen({
               {getErrorMessage(routeLedgerQuery.error)}
             </div>
           ) : (routeLedgerQuery.data?.rows.length || 0) === 0 ? (
-            <div className="p-12 text-center text-xs font-semibold text-slate-500">
+            <div className="p-12 text-center text-xs font-semibold text-muted-foreground">
               No route collections found for the selected date range.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-muted/50 text-slate-700 uppercase font-semibold text-[10px] border-b border-border">
+                <thead className="bg-muted/50 text-secondary-foreground font-semibold text-xs border-b border-border">
                   <tr>
                     <th className="p-3">Journey #</th>
                     <th className="p-3">Date</th>
@@ -320,19 +320,19 @@ export function ZMCCComprehensiveReportsScreen({
                   {routeLedgerQuery.data?.rows.map((row) => (
                     <tr key={row.id} className="hover:bg-subtle transition">
                       <td className="p-3 tabular-nums font-semibold text-primary">#{row.journeyNumber}</td>
-                      <td className="p-3 tabular-nums text-slate-600 font-medium">{row.operationalDate}</td>
+                      <td className="p-3 tabular-nums text-secondary-foreground font-medium">{row.operationalDate}</td>
                       <td className="p-3 font-semibold text-foreground">
                         {row.routeCode} · {row.routeName}
                       </td>
                       <td className="p-3 text-foreground">{row.motName}</td>
-                      <td className="p-3 tabular-nums font-semibold text-slate-700">{row.vehicleNumber}</td>
-                      <td className="p-3 tabular-nums text-slate-700">
+                      <td className="p-3 tabular-nums font-semibold text-secondary-foreground">{row.vehicleNumber}</td>
+                      <td className="p-3 tabular-nums text-secondary-foreground">
                         {row.visitedStops} / {row.plannedStops}
                       </td>
                       <td className="p-3 tabular-nums font-semibold text-foreground">
                         {row.shopLitersCollected.toLocaleString()} L
                       </td>
-                      <td className="p-3 tabular-nums font-semibold text-slate-800">
+                      <td className="p-3 tabular-nums font-semibold text-foreground">
                         {row.zmccArrivalLiters.toLocaleString()} L
                       </td>
                       <td className="p-3 tabular-nums font-semibold text-amber-700">
@@ -349,15 +349,15 @@ export function ZMCCComprehensiveReportsScreen({
                           {row.routeLossPct}%
                         </span>
                       </td>
-                      <td className="p-3 tabular-nums text-slate-700">{row.at13TsLiters.toLocaleString()} L</td>
-                      <td className="p-3 tabular-nums text-slate-700">
+                      <td className="p-3 tabular-nums text-secondary-foreground">{row.at13TsLiters.toLocaleString()} L</td>
+                      <td className="p-3 tabular-nums text-secondary-foreground">
                         {row.zmccArrivalAt13TsLiters !== null ? `${row.zmccArrivalAt13TsLiters.toLocaleString()} L` : '—'}
                       </td>
                       <td className="p-3 tabular-nums font-semibold text-amber-700">
                         {row.routeLossAt13TsLiters !== null ? `${row.routeLossAt13TsLiters.toLocaleString()} L` : '—'}
                       </td>
-                      <td className="p-3 tabular-nums font-medium text-slate-700">{row.avgFat}%</td>
-                      <td className="p-3 tabular-nums font-medium text-slate-700">{row.avgLr}</td>
+                      <td className="p-3 tabular-nums font-medium text-secondary-foreground">{row.avgFat}%</td>
+                      <td className="p-3 tabular-nums font-medium text-secondary-foreground">{row.avgLr}</td>
                       <td className="p-3 text-right">
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
@@ -388,13 +388,13 @@ export function ZMCCComprehensiveReportsScreen({
               {getErrorMessage(hcLedgerQuery.error)}
             </div>
           ) : (hcLedgerQuery.data?.rows.length || 0) === 0 ? (
-            <div className="p-12 text-center text-xs font-semibold text-slate-500">
+            <div className="p-12 text-center text-xs font-semibold text-muted-foreground">
               No supplier arrival records found for the selected date range.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-muted/50 text-slate-700 uppercase font-semibold text-[10px] border-b border-border">
+                <thead className="bg-muted/50 text-secondary-foreground font-semibold text-xs border-b border-border">
                   <tr>
                     <th className="p-3">Token #</th>
                     <th className="p-3">Arrival Time</th>
@@ -415,26 +415,26 @@ export function ZMCCComprehensiveReportsScreen({
                   {hcLedgerQuery.data?.rows.map((row) => (
                     <tr key={row.id} className="hover:bg-subtle transition">
                       <td className="p-3 tabular-nums font-semibold text-primary">{row.zmccToken}</td>
-                      <td className="p-3 tabular-nums text-slate-600">
+                      <td className="p-3 tabular-nums text-secondary-foreground">
                         {new Date(row.arrivalTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </td>
-                      <td className="p-3 tabular-nums font-semibold text-slate-700">{row.supplierCode}</td>
+                      <td className="p-3 tabular-nums font-semibold text-secondary-foreground">{row.supplierCode}</td>
                       <td className="p-3 font-semibold text-foreground">{row.supplierName}</td>
-                      <td className="p-3 tabular-nums text-slate-700">{row.vehicleNumber}</td>
+                      <td className="p-3 tabular-nums text-secondary-foreground">{row.vehicleNumber}</td>
                       <td className="p-3 tabular-nums font-semibold text-foreground">
                         {row.grossLiters.toLocaleString()} L
                       </td>
                       <td className="p-3 tabular-nums font-semibold text-foreground">
                         {row.at13TsLiters !== null ? `${row.at13TsLiters.toLocaleString()} L` : '—'}
                       </td>
-                      <td className="p-3 tabular-nums text-slate-700 font-medium">
+                      <td className="p-3 tabular-nums text-secondary-foreground font-medium">
                         {row.fat !== null ? `${row.fat}%` : '—'}
                       </td>
-                      <td className="p-3 tabular-nums text-slate-700 font-medium">
+                      <td className="p-3 tabular-nums text-secondary-foreground font-medium">
                         {row.snf !== null ? `${row.snf}%` : '—'}
                       </td>
-                      <td className="p-3 tabular-nums text-slate-700 font-medium">{row.lr ?? '—'}</td>
-                      <td className="p-3 tabular-nums text-slate-700 font-medium">
+                      <td className="p-3 tabular-nums text-secondary-foreground font-medium">{row.lr ?? '—'}</td>
+                      <td className="p-3 tabular-nums text-secondary-foreground font-medium">
                         {row.temperatureC !== null ? `${row.temperatureC} °C` : '—'}
                       </td>
                       <td className="p-3">
@@ -470,13 +470,13 @@ export function ZMCCComprehensiveReportsScreen({
               {getErrorMessage(tankStorageQuery.error)}
             </div>
           ) : (tankStorageQuery.data?.rows.length || 0) === 0 ? (
-            <div className="p-12 text-center text-xs font-semibold text-slate-500">
+            <div className="p-12 text-center text-xs font-semibold text-muted-foreground">
               No tanks registered at this facility.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-muted/50 text-slate-700 uppercase font-semibold text-[10px] border-b border-border">
+                <thead className="bg-muted/50 text-secondary-foreground font-semibold text-xs border-b border-border">
                   <tr>
                     <th className="p-3">Tank Code</th>
                     <th className="p-3">Tank Name</th>
@@ -495,7 +495,7 @@ export function ZMCCComprehensiveReportsScreen({
                     <tr key={tank.id} className="hover:bg-subtle transition">
                       <td className="p-3 tabular-nums font-semibold text-primary">{tank.tankCode}</td>
                       <td className="p-3 font-semibold text-foreground">{tank.name}</td>
-                      <td className="p-3 tabular-nums text-slate-700">{tank.capacityLiters.toLocaleString()} L</td>
+                      <td className="p-3 tabular-nums text-secondary-foreground">{tank.capacityLiters.toLocaleString()} L</td>
                       <td className="p-3 tabular-nums font-semibold text-foreground">
                         {tank.currentStockAt13Ts !== null
                           ? `${tank.currentStockAt13Ts.toLocaleString()} L`
@@ -506,8 +506,8 @@ export function ZMCCComprehensiveReportsScreen({
                       </td>
                       <td className="p-3 tabular-nums">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-800">{tank.fillPercentage}%</span>
-                          <div className="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                          <span className="font-semibold text-foreground">{tank.fillPercentage}%</span>
+                          <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
                             <div
                               style={{ width: `${Math.min(100, tank.fillPercentage)}%` }}
                               className="bg-primary h-full rounded-full"
@@ -521,11 +521,11 @@ export function ZMCCComprehensiveReportsScreen({
                       <td className="p-3 tabular-nums text-emerald-700 font-semibold">
                         +{tank.todayReceiptsLiters.toLocaleString()} L
                       </td>
-                      <td className="p-3 tabular-nums text-slate-600">
+                      <td className="p-3 tabular-nums text-secondary-foreground">
                         -{tank.todayDispatchesLiters.toLocaleString()} L
                       </td>
                       <td className="p-3 text-right">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                           Active
                         </span>
                       </td>
@@ -541,7 +541,7 @@ export function ZMCCComprehensiveReportsScreen({
       {/* Pagination Bar */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between p-3 bg-card rounded-xl border border-border text-xs">
-          <span className="text-slate-500 font-medium">
+          <span className="text-muted-foreground font-medium">
             Page <span className="font-semibold text-foreground">{page}</span> of{' '}
             <span className="font-semibold text-foreground">{totalPages}</span> ({totalRecords} records)
           </span>

@@ -101,7 +101,7 @@ export function RouteRequestSheet({ zmccId, needsZonalApproval, onClose, onDone 
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="Notes"
             rows={2}
-            className="min-h-11 w-full rounded-xl border border-border bg-subtle p-3 text-sm font-semibold"
+            className="min-h-11 w-full rounded-lg border border-border bg-subtle p-3 text-sm font-semibold"
           />
         </div>
         <SheetError message={error} />

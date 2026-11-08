@@ -79,11 +79,11 @@ export function ZmccTankOuttakeDrawer({ tank, onClose, onSaved }: Props) {
       <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-subtle p-3 text-sm">
         <div>
-          <p className="text-xs text-slate-500">In tank (gross)</p>
+          <p className="text-xs text-muted-foreground">In tank (gross)</p>
           <p className="font-semibold tabular-nums">{stock.toLocaleString('en-US', { minimumFractionDigits: 2 })} L</p>
         </div>
         <div>
-          <p className="text-xs text-slate-500">In tank (@13% TS)</p>
+          <p className="text-xs text-muted-foreground">In tank (@13% TS)</p>
           <p className="font-semibold tabular-nums">{stockAt13.toLocaleString('en-US', { minimumFractionDigits: 2 })} L</p>
         </div>
       </div>
@@ -104,7 +104,7 @@ export function ZmccTankOuttakeDrawer({ tank, onClose, onSaved }: Props) {
         />
       </div>
       {gross > 0 && !tooMuch && (
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-secondary-foreground">
           @13% TS going out: <strong className="tabular-nums">{at13Out.toFixed(2)} L</strong>. Left in tank:{' '}
           <strong className="tabular-nums">{(stock - gross).toFixed(2)} L</strong> gross.
         </p>

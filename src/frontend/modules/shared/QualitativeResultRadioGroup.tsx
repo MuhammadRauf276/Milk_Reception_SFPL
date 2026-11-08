@@ -58,15 +58,15 @@ export const QualitativeResultRadioGroup: React.FC<QualitativeResultRadioGroupPr
               key={opt.value}
               htmlFor={inputId}
               className={`inline-flex min-h-11 min-w-11 justify-center items-center cursor-pointer transition select-none font-semibold tabular-nums ${
-                compact ? 'gap-1 px-2 py-0.5 rounded-md text-[11px]' : 'gap-1.5 px-3 py-1.5 rounded-lg text-xs'
+                compact ? 'gap-1 px-2 py-0.5 rounded-md text-xs' : 'gap-1.5 px-3 py-1.5 rounded-lg text-xs'
               } border ${
                 disabled
-                  ? 'opacity-50 cursor-not-allowed bg-slate-100 border-slate-300 text-slate-500'
+                  ? 'opacity-50 cursor-not-allowed bg-muted border-border-strong text-muted-foreground'
                   : isChecked
                   ? opt.isPassing === false
                     ? 'bg-rose-100 border-rose-500 text-rose-900 ring-1 ring-rose-500'
                     : 'bg-primary/10 border-primary text-primary ring-1 ring-primary shadow-xs'
-                  : 'bg-white border-border-strong text-foreground hover:bg-slate-50 hover:border-slate-400'
+                  : 'bg-card border-border-strong text-foreground hover:bg-subtle hover:border-border-strong'
               }`}
             >
               <input
@@ -78,7 +78,7 @@ export const QualitativeResultRadioGroup: React.FC<QualitativeResultRadioGroupPr
                 disabled={disabled}
                 onChange={() => onChange(opt.value)}
                 aria-describedby={errorId}
-                className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-primary border-slate-300 focus:ring-2 focus:ring-primary cursor-pointer`}
+                className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-primary border-border-strong focus:ring-2 focus:ring-primary cursor-pointer`}
               />
               <span className="leading-tight">{opt.label || opt.value}</span>
             </label>
@@ -87,7 +87,7 @@ export const QualitativeResultRadioGroup: React.FC<QualitativeResultRadioGroupPr
       </div>
 
       {error && (
-        <p className="text-[11px] font-semibold text-rose-600 mt-0.5" id={errorId}>
+        <p className="text-xs font-semibold text-rose-600 mt-0.5" id={errorId}>
           {error}
         </p>
       )}

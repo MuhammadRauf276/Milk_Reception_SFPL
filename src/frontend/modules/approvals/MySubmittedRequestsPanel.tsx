@@ -36,7 +36,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
       {/* Header and Filter Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
         <div>
-          <h3 className="text-base font-bold text-foreground">My Submitted Requests</h3>
+          <h3 className="text-base font-semibold text-foreground">My Submitted Requests</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Real-time status tracking for exceptions, quality overrides, and clearance requests sent to management
           </p>
@@ -109,14 +109,14 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
       )}
 
       {isError && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-xs font-semibold text-destructive">
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-xs font-semibold text-destructive">
           Could not load your submitted requests. Please try again.
         </div>
       )}
 
       {/* Empty State */}
       {!isLoading && !isError && filtered.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border p-8 text-center space-y-1">
+        <div className="rounded-2xl border border-dashed border-border p-8 text-center space-y-1">
           <p className="text-sm font-semibold text-foreground">No requests found</p>
           <p className="text-xs text-muted-foreground">
             {filterStatus === 'PENDING'
@@ -129,7 +129,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
       {/* Requests List */}
       <div className="space-y-2.5">
         {filtered.map((item) => {
-          let badgeClass = 'bg-slate-100 text-slate-800 border-slate-200';
+          let badgeClass = 'bg-muted text-foreground border-border';
           if (item.status === 'PENDING') {
             badgeClass = 'bg-amber-50 text-amber-900 border-amber-300';
           } else if (item.status === 'APPROVED') {
@@ -141,15 +141,15 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
           return (
             <div
               key={item.id}
-              className="rounded-xl border border-border bg-card p-3.5 shadow-2xs space-y-2.5 transition hover:border-border/80"
+              className="rounded-2xl border border-border bg-card p-3.5 shadow-2xs space-y-2.5 transition hover:border-border/80"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <span className="text-xs font-semibold text-muted-foreground">
                       {item.categoryLabel}
                     </span>
-                    <span className="text-xs font-bold text-foreground">
+                    <span className="text-xs font-semibold text-foreground">
                       {item.referenceNumber}
                     </span>
                   </div>
@@ -157,7 +157,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
                 </div>
 
                 <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${badgeClass}`}
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}`}
                 >
                   {item.statusLabel}
                 </span>
@@ -165,7 +165,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
 
               {/* Reviewer / Decision Details */}
               <div className="rounded-lg bg-muted/40 p-2.5 text-xs space-y-1 border border-border/50">
-                <div className="flex flex-wrap items-center justify-between text-muted-foreground gap-1 text-[11px]">
+                <div className="flex flex-wrap items-center justify-between text-muted-foreground gap-1 text-xs">
                   <span>
                     Sent: <strong className="text-foreground">{new Date(item.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong> on {new Date(item.submittedAt).toLocaleDateString()}
                   </span>
@@ -176,7 +176,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
                 </div>
 
                 {item.reviewedAt && (
-                  <div className="pt-1 border-t border-border/50 text-[11px] text-muted-foreground">
+                  <div className="pt-1 border-t border-border/50 text-xs text-muted-foreground">
                     Decided on {new Date(item.reviewedAt).toLocaleDateString()} at {new Date(item.reviewedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 )}

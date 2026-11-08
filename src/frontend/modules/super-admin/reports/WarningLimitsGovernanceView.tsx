@@ -80,13 +80,13 @@ export function WarningLimitsGovernanceView() {
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3.5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
               <AlertTriangle className="h-6 w-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-900">Plant Reception Warning Limit Policy</h2>
-                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900">
+                <h2 className="text-base font-semibold text-slate-900">Plant Reception Warning Limit Policy</h2>
+                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900">
                   {threshold} Vehicles / Month
                 </span>
               </div>
@@ -115,7 +115,7 @@ export function WarningLimitsGovernanceView() {
                 setReason('');
                 setIsModalOpen(true);
               }}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50"
             >
               <Settings className="h-3.5 w-3.5 text-slate-500" />
               <span>Change Limit</span>
@@ -126,7 +126,7 @@ export function WarningLimitsGovernanceView() {
 
       {/* Error Alert */}
       {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-semibold text-rose-800">
+        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-semibold text-rose-800">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{getErrorMessage(error) || 'Failed to load warning limit governance data'}</span>
         </div>
@@ -135,7 +135,7 @@ export function WarningLimitsGovernanceView() {
       {/* Monthly Summary Per Procurement Source */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <h3 className="text-xs font-semibold text-slate-500">
             Current Month Warning Accumulation by Procurement Source
           </h3>
           <span className="text-xs text-slate-400">Deduplicated per vehicle per source</span>
@@ -157,8 +157,8 @@ export function WarningLimitsGovernanceView() {
                   }`}
                 >
                   <div>
-                    <div className="font-bold text-slate-900">{s.sourceName}</div>
-                    <div className="text-[10px] text-slate-500">
+                    <div className="font-semibold text-slate-900">{s.sourceName}</div>
+                    <div className="text-xs text-slate-500">
                       {s.sourceCode} · {s.sourceType}
                     </div>
                   </div>
@@ -173,7 +173,7 @@ export function WarningLimitsGovernanceView() {
                       {s.activeWarningCount} / {threshold}
                     </span>
                     {isOverLimit && (
-                      <span className="block text-[9px] font-bold text-rose-600 mt-0.5">
+                      <span className="block text-xs font-semibold text-rose-600 mt-0.5">
                         AVP Escalated
                       </span>
                     )}
@@ -187,13 +187,13 @@ export function WarningLimitsGovernanceView() {
 
       {/* Warning Event Records Table */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+        <h3 className="text-xs font-semibold text-slate-500">
           Plant QA Warning Event Log
         </h3>
 
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full text-left text-xs font-medium text-slate-800">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold text-[11px] uppercase tracking-wider">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold text-xs">
               <tr>
                 <th className="p-3">Timestamp</th>
                 <th className="p-3">Procurement Source</th>
@@ -225,7 +225,7 @@ export function WarningLimitsGovernanceView() {
                     </td>
                     <td className="p-3 font-semibold text-slate-900">
                       {w.procurementSource.name}
-                      <span className="block text-[10px] text-slate-400 font-normal">
+                      <span className="block text-xs text-slate-400 font-normal">
                         {w.procurementSource.code}
                       </span>
                     </td>
@@ -233,7 +233,7 @@ export function WarningLimitsGovernanceView() {
                     <td className="p-3 text-amber-900 font-medium">{w.reason}</td>
                     <td className="p-3 text-slate-600">{w.createdBy}</td>
                     <td className="p-3 text-center">
-                      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-800">
+                      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
                         {w.status}
                       </span>
                     </td>
@@ -250,7 +250,7 @@ export function WarningLimitsGovernanceView() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-2xs">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="text-sm font-bold text-slate-900">Configure Plant Reception Warning Limit</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Configure Plant Reception Warning Limit</h3>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
@@ -261,7 +261,7 @@ export function WarningLimitsGovernanceView() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">
+              <label className="block text-xs font-semibold text-slate-800 mb-1">
                 Monthly Warning Threshold (Vehicles per Source)
               </label>
               <input
@@ -270,15 +270,15 @@ export function WarningLimitsGovernanceView() {
                 max={20}
                 value={editThresholdValue}
                 onChange={(e) => setEditThresholdValue(parseInt(e.target.value, 10) || 1)}
-                className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm font-bold text-slate-900 focus:border-primary focus:outline-none"
+                className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-900 focus:border-primary focus:outline-none"
               />
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-xs text-slate-500">
                 Default standard: 4 vehicles/month. Any source exceeding this limit requires AVP-QA approval.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1">
+              <label className="block text-xs font-semibold text-slate-800 mb-1">
                 Reason for Change (Audit Requirement)
               </label>
               <textarea
@@ -294,7 +294,7 @@ export function WarningLimitsGovernanceView() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
@@ -307,7 +307,7 @@ export function WarningLimitsGovernanceView() {
                     reason: reason || 'Super Admin changed warning threshold',
                   });
                 }}
-                className="rounded-lg bg-primary px-4 py-1.5 text-xs font-bold text-white hover:bg-primary-hover disabled:opacity-50"
+                className="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
               >
                 {updateThresholdMutation.isPending ? 'Saving…' : 'Save Limit'}
               </button>

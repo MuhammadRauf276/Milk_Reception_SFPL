@@ -97,7 +97,7 @@ export function DispatchPolicyTests({
   const calculated = calculatedValuesForPortion(active, (t) => values[t.labTestId]?.numericValue);
 
   if (active.length === 0) {
-    return <p className="rounded-lg border border-border bg-subtle px-3 py-2 text-sm text-slate-600">No tests needed.</p>;
+    return <p className="rounded-lg border border-border bg-subtle px-3 py-2 text-sm text-secondary-foreground">No tests needed.</p>;
   }
 
   const photoBlock = (t: DispatchPolicyTest) => {
@@ -116,7 +116,7 @@ export function DispatchPolicyTests({
           <button
             type="button"
             onClick={() => setCameraFor(t)}
-            className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-border px-3 text-sm font-semibold text-slate-700 hover:bg-muted"
+            className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-border px-3 text-sm font-semibold text-secondary-foreground hover:bg-muted"
           >
             <Undo2 className="h-4 w-4" aria-hidden="true" />
             Again
@@ -125,7 +125,7 @@ export function DispatchPolicyTests({
             type="button"
             onClick={() => onPhotoRemoved(t.labTestId)}
             aria-label={`Remove ${t.testName} picture`}
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-border text-slate-500 hover:bg-rose-50 hover:text-rose-700"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-rose-50 hover:text-rose-700"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -138,7 +138,7 @@ export function DispatchPolicyTests({
         onClick={() => setCameraFor(t)}
         className={cn(
           'mt-2 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition',
-          required ? 'bg-primary text-white hover:bg-primary-hover' : 'border border-border bg-white text-slate-700 hover:bg-muted'
+          required ? 'bg-primary text-white hover:bg-primary-hover' : 'border border-border bg-card text-secondary-foreground hover:bg-muted'
         )}
       >
         <Camera className="h-5 w-5" aria-hidden="true" />
@@ -172,7 +172,7 @@ export function DispatchPolicyTests({
         key={t.labTestId}
         className={cn(
           'rounded-xl border p-3 space-y-2 transition shadow-2xs',
-          err || isOut ? 'border-rose-300 bg-rose-50/20' : 'border-border bg-white'
+          err || isOut ? 'border-rose-300 bg-rose-50/20' : 'border-border bg-card'
         )}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -180,8 +180,8 @@ export function DispatchPolicyTests({
             {t.testName}
             <span
               className={cn(
-                'ml-2 rounded-full px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide',
-                isRequired ? 'bg-primary text-white shadow-2xs' : 'bg-slate-100 text-slate-600'
+                'ml-2 rounded-full px-2 py-0.5 align-middle text-xs font-semibold',
+                isRequired ? 'bg-primary text-white shadow-2xs' : 'bg-muted text-secondary-foreground'
               )}
             >
               {isCalc ? 'Auto' : isRequired ? 'Required *' : 'Optional'}
@@ -191,7 +191,7 @@ export function DispatchPolicyTests({
             <span
               className={cn(
                 'rounded-full border px-2.5 py-0.5 text-xs font-semibold tabular-nums',
-                isOut ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-slate-300 bg-slate-50 text-slate-700'
+                isOut ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-border-strong bg-subtle text-secondary-foreground'
               )}
             >
               {chip}
@@ -200,7 +200,7 @@ export function DispatchPolicyTests({
         </div>
 
         {t.testMode === 'COMPULSORY' && !t.rule && (
-          <p className="text-xs text-slate-500">No rule.</p>
+          <p className="text-xs text-muted-foreground">No rule.</p>
         )}
 
         {isCalc ? (
@@ -212,7 +212,7 @@ export function DispatchPolicyTests({
             aria-readonly="true"
             value={calcValue !== null ? calcValue.toFixed(2) : ''}
             placeholder="Auto"
-            className={cn('min-h-11', INPUT_CLASS, 'border-border bg-muted text-slate-600 cursor-not-allowed')}
+            className={cn('min-h-11', INPUT_CLASS, 'border-border bg-muted text-secondary-foreground cursor-not-allowed')}
           />
         ) : numeric ? (
           <input
@@ -243,7 +243,7 @@ export function DispatchPolicyTests({
                     ? isOut
                       ? 'border-rose-600 bg-rose-600 text-white'
                       : 'border-primary bg-primary text-white'
-                    : 'border-border bg-white text-slate-700 hover:bg-muted'
+                    : 'border-border bg-card text-secondary-foreground hover:bg-muted'
                 )}
               >
                 {o}
@@ -281,7 +281,7 @@ export function DispatchPolicyTests({
       {primary.map((t) => renderTest(t))}
       {more.length > 0 && (
         <details className="rounded-xl border border-dashed border-border-strong">
-          <summary className="flex min-h-[48px] cursor-pointer items-center justify-between px-3 text-sm font-semibold text-slate-700">
+          <summary className="flex min-h-[48px] cursor-pointer items-center justify-between px-3 text-sm font-semibold text-secondary-foreground">
             More tests ({more.length})
           </summary>
           <div className="space-y-3 p-2.5 pt-0">{more.map((t) => renderTest(t))}</div>

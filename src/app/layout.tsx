@@ -6,6 +6,7 @@ import { ToastProvider } from '@/frontend/context/ToastContext';
 import { PwaShell } from '@/frontend/modules/pwa/PwaShell';
 import { NetworkStatusBar } from '@/components/ui/NetworkStatusBar';
 import { ReAuthModal } from '@/components/auth/ReAuthModal';
+import { ConfirmHost } from '@/components/ui/confirm-dialog';
 import { QueryProvider } from '@/lib/query/QueryProvider';
 import { LiveUpdateWatcher } from '@/frontend/modules/shared/LiveUpdateWatcher';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -55,6 +56,7 @@ export default function RootLayout({
                 <LiveUpdateWatcher />
               </QueryProvider>
               <PwaShell />
+              <ConfirmHost />
             </ToastProvider>
           </TooltipProvider>
         </MotionProvider>

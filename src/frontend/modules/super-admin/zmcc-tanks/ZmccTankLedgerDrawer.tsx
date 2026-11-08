@@ -96,28 +96,28 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
           {/* Tank Summary Header */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-subtle p-3 rounded-xl border border-border text-center">
             <div className="bg-card p-2 rounded-lg border border-border">
-              <span className="text-[10px] text-muted-foreground uppercase font-medium block">Total Capacity</span>
-              <span className="font-bold text-foreground tabular-nums">
+              <span className="text-xs text-muted-foreground font-medium block">Total Capacity</span>
+              <span className="font-semibold text-foreground tabular-nums">
                 {tank.capacity_liters.toLocaleString()} L
               </span>
             </div>
             <div className="bg-card p-2 rounded-lg border border-border">
-              <span className="text-[10px] text-muted-foreground uppercase font-medium block">Gross Stock</span>
-              <span className="font-bold text-blue-700 tabular-nums">
+              <span className="text-xs text-muted-foreground font-medium block">Gross Stock</span>
+              <span className="font-semibold text-blue-700 tabular-nums">
                 {(data?.tank.current_physical_stock_gross_liters ?? tank.current_stock).toLocaleString()} L
               </span>
             </div>
             <div className="bg-card p-2 rounded-lg border border-border">
-              <span className="text-[10px] text-muted-foreground uppercase font-medium block">Commercial @13% TS</span>
-              <span className="font-bold text-primary tabular-nums">
+              <span className="text-xs text-muted-foreground font-medium block">Commercial @13% TS</span>
+              <span className="font-semibold text-primary tabular-nums">
                 {data?.tank.current_commercial_stock_at_13ts !== null && data?.tank.current_commercial_stock_at_13ts !== undefined
                   ? `${Number(data.tank.current_commercial_stock_at_13ts).toLocaleString()} L`
                   : 'N/A'}
               </span>
             </div>
             <div className="bg-card p-2 rounded-lg border border-border">
-              <span className="text-[10px] text-muted-foreground uppercase font-medium block">Available Space</span>
-              <span className="font-bold text-emerald-700 tabular-nums">
+              <span className="text-xs text-muted-foreground font-medium block">Available Space</span>
+              <span className="font-semibold text-emerald-700 tabular-nums">
                 {(data?.tank.available_capacity ?? tank.available_capacity).toLocaleString()} L
               </span>
             </div>
@@ -136,16 +136,16 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
               <span className="text-xs">Loading ledger entries…</span>
             </div>
           ) : transactions.length === 0 ? (
-            <div className="p-8 text-center border border-dashed border-border rounded-xl text-muted-foreground">
+            <div className="p-8 text-center border border-dashed border-border rounded-2xl text-muted-foreground">
               <Milk className="w-8 h-8 mx-auto mb-2 opacity-30" />
               <p className="font-medium">No ledger transactions found for this tank.</p>
-              <p className="text-[11px] text-slate-500 mt-1">Milk additions and plant dispatches will appear here.</p>
+              <p className="text-xs text-muted-foreground mt-1">Milk additions and plant dispatches will appear here.</p>
             </div>
           ) : (
             <div className="rounded-xl border border-border bg-card shadow-2xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs font-sans">
-                  <thead className="border-b border-border bg-muted/50 text-muted-foreground uppercase font-semibold text-[10px] tracking-wider">
+                  <thead className="border-b border-border bg-muted/50 text-muted-foreground font-semibold text-xs">
                     <tr>
                       <th className="p-3">Date &amp; Time</th>
                       <th className="p-3">Type</th>
@@ -198,15 +198,15 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
                               ? `${isIn ? '+' : '-'}${tx.at_13ts_liters.toLocaleString('en-US', { minimumFractionDigits: 2 })} L`
                               : '—'}
                           </td>
-                          <td className="p-3 text-slate-600 max-w-[220px] truncate" title={tx.notes || tx.reference_id || ''}>
+                          <td className="p-3 text-secondary-foreground max-w-[220px] truncate" title={tx.notes || tx.reference_id || ''}>
                             <span className="font-semibold text-foreground block">{tx.reference_type || 'Ledger Entry'}</span>
-                            <span className="text-[11px] text-muted-foreground">{tx.notes || tx.reference_id || '—'}</span>
+                            <span className="text-xs text-muted-foreground">{tx.notes || tx.reference_id || '—'}</span>
                           </td>
                           <td className="p-3 whitespace-nowrap text-muted-foreground">
                             {tx.performer ? (
                               <div>
                                 <span className="font-medium text-foreground block">{tx.performer.full_name || tx.performer.username}</span>
-                                <span className="text-[10px] uppercase text-slate-500">{tx.performer.role}</span>
+                                <span className="text-xs text-muted-foreground">{tx.performer.role}</span>
                               </div>
                             ) : (
                               'System'

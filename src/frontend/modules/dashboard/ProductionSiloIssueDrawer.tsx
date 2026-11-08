@@ -103,7 +103,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
   };
 
   const inputClass =
-    'w-full min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-xl border border-border-strong bg-white text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary';
+    'w-full min-h-[44px] px-3.5 py-2 text-xs font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary';
 
   return (
     <Drawer open onOpenChange={(o) => !o && onClose()}>
@@ -113,7 +113,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
           <div className="flex items-start justify-between gap-2 border-b border-border-strong pb-4">
             <div>
               <h3 className="text-base font-semibold text-foreground">Record Outbound Milk Issue</h3>
-              <p className="text-xs text-slate-700 font-semibold mt-0.5">
+              <p className="text-xs text-secondary-foreground font-semibold mt-0.5">
                 Silo: <strong className="tabular-nums text-foreground">{silo.silo_code}</strong> ({silo.silo_name})
               </p>
             </div>
@@ -129,22 +129,22 @@ export const ProductionSiloIssueDrawer: React.FC<{
                 type="button"
                 aria-label="Close"
                 onClick={onClose}
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:text-secondary-foreground"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-xl border text-xs tabular-nums font-semibold">
+          <div className="bg-card border-border grid grid-cols-2 gap-3 p-3.5 rounded-2xl border text-xs tabular-nums font-semibold">
             <div>
-              <span className="text-slate-500 font-sans block text-[10px]">Physical Stock</span>
+              <span className="text-muted-foreground font-sans block text-xs">Physical Stock</span>
               <span className="text-base font-semibold text-primary">
                 {silo.current_stock_liters !== null ? `${silo.current_stock_liters.toLocaleString()} L` : '—'}
               </span>
             </div>
             <div>
-              <span className="text-slate-500 font-sans block text-[10px]">After-Issue Stock Preview</span>
+              <span className="text-muted-foreground font-sans block text-xs">After-Issue Stock Preview</span>
               <span className={`text-base font-semibold ${isOverIssue ? 'text-rose-600' : 'text-emerald-800'}`}>
                 {previewRemaining.toLocaleString()} L
               </span>
@@ -217,20 +217,20 @@ export const ProductionSiloIssueDrawer: React.FC<{
           <details className="group rounded-xl bg-card border border-border" open>
             <summary className="min-h-11 flex cursor-pointer select-none items-center justify-between px-4 text-xs font-semibold text-foreground">
               <span>Recent Issues: {silo.silo_code}</span>
-              <span className="text-[11px] text-slate-500 tabular-nums">Last 10 Records</span>
+              <span className="text-xs text-muted-foreground tabular-nums">Last 10 Records</span>
             </summary>
             <div className="border-t border-border-strong p-4">
               {historyLoading ? (
-                <div className="p-4 text-center text-xs text-slate-500 tabular-nums font-semibold">Loading issue history…</div>
+                <div className="p-4 text-center text-xs text-muted-foreground tabular-nums font-semibold">Loading issue history…</div>
               ) : issueHistory.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-500 font-semibold">No issues</div>
+                <div className="p-4 text-center text-xs text-muted-foreground font-semibold">No issues</div>
               ) : (
                 <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                   {issueHistory.map((h) => (
                     <div key={h.id} className="bg-card border-border p-3 rounded-xl border flex items-center justify-between text-xs">
                       <div>
                         <span className="font-semibold text-foreground block">{h.purpose}</span>
-                        <span className="text-[11px] text-slate-500 tabular-nums font-semibold">
+                        <span className="text-xs text-muted-foreground tabular-nums font-semibold">
                           {h.time_formatted} | {h.operator_name} {h.flow_meter_reference ? `| ${h.flow_meter_reference}` : ''}
                         </span>
                       </div>

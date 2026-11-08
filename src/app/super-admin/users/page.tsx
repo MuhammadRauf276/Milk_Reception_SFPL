@@ -89,7 +89,7 @@ export default function SuperAdminUsersPage() {
   return (
     <div className="w-full min-w-0 max-w-full space-y-4 overflow-x-hidden">
       {error && (
-        <div className="flex items-center space-x-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
+        <div className="flex items-center space-x-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
           <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
@@ -104,7 +104,7 @@ export default function SuperAdminUsersPage() {
             animate="animate"
             exit="exit"
             role="status"
-            className="flex items-center space-x-2 rounded-xl border border-border bg-card p-4 text-xs font-semibold text-emerald-800"
+            className="flex items-center space-x-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-emerald-800"
           >
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
             <span>{successMsg}</span>
@@ -117,7 +117,7 @@ export default function SuperAdminUsersPage() {
           <div className="flex min-w-0 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center space-x-2">
               <div className="flex items-center gap-1.5"><h2 className="text-sm font-semibold text-foreground">Users</h2><InfoTip text="Manage system users, access credentials, and role jurisdictions." /></div>
-              <span className="rounded-full border border-border bg-subtle px-2 py-0.5 text-[11px] tabular-nums text-slate-600">
+              <span className="rounded-full border border-border bg-subtle px-2 py-0.5 text-xs tabular-nums text-secondary-foreground">
                 {pagination?.totalRecords ?? users.length}
               </span>
             </div>
@@ -128,14 +128,14 @@ export default function SuperAdminUsersPage() {
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto]">
             <div className="relative min-w-0">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <input
                 type="search"
                 value={search}
                 onChange={(e) => updateFilter(() => setSearch(e.target.value))}
                 placeholder="Search users…"
                 aria-label="Search users"
-                className="h-11 w-full rounded-xl border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
+                className="h-11 w-full rounded-lg border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
               />
             </div>
             <div className="min-w-0"><Combobox
@@ -155,7 +155,7 @@ export default function SuperAdminUsersPage() {
                   className={`h-11 flex-1 rounded-xl border px-3 text-xs font-semibold ${
                     statusFilter === o.value
                       ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border-strong bg-white text-slate-600 hover:bg-slate-50'
+                      : 'border-border-strong bg-card text-secondary-foreground hover:bg-subtle'
                   }`}
                 >
                   {o.label}
@@ -167,7 +167,7 @@ export default function SuperAdminUsersPage() {
 
         <TableWrapper>
           <table className="w-full min-w-[700px] text-left text-xs">
-            <thead className="border-b border-border bg-subtle text-slate-600">
+            <thead className="border-b border-border bg-subtle text-secondary-foreground">
               <tr>
                 <th className="p-3 font-semibold">User</th>
                 <th className="p-3 font-semibold">Email</th>
@@ -184,13 +184,13 @@ export default function SuperAdminUsersPage() {
             <tbody className="divide-y divide-border/60 font-medium">
               {usersQuery.isPending ? (
                 <tr>
-                  <td colSpan={8} className="p-6 text-center tabular-nums text-slate-400">
+                  <td colSpan={8} className="p-6 text-center tabular-nums text-muted-foreground">
                     Loading users…
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-6 text-center text-slate-400">
+                  <td colSpan={8} className="p-6 text-center text-muted-foreground">
                     No users found.
                   </td>
                 </tr>
@@ -198,16 +198,16 @@ export default function SuperAdminUsersPage() {
                 users.map((u) => {
                   const displayScope = u.scopeType === 'PROCUREMENT_SOURCE' ? 'SOURCE' : u.scopeType;
                   return (
-                    <tr key={u.id} className={`hover:bg-slate-50 ${usersQuery.isPlaceholderData ? 'opacity-60' : ''}`}>
+                    <tr key={u.id} className={`hover:bg-subtle ${usersQuery.isPlaceholderData ? 'opacity-60' : ''}`}>
                       <td className="p-3">
                         <div className="font-semibold text-foreground">{u.name}</div>
-                        <div className="text-[10px] tabular-nums text-slate-500">@{u.username}</div>
+                        <div className="text-xs tabular-nums text-muted-foreground">@{u.username}</div>
                       </td>
-                      <td className="p-3 text-[11px] tabular-nums text-slate-600">
+                      <td className="p-3 text-xs tabular-nums text-secondary-foreground">
                         {u.email ? (
                           u.email
                         ) : (
-                          <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                          <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
                             Not set
                           </span>
                         )}
@@ -215,32 +215,32 @@ export default function SuperAdminUsersPage() {
                       <td className="p-3">
                         <span
                           className={`inline-block whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                            u.role === 'SUPER_ADMIN' ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-700'
+                            u.role === 'SUPER_ADMIN' ? 'bg-primary/10 text-primary' : 'bg-muted text-secondary-foreground'
                           }`}
                         >
                           {ROLE_ASSIGNMENT_POLICIES[u.role as CreatableRole]?.label || u.role}
                         </span>
                       </td>
-                      <td className="p-3 text-slate-600">{u.department || '—'}</td>
+                      <td className="p-3 text-secondary-foreground">{u.department || '—'}</td>
                       <td className="p-3">
-                        <div className="font-semibold text-slate-700">{displayScope}</div>
+                        <div className="font-semibold text-secondary-foreground">{displayScope}</div>
                         {u.procurementSource && (
-                          <div className="text-[10px] tabular-nums text-slate-500">
+                          <div className="text-xs tabular-nums text-muted-foreground">
                             {u.procurementSource.name} ({u.procurementSource.sourceType})
                           </div>
                         )}
                       </td>
-                      <td className="whitespace-nowrap p-3 text-[11px] tabular-nums text-slate-500">
+                      <td className="whitespace-nowrap p-3 text-xs tabular-nums text-muted-foreground">
                         {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : 'Never'}
                       </td>
                       <td className="p-3">
                         {u.isActive ? (
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                             Active
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                             <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
                             Deactivated
                           </span>

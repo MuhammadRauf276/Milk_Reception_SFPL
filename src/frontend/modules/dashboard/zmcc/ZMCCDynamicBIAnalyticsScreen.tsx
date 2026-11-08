@@ -128,7 +128,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
 
   if (analyticsQuery.isError) {
     return (
-      <div className="p-8 text-center bg-card rounded-xl border border-rose-200 space-y-3">
+      <div className="p-8 text-center bg-card rounded-2xl border border-rose-200 space-y-3">
         <h3 className="text-sm font-semibold text-rose-800">Failed to load BI analytics</h3>
         <p className="text-xs text-rose-600 max-w-md mx-auto">{getErrorMessage(analyticsQuery.error)}</p>
         <button
@@ -149,7 +149,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
   return (
     <div className="space-y-6">
       {/* Top Banner & Control Bar */}
-      <div className="bg-card p-5 rounded-xl border border-border shadow-2xs space-y-4">
+      <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border pb-4">
           <div>
             <div className="flex items-center gap-2">
@@ -158,7 +158,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
                 Business Intelligence & Statistical Analytics
               </h1>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Dynamic volume trends, weighted quality indices, multi-tier loss diagnostics, and route performance
             </p>
           </div>
@@ -169,13 +169,13 @@ export function ZMCCDynamicBIAnalyticsScreen({
               onClick={handleExportExcel}
               className="min-h-11 flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-foreground transition"
             >
-              <Download className="w-4 h-4 text-slate-600" />
+              <Download className="w-4 h-4 text-secondary-foreground" />
               <span>Export BI Digest (.xlsx)</span>
             </button>
             <button
               type="button"
               onClick={() => analyticsQuery.refetch()}
-              className="min-h-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-slate-700"
+              className="min-h-11 flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground"
             >
               <span>Refresh</span>
             </button>
@@ -202,7 +202,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
                 type="button"
                 onClick={() => setPreset(val)}
                 className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap ${
-                  preset === val ? 'bg-primary text-white shadow-2xs' : 'text-slate-600 hover:text-foreground'
+                  preset === val ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
                 }`}
               >
                 {label}
@@ -218,24 +218,24 @@ export function ZMCCDynamicBIAnalyticsScreen({
                   type="date"
                   value={customFrom}
                   onChange={(e) => setCustomFrom(e.target.value)}
-                  className="bg-transparent text-slate-700 focus:outline-hidden"
+                  className="bg-transparent text-secondary-foreground focus:outline-hidden"
                 />
-                <span className="text-slate-400">to</span>
+                <span className="text-muted-foreground">to</span>
                 <input
                   type="date"
                   value={customTo}
                   onChange={(e) => setCustomTo(e.target.value)}
-                  className="bg-transparent text-slate-700 focus:outline-hidden"
+                  className="bg-transparent text-secondary-foreground focus:outline-hidden"
                 />
               </div>
             )}
 
             <div className="flex items-center gap-1 bg-subtle px-2 py-1 rounded-lg border border-border text-xs">
-              <Filter className="w-3.5 h-3.5 text-slate-400" />
+              <Filter className="w-3.5 h-3.5 text-muted-foreground" />
               <select
                 value={selectedShift}
                 onChange={(e) => setSelectedShift(e.target.value)}
-                className="bg-transparent text-slate-700 font-semibold focus:outline-hidden"
+                className="bg-transparent text-secondary-foreground font-semibold focus:outline-hidden"
               >
                 <option value="ALL">All Shifts</option>
                 <option value="MORNING">Morning Shift</option>
@@ -295,13 +295,13 @@ export function ZMCCDynamicBIAnalyticsScreen({
       {/* Charts Grid: Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Daily Intake Trend Chart (2 Cols) */}
-        <div className="lg:col-span-2 bg-card p-5 rounded-xl border border-border shadow-2xs space-y-4">
+        <div className="lg:col-span-2 bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-4">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div>
               <h2 className="text-sm font-semibold text-foreground">Intake Volume Trend & Shift Breakdown</h2>
-              <p className="text-[11px] text-slate-500">Daily intake with Morning vs Evening stacks and 13% TS line</p>
+              <p className="text-xs text-muted-foreground">Daily intake with Morning vs Evening stacks and 13% TS line</p>
             </div>
-            <span className="text-xs text-slate-500 font-semibold tabular-nums">
+            <span className="text-xs text-muted-foreground font-semibold tabular-nums">
               {bi.timeHorizon.totalDays} Days Window
             </span>
           </div>
@@ -310,21 +310,21 @@ export function ZMCCDynamicBIAnalyticsScreen({
         </div>
 
         {/* Shift Distribution Card (1 Col) */}
-        <div className="bg-card p-5 rounded-xl border border-border shadow-2xs space-y-4 flex flex-col justify-between">
+        <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-4 flex flex-col justify-between">
           <div className="border-b border-border pb-3">
             <h2 className="text-sm font-semibold text-foreground">Shift Contribution</h2>
-            <p className="text-[11px] text-slate-500">Intake ratio between reception shifts</p>
+            <p className="text-xs text-muted-foreground">Intake ratio between reception shifts</p>
           </div>
 
           <ShiftDistributionChart shiftComparison={shiftComparison} />
 
           <div className="p-3 bg-subtle rounded-lg text-xs space-y-1.5 border border-border">
-            <span className="text-[10px] uppercase font-semibold text-slate-500 block">Turnaround Performance</span>
-            <div className="flex items-center justify-between text-slate-700">
+            <span className="text-xs font-semibold text-muted-foreground block">Turnaround Performance</span>
+            <div className="flex items-center justify-between text-secondary-foreground">
               <span>Collection Execution Rate:</span>
               <span className="font-semibold text-emerald-700">{summaryKpis.shopCollectionRatePct}%</span>
             </div>
-            <div className="flex items-center justify-between text-slate-700">
+            <div className="flex items-center justify-between text-secondary-foreground">
               <span>On-Time Arrival Rate:</span>
               <span className="font-semibold text-foreground">{summaryKpis.onTimeArrivalRatePct}%</span>
             </div>
@@ -335,20 +335,20 @@ export function ZMCCDynamicBIAnalyticsScreen({
       {/* Charts Grid: Row 2 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Quality Scatter Matrix */}
-        <div className="bg-card p-5 rounded-xl border border-border shadow-2xs space-y-4">
+        <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-4">
           <div className="border-b border-border pb-3">
             <h2 className="text-sm font-semibold text-foreground">Quality Composition Matrix (Fat vs SNF)</h2>
-            <p className="text-[11px] text-slate-500">Quality distribution against regulatory baseline standards</p>
+            <p className="text-xs text-muted-foreground">Quality distribution against regulatory baseline standards</p>
           </div>
 
           <QualityMatrixChart scatter={qualityScatter} />
         </div>
 
         {/* Route Loss & Variance Diagnostics */}
-        <div className="bg-card p-5 rounded-xl border border-border shadow-2xs space-y-4">
+        <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-4">
           <div className="border-b border-border pb-3">
             <h2 className="text-sm font-semibold text-foreground">Route Intake Volume & Tier 1 Loss</h2>
-            <p className="text-[11px] text-slate-500">Volume contribution alongside shop-to-gate variance percentage</p>
+            <p className="text-xs text-muted-foreground">Volume contribution alongside shop-to-gate variance percentage</p>
           </div>
 
           <RouteLossBarChart rankings={routeRankings} />
@@ -356,10 +356,10 @@ export function ZMCCDynamicBIAnalyticsScreen({
       </div>
 
       {/* Hourly Reception Flow Heatmap */}
-      <div className="bg-card p-5 rounded-xl border border-border shadow-2xs space-y-3">
+      <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-3">
         <div className="border-b border-border pb-3">
           <h2 className="text-sm font-semibold text-foreground">Hourly Reception Gate Throughput Flow</h2>
-          <p className="text-[11px] text-slate-500">24-hour distribution of intake volume to identify gate arrival bottlenecks</p>
+          <p className="text-xs text-muted-foreground">24-hour distribution of intake volume to identify gate arrival bottlenecks</p>
         </div>
 
         <HourlyHeatmapChart hourlyFlow={hourlyFlow} />
@@ -369,12 +369,12 @@ export function ZMCCDynamicBIAnalyticsScreen({
       <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs">
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Route Performance League Table</h2>
-          <span className="text-xs text-slate-500 font-medium">{routeRankings.length} routes active</span>
+          <span className="text-xs text-muted-foreground font-medium">{routeRankings.length} routes active</span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-muted/50 text-slate-700 uppercase font-semibold text-[10px] border-b border-border">
+            <thead className="bg-muted/50 text-secondary-foreground font-semibold text-xs border-b border-border">
               <tr>
                 <th className="p-3">Route Code</th>
                 <th className="p-3">Route Name</th>
@@ -398,10 +398,10 @@ export function ZMCCDynamicBIAnalyticsScreen({
                   <td className="p-3 tabular-nums font-semibold text-emerald-700">
                     {r.at13TsLiters.toLocaleString()} L
                   </td>
-                  <td className="p-3 tabular-nums text-slate-700">{r.avgFat}%</td>
-                  <td className="p-3 tabular-nums text-slate-700">{r.avgSnf}%</td>
-                  <td className="p-3 tabular-nums text-slate-700">{r.shopCount} shops</td>
-                  <td className="p-3 tabular-nums text-slate-700">{r.routeLossLiters.toLocaleString()} L</td>
+                  <td className="p-3 tabular-nums text-secondary-foreground">{r.avgFat}%</td>
+                  <td className="p-3 tabular-nums text-secondary-foreground">{r.avgSnf}%</td>
+                  <td className="p-3 tabular-nums text-secondary-foreground">{r.shopCount} shops</td>
+                  <td className="p-3 tabular-nums text-secondary-foreground">{r.routeLossLiters.toLocaleString()} L</td>
                   <td className="p-3 text-right tabular-nums">
                     <span
                       className={`font-semibold px-2 py-0.5 rounded-full text-[10px] ${

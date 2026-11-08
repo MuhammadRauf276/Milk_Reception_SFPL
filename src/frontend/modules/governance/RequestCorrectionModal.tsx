@@ -126,14 +126,14 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
       <DrawerContent>
       <div className="overflow-y-auto text-xs">
         {/* Header */}
-        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-5 py-4 bg-subtle border-b border-border flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700">
               <ShieldAlert className="w-4 h-4" />
             </div>
             <div>
-              <DrawerTitle className="font-semibold text-sm text-slate-900">Request a correction</DrawerTitle>
-              <p className="text-slate-500 text-[11px]">
+              <DrawerTitle className="font-semibold text-sm text-foreground">Request a correction</DrawerTitle>
+              <p className="text-muted-foreground text-xs">
                 {recordIdentifierLabel || `${module} #${recordId}`}
               </p>
             </div>
@@ -141,7 +141,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close" className="p-3 -m-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors min-h-11 min-w-11"
+            aria-label="Close" className="p-3 -m-1.5 rounded-lg text-muted-foreground hover:text-secondary-foreground hover:bg-muted transition-colors min-h-11 min-w-11"
           >
             <X className="w-4 h-4" />
           </button>
@@ -153,11 +153,11 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
             <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-6 h-6" />
             </div>
-            <p className="font-semibold text-slate-800 text-sm">{successMsg}</p>
+            <p className="font-semibold text-foreground text-sm">{successMsg}</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            <div className="bg-card border-border p-3 rounded-xl border text-blue-900 text-[11px] leading-relaxed">
+            <div className="bg-card border-border p-3 rounded-xl border text-blue-900 text-xs leading-relaxed">
               <strong>How it works:</strong> saved entries are locked. Tell us what is wrong and what it should be. The <strong>Data Executive</strong> reviews your request and fixes the record. You can follow it under <em>My correction requests</em>: Open, Approved, Rejected or Done.
             </div>
 
@@ -170,7 +170,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
 
             {/* Field Selector */}
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
+              <label className="block font-semibold text-secondary-foreground mb-1">
                 Field with Mistake / Typo <span className="text-rose-500">*</span>
               </label>
               <select
@@ -179,7 +179,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                   setSelectedField(e.target.value);
                   setProposedValue('');
                 }}
-                className="w-full min-h-11 p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-11 p-2.5 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               >
                 {availableFields.map((f) => (
                   <option key={f.field} value={f.field}>
@@ -191,9 +191,9 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
 
             {/* Current Value Display */}
             {currentFieldConfig?.currentValue !== undefined && currentFieldConfig.currentValue !== null && (
-              <div className="bg-card border-border flex items-center justify-between p-2.5 rounded-lg border text-slate-600">
+              <div className="bg-card border-border flex items-center justify-between p-2.5 rounded-lg border text-secondary-foreground">
                 <span className="font-medium">Recorded now (wrong value):</span>
-                <span className="font-semibold text-slate-900 tabular-nums">
+                <span className="font-semibold text-foreground tabular-nums">
                   {String(currentFieldConfig.currentValue)}
                 </span>
               </div>
@@ -201,14 +201,14 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
 
             {/* Proposed Value Input */}
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
+              <label className="block font-semibold text-secondary-foreground mb-1">
                 Proposed Corrected Value <span className="text-rose-500">*</span>
               </label>
               {currentFieldConfig?.type === 'select' && currentFieldConfig.options ? (
                 <select
                   value={proposedValue}
                   onChange={(e) => setProposedValue(e.target.value)}
-                  className="w-full min-h-11 p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  className="w-full min-h-11 p-2.5 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select correct option</option>
                   {currentFieldConfig.options.map((opt) => (
@@ -224,14 +224,14 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                   value={proposedValue}
                   onChange={(e) => setProposedValue(e.target.value)}
                   placeholder={`Enter correct ${currentFieldConfig?.label || 'value'}…`}
-                  className="w-full min-h-11 p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500 tabular-nums"
+                  className="w-full min-h-11 p-2.5 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500 tabular-nums"
                 />
               )}
             </div>
 
             {/* Reason */}
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
+              <label className="block font-semibold text-secondary-foreground mb-1">
                 Substantive Reason / Audit Note <span className="text-rose-500">*</span>
               </label>
               <textarea
@@ -239,24 +239,24 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                 onChange={(e) => setReason(e.target.value)}
                 rows={2}
                 placeholder="Reason"
-                className="w-full min-h-11 p-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                className="w-full min-h-11 p-2.5 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-200">
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-border">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="min-h-11 px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-100 transition-colors disabled:opacity-50"
+                className="min-h-11 px-4 py-2 rounded-lg border border-border-strong text-secondary-foreground font-semibold hover:bg-muted transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting || !proposedValue.trim() || reason.trim().length < 5}
-                className="min-h-11 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs transition-colors disabled:opacity-50 flex items-center space-x-1.5"
+                className="min-h-11 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs transition-colors disabled:opacity-50 flex items-center space-x-1.5"
               >
                 {submitting ? 'Sending…' : 'Send request'}
               </button>
