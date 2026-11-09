@@ -50,3 +50,18 @@ export function validateOperationalTimestamp(
 
   return { isValid: true, date: effectiveDate };
 }
+
+/**
+ * A time left behind by an idle screen, a slow connection or a slow phone sync must not stop
+ * the operator. If the entered time is earlier than something that already happened, use the
+ * latest of those events, which keeps the record in order and as close to the truth as possible.
+ */
+export function advancePastPredecessors(entered: Date, predecessors: Array<Date | string | null | undefined>): Date {
+  let latest = entered.getTime();
+  for (const p of predecessors) {
+    if (!p) continue;
+    const t = new Date(p).getTime();
+    if (!Number.isNaN(t) && t > latest) latest = t;
+  }
+  return latest === entered.getTime() ? entered : new Date(latest);
+}

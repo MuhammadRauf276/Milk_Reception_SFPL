@@ -29,6 +29,7 @@ import { PaperReferenceService, PaperValidationError } from '@/backend/services/
 import { paperLinkedIdentity } from '@/backend/modules/paper-references';
 import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
 import { getErrorCode, getErrorMessage, getErrorName } from '@/lib/errors';
+import { advancePastPredecessors } from '../chronology-validator';
 
 export interface ZmccArrivalAuthContext {
   user: User;
@@ -679,14 +680,14 @@ export async function submitMotArrival(
     return { status: 400, error: 'client_event_id is required.' };
   }
 
-  const arrivalDate = new Date(payload.arrival_timestamp);
+  let arrivalDate = new Date(payload.arrival_timestamp);
   if (isNaN(arrivalDate.getTime())) {
-    return { status: 400, error: 'Invalid arrival_timestamp.' };
+    return { status: 400, error: 'Enter a valid arrival time.' };
   }
 
   const now = new Date();
   if (arrivalDate.getTime() > now.getTime() + 5 * 60 * 1000) {
-    return { status: 400, error: 'arrival_timestamp cannot be in the future.' };
+    return { status: 400, error: 'Arrival time cannot be in the future. Check the time and this device clock.' };
   }
 
   const gpsValidation = validateGpsCoords(payload.phe_latitude, payload.phe_longitude, payload.phe_gps_accuracy);
@@ -786,21 +787,8 @@ export async function submitMotArrival(
     };
   }
 
-  if (arrivalDate.getTime() < new Date(journey.started_at).getTime()) {
-    return {
-      status: 400,
-      error: `arrival_timestamp cannot predate journey start time (${journey.started_at.toISOString()}).`,
-    };
-  }
-
-  for (const stop of journey.stops) {
-    if (stop.collection && arrivalDate.getTime() < new Date(stop.collection.device_collected_at).getTime()) {
-      return {
-        status: 400,
-        error: `arrival_timestamp cannot predate collection recorded at ${stop.collection.device_collected_at.toISOString()}.`,
-      };
-    }
-  }
+  // A stale form time never blocks the operator: it moves up to the latest thing already recorded.
+  arrivalDate = advancePastPredecessors(arrivalDate, [journey.started_at, ...journey.stops.map((stop) => stop.collection?.device_collected_at)]);
 
 
   const pktDateStr = getPakistanCalendarDate(arrivalDate);
@@ -1142,7 +1130,7 @@ export async function correctMotArrival(
     }
     const now = new Date();
     if (parsedTime.getTime() > now.getTime() + 5 * 60 * 1000) {
-      return { status: 400, error: 'arrival_timestamp cannot be in the future.' };
+      return { status: 400, error: 'Arrival time cannot be in the future. Check the time and this device clock.' };
     }
     if (parsedTime.getTime() < new Date(arrival.journey.started_at).getTime()) {
       return {
@@ -1605,12 +1593,12 @@ export async function submitLocalSupplierArrival(
 
   const arrivalDate = payload.arrival_timestamp ? new Date(payload.arrival_timestamp) : new Date();
   if (isNaN(arrivalDate.getTime())) {
-    return { status: 400, error: 'Invalid arrival_timestamp.' };
+    return { status: 400, error: 'Enter a valid arrival time.' };
   }
 
   const now = new Date();
   if (arrivalDate.getTime() > now.getTime() + 5 * 60 * 1000) {
-    return { status: 400, error: 'arrival_timestamp cannot be in the future.' };
+    return { status: 400, error: 'Arrival time cannot be in the future. Check the time and this device clock.' };
   }
 
   const gpsValidation = validateGpsCoords(payload.phe_latitude, payload.phe_longitude, payload.phe_gps_accuracy);
@@ -2019,7 +2007,7 @@ export async function correctLocalSupplierArrival(
     }
     const now = new Date();
     if (parsedTime.getTime() > now.getTime() + 5 * 60 * 1000) {
-      return { status: 400, error: 'arrival_timestamp cannot be in the future.' };
+      return { status: 400, error: 'Arrival time cannot be in the future. Check the time and this device clock.' };
     }
     if (arrival.exit_timestamp && parsedTime.getTime() > new Date(arrival.exit_timestamp).getTime()) {
       return {
