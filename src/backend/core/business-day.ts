@@ -91,9 +91,10 @@ export function getPakistanCalendarDate(timestamp: Date | string | number = new 
 /**
  * One Pakistan calendar day, in the two forms the database needs.
  * - dateStart / dateEnd: for @db.Date columns (operational_date, arrival_date), which hold the date itself.
- * - start / end: for timestamp columns (created_at, received_at, ...), which hold real instants.
+ * - start / end: for timestamp columns (created_at, received_at, ...), which hold real instants. These run 08:00 to
+ *   08:00 Pakistan time, the company's business day.
  */
-export function getPakistanDayWindow(date: string = getPakistanCalendarDate()): {
+export function getPakistanDayWindow(date: string = getOperationalBusinessDate(new Date())): {
   calendarDate: string;
   dateStart: Date;
   dateEnd: Date;
@@ -104,7 +105,7 @@ export function getPakistanDayWindow(date: string = getPakistanCalendarDate()): 
     calendarDate: date,
     dateStart: new Date(`${date}T00:00:00.000Z`),
     dateEnd: new Date(`${date}T23:59:59.999Z`),
-    start: new Date(`${date}T00:00:00.000+05:00`),
-    end: new Date(`${date}T23:59:59.999+05:00`),
+    start: new Date(`${date}T08:00:00.000+05:00`),
+    end: new Date(new Date(`${date}T08:00:00.000+05:00`).getTime() + 24 * 60 * 60 * 1000 - 1),
   };
 }

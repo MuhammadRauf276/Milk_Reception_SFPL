@@ -138,7 +138,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
             size="sm"
             variant="outline"
             disabled={refreshing}
-            className="min-h-9 h-9 w-9 p-0 rounded-lg text-muted-foreground hover:text-foreground"
+            className="min-h-9 h-9 w-9 shrink-0 p-0 rounded-lg text-muted-foreground hover:text-foreground"
             title="Refresh data"
           >
             <Loader2 className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />

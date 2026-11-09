@@ -49,7 +49,7 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
   if (!isNative) return null;
 
   return (
-    <div className="w-full flex flex-col gap-2 p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200">
+    <div className="w-full flex flex-col gap-2 p-3 bg-neutral-900 border border-neutral-800 rounded-xl text-xs text-neutral-200">
       {/* Top Row: Network & GPS Status */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -59,14 +59,14 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
               className={`inline-flex items-center gap-2 px-3 py-1 rounded-md font-semibold text-xs ${
                 gpsStatus?.isTracking
                   ? 'bg-sky-950/80 text-sky-400 border border-sky-800/60'
-                  : 'bg-slate-800 text-slate-400'
+                  : 'bg-neutral-800 text-neutral-400'
               }`}
             >
-              <span className={`w-2 h-2 rounded-full ${gpsStatus?.isTracking ? 'bg-sky-400' : 'bg-slate-500'}`} />
+              <span className={`w-2 h-2 rounded-full ${gpsStatus?.isTracking ? 'bg-sky-400' : 'bg-neutral-500'}`} />
               {gpsStatus?.isTracking ? 'Native Background GPS Active' : 'GPS Idle'}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-md font-medium text-xs bg-slate-800 text-slate-400">
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-md font-medium text-xs bg-neutral-800 text-neutral-400">
               Web GPS
             </span>
           )}
@@ -74,33 +74,33 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
 
         {/* GPS Fix & Accuracy Badge */}
         {gpsStatus?.isTracking && gpsStatus.accuracy !== undefined && (
-          <div className="text-xs text-slate-400">
-            Fix: <span className="font-semibold text-slate-200">{fixAgeMs ? getFixAgeLabel(fixAgeMs) : 'acquiring'}</span> (±{Math.round(gpsStatus.accuracy)}m)
+          <div className="text-xs text-neutral-400">
+            Fix: <span className="font-semibold text-neutral-200">{fixAgeMs ? getFixAgeLabel(fixAgeMs) : 'acquiring'}</span> (±{Math.round(gpsStatus.accuracy)}m)
           </div>
         )}
       </div>
 
       {/* Unsent Work & Sync Queue Status */}
-      <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
+      <div className="flex items-center justify-between pt-1 border-t border-neutral-800/80">
         <div className="flex items-center gap-3 text-xs">
           {summary ? (
             <>
-              <span className={summary.unsyncedCollections > 0 ? 'text-amber-400 font-semibold' : 'text-slate-400'}>
+              <span className={summary.unsyncedCollections > 0 ? 'text-amber-400 font-semibold' : 'text-neutral-400'}>
                 {summary.unsyncedCollections} {summary.unsyncedCollections === 1 ? 'collection' : 'collections'} queued
               </span>
-              <span className="text-slate-600">·</span>
-              <span className={summary.unsyncedGps > 0 ? 'text-sky-400' : 'text-slate-400'}>
+              <span className="text-secondary-foreground">·</span>
+              <span className={summary.unsyncedGps > 0 ? 'text-sky-400' : 'text-neutral-400'}>
                 {summary.unsyncedGps} GPS points
               </span>
               {summary.pendingPhotos > 0 && (
                 <>
-                  <span className="text-slate-600">·</span>
-                  <span className="text-purple-400">{summary.pendingPhotos} photos</span>
+                  <span className="text-secondary-foreground">·</span>
+                  <span className="text-neutral-300">{summary.pendingPhotos} photos</span>
                 </>
               )}
             </>
           ) : (
-            <span className="text-slate-400">Ready</span>
+            <span className="text-neutral-400">Ready</span>
           )}
         </div>
 
@@ -122,7 +122,7 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
           <button
             type="button"
             onClick={handleBatteryWarningClick}
-            className="ml-2 px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-500 text-slate-900 font-semibold shrink-0"
+            className="ml-2 px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-500 text-foreground font-semibold shrink-0"
           >
             Disable
           </button>

@@ -27,7 +27,7 @@ export function Sheet({ open, onOpenChange, title, side = 'left', className, chi
           <DialogPrimitive.Portal forceMount>
             <DialogPrimitive.Overlay asChild forceMount>
               <motion.div
-                className="fixed inset-0 z-modal bg-slate-950/40 backdrop-blur-[2px]"
+                className="fixed inset-0 z-modal bg-neutral-950/40 backdrop-blur-[2px]"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}

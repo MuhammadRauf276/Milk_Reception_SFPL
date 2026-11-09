@@ -11,7 +11,7 @@ import { useVisualViewportHeight } from '@/frontend/hooks/useVisualViewport';
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Combobox } from '@/components/ui/combobox';
-import { ArrowLeft, ArrowRight, CheckCircle2, Navigation, Save, Sparkles, X, XCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Navigation, Save, ClipboardCheck, X, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MotShopTestsStep, type MotShopTestsStepProps } from '@/frontend/modules/mot/MotShopTestsStep';
 import {
@@ -429,7 +429,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
               disabled={busy}
               className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-2xs hover:bg-emerald-800 disabled:opacity-50"
             >
-              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
               <span>Review & Decide</span>
             </button>
           )}

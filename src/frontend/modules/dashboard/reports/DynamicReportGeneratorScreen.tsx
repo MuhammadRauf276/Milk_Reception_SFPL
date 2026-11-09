@@ -15,7 +15,6 @@ import {
   Download,
   Filter,
   Layers,
-  Sparkles,
   BarChart3,
   Table as TableIcon,
   Grid as GridIcon,
@@ -236,7 +235,7 @@ export function DynamicReportGeneratorScreen({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-muted-foreground" /> Reports & Analytics Studio
+              <BarChart3 className="w-4 h-4 text-muted-foreground" /> Reports and analytics
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Build reports with your own columns and filters

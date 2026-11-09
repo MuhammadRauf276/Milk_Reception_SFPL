@@ -8,6 +8,7 @@
  * these read views, avoiding locks and eliminating expensive in-memory JavaScript joins.
  */
 
+import { LIVE_DAILY_PROCUREMENT_SQL, LIVE_PLANT_TRANSIT_SQL } from './liveReportSql';
 import { prisma } from '@/backend/core/db';
 import type { ManagementScope, ManagementFilters, Page } from '@/backend/modules/management-reporting';
 import { assertManagementFiltersWithinScope, normalizeManagementPage } from '@/backend/modules/management-reporting';
@@ -316,8 +317,8 @@ export async function getLiveHcSupplierInwardFeed(
 }
 
 /**
- * 3. Daily Route & ZMCC Procurement Rollup (Materialized View with B-Tree Indexes)
- * Returns pre-aggregated weighted averages (Average Fat %, Average LR, Average SNF %) in < 5ms.
+ * 3. Daily Route & ZMCC Procurement Rollup, read live.
+ * Returns weighted averages (Average Fat %, Average LR, Average SNF %).
  */
 export async function getDailyProcurementRollup(
   scope: ManagementScope,
@@ -326,7 +327,7 @@ export async function getDailyProcurementRollup(
   const { whereSql, params } = buildWhereClause(scope, filters, 'operational_date', 'zmcc_id');
 
   const query = `
-    SELECT * FROM mv_daily_procurement_rollup
+    SELECT * FROM ${LIVE_DAILY_PROCUREMENT_SQL}
     WHERE ${whereSql}
     ORDER BY operational_date DESC, total_gross_liters DESC
   `;
@@ -351,7 +352,7 @@ export async function getDailyProcurementRollup(
 }
 
 /**
- * 4. Plant Transit Reconciliation & QA Comparison (Materialized View with B-Tree Indexes)
+ * 4. Plant Transit Reconciliation & QA Comparison, read live.
  */
 export async function getPlantTransitReconciliation(
   scope: ManagementScope,
@@ -360,15 +361,15 @@ export async function getPlantTransitReconciliation(
   const { page, pageSize } = normalizeManagementPage(filters);
   const { whereSql, params } = buildWhereClause(scope, filters, 'operational_date', 'zmcc_id');
 
-  const countQuery = `SELECT COUNT(*)::text as count FROM mv_plant_transit_reconciliation WHERE ${whereSql}`;
+  const countQuery = `SELECT COUNT(*)::text as count FROM ${LIVE_PLANT_TRANSIT_SQL} WHERE ${whereSql}`;
   const countRes = (await prisma.$queryRawUnsafe(countQuery, ...params)) as { count: string }[];
   const total = Number(countRes[0]?.count || 0);
 
   const offset = (page - 1) * pageSize;
   const dataQuery = `
-    SELECT * FROM mv_plant_transit_reconciliation
+    SELECT * FROM ${LIVE_PLANT_TRANSIT_SQL}
     WHERE ${whereSql}
-    ORDER BY operational_date DESC, visit_id DESC
+    ORDER BY operational_date DESC NULLS LAST, visit_id DESC
     LIMIT ${pageSize} OFFSET ${offset}
   `;
   const rawRows = (await prisma.$queryRawUnsafe(dataQuery, ...params)) as any[];

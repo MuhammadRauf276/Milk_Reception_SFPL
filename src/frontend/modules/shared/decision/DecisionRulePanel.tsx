@@ -64,7 +64,7 @@ const OUTCOME_STYLE: Record<DecisionTestOutcome, { word: string; className: stri
 const ROUTE_BUTTON: Record<DecisionRoute, { className: string; Icon: typeof CheckCircle2 }> = {
   PROCEED: { className: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs', Icon: CheckCircle2 },
   REJECT: { className: 'bg-rose-600 hover:bg-rose-700', Icon: XCircle },
-  SEND_TO_APPROVER: { className: 'bg-violet-700 hover:bg-violet-800', Icon: Send },
+  SEND_TO_APPROVER: { className: 'bg-neutral-800 hover:bg-neutral-900', Icon: Send },
   DECIDE_NOW: { className: 'bg-amber-700 hover:bg-amber-800', Icon: Gavel },
 };
 
@@ -120,7 +120,7 @@ export function DecisionSubmitButton(props: SubmitProps) {
       disabled={!canSubmit}
       className={cn(
         'flex min-h-14 w-full items-center justify-center gap-2 rounded-xl px-4 text-base font-semibold text-white shadow-xs transition disabled:opacity-50',
-        style ? style.className : 'bg-slate-400',
+        style ? style.className : 'bg-neutral-400',
         props.className
       )}
     >
@@ -244,7 +244,7 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
         <div
           className={cn(
             'space-y-2 rounded-xl border px-3 py-2',
-            route === 'DECIDE_NOW' ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-violet-300 bg-violet-50 text-violet-900'
+            route === 'DECIDE_NOW' ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-border bg-muted text-foreground'
           )}
         >
           <p className="flex items-center gap-2 text-sm font-semibold">
@@ -258,7 +258,7 @@ export function DecisionRulePanel(props: DecisionRulePanelProps) {
                 title={exceptionReasonText(r)}
                 className={cn(
                   'rounded-md border bg-card px-3 py-1 text-xs font-semibold',
-                  route === 'DECIDE_NOW' ? 'border-amber-300' : 'border-violet-300'
+                  route === 'DECIDE_NOW' ? 'border-amber-300' : 'border-border'
                 )}
               >
                 {exceptionReasonChip(r)}

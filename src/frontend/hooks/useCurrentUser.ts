@@ -1,5 +1,6 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { User } from '@/backend/core/types';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -7,6 +8,8 @@ import { fetchJson } from '@/lib/query/fetchJson';
 interface AuthMeResponse {
   user: User | null;
 }
+
+const subscribeNever = () => () => {};
 
 /**
  * Universal cached hook for current authenticated user.
@@ -26,9 +29,13 @@ export function useCurrentUser() {
     retry: 1,
   });
 
+  // The server never knows the user. A slow part of the page can hydrate after the user has loaded elsewhere,
+  // so hold the answer back until hydration ends, or that first render would not match the server's HTML.
+  const hydrated = useSyncExternalStore(subscribeNever, () => true, () => false);
+
   return {
-    currentUser: query.data ?? null,
-    loadingUser: query.isLoading,
+    currentUser: hydrated ? query.data ?? null : null,
+    loadingUser: !hydrated || query.isLoading,
     isError: query.isError,
     error: query.error,
     refetchUser: query.refetch,

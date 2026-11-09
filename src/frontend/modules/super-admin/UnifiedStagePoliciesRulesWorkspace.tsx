@@ -434,7 +434,7 @@ function WorkspaceInner({
                                   }}
                                   className={`min-h-11 rounded-lg px-2 text-xs font-semibold transition-colors focus:outline-hidden ${
                                     isAuto
-                                      ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                                      ? 'bg-muted text-foreground border border-border'
                                       : isCmp
                                       ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                                       : isAppl
@@ -452,7 +452,7 @@ function WorkspaceInner({
                                 <span
                                   className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${
                                     isAuto
-                                      ? 'bg-purple-100 text-purple-900'
+                                      ? 'bg-muted text-foreground'
                                       : isCmp
                                       ? 'bg-emerald-100 text-emerald-900'
                                       : isAppl

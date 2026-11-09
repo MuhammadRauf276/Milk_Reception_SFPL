@@ -10,7 +10,7 @@ import type { deriveQualityRejectionItems } from './zmccManagerHelpers';
 type PlantItem = ReturnType<typeof deriveQualityRejectionItems>[number];
 
 const diffClass = (diff: number | null | undefined) =>
-  diff == null || diff === 0 ? 'text-slate-500' : diff > 0 ? 'text-emerald-700' : 'text-rose-700';
+  diff == null || diff === 0 ? 'text-muted-foreground' : diff > 0 ? 'text-emerald-700' : 'text-rose-700';
 
 /** Paginated historical Plant QA portion cards (Dispatch QA vs Plant QA). */
 export const ZMCCPlantQAList: React.FC<{
@@ -49,15 +49,15 @@ export const ZMCCPlantQAList: React.FC<{
                 <span className="text-base font-semibold tabular-nums text-foreground">
                   {item.vehicleNumber}
                 </span>
-                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-900 text-white">
+                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-neutral-900 text-white">
                   {item.portionNumber}
                 </span>
                 {item.tokenNumber && (
-                  <span className="px-2 py-0.5 rounded text-xs tabular-nums font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                  <span className="px-2 py-0.5 rounded text-xs tabular-nums font-semibold bg-muted text-secondary-foreground border border-border">
                     {item.tokenNumber}
                   </span>
                 )}
-                <span className="text-xs tabular-nums font-semibold text-slate-600">
+                <span className="text-xs tabular-nums font-semibold text-secondary-foreground">
                   Business Date: {item.businessDate || 'Pending plant completion'}
                 </span>
                 <span
@@ -68,7 +68,7 @@ export const ZMCCPlantQAList: React.FC<{
                       ? 'bg-rose-100 text-rose-800'
                       : isHold
                       ? 'bg-amber-100 text-amber-800'
-                      : 'bg-slate-100 text-slate-700'
+                      : 'bg-muted text-secondary-foreground'
                   }`}
                 >
                   {item.qaDecision}
@@ -78,7 +78,7 @@ export const ZMCCPlantQAList: React.FC<{
               <div>
                 <button
                   onClick={() => onInspectDetails(item.log)}
-                  className="flex min-h-11 items-center space-x-1 px-3 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-[color,background-color,border-color,box-shadow,opacity,transform]"
+                  className="flex min-h-11 items-center space-x-1 px-3 py-1 rounded-lg bg-muted border border-border text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-[color,background-color,border-color,box-shadow,opacity,transform]"
                 >
                   <span>View Details</span>
                   <ExternalLink className="w-3 h-3" />
@@ -98,7 +98,7 @@ export const ZMCCPlantQAList: React.FC<{
 
             <div className="overflow-x-auto rounded-lg border border-border/80">
               <table className="w-full text-left text-xs tabular-nums">
-                <thead className="bg-slate-50 text-xs font-sans font-semibold text-slate-600 border-b border-border/80">
+                <thead className="bg-muted text-xs font-sans font-semibold text-secondary-foreground border-b border-border/80">
                   <tr>
                     <th className="py-2 px-3">Parameter</th>
                     <th className="py-2 px-3">Dispatch QA</th>
@@ -109,24 +109,24 @@ export const ZMCCPlantQAList: React.FC<{
                 </thead>
                 <tbody className="divide-y divide-border/40 text-xs">
                   <tr className="hover:bg-subtle transition-colors">
-                    <td className="py-2 px-3 font-sans font-semibold text-slate-800">LR (Lactometer Reading)</td>
-                    <td className="py-2 px-3 text-slate-700">{item.dispatchLr != null ? item.dispatchLr : '—'}</td>
-                    <td className="py-2 px-3 font-semibold text-slate-900">{item.plantLr != null ? item.plantLr : '—'}</td>
+                    <td className="py-2 px-3 font-sans font-semibold text-foreground">LR (Lactometer Reading)</td>
+                    <td className="py-2 px-3 text-secondary-foreground">{item.dispatchLr != null ? item.dispatchLr : '—'}</td>
+                    <td className="py-2 px-3 font-semibold text-foreground">{item.plantLr != null ? item.plantLr : '—'}</td>
                     <td className={`py-2 px-3 font-semibold ${diffClass(item.lrDiff)}`}>{item.lrDiffText}</td>
-                    <td className="py-2 px-3 font-sans text-slate-600 text-xs">
+                    <td className="py-2 px-3 font-sans text-secondary-foreground text-xs">
                       {item.qaEventTimestamp ? formatOperationalDatetime(item.qaEventTimestamp) : '—'}
                     </td>
                   </tr>
                   <tr className="hover:bg-subtle transition-colors">
-                    <td className="py-2 px-3 font-sans font-semibold text-slate-800">Fat Percentage (%)</td>
-                    <td className="py-2 px-3 text-slate-700">
+                    <td className="py-2 px-3 font-sans font-semibold text-foreground">Fat Percentage (%)</td>
+                    <td className="py-2 px-3 text-secondary-foreground">
                       {item.dispatchFat != null ? `${item.dispatchFat}%` : '—'}
                     </td>
-                    <td className="py-2 px-3 font-semibold text-slate-900">
+                    <td className="py-2 px-3 font-semibold text-foreground">
                       {item.plantFat != null ? `${item.plantFat}%` : '—'}
                     </td>
                     <td className={`py-2 px-3 font-semibold ${diffClass(item.fatDiff)}`}>{item.fatDiffText}</td>
-                    <td className="py-2 px-3 font-sans text-slate-600 text-xs">
+                    <td className="py-2 px-3 font-sans text-secondary-foreground text-xs">
                       {item.qaEventTimestamp ? formatOperationalDatetime(item.qaEventTimestamp) : '—'}
                     </td>
                   </tr>

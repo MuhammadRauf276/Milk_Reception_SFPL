@@ -232,8 +232,8 @@ export function PwaShell() {
   if (updateAvailable) {
     banners.push({
       id: 'update',
-      tone: 'border-slate-800 bg-slate-900 text-white',
-      icon: <Download className="h-4 w-4 text-slate-300" />,
+      tone: 'border-neutral-800 bg-neutral-900 text-white',
+      icon: <Download className="h-4 w-4 text-neutral-300" />,
       message: 'A new version of the app is ready.',
       action: (
         <button

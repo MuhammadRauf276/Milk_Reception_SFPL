@@ -102,10 +102,10 @@ export function evaluate3ZoneTest(
       isWarning: false,
       isPass: true,
       colorClass: {
-        badge: 'bg-slate-100 text-slate-700 border-slate-200',
-        text: 'text-slate-600',
-        border: 'border-slate-200',
-        dot: 'bg-slate-400',
+        badge: 'bg-muted text-secondary-foreground border-border',
+        text: 'text-secondary-foreground',
+        border: 'border-border',
+        dot: 'bg-neutral-400',
       },
     };
   }
@@ -120,10 +120,10 @@ export function evaluate3ZoneTest(
       isWarning: false,
       isPass: true,
       colorClass: {
-        badge: 'bg-purple-50 text-purple-800 border-purple-200',
-        text: 'text-purple-700',
-        border: 'border-purple-200',
-        dot: 'bg-purple-500',
+        badge: 'bg-muted text-secondary-foreground border-border',
+        text: 'text-secondary-foreground',
+        border: 'border-border',
+        dot: 'bg-muted',
       },
     };
   }

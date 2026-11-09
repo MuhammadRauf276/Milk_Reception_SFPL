@@ -1,3 +1,4 @@
+import { LIVE_PLANT_TRANSIT_SQL } from './liveReportSql';
 import { getBatchTankPhysicalStock, getBatchTankTodayMovements } from '@/backend/services/zmccTankService';
 import { prisma } from '@core/db';
 import type { User } from '@core/types';
@@ -535,7 +536,7 @@ export async function executeDynamicReportQuery(
   }
 
   // --------------------------------------------------------------------------
-  // DOMAIN 5: PLANT_TRANSIT (PostgreSQL Materialized View: mv_plant_transit_reconciliation)
+  // DOMAIN 5: PLANT_TRANSIT (read live, so new tankers show without a manual refresh)
   // --------------------------------------------------------------------------
   else if (domain === 'PLANT_TRANSIT') {
     // A failed query throws to the caller: it must show as an error, never as made-up rows.
@@ -549,14 +550,14 @@ export async function executeDynamicReportQuery(
     }
 
     const countRes = (await prisma.$queryRawUnsafe(
-      `SELECT COUNT(*)::text as count FROM mv_plant_transit_reconciliation WHERE ${conditions.join(' AND ')}`,
+      `SELECT COUNT(*)::text as count FROM ${LIVE_PLANT_TRANSIT_SQL} WHERE ${conditions.join(' AND ')}`,
       ...params
     )) as { count: string }[];
     totalCount = Number(countRes[0]?.count || 0);
 
     const offset = (page - 1) * pageSize;
     const records = (await prisma.$queryRawUnsafe(
-      `SELECT * FROM mv_plant_transit_reconciliation WHERE ${conditions.join(' AND ')} ORDER BY operational_date DESC, visit_id DESC LIMIT ${pageSize} OFFSET ${offset}`,
+      `SELECT * FROM ${LIVE_PLANT_TRANSIT_SQL} WHERE ${conditions.join(' AND ')} ORDER BY operational_date DESC NULLS LAST, visit_id DESC LIMIT ${pageSize} OFFSET ${offset}`,
       ...params
     )) as any[];
 

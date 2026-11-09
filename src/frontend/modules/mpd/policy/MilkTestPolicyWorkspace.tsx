@@ -562,7 +562,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
           <div className="p-4"><SkeletonTable rows={5} /></div>
         ) : filteredPolicies.length === 0 ? (
           <div className="p-12 text-center">
-            <FlaskConical className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+            <FlaskConical className="w-8 h-8 mx-auto text-neutral-300 mb-2" />
             <h3 className="text-sm font-semibold text-secondary-foreground">No Policy Assignments</h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
               No tests are currently assigned to {activeMetadata.label}. Click &quot;Assign Test&quot; above to configure testing requirements and acceptance criteria.

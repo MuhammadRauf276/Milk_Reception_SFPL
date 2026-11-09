@@ -209,7 +209,7 @@ export function DynamicPivotGrid({
   }, [rows, rowDimension, colDimension, selectedMetric, metricDef]);
 
   const formatCellValue = (val: number | null | undefined) => {
-    if (val === null || val === undefined) return <span className="text-slate-300 font-mono">—</span>;
+    if (val === null || val === undefined) return <span className="text-neutral-300 font-mono">—</span>;
     if (metricDef?.format === 'liters') {
       return `${val.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} L`;
     }

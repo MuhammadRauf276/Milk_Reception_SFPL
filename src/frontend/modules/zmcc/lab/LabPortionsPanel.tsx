@@ -18,7 +18,6 @@ import {
   Layers,
   Loader2,
   Send,
-  Sparkles,
   X,
   XCircle,
 } from 'lucide-react';
@@ -685,7 +684,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                       </span>
                     </div>
                     {isPendingReview && (
-                      <p className="font-semibold text-violet-800 text-xs pt-1">
+                      <p className="font-semibold text-amber-800 text-xs pt-1">
                         With manager
                       </p>
                     )}
@@ -794,7 +793,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                       <p className="text-amber-800">Reasons: {modalPortion.exceptionReasons.map(reasonText).join(', ')}</p>
                     )}
                     {modalPortion.reviewStatus === 'PENDING' && (
-                      <p className="font-semibold text-violet-800">With Zonal Manager</p>
+                      <p className="font-semibold text-amber-800">With Zonal Manager</p>
                     )}
                     {modalPortion.reviewedAt && (
                       <p>
@@ -1105,7 +1104,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                         className={cn(
                           'flex min-h-[48px] w-full items-center justify-center rounded-xl text-xs font-semibold text-white shadow-2xs transition disabled:opacity-50',
                           modalPreview?.route === 'SEND_TO_APPROVER'
-                            ? 'bg-violet-600 hover:bg-violet-700'
+                            ? 'bg-neutral-800 hover:bg-neutral-900'
                             : modalDraft.person === 'REJECT'
                               ? 'bg-rose-600 hover:bg-rose-700'
                               : 'bg-emerald-700 hover:bg-emerald-800'

@@ -13,7 +13,6 @@ import {
   Clock,
   FlaskConical,
   ChevronRight,
-  Sparkles,
 } from 'lucide-react';
 import { formatOperationalTime } from '@/lib/datetime-utils';
 import type { PersonDecision } from '@/types/stage1-decision';
@@ -502,7 +501,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                   >
                     {!isCompleted ? (
                       <>
-                        <Sparkles className="h-3.5 w-3.5" />
+                        <FlaskConical className="h-3.5 w-3.5" />
                         <span>Test and decide</span>
                       </>
                     ) : (
@@ -589,7 +588,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                 onClick={() => setIsDrawerOpen(true)}
                 className="flex min-h-11 items-center gap-2 px-4 py-2 border border-border bg-card text-foreground text-xs font-semibold rounded-lg hover:bg-muted transition-colors"
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <FlaskConical className="h-3.5 w-3.5" />
                 <span>Open tests and decision</span>
               </button>
             </div>

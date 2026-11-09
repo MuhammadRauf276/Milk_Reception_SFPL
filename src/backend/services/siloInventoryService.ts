@@ -171,6 +171,8 @@ export async function getSiloStockSummary(
       where: {
         silo_id: siloId,
         transaction_type: SiloTransactionType.RECEIPT,
+        // Older receipts have no @13 TS; their litres would pull the blended TS down.
+        plant_final_at_13ts_liters: { not: null },
       },
       _sum: {
         quantity_liters: true,
@@ -206,8 +208,10 @@ export async function getSiloStockSummary(
     };
   }
 
-  const compositeTsPercent = Number(((totalReceipt13Ts * 13) / totalReceiptLiters).toFixed(2));
-  const currentStockAt13Ts = Number(calculateAt13TSLiters(currentLiters, compositeTsPercent).toFixed(2));
+  // The exact blended TS gives the litres; only the displayed percentage is rounded.
+  const exactCompositeTs = (totalReceipt13Ts * 13) / totalReceiptLiters;
+  const compositeTsPercent = Number(exactCompositeTs.toFixed(2));
+  const currentStockAt13Ts = Number(calculateAt13TSLiters(currentLiters, exactCompositeTs).toFixed(2));
 
   return {
     currentStockLiters: currentLiters,
@@ -727,7 +731,10 @@ async function executeFinalizeSiloReceiptForVisit(
       if (rp.dispatch_quantity_value && Number(rp.dispatch_quantity_value) > 0) {
         const rpUnit = (rp.dispatch_quantity_unit || 'LITER').toUpperCase();
         if (['KG', 'KGS'].includes(rpUnit)) {
-          rejectedGrossLiters += calculatePhysicalLiters(Number(rp.dispatch_quantity_value), 28.0);
+          const dispatchLr = visit.vehicle_dispatch_lr != null ? Number(visit.vehicle_dispatch_lr) : 0;
+          rejectedGrossLiters += dispatchLr > 0
+            ? calculatePhysicalLiters(Number(rp.dispatch_quantity_value), dispatchLr)
+            : sentGrossLiters / totalPortionsCount;
         } else {
           rejectedGrossLiters += Number(rp.dispatch_quantity_value);
         }

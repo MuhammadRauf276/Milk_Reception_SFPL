@@ -27,6 +27,7 @@ import { LabPortionsPanel } from '@/frontend/modules/zmcc/lab/LabPortionsPanel';
 import { LabQueuePanel } from './LabQueuePanel';
 import { LabHistoryPanel } from './LabHistoryPanel';
 import { HistoryCorrectionDrawer } from './HistoryCorrectionDrawer';
+import { PortionCorrectionDrawer } from './PortionCorrectionDrawer';
 import { MySubmittedRequestsPanel } from '@/frontend/modules/approvals/MySubmittedRequestsPanel';
 import type { MainTab, LabSession, LabResult, ResultDrafts, LabQueueItem } from './labTypes';
 import { RequestCorrectionModal, type EditableFieldOption } from '@/frontend/modules/governance/RequestCorrectionModal';
@@ -143,6 +144,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   const [correctionRemarks, setCorrectionRemarks] = useState('');
   const [correctionValues, setCorrectionValues] = useState<ResultDrafts>({});
   const [savingCorrection, setSavingCorrection] = useState(false);
+  const [portionCorrectionSessionId, setPortionCorrectionSessionId] = useState<string | null>(null);
 
   // Helper to compute live preview metrics using canonical core resolver
   const calculatePreview = useCallback((
@@ -268,7 +270,19 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
 
 
   // Open correction modal
-  const openCorrection = (session: LabSession) => {
+  const openCorrection = async (session: LabSession) => {
+    // A vehicle tested by portion is corrected portion by portion, so its tank and receipt stay right.
+    try {
+      const res = await fetch(`/api/zmcc/lab/sessions/${session.id}/portions`);
+      const body = res.ok ? await res.json() : null;
+      if (body?.portions?.length > 0) {
+        setPortionCorrectionSessionId(session.id);
+        return;
+      }
+    } catch {
+      toast.showError('Could not open this record. Please try again.');
+      return;
+    }
     setSelectedHistorySession(session);
     setCorrectionReason('');
     setCorrectionQuantityValue(session.quantity_value !== null && session.quantity_value !== undefined ? String(session.quantity_value) : '');
@@ -560,6 +574,16 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
       )}
 
       
+      <PortionCorrectionDrawer
+        open={portionCorrectionSessionId !== null}
+        sessionId={portionCorrectionSessionId}
+        onClose={() => setPortionCorrectionSessionId(null)}
+        onSaved={(message) => {
+          toast.showSuccess(message);
+          setPortionCorrectionSessionId(null);
+          fetchHistory();
+        }}
+      />
       <HistoryCorrectionDrawer
         open={showCorrectionModal}
         onClose={() => setShowCorrectionModal(false)}

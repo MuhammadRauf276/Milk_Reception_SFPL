@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Mail, Send, X, ExternalLink, MessageSquare, Check, Sparkles, Loader2 } from 'lucide-react';
+import { Mail, Send, X, ExternalLink, MessageSquare, Check, Loader2 } from 'lucide-react';
 import { toast } from '@/frontend/lib/appToast';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
@@ -111,7 +111,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
       <div className="flex max-h-[92vh] w-full max-w-xl flex-col rounded-2xl border border-border bg-white shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">

@@ -92,6 +92,7 @@ interface Metrics {
   clippedFigures: string[];
   smallText: number;
   tinyTargets: number;
+  navActive?: string[];
   dialogOpen: boolean;
 }
 
@@ -166,6 +167,10 @@ const MEASURE = `(() => {
     pageOverflow: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - vw,
     escaped: uniq(escaped), iconsOut: uniq(iconsOut), clippedFigures: uniq(clippedFigures),
     smallText, tinyTargets, tinyList: uniq(tinyList), longText: uniq(longText), dialogOpen: !!dialog,
+    // More than one highlighted sidebar item means the page does not know where it is.
+    navActive: uniq([...document.querySelectorAll('[aria-current="page"]')]
+      .filter((e) => e.getBoundingClientRect().width > 0)
+      .map((e) => (e.textContent || '').trim().slice(0, 40))),
   };
 })()`;
 

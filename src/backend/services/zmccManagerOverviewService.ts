@@ -139,7 +139,7 @@ export async function getZmccManagerOverview(zmccId: bigint): Promise<ZmccManage
   if (!source) throw new Error('Assigned active ZMCC source was not found.');
 
   const day = getPakistanDayWindow();
-  const arrivedToday = { arrival_date: { gte: day.dateStart, lte: day.dateEnd } };
+  const arrivedToday = { arrival_timestamp: { gte: day.start, lte: day.end } };
   // Lab sessions of today's arrivals, so accepted, rejected and waiting all count the same vehicles.
   const todaysSessions = {
     zmcc_id: zmccId,
@@ -171,8 +171,15 @@ export async function getZmccManagerOverview(zmccId: bigint): Promise<ZmccManage
     prisma.zmccLabSession.count({ where: todaysSessions }),
     prisma.zmccLabSession.count({ where: { ...todaysSessions, status: 'COMPLETED', decision: 'ACCEPTED' } }),
     prisma.zmccLabSession.count({ where: { ...todaysSessions, status: 'COMPLETED', decision: 'REJECTED' } }),
-    prisma.vehicleVisit.count({ where: { procurement_source_id: zmccId, current_status: { in: ['READY_FOR_TARE', 'READY_FOR_GATE_EXIT', 'COMPLETED'] } } }),
-    prisma.vehicleVisit.count({ where: { procurement_source_id: zmccId, current_status: { in: ['DISPATCHED', 'TOKEN_ISSUED', 'PLANT_QA', 'READY_FOR_GROSS', 'READY_FOR_UNLOADING', 'UNLOADING', 'READY_FOR_TARE', 'READY_FOR_GATE_EXIT'] } } }),
+    // Today, like the other pipeline figures. Unloaded means into this ZMCC's tank, not the plant silo.
+    prisma.zmccTankReceipt.count({ where: { zmcc_id: zmccId, received_at: { gte: day.start, lte: day.end } } }),
+    prisma.vehicleVisit.count({
+      where: {
+        procurement_source_id: zmccId,
+        current_status: { notIn: ['DRAFT_DISPATCH', 'PENDING_APPROVAL', 'REOPENED', 'CANCELLED'] },
+        portions: { some: { dispatch_info: { is: { dispatch_timestamp: { gte: day.start, lte: day.end } } } } },
+      },
+    }),
     prisma.vehicleVisit.count({ where: { procurement_source_id: zmccId, gate_log: { is: { entry_timestamp: { not: null }, exit_timestamp: null } } } }),
     prisma.vehicleVisit.count({ where: { procurement_source_id: zmccId, current_status: { in: ['DISPATCHED', 'TOKEN_ISSUED'] } } }),
     prisma.zmccTank.count({ where: { zmcc_id: zmccId, is_active: true } }),

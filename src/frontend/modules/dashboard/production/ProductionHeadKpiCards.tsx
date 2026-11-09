@@ -93,7 +93,7 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
           <span className="text-xs font-semibold text-muted-foreground">
             Silo Stock
           </span>
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-muted-foreground">
             <Database className="h-4 w-4" />
           </div>
         </div>

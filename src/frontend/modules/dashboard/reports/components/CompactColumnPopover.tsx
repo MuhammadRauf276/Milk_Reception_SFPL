@@ -128,7 +128,7 @@ export function CompactColumnPopover({
               >
                 Reset Defaults
               </button>
-              <span className="text-slate-300">·</span>
+              <span className="text-neutral-300">·</span>
               <button
                 type="button"
                 onClick={handleSelectAll}

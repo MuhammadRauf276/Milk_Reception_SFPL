@@ -74,6 +74,7 @@ export interface LabPortionView {
   quantityUnit: string | null;
   lr: number | null;
   fat: number | null;
+  netWeightKg: number | null;
   grossLiters: number | null;
   at13tsLiters: number | null;
   systemOutcome: 'PASS' | 'FAIL' | null;

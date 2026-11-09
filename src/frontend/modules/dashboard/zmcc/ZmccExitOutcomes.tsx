@@ -54,7 +54,7 @@ export function ZmccExitOutcomes({ left, pending, canDecide, busy, onDecide }: {
           <input value={remarks[row.sessionId] ?? ''} onChange={(e) => setRemarks((c) => ({ ...c, [row.sessionId]: e.target.value }))} placeholder="Remarks (min 3 letters)" aria-label="Decision remarks" className="min-h-11 w-full rounded border border-border-strong px-2" />
           <div className="flex gap-2">
             <button type="button" disabled={busy || (remarks[row.sessionId] ?? '').trim().length < 3} onClick={() => onDecide?.(row.sessionId, 'APPROVE', (remarks[row.sessionId] ?? '').trim())} className="min-h-11 rounded bg-emerald-700 px-3 text-white disabled:opacity-50">Approve</button>
-            <button type="button" disabled={busy || (remarks[row.sessionId] ?? '').trim().length < 3} onClick={() => onDecide?.(row.sessionId, 'REJECT', (remarks[row.sessionId] ?? '').trim())} className="min-h-11 rounded bg-slate-700 px-3 text-white disabled:opacity-50">Reject</button>
+            <button type="button" disabled={busy || (remarks[row.sessionId] ?? '').trim().length < 3} onClick={() => onDecide?.(row.sessionId, 'REJECT', (remarks[row.sessionId] ?? '').trim())} className="min-h-11 rounded bg-neutral-700 px-3 text-white disabled:opacity-50">Reject</button>
           </div>
         </div> : null}
       </div>) : <p className="mt-2 text-muted-foreground">None</p>}

@@ -269,6 +269,16 @@ export function formatCollectionSmsMessage(params: {
   ].join('\n');
 }
 
+/**
+ * Unrounded TS for working out @13 TS litres, the same way dispatch and plant do.
+ * Rounding TS first shifts the litres. Null when either reading is missing or invalid.
+ */
+export function exactTsFromLrFat(lr: number | null | undefined, fat: number | null | undefined): number | null {
+  if (lr === null || lr === undefined || fat === null || fat === undefined) return null;
+  if (!Number.isFinite(lr) || !Number.isFinite(fat) || lr <= 0 || fat < 0) return null;
+  return calculateTS(fat, calculateSNF(lr, fat));
+}
+
 /** Density, SNF and TS need only LR and Fat. Null when either reading is missing. */
 export function milkQualityFromLrFat(
   lr: number | null | undefined,

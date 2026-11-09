@@ -60,7 +60,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
         );
       case 'TARE_WEIGHMENT':
         return (
-          <Badge variant="outline" className="bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20 text-xs font-semibold">
+          <Badge variant="outline" className="bg-muted text-secondary-foreground border-border text-xs font-semibold">
             {label}
           </Badge>
         );

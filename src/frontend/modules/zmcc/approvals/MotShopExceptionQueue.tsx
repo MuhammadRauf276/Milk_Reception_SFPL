@@ -1,5 +1,6 @@
 'use client';
 
+import { getRoleLabel } from '@core/roles/labels';
 import { SkeletonList } from '@/components/ui/loaders';
 import { formatDate, formatDateTime } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
@@ -150,7 +151,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
             className={cn('min-h-11 min-w-11', 
               'min-h-[40px] rounded-xl border px-4 text-xs font-semibold transition',
               tab === t
-                ? 'border-violet-600 bg-violet-600 text-white shadow-2xs'
+                ? 'border-primary bg-primary text-primary-foreground shadow-2xs'
                 : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
             )}
           >
@@ -212,7 +213,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="text-xs text-secondary-foreground">
                     By <strong>{item.motName}</strong>
-                    {item.isDelegated && item.performedAsRole ? ` (${item.performedAsRole.replace(/_/g, ' ').toLowerCase()})` : ''}
+                    {item.isDelegated && item.performedAsRole ? ` (${getRoleLabel(item.performedAsRole)})` : ''}
                   </span>
                   {pending ? (
                     <span className={cn('flex items-center gap-1 text-xs font-semibold tabular-nums', wait.cls)}>
@@ -266,7 +267,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                   <button
                     type="button"
                     onClick={() => setActiveModalItem(item)}
-                    className="min-h-11 min-w-11 flex min-h-[40px] w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 text-xs font-semibold text-white shadow-2xs hover:bg-violet-700"
+                    className="min-h-11 min-w-11 flex min-h-[40px] w-full items-center justify-center gap-2 rounded-lg bg-neutral-800 px-3 text-xs font-semibold text-white shadow-2xs hover:bg-neutral-900"
                   >
                     <Gavel className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Review & Decide</span>
@@ -357,7 +358,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                   </p>
                   <p className="text-muted-foreground text-xs">
                     Recorded by {activeModalItem.motName}
-                    {activeModalItem.isDelegated && activeModalItem.performedAsRole ? ` (as ${activeModalItem.performedAsRole.replace(/_/g, ' ').toLowerCase()})` : ''}
+                    {activeModalItem.isDelegated && activeModalItem.performedAsRole ? ` (as ${getRoleLabel(activeModalItem.performedAsRole)})` : ''}
                   </p>
                 </div>
 

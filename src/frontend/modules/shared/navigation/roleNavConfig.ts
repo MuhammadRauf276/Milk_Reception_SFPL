@@ -33,7 +33,7 @@ import {
   Network,
   FileSpreadsheet,
   TrendingUp,
-  Sparkles,
+  BarChart3,
   AlertTriangle,
   UserCheck,
 } from 'lucide-react';
@@ -417,7 +417,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
             id: 'rep-studio',
             label: 'Report builder',
             href: '/mpd/zmcc-manager?tab=REPORTS&mode=STUDIO',
-            icon: Sparkles,
+            icon: BarChart3,
           },
           {
             id: 'rep-routes',

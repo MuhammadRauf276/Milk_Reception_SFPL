@@ -101,7 +101,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
             // default tab
           } else if (leafPath === '/department/production-head' && key === 'tab' && val === 'OVERVIEW') {
             // default tab
-          } else if (leafPath === '/contractor/manager' && key === 'tab' && (val === 'APPROVALS' || val === 'OVERVIEW')) {
+          } else if (leafPath === '/contractor/manager' && key === 'tab' && val === 'APPROVALS') {
             // default tab
           } else if (leafPath === '/mpd/zmcc-manager' && key === 'tab' && val === 'OVERVIEW') {
             // default tab

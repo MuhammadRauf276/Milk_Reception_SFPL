@@ -77,7 +77,7 @@ export function Modal({
       <DialogPrimitive.Portal forceMount>
         <DialogPrimitive.Overlay asChild forceMount>
           <motion.div
-            className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto touch-scroll bg-slate-950/40 p-3 pt-safe pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:p-6"
+            className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto touch-scroll bg-neutral-950/40 p-3 pt-safe pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

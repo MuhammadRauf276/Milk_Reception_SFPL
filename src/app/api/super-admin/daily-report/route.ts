@@ -1,3 +1,4 @@
+import { getOperationalBusinessDate } from '@/backend/core/business-day';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { getSuperAdminDailyReportData } from '@/backend/services/superAdminDailyReportService';
@@ -16,7 +17,7 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const date = searchParams.get('date') || new Date().toISOString().slice(0, 10);
+  const date = searchParams.get('date') || getOperationalBusinessDate(new Date());
   const zmccId = searchParams.get('zmccId') || undefined;
 
   try {

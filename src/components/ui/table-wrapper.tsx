@@ -71,13 +71,13 @@ export const TableWrapper = React.forwardRef<HTMLDivElement, TableWrapperProps>(
         {/* Subtle horizontal scroll indicators for mobile viewports */}
         {showOverflowHint && canScrollLeft && (
           <div
-            className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-slate-900/10 to-transparent rounded-l-lg"
+            className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-neutral-900/10 to-transparent rounded-l-lg"
             aria-hidden="true"
           />
         )}
         {showOverflowHint && canScrollRight && (
           <div
-            className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-slate-900/10 to-transparent rounded-r-lg"
+            className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-neutral-900/10 to-transparent rounded-r-lg"
             aria-hidden="true"
           />
         )}

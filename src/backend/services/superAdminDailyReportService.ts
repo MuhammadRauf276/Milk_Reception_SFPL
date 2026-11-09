@@ -1,10 +1,20 @@
+import { getRoleLabel } from '@core/roles/labels';
 import { prisma } from '@core/db';
 import ExcelJS from 'exceljs';
 import { getSupplyChainLossHierarchy } from '@/backend/services/lossCalculationService';
 import { QaWarningEscalationService } from '@/backend/services/qaWarningEscalationService';
 import { writeAuditLog } from '@/backend/core/audit';
 import { calculateGrossLiters } from '@/backend/utils/milkFormulas';
+import { getPakistanDayWindow } from '@/backend/core/business-day';
+import { isHcSession } from '@/backend/services/zmccTankService';
 import type { ActingContext } from '@/types/acting';
+
+const PAKISTAN_TIME = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: false });
+
+/** A superior's verdict is final, so the tester's own Reject only counts until a final decision exists. */
+function isRejectedVerdict(finalDecision: string | null | undefined, personDecision: string | null | undefined): boolean {
+  return finalDecision === 'REJECTED' || (finalDecision !== 'ACCEPTED' && personDecision === 'REJECT');
+}
 
 export interface DailyReportFilter {
   date: string; // YYYY-MM-DD
@@ -40,7 +50,8 @@ export interface ZmccPortionReportItem {
   tokenNo: string;
   vehicleNo: string;
   supplierName: string;
-  grossLiters: number;
+  /** Null until weighed, or when the quantity is in kg and there is no LR to convert it. */
+  grossLiters: number | null;
   lr: number | null;
   fat: number | null;
   temperature: number | null;
@@ -140,6 +151,8 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
   const targetDateStr = filter.date;
   const startOfDay = new Date(`${targetDateStr}T00:00:00.000Z`);
   const endOfDay = new Date(`${targetDateStr}T23:59:59.999Z`);
+  // startOfDay and endOfDay suit date-only columns. Timestamp columns hold real instants, so they use the Pakistan day.
+  const pakistanDay = getPakistanDayWindow(targetDateStr);
   const zmccIdBigInt = filter.zmccId ? BigInt(filter.zmccId) : undefined;
 
   // 1. MOT Shop Collections
@@ -181,7 +194,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
     const details = c.decision_details as any;
     const warningList: string[] = Array.isArray(details?.warnings) ? details.warnings : [];
     const isWarning = warningList.length > 0;
-    const isRejected = c.final_decision === 'REJECTED' || c.person_decision === 'REJECT';
+    const isRejected = isRejectedVerdict(c.final_decision, c.person_decision);
 
     let verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED' = 'ACCEPTED';
     if (isRejected) {
@@ -194,15 +207,18 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       motPassed++;
     }
 
-    motTotalLiters += grossLiters;
-    motSumLr += lr * grossLiters;
-    motSumFat += fat * grossLiters;
-    motSumSnf += snf * grossLiters;
+    // Rejected milk stays listed with its verdict but is not intake, the same as the journey summary.
+    if (!isRejected) {
+      motTotalLiters += grossLiters;
+      motSumLr += lr * grossLiters;
+      motSumFat += fat * grossLiters;
+      motSumSnf += snf * grossLiters;
+    }
 
     motCollections.push({
       id: c.id.toString(),
       collectionNumber: c.collection_number,
-      time: (c.device_collected_at || c.server_received_at).toISOString().slice(11, 16),
+      time: PAKISTAN_TIME.format(c.device_collected_at || c.server_received_at),
       shopCode: c.stop?.shop_code_snapshot || c.shop?.shop_code || 'SHOP',
       shopName: c.stop?.shop_name_snapshot || c.shop?.shop_name || 'Village Shop',
       routeCode: c.journey?.route?.route_code || null,
@@ -224,7 +240,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
   // 2. ZMCC Lab Portions
   const zmccPortionsRaw = await prisma.zmccLabPortion.findMany({
     where: {
-      created_at: { gte: startOfDay, lte: endOfDay },
+      created_at: { gte: pakistanDay.start, lte: pakistanDay.end },
       ...(zmccIdBigInt ? { lab_session: { zmcc_id: zmccIdBigInt } } : {}),
     },
     include: {
@@ -237,7 +253,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
               },
             },
           },
-          local_supplier_arrival: true,
+          local_supplier_arrival: { include: { local_supplier: { select: { name: true } } } },
           zmcc: true,
         },
       },
@@ -252,11 +268,18 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
   let zmccRejected = 0;
 
   for (const p of zmccPortionsRaw) {
-    const grossLiters = Number(p.gross_liters || p.quantity_value || 0);
+    // A kg quantity is not litres: convert it, or leave it blank when there is no LR to convert with.
+    const grossLiters = p.gross_liters != null
+      ? Number(p.gross_liters)
+      : calculateGrossLiters(
+          p.quantity_value != null ? Number(p.quantity_value) : null,
+          p.quantity_unit,
+          p.lr != null ? Number(p.lr) : null,
+        );
     const details = p.decision_details as any;
     const warningList: string[] = Array.isArray(details?.warnings) ? details.warnings : [];
     const isWarning = warningList.length > 0;
-    const isRejected = p.final_decision === 'REJECTED' || p.person_decision === 'REJECT';
+    const isRejected = isRejectedVerdict(p.final_decision, p.person_decision);
 
     let verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED' = 'ACCEPTED';
     if (isRejected) {
@@ -269,9 +292,9 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       zmccPassed++;
     }
 
-    zmccTotalLiters += grossLiters;
+    if (!isRejected) zmccTotalLiters += grossLiters ?? 0;
 
-    const arrivalType: 'MC' | 'HC' = p.lab_session?.arrival_type === 'LOCAL_SUPPLIER' ? 'HC' : 'MC';
+    const arrivalType: 'MC' | 'HC' = isHcSession(p.lab_session?.arrival_type ?? '') ? 'HC' : 'MC';
     const tokenNo =
       p.lab_session?.mot_arrival?.zmcc_token ||
       p.lab_session?.local_supplier_arrival?.rmr_number ||
@@ -281,7 +304,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       p.lab_session?.mot_arrival?.journey?.mot_vehicle?.vehicle_number ||
       p.lab_session?.local_supplier_arrival?.vehicle_number ||
       'TRUCK';
-    const supplierName = p.lab_session?.zmcc?.name || 'Procurement Center';
+    const supplierName = p.lab_session?.local_supplier_arrival?.local_supplier?.name || p.lab_session?.zmcc?.name || 'Procurement Center';
 
     let tempValue: number | null = null;
     if (Array.isArray(details?.tests)) {
@@ -304,8 +327,8 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       verdict,
       warnings: warningList,
       remarks: p.decision_remarks || null,
-      performedByRole: p.performed_as_role || 'ZMCC_LAB_ATTENDANT',
-      time: p.decided_at ? p.decided_at.toISOString().slice(11, 16) : '—',
+      performedByRole: getRoleLabel(p.performed_as_role || 'ZMCC_LAB_ATTENDANT'),
+      time: p.decided_at ? PAKISTAN_TIME.format(p.decided_at) : '—',
     });
   }
 
@@ -343,19 +366,19 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       zmccName: m.shop?.shop_name || 'Village Shop',
       reason: reasons.join(', ') || 'Tolerance Warning / Spec Hold',
       submittedBy: m.submitted_by?.full_name || m.journey?.mot_profile?.name || 'Mobile Tester',
-      submittedRole: 'MOT',
+      submittedRole: getRoleLabel('MOT'),
       reviewedBy: m.reviewed_by?.full_name || (dec === 'PENDING' ? 'Awaiting Review' : 'Manager'),
-      reviewedRole: m.reviewed_as_role || m.reviewed_by?.role || null,
+      reviewedRole: m.reviewed_as_role || m.reviewed_by?.role ? getRoleLabel(m.reviewed_as_role || m.reviewed_by?.role) : null,
       decision: dec,
       remarks: m.review_remarks || m.decision_remarks || null,
-      timestamp: (m.reviewed_at || m.server_received_at).toISOString().slice(11, 16),
+      timestamp: PAKISTAN_TIME.format(m.reviewed_at || m.server_received_at),
     });
   }
 
   // 3b. ZMCC Lab portions exceptions
   const labExceptions = await prisma.zmccLabPortion.findMany({
     where: {
-      created_at: { gte: startOfDay, lte: endOfDay },
+      created_at: { gte: pakistanDay.start, lte: pakistanDay.end },
       review_status: { in: ['PENDING', 'APPROVED', 'REJECTED'] },
       ...(zmccIdBigInt ? { lab_session: { zmcc_id: zmccIdBigInt } } : {}),
     },
@@ -381,12 +404,12 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       zmccName: l.lab_session?.zmcc?.name || 'ZMCC Hub',
       reason: reasons.join(', ') || 'Lab Quality Exception',
       submittedBy: l.creator?.full_name || 'Lab Attendant',
-      submittedRole: l.performed_as_role || 'ZMCC_LAB_ATTENDANT',
+      submittedRole: getRoleLabel(l.performed_as_role || 'ZMCC_LAB_ATTENDANT'),
       reviewedBy: l.reviewer?.full_name || (dec === 'PENDING' ? 'Awaiting Review' : 'Manager'),
-      reviewedRole: l.reviewed_as_role || l.reviewer?.role || null,
+      reviewedRole: l.reviewed_as_role || l.reviewer?.role ? getRoleLabel(l.reviewed_as_role || l.reviewer?.role) : null,
       decision: dec,
       remarks: l.review_remarks || l.decision_remarks || null,
-      timestamp: (l.reviewed_at || l.decided_at || new Date()).toISOString().slice(11, 16),
+      timestamp: PAKISTAN_TIME.format(l.reviewed_at || l.decided_at || new Date()),
     });
   }
 
@@ -429,8 +452,9 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       p.dispatch_quantity_unit,
       p.visit.vehicle_dispatch_lr != null ? Number(p.visit.vehicle_dispatch_lr) : null,
     );
-    plantTotalLiters += grossLiters ?? 0;
-    uniqueTankers.add(p.visit.vehicle_number);
+    if (p.plant_decision !== 'REJECTED') plantTotalLiters += grossLiters ?? 0;
+    // By visit: one truck making two trips in a day is two tankers received.
+    uniqueTankers.add(p.visit_id.toString());
 
     const warningEntries = p.plant_lab_results.filter((r) => r.evaluation_status === 'WARNING');
     const warningList = warningEntries.map((r) => `${r.lab_test.testName}: ${r.numeric_value ?? r.text_value}`);
@@ -481,7 +505,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       warnings: warningList,
       decidedBy: p.decided_by?.full_name || p.plant_decided_as_role || 'QA Attendant',
       remarks: p.plant_rejection_reason || null,
-      time: p.plant_decided_at ? p.plant_decided_at.toISOString().slice(11, 16) : '—',
+      time: p.plant_decided_at ? PAKISTAN_TIME.format(p.plant_decided_at) : '—',
     });
   }
 
@@ -854,7 +878,7 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
       p.vehicleNo,
       p.supplierName,
       p.portionNumber,
-      p.grossLiters,
+      p.grossLiters ?? '—',
       p.lr ?? '—',
       p.fat ?? '—',
       p.temperature ?? '—',

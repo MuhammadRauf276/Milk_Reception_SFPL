@@ -10,7 +10,6 @@ import {
   Loader2,
   ShieldCheck,
   Send,
-  Sparkles,
   Calculator,
   Info,
 } from 'lucide-react';
@@ -448,7 +447,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                                   className={cn(
                                     'rounded-md px-2 py-0.5 text-xs font-semibold',
                                     isCalculated
-                                      ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                                      ? 'bg-muted text-foreground border border-border'
                                       : t.isRequired
                                       ? 'bg-muted text-foreground border border-border'
                                       : 'bg-muted text-secondary-foreground'

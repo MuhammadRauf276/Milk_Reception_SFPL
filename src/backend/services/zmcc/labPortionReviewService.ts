@@ -153,6 +153,7 @@ export function toPortionView(row: PortionRow, photos: Array<{ capture_id: strin
     quantityUnit: row.quantity_unit ?? null,
     lr: num(row.lr),
     fat: num(row.fat),
+    netWeightKg: num(row.net_weight_kg),
     grossLiters: num(row.gross_liters),
     at13tsLiters: num(row.at_13ts_liters),
     systemOutcome: row.system_outcome === 'PASS' || row.system_outcome === 'FAIL' ? row.system_outcome : null,

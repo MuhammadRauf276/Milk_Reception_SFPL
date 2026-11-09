@@ -13,7 +13,7 @@ export function vehicleStatusLabel(v: MotVehicleItem): { label: string; tone: st
   if (!v.is_active) return { label: 'Inactive', tone: 'bg-muted text-secondary-foreground' };
   if (v.active_journey?.status === 'RETURNING') return { label: 'Returning', tone: 'bg-blue-100 text-blue-800' };
   if (v.has_active_journey) return { label: 'Collecting', tone: 'bg-amber-100 text-amber-800' };
-  if (v.at_zmcc_waiting_unload) return { label: 'At ZMCC waiting unload', tone: 'bg-violet-100 text-violet-800' };
+  if (v.at_zmcc_waiting_unload) return { label: 'At ZMCC waiting unload', tone: 'bg-amber-100 text-amber-800' };
   return { label: 'Free', tone: 'bg-emerald-100 text-emerald-800' };
 }
 

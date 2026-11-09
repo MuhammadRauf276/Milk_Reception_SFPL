@@ -15,7 +15,7 @@ import {
   Tv,
   ArrowRight,
   ClipboardList,
-  Sparkles,
+  LayoutDashboard,
   Command,
   X,
 } from 'lucide-react';
@@ -117,10 +117,10 @@ const ALL_COMMAND_ITEMS: CommandItem[] = [
   },
   {
     id: 'zmcc-manager-hub',
-    title: 'ZMCC Manager Command Hub',
+    title: 'ZMCC Manager',
     category: 'Stations',
     href: '/mpd/zmcc-manager',
-    icon: Sparkles,
+    icon: LayoutDashboard,
     badge: 'Management',
     keywords: ['manager', 'command', 'transit', 'hierarchy'],
   },

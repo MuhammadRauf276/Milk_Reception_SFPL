@@ -1,3 +1,4 @@
+import { planTankCorrectionRows } from '@/backend/services/tankCorrectionLedger';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
@@ -528,7 +529,11 @@ export async function PATCH(req: Request) {
         const oldGross = visit.vehicle_dispatch_gross_liters ? Number(visit.vehicle_dispatch_gross_liters) : null;
         if (visit.procurement_source?.source_type === 'ZMCC' && grossLiters !== null && oldGross !== null) {
           const deltaGross = Number((grossLiters - oldGross).toFixed(2));
-          if (Math.abs(deltaGross) >= 0.01) {
+          const oldAt13 = visit.vehicle_dispatch_at_13ts_liters != null ? Number(visit.vehicle_dispatch_at_13ts_liters) : null;
+          const deltaAt13 = at13tsLiters !== null && oldAt13 !== null ? Number((at13tsLiters - oldAt13).toFixed(2)) : 0;
+          // More milk dispatched means less in the tank, so the stock change is the opposite sign.
+          const ledgerRows = planTankCorrectionRows(-deltaGross, -deltaAt13);
+          if (ledgerRows.length > 0) {
             const existingIssue = await tx.zmccTankInventoryTransaction.findFirst({
               where: { dispatch_id: visit.id, reference_type: 'DISPATCH' },
             });
@@ -537,23 +542,25 @@ export async function PATCH(req: Request) {
               if (deltaGross > 0 && currentStock < deltaGross) {
                 throw new Error(`Insufficient tank physical stock for dispatch correction. Available: ${currentStock} L; requires: ${deltaGross} L.`);
               }
-              const direction = deltaGross > 0 ? 'ADJUSTMENT_OUT' : 'ADJUSTMENT_IN';
-              await tx.zmccTankInventoryTransaction.create({
-                data: {
-                  tank_id: existingIssue.tank_id,
-                  zmcc_id: visit.procurement_source_id!,
-                  transaction_type: direction,
-                  quantity_liters: new Prisma.Decimal(Math.abs(deltaGross).toFixed(2)),
-                  at_13ts_liters: new Prisma.Decimal('0.00'),
-                  dispatch_id: visit.id,
-                  reference_type: 'DISPATCH_CORRECTION',
-                  reference_id: `${visit.id}:DIRECT_CORR`,
-                  idempotency_key: `DISPATCH_CORRECTION:${visit.id}:${Date.now()}`,
-                  operational_timestamp: new Date(),
-                  performed_by_user_id: BigInt(user.id),
-                  notes: `Direct dispatch correction (${direction}) by ${user.role} (${userName}): ${reason}`,
-                },
-              });
+              const stamp = Date.now();
+              for (const row of ledgerRows) {
+                await tx.zmccTankInventoryTransaction.create({
+                  data: {
+                    tank_id: existingIssue.tank_id,
+                    zmcc_id: visit.procurement_source_id!,
+                    transaction_type: row.type,
+                    quantity_liters: new Prisma.Decimal(row.quantityLiters.toFixed(2)),
+                    at_13ts_liters: new Prisma.Decimal(row.at13Liters.toFixed(2)),
+                    dispatch_id: visit.id,
+                    reference_type: 'DISPATCH_CORRECTION',
+                    reference_id: `${visit.id}:DIRECT_CORR:${row.kind}`,
+                    idempotency_key: `DISPATCH_CORRECTION:${visit.id}:${stamp}:${row.kind}`,
+                    operational_timestamp: new Date(),
+                    performed_by_user_id: BigInt(user.id),
+                    notes: `Direct dispatch correction (${row.type}) by ${user.role} (${userName}): ${reason}`,
+                  },
+                });
+              }
             }
           }
         }

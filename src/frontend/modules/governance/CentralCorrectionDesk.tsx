@@ -1,5 +1,6 @@
 'use client';
 
+import { getRoleLabel } from '@core/roles/labels';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -745,7 +746,7 @@ export const CentralCorrectionDesk: React.FC = () => {
             </div>
           ) : filteredRequests.length === 0 ? (
             <div className="bg-card border-border p-12 text-center border rounded-2xl space-y-2">
-              <FileCheck2 className="w-10 h-10 text-slate-300 mx-auto" />
+              <FileCheck2 className="w-10 h-10 text-neutral-300 mx-auto" />
               <h3 className="font-semibold text-foreground text-sm">No Correction Requests Found</h3>
               <p className="text-muted-foreground text-xs">
                 {statusFilter === 'REQUESTED'
@@ -1396,7 +1397,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                   className="w-full p-3 border border-border-strong rounded-lg text-xs font-medium focus:ring-2 focus:ring-primary focus:outline-hidden min-h-11"
                 />
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Minimum 5 characters. Stamped with actor <strong>{userRole}</strong>.
+                  Minimum 5 characters. Stamped with actor <strong>{getRoleLabel(userRole)}</strong>.
                 </p>
               </div>
 

@@ -1,6 +1,6 @@
 import { prisma } from '@/backend/core/db';
 import ExcelJS from 'exceljs';
-import { getPakistanCalendarDate, getPakistanDayWindow } from '@/backend/core/business-day';
+import { getOperationalBusinessDate, getPakistanDayWindow } from '@/backend/core/business-day';
 import { computeWeightedMilkMetrics } from '@/backend/utils/milkFormulas';
 import { getSupplyChainLossHierarchy } from '@/backend/services/lossCalculationService';
 import { getBatchTankPhysicalStock, getBatchTankCommercialStock, getBatchTankTodayMovements } from '@/backend/services/zmccTankService';
@@ -268,7 +268,7 @@ export async function getZmccHierarchyReport(
   zmccId?: bigint,
   dateStr?: string
 ): Promise<ZmccHierarchyReport | ZmccHierarchyReport[]> {
-  const targetDate = dateStr || getPakistanCalendarDate(new Date());
+  const targetDate = dateStr || getOperationalBusinessDate(new Date());
   const dateObj = new Date(`${targetDate}T00:00:00.000Z`);
 
   const zmccWhere = zmccId ? { id: zmccId, source_type: 'ZMCC' } : { source_type: 'ZMCC', is_active: true };
@@ -528,13 +528,19 @@ export async function getZmccHierarchyReport(
 // 5. DYNAMIC BI & STATISTICAL ANALYTICS
 // ==========================================
 
+const PAKISTAN_HOUR = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Karachi', hour: '2-digit', hourCycle: 'h23' });
+/** The hour in Pakistan, whatever timezone the server runs in. */
+function pakistanHour(at: Date): number {
+  return Number(PAKISTAN_HOUR.format(at));
+}
+
 export async function getZmccBIAnalytics(
   zmccId?: bigint,
   fromDateStr?: string,
   toDateStr?: string,
   filters?: { routeId?: string; shift?: string }
 ): Promise<ZmccBIAnalyticsData> {
-  const today = getPakistanCalendarDate(new Date());
+  const today = getOperationalBusinessDate(new Date());
   const to = toDateStr || today;
   let from = fromDateStr;
   if (!from) {
@@ -571,7 +577,10 @@ export async function getZmccBIAnalytics(
   };
   // A tank is not split by route or shift, so tank loss only applies to the unfiltered view.
   const hasSliceFilter = Boolean(filters?.routeId || filters?.shift);
-  const [journeys, priorIntake, lossHierarchy] = await Promise.all([
+  // HC milk reaches the tank without a route, so it counts in procurement unless one route is selected.
+  const receiptWindow = { gte: getPakistanDayWindow(from).start, lte: getPakistanDayWindow(to).end };
+  const hcWhere = { arrival_type: 'HC' as const, ...(zmccId ? { zmcc_id: zmccId } : {}) };
+  const [journeys, priorIntake, lossHierarchy, hcReceipts, priorHcIntake] = await Promise.all([
     prisma.motJourney.findMany({
       where: { ...whereCol, status: { not: 'CANCELLED' } },
       select: {
@@ -581,10 +590,25 @@ export async function getZmccBIAnalytics(
         _count: { select: { stops: true, collections: true } },
       },
     }),
-    filters?.shift ? null : prisma.motShopCollection.aggregate({ where: priorWhere, _sum: { gross_liters: true } }),
+    filters?.shift ? null : prisma.motShopCollection.aggregate({ where: { ...priorWhere, final_decision: { not: 'REJECTED' } }, _sum: { gross_liters: true } }),
     hasSliceFilter
       ? null
       : getSupplyChainLossHierarchy({ period: 'custom', from, to, zmccId }).catch(() => null),
+    filters?.routeId
+      ? []
+      : prisma.zmccTankReceipt.findMany({
+          where: { ...hcWhere, received_at: receiptWindow },
+          select: { gross_liters: true, at_13ts_liters: true, fat: true, lr: true, snf: true, received_at: true },
+        }),
+    filters?.routeId || filters?.shift
+      ? null
+      : prisma.zmccTankReceipt.aggregate({
+          where: {
+            ...hcWhere,
+            received_at: { gte: new Date(receiptWindow.gte.getTime() - totalDays * 86400000), lt: receiptWindow.gte },
+          },
+          _sum: { gross_liters: true },
+        }),
   ]);
 
   let totalLiters = 0;
@@ -609,13 +633,16 @@ export async function getZmccBIAnalytics(
     const lr = Number(c.lr);
     const snf = Number(c.snf);
     const dateKey = c.operational_date.toISOString().split('T')[0];
-    const hour = c.device_collected_at.getHours();
+    const hour = pakistanHour(c.device_collected_at);
 
     // Loss compares whole journeys, so every non-rejected collection counts, whichever shift is shown.
     const journeyKey = c.journey_id.toString();
     if (c.final_decision !== 'REJECTED') {
       journeyShopLiters.set(journeyKey, (journeyShopLiters.get(journeyKey) ?? 0) + lit);
     }
+
+    // Rejected milk is not procured.
+    if (c.final_decision === 'REJECTED') continue;
 
     const isMorning = hour < 13;
     if (filters?.shift === 'MORNING' && !isMorning) continue;
@@ -687,6 +714,41 @@ export async function getZmccBIAnalytics(
     }
   }
 
+  for (const r of hcReceipts) {
+    const lit = Number(r.gross_liters);
+    const tsLit = Number(r.at_13ts_liters);
+    const fat = Number(r.fat);
+    const lr = Number(r.lr);
+    const snf = Number(r.snf);
+    const hour = pakistanHour(r.received_at);
+    const isMorning = hour < 13;
+    if (filters?.shift === 'MORNING' && !isMorning) continue;
+    if (filters?.shift === 'EVENING' && isMorning) continue;
+
+    totalLiters += lit;
+    total13Ts += tsLit;
+    fatProductSum += fat * lit;
+    snfProductSum += snf * lit;
+    lrProductSum += lr * lit;
+    if (isMorning) morningLiters += lit;
+    else eveningLiters += lit;
+
+    const dateKey = getOperationalBusinessDate(r.received_at);
+    const dRec = dateMap.get(dateKey) || { gross: 0, ts: 0, morning: 0, evening: 0, count: 0, fatSum: 0, lrSum: 0, snfSum: 0 };
+    dRec.gross += lit;
+    dRec.ts += tsLit;
+    dRec.count += 1;
+    dRec.fatSum += fat * lit;
+    dRec.snfSum += snf * lit;
+    dRec.lrSum += lr * lit;
+    if (isMorning) dRec.morning += lit;
+    else dRec.evening += lit;
+    dateMap.set(dateKey, dRec);
+
+    hourlyMap[hour].liters += lit;
+    hourlyMap[hour].count += 1;
+  }
+
   // Build daily trend array
   const trends: DailyIntakeTrendPoint[] = Array.from(dateMap.entries())
     .map(([dt, v]) => ({
@@ -749,7 +811,7 @@ export async function getZmccBIAnalytics(
   const weightedFat = totalLiters > 0 ? Number((fatProductSum / totalLiters).toFixed(2)) : 0;
   const weightedSnf = totalLiters > 0 ? Number((snfProductSum / totalLiters).toFixed(2)) : 0;
   const weightedLr = totalLiters > 0 ? Number((lrProductSum / totalLiters).toFixed(2)) : 0;
-  const priorLiters = priorIntake ? Number(priorIntake._sum.gross_liters ?? 0) : 0;
+  const priorLiters = (priorIntake ? Number(priorIntake._sum.gross_liters ?? 0) : 0) + (priorHcIntake ? Number(priorHcIntake._sum.gross_liters ?? 0) : 0);
   const tier2Loss = lossHierarchy?.summary.tier2ZmccLoss ?? null;
 
   return {
@@ -799,7 +861,7 @@ export async function getZmccRouteLedgerReport(
   page = 1,
   pageSize = 20
 ): Promise<{ rows: RouteLedgerRow[]; totalRecords: number; totalPages: number }> {
-  const today = getPakistanCalendarDate(new Date());
+  const today = getOperationalBusinessDate(new Date());
   const from = fromDateStr || today;
   const to = toDateStr || today;
 
@@ -898,7 +960,7 @@ export async function getZmccHcSupplierLedgerReport(
   page = 1,
   pageSize = 20
 ): Promise<{ rows: HcSupplierLedgerRow[]; totalRecords: number; totalPages: number }> {
-  const today = getPakistanCalendarDate(new Date());
+  const today = getOperationalBusinessDate(new Date());
   const from = fromDateStr || today;
   const to = toDateStr || today;
 

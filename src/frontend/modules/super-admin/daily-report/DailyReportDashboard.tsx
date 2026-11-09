@@ -1,5 +1,6 @@
 'use client';
 
+import { getOperationalBusinessDate } from '@/backend/core/business-day';
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Download, Share2, Search, CheckCircle2, AlertTriangle, XCircle, Truck, FlaskConical, Store, ShieldCheck, Loader2 } from 'lucide-react';
@@ -173,7 +174,7 @@ const plantQaColumns: DataColumn<PlantQaRow>[] = [
 type ReportTab = 'MOT' | 'ZMCC' | 'EXCEPTIONS' | 'PLANT_QA';
 
 export function DailyReportDashboard() {
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => getOperationalBusinessDate(new Date()));
   const urlSection = useSearchParams()?.get('section')?.toUpperCase();
   const activeTab: ReportTab = urlSection === 'ZMCC' || urlSection === 'EXCEPTIONS' || urlSection === 'PLANT_QA' ? urlSection : 'MOT';
   const [searchQuery, setSearchQuery] = useState('');
@@ -301,7 +302,7 @@ export function DailyReportDashboard() {
             </button>
             <button
               type="button"
-              onClick={() => setDate(new Date().toISOString().slice(0, 10))}
+              onClick={() => setDate(getOperationalBusinessDate(new Date()))}
               className="ml-1 min-h-11 rounded-lg border border-border bg-card px-3 text-xs font-medium text-secondary-foreground transition-colors hover:bg-muted"
             >
               Today

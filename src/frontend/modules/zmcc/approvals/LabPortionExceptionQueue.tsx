@@ -1,5 +1,6 @@
 'use client';
 
+import { getRoleLabel } from '@core/roles/labels';
 import { SkeletonList } from '@/components/ui/loaders';
 import { formatDateTime } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
@@ -142,7 +143,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
             onClick={() => setTab(t)}
             className={cn(
               'min-h-[44px] flex-1 rounded-xl border px-4 text-base font-semibold sm:flex-none',
-              tab === t ? 'border-violet-600 bg-violet-600 text-white' : 'border-border bg-card text-secondary-foreground'
+              tab === t ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-secondary-foreground'
             )}
           >
             {t === 'PENDING' ? 'Waiting' : 'Decided'}
@@ -182,7 +183,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                   {item.sourceName ? ` · ${item.sourceName}` : ''}
                   {item.token ? ` · Token ${item.token}` : ''}
                   {item.submittedByName ? ` · by ${item.submittedByName}` : ''}
-                  {item.isDelegated && item.performedAsRole ? ` (as ${item.performedAsRole.replace(/_/g, ' ').toLowerCase()})` : ''}
+                  {item.isDelegated && item.performedAsRole ? ` (as ${getRoleLabel(item.performedAsRole)})` : ''}
                 </p>
                 {pending ? (
                   <p className={cn('flex items-center gap-1 text-sm font-semibold', wait.cls)}>

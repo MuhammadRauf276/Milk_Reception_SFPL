@@ -33,14 +33,14 @@ const portionColumns: DataColumn<MilkProcessLog>[] = [
     header: 'Portion',
     label: 'Portion',
     primary: true,
-    cell: (p) => <span className="tabular-nums font-semibold text-slate-900">{p.portion_number}</span>,
+    cell: (p) => <span className="tabular-nums font-semibold text-foreground">{p.portion_number}</span>,
   },
   {
     key: 'qty',
     header: 'Portion Qty (Context)',
     label: 'Portion Qty (Context)',
     cell: (p) => (
-      <span className="tabular-nums text-slate-600 text-xs">
+      <span className="tabular-nums text-secondary-foreground text-xs">
         {p.dispatch_liters_gross ? `${p.dispatch_liters_gross.toLocaleString()} L` : '—'}
       </span>
     ),
@@ -60,7 +60,7 @@ const portionColumns: DataColumn<MilkProcessLog>[] = [
               ? 'bg-rose-100 text-rose-800 border border-rose-200'
               : st === 'HOLD'
               ? 'bg-amber-100 text-amber-800 border border-amber-200'
-              : 'bg-slate-100 text-slate-700 border border-slate-200'
+              : 'bg-muted text-secondary-foreground border border-border'
           }`}
         >
           {st}
@@ -74,7 +74,7 @@ const portionColumns: DataColumn<MilkProcessLog>[] = [
     label: `Plant LR (${PLANT_LR_TEST_CODE})`,
     align: 'right',
     cell: (p) => (
-      <span className="tabular-nums font-semibold text-slate-800">{p.sampling_lr != null ? p.sampling_lr.toFixed(1) : '—'}</span>
+      <span className="tabular-nums font-semibold text-foreground">{p.sampling_lr != null ? p.sampling_lr.toFixed(1) : '—'}</span>
     ),
   },
   {
@@ -83,7 +83,7 @@ const portionColumns: DataColumn<MilkProcessLog>[] = [
     label: `Plant Fat (${PLANT_FAT_TEST_CODE})`,
     align: 'right',
     cell: (p) => (
-      <span className="tabular-nums font-semibold text-slate-800">
+      <span className="tabular-nums font-semibold text-foreground">
         {p.sampling_fat != null ? `${p.sampling_fat.toFixed(2)}%` : '—'}
       </span>
     ),
@@ -94,7 +94,7 @@ const portionColumns: DataColumn<MilkProcessLog>[] = [
     label: 'SNF / TS',
     align: 'right',
     cell: (p) => (
-      <span className="tabular-nums text-slate-600 text-xs">
+      <span className="tabular-nums text-secondary-foreground text-xs">
         {p.computed_sampling_snf != null && p.computed_sampling_ts != null
           ? `${p.computed_sampling_snf.toFixed(2)}% / ${p.computed_sampling_ts.toFixed(2)}%`
           : '—'}
@@ -105,13 +105,13 @@ const portionColumns: DataColumn<MilkProcessLog>[] = [
     key: 'remarks',
     header: 'Remarks / Reason',
     label: 'Remarks / Reason',
-    cell: (p) => <span className="text-slate-600 text-xs">{p.rejection_reasons || '—'}</span>,
+    cell: (p) => <span className="text-secondary-foreground text-xs">{p.rejection_reasons || '—'}</span>,
   },
   {
     key: 'time',
     header: 'Sampling Time',
     label: 'Sampling Time',
-    cell: (p) => <span className="text-slate-500 tabular-nums text-xs">{p.sampling_time_start || '—'}</span>,
+    cell: (p) => <span className="text-muted-foreground tabular-nums text-xs">{p.sampling_time_start || '—'}</span>,
   },
 ];
 interface ContractorQualityRejectionsProps {
@@ -198,12 +198,12 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
             <FlaskConical className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-slate-900 leading-tight">
+            <h2 className="text-base font-semibold text-foreground leading-tight">
               {assignedSourceName}: Quality & rejections
             </h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
+            <p className="text-xs text-muted-foreground font-medium mt-0.5">
               Business date:{' '}
-              <strong className="text-slate-700 tabular-nums">{serverBusinessDate || '—'}</strong>
+              <strong className="text-secondary-foreground tabular-nums">{serverBusinessDate || '—'}</strong>
             </p>
           </div>
         </div>
@@ -256,14 +256,14 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
 
         {/* Pending Portions */}
         <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-slate-600 text-xs font-semibold">
+          <div className="flex items-center justify-between text-secondary-foreground text-xs font-semibold">
             <span>Pending Testing</span>
-            <Clock className="w-4 h-4 text-slate-500" />
+            <Clock className="w-4 h-4 text-muted-foreground" />
           </div>
-          <p className="text-3xl font-semibold text-slate-900 tabular-nums">
+          <p className="text-3xl font-semibold text-foreground tabular-nums">
             {metrics.pendingPortions}
           </p>
-          <p className="text-xs text-slate-500 font-medium">
+          <p className="text-xs text-muted-foreground font-medium">
             Awaiting lab evaluation
           </p>
         </div>
@@ -273,19 +273,19 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
       <div className="bg-card border-border p-5 rounded-2xl border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Search */}
         <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search"
-            className="w-full pl-9 pr-4 py-2 min-h-[44px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+            className="w-full pl-9 pr-4 py-2 min-h-[44px] text-xs tabular-nums font-semibold bg-muted border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
           />
         </div>
 
         {/* Decision Filter Chips */}
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1">
-          <span className="text-xs font-semibold text-slate-500 flex items-center gap-1 mr-1 shrink-0">
+          <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mr-1 shrink-0">
             <Filter className="w-3.5 h-3.5" />
             <span>Decision:</span>
           </span>
@@ -296,7 +296,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               decisionFilter === 'ALL'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             All ({metrics.totalPortions})
@@ -343,8 +343,8 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
             onClick={() => setDecisionFilter('PENDING')}
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               decisionFilter === 'PENDING'
-                ? 'bg-slate-800 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                ? 'bg-neutral-800 text-white shadow-xs'
+                : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             Pending ({metrics.pendingPortions})
@@ -355,14 +355,14 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
       {/* 4. Vehicle & Portion QA List */}
       <div className="space-y-4">
         {isLoading ? (
-          <div className="bg-card border-border py-16 text-center text-xs font-semibold text-slate-500 rounded-xl border shadow-xs">
+          <div className="bg-card border-border py-16 text-center text-xs font-semibold text-muted-foreground rounded-xl border shadow-xs">
             Loading quality records…
           </div>
         ) : filteredVisits.length === 0 ? (
           <div className="bg-card border-border py-16 px-4 rounded-xl border border-dashed text-center space-y-2 shadow-xs">
-            <FileSpreadsheet className="w-10 h-10 text-slate-300 mx-auto" />
-            <h4 className="text-sm font-semibold text-slate-700">No Quality Records Found</h4>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <FileSpreadsheet className="w-10 h-10 text-neutral-300 mx-auto" />
+            <h4 className="text-sm font-semibold text-secondary-foreground">No Quality Records Found</h4>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
               No records
             </p>
           </div>
@@ -373,27 +373,27 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
               className="bg-card border-border p-5 sm:p-6 rounded-2xl border shadow-xs space-y-4"
             >
               {/* Vehicle Header Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
                 <div className="flex items-center space-x-3">
                   <div className="p-3 bg-blue-50 text-blue-900 rounded-xl">
                     <Truck className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <h3 className="text-base font-semibold text-slate-900 tabular-nums">
+                      <h3 className="text-base font-semibold text-foreground tabular-nums">
                         {v.vehicleNumber}
                       </h3>
                       {v.tokenNumber && (
-                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs tabular-nums font-semibold border border-slate-200">
+                        <span className="px-2 py-0.5 rounded bg-muted text-secondary-foreground text-xs tabular-nums font-semibold border border-border">
                           Token: {v.tokenNumber}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 font-medium">
+                    <p className="text-xs text-muted-foreground font-medium">
                       Reception #{' '}
-                      <strong className="tabular-nums text-slate-700">{v.receptionNumber}</strong> · Date:{' '}
-                      <strong className="tabular-nums text-slate-700">{v.operationalDate || '—'}</strong> · Whole Vehicle Gross:{' '}
-                      <strong className="tabular-nums text-slate-900">
+                      <strong className="tabular-nums text-secondary-foreground">{v.receptionNumber}</strong> · Date:{' '}
+                      <strong className="tabular-nums text-secondary-foreground">{v.operationalDate || '—'}</strong> · Whole Vehicle Gross:{' '}
+                      <strong className="tabular-nums text-foreground">
                         {v.grossLiters ? `${v.grossLiters.toLocaleString()} L` : '—'}
                       </strong>
                     </p>
@@ -410,7 +410,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
                         ? 'bg-rose-100 text-rose-900 border border-rose-300'
                         : v.qaSummary.badgeType === 'HAS_HOLD'
                         ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                        : 'bg-slate-100 text-slate-800 border border-slate-200'
+                        : 'bg-muted text-foreground border border-border'
                     }`}
                   >
                     {v.qaSummary.summaryText}

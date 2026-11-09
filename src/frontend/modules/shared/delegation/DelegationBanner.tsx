@@ -72,7 +72,7 @@ export const DelegationBanner: React.FC<DelegationBannerProps> = ({
               <button
                 type="button"
                 onClick={onSwitchSource}
-                className="group inline-flex items-center gap-1 font-medium text-secondary-foreground hover:text-foreground underline decoration-slate-400 underline-offset-2 transition-colors cursor-pointer"
+                className="group inline-flex items-center gap-1 font-medium text-secondary-foreground hover:text-foreground underline decoration-neutral-400 underline-offset-2 transition-colors cursor-pointer"
                 title="Change source location"
               >
                 <span>{resolvedSourceName}</span>

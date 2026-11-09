@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Database, Activity, CheckCircle2, AlertCircle, X, Sparkles } from 'lucide-react';
+import { Database, Activity, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import type { ProductionHeadSiloState } from '@/backend/services/productionHeadOverviewService';

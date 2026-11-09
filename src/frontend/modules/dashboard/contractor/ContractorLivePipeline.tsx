@@ -176,7 +176,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
           </div>
         ) : filteredVisits.length === 0 ? (
           <div className="bg-card border-border py-16 px-4 rounded-xl border border-dashed text-center space-y-2 shadow-xs">
-            <Truck className="w-10 h-10 text-slate-300 mx-auto" />
+            <Truck className="w-10 h-10 text-neutral-300 mx-auto" />
             <h4 className="text-sm font-semibold text-secondary-foreground">No Active Tankers in Pipeline</h4>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
               No active tankers

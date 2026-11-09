@@ -1,3 +1,4 @@
+import { planTankCorrectionRows } from '@/backend/services/tankCorrectionLedger';
 import { NextResponse } from 'next/server';
 import { requireCorrectionAuthority } from '@core/route-guards';
 import { prisma } from '@core/db';
@@ -258,12 +259,13 @@ export async function PATCH(
 
           if (existingIssue && oldGross !== null) {
             const deltaGross = Number((vehicleGrossLiters - oldGross).toFixed(2));
-            const deltaAt13 = Number(((vehicleAt13tsLiters || 0) - (oldAt13ts || 0)).toFixed(2));
+            // Without both @13 TS figures the change is unknown, not the whole new figure.
+            const deltaAt13 = vehicleAt13tsLiters != null && oldAt13ts != null ? Number((vehicleAt13tsLiters - oldAt13ts).toFixed(2)) : 0;
 
             const hasPhysicalDelta = Math.abs(deltaGross) >= 0.01;
             const hasCommercialDelta = Math.abs(deltaAt13) >= 0.01;
 
-            if (hasPhysicalDelta) {
+            if (hasPhysicalDelta || hasCommercialDelta) {
               const lockedTankRows: Array<{ id: bigint; capacity_liters: Prisma.Decimal }> = await tx.$queryRaw`
                 SELECT id, capacity_liters FROM zmcc_tank WHERE id = ${existingIssue.tank_id} FOR UPDATE
               `;
@@ -298,23 +300,25 @@ export async function PATCH(
                 ? `ZMCC_TANK_DISPATCH_CORRECTION:${visit.id}:${clientKey}`
                 : `ZMCC_TANK_DISPATCH_CORRECTION:${visit.id}:CORR:${newCorrSeq}`;
 
-              const physicalDirection = deltaGross > 0 ? 'ADJUSTMENT_OUT' : 'ADJUSTMENT_IN';
-              await tx.zmccTankInventoryTransaction.create({
-                data: {
-                  tank_id: existingIssue.tank_id,
-                  zmcc_id: visit.procurement_source_id!,
-                  transaction_type: physicalDirection,
-                  quantity_liters: new Prisma.Decimal(Math.abs(deltaGross).toFixed(2)),
-                  at_13ts_liters: hasCommercialDelta ? new Prisma.Decimal(Math.abs(deltaAt13).toFixed(2)) : new Prisma.Decimal('0.00'),
-                  dispatch_id: visit.id,
-                  reference_type: 'DISPATCH_CORRECTION',
-                  reference_id: `${visit.id}:${newCorrSeq}:PHYSICAL`,
-                  idempotency_key: `${baseTxKey}:PHYSICAL`,
-                  operational_timestamp: new Date(),
-                  performed_by_user_id: dbUser.id,
-                  notes: `Dispatch correction physical ${physicalDirection} for visit ${visit.visit_number} (${deltaGross > 0 ? '+' : ''}${deltaGross} L${hasCommercialDelta ? `, @13: ${deltaAt13 > 0 ? '+' : ''}${deltaAt13} L` : ''})`,
-                },
-              });
+              // More milk dispatched means less in the tank, so the stock change is the opposite sign.
+              for (const row of planTankCorrectionRows(-deltaGross, -deltaAt13)) {
+                await tx.zmccTankInventoryTransaction.create({
+                  data: {
+                    tank_id: existingIssue.tank_id,
+                    zmcc_id: visit.procurement_source_id!,
+                    transaction_type: row.type,
+                    quantity_liters: new Prisma.Decimal(row.quantityLiters.toFixed(2)),
+                    at_13ts_liters: new Prisma.Decimal(row.at13Liters.toFixed(2)),
+                    dispatch_id: visit.id,
+                    reference_type: 'DISPATCH_CORRECTION',
+                    reference_id: `${visit.id}:${newCorrSeq}:${row.kind}`,
+                    idempotency_key: `${baseTxKey}:${row.kind}`,
+                    operational_timestamp: new Date(),
+                    performed_by_user_id: dbUser.id,
+                    notes: `Dispatch correction ${row.type} for visit ${visit.visit_number} (${deltaGross > 0 ? '+' : ''}${deltaGross} L, @13: ${deltaAt13 > 0 ? '+' : ''}${deltaAt13} L)`,
+                  },
+                });
+              }
             }
           }
         }

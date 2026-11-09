@@ -470,7 +470,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
       {/* 5. Empty State */}
       {!isLoading && !error && filteredItems.length === 0 && (
         <div className="p-10 rounded-xl bg-card border border-border/80 text-center space-y-2">
-          <ArrowRightLeft className="w-8 h-8 text-slate-300 mx-auto" />
+          <ArrowRightLeft className="w-8 h-8 text-neutral-300 mx-auto" />
           <h4 className="text-sm font-semibold text-secondary-foreground">No Reconciliation Records Found</h4>
           <p className="text-xs text-muted-foreground">
             No records

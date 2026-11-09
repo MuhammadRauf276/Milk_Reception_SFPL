@@ -50,7 +50,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
 
           {insideVehicles.length === 0 ? (
             <div className="bg-card rounded-xl border border-border p-12 text-center text-xs text-muted-foreground">
-              <Truck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <Truck className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
               <span>No vehicles inside.</span>
             </div>
           ) : (

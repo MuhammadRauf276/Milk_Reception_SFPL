@@ -607,9 +607,9 @@ export const LiveMapCanvas: React.FC<LiveMapProps> = ({
   const selMarker = selection?.kind === 'marker' ? markers.find((m) => m.id === selection.id) : undefined;
   const isEmpty = allCoords.length === 0;
   const hasKind = (k: MarkerKind) => markers.some((m) => m.kind === k);
-  const chip = 'inline-flex items-center gap-1 rounded-md border border-border bg-white px-2 py-0.5 dark:bg-slate-800';
+  const chip = 'inline-flex items-center gap-1 rounded-md border border-border bg-white px-2 py-0.5';
   const btn =
-    'flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-slate-700 shadow-md hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
+    'flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-secondary-foreground shadow-md hover:bg-muted active:bg-muted';
 
   return (
     <div ref={wrapRef} className="flex flex-col gap-2 bg-background">
@@ -627,8 +627,8 @@ export const LiveMapCanvas: React.FC<LiveMapProps> = ({
 
         {isEmpty && !mapError && (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-white/95 px-4 py-3 text-xs font-medium text-slate-600 shadow-md dark:bg-slate-800/95 dark:text-slate-200">
-              <MapPinOff className="h-4 w-4 text-slate-400" />
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-white/95 px-4 py-3 text-xs font-medium text-secondary-foreground shadow-md">
+              <MapPinOff className="h-4 w-4 text-neutral-400" />
               {emptyMessage}
             </div>
           </div>
@@ -658,12 +658,12 @@ export const LiveMapCanvas: React.FC<LiveMapProps> = ({
         </div>
 
         {(selVehicle || selPin || selMarker) && (
-          <div className="absolute left-3 top-3 z-10 w-[min(280px,calc(100%-84px))] rounded-xl border border-border bg-white p-3 text-xs text-slate-700 shadow-lg dark:bg-slate-800 dark:text-slate-100">
+          <div className="absolute left-3 top-3 z-10 w-[min(280px,calc(100%-84px))] rounded-xl border border-border bg-white p-3 text-xs text-secondary-foreground shadow-lg">
             <button
               type="button"
               aria-label="Close details"
               onClick={() => setSelection(null)}
-              className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-slate-500"
+              className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-muted-foreground"
             >
               <X className="h-4 w-4" />
             </button>
@@ -703,14 +703,14 @@ export const LiveMapCanvas: React.FC<LiveMapProps> = ({
                   {selPin.sequence != null ? `Stop ${selPin.sequence} · ` : ''}
                   {PIN_LABEL[selPin.status]}
                 </div>
-                {selPin.detail && <div className="text-slate-500 dark:text-slate-300">{selPin.detail}</div>}
+                {selPin.detail && <div className="text-muted-foreground">{selPin.detail}</div>}
               </div>
             )}
           </div>
         )}
 
         {playRoute && effectiveIdx !== null && (
-          <div className="absolute inset-x-3 bottom-8 z-10 flex items-center gap-3 rounded-xl border border-border bg-white/95 px-3 py-2 shadow-lg dark:bg-slate-800/95">
+          <div className="absolute inset-x-3 bottom-8 z-10 flex items-center gap-3 rounded-xl border border-border bg-white/95 px-3 py-2 shadow-lg">
             <input
               type="range"
               min={0}
@@ -720,7 +720,7 @@ export const LiveMapCanvas: React.FC<LiveMapProps> = ({
               aria-label="Journey playback time"
               className="h-11 flex-1 accent-blue-600"
             />
-            <span className="w-16 shrink-0 text-right text-xs font-semibold tabular-nums text-slate-700 dark:text-slate-100">
+            <span className="w-16 shrink-0 text-right text-xs font-semibold tabular-nums text-secondary-foreground">
               {new Date(toMs(playRoute.points[effectiveIdx].recordedAt)!).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -731,7 +731,7 @@ export const LiveMapCanvas: React.FC<LiveMapProps> = ({
       </div>
 
       {(vehicles.length > 0 || pins.length > 0 || markers.length > 0 || routes.length > 0) && (
-        <div className="flex flex-wrap gap-2 px-1 text-xs text-slate-600 dark:text-slate-300">
+        <div className="flex flex-wrap gap-2 px-1 text-xs text-secondary-foreground">
           {vehicles.length > 0 &&
             (
               [
@@ -755,7 +755,7 @@ export const LiveMapCanvas: React.FC<LiveMapProps> = ({
             ))}
           {routes.some((r) => r.planned) && (
             <span className={chip}>
-              <span className="h-0 w-4 border-t-2 border-dashed border-slate-500" />
+              <span className="h-0 w-4 border-t-2 border-dashed border-neutral-500" />
               Plan
             </span>
           )}

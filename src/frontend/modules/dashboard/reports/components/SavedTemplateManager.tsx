@@ -10,7 +10,6 @@ import {
   Bookmark,
   Plus,
   Trash2,
-  Sparkles,
   ChevronDown,
   X,
   Check,

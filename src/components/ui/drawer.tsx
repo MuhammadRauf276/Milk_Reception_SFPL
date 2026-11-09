@@ -68,7 +68,7 @@ const DrawerOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DrawerPrimitive.Overlay
     ref={ref}
-    className={cn('fixed inset-0 z-modal bg-slate-950/40 backdrop-blur-[2px]', className)}
+    className={cn('fixed inset-0 z-modal bg-neutral-950/40 backdrop-blur-[2px]', className)}
     {...props}
   />
 ));
@@ -88,7 +88,7 @@ const DrawerContent = React.forwardRef<
   if (desktop) {
     return (
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-slate-950/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-150" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-neutral-950/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-150" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
           onInteractOutside={keepCameraOpen}

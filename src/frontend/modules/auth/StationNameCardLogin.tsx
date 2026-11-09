@@ -12,7 +12,7 @@ type Problem = { kind: 'wrong' | 'locked' | 'other'; text: string };
 const NOT_STATION = 'Not a station. Ask the office.';
 const PIN_LENGTH = 4;
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
-const KEY = 'flex min-h-16 items-center justify-center rounded-xl border-2 border-slate-300 bg-white text-3xl font-semibold text-slate-900 active:bg-slate-200 disabled:opacity-50';
+const KEY = 'flex min-h-16 items-center justify-center rounded-xl border-2 border-border bg-white text-3xl font-semibold text-foreground active:bg-muted disabled:opacity-50';
 
 export function StationNameCardLogin() {
   const [cards, setCards] = useState<NameCard[] | null>(null);
@@ -96,7 +96,7 @@ export function StationNameCardLogin() {
 
   return (
     <main className="mx-auto flex min-h-[100dvh] w-full max-w-3xl flex-col gap-6 px-4 py-6 pt-safe pb-safe">
-      <h1 className="text-2xl font-semibold text-slate-900">{selected ? `Hello, ${selected.name}` : 'Who are you?'}</h1>
+      <h1 className="text-2xl font-semibold text-foreground">{selected ? `Hello, ${selected.name}` : 'Who are you?'}</h1>
 
       {notStation ? (
         <p role="alert" className="flex items-center gap-2 rounded-2xl border-2 border-border bg-card p-4 text-lg text-rose-900">
@@ -108,7 +108,7 @@ export function StationNameCardLogin() {
         <>
           {problem ? <ProblemBox problem={problem} /> : null}
           {cards.length === 0 && !problem ? (
-            <p className="text-lg text-slate-700">No names set up. Ask the office.</p>
+            <p className="text-lg text-secondary-foreground">No names set up. Ask the office.</p>
           ) : (
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {cards.map((c) => (
@@ -116,12 +116,12 @@ export function StationNameCardLogin() {
                   <button
                     type="button"
                     onClick={() => choose(c)}
-                    className="flex min-h-14 w-full items-center gap-3 rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-left active:bg-slate-200"
+                    className="flex min-h-14 w-full items-center gap-3 rounded-xl border-2 border-border bg-white px-4 py-3 text-left active:bg-muted"
                   >
-                    {c.locked ? <Lock className="size-6 shrink-0 text-rose-700" aria-hidden /> : <UserRound className="size-6 shrink-0 text-slate-700" aria-hidden />}
+                    {c.locked ? <Lock className="size-6 shrink-0 text-rose-700" aria-hidden /> : <UserRound className="size-6 shrink-0 text-secondary-foreground" aria-hidden />}
                     <span className="min-w-0">
-                      <span className="block break-words text-xl font-semibold text-slate-900">{c.name}</span>
-                      <span className="block break-words text-sm capitalize text-slate-600">{c.locked ? 'PIN locked' : c.roleLabel}</span>
+                      <span className="block break-words text-xl font-semibold text-foreground">{c.name}</span>
+                      <span className="block break-words text-sm capitalize text-secondary-foreground">{c.locked ? 'PIN locked' : c.roleLabel}</span>
                     </span>
                   </button>
                 </li>
@@ -131,10 +131,10 @@ export function StationNameCardLogin() {
         </>
       ) : (
         <div className="mx-auto w-full max-w-xs space-y-5">
-          <p className="text-center text-lg text-slate-700">Enter your 4-digit PIN</p>
+          <p className="text-center text-lg text-secondary-foreground">Enter your 4-digit PIN</p>
           <div className="flex justify-center gap-4" aria-label={`${pin.length} of ${PIN_LENGTH} digits entered`}>
             {Array.from({ length: PIN_LENGTH }).map((_, i) => (
-              <span key={i} className={`size-5 rounded-full border-2 border-slate-500 ${i < pin.length ? 'bg-slate-900' : 'bg-white'}`} />
+              <span key={i} className={`size-5 rounded-full border-2 border-neutral-500 ${i < pin.length ? 'bg-neutral-900' : 'bg-white'}`} />
             ))}
           </div>
           {problem ? <ProblemBox problem={problem} /> : null}
@@ -148,10 +148,10 @@ export function StationNameCardLogin() {
               <Delete className="size-7" aria-hidden />
             </button>
           </div>
-          {busy ? <p className="text-center text-slate-700">Checking…</p> : null}
+          {busy ? <p className="text-center text-secondary-foreground">Checking…</p> : null}
           <button
             type="button"
-            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border-2 border-slate-300 bg-white text-lg font-medium text-slate-900"
+            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border-2 border-border bg-white text-lg font-medium text-foreground"
             disabled={busy}
             onClick={() => { setSelected(null); setPin(''); setProblem(null); }}
           >

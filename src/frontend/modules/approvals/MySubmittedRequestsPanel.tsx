@@ -1,5 +1,6 @@
 'use client';
 
+import { getRoleLabel } from '@core/roles/labels';
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -49,7 +50,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
             <button
               type="button"
               onClick={() => setFilterStatus('ALL')}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition ${
+              className={`min-h-9 px-3 py-1 rounded-md text-xs font-semibold transition ${
                 filterStatus === 'ALL'
                   ? 'bg-background text-foreground shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -60,7 +61,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
             <button
               type="button"
               onClick={() => setFilterStatus('PENDING')}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition ${
+              className={`min-h-9 px-3 py-1 rounded-md text-xs font-semibold transition ${
                 filterStatus === 'PENDING'
                   ? 'bg-amber-100 text-amber-900 shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -71,7 +72,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
             <button
               type="button"
               onClick={() => setFilterStatus('RESOLVED')}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition ${
+              className={`min-h-9 px-3 py-1 rounded-md text-xs font-semibold transition ${
                 filterStatus === 'RESOLVED'
                   ? 'bg-background text-foreground shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -170,7 +171,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
                     Sent: <strong className="text-foreground">{formatTime(item.submittedAt)}</strong> on {formatDate(item.submittedAt)}
                   </span>
                   <span>
-                    Approver: <strong className="text-foreground">{item.reviewerRole}</strong>
+                    Approver: <strong className="text-foreground">{getRoleLabel(item.reviewerRole)}</strong>
                     {item.reviewerName ? ` (${item.reviewerName})` : ''}
                   </span>
                 </div>

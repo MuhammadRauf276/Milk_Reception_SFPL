@@ -221,12 +221,12 @@ export default function PublicYardTVBoardPage() {
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span
                             className={`px-2.5 py-0.5 rounded-full text-xs font-semibold tabular-nums shadow-2xs ${
-                              isNext ? 'bg-primary text-white' : 'bg-muted text-slate-700 border border-border'
+                              isNext ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground border border-border'
                             }`}
                           >
                             {isNext ? 'NEXT IN LINE' : `POSITION #${idx + 1}`}
                           </span>
-                          <span className="text-xs font-semibold text-slate-600 tabular-nums bg-subtle px-2 py-0.5 rounded border border-border">
+                          <span className="text-xs font-semibold text-secondary-foreground tabular-nums bg-subtle px-2 py-0.5 rounded border border-border">
                             Visit #{vehicle.visitId}
                           </span>
                         </div>
@@ -241,13 +241,13 @@ export default function PublicYardTVBoardPage() {
                             {vehicle.vehicleNumber}
                           </h2>
                           {lc.elapsedInPlant && (
-                            <div className="flex items-center space-x-1 text-xs tabular-nums font-semibold text-slate-500">
-                              <Clock className="w-3 h-3 text-slate-400" />
+                            <div className="flex items-center space-x-1 text-xs tabular-nums font-semibold text-muted-foreground">
+                              <Clock className="w-3 h-3 text-muted-foreground" />
                               <span>{lc.elapsedInPlant}</span>
                             </div>
                           )}
                         </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs font-semibold text-slate-500">
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs font-semibold text-muted-foreground">
                           <span>Token: <strong className="text-foreground">{vehicle.tokenNumber || 'PENDING'}</strong></span>
                           <span>·</span>
                           <span className="min-w-0 break-words">Source: <strong className="text-foreground">{vehicle.sourceName}</strong></span>
@@ -255,7 +255,7 @@ export default function PublicYardTVBoardPage() {
                       </div>
 
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-subtle/80 px-2.5 py-1.5 text-xs">
-                        <span className="text-slate-500 font-semibold text-xs">Station / Stage:</span>
+                        <span className="text-muted-foreground font-semibold text-xs">Station / Stage:</span>
                         <span className="px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
                           {lc.currentStageLabel}
                         </span>

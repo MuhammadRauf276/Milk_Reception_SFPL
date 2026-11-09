@@ -16,7 +16,7 @@ const resultColumns: DataColumn<LabResultRow>[] = [
     label: 'Test',
     primary: true,
     cell: (r) => (
-      <span className="font-sans font-semibold text-slate-800">
+      <span className="font-sans font-semibold text-foreground">
         {r.test_name_snapshot} ({r.test_code_snapshot})
       </span>
     ),
@@ -26,7 +26,7 @@ const resultColumns: DataColumn<LabResultRow>[] = [
     header: 'Observed Value',
     label: 'Observed value',
     cell: (r) => (
-      <span className="tabular-nums font-semibold text-slate-900">
+      <span className="tabular-nums font-semibold text-foreground">
         {r.numeric_value !== null ? `${r.numeric_value}${r.unit_snapshot ? ' ' + r.unit_snapshot : ''}` : r.text_value || '—'}
       </span>
     ),
@@ -44,7 +44,7 @@ const resultColumns: DataColumn<LabResultRow>[] = [
             ? 'bg-rose-100 text-rose-800'
             : r.evaluation_status === 'WARNING'
             ? 'bg-amber-100 text-amber-800'
-            : 'bg-slate-100 text-slate-600'
+            : 'bg-muted text-secondary-foreground'
         }`}
       >
         {r.evaluation_status}
@@ -55,7 +55,7 @@ const resultColumns: DataColumn<LabResultRow>[] = [
     key: 'rule',
     header: 'Applied SOP Rule',
     label: 'Applied SOP rule',
-    cell: (r) => <span className="font-sans text-slate-600 text-xs">{r.applied_rule_version ? `Rule v${r.applied_rule_version}` : 'Default SOP'}</span>,
+    cell: (r) => <span className="font-sans text-secondary-foreground text-xs">{r.applied_rule_version ? `Rule v${r.applied_rule_version}` : 'Default SOP'}</span>,
   },
 ];
 
@@ -117,15 +117,15 @@ export const ZMCCLabSessionList: React.FC<{
                 <span className="text-base font-semibold tabular-nums text-foreground">
                   {vehicleNumber}
                 </span>
-                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-900 text-white">
+                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-neutral-900 text-white">
                   {session.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}
                 </span>
-                <span className="px-2 py-0.5 rounded text-xs tabular-nums font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                <span className="px-2 py-0.5 rounded text-xs tabular-nums font-semibold bg-muted text-secondary-foreground border border-border">
                   {tokenNumber}
                 </span>
-                <span className="text-xs font-medium text-slate-600">{arrivalSource}</span>
+                <span className="text-xs font-medium text-secondary-foreground">{arrivalSource}</span>
                 {session.gross_liters != null && (
-                  <span className="text-xs tabular-nums font-semibold text-slate-800">
+                  <span className="text-xs tabular-nums font-semibold text-foreground">
                     {session.gross_liters.toLocaleString()} L
                   </span>
                 )}
@@ -161,7 +161,7 @@ export const ZMCCLabSessionList: React.FC<{
                     ? 'bg-rose-100 text-rose-800'
                     : session.system_quality_outcome === 'RULE_CONFIGURATION_ERROR'
                     ? 'bg-rose-200 text-rose-900 border border-rose-400'
-                    : 'bg-slate-100 text-slate-700'
+                    : 'bg-muted text-secondary-foreground'
                 }`}
               >
                 System: {session.system_quality_outcome === 'OUT_OF_SPEC' ? 'FAIL' : session.system_quality_outcome === 'IN_SPEC' ? 'PASS' : session.system_quality_outcome || 'EVALUATED'}
@@ -185,7 +185,7 @@ export const ZMCCLabSessionList: React.FC<{
                     session.manager_review_status === 'APPROVED'
                       ? 'bg-emerald-200 text-emerald-900'
                       : session.manager_review_status === 'REVIEWED_EXITED'
-                      ? 'bg-slate-100 text-slate-800 border border-slate-300'
+                      ? 'bg-muted text-foreground border border-border'
                       : session.manager_review_status === 'REJECTED'
                       ? 'bg-rose-200 text-rose-900'
                       : 'bg-amber-200 text-amber-900'
@@ -210,7 +210,7 @@ export const ZMCCLabSessionList: React.FC<{
                   In Tank: {session.tank_receipt.tank?.tank_code || 'Received'} ({session.tank_receipt.gross_liters} L)
                 </span>
               ) : (
-                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-600">
+                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-muted text-secondary-foreground">
                   No Tank Receipt
                 </span>
               )}
@@ -228,8 +228,8 @@ export const ZMCCLabSessionList: React.FC<{
             )}
 
             {session.manager_review_reason && (
-              <div className="bg-card border-border p-3 rounded-lg text-xs font-semibold flex items-start gap-2 border text-slate-800">
-                <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-700" />
+              <div className="bg-card border-border p-3 rounded-lg text-xs font-semibold flex items-start gap-2 border text-foreground">
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-secondary-foreground" />
                 <div>
                   <span className="font-semibold text-xs block">
                     Manager Review Justification ({session.manager_review_status}):
@@ -242,7 +242,7 @@ export const ZMCCLabSessionList: React.FC<{
             {/* Observed Results & Rule Version Table (collapsible) */}
             {session.results && session.results.length > 0 && (
               <details className="group rounded-lg border border-border/80 overflow-hidden" open={isRejected}>
-                <summary className="min-h-11 flex cursor-pointer select-none items-center px-3 text-xs font-semibold text-slate-700 hover:bg-subtle">
+                <summary className="min-h-11 flex cursor-pointer select-none items-center px-3 text-xs font-semibold text-secondary-foreground hover:bg-subtle">
                   Observed results ({session.results.length})
                 </summary>
                 <div className="border-t border-border/80 p-2">

@@ -23,7 +23,6 @@ const APPROVED_DB_NAMES = new Set([
   'milk_reception_test',
   'milk_reception_test_db',
   'milk_reception_dev',
-  'milk_reception_db',
   'sfpl_milk_test',
 ]);
 
@@ -44,15 +43,6 @@ test('ZMCC Dispatch to Plant Gate Reception & Resource Release Complete Lifecycl
 
   const runId = `E2E-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   const tokenNumber = `TOK-${runId}`;
-
-  // Free any previous test in-flight dispatches so resources are available
-  await prisma.vehicleVisit.updateMany({
-    where: {
-      current_status: { notIn: ['COMPLETED', 'REJECTED'] },
-      mot_profile_id: { not: null },
-    },
-    data: { current_status: 'COMPLETED' },
-  });
 
   // 1. Verify Hasilpur dispatch resources and find an available vehicle & MOT escort
   const initialResources = await getDispatchResources(BigInt(1));

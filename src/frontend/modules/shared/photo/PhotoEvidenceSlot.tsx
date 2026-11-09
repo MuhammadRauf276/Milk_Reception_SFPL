@@ -51,15 +51,15 @@ export function PhotoEvidenceSlot({
         className={cn(
           'flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 text-base font-semibold transition disabled:opacity-50',
           required
-            ? 'border-slate-400 bg-slate-50 text-slate-900 hover:border-slate-900 hover:bg-slate-100'
-            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50',
+            ? 'border-neutral-400 bg-muted text-foreground hover:border-neutral-900 hover:bg-muted'
+            : 'border-border bg-white text-secondary-foreground hover:bg-muted',
           className
         )}
       >
         <Camera className="h-6 w-6 shrink-0" aria-hidden="true" />
         <span>
           Take {testName} picture{' '}
-          <span className={required ? 'text-rose-700' : 'font-normal text-slate-500'}>
+          <span className={required ? 'text-rose-700' : 'font-normal text-muted-foreground'}>
             ({required ? 'Required' : 'Optional'})
           </span>
         </span>
@@ -75,7 +75,7 @@ export function PhotoEvidenceSlot({
       <img
         src={photo.previewUrl}
         alt={`${testName} picture`}
-        className="block max-h-56 w-full bg-slate-900 object-contain"
+        className="block max-h-56 w-full bg-neutral-900 object-contain"
       />
       <div className="space-y-2 p-3">
         <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">
@@ -94,7 +94,7 @@ export function PhotoEvidenceSlot({
             type="button"
             onClick={onTake}
             disabled={disabled}
-            className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+            className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
           >
             <Camera className="h-5 w-5" aria-hidden="true" />
             Retake
@@ -104,7 +104,7 @@ export function PhotoEvidenceSlot({
             onClick={onRemove}
             disabled={disabled}
             aria-label={`Remove ${testName} picture`}
-            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg border border-border bg-white text-secondary-foreground hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
           >
             <Trash2 className="h-5 w-5" aria-hidden="true" />
           </button>

@@ -47,7 +47,7 @@ const STATUS_META: Record<FleetStatus, { label: string; tone: string }> = {
   FREE: { label: 'Free', tone: 'bg-emerald-100 text-emerald-800' },
   COLLECTING: { label: 'Collecting', tone: 'bg-amber-100 text-amber-800' },
   RETURNING: { label: 'Returning', tone: 'bg-blue-100 text-blue-800' },
-  AT_ZMCC_WAITING_UNLOAD: { label: 'Waiting unload', tone: 'bg-violet-100 text-violet-800' },
+  AT_ZMCC_WAITING_UNLOAD: { label: 'Waiting unload', tone: 'bg-amber-100 text-amber-800' },
   INACTIVE: { label: 'Inactive', tone: 'bg-muted text-secondary-foreground' },
 };
 

@@ -580,7 +580,7 @@ export function ZMCCOperationalJourneysScreen({
 
       {/* Interactive Manager Journey Map Modal */}
       {selectedJourneyIdForMap && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-neutral-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
           <div className="bg-card w-full max-w-5xl rounded-2xl border border-border shadow-2xl p-5 my-auto max-h-[92vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>

@@ -152,7 +152,7 @@ export function ApprovalDetailBody({
                     <Camera className="w-8 h-8 opacity-40" />
                   </div>
                 )}
-                <div className="relative z-10 bg-slate-900/80 backdrop-blur-xs text-white p-1 rounded text-xs flex items-center justify-between">
+                <div className="relative z-10 bg-neutral-900/80 backdrop-blur-xs text-white p-1 rounded text-xs flex items-center justify-between">
                   <span className="break-words min-w-0">{photo.testCode || photo.label || 'Test Proof'}</span>
                   <Maximize2 className="w-3 h-3 shrink-0 ml-1 opacity-70 group-hover:opacity-100" />
                 </div>

@@ -148,7 +148,7 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
 
-            <label className="flex w-fit cursor-pointer select-none items-center gap-2 text-sm text-secondary-foreground">
+            <label className="flex min-h-9 w-fit cursor-pointer select-none items-center gap-2 text-sm text-secondary-foreground">
               <input
                 type="checkbox"
                 checked={rememberMe}

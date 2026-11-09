@@ -229,7 +229,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                   onChange={(v) => setActive(v === 'a')}
                   options={[
                     { value: 'a', label: 'Active', active: 'border-emerald-600 bg-emerald-600 text-white' },
-                    { value: 'h', label: 'Hidden', active: 'border-slate-700 bg-slate-700 text-white' },
+                    { value: 'h', label: 'Hidden', active: 'border-neutral-700 bg-neutral-700 text-white' },
                   ]}
                 />
               </div>
@@ -241,7 +241,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                   onChange={(v) => setRequired(v === 'c')}
                   options={[
                     { value: 'c', label: 'Compulsory', active: 'border-primary bg-primary text-white' },
-                    { value: 'o', label: 'Optional', active: 'border-slate-700 bg-slate-700 text-white' },
+                    { value: 'o', label: 'Optional', active: 'border-neutral-700 bg-neutral-700 text-white' },
                   ]}
                 />
               </div>

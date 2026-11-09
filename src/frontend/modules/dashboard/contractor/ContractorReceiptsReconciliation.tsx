@@ -77,13 +77,13 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
     value != null ? (
       <span
         className={
-          value === 0 ? 'text-slate-600' : value > 0 ? 'text-emerald-700' : 'text-rose-700'
+          value === 0 ? 'text-secondary-foreground' : value > 0 ? 'text-emerald-700' : 'text-rose-700'
         }
       >
         {text}
       </span>
     ) : (
-      <span className="text-slate-400 font-sans text-xs font-normal">—</span>
+      <span className="text-muted-foreground font-sans text-xs font-normal">—</span>
     );
 
   const columns: DataColumn<ContractorVehicleVisit>[] = [
@@ -93,11 +93,11 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
       label: 'Vehicle',
       primary: true,
       cell: (v) => (
-        <div className="tabular-nums font-semibold text-slate-900">
+        <div className="tabular-nums font-semibold text-foreground">
           <div>
             <span>{v.vehicleNumber}</span>
             {v.tokenNumber && (
-              <span className="block text-xs text-slate-400 font-normal">Tk: {v.tokenNumber}</span>
+              <span className="block text-xs text-muted-foreground font-normal">Tk: {v.tokenNumber}</span>
             )}
           </div>
         </div>
@@ -107,13 +107,13 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
       key: 'reception',
       header: 'Reception #',
       label: 'Reception #',
-      cell: (v) => <span className="tabular-nums text-slate-600 text-xs">{v.receptionNumber}</span>,
+      cell: (v) => <span className="tabular-nums text-secondary-foreground text-xs">{v.receptionNumber}</span>,
     },
     {
       key: 'date',
       header: 'Business Date',
       label: 'Business Date',
-      cell: (v) => <span className="text-slate-600 tabular-nums text-xs">{v.operationalDate || '—'}</span>,
+      cell: (v) => <span className="text-secondary-foreground tabular-nums text-xs">{v.operationalDate || '—'}</span>,
     },
     {
       key: 'dispatchGross',
@@ -121,7 +121,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
       label: 'Dispatch Gross (L)',
       align: 'right',
       cell: (v) => (
-        <span className="tabular-nums font-semibold text-slate-900">
+        <span className="tabular-nums font-semibold text-foreground">
           {v.grossLiters != null ? `${v.grossLiters.toLocaleString()} L` : '—'}
         </span>
       ),
@@ -136,7 +136,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           {v.authoritativeFinalLiters != null ? (
             <span className="text-emerald-700">{v.authoritativeFinalLiters.toLocaleString()} L</span>
           ) : (
-            <span className="text-slate-400 font-sans text-xs font-normal">Pending</span>
+            <span className="text-muted-foreground font-sans text-xs font-normal">Pending</span>
           )}
         </span>
       ),
@@ -163,11 +163,11 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
       label: 'Dispatch @13TS',
       align: 'right',
       cell: (v) => (
-        <span className="tabular-nums text-slate-800">
+        <span className="tabular-nums text-foreground">
           {v.dispatch13TsLiters != null ? (
             <span>{v.dispatch13TsLiters.toLocaleString()} L</span>
           ) : (
-            <span className="text-slate-400 font-sans text-xs font-normal">Unavailable</span>
+            <span className="text-muted-foreground font-sans text-xs font-normal">Unavailable</span>
           )}
         </span>
       ),
@@ -180,11 +180,11 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
       cell: (v) => (
         <span className="tabular-nums font-semibold">
           {v.plantFinalAt13TsLiters != null ? (
-            <span className="text-slate-900">{v.plantFinalAt13TsLiters.toLocaleString()} L</span>
+            <span className="text-foreground">{v.plantFinalAt13TsLiters.toLocaleString()} L</span>
           ) : v.isHistoricalReceiptWithoutCommercialSnapshot ? (
-            <span className="text-slate-500 font-sans text-xs font-semibold">Unavailable</span>
+            <span className="text-muted-foreground font-sans text-xs font-semibold">Unavailable</span>
           ) : (
-            <span className="text-slate-400 font-sans text-xs font-normal">Pending</span>
+            <span className="text-muted-foreground font-sans text-xs font-normal">Pending</span>
           )}
         </span>
       ),
@@ -210,7 +210,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
       header: 'Destination Silo',
       label: 'Destination Silo',
       cell: (v) => (
-        <span className="tabular-nums text-slate-700 text-xs">
+        <span className="tabular-nums text-secondary-foreground text-xs">
           {v.siloStorageId ? (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200 font-semibold">
               <Building2 className="w-3 h-3 text-muted-foreground" />
@@ -233,7 +233,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
               Final Receipt
             </span>
             {v.finalReceiptTransactionId && (
-              <span className="block text-xs tabular-nums text-slate-400 mt-0.5">Tx #{v.finalReceiptTransactionId}</span>
+              <span className="block text-xs tabular-nums text-muted-foreground mt-0.5">Tx #{v.finalReceiptTransactionId}</span>
             )}
           </div>
         ) : v.secondWeightTimestamp ? (
@@ -241,7 +241,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             Receipt Pending
           </span>
         ) : (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-muted text-secondary-foreground border border-border">
             {v.journeyStageLabel}
           </span>
         ),
@@ -266,12 +266,12 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             <Receipt className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-slate-900 leading-tight">
+            <h2 className="text-base font-semibold text-foreground leading-tight">
               {assignedSourceName}: Receipts & Reconciliation
             </h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
+            <p className="text-xs text-muted-foreground font-medium mt-0.5">
               Business date:{' '}
-              <strong className="text-slate-700 tabular-nums">{serverBusinessDate || '—'}</strong>
+              <strong className="text-secondary-foreground tabular-nums">{serverBusinessDate || '—'}</strong>
             </p>
           </div>
         </div>
@@ -323,26 +323,26 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
 
         {/* Net Liters Variance */}
         <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-slate-700 text-xs font-semibold">
+          <div className="flex items-center justify-between text-secondary-foreground text-xs font-semibold">
             <span>Net Liters Variance</span>
-            <ArrowRightLeft className="w-4 h-4 text-slate-600" />
+            <ArrowRightLeft className="w-4 h-4 text-secondary-foreground" />
           </div>
           <p
             className={`text-2xl font-semibold tabular-nums ${
               metrics.totalLitersVariance == null
-                ? 'text-slate-500'
+                ? 'text-muted-foreground'
                 : metrics.totalLitersVariance < 0
                 ? 'text-rose-700'
                 : metrics.totalLitersVariance > 0
                 ? 'text-emerald-700'
-                : 'text-slate-800'
+                : 'text-foreground'
             }`}
           >
             {metrics.totalLitersVariance != null
               ? `${metrics.totalLitersVariance > 0 ? '+' : ''}${metrics.totalLitersVariance.toLocaleString()} L`
               : '—'}
           </p>
-          <p className="text-xs text-slate-500 font-medium">
+          <p className="text-xs text-muted-foreground font-medium">
             Received vs Dispatched (L)
           </p>
         </div>
@@ -352,19 +352,19 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
       <div className="bg-card border-border p-5 rounded-2xl border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Search */}
         <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search"
-            className="w-full pl-9 pr-4 py-2 min-h-[44px] text-xs tabular-nums font-semibold bg-slate-50 border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+            className="w-full pl-9 pr-4 py-2 min-h-[44px] text-xs tabular-nums font-semibold bg-muted border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
           />
         </div>
 
         {/* Receipt Status Filter Chips */}
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1">
-          <span className="text-xs font-semibold text-slate-500 flex items-center gap-1 mr-1 shrink-0">
+          <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mr-1 shrink-0">
             <Filter className="w-3.5 h-3.5" />
             <span>Status:</span>
           </span>
@@ -375,7 +375,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'ALL'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             All ({visits.length})
@@ -410,8 +410,8 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             onClick={() => setReceiptFilter('BEFORE_RECEIPT')}
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'BEFORE_RECEIPT'
-                ? 'bg-slate-800 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                ? 'bg-neutral-800 text-white shadow-xs'
+                : 'bg-muted text-secondary-foreground hover:bg-muted'
             }`}
           >
             Before ({visits.filter((v) => !v.finalReceiptExists && !v.secondWeightTimestamp).length})
@@ -424,9 +424,9 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
         <div className="flex items-center justify-between border-b border-muted pb-3">
           <div className="flex items-center space-x-2">
             <Receipt className="w-4 h-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold text-slate-900">Vehicle receipts</h3>
+            <h3 className="text-sm font-semibold text-foreground">Vehicle receipts</h3>
           </div>
-          <span className="text-xs text-slate-500 tabular-nums font-semibold">
+          <span className="text-xs text-muted-foreground tabular-nums font-semibold">
             {filteredVisits.length} {filteredVisits.length === 1 ? 'vehicle' : 'vehicles'}
           </span>
         </div>

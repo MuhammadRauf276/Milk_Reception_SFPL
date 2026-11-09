@@ -78,7 +78,7 @@ function VehicleCard({ session, onOpen }: { session: WeighingSessionView; onOpen
                 Token: {session.zmcc_token}
               </span>
             )}
-            <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+            <span className="text-xs font-medium px-2 py-0.5 rounded bg-muted text-secondary-foreground border border-border">
               {session.portions.length} {session.portions.length === 1 ? 'portion' : 'portions'}
             </span>
           </div>
@@ -118,7 +118,7 @@ function VehicleCard({ session, onOpen }: { session: WeighingSessionView; onOpen
               <span className="font-semibold text-foreground">{session.tank_code ? `Tank ${session.tank_code}` : 'Tank'}</span>
               {session.milk_source_name && (
                 <>
-                  <span className="text-slate-300">·</span>
+                  <span className="text-neutral-300">·</span>
                   <span className="text-secondary-foreground break-words min-w-0">{session.milk_source_name}</span>
                 </>
               )}
@@ -314,7 +314,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
 
           {!queueQuery.isLoading && ready.length === 0 && (
             <div className="rounded-2xl border border-dashed border-border p-8 text-center bg-subtle/50">
-              <Truck className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+              <Truck className="h-8 w-8 text-neutral-300 mx-auto mb-2" />
               <p className="text-sm font-semibold text-secondary-foreground">No vehicles waiting</p>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
                 Vehicles appear here after lab approval.
@@ -448,7 +448,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
           {/* Unloaded List or Empty State */}
           {!queueQuery.isLoading && done.length === 0 && (
             <div className="rounded-2xl border border-dashed border-border p-8 text-center bg-subtle/50">
-              <CheckCircle2 className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+              <CheckCircle2 className="h-8 w-8 text-neutral-300 mx-auto mb-2" />
               <p className="text-sm font-semibold text-secondary-foreground">No unloaded vehicles found</p>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
                 {range === 'today'

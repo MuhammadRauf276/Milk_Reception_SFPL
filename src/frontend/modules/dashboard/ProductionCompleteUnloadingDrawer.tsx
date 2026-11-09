@@ -84,7 +84,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
               <div className="flex items-center space-x-2">
                 <h3 className="text-base font-semibold text-foreground">Complete Silo Unloading</h3>
                 {isPortionWise && (
-                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200">
+                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-muted text-secondary-foreground border border-border">
                     Portion-Wise Loop
                   </span>
                 )}
@@ -111,7 +111,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
           {/* Portion-wise Cycle Header */}
           {isPortionWise && activePortion && (
             <div className="bg-card border-border p-3 rounded-xl border text-xs">
-              <div className="flex items-center justify-between font-semibold text-purple-900">
+              <div className="flex items-center justify-between font-semibold text-foreground">
                 <span className="flex items-center space-x-1.5">
                   <Layers className="w-4 h-4 text-muted-foreground" />
                   <span>Portion #{activePortion.portion_number} of {acceptedPortions.length} · In Progress</span>

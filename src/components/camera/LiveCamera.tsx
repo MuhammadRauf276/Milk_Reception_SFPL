@@ -201,9 +201,9 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             <TriangleAlert className="h-10 w-10 text-amber-400" />
             <p className="text-base font-semibold text-rose-300">{errorText}</p>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 text-xs text-left space-y-2 text-slate-300 w-full shadow-inner">
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/90 p-4 text-xs text-left space-y-2 text-neutral-300 w-full shadow-inner">
               <p className="font-semibold text-amber-300">How to unblock permissions in Chrome:</p>
-              <ol className="list-decimal pl-4 space-y-1.5 text-slate-300 text-xs leading-relaxed">
+              <ol className="list-decimal pl-4 space-y-1.5 text-neutral-300 text-xs leading-relaxed">
                 <li>Click the <strong>Tune / Padlock</strong> icon on the left of the URL bar (next to <code className="text-emerald-400">mpd.sfpl.com.pk</code>).</li>
                 <li>Set <strong>Camera</strong> to <strong>Allow</strong>.</li>
                 <li>Set <strong>Location</strong> to <strong>Allow</strong>.</li>

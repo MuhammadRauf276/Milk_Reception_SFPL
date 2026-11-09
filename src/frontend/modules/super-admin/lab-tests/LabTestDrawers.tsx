@@ -3,7 +3,7 @@
 import { InfoTip } from '@/components/ui/info-tip';
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Calculator, CheckCircle2, Eye, Lock, ShieldCheck, Sparkles, XCircle } from 'lucide-react';
+import { AlertTriangle, Calculator, CheckCircle2, Eye, Lock, ShieldCheck, XCircle } from 'lucide-react';
 import { mapScopeCheckboxes } from '@/lib/validations/labTest';
 import { TEST_POINT_LABELS, stagesWithPhotoCheckbox, type StagePhotoState, type TestPointCode } from '@/types/test-point-policy';
 import { Button } from '@/components/ui/button';

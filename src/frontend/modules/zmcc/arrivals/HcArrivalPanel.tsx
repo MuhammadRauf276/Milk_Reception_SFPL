@@ -97,7 +97,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
             </div>
       ) : (
         <div className="space-y-3 py-4 text-center">
-          <Users className="mx-auto h-8 w-8 text-slate-300" aria-hidden="true" />
+          <Users className="mx-auto h-8 w-8 text-neutral-300" aria-hidden="true" />
           <p className="text-sm font-semibold text-secondary-foreground">No HC arrival yet</p>
           <button
             type="button"

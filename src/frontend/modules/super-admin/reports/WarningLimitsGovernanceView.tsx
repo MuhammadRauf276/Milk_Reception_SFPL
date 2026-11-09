@@ -222,7 +222,7 @@ export function WarningLimitsGovernanceView() {
 
       {/* Edit Threshold Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-2xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-4 backdrop-blur-2xs">
           <div className="w-full max-w-md rounded-2xl border border-border bg-white p-5 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-sm font-semibold text-foreground">Warning limit for plant reception</h3>

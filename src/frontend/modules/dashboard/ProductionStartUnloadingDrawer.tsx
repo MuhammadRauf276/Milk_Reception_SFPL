@@ -119,7 +119,7 @@ export const ProductionStartUnloadingDrawer: React.FC<{
               <div className="flex items-center space-x-2">
                 <h3 className="text-base font-semibold text-foreground">Start Silo Unloading</h3>
                 {isPortionWise && (
-                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200">
+                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-muted text-secondary-foreground border border-border">
                     Portion-Wise Loop
                   </span>
                 )}
@@ -146,7 +146,7 @@ export const ProductionStartUnloadingDrawer: React.FC<{
           {/* Portion-wise Cycle Header */}
           {isPortionWise && activePortion && (
             <div className="bg-card border-border p-3 rounded-xl border text-xs">
-              <div className="flex items-center justify-between font-semibold text-purple-900">
+              <div className="flex items-center justify-between font-semibold text-foreground">
                 <span className="flex items-center space-x-1.5">
                   <Layers className="w-4 h-4 text-muted-foreground" />
                   <span>Portion #{activePortion.portion_number} of {acceptedPortions.length} · Ready to Unload</span>
@@ -156,10 +156,10 @@ export const ProductionStartUnloadingDrawer: React.FC<{
                 </span>
               </div>
               {completedPortions.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-purple-200 flex flex-wrap gap-2 text-xs text-purple-800">
+                <div className="mt-2 pt-2 border-t border-border flex flex-wrap gap-2 text-xs text-secondary-foreground">
                   <span className="font-semibold">Completed:</span>
                   {completedPortions.map((cp) => (
-                    <span key={cp.id} className="inline-flex items-center space-x-1 bg-card px-2 py-0.5 rounded border border-purple-200">
+                    <span key={cp.id} className="inline-flex items-center space-x-1 bg-card px-2 py-0.5 rounded border border-border">
                       <CheckCircle className="w-3 h-3 text-emerald-600" />
                       <span>Portion #{cp.portion_number} ({cp.net_weight_kg ? `${cp.net_weight_kg.toLocaleString()} kg net` : 'Unloaded'})</span>
                     </span>

@@ -1,3 +1,4 @@
+import { planTankCorrectionRows } from '@/backend/services/tankCorrectionLedger';
 import { prisma } from '@core/db';
 import { clearDraftsForPortion, type DraftDb } from '@/backend/services/formDraftService';
 import { writeAuditLog } from '@/backend/core/audit';
@@ -164,7 +165,8 @@ export async function resolveZmccLabAuth(
   };
 
   // Permission checks by action, through the acting context (delegation to ancestors, own ZMCC scope).
-  const requestedAs = isRequest ? (reqOrUser as Request).headers.get(ACTING_AS_HEADER) : null;
+  // Correcting is a person's own authority and cannot be delegated, so it ignores who they are covering on this page.
+  const requestedAs = isRequest && action !== 'CORRECT_SESSION' ? (reqOrUser as Request).headers.get(ACTING_AS_HEADER) : null;
   let allowed: readonly string[];
   let delegation: 'ancestors' | 'none' = 'ancestors';
   let forbiddenMessage: string;
@@ -2375,6 +2377,26 @@ export async function correctCompletedSession(
     correctedUnit = quantity_unit.toString().trim().toUpperCase() as 'KG' | 'LITER';
   }
 
+  // Milk figures of a portion-based vehicle live on its portions and tank receipt, and this correction only works on
+  // session figures. Saving here would change the lab result and leave the milk figures behind, so refuse it.
+  const changedResult = (Array.isArray(results) ? results : []).some((r) => {
+    const saved = session.results.find((s) => s.test_id.toString() === String(r.test_id).trim());
+    if (!saved) return false;
+    const savedNumber = saved.numeric_value !== null ? Number(saved.numeric_value) : null;
+    const numberChanged = r.numeric_value !== undefined && (r.numeric_value !== null ? Number(r.numeric_value) : null) !== savedNumber;
+    const textChanged = r.text_value !== undefined && (r.text_value?.trim() || null) !== (saved.text_value ?? null);
+    return numberChanged || textChanged;
+  });
+  if (changedResult || correctedQty !== undefined) {
+    const portionCount = await prisma.zmccLabPortion.count({ where: { lab_session_id: sessionId } });
+    if (portionCount > 0) {
+      return {
+        status: 409,
+        error: 'This vehicle was tested by portion, so correct its values on the portion. Nothing was changed.',
+      };
+    }
+  }
+
   const isPendingReview = session.decision === 'PENDING' || session.manager_review_status === 'PENDING';
   const isRejectedSession = session.decision === 'REJECTED';
 
@@ -2949,26 +2971,24 @@ export async function correctCompletedSession(
           }
         }
 
-        const hasPhysicalDelta = Math.abs(deltaGross) >= 0.01;
-        const hasCommercialDelta = Math.abs(deltaAt13) >= 0.01;
+        if (Math.abs(deltaGross) >= 0.01) physicalMutationPerformed = true;
 
-        if (hasPhysicalDelta) {
-          physicalMutationPerformed = true;
-          const txType = deltaGross > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT';
+        for (const row of planTankCorrectionRows(deltaGross, deltaAt13)) {
+          const txType = row.type;
           const invTx = await tx.zmccTankInventoryTransaction.create({
             data: {
               tank_id: receiptRow.tank_id,
               zmcc_id: session.zmcc_id,
               transaction_type: txType,
-              quantity_liters: new Prisma.Decimal(Math.abs(deltaGross).toFixed(3)),
-              at_13ts_liters: hasCommercialDelta ? new Prisma.Decimal(Math.abs(deltaAt13).toFixed(3)) : new Prisma.Decimal('0.000'),
+              quantity_liters: new Prisma.Decimal(row.quantityLiters.toFixed(3)),
+              at_13ts_liters: new Prisma.Decimal(row.at13Liters.toFixed(3)),
               tank_receipt_id: receiptRow.id,
               reference_type: 'ZMCC_LAB_SESSION_CORRECTION',
-              reference_id: `${sessionId}:${newTotalCount}:PHYSICAL`,
-              idempotency_key: `ZMCC_TANK_ADJUSTMENT:LAB_SESSION:${sessionId}:CORR:${newTotalCount}:PHYSICAL`,
+              reference_id: `${sessionId}:${newTotalCount}:${row.kind}`,
+              idempotency_key: `ZMCC_TANK_ADJUSTMENT:LAB_SESSION:${sessionId}:CORR:${newTotalCount}:${row.kind}`,
               operational_timestamp: correctionTimestamp,
               performed_by_user_id: auth.actorUserId,
-              notes: `Correction physical adjustment (${txType}) for session #${sessionId} (${deltaGross > 0 ? '+' : ''}${deltaGross} L${hasCommercialDelta ? `, @13: ${deltaAt13 > 0 ? '+' : ''}${deltaAt13} L` : ''})`,
+              notes: `Correction adjustment (${txType}) for session #${sessionId} (${deltaGross > 0 ? '+' : ''}${deltaGross} L, @13: ${deltaAt13 > 0 ? '+' : ''}${deltaAt13} L)`,
             },
           });
 
@@ -2981,8 +3001,8 @@ export async function correctCompletedSession(
               tank_id: receiptRow.tank_id.toString(),
               zmcc_id: session.zmcc_id.toString(),
               transaction_type: txType,
-              quantity_liters: Math.abs(deltaGross).toFixed(3),
-              at_13ts_liters: hasCommercialDelta ? Math.abs(deltaAt13).toFixed(3) : '0.000',
+              quantity_liters: row.quantityLiters.toFixed(3),
+              at_13ts_liters: row.at13Liters.toFixed(3),
               tank_receipt_id: receiptRow.id.toString(),
               lab_session_id: sessionId.toString(),
               correction_count: newTotalCount,

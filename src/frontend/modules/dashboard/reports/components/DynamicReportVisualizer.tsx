@@ -100,7 +100,7 @@ export function DynamicReportVisualizer({
           <span className="text-xs font-semibold text-foreground flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-muted-foreground" /> Visual Analytics & Distributions
           </span>
-          <span className="text-slate-400 text-xs">·</span>
+          <span className="text-muted-foreground text-xs">·</span>
           <span className="text-xs text-muted-foreground">
             {barData.length} data points
           </span>
@@ -183,7 +183,7 @@ export function DynamicReportVisualizer({
                 >
                   {/* Floating Tooltip */}
                   {isHovered && (
-                    <div className="absolute -top-12 z-20 bg-slate-900 text-white text-xs font-medium py-1 px-3 rounded-lg shadow-xl whitespace-nowrap pointer-events-none">
+                    <div className="absolute -top-12 z-20 bg-neutral-900 text-white text-xs font-medium py-1 px-3 rounded-lg shadow-xl whitespace-nowrap pointer-events-none">
                       <span className="font-semibold">{d.label}</span>: {d.value.toLocaleString()} {selectedMetricDef?.unit || ''}
                     </div>
                   )}

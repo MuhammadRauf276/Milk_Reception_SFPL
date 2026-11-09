@@ -251,7 +251,7 @@ function isFilled(portion: PortionFormState, t: DispatchPolicyTest): boolean {
 
 const STATUS_VIEW: Record<string, { word: string; className: string; Icon: typeof CheckCircle2 }> = {
   DISPATCHED: { word: 'Dispatched', className: 'border-emerald-300 bg-emerald-50 text-emerald-800', Icon: CheckCircle2 },
-  PENDING_APPROVAL: { word: 'Waiting for approval', className: 'border-violet-300 bg-violet-50 text-violet-900', Icon: Clock },
+  PENDING_APPROVAL: { word: 'Waiting for approval', className: 'border-amber-300 bg-amber-50 text-amber-900', Icon: Clock },
   REOPENED: { word: 'Sent back to you', className: 'border-amber-300 bg-amber-50 text-amber-900', Icon: AlertTriangle },
   REJECTED: { word: 'Rejected', className: 'border-rose-300 bg-rose-50 text-rose-800', Icon: XCircle },
 };
@@ -1447,7 +1447,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           </div>
 
           {result.status === 'PENDING_APPROVAL' && (
-            <p className="text-xs font-semibold text-violet-900 bg-violet-50 border border-violet-200 rounded-xl p-3">
+            <p className="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3">
               Some test values are out of spec. A review request went to the {result.approverLabel} for approval.
             </p>
           )}
@@ -1821,7 +1821,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               formStep === 0
                 ? 'bg-primary-hover hover:bg-blue-800'
                 : goesToApprover
-                  ? 'bg-violet-700 hover:bg-violet-800'
+                  ? 'bg-neutral-800 hover:bg-neutral-900'
                   : 'bg-primary-hover hover:bg-blue-800'
             )}
           >

@@ -77,7 +77,7 @@ export function NetworkStatusBar() {
               type="button"
               onClick={handleRetry}
               disabled={isManualChecking || isReconnecting}
-              className="inline-flex min-h-7 items-center gap-1 rounded-md bg-white/20 px-2 py-1 text-xs font-semibold text-white transition hover:bg-white/30 disabled:opacity-50"
+              className="inline-flex min-h-9 items-center gap-1 rounded-md bg-white/20 px-2 py-1 text-xs font-semibold text-white transition hover:bg-white/30 disabled:opacity-50"
             >
               {isManualChecking || isReconnecting ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -104,7 +104,7 @@ export function NetworkStatusBar() {
               type="button"
               onClick={handleRetry}
               disabled={isManualChecking || isReconnecting}
-              className="inline-flex min-h-7 items-center gap-1 rounded-md bg-white/20 px-2 py-1 text-xs font-semibold text-white transition hover:bg-white/30 disabled:opacity-50"
+              className="inline-flex min-h-9 items-center gap-1 rounded-md bg-white/20 px-2 py-1 text-xs font-semibold text-white transition hover:bg-white/30 disabled:opacity-50"
             >
               {isManualChecking ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -139,7 +139,7 @@ export function NetworkStatusBar() {
               type="button"
               onClick={handleRetry}
               disabled={isManualChecking || isReconnecting}
-              className="inline-flex min-h-7 items-center gap-1 rounded-md bg-white/20 px-2 py-1 text-xs font-semibold text-white transition hover:bg-white/30 disabled:opacity-50"
+              className="inline-flex min-h-9 items-center gap-1 rounded-md bg-white/20 px-2 py-1 text-xs font-semibold text-white transition hover:bg-white/30 disabled:opacity-50"
             >
               {isManualChecking ? (
                 <Loader2 className="h-3 w-3 animate-spin" />

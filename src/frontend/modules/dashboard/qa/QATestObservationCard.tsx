@@ -138,7 +138,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
               className={cn(
                 'rounded-md px-3 py-0.5 text-xs font-semibold',
                 isCalculated
-                  ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                  ? 'bg-muted text-foreground border border-border'
                   : test.isRequired
                   ? 'bg-primary text-white shadow-2xs'
                   : 'bg-muted text-secondary-foreground'
@@ -176,7 +176,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             <label className="text-xs font-semibold text-secondary-foreground block">
               Auto-Calculated Value {test.unit ? `(${test.unit})` : ''}
             </label>
-            <span className="inline-flex items-center gap-1 rounded bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 border border-purple-200">
+            <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs font-semibold text-secondary-foreground border border-border">
               <Calculator className="h-3 w-3" />
               <span>Richmond formula</span>
             </span>
@@ -186,9 +186,9 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             readOnly
             value={calculatedValue != null ? `${calculatedValue.toFixed(2)} ${test.unit || '%'}` : ''}
             placeholder="Auto-calculating (awaiting LR & Fat)…"
-            className="w-full min-w-0 min-h-12 rounded-xl border border-purple-200 bg-purple-50/40 p-3 text-base font-semibold text-purple-950 tabular-nums focus:outline-hidden"
+            className="w-full min-w-0 min-h-12 rounded-xl border border-border bg-muted/40 p-3 text-base font-semibold text-foreground tabular-nums focus:outline-hidden"
           />
-          <p className="text-xs text-purple-800 font-medium">
+          <p className="text-xs text-secondary-foreground font-medium">
             Calculated from LR and Fat
           </p>
         </div>

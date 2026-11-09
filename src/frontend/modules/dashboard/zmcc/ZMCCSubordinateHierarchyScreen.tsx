@@ -490,7 +490,7 @@ export function ZMCCSubordinateHierarchyScreen({
 
       {/* Selected Shop Modal */}
       {selectedShop && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-xl p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>

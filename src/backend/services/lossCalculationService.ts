@@ -1,3 +1,4 @@
+import { collectionFinalDecision } from './motJourneySummaryService';
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
@@ -5,7 +6,7 @@ import { createNotificationsForEvent } from '@/backend/services/notificationServ
 import { writeAuditLog } from '@/backend/core/audit';
 import type { ActingContext } from '@/types/acting';
 import { calculateAt13TSLiters, calculateDensity } from '@/backend/utils/milkFormulas';
-import { getPakistanCalendarDate, getPakistanDayWindow } from '@core/business-day';
+import { getOperationalBusinessDate, getPakistanDayWindow } from '@core/business-day';
 
 export interface LossMetricResult {
   lossLiters: number;
@@ -217,8 +218,9 @@ export async function computeAndStoreAreaLossTx(
       ts: Number(p.ts ?? 0),
     });
     netKg += net;
-    liters += m.grossLiters;
-    at13 += m.at13tsLiters;
+    // The figures saved at unloading are what entered the tank, so route loss always agrees with the receipt.
+    liters += p.gross_liters != null ? Number(p.gross_liters) : m.grossLiters;
+    at13 += p.at_13ts_liters != null ? Number(p.at_13ts_liters) : m.at13tsLiters;
   }
   netKg = Number(netKg.toFixed(3));
   liters = Number(liters.toFixed(2));
@@ -459,7 +461,7 @@ export function resolvePeriodDateRange(
   label: string;
 } {
   const now = new Date();
-  const todayStr = getPakistanCalendarDate(now);
+  const todayStr = getOperationalBusinessDate(now);
   const pakistanDays = (startStr: string, endStr: string, label: string) => {
     const first = getPakistanDayWindow(startStr);
     const last = getPakistanDayWindow(endStr);
@@ -534,6 +536,7 @@ export async function getSupplyChainLossHierarchy(filters: {
       mot_vehicle: true,
       mot_profile: true,
       summary: true,
+      collections: { select: { gross_liters: true, at_13ts_liters: true, final_decision: true } },
       mot_arrival: {
         include: {
           lab_session: {
@@ -560,8 +563,14 @@ export async function getSupplyChainLossHierarchy(filters: {
     const summary = j.summary;
     const labSession = j.mot_arrival?.lab_session;
 
-    const shopGross = summary ? Number(summary.total_gross_liters) : 0;
-    const shop13ts = summary ? Number(summary.total_at_13ts_liters) : 0;
+    // A journey without a summary still has its collections: add the accepted ones, as the summary would.
+    const acceptedCollections = j.collections.filter((c) => collectionFinalDecision(c) === 'ACCEPTED');
+    const shopGross = summary
+      ? Number(summary.total_gross_liters)
+      : Number(acceptedCollections.reduce((t, c) => t + Number(c.gross_liters), 0).toFixed(2));
+    const shop13ts = summary
+      ? Number(summary.total_at_13ts_liters)
+      : Number(acceptedCollections.reduce((t, c) => t + Number(c.at_13ts_liters), 0).toFixed(2));
 
     // Loss uses RECEIVED milk only (unloaded into the tank). Prefer the stored Area figure; fall back to the
     // tank receipt. Accepted-but-not-received milk is reported separately and never counted as received.
@@ -638,7 +647,8 @@ export async function getSupplyChainLossHierarchy(filters: {
         operational_date: { gte: startDate, lte: endDate },
         // ZMCC dispatches only: contractor visits never left a ZMCC tank.
         ...(zmccIdBigInt ? { procurement_source_id: zmccIdBigInt } : { procurement_source: { source_type: 'ZMCC' } }),
-        current_status: { notIn: ['DRAFT_DISPATCH', 'CANCELLED', 'REJECTED'] },
+        // A tanker the plant rejected still left the tank. Only requests never sent are left out.
+        current_status: { notIn: ['DRAFT_DISPATCH', 'PENDING_APPROVAL', 'REOPENED', 'CANCELLED'] },
       },
       // Only the columns the rows below read: a visit row also carries large JSON decision columns that are never used here.
       select: {

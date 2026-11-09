@@ -95,12 +95,12 @@ export function DynamicReportTable({
 
   const renderCellValue = (value: any, field: ReportFieldDefinition) => {
     if (value === null || value === undefined || value === '') {
-      return <span className="text-slate-400 font-mono">—</span>;
+      return <span className="text-muted-foreground font-mono">—</span>;
     }
 
     if (field.format === 'status_pill') {
       const strVal = String(value).toUpperCase();
-      let colorClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+      let colorClass = 'bg-muted text-secondary-foreground';
       if (strVal === 'ACCEPTED' || strVal === 'COMPLETED' || strVal === 'RECEIVED_AT_PLANT' || strVal === 'ISSUED' || strVal === 'TRUE') {
         colorClass = 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
       } else if (strVal === 'REJECTED' || strVal === 'FLAGGED' || strVal === 'CANCELLED') {
@@ -200,7 +200,7 @@ export function DynamicReportTable({
                     >
                       <span>{f.label}</span>
                       {f.sortable !== false && (
-                        <span className="text-slate-400">
+                        <span className="text-muted-foreground">
                           {isSorted ? (
                             sortDirection === 'asc' ? (
                               <ArrowUp className="w-3 h-3 text-muted-foreground stroke-[2.5]" />
@@ -331,7 +331,7 @@ export function DynamicReportTable({
                         f.align === 'right' ? 'text-right' : f.align === 'center' ? 'text-center' : 'text-left'
                       }`}
                     >
-                      {tot !== undefined && tot !== null ? renderCellValue(tot, f) : <span className="text-slate-400 font-mono">—</span>}
+                      {tot !== undefined && tot !== null ? renderCellValue(tot, f) : <span className="text-muted-foreground font-mono">—</span>}
                     </td>
                   );
                 })}

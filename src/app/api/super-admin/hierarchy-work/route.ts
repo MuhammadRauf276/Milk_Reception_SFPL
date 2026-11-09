@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { canActAs } from '@/backend/core/roles/hierarchy';
-import { formatRoleLabel } from '@/frontend/modules/shared/navigation/NavPanel';
+import { getRoleLabel } from '@core/roles/labels';
 
 export const dynamic = 'force-dynamic';
+
+const formatRoleLabel = (role?: string | null) => getRoleLabel(role, 'Workspace');
 
 interface HierarchyWorkItem {
   id: string;

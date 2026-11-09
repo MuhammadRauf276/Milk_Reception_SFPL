@@ -1,3 +1,4 @@
+import { resolveCollectionTime } from '@/backend/services/mot/collectionTime';
 import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
 import { prisma } from '@core/db';
 import { writeAuditLog } from '@/backend/core/audit';
@@ -3059,12 +3060,9 @@ export async function submitShopCollection(
   }
 
   const rawTimestamp = payload.device_collected_at || payload.offline_created_at || new Date().toISOString();
-  const deviceCollectedAt = new Date(rawTimestamp);
-  if (isNaN(deviceCollectedAt.getTime())) {
+  const phoneCollectedAt = new Date(rawTimestamp);
+  if (isNaN(phoneCollectedAt.getTime())) {
     return { status: 400, error: 'Invalid device_collected_at timestamp.' };
-  }
-  if (deviceCollectedAt.getTime() > Date.now() + 5 * 60 * 1000) {
-    return { status: 400, error: 'device_collected_at cannot be in the future.' };
   }
 
   const rawNotes = payload.collection_notes !== undefined ? payload.collection_notes : payload.notes;
@@ -3117,6 +3115,8 @@ export async function submitShopCollection(
       // Validation error on altered replay is handled by idempotency matching
     }
 
+    // A retry of a collection saved under a corrected time still carries the phone's own time.
+    const savedPhoneTime = (existingCollection.decision_details as { deviceClockAt?: string } | null)?.deviceClockAt;
     return resolveCollectionIdempotencyMatch(existingCollection, auth, linkedProfile, {
       stopId,
       quantityValue,
@@ -3126,7 +3126,7 @@ export async function submitShopCollection(
       lat,
       lng,
       accuracy,
-      deviceCollectedAt,
+      deviceCollectedAt: savedPhoneTime === phoneCollectedAt.toISOString() ? existingCollection.device_collected_at : phoneCollectedAt,
       notes,
       shopRmrNumber: validatedShopRmrForReplay,
       hasExplicitTimestamp: !!(payload.device_collected_at || payload.offline_created_at),
@@ -3137,18 +3137,14 @@ export async function submitShopCollection(
     return { status: 409, error: 'This journey is not collecting milk any more.' };
   }
 
-  // Time Validations against Journey Lifespan (for new collections)
-  if (deviceCollectedAt.getTime() < new Date(stop.journey.started_at).getTime()) {
-    return { status: 400, error: 'Collection time cannot predate journey start time.' };
-  }
-
-  if (stop.journey.ended_at && deviceCollectedAt.getTime() > new Date(stop.journey.ended_at).getTime()) {
-    return { status: 400, error: 'Collection time cannot be later than journey ended_at.' };
-  }
-
-  if (stop.journey.cancelled_at && deviceCollectedAt.getTime() > new Date(stop.journey.cancelled_at).getTime()) {
-    return { status: 400, error: 'Collection time cannot be later than journey cancelled_at.' };
-  }
+  // A wrong phone clock must not stop milk being recorded: save under the nearest possible time and flag it.
+  const { collectedAt: deviceCollectedAt, corrected: phoneClockCorrected } = resolveCollectionTime({
+    phoneTime: phoneCollectedAt,
+    now: new Date(),
+    startedAt: new Date(stop.journey.started_at),
+    endedAt: stop.journey.ended_at ? new Date(stop.journey.ended_at) : null,
+    cancelledAt: stop.journey.cancelled_at ? new Date(stop.journey.cancelled_at) : null,
+  });
 
   // Guard against submitting on already visited stop
   if (stop.status !== 'PENDING' || stop.collection !== null) {
@@ -3263,6 +3259,12 @@ export async function submitShopCollection(
     deciderCanApprove: auth.canDecideStage1,
   });
 
+  if (phoneClockCorrected) {
+    const flagged = decisionDetails as unknown as { warnings?: string[]; deviceClockAt?: string };
+    flagged.warnings = [...(flagged.warnings ?? []), 'Phone clock was wrong. Saved with the corrected time.'];
+    flagged.deviceClockAt = phoneCollectedAt.toISOString();
+  }
+
   // Remarks are checked on the phone. The server only insists for a REJECT (the phone always knows
   // that needs a reason): an exception the phone could not foresee (e.g. shop GPS known only here)
   // must not leave offline work stuck. Old phones send no decision and are never blocked.
@@ -3298,17 +3300,6 @@ export async function submitShopCollection(
         where: { id: stop.journey_id },
         select: { status: true, started_at: true, ended_at: true, cancelled_at: true },
       });
-
-      // Time Validations against Journey Lifespan under lock
-      if (deviceCollectedAt.getTime() < new Date(lockedJourney.started_at).getTime()) {
-        throw new Error('COLLECTION_PREDATES_JOURNEY_START');
-      }
-      if (lockedJourney.ended_at && deviceCollectedAt.getTime() > new Date(lockedJourney.ended_at).getTime()) {
-        throw new Error('COLLECTION_EXCEEDS_JOURNEY_END');
-      }
-      if (lockedJourney.cancelled_at && deviceCollectedAt.getTime() > new Date(lockedJourney.cancelled_at).getTime()) {
-        throw new Error('COLLECTION_EXCEEDS_JOURNEY_CANCEL');
-      }
 
       // Concurrency-safe atomic check-and-update on stop
       const updatedStop = await tx.motJourneyStop.updateMany({
@@ -3771,23 +3762,15 @@ export async function recordGpsBatch(
       continue;
     }
 
-    const recDate = new Date(item.device_recorded_at);
+    let recDate = new Date(item.device_recorded_at);
     if (isNaN(recDate.getTime())) {
       results.push({ client_location_id: locId, status: 'REJECTED', reason: 'Invalid device_recorded_at' });
       continue;
     }
 
-    // Reject timestamps unreasonably in the future (> 5 min)
-    if (recDate.getTime() > now.getTime() + 5 * 60 * 1000) {
-      results.push({ client_location_id: locId, status: 'REJECTED', reason: 'Timestamp in future' });
-      continue;
-    }
-
-    // Must not predate journey.started_at
-    if (recDate.getTime() < new Date(journey.started_at).getTime()) {
-      results.push({ client_location_id: locId, status: 'REJECTED', reason: 'Timestamp predates journey started_at' });
-      continue;
-    }
+    // A wrong phone clock should not lose the GPS point: keep it at the nearest possible time.
+    if (recDate.getTime() > now.getTime() + 5 * 60 * 1000) recDate = now;
+    if (recDate.getTime() < new Date(journey.started_at).getTime()) recDate = new Date(journey.started_at);
 
     // Must not be later than journey.ended_at when ended_at exists
     if (journey.ended_at && recDate.getTime() > new Date(journey.ended_at).getTime()) {

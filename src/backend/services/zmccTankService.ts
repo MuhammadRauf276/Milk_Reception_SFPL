@@ -12,7 +12,7 @@ import type { ActingContext } from '@/types/acting';
 import { assertResourceInScope, primaryActorFields, asRoleFields } from '@/backend/core/acting-context';
 import { isZmccFieldOfficer, canActAs } from '@/backend/core/roles/hierarchy';
 import { canViewZmcc13TsLiters, isBlindOperationalRole } from '@/lib/role-visibility';
-import { MOT_CALCULATION_VERSION, milkQualityFromLrFat } from '@/backend/utils/milkFormulas';
+import { MOT_CALCULATION_VERSION, exactTsFromLrFat, milkQualityFromLrFat } from '@/backend/utils/milkFormulas';
 import {
   calculatePortionReceived,
   computeAndStoreAreaLossTx,
@@ -2070,7 +2070,7 @@ export async function saveWeighingValues(
           if (unit === 'LITER') {
             const density = calculatePortionReceived({
               netWeightKg: 1,
-              density: num(p.density),
+              density: num(p.lr) ? null : num(p.density),
               lr: num(p.lr),
               ts: Number(p.ts ?? 0),
             }).density;
@@ -2179,11 +2179,12 @@ export async function unloadSessionToTank(
         const net = Number(p.net_weight_kg);
         // A portion decided before TS was saved at the lab still has the LR and Fat to work it out.
         const quality = milkQualityFromLrFat(num(p.lr), num(p.fat));
-        const portionTs = num(p.ts) ?? quality?.ts ?? 0;
+        // Stored TS has only 2 decimals, so LR and Fat give the exact figure when both are present.
+        const portionTs = exactTsFromLrFat(num(p.lr), num(p.fat)) ?? num(p.ts) ?? quality?.ts ?? 0;
         const portionSnf = num(p.snf) ?? quality?.snf ?? 0;
         const m = calculatePortionReceived({
           netWeightKg: net,
-          density: num(p.density),
+          density: num(p.lr) ? null : num(p.density),
           lr: num(p.lr),
           ts: portionTs,
         });

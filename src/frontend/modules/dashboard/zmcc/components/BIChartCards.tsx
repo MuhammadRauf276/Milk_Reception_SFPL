@@ -18,7 +18,7 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
 
   if (!trends || trends.length === 0) {
     return (
-      <div className="h-64 flex items-center justify-center text-xs font-semibold text-slate-400 bg-subtle rounded-xl border border-dashed border-border">
+      <div className="h-64 flex items-center justify-center text-xs font-semibold text-muted-foreground bg-subtle rounded-xl border border-dashed border-border">
         No trend records available for the selected period.
       </div>
     );
@@ -59,7 +59,7 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
                 x={paddingX - 8}
                 y={y + 3}
                 textAnchor="end"
-                className="text-xs fill-slate-500 font-medium tabular-nums"
+                className="text-xs fill-neutral-500 font-medium tabular-nums"
               >
                 {val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val}
               </text>
@@ -91,7 +91,7 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
                 width={barWidth}
                 height={Math.max(1, morningH)}
                 rx={eveningH === 0 ? 3 : 0}
-                className={isHovered ? 'fill-slate-500' : 'fill-slate-400'}
+                className={isHovered ? 'fill-neutral-500' : 'fill-neutral-400'}
               />
               {/* Evening segment (accent) */}
               <rect
@@ -108,7 +108,7 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
                 x={x + barWidth / 2}
                 y={chartHeight - 6}
                 textAnchor="middle"
-                className="text-xs fill-slate-500 font-medium"
+                className="text-xs fill-neutral-500 font-medium"
               >
                 {t.date.slice(5)}
               </text>
@@ -148,26 +148,26 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
 
       {/* Hover Card */}
       {hoveredIndex !== null && trends[hoveredIndex] && (
-        <div className="mt-2 p-3 bg-slate-900 text-white rounded-lg text-xs shadow-lg flex items-center justify-between gap-4">
+        <div className="mt-2 p-3 bg-neutral-900 text-white rounded-lg text-xs shadow-lg flex items-center justify-between gap-4">
           <div>
-            <span className="font-semibold text-slate-200">{trends[hoveredIndex].date}</span>
-            <div className="text-xs text-slate-400">
+            <span className="font-semibold text-neutral-200">{trends[hoveredIndex].date}</span>
+            <div className="text-xs text-muted-foreground">
               Total: <span className="font-semibold text-white">{trends[hoveredIndex].grossLiters.toLocaleString()} L</span>
               {' · '}
               13% TS: <span className="font-semibold text-emerald-400">{trends[hoveredIndex].at13TsLiters.toLocaleString()} L</span>
             </div>
           </div>
-          <div className="text-right text-xs text-slate-300">
-            <div>Morning: <span className="text-slate-300 font-medium">{trends[hoveredIndex].morningLiters.toLocaleString()} L</span></div>
+          <div className="text-right text-xs text-neutral-300">
+            <div>Morning: <span className="text-neutral-300 font-medium">{trends[hoveredIndex].morningLiters.toLocaleString()} L</span></div>
             <div>Evening: <span className="text-blue-300 font-medium">{trends[hoveredIndex].eveningLiters.toLocaleString()} L</span></div>
           </div>
         </div>
       )}
 
       {/* Legend */}
-      <div className="mt-3 flex items-center justify-center gap-6 text-xs font-medium text-slate-600">
+      <div className="mt-3 flex items-center justify-center gap-6 text-xs font-medium text-secondary-foreground">
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-xs bg-slate-400 inline-block" />
+          <span className="w-3 h-3 rounded-xs bg-neutral-400 inline-block" />
           <span>Morning Shift</span>
         </div>
         <div className="flex items-center gap-2">
@@ -195,26 +195,26 @@ export function ShiftDistributionChart({
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+      <div className="flex items-center justify-between text-xs font-semibold text-secondary-foreground">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+          <span className="w-2.5 h-2.5 rounded-full bg-neutral-400" />
           <span>Morning Shift (04:00 - 13:00)</span>
         </div>
         <div className="tabular-nums font-semibold">
           {shiftComparison.morningLiters.toLocaleString()} L ({shiftComparison.morningPct}%)
         </div>
       </div>
-      <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden flex">
+      <div className="w-full h-3 rounded-full bg-muted overflow-hidden flex">
         <div
           style={{ width: `${shiftComparison.morningPct}%` }}
-          className="bg-slate-400 h-full transition-[width] duration-500"
+          className="bg-neutral-400 h-full transition-[width] duration-500"
         />
         <div
           style={{ width: `${shiftComparison.eveningPct}%` }}
           className="bg-blue-600 h-full transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-500"
         />
       </div>
-      <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+      <div className="flex items-center justify-between text-xs font-semibold text-secondary-foreground">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
           <span>Evening Shift (13:00 - 22:00)</span>
@@ -236,7 +236,7 @@ export function QualityMatrixChart({ scatter }: { scatter: QualityScatterPoint[]
 
   if (!scatter || scatter.length === 0) {
     return (
-      <div className="h-64 flex items-center justify-center text-xs font-semibold text-slate-400 bg-subtle rounded-xl border border-dashed border-border">
+      <div className="h-64 flex items-center justify-center text-xs font-semibold text-muted-foreground bg-subtle rounded-xl border border-dashed border-border">
         No quality test samples available.
       </div>
     );
@@ -346,7 +346,7 @@ export function QualityMatrixChart({ scatter }: { scatter: QualityScatterPoint[]
           })}
 
           {/* Axis Labels */}
-          <text x={width / 2} y={height - 8} textAnchor="middle" className="text-xs fill-slate-500 font-semibold">
+          <text x={width / 2} y={height - 8} textAnchor="middle" className="text-xs fill-neutral-500 font-semibold">
             Fat % →
           </text>
           <text
@@ -354,7 +354,7 @@ export function QualityMatrixChart({ scatter }: { scatter: QualityScatterPoint[]
             y={height / 2}
             textAnchor="middle"
             transform={`rotate(-90 12 ${height / 2})`}
-            className="text-xs fill-slate-500 font-semibold"
+            className="text-xs fill-neutral-500 font-semibold"
           >
             SNF % →
           </text>
@@ -362,7 +362,7 @@ export function QualityMatrixChart({ scatter }: { scatter: QualityScatterPoint[]
       </div>
 
       {selectedPoint ? (
-        <div className="p-3 bg-slate-900 text-white rounded-lg text-xs flex items-center justify-between">
+        <div className="p-3 bg-neutral-900 text-white rounded-lg text-xs flex items-center justify-between">
           <div>
             <span className="font-semibold text-primary-foreground">#{selectedPoint.collectionNumber}</span> · Route {selectedPoint.routeCode}
           </div>
@@ -374,7 +374,7 @@ export function QualityMatrixChart({ scatter }: { scatter: QualityScatterPoint[]
           </div>
         </div>
       ) : (
-        <div className="text-xs text-slate-500 flex items-center justify-between">
+        <div className="text-xs text-muted-foreground flex items-center justify-between">
           <span>Hover a point to view batch parameters.</span>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Premium</span>
@@ -394,7 +394,7 @@ export function QualityMatrixChart({ scatter }: { scatter: QualityScatterPoint[]
 export function RouteLossBarChart({ rankings }: { rankings: RoutePerformanceRanking[] }) {
   if (!rankings || rankings.length === 0) {
     return (
-      <div className="h-48 flex items-center justify-center text-xs font-semibold text-slate-400 bg-subtle rounded-xl border border-dashed border-border">
+      <div className="h-48 flex items-center justify-center text-xs font-semibold text-muted-foreground bg-subtle rounded-xl border border-dashed border-border">
         No route collection data available.
       </div>
     );
@@ -417,7 +417,7 @@ export function RouteLossBarChart({ rankings }: { rankings: RoutePerformanceRank
           <div key={r.routeId} className="space-y-1">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-foreground">
-                {r.routeCode} · <span className="font-normal text-slate-600">{r.name}</span>
+                {r.routeCode} · <span className="font-normal text-secondary-foreground">{r.name}</span>
               </span>
               <div className="flex items-center gap-2">
                 <span className="tabular-nums font-semibold text-foreground">
@@ -428,7 +428,7 @@ export function RouteLossBarChart({ rankings }: { rankings: RoutePerformanceRank
                 </span>
               </div>
             </div>
-            <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+            <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
               <div
                 style={{ width: `${barPct}%` }}
                 className="bg-primary h-full rounded-full transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-500"
@@ -466,16 +466,16 @@ export function HourlyHeatmapChart({ hourlyFlow }: { hourlyFlow: HourlyThroughpu
                   isRush
                     ? 'bg-blue-600 group-hover:bg-blue-700'
                     : h.liters > 0
-                    ? 'bg-slate-300 group-hover:bg-slate-400'
-                    : 'bg-slate-200'
+                    ? 'bg-border group-hover:bg-neutral-400'
+                    : 'bg-muted'
                 }`}
               />
-              <span className="text-xs font-semibold text-slate-500 mt-1 tabular-nums">
+              <span className="text-xs font-semibold text-muted-foreground mt-1 tabular-nums">
                 {h.hour % 3 === 0 ? h.hour : ''}
               </span>
 
               {/* Tooltip */}
-              <div className="hidden group-hover:block absolute bottom-full mb-1 z-30 p-2 bg-slate-900 text-white rounded-md text-xs whitespace-nowrap shadow-lg">
+              <div className="hidden group-hover:block absolute bottom-full mb-1 z-30 p-2 bg-neutral-900 text-white rounded-md text-xs whitespace-nowrap shadow-lg">
                 <div className="font-semibold">{h.label}</div>
                 <div>{h.liters.toLocaleString()} Liters</div>
                 <div>{h.count} Collections</div>
@@ -484,7 +484,7 @@ export function HourlyHeatmapChart({ hourlyFlow }: { hourlyFlow: HourlyThroughpu
           );
         })}
       </div>
-      <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+      <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
         <span>00:00 Night</span>
         <span className="font-semibold text-secondary-foreground">Peak morning 08:00–10:00 · Peak evening 18:00–20:00</span>
         <span>23:00 Night</span>
