@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Button } from './button';
 import { EmptyState, ErrorState } from './empty-state';
 import { SkeletonTable } from './loaders';
+import { Pagination, usePagedRows } from './pagination';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { TableWrapper } from './table-wrapper';
 
@@ -55,8 +56,14 @@ export interface DataTableProps<T> {
   columnPickerId?: string;
   /** How much width the table needs before phone cards turn into columns. */
   tableFrom?: 'md' | 'lg';
-  /** Pagination bar or infinite scroll loader. */
+  /** The screen's own pagination bar or infinite scroll loader. Turns off the built-in pages. */
   footer?: React.ReactNode;
+  /** Set false when the screen already pages, or every row must stay in view. */
+  paginate?: boolean;
+  /** Rows per page for the built-in pages. */
+  pageSize?: number;
+  /** What the rows are called in the count, such as "vehicles". */
+  noun?: string;
   className?: string;
 }
 
@@ -96,6 +103,9 @@ export function DataTable<T>({
   columnPickerId,
   tableFrom = 'md',
   footer,
+  paginate = true,
+  pageSize,
+  noun,
   className,
 }: DataTableProps<T>) {
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(new Set());
@@ -116,11 +126,20 @@ export function DataTable<T>({
     });
   };
 
+  const paged = usePagedRows(rows, getRowId, pageSize);
+  const usePages = paginate && !footer;
+  const shownRows = usePages ? paged.pageRows : rows;
+  const topRef = React.useRef<HTMLDivElement>(null);
+  const goToPage = (next: number) => {
+    paged.setPage(next);
+    topRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+  };
+
   const visible = columns.filter((c) => !hidden.includes(c.key));
   const canSelect = !!bulkActions?.length;
-  const ids = rows.map(getRowId);
-  // A selection only applies to rows on screen: rows that left the list are never acted on.
-  const pickedRows = rows.filter((r) => selected.has(getRowId(r)));
+  const ids = shownRows.map(getRowId);
+  // A selection only applies to rows on screen: rows on other pages, or gone from the list, are never acted on.
+  const pickedRows = shownRows.filter((r) => selected.has(getRowId(r)));
   const allPicked = ids.length > 0 && ids.every((id) => selected.has(id));
 
   const toggleRow = (id: string) =>
@@ -150,7 +169,7 @@ export function DataTable<T>({
   const interactive = (e: React.MouseEvent) => (e.target as Element).closest('button,a,input,select,label,[role="menu"],[role="menuitem"]');
 
   return (
-    <div className={cn('@container min-w-0 space-y-2', className)}>
+    <div ref={topRef} className={cn('@container min-w-0 scroll-mt-20 space-y-2', className)}>
       {columnPickerId ? (
         <div className="flex justify-end">
           <Popover>
@@ -180,7 +199,7 @@ export function DataTable<T>({
         <>
           {/* Narrow container: cards */}
           <ul className={cn('min-w-0 space-y-2', CARD_CLASS[tableFrom], stale && 'opacity-60')}>
-            {rows.map((row) => {
+            {shownRows.map((row) => {
               const id = getRowId(row);
               const expanded = renderExpanded?.(row);
               return (
@@ -242,7 +261,7 @@ export function DataTable<T>({
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {rows.map((row) => {
+                  {shownRows.map((row) => {
                     const id = getRowId(row);
                     const expanded = renderExpanded?.(row);
                     return (
@@ -282,6 +301,9 @@ export function DataTable<T>({
       )}
 
       {footer}
+      {usePages && paged.totalPages > 1 ? (
+        <Pagination page={paged.page} totalPages={paged.totalPages} totalRecords={paged.totalRecords} pageSize={paged.pageSize} noun={noun} onPageChange={goToPage} />
+      ) : null}
 
       {canSelect && pickedRows.length > 0 ? (
         <div role="region" aria-label="Bulk actions" className="sticky bottom-2 z-sticky flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border bg-card p-2 shadow-lg">

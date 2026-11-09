@@ -1,43 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
+import { Pagination, type PaginationProps } from '@/components/ui/pagination';
 
-interface PaginationBarProps {
-  page: number;
-  totalPages: number;
-  totalRecords: number;
-  noun?: string;
-  disabled?: boolean;
-  onPageChange: (page: number) => void;
-}
-
-/** Previous / Next pager with 44px touch targets. Shows only a count when there is one page. */
-export function PaginationBar({ page, totalPages, totalRecords, noun = 'records', disabled, onPageChange }: PaginationBarProps) {
-  if (totalPages <= 1) {
-    return (
-      <div className="border-t border-border px-4 py-2 text-xs font-semibold text-muted-foreground">
-        {totalRecords.toLocaleString()} {noun}
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-card px-3 py-2 text-xs font-semibold text-secondary-foreground">
-      <div>
-        Page <span className="tabular-nums">{page}</span> of <span className="tabular-nums">{totalPages}</span>
-        <span className="hidden sm:inline">
-          {' '}
-          ({totalRecords.toLocaleString()} {noun})
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button type="button" variant="outline" className="h-11 px-4" disabled={disabled || page <= 1} onClick={() => onPageChange(page - 1)}>
-          Previous
-        </Button>
-        <Button type="button" variant="outline" className="h-11 px-4" disabled={disabled || page >= totalPages} onClick={() => onPageChange(page + 1)}>
-          Next
-        </Button>
-      </div>
-    </div>
-  );
+/** The shared pager inside a bordered panel. */
+export function PaginationBar(props: PaginationProps) {
+  return <Pagination {...props} className="border-t border-border bg-card" />;
 }

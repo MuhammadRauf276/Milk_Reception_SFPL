@@ -275,7 +275,7 @@ export default function SuperAdminUsersPage() {
         </div>
 
         <div className="p-3 sm:p-4">
-          <DataTable
+          <DataTable paginate={false}
             columns={columns}
             rows={users}
             getRowId={(u) => String(u.id)}

@@ -1,6 +1,7 @@
 'use client';
 
 import { InfoTip } from '@/components/ui/info-tip';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import React, { useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CheckCircle2, Loader2, XCircle } from 'lucide-react';
@@ -33,6 +34,7 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
     placeholderData: keepPreviousData,
   });
   const items = query.data?.items ?? [];
+  const paged = usePagedRows(items, (item) => String(item.entity_id));
   const allowWrite = canWrite && query.data?.can_add_remarks !== false;
   const loading = query.isPending;
   const error = actionError || (query.error ? getErrorMessage(query.error) || 'Could not load rejected milk.' : null);
@@ -96,7 +98,7 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
         <div className="p-6 text-center text-sm font-medium text-muted-foreground">No pending remarks</div>
       ) : (
         <div className="divide-y divide-border">
-          {items.map((item) => (
+          {paged.pageRows.map((item) => (
             <div key={item.entity_id} className="p-4 space-y-3">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-secondary-foreground">
                 <span className={`px-2 py-0.5 rounded text-xs font-semibold  ${
@@ -150,6 +152,9 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
               )}
             </div>
           ))}
+          {paged.totalPages > 1 ? (
+            <Pagination page={paged.page} totalPages={paged.totalPages} totalRecords={paged.totalRecords} pageSize={paged.pageSize} noun="portions" onPageChange={paged.setPage} />
+          ) : null}
         </div>
       )}
     </section>

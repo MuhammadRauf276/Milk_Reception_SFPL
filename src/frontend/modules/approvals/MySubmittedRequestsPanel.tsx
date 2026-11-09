@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { SubmitterRequestItem } from '@/backend/services/approvals/submitterRequestService';
 import { SkeletonList } from '@/components/ui/loaders';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { formatDate, formatTime } from '@/lib/format';
 
 interface MySubmittedRequestsPanelProps {
@@ -33,6 +34,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
     if (filterStatus === 'RESOLVED') return item.status !== 'PENDING';
     return true;
   });
+  const paged = usePagedRows(filtered, (item) => String(item.id));
 
   return (
     <div className={`space-y-4 ${className || ''}`}>
@@ -129,7 +131,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
 
       {/* Requests List */}
       <div className="space-y-2.5">
-        {filtered.map((item) => {
+        {paged.pageRows.map((item) => {
           let badgeClass = 'bg-muted text-foreground border-border';
           if (item.status === 'PENDING') {
             badgeClass = 'bg-amber-50 text-amber-900 border-amber-300';
@@ -192,6 +194,9 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
           );
         })}
       </div>
+      {paged.totalPages > 1 ? (
+        <Pagination page={paged.page} totalPages={paged.totalPages} totalRecords={paged.totalRecords} pageSize={paged.pageSize} noun="requests" onPageChange={paged.setPage} />
+      ) : null}
     </div>
   );
 }

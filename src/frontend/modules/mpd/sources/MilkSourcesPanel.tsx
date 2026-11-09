@@ -210,7 +210,7 @@ export function MilkSourcesPanel({
         </button>
       </div>
 
-      <DataTable
+      <DataTable paginate={false}
         columns={columns}
         rows={rows}
         getRowId={(source) => source.id}

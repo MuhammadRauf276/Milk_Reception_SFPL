@@ -287,7 +287,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
         </div>
       ) : null}
 
-      <DataTable
+      <DataTable paginate={false}
         columns={columns}
         rows={pageRows}
         getRowId={(r) => r.id}

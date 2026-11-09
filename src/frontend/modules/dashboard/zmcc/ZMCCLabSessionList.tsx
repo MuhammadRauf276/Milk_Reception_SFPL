@@ -246,7 +246,7 @@ export const ZMCCLabSessionList: React.FC<{
                   Observed results ({session.results.length})
                 </summary>
                 <div className="border-t border-border/80 p-2">
-                  <DataTable columns={resultColumns} rows={session.results} getRowId={(r) => r.id} />
+                  <DataTable paginate={false} columns={resultColumns} rows={session.results} getRowId={(r) => r.id} />
                 </div>
               </details>
             )}

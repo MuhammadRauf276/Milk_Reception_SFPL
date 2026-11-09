@@ -195,7 +195,7 @@ export function ContractorsPanel({
           </button>
       </div>
 
-      <DataTable
+      <DataTable paginate={false}
         columns={columns}
         rows={rows}
         getRowId={(contractor) => contractor.id}

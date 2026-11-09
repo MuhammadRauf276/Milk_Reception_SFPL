@@ -234,7 +234,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
           </span>
         </div>
 
-        <DataTable
+        <DataTable paginate={false}
           columns={columns}
           rows={visits.slice(0, 10)}
           getRowId={(v) => String(v.visitId)}

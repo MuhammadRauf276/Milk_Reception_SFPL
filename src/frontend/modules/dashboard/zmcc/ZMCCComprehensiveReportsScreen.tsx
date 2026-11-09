@@ -376,7 +376,7 @@ export function ZMCCComprehensiveReportsScreen({
               No route collections found for the selected date range.
             </div>
           ) : (
-            <DataTable
+            <DataTable paginate={false}
               columns={routeColumns}
               rows={routeLedgerQuery.data?.rows ?? []}
               getRowId={(r) => r.id}
@@ -400,7 +400,7 @@ export function ZMCCComprehensiveReportsScreen({
               No supplier arrival records found for the selected date range.
             </div>
           ) : (
-            <DataTable
+            <DataTable paginate={false}
               columns={hcColumns}
               rows={hcLedgerQuery.data?.rows ?? []}
               getRowId={(r) => r.id}
@@ -424,7 +424,7 @@ export function ZMCCComprehensiveReportsScreen({
               No tanks registered at this facility.
             </div>
           ) : (
-            <DataTable
+            <DataTable paginate={false}
               columns={tankColumns}
               rows={tankStorageQuery.data?.rows ?? []}
               getRowId={(r) => r.id}

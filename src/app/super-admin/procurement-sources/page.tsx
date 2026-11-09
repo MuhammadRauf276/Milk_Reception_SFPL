@@ -193,7 +193,7 @@ function ProcurementSourcesContent() {
         </div>
 
         <div className="p-3 sm:p-4">
-          <DataTable
+          <DataTable paginate={false}
             columns={columns}
             rows={sources}
             getRowId={(s) => s.id}
