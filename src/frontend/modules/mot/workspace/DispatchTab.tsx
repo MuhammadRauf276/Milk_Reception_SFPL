@@ -121,7 +121,7 @@ export function DispatchTab({
               <div className="space-y-1">
                 <p className="font-semibold text-amber-950">All registered Mobile Testers are currently on active journeys</p>
                 <p className="text-amber-800">
-                  Each mobile tester can only run one active journey at a time. To assign a new journey, the tester&apos;s active journey must first be completed (upon arrival at ZMCC) or cancelled from the Active Journeys tab, or a new Mobile Tester profile registered.
+                  A tester can run one journey at a time. Finish or cancel the active journey, or add a new tester.
                 </p>
               </div>
             </div>

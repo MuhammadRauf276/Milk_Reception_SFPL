@@ -1078,7 +1078,7 @@ export const CentralCorrectionDesk: React.FC = () => {
         <div className="bg-card border-border p-6 border rounded-2xl space-y-3 text-xs">
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <div>
-              <h3 className="inline-flex items-center font-semibold text-sm text-foreground">Audit trail<InfoTip text="Every record amendment made by Data Executive and Super Admin writes an append-only row here." /></h3>
+              <h3 className="inline-flex items-center font-semibold text-sm text-foreground">Audit trail<InfoTip text="Every correction by Data Executive and Super Admin is listed here." /></h3>
             </div>
             <Button
               type="button"
@@ -1163,7 +1163,7 @@ export const CentralCorrectionDesk: React.FC = () => {
             {/* Audit Warning */}
             <div className="bg-card border-border p-3 rounded-xl border flex items-start space-x-2 text-amber-900 text-xs">
               <Lock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-              <span className="inline-flex items-center">Audit logged<InfoTip text="Applying a ticket for Mobile Tester arrival, HC arrival, lab or shop records overwrites the fields in the database and writes an immutable audit row. For weighing and exit tickets, fix the record first, then apply to mark the ticket Done." /></span>
+              <span className="inline-flex items-center">Audit logged<InfoTip text="Applying a ticket changes the record and logs it. For weighing and exit tickets, fix the record first, then apply." /></span>
             </div>
           </div>
 
@@ -1452,7 +1452,7 @@ export const CentralCorrectionDesk: React.FC = () => {
               {/* AUDIT WARNING */}
               <div className="bg-card border-border p-3 rounded-xl border text-secondary-foreground flex items-start space-x-2 text-xs">
                 <Lock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                <span className="inline-flex items-center">Audit logged<InfoTip text="This direct correction will atomically update the record, recompute supply chain totals, adjust tank inventory if applicable, and log a permanent change event." /></span>
+                <span className="inline-flex items-center">Audit logged<InfoTip text="This updates the record, totals and any tank stock, and logs the change." /></span>
               </div>
             </div>
 

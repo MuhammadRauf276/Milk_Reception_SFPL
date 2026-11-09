@@ -346,7 +346,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
           </>
         ) : (
           <div className="bg-card border-border border rounded-xl p-12 text-center text-muted-foreground text-xs">
-            Loading MPD Executive Telemetry…
+            Loading
           </div>
         )}
       </motion.div>

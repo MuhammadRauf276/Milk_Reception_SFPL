@@ -73,7 +73,7 @@ export function ApprovalDetailBody({
               )}
             >
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-xs">Security Seal Verification</span>
+                <span className="font-semibold text-xs">Seal check</span>
                 <span
                   className={cn(
                     'px-2 py-0.5 rounded text-xs font-semibold text-white',

@@ -101,15 +101,10 @@ export const ZMCCManagerReviewDrawer: React.FC<{
               <div className="bg-card border-border p-3 border text-amber-900 text-xs rounded-xl space-y-1">
                 <div className="flex items-center gap-2 font-semibold text-amber-800">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <span>Vehicle Physically Exited</span>
+                  <span>Vehicle has left</span>
                 </div>
                 <p className="text-xs leading-relaxed">
-                  The vehicle departed on <strong>{formatOperationalDatetime(exitTime!)}</strong>. Approving this
-                  record will register an official audit review (
-                  <code className="font-semibold text-amber-900 bg-amber-100 px-1 py-0.5 rounded">
-                    REVIEWED_EXITED
-                  </code>
-                  ) and will strictly NOT inject retroactive tank stock.
+                  The vehicle left on <strong>{formatOperationalDatetime(exitTime!)}</strong>. Approving records a review only and adds no tank stock.
                 </p>
               </div>
             ) : (

@@ -347,7 +347,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
             <div>
               <h3 className="text-sm font-semibold text-foreground">Ready to Weigh & Unload</h3>
               <p className="text-xs text-muted-foreground">
-                Vehicles with approved lab results waiting for portion weight entry and tank selection.
+                Lab-approved vehicles waiting for weight and tank
               </p>
             </div>
             {ready.length > 0 && (
@@ -362,7 +362,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
               <Truck className="h-8 w-8 text-slate-300 mx-auto mb-2" />
               <p className="text-sm font-semibold text-secondary-foreground">No vehicles waiting</p>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                Vehicles will appear here as soon as their milk portions receive lab approval.
+                Vehicles appear here after lab approval.
               </p>
             </div>
           )}

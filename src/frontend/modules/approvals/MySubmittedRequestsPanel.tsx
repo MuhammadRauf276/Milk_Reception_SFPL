@@ -40,7 +40,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
         <div>
           <h3 className="text-base font-semibold text-foreground">My Submitted Requests</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Real-time status tracking for exceptions, quality overrides, and clearance requests sent to management
+            Status of requests you sent
           </p>
         </div>
 

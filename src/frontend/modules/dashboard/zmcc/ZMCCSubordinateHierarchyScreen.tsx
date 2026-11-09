@@ -287,7 +287,7 @@ export function ZMCCSubordinateHierarchyScreen({
             </h1>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Complete downward operational structure: Routes → Areas → Collection Shops → Field Receipts
+            Routes, areas, shops and receipts
           </p>
         </div>
 
@@ -329,7 +329,7 @@ export function ZMCCSubordinateHierarchyScreen({
           icon={Milk}
           tone="info"
         />
-        <StatCard label="Active MOT Fleet" value={summary.activeMotCount} icon={UserCheck} tone="success" />
+        <StatCard label="Active Mobile Testers" value={summary.activeMotCount} icon={UserCheck} tone="success" />
       </div>
 
       {/* Tab Switcher & Search Bar */}
@@ -403,7 +403,7 @@ export function ZMCCSubordinateHierarchyScreen({
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          Assigned MOT: <span className="font-medium text-secondary-foreground">{route.assignedMot?.name || 'Unassigned'}</span>
+                          Mobile Tester: <span className="font-medium text-secondary-foreground">{route.assignedMot?.name || 'Unassigned'}</span>
                           {route.assignedMot?.vehicleNumber && ` (${route.assignedMot.vehicleNumber})`}
                         </div>
                       </div>

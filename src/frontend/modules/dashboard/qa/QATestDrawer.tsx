@@ -570,7 +570,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                           )}
                           {isCalculated && (
                             <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                              <Calculator className="h-3 w-3" /> Auto-calculated by Richmond canonical formula
+                              <Calculator className="h-3 w-3" /> Calculated by Richmond formula
                             </p>
                           )}
                           {!isCalculated && !isAppliedOnly && Boolean(isNumeric ? effectiveVal : state.textValue) && (

@@ -19,7 +19,7 @@ export default function SuperAdminTestPointPoliciesRedirectPage() {
           <Sliders className="w-6 h-6" />
         </div>
         <h1 className="text-lg font-semibold text-foreground">
-          Consolidated into Stage Policies &amp; Rules
+          Moved to Stage Policies &amp; Rules
         </h1>
 
         <Link

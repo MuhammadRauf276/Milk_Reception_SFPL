@@ -92,7 +92,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
       return;
     }
     if (final13Ts <= 0) {
-      setError('Valid @13% TS volume could not be determined. Check Fat % and LR, or enter custom @13% TS.');
+      setError('Could not work out @13% TS. Check Fat % and LR, or enter it.');
       return;
     }
 

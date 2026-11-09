@@ -57,10 +57,10 @@ export interface StageResponse {
 
 export const STAGE_TABS = [
   { id: 'CATALOG', label: 'Master Test Catalog', subtitle: 'All tests, stage scope & Acceptance Rule Configurations' },
-  { id: 'GLOBAL_DEFAULT', label: '0. Global Master Specs', subtitle: 'Universal Baseline Specification (Inherited by all stages)' },
-  { id: 'MOT_SHOP', label: '1. Mobile Tester Shop', subtitle: 'Village Shop Intake (Liters) · Can Rejection on Failure' },
-  { id: 'ZMCC_LAB_MC', label: '2. ZMCC Mobile Tester', subtitle: 'ZMCC Route Milk Intake (kg) · Chilled Silo vs Rejected Tank' },
-  { id: 'ZMCC_LAB_HC', label: '3. ZMCC HC', subtitle: 'HC Deliveries (kg) · Token Clearance' },
-  { id: 'DISPATCH', label: '4. Dispatch', subtitle: 'Tanker Dispatch to Plant (kg) · Strict Chilling (0–4.5°C) & Seal Clearance' },
-  { id: 'PLANT_QA', label: '5. Plant QA', subtitle: 'Plant Reception (kg) · Zero-Tolerance Adulteration Reject' },
+  { id: 'GLOBAL_DEFAULT', label: '0. Global Master Specs', subtitle: 'Base rules for all stages' },
+  { id: 'MOT_SHOP', label: '1. Mobile Tester Shop', subtitle: 'Village shop intake (litres)' },
+  { id: 'ZMCC_LAB_MC', label: '2. ZMCC Mobile Tester', subtitle: 'ZMCC route milk (kg)' },
+  { id: 'ZMCC_LAB_HC', label: '3. ZMCC HC', subtitle: 'HC deliveries (kg)' },
+  { id: 'DISPATCH', label: '4. Dispatch', subtitle: 'Tanker dispatch to plant (kg)' },
+  { id: 'PLANT_QA', label: '5. Plant QA', subtitle: 'Plant reception (kg)' },
 ] as const;

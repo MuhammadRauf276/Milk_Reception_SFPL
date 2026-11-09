@@ -3,7 +3,7 @@ import { DailyReportDashboard } from '@/frontend/modules/super-admin/daily-repor
 
 export const metadata = {
   title: 'Daily Operations & Quality Report | Super Admin',
-  description: 'Daily report across Mobile Tester intake, ZMCC lab receptions, Plant QA, exceptions audit, and supply chain losses.',
+  description: 'Daily milk intake, quality and loss report',
 };
 
 export default function SuperAdminDailyReportPage() {

@@ -103,7 +103,7 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
           <h1 className="text-lg font-semibold text-foreground">
             Scale queue
           </h1>
-          <InfoTip text="Progressive multi-compartment scale queue with immutable audit locks." />
+          <InfoTip text="Tankers waiting for each weighment." />
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold tabular-nums px-3 py-1 rounded-md bg-muted text-foreground border border-border">
@@ -513,7 +513,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                   Weighment progress ({visit.total_weighments} readings)
                 </h4>
                 <InfoTip
-                  text="Each completed step is permanently locked. The active step requires scale entry, and future steps unlock sequentially after silo transfer."
+                  text="Finished steps are locked. Later steps open after silo transfer."
                 />
               </div>
 
@@ -621,7 +621,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                               text={
                                 isGrossStep
                                   ? 'Capture the scale indicator for the fully loaded tanker upon plant arrival.'
-                                  : `Scale reading must be strictly less than ${step.starting_weight_kg?.toLocaleString()} kg.`
+                                  : `Scale reading must be less than ${step.starting_weight_kg?.toLocaleString()} kg.`
                               }
                             />
                           </div>

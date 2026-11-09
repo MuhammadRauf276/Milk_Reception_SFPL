@@ -161,7 +161,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
   const [modalMinValue, setModalMinValue] = useState<string>('');
   const [modalMaxValue, setModalMaxValue] = useState<string>('');
   const [modalAcceptableOption, setModalAcceptableOption] = useState<string>('');
-  const [modalReason, setModalReason] = useState<string>('Authoritative acceptance criteria set by Data Executive');
+  const [modalReason, setModalReason] = useState<string>('Acceptance criteria set by Data Executive');
   const [submitting, setSubmitting] = useState(false);
 
   // Edit Acceptance Criteria Modal State
@@ -170,7 +170,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
   const [criteriaMinValue, setCriteriaMinValue] = useState<string>('');
   const [criteriaMaxValue, setCriteriaMaxValue] = useState<string>('');
   const [criteriaAcceptableOption, setCriteriaAcceptableOption] = useState<string>('');
-  const [criteriaReason, setCriteriaReason] = useState<string>('Authoritative acceptance criteria updated by Data Executive');
+  const [criteriaReason, setCriteriaReason] = useState<string>('Acceptance criteria updated by Data Executive');
   const [criteriaSubmitting, setCriteriaSubmitting] = useState(false);
 
   // Fetch policies and active SOP rules for current station
@@ -256,7 +256,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
       setCriteriaMaxValue('');
       setCriteriaAcceptableOption('');
     }
-    setCriteriaReason('Authoritative acceptance criteria updated by Data Executive');
+    setCriteriaReason('Acceptance criteria updated by Data Executive');
     setIsCriteriaModalOpen(true);
   };
 
@@ -277,7 +277,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
             minValue: criteriaMinValue !== '' ? parseFloat(criteriaMinValue) : null,
             maxValue: criteriaMaxValue !== '' ? parseFloat(criteriaMaxValue) : null,
             acceptableOption: criteriaAcceptableOption.trim() || null,
-            reason: criteriaReason.trim() || 'Authoritative acceptance criteria updated by Data Executive',
+            reason: criteriaReason.trim() || 'Acceptance criteria updated by Data Executive',
           }),
         });
         if (!res.ok) {
@@ -382,7 +382,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
               minValue: modalMinValue !== '' ? parseFloat(modalMinValue) : null,
               maxValue: modalMaxValue !== '' ? parseFloat(modalMaxValue) : null,
               acceptableOption: modalAcceptableOption.trim() || null,
-              reason: modalReason.trim() || 'Authoritative acceptance criteria set by Data Executive',
+              reason: modalReason.trim() || 'Acceptance criteria set by Data Executive',
             }),
           });
           if (!ruleRes.ok) {

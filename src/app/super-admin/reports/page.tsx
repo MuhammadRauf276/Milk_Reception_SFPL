@@ -3,7 +3,7 @@ import { ReportsAndGovernanceWorkspace } from '@/frontend/modules/super-admin/re
 
 export const metadata = {
   title: 'Reports | Super Admin',
-  description: 'Centralized executive workspace for daily operations reports, cross-role hierarchy audit, and warning limit policies.',
+  description: 'Daily reports, senior actions and warning limits',
 };
 
 export default function SuperAdminReportsPage() {

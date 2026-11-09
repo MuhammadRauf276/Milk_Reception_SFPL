@@ -267,7 +267,7 @@ export function DailyReportDashboard() {
         <div>
           <div className="flex items-center gap-2">
             <p className="text-sm text-muted-foreground">Mobile Tester collections, ZMCC lab portions, plant QA, exceptions and losses</p>
-            <InfoTip text="Audit across Village Mobile Tester collections, ZMCC lab receptions, Plant QA, exceptions, and losses." />
+            <InfoTip text="Covers the selected date." />
           </div>
         </div>
 

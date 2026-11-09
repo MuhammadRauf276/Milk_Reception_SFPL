@@ -67,7 +67,7 @@ export function SourceCreateDrawer({ onClose, onSaved }: { onClose: () => void; 
             className={`${fieldInputClass} tabular-nums`}
             placeholder="e.g. ZMCC-FAISALABAD"
           />
-          <p className="mt-1 text-xs text-muted-foreground">Code is immutable once created.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Code cannot be changed later.</p>
         </div>
         <div>
           <label htmlFor="src-name" className={fieldLabelClass}>Source Name *</label>
@@ -103,7 +103,7 @@ export function SourceCreateDrawer({ onClose, onSaved }: { onClose: () => void; 
               </button>
             ))}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">Source type is immutable once created.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Type cannot be changed later.</p>
         </div>
         {sourceType === 'CONTRACTOR' && (
           <div>
@@ -163,12 +163,12 @@ export function SourceEditDrawer({ source, onClose, onSaved }: { source: Source;
           <div>
             <label className={fieldLabelClass}>Source Code</label>
             <input type="text" disabled value={source.code} className={readOnly} />
-            <p className="mt-1 text-xs text-muted-foreground">Source code is immutable and cannot be modified.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Code cannot be changed.</p>
           </div>
           <div>
             <label className={fieldLabelClass}>Source Type</label>
             <input type="text" disabled value={source.sourceType} className={readOnly} />
-            <p className="mt-1 text-xs text-muted-foreground">Source type is immutable and cannot be modified.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Type cannot be changed.</p>
           </div>
         </div>
         <div>

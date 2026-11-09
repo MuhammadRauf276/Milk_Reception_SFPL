@@ -219,7 +219,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 )}
               </div>
               <span className="text-xs text-muted-foreground font-sans hidden md:inline">
-                (Completed receipts use Final Receipt Business Date; Pending receipts use Visit / Dispatch Business Date)
+                (Completed: receipt date. Pending: dispatch date.)
               </span>
             </div>
           )}

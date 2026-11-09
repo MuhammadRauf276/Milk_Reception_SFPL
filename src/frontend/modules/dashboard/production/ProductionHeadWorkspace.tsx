@@ -74,7 +74,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
       case 'SILOS':
         return {
           title: 'Plant Silo Inventory',
-          subtitle: 'Storage volume, @13% TS metrics, capacity utilization & CIP state',
+          subtitle: 'Stock, @13% TS and capacity',
         };
       case 'HISTORY':
         return {
@@ -85,7 +85,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
       default:
         return {
           title: 'Live stations',
-          subtitle: 'Real-time plant intake, active scale operations & silo reception bays',
+          subtitle: 'Plant intake, scale work and silo bays',
         };
     }
   }, [currentTab]);

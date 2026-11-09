@@ -298,7 +298,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
 
         <div>
           <label htmlFor={`${p}-role`} className={fieldLabelClass}>
-            Canonical Role <span className="text-rose-600">*</span>
+            Role <span className="text-rose-600">*</span>
           </label>
           <Combobox
             id={`${p}-role`}

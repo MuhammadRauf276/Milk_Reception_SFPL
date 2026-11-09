@@ -30,6 +30,11 @@ const rules = [
   { name: 'old wording: Local Supplier (use HC supplier)', test: (l) => />[^<{]*\bLocal Suppliers?\b[^<{]*</.test(l) },
   { name: 'old wording: MOT in visible text (use Mobile Tester)', test: (l) => />[^<{]*\bMOT\b[^<{]*</.test(l) || /\b(label|title|header|placeholder): *['"`][^'"`]*\bMOT\b/.test(l) },
   { name: 'hype word in visible text', test: (l) => />[^<{]*\b(Seamless|Enterprise|Comprehensive|Operational)\b[^<{]*</.test(l) },
+  { name: 'jargon in text (say it plainly)', test: (l) => /(>|^\s*|text=")[^<{]*\b(Authoritative|immutable|canonical|strictly|Real-Time|Consolidated|Inter-facility)\b/i.test(l) && !/^\s*(\/\/|\*|import|const|let|type|if|return)/.test(l) && !/className=/.test(l.split(/\b(Authoritative|immutable|canonical|strictly|Real-Time|Consolidated|Inter-facility)\b/i)[0].slice(-1)) },
+  { name: 'long text (keep it under 25 words, or put it behind an InfoTip)', test: (l) => {
+    const m = l.match(/>([^<>{}]{150,})</) || l.match(/^\s*([A-Z][^<>{}=;]{150,})$/);
+    return !!m && m[1].trim().split(/\s+/).length > 25;
+  } },
 ];
 
 function walk(dir) {

@@ -59,7 +59,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
 
     async function start() {
       if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-        setErrorText('This phone or browser cannot use the WebRTC camera. You can use your device native camera below.');
+        setErrorText('This browser cannot open the camera. Use the phone camera below.');
         setPhase('error');
         return;
       }

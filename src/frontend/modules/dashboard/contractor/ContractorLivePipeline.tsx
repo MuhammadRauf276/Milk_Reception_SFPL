@@ -333,7 +333,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 )}
 
                 <div className="flex items-center space-x-2">
-                  <span className="text-muted-foreground font-semibold">Authoritative Receipt:</span>
+                  <span className="text-muted-foreground font-semibold">Receipt:</span>
                   <span
                     className={`tabular-nums font-semibold ${
                       v.finalReceiptExists && v.authoritativeFinalLiters != null

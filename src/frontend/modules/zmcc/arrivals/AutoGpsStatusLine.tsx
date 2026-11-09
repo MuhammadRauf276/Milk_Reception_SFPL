@@ -46,7 +46,7 @@ export function AutoGpsStatusLine({ label, gps, status, onRetry }: Props) {
       </div>
       {status === 'APPROXIMATE' && hasLocation && (
         <p className="mt-1 text-xs text-amber-700">
-          Approximate: no live GPS signal, so the last saved or ZMCC location is used. It updates when GPS is found.
+          Approximate location. It updates when GPS is found.
         </p>
       )}
       {status === 'NONE' && (

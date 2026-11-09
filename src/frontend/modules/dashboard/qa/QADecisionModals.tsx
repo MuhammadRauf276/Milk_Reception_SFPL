@@ -188,7 +188,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                       <div>
                         <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
                         <p className="mt-1 font-normal text-amber-900">
-                          One or more tests failed SOP rules (FAIL), picture is missing, or seal mismatch detected. Your decision will be sent to <strong>AVP, Quality Assurance (QA Head)</strong> for final decision.
+                          A test failed, a photo is missing or the seal does not match. Your decision goes to <strong>AVP, Quality Assurance (QA Head)</strong> for final decision.
                         </p>
                       </div>
                     </div>
@@ -282,7 +282,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                       <div>
                         <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
                         <p className="mt-1 font-normal text-amber-900">
-                          All tested parameters passed SOP rules (PASS). Your manual rejection will be sent to <strong>AVP, Quality Assurance (QA Head)</strong> for final decision.
+                          All tests passed. Your rejection goes to <strong>AVP, Quality Assurance (QA Head)</strong> for final decision.
                         </p>
                       </div>
                     </div>

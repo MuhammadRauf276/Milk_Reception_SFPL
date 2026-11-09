@@ -121,7 +121,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
       <div className="flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-semibold text-foreground">Offloading queue</h1>
-          <InfoTip text="Assign unloading bays, pump raw milk into storage silos, and track real-time tank capacity." />
+          <InfoTip text="Unload milk into silos and watch capacity." />
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold tabular-nums px-3 py-1 rounded-md bg-muted text-foreground border border-border">

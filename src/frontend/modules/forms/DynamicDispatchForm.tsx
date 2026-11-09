@@ -1448,7 +1448,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
           {result.status === 'PENDING_APPROVAL' && (
             <p className="text-xs font-semibold text-violet-900 bg-violet-50 border border-violet-200 rounded-xl p-3">
-              This dispatch has out-of-spec test values or exceptions. A review request has been sent to the {result.approverLabel} for approval.
+              Some test values are out of spec. A review request went to the {result.approverLabel} for approval.
             </p>
           )}
 

@@ -308,7 +308,7 @@ export function ZMCCComprehensiveReportsScreen({
             <h1 className="text-lg font-semibold text-foreground">Reports</h1>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Detailed shift-level ledgers for Route collections, HC direct suppliers, and Silo/Tank inventory
+            Route, HC and tank records by shift
           </p>
         </div>
 

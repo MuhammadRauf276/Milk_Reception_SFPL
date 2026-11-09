@@ -2,47 +2,21 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import {
-  Users,
-  CheckCircle2,
-  Award,
-  Sparkles,
-  TrendingUp,
-  Share2,
-  Copy,
-  ArrowRight,
-  ShieldCheck,
-  Building2,
-  Truck,
-  FileCheck2,
-} from 'lucide-react';
+import { Building2, CheckCircle2, Copy, Info, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
 import { toast } from '@/frontend/lib/appToast';
 
-const TIERS = [
-  {
-    name: 'Silver Partner',
-    volume: 'Up to 5,000 L / day',
-    incentive: 'Base commercial rate + 0.5% quality rebate',
-    color: 'border-border-strong bg-subtle text-foreground',
-    badge: 'Tier 1',
-  },
-  {
-    name: 'Gold Associate',
-    volume: '5,000 – 20,000 L / day',
-    incentive: '+1.5% premium pricing + dedicated bay priority',
-    color: 'border-amber-400 bg-amber-50 text-amber-900',
-    badge: 'Tier 2 · Popular',
-  },
-  {
-    name: 'Platinum Fleet',
-    volume: '20,000+ L / day',
-    incentive: '+3.0% incentive + zero detention demurrage waiver',
-    color: 'border-indigo-400 bg-indigo-50 text-indigo-900',
-    badge: 'Tier 3 · Enterprise',
-  },
-];
+const PARTNER_TYPES = [
+  { value: 'SUPPLIER', label: 'Milk supplier', icon: Building2 },
+  { value: 'TRANSPORTER', label: 'Transporter', icon: Truck },
+] as const;
 
+/**
+ * Partner page. Registration has no backend yet, so the page says so plainly
+ * and sends nothing. Terms and rates are added only once the business confirms them.
+ */
 export default function AffiliatesPage() {
   const [copied, setCopied] = useState(false);
   const [partnerType, setPartnerType] = useState<'SUPPLIER' | 'TRANSPORTER'>('SUPPLIER');
@@ -50,212 +24,80 @@ export default function AffiliatesPage() {
   const [contactName, setContactName] = useState('');
   const [phone, setPhone] = useState('');
   const [estVolume, setEstVolume] = useState('');
-  const [referralCode, setReferralCode] = useState('MILK-REF-2026');
-  const [submitted, setSubmitted] = useState(false);
 
   const handleCopyLink = () => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(`https://milk.shakarganj.com.pk/affiliates?ref=${referralCode}`);
-      setCopied(true);
-      toast.success('Referral invitation link copied to clipboard!');
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const handleOnboardingSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orgName.trim() || !contactName.trim() || !phone.trim()) {
-      toast.error('Please complete all required fields.');
-      return;
-    }
-    setSubmitted(true);
-    toast.success('Partner application submitted for management onboarding review!');
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+    void navigator.clipboard.writeText(`${window.location.origin}/affiliates`);
+    setCopied(true);
+    toast.success('Link copied');
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col w-full">
-      {/* Top Bar */}
-      <header className="flex h-16 w-full items-center justify-between border-b bg-card px-4 sm:px-8">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-6 w-6 text-primary" />
-          <span className="font-semibold text-base tracking-tight">Shakarganj Dairy · Partner & Affiliate Network</span>
-        </div>
-        <Link href="/" className="text-xs font-semibold text-primary hover:underline">
-          Return to Workspace →
+    <div className="flex min-h-[100dvh] w-full flex-col bg-background text-foreground">
+      <header className="flex min-h-16 w-full flex-wrap items-center justify-between gap-2 border-b bg-card px-4 sm:px-6">
+        <span className="text-base font-semibold">Shakarganj milk partners</span>
+        <Link href="/" className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline">
+          Back to workspace
         </Link>
       </header>
 
-      <main className="flex-1 w-full max-w-5xl mx-auto p-4 sm:p-6 space-y-8">
-        {/* Hero Section */}
-        <div className="rounded-2xl border border-border bg-card p-6 sm:p-10 shadow-xs space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Milk Procurement & Logistics Affiliates</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-            Grow Your Dairy Supply Chain Partnership
-          </h1>
-          <p className="text-sm text-muted-foreground max-w-2xl">
-            Register as a direct commercial supplier, local collection point associate, or contracted milk transporter.
-            Earn volume tiers, transparency rebates, and zero-detention scale priority across all plant silos and ZMCC intake hubs.
-          </p>
-
-          {/* Referral Card */}
-          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-input bg-muted/50 font-mono text-xs font-semibold text-foreground">
-              <Share2 className="w-4 h-4 text-muted-foreground" />
-              <span>Invite Code: <strong>{referralCode}</strong></span>
-            </div>
-            <Button onClick={handleCopyLink} variant="outline" className="text-xs font-semibold gap-1.5 min-h-[40px]">
-              {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copied' : 'Copy Partner Referral Link'}
-            </Button>
-          </div>
+      <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-4 sm:p-6">
+        <div className="space-y-3 rounded-2xl border bg-card p-4 shadow-2xs sm:p-6">
+          <h1 className="text-xl font-semibold">Become a partner</h1>
+          <p className="text-sm text-muted-foreground">For milk suppliers and transporters.</p>
+          <Button onClick={handleCopyLink} variant="outline">
+            {copied ? <CheckCircle2 /> : <Copy />}
+            {copied ? 'Copied' : 'Copy link to this page'}
+          </Button>
         </div>
 
-        {/* Tier Based UI Indicators */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground">
-            Tier-Based Volume & Quality Rebates
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {TIERS.map((tier) => (
-              <div key={tier.name} className={`p-5 rounded-2xl border ${tier.color} space-y-3 shadow-2xs`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-white/70 border border-current/20">
-                    {tier.badge}
-                  </span>
-                  <Award className="w-4 h-4 opacity-70" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold">{tier.name}</h3>
-                  <p className="text-xs font-medium opacity-80 mt-0.5">{tier.volume}</p>
-                </div>
-                <p className="text-xs font-semibold border-t border-current/15 pt-2.5">
-                  {tier.incentive}
-                </p>
-              </div>
+        <div role="status" className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0">Online registration is not open yet. Nothing on this form is sent or saved.</span>
+        </div>
+
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4 rounded-2xl border bg-card p-4 shadow-2xs sm:p-6">
+          <h2 className="text-base font-semibold">Your details</h2>
+
+          <div role="group" aria-label="Partner type" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-2">
+            {PARTNER_TYPES.map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={partnerType === value}
+                onClick={() => setPartnerType(value)}
+                className={`flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors ${
+                  partnerType === value ? 'border-primary bg-accent text-accent-foreground' : 'border-input bg-card text-secondary-foreground hover:bg-muted'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {label}
+              </button>
             ))}
           </div>
-        </div>
 
-        {/* Onboarding Data Capture Form */}
-        <div className="rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-xs space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Partner Onboarding Data Capture</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Submit your organization credentials for automated verification and route assignment.
-            </p>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-4">
+            <FormField label="Organization or farm" htmlFor="partner-org">
+              <Input id="partner-org" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
+            </FormField>
+            <FormField label="Contact person" htmlFor="partner-contact">
+              <Input id="partner-contact" value={contactName} onChange={(e) => setContactName(e.target.value)} />
+            </FormField>
+            <FormField label="Phone or WhatsApp" htmlFor="partner-phone">
+              <Input id="partner-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </FormField>
+            <FormField label="Estimated litres per day" htmlFor="partner-volume">
+              <Input id="partner-volume" type="number" inputMode="numeric" value={estVolume} onChange={(e) => setEstVolume(e.target.value)} />
+            </FormField>
           </div>
 
-          {submitted ? (
-            <div className="p-8 text-center border border-dashed border-emerald-300 bg-emerald-50/50 rounded-2xl space-y-2">
-              <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-              <h3 className="text-sm font-semibold text-emerald-950">Application Successfully Logged</h3>
-              <p className="text-xs text-emerald-800 max-w-md mx-auto">
-                Your partnership intake file has been dispatched to MPD Governance and the Zonal Field Operations team.
-                You will receive your dispatch token and route clearance via SMS & WhatsApp.
-              </p>
-              <Button onClick={() => setSubmitted(false)} variant="outline" size="sm" className="mt-3 text-xs">
-                Submit Another Intake
-              </Button>
-            </div>
-          ) : (
-            <form onSubmit={handleOnboardingSubmit} className="space-y-4">
-              {/* Partner Type Selection */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPartnerType('SUPPLIER')}
-                  className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-bold transition ${
-                    partnerType === 'SUPPLIER'
-                      ? 'border-primary ring-1 ring-primary bg-primary/5 text-primary'
-                      : 'border-border bg-card text-muted-foreground hover:bg-muted/40'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4" />
-                  <span>Commercial Milk Supplier</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPartnerType('TRANSPORTER')}
-                  className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-bold transition ${
-                    partnerType === 'TRANSPORTER'
-                      ? 'border-primary ring-1 ring-primary bg-primary/5 text-primary'
-                      : 'border-border bg-card text-muted-foreground hover:bg-muted/40'
-                  }`}
-                >
-                  <Truck className="w-4 h-4" />
-                  <span>Contracted Transporter</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">
-                    Organization / Farm Name <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={orgName}
-                    onChange={(e) => setOrgName(e.target.value)}
-                    placeholder="e.g. Al-Razi Dairy Farms"
-                    className="w-full min-h-[44px] px-3.5 text-xs rounded-xl border border-input bg-card text-foreground focus:ring-2 focus:ring-ring/30 focus:border-primary"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">
-                    Primary Contact Person <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={contactName}
-                    onChange={(e) => setContactName(e.target.value)}
-                    placeholder="e.g. Muhammad Rauf"
-                    className="w-full min-h-[44px] px-3.5 text-xs rounded-xl border border-input bg-card text-foreground focus:ring-2 focus:ring-ring/30 focus:border-primary"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">
-                    Phone / WhatsApp Number <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. +92 300 1234567"
-                    className="w-full min-h-[44px] px-3.5 text-xs rounded-xl border border-input bg-card text-foreground focus:ring-2 focus:ring-ring/30 focus:border-primary"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">
-                    Estimated Daily Liters
-                  </label>
-                  <input
-                    type="number"
-                    value={estVolume}
-                    onChange={(e) => setEstVolume(e.target.value)}
-                    placeholder="e.g. 10000"
-                    className="w-full min-h-[44px] px-3.5 text-xs rounded-xl border border-input bg-card text-foreground focus:ring-2 focus:ring-ring/30 focus:border-primary"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-end">
-                <Button type="submit" className="min-h-[44px] px-6 text-xs font-semibold gap-2">
-                  <FileCheck2 className="w-4 h-4" />
-                  <span>Submit Partner Onboarding</span>
-                </Button>
-              </div>
-            </form>
-          )}
-        </div>
+          <div className="flex justify-end">
+            <Button type="submit" disabled>
+              Registration not open yet
+            </Button>
+          </div>
+        </form>
       </main>
     </div>
   );

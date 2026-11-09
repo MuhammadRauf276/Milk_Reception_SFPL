@@ -317,7 +317,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             {metrics.totalAuthoritativeReceivedLiters.toLocaleString()} L
           </p>
           <p className="text-xs text-blue-700 font-medium">
-            Authoritative physical volume
+            Received volume
           </p>
         </div>
 

@@ -188,7 +188,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
               </h1>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Dynamic volume trends, weighted quality indices, multi-tier loss diagnostics, and route performance
+              Volume, quality and loss trends
             </p>
           </div>
 
@@ -328,7 +328,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div>
               <h2 className="text-sm font-semibold text-foreground">Intake Volume Trend & Shift Breakdown</h2>
-              <p className="text-xs text-muted-foreground">Daily intake with Morning vs Evening stacks and 13% TS line</p>
+              <p className="text-xs text-muted-foreground">Daily intake, morning and evening</p>
             </div>
             <span className="text-xs text-muted-foreground font-semibold tabular-nums">
               {bi.timeHorizon.totalDays} Days Window

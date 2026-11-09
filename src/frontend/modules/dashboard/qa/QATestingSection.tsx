@@ -525,7 +525,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
             <div className="bg-card border-border p-4 border rounded-2xl text-foreground text-xs font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0" />
               <span>
-                <strong>Composite testing:</strong> 1 portion represents the entire tanker load. An accepted or rejected decision applies to the complete vehicle.
+                <strong>Composite testing:</strong> One portion covers the whole tanker. The decision applies to the whole vehicle.
               </span>
             </div>
           )}

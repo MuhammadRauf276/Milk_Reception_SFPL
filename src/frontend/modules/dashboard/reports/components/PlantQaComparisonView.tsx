@@ -251,7 +251,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
             <FlaskConical className="w-4 h-4 text-muted-foreground" /> Plant QA vs. ZMCC Dispatch QA Audit
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Inter-facility transit audit comparing origin dispatch test values against central plant weighbridge and lab test outcomes
+            Dispatch test values compared with plant results
           </p>
         </div>
       </div>

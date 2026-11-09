@@ -178,7 +178,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             </label>
             <span className="inline-flex items-center gap-1 rounded bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 border border-purple-200">
               <Calculator className="h-3 w-3" />
-              <span>Richmond Canonical Formula</span>
+              <span>Richmond formula</span>
             </span>
           </div>
           <input
@@ -189,7 +189,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             className="w-full min-w-0 min-h-12 rounded-xl border border-purple-200 bg-purple-50/40 p-3 text-base font-semibold text-purple-950 tabular-nums focus:outline-hidden"
           />
           <p className="text-xs text-purple-800 font-medium">
-            Calculated automatically from Lactometer Reading (LR) and Fat. Preserves canonical milk solids balance.
+            Calculated from LR and Fat
           </p>
         </div>
       ) : test.resultType === 'NUMERIC' ? (

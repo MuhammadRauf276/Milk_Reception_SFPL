@@ -102,7 +102,7 @@ export const ZMCCPlantQAList: React.FC<{
                   <tr>
                     <th className="py-2 px-3">Parameter</th>
                     <th className="py-2 px-3">Dispatch QA</th>
-                    <th className="py-2 px-3">Plant QA (Authoritative)</th>
+                    <th className="py-2 px-3">Plant QA</th>
                     <th className="py-2 px-3">Difference</th>
                     <th className="py-2 px-3 font-sans">QA Event Date/Time</th>
                   </tr>

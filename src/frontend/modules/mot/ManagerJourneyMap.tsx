@@ -182,7 +182,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         <MapPin className="w-10 h-10 text-slate-400 mx-auto" />
         <h3 className="text-base font-semibold text-foreground">No Journey Selected</h3>
         <p className="text-xs text-slate-500 max-w-sm mx-auto">
-          Please select a journey from the Active Journeys or Journey History list to view its live trail and stop status.
+          Select a journey to see its trail and stops.
         </p>
       </div>
     );

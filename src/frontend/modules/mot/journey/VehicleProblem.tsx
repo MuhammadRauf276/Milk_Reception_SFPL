@@ -127,7 +127,7 @@ export function VehicleProblem({ journey, vehicleRequests, coverHeaders, open, o
           <div>
             <p className="font-semibold">Waiting for the Zonal Manager</p>
             <p className="text-xs mt-0.5">
-              Your request is sent. Do not collect from more shops or return to PHE until the manager answers. Your collected milk is safe.
+              Request sent. Wait for the manager before collecting or returning to PHE. Your milk is safe.
             </p>
           </div>
         </div>
@@ -159,7 +159,7 @@ export function VehicleProblem({ journey, vehicleRequests, coverHeaders, open, o
         <Modal onClose={onClose} title="Send Request" className="max-w-md">
           <div className="p-4 space-y-3">
             <p className="text-xs text-secondary-foreground">
-              Only if this vehicle cannot continue. The Zonal Manager will give you a new vehicle. Your collected milk and finished shops stay on this journey.
+              Use only if this vehicle cannot continue. Your milk and finished shops stay on this journey.
             </p>
             <label htmlFor="vehicle-problem-reason" className="block text-xs font-semibold text-secondary-foreground">
               What happened to the vehicle? <span className="text-rose-600">*</span>

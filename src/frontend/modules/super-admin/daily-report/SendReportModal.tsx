@@ -199,12 +199,12 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
 
           {/* Executive Note */}
           <div>
-            <label className="mb-1 block font-semibold text-foreground">Executive Remarks / Note (Optional)</label>
+            <label className="mb-1 block font-semibold text-foreground">Note (optional)</label>
             <textarea
               rows={2}
               value={executiveNote}
               onChange={(e) => setExecutiveNote(e.target.value)}
-              placeholder="e.g. All ZMCC chilling silos operating at target ≤ 4°C. MOT Route 2 delayed by 30 mins due to fog."
+              placeholder="e.g. Route 2 delayed 30 minutes by fog"
               className="w-full resize-none rounded-lg border border-border p-2 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>

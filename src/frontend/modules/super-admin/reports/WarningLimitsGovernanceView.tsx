@@ -118,9 +118,7 @@ export function WarningLimitsGovernanceView() {
                 </span>
               </div>
               <p className="mt-1 text-xs text-secondary-foreground max-w-2xl leading-relaxed">
-                Controls the Month-to-Date (MTD) warning acceptance quota per procurement source.
-                If a vehicle from a supplier exceeds <strong>{threshold} warnings</strong> in a calendar month,
-                acceptance authority automatically escalates to the <strong>AVP Reception Lab / QA Head</strong>.
+                When a source reaches <strong>{threshold} warning vehicles</strong> in a month, accepting another needs <strong>AVP QA</strong> approval.
               </p>
             </div>
           </div>
@@ -251,7 +249,7 @@ export function WarningLimitsGovernanceView() {
                 className="min-h-11 w-full rounded-lg border border-border-strong px-3 text-sm font-semibold tabular-nums text-foreground focus:border-primary focus:outline-none"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Default standard: 4 vehicles/month. Any source exceeding this limit requires AVP-QA approval.
+                Default: 4 vehicles a month
               </p>
             </div>
 

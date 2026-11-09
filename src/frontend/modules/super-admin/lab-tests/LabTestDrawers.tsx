@@ -541,7 +541,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
         <div className="space-y-1.5 rounded-xl border border-border bg-card p-3">
           <span className={fieldLabelClass}>
             Rule category
-            <InfoTip text="Complete SOP tests enforce pass/warning/rejection rules. Monitoring Norms are compulsory to record for yield/pricing, but never trigger system rejection." />
+            <InfoTip text="SOP tests can pass, warn or reject. Monitoring tests are recorded but never reject milk." />
           </span>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-2 pt-1">
             <button

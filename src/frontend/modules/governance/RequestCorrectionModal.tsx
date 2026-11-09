@@ -69,7 +69,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
       return;
     }
     if (reason.trim().length < 5) {
-      setError('A substantive reason of at least 5 characters is required for audit verification.');
+      setError('Reason must be at least 5 characters.');
       return;
     }
 

@@ -60,7 +60,7 @@ export function UserStatusDrawer({ user, targetStatus, open, onClose, onSaved }:
       {targetStatus && !user.email && (
         <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-3 text-amber-800">
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
-          <span>This account has no email set. An email is required before activation. Please edit the account to provide an email first.</span>
+          <span>Add an email to this account before activating it.</span>
         </div>
       )}
       <div className="flex items-center justify-end gap-2 border-t border-border pt-3">

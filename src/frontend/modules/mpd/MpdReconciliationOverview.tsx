@@ -41,7 +41,7 @@ export function MpdReconciliationOverview() {
       ) : (
         <section className="space-y-3" aria-label="MPD reconciliation overview">
           <div>
-            <h2 className="inline-flex items-center text-lg font-semibold text-foreground">Reconciliation<InfoTip text="Cross-source Mobile Tester-to-ZMCC result. Pending journeys are shown separately and are not counted as finalized loss." /></h2>
+            <h2 className="inline-flex items-center text-lg font-semibold text-foreground">Reconciliation<InfoTip text="Mobile Tester to ZMCC result. Pending journeys are not counted as loss." /></h2>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="bg-card border-border rounded-2xl border p-4">

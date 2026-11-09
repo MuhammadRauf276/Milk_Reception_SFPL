@@ -135,7 +135,7 @@ export default function HierarchyWorkPage() {
             </Button>
           )}
           <p className="min-w-0 text-sm text-muted-foreground">
-            When senior users or Super Admins work in lower-role workspaces
+            Senior accounts acting for lower roles
           </p>
         </div>
 
@@ -157,9 +157,7 @@ export default function HierarchyWorkPage() {
           <div className="min-w-0 space-y-0.5">
             <span className="font-semibold text-foreground">Audit trail</span>
             <p>
-              This report records every time a higher-ranking account (such as Super Admin, QA Head or Plant Manager)
-              stepped in to act for a lower role, for example when an operator was absent or a case was escalated.
-              Field staff only see clean status records (&quot;Accepted&quot; / &quot;Rejected&quot;). The override detail is limited to senior management.
+              Times a senior account acted for a lower role. Only senior management sees this.
             </p>
           </div>
         </div>

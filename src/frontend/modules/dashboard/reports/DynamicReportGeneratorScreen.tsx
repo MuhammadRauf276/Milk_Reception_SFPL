@@ -239,7 +239,7 @@ export function DynamicReportGeneratorScreen({
               <Sparkles className="w-4 h-4 text-muted-foreground" /> Reports & Analytics Studio
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Live operational reporting with custom columns, multi-clause filters, pivot cross-tabulation, and formatted exports
+              Build reports with your own columns and filters
             </p>
           </div>
 

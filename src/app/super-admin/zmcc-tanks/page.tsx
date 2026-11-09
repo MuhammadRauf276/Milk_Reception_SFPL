@@ -307,7 +307,7 @@ export default function SuperAdminZmccTanksPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <p className="text-sm text-muted-foreground">Storage tanks and stock at each ZMCC</p>
-          <InfoTip text="Raw milk storage tanks across all ZMCC sources. Directly add milk stock (@13% TS and Gross Liters) when field staff are absent, and monitor dispatch issue deductions." />
+          <InfoTip text="Add milk stock here when field staff are absent." />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={openCreate}>

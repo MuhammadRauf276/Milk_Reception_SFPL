@@ -54,7 +54,7 @@ export function CancelJourneySheet({ journey, onClose, onDone }: Props) {
       <div className="flex items-start gap-2 text-rose-700">
         <Ban className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
         <p className="text-xs font-medium text-secondary-foreground">
-          You are cancelling active Journey <strong>#{journey.journey_number}</strong>. This operation is authoritative and cannot be undone.
+          You are cancelling journey <strong>#{journey.journey_number}</strong>. This cannot be undone.
         </p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-3">

@@ -108,7 +108,7 @@ const ALL_COMMAND_ITEMS: CommandItem[] = [
   },
   {
     id: 'my-submitted-requests',
-    title: 'My Submitted Requests · Real-Time Tracking',
+    title: 'My submitted requests',
     category: 'Stations',
     href: '/my-requests',
     icon: Send,

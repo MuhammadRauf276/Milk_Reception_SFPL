@@ -337,7 +337,7 @@ export function ZMCCOperationalJourneysScreen({
             <h1 className="text-lg font-semibold text-foreground">Mobile Tester journeys & Route Radar</h1>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Track active Mobile Tester collections on the live map and review historical route trails with full audit details
+            Live collections and past route trails
           </p>
         </div>
 
@@ -498,7 +498,7 @@ export function ZMCCOperationalJourneysScreen({
               <PageLoader label="Loading active journeys…" className="py-12" />
             ) : activeJourneys.length === 0 ? (
               <div className="p-8 text-center text-xs font-semibold text-muted-foreground">
-                No MOT journeys currently in progress.
+                No Mobile Tester journeys in progress
               </div>
             ) : (
               <DataTable
@@ -550,7 +550,7 @@ export function ZMCCOperationalJourneysScreen({
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search journey, MOT, vehicle…"
+                placeholder="Search journey, tester or vehicle"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border bg-card focus:outline-hidden focus:border-primary min-h-10"

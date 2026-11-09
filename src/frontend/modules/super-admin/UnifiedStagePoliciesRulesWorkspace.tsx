@@ -271,7 +271,7 @@ function WorkspaceInner({
             <div className="min-w-0">
               <h2 className="text-base font-semibold text-foreground">Master test matrix (all 6 stages)</h2>
               <p className="text-xs text-muted-foreground">
-                Dairy specifications and test mode policies across Mobile Tester shop, ZMCC MC, ZMCC HC, ZMCC Dispatch, Contractor Dispatch and Plant QA.
+                Test rules at each stage
               </p>
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1 text-xs font-medium text-secondary-foreground">
@@ -374,7 +374,7 @@ function WorkspaceInner({
                         </td>
                         <td className="p-3">
                           {isMonitoring ? (
-                            <span className="inline-block rounded border border-border bg-muted px-2 py-0.5 text-xs font-medium text-secondary-foreground" title="Monitoring Norm: Compulsory to record for yield/pricing, but never rejects milk">
+                            <span className="inline-block rounded border border-border bg-muted px-2 py-0.5 text-xs font-medium text-secondary-foreground" title="Recorded for yield and pricing. Never rejects milk.">
                               Monitoring Norm
                             </span>
                           ) : (

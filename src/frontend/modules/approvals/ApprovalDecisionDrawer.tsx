@@ -117,7 +117,7 @@ export function ApprovalDecisionDrawer({
                 <span>Self-Approval Compliance Review</span>
               </p>
               <p>
-                As Super Admin self-approving your own submission, you must provide at least 20 characters of justification.
+                Approving your own request needs a reason of at least 20 characters.
                 
               </p>
             </div>

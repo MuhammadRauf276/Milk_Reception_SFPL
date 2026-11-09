@@ -137,11 +137,14 @@ const MEASURE = `(() => {
     if (!reported && !scroller(s) && (r.right > vw + 1 || r.left < -1)) iconsOut.push('screen edge ' + label(s) + ' x=' + Math.round(r.left));
   });
   const clippedFigures = [];
+  const longText = [];
   let smallText = 0;
   root.querySelectorAll('p,span,div,td,th,h1,h2,h3,h4,button,a,label,strong').forEach((e) => {
     if (!e.offsetWidth) return;
     const own = [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
     if (!own) return;
+    const words = e.textContent.trim().split(/\\s+/).length;
+    if (words >= 16 && !e.closest('pre')) longText.push(words + 'w ' + e.textContent.trim().replace(/\\s+/g, ' ').slice(0, 150));
     const s = getComputedStyle(e);
     if (parseFloat(s.fontSize) < 12) smallText++;
     if (e.scrollWidth > e.clientWidth + 1 && (s.overflowX === 'hidden' || s.overflowX === 'clip') && /\\d/.test(e.textContent)) {
@@ -149,16 +152,20 @@ const MEASURE = `(() => {
     }
   });
   let tinyTargets = 0;
+  const tinyList = [];
   root.querySelectorAll('button,a[href],input:not([type=hidden]),select').forEach((e) => {
     const hit = e.matches('input[type=checkbox],input[type=radio]') && e.closest('label') ? e.closest('label') : e;
     const r = hit.getBoundingClientRect();
-    if (shown(r) && (r.height < 36 || r.width < 36)) tinyTargets++;
+    if (shown(r) && (r.height < 36 || r.width < 36)) {
+      tinyTargets++;
+      tinyList.push(Math.round(r.width) + 'x' + Math.round(r.height) + ' ' + (e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 24) + ' | ' + label(hit).slice(0, 60));
+    }
   });
   const uniq = (a) => [...new Set(a)];
   return {
     pageOverflow: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - vw,
     escaped: uniq(escaped), iconsOut: uniq(iconsOut), clippedFigures: uniq(clippedFigures),
-    smallText, tinyTargets, dialogOpen: !!dialog,
+    smallText, tinyTargets, tinyList: uniq(tinyList), longText: uniq(longText), dialogOpen: !!dialog,
   };
 })()`;
 

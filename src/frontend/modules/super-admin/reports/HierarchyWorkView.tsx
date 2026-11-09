@@ -127,8 +127,7 @@ export function HierarchyWorkView() {
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-foreground">Work done for lower roles</h2>
             <p className="mt-0.5 text-xs leading-relaxed text-secondary-foreground">
-              Audit trail of senior accounts (Super Admin, QA Head, ZMCC Manager) acting for lower roles
-              when an operator was absent or a case was escalated.
+              Senior accounts acting for lower roles
             </p>
           </div>
         </div>

@@ -79,7 +79,7 @@ export function ZMCCPlantTransitHub({
             <h1 className="text-lg font-semibold text-foreground">Plant Dispatches & Transit Hub</h1>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Consolidated tanker tracking: Monitor live tankers in transit, review volume reconciliation, and inspect historical plant receipts
+            Tankers in transit and plant receipts
           </p>
         </div>
       </div>

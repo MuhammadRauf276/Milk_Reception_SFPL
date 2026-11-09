@@ -191,8 +191,8 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
     },
     {
       key: 'received',
-      header: 'Authoritative Received',
-      label: 'Authoritative Received',
+      header: 'Received',
+      label: 'Received',
       align: 'right',
       cell: (v) => (
         <span className="tabular-nums font-semibold">
@@ -353,7 +353,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
           </p>
           <p className="text-xs text-muted-foreground font-medium">
             {totalPages > 1 ? (
-              <span className="text-blue-700 font-semibold">Authoritative Total Query Visits</span>
+              <span className="text-blue-700 font-semibold">Total visits</span>
             ) : (
               <>Dispatched: <strong className="text-secondary-foreground tabular-nums">{metrics.totalDispatchedGrossLiters.toLocaleString()} L</strong></>
             )}
