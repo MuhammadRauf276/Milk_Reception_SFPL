@@ -122,7 +122,7 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
     { key: 'plantKg', header: 'Plant (kg)', label: 'Plant (kg)', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.plant.netKg)}</span> },
     { key: 'ts13sent', header: '13 TS sent', label: '13 TS sent', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.dispatch.at13tsLiters)}</span> },
     { key: 'ts13plant', header: '13 TS plant', label: '13 TS plant', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.plant.at13tsLiters)}</span> },
-    { key: 'loss', header: 'Loss %', label: 'Loss %', align: R, cell: (r) => <span className="tabular-nums font-semibold">{signed(r.variance.grossPercent, '%')}</span> },
+    { key: 'loss', header: 'Variance %', label: 'Variance %', align: R, cell: (r) => <span className="tabular-nums font-semibold">{signed(r.variance.grossPercent, '%')}</span> },
   ];
 
   return (

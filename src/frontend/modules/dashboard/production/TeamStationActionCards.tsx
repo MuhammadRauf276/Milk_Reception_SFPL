@@ -127,7 +127,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               </span>
             </div>
             <div className="text-xs tabular-nums sm:text-right">
-              {weighbridge.completedTodayCount} weighed · ~{weighbridge.avgWeighmentMinutes}m avg
+              {weighbridge.completedTodayCount} weighed · {weighbridge.avgWeighmentMinutes != null ? `~${weighbridge.avgWeighmentMinutes}m avg` : 'no average yet'}
             </div>
           </div>
         </div>
@@ -253,7 +253,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               </span>
             </div>
             <div className="text-xs tabular-nums sm:text-right">
-              ~{reception.avgUnloadingMinutes}m avg / portion
+              {reception.avgUnloadingMinutes != null ? `~${reception.avgUnloadingMinutes}m avg per portion` : 'no average yet'}
             </div>
           </div>
         </div>

@@ -30,7 +30,7 @@ test('productionHeadOverviewService: returns complete supervisory payload struct
   );
   assert.equal(typeof result.teamStations.weighbridge.waitingForGrossCount, 'number');
   assert.equal(typeof result.teamStations.weighbridge.waitingForTareCount, 'number');
-  assert.equal(typeof result.teamStations.weighbridge.avgWeighmentMinutes, 'number');
+  assert.ok(result.teamStations.weighbridge.avgWeighmentMinutes === null || typeof result.teamStations.weighbridge.avgWeighmentMinutes === 'number');
 
   assert.ok(result.teamStations.reception, 'Must have reception station data');
   assert.ok(
@@ -39,7 +39,7 @@ test('productionHeadOverviewService: returns complete supervisory payload struct
   );
   assert.equal(typeof result.teamStations.reception.activeBaysCount, 'number');
   assert.equal(typeof result.teamStations.reception.waitingForUnloadingCount, 'number');
-  assert.equal(typeof result.teamStations.reception.avgUnloadingMinutes, 'number');
+  assert.ok(result.teamStations.reception.avgUnloadingMinutes === null || typeof result.teamStations.reception.avgUnloadingMinutes === 'number');
 
   // 4. Subordinate Work History Feed
   assert.ok(Array.isArray(result.subordinateWorkHistory), 'Work history must be an array');

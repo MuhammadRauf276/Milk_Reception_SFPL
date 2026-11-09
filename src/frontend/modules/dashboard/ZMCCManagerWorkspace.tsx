@@ -251,14 +251,20 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
         | Array<{ current_stock: unknown }>
         | null;
       const tanks = Array.isArray(td) ? td : td?.tanks || td?.items;
-      if (Array.isArray(tanks) && tanks.length === 1) {
-        const stock13Ts = Number((tanks[0] as Record<string, unknown>).current_stock_at_13ts);
-        const stock = Number((tanks[0] as Record<string, unknown>).current_stock);
-        tankStock = Number.isFinite(stock13Ts)
-          ? Number(stock13Ts.toFixed(2))
-          : Number.isFinite(stock)
-          ? Number(stock.toFixed(2))
-          : null;
+      if (Array.isArray(tanks) && tanks.length > 0) {
+        // Sum @13% TS across all tanks; one unknown tank makes the total unknown.
+        let sum = 0;
+        let known = true;
+        for (const t of tanks as Array<Record<string, unknown>>) {
+          const raw = t.current_stock_at_13ts;
+          const v = raw != null && raw !== '' ? Number(raw) : NaN;
+          if (!Number.isFinite(v)) {
+            known = false;
+            break;
+          }
+          sum += v;
+        }
+        tankStock = known ? Number(sum.toFixed(2)) : null;
       }
       return {
         tankStock,

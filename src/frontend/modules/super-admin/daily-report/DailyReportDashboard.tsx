@@ -87,7 +87,7 @@ const zmccColumns: DataColumn<ZmccRow>[] = [
   { key: 'vehicle', header: 'Vehicle #', label: 'Vehicle #', cell: (p) => <span className="break-all font-mono font-semibold text-foreground">{p.vehicleNo}</span> },
   { key: 'supplier', header: 'Supplier / Route', label: 'Supplier / Route', cell: (p) => <span className="text-secondary-foreground">{p.supplierName}</span> },
   { key: 'portion', header: 'Portion', label: 'Portion', align: 'center', cell: (p) => <span className="font-semibold text-foreground">P{p.portionNumber}</span> },
-  { key: 'liters', header: 'Liters', label: 'Liters', align: 'right', cell: (p) => <span className="font-mono font-semibold tabular-nums text-foreground">{p.grossLiters.toFixed(1)} L</span> },
+  { key: 'liters', header: 'Liters', label: 'Liters', align: 'right', cell: (p) => <span className="font-mono font-semibold tabular-nums text-foreground">{p.grossLiters != null ? `${p.grossLiters.toFixed(1)} L` : '—'}</span> },
   { key: 'temp', header: 'Temp', label: 'Temp', align: 'right', cell: (p) => <span className="font-mono tabular-nums">{p.temperature !== null ? `${p.temperature.toFixed(1)} °C` : '—'}</span> },
   { key: 'warnings', header: 'Warnings', label: 'Warnings', cell: (p) => <WarningsCell warnings={p.warnings} /> },
   { key: 'attendant', header: 'Lab attendant', label: 'Lab attendant', cell: (p) => <span className="text-secondary-foreground">{p.performedByRole || 'Attendant'}</span> },
@@ -149,7 +149,7 @@ const plantQaColumns: DataColumn<PlantQaRow>[] = [
   { key: 'vehicle', header: 'Vehicle #', label: 'Vehicle #', cell: (p) => <span className="break-all font-mono font-semibold text-foreground">{p.vehicleNumber}</span> },
   { key: 'origin', header: 'Origin ZMCC', label: 'Origin ZMCC', cell: (p) => <span className="text-secondary-foreground">{p.sourceName}</span> },
   { key: 'portion', header: 'Portion', label: 'Portion', align: 'center', cell: (p) => <span className="font-semibold text-foreground">P{p.portionNumber}</span> },
-  { key: 'liters', header: 'Liters', label: 'Liters', align: 'right', cell: (p) => <span className="font-mono font-semibold tabular-nums text-foreground">{p.grossLiters.toFixed(1)} L</span> },
+  { key: 'liters', header: 'Liters', label: 'Liters', align: 'right', cell: (p) => <span className="font-mono font-semibold tabular-nums text-foreground">{p.grossLiters != null ? `${p.grossLiters.toFixed(1)} L` : '—'}</span> },
   {
     key: 'mtd',
     header: 'MTD warning count',
@@ -340,23 +340,23 @@ export function DailyReportDashboard() {
               {kpis ? `${formatNumber(kpis.mot.totalLiters)} L` : '—'}
             </span>
             <span className="text-xs text-muted-foreground">
-              ({kpis ? kpis.mot.totalCollections : 0} shops)
+              ({kpis ? kpis.mot.totalCollections : '—'} shops)
             </span>
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               <CheckCircle2 className="h-3 w-3" />
-              {kpis ? kpis.mot.passedCount : 0} pass
+              {kpis ? kpis.mot.passedCount : '—'} pass
             </span>
             <span className="text-border-strong">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
               <AlertTriangle className="h-3 w-3" />
-              {kpis ? kpis.mot.warningCount : 0} warn
+              {kpis ? kpis.mot.warningCount : '—'} warn
             </span>
             <span className="text-border-strong">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-rose-700">
               <XCircle className="h-3 w-3" />
-              {kpis ? kpis.mot.rejectedCount : 0} rej
+              {kpis ? kpis.mot.rejectedCount : '—'} rej
             </span>
           </div>
           {kpis && kpis.mot.totalLiters > 0 && (
@@ -379,23 +379,23 @@ export function DailyReportDashboard() {
               {kpis ? `${formatNumber(kpis.zmcc.totalLiters)} L` : '—'}
             </span>
             <span className="text-xs text-muted-foreground">
-              ({kpis ? kpis.zmcc.totalPortions : 0} portions)
+              ({kpis ? kpis.zmcc.totalPortions : '—'} portions)
             </span>
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               <CheckCircle2 className="h-3 w-3" />
-              {kpis ? kpis.zmcc.passedCount : 0} pass
+              {kpis ? kpis.zmcc.passedCount : '—'} pass
             </span>
             <span className="text-border-strong">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
               <AlertTriangle className="h-3 w-3" />
-              {kpis ? kpis.zmcc.warningCount : 0} warn
+              {kpis ? kpis.zmcc.warningCount : '—'} warn
             </span>
             <span className="text-border-strong">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-rose-700">
               <XCircle className="h-3 w-3" />
-              {kpis ? kpis.zmcc.rejectedCount : 0} rej
+              {kpis ? kpis.zmcc.rejectedCount : '—'} rej
             </span>
           </div>
           <p className="mt-2 text-xs font-medium text-muted-foreground">
@@ -416,22 +416,24 @@ export function DailyReportDashboard() {
               {kpis ? `${formatNumber(kpis.plantQa.totalLiters)} L` : '—'}
             </span>
             <span className="text-xs text-muted-foreground">
-              ({kpis ? kpis.plantQa.totalTankers : 0} tankers)
+              ({kpis ? kpis.plantQa.totalTankers : '—'} tankers)
             </span>
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               <CheckCircle2 className="h-3 w-3" />
-              {kpis ? kpis.plantQa.acceptedCount : 0} accepted
+              {kpis ? kpis.plantQa.acceptedCount : '—'} accepted
             </span>
             <span className="text-border-strong">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
               <AlertTriangle className="h-3 w-3" />
-              {kpis ? kpis.plantQa.warningCount : 0} warn
+              {kpis ? kpis.plantQa.warningCount : '—'} warn
             </span>
           </div>
           <p className="mt-2 text-xs font-medium text-muted-foreground">
-            {kpis?.plantQa.mtdWarningEscalations
+            {!kpis
+              ? '—'
+              : kpis.plantQa.mtdWarningEscalations
               ? `${kpis.plantQa.mtdWarningEscalations} tanker(s) exceeded MTD limit (AVP QA approval)`
               : 'All vehicles within MTD warning limit'}
           </p>
@@ -447,23 +449,23 @@ export function DailyReportDashboard() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="font-mono text-xl font-semibold tabular-nums text-foreground">
-              {kpis ? kpis.exceptions.totalHandled : 0} resolved
+              {kpis ? kpis.exceptions.totalHandled : '—'} resolved
             </span>
             <span className="text-xs text-muted-foreground">
-              ({kpis ? kpis.exceptions.pendingCount : 0} pending)
+              ({kpis ? kpis.exceptions.pendingCount : '—'} pending)
             </span>
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
-              {kpis ? kpis.exceptions.approvedCount : 0} approved
+              {kpis ? kpis.exceptions.approvedCount : '—'} approved
             </span>
             <span className="text-border-strong">·</span>
             <span className="inline-flex items-center gap-1 font-semibold text-rose-700">
-              {kpis ? kpis.exceptions.rejectedCount : 0} rejected
+              {kpis ? kpis.exceptions.rejectedCount : '—'} rejected
             </span>
           </div>
           <p className="mt-2 text-xs font-medium text-muted-foreground">
-            Loss: T1 {kpis ? kpis.losses.tier1LossPercent.toFixed(2) : '0'}% · T2 {kpis ? kpis.losses.tier2LossPercent.toFixed(2) : '0'}% · T3 {kpis ? kpis.losses.tier3LossPercent.toFixed(2) : '0'}%
+            Loss: T1 {kpis ? kpis.losses.tier1LossPercent.toFixed(2) : '—'}% · T2 {kpis ? kpis.losses.tier2LossPercent.toFixed(2) : '—'}% · T3 {kpis ? kpis.losses.tier3LossPercent.toFixed(2) : '—'}%
           </p>
         </div>
       </div>

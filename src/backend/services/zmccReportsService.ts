@@ -1,6 +1,8 @@
 import { prisma } from '@/backend/core/db';
 import ExcelJS from 'exceljs';
-import { getPakistanCalendarDate } from '@/backend/core/business-day';
+import { getPakistanCalendarDate, getPakistanDayWindow } from '@/backend/core/business-day';
+import { computeWeightedMilkMetrics } from '@/backend/utils/milkFormulas';
+import { getSupplyChainLossHierarchy } from '@/backend/services/lossCalculationService';
 import { getBatchTankPhysicalStock, getBatchTankCommercialStock, getBatchTankTodayMovements } from '@/backend/services/zmccTankService';
 import { isTemperatureTest } from '@/lib/lab-test-roles';
 import { loadSystemRoles, type PolicyDb } from '@/backend/services/testPointPolicyService';
@@ -141,9 +143,10 @@ export interface RoutePerformanceRanking {
   avgLr: number;
   avgSnf: number;
   shopCount: number;
-  completionRatePct: number;
-  routeLossLiters: number;
-  routeLossPct: number;
+  completionRatePct: number | null;
+  /** Non-rejected shop litres minus litres received, for received journeys. Negative is a gain; null when none received. */
+  routeLossLiters: number | null;
+  routeLossPct: number | null;
 }
 
 export interface HourlyThroughputPoint {
@@ -162,17 +165,17 @@ export interface ZmccBIAnalyticsData {
   summaryKpis: {
     totalProcuredLiters: number;
     standardized13TsLiters: number;
-    intakeVarianceVsPriorPct: number;
+    intakeVarianceVsPriorPct: number | null;
     weightedFatPct: number;
     weightedSnfPct: number;
     weightedLr: number;
-    avgTemperatureC: number;
-    tier1RouteLossLiters: number;
-    tier1RouteLossPct: number;
-    tier2StorageLossLiters: number;
-    tier2StorageLossPct: number;
-    shopCollectionRatePct: number;
-    onTimeArrivalRatePct: number;
+    avgTemperatureC: number | null;
+    tier1RouteLossLiters: number | null;
+    tier1RouteLossPct: number | null;
+    tier2StorageLossLiters: number | null;
+    tier2StorageLossPct: number | null;
+    shopCollectionRatePct: number | null;
+    onTimeArrivalRatePct: number | null;
   };
   trends: DailyIntakeTrendPoint[];
   qualityScatter: QualityScatterPoint[];
@@ -204,13 +207,15 @@ export interface RouteLedgerRow {
   plannedStops: number;
   visitedStops: number;
   skippedStops: number;
+  /** Excludes milk rejected at the shop. */
   shopLitersCollected: number;
-  zmccArrivalLiters: number;
-  routeLossLiters: number;
-  routeLossPct: number;
-  avgFat: number;
-  avgLr: number;
-  avgSnf: number;
+  /** Null until the journey is received at the ZMCC, like the loss figures. */
+  zmccArrivalLiters: number | null;
+  routeLossLiters: number | null;
+  routeLossPct: number | null;
+  avgFat: number | null;
+  avgLr: number | null;
+  avgSnf: number | null;
   at13TsLiters: number;
   zmccArrivalAt13TsLiters: number | null;
   routeLossAt13TsLiters: number | null;
@@ -557,6 +562,31 @@ export async function getZmccBIAnalytics(
 
   const totalDays = Math.max(1, Math.round((toDate.getTime() - fromDate.getTime()) / 86400000));
 
+  const priorWhere = {
+    ...whereCol,
+    operational_date: {
+      gte: new Date(fromDate.getTime() - totalDays * 86400000),
+      lt: fromDate,
+    },
+  };
+  // A tank is not split by route or shift, so tank loss only applies to the unfiltered view.
+  const hasSliceFilter = Boolean(filters?.routeId || filters?.shift);
+  const [journeys, priorIntake, lossHierarchy] = await Promise.all([
+    prisma.motJourney.findMany({
+      where: { ...whereCol, status: { not: 'CANCELLED' } },
+      select: {
+        id: true,
+        route_id: true,
+        area_received_liters: true,
+        _count: { select: { stops: true, collections: true } },
+      },
+    }),
+    filters?.shift ? null : prisma.motShopCollection.aggregate({ where: priorWhere, _sum: { gross_liters: true } }),
+    hasSliceFilter
+      ? null
+      : getSupplyChainLossHierarchy({ period: 'custom', from, to, zmccId }).catch(() => null),
+  ]);
+
   let totalLiters = 0;
   let total13Ts = 0;
   let fatProductSum = 0;
@@ -569,6 +599,8 @@ export async function getZmccBIAnalytics(
   const hourlyMap = new Array(24).fill(0).map((_, i) => ({ hour: i, label: `${String(i).padStart(2, '0')}:00`, liters: 0, count: 0 }));
   const routeMap = new Map<string, { routeCode: string; name: string; liters: number; ts: number; fatSum: number; lrSum: number; snfSum: number; shopIds: Set<string> }>();
   const qualityScatter: QualityScatterPoint[] = [];
+  const journeyShopLiters = new Map<string, number>();
+  const journeysInShift = new Set<string>();
 
   for (const c of collections) {
     const lit = Number(c.gross_liters);
@@ -579,9 +611,17 @@ export async function getZmccBIAnalytics(
     const dateKey = c.operational_date.toISOString().split('T')[0];
     const hour = c.device_collected_at.getHours();
 
+    // Loss compares whole journeys, so every non-rejected collection counts, whichever shift is shown.
+    const journeyKey = c.journey_id.toString();
+    if (c.final_decision !== 'REJECTED') {
+      journeyShopLiters.set(journeyKey, (journeyShopLiters.get(journeyKey) ?? 0) + lit);
+    }
+
     const isMorning = hour < 13;
     if (filters?.shift === 'MORNING' && !isMorning) continue;
     if (filters?.shift === 'EVENING' && isMorning) continue;
+
+    journeysInShift.add(journeyKey);
 
     totalLiters += lit;
     total13Ts += tsLit;
@@ -662,8 +702,34 @@ export async function getZmccBIAnalytics(
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
+  // Stops and route loss from the journeys themselves; only journeys received at the ZMCC have a loss.
+  const emptyJourneyStats = () => ({ planned: 0, visited: 0, shopLiters: 0, receivedLiters: 0 });
+  const allJourneyStats = emptyJourneyStats();
+  const routeJourneyStats = new Map<string, ReturnType<typeof emptyJourneyStats>>();
+  for (const j of journeys) {
+    const journeyKey = j.id.toString();
+    if (filters?.shift && !journeysInShift.has(journeyKey)) continue;
+    const routeStats = routeJourneyStats.get(j.route_id.toString()) ?? emptyJourneyStats();
+    for (const stats of [allJourneyStats, routeStats]) {
+      stats.planned += j._count.stops;
+      stats.visited += j._count.collections;
+      if (j.area_received_liters != null) {
+        stats.shopLiters += journeyShopLiters.get(journeyKey) ?? 0;
+        stats.receivedLiters += Number(j.area_received_liters);
+      }
+    }
+    routeJourneyStats.set(j.route_id.toString(), routeStats);
+  }
+  const completionPct = (stats: { planned: number; visited: number }) =>
+    stats.planned > 0 ? Number(((stats.visited / stats.planned) * 100).toFixed(1)) : null;
+  const lossLiters = (stats: { shopLiters: number; receivedLiters: number }) =>
+    stats.shopLiters > 0 ? Number((stats.shopLiters - stats.receivedLiters).toFixed(2)) : null;
+  const lossPct = (stats: { shopLiters: number; receivedLiters: number }) =>
+    stats.shopLiters > 0 ? Number((((stats.shopLiters - stats.receivedLiters) / stats.shopLiters) * 100).toFixed(2)) : null;
+
   // Build route performance array
   const routeRankings: RoutePerformanceRanking[] = Array.from(routeMap.entries()).map(([rId, r]) => {
+    const stats = routeJourneyStats.get(rId) ?? emptyJourneyStats();
     return {
       routeId: rId,
       routeCode: r.routeCode,
@@ -674,17 +740,17 @@ export async function getZmccBIAnalytics(
       avgLr: r.liters > 0 ? Number((r.lrSum / r.liters).toFixed(2)) : 0,
       avgSnf: r.liters > 0 ? Number((r.snfSum / r.liters).toFixed(2)) : 0,
       shopCount: r.shopIds.size,
-      completionRatePct: 95.5,
-      routeLossLiters: Number((r.liters * 0.008).toFixed(2)),
-      routeLossPct: 0.8,
+      completionRatePct: completionPct(stats),
+      routeLossLiters: lossLiters(stats),
+      routeLossPct: lossPct(stats),
     };
   }).sort((a, b) => b.totalLiters - a.totalLiters);
 
   const weightedFat = totalLiters > 0 ? Number((fatProductSum / totalLiters).toFixed(2)) : 0;
   const weightedSnf = totalLiters > 0 ? Number((snfProductSum / totalLiters).toFixed(2)) : 0;
   const weightedLr = totalLiters > 0 ? Number((lrProductSum / totalLiters).toFixed(2)) : 0;
-  const tier1LossLiters = Number((totalLiters * 0.0085).toFixed(2));
-  const tier2LossLiters = Number((totalLiters * 0.0042).toFixed(2));
+  const priorLiters = priorIntake ? Number(priorIntake._sum.gross_liters ?? 0) : 0;
+  const tier2Loss = lossHierarchy?.summary.tier2ZmccLoss ?? null;
 
   return {
     timeHorizon: {
@@ -695,17 +761,18 @@ export async function getZmccBIAnalytics(
     summaryKpis: {
       totalProcuredLiters: Number(totalLiters.toFixed(2)),
       standardized13TsLiters: Number(total13Ts.toFixed(2)),
-      intakeVarianceVsPriorPct: 4.2,
+      intakeVarianceVsPriorPct: priorLiters > 0 ? Number((((totalLiters - priorLiters) / priorLiters) * 100).toFixed(1)) : null,
       weightedFatPct: weightedFat,
       weightedSnfPct: weightedSnf,
       weightedLr: weightedLr,
-      avgTemperatureC: 4.8,
-      tier1RouteLossLiters: tier1LossLiters,
-      tier1RouteLossPct: 0.85,
-      tier2StorageLossLiters: tier2LossLiters,
-      tier2StorageLossPct: 0.42,
-      shopCollectionRatePct: 96.8,
-      onTimeArrivalRatePct: 92.4,
+      // No sensor feeds tank temperature and no arrival schedule is stored, so nothing is shown rather than a made-up figure.
+      avgTemperatureC: null,
+      tier1RouteLossLiters: lossLiters(allJourneyStats),
+      tier1RouteLossPct: lossPct(allJourneyStats),
+      tier2StorageLossLiters: tier2Loss ? tier2Loss.lossLiters : null,
+      tier2StorageLossPct: tier2Loss ? tier2Loss.lossPercent : null,
+      shopCollectionRatePct: completionPct(allJourneyStats),
+      onTimeArrivalRatePct: null,
     },
     trends,
     qualityScatter,
@@ -759,23 +826,25 @@ export async function getZmccRouteLedgerReport(
         mot_arrival: { select: { arrival_timestamp: true } },
         _count: { select: { stops: true, collections: true } },
         collections: {
-          select: { gross_liters: true, at_13ts_liters: true, fat: true, lr: true, snf: true },
+          select: { gross_liters: true, at_13ts_liters: true, fat: true, lr: true, snf: true, final_decision: true },
         },
       },
     }),
   ]);
 
   const rows: RouteLedgerRow[] = journeys.map((j) => {
-    const shopLiters = j.collections.reduce((sum, c) => sum + Number(c.gross_liters), 0);
-    const at13Ts = j.collections.reduce((sum, c) => sum + Number(c.at_13ts_liters), 0);
-    const colCount = j.collections.length;
-    const avgFat = colCount > 0 ? j.collections.reduce((s, c) => s + Number(c.fat), 0) / colCount : 0;
-    const avgLr = colCount > 0 ? j.collections.reduce((s, c) => s + Number(c.lr), 0) / colCount : 0;
-    const avgSnf = colCount > 0 ? j.collections.reduce((s, c) => s + Number(c.snf), 0) / colCount : 0;
+    // Rejected milk never travels to the ZMCC, so it is not part of the loss comparison.
+    const counted = j.collections.filter((c) => c.final_decision !== 'REJECTED');
+    const shopLiters = counted.reduce((sum, c) => sum + Number(c.gross_liters), 0);
+    const at13Ts = counted.reduce((sum, c) => sum + Number(c.at_13ts_liters), 0);
+    const quality = computeWeightedMilkMetrics(
+      counted.map((c) => ({ grossLiters: Number(c.gross_liters), lr: Number(c.lr), fat: Number(c.fat) }))
+    );
 
-    const arrivalLiters = j.area_received_liters ? Number(j.area_received_liters) : shopLiters;
-    const lossLit = Number((shopLiters - arrivalLiters).toFixed(2));
-    const lossPct = shopLiters > 0 ? Number(((lossLit / shopLiters) * 100).toFixed(2)) : 0;
+    // Not received yet: arrival litres and loss are unknown, not zero.
+    const arrivalLiters = j.area_received_liters != null ? Number(j.area_received_liters) : null;
+    const lossLit = arrivalLiters !== null ? Number((shopLiters - arrivalLiters).toFixed(2)) : null;
+    const lossPct = lossLit !== null && shopLiters > 0 ? Number(((lossLit / shopLiters) * 100).toFixed(2)) : null;
 
     const plannedStops = j._count.stops;
     const visitedStops = j._count.collections;
@@ -796,12 +865,12 @@ export async function getZmccRouteLedgerReport(
       visitedStops,
       skippedStops,
       shopLitersCollected: Number(shopLiters.toFixed(2)),
-      zmccArrivalLiters: Number(arrivalLiters.toFixed(2)),
+      zmccArrivalLiters: arrivalLiters !== null ? Number(arrivalLiters.toFixed(2)) : null,
       routeLossLiters: lossLit,
       routeLossPct: lossPct,
-      avgFat: Number(avgFat.toFixed(2)),
-      avgLr: Number(avgLr.toFixed(2)),
-      avgSnf: Number(avgSnf.toFixed(2)),
+      avgFat: quality.weightedFat,
+      avgLr: quality.weightedLr,
+      avgSnf: quality.weightedSnf,
       at13TsLiters: Number(at13Ts.toFixed(2)),
       zmccArrivalAt13TsLiters: j.area_received_at_13ts_liters != null ? Number(j.area_received_at_13ts_liters) : null,
       routeLossAt13TsLiters:
@@ -932,7 +1001,7 @@ export async function getZmccHcSupplierLedgerReport(
       lr: receipt ? Number(receipt.lr) : lrVal,
       temperatureC: tempVal,
       labStatus: a.lab_session?.status || 'PENDING',
-      decision: a.lab_session?.decision || 'ACCEPTED',
+      decision: a.lab_session?.decision || 'PENDING',
       rmrStatus,
     };
   });
@@ -961,7 +1030,7 @@ export async function getZmccTankStorageReport(zmccId?: bigint): Promise<{ rows:
   const [physicalStocks, commercialStocks, todayMovements] = await Promise.all([
     getBatchTankPhysicalStock(tankIds),
     getBatchTankCommercialStock(tankIds),
-    getBatchTankTodayMovements(tankIds, new Date(`${getPakistanCalendarDate()}T00:00:00+05:00`)),
+    getBatchTankTodayMovements(tankIds, getPakistanDayWindow().start),
   ]);
 
   const rows: TankStorageRow[] = tanks.map((t) => {
@@ -1131,8 +1200,8 @@ export async function generateZmccExcelReport(
         fat: r.avgFat,
         snf: r.avgSnf,
         shops: r.shopCount,
-        lossLit: r.routeLossLiters,
-        lossPct: r.routeLossPct,
+        lossLit: r.routeLossLiters ?? '—',
+        lossPct: r.routeLossPct ?? '—',
       });
     }
   } else if (reportType === 'ROUTE_LEDGER') {
@@ -1173,14 +1242,14 @@ export async function generateZmccExcelReport(
         status: r.status,
         visited: `${r.visitedStops} / ${r.plannedStops}`,
         shopLit: r.shopLitersCollected,
-        gateLit: r.zmccArrivalLiters,
+        gateLit: r.zmccArrivalLiters ?? '—',
         shop13: r.at13TsLiters,
         gate13: r.zmccArrivalAt13TsLiters ?? '—',
         loss13: r.routeLossAt13TsLiters ?? '—',
-        lossLit: r.routeLossLiters,
-        lossPct: r.routeLossPct,
-        fat: r.avgFat,
-        lr: r.avgLr,
+        lossLit: r.routeLossLiters ?? '—',
+        lossPct: r.routeLossPct ?? '—',
+        fat: r.avgFat ?? '—',
+        lr: r.avgLr ?? '—',
       });
     }
   } else if (reportType === 'HC_LEDGER') {

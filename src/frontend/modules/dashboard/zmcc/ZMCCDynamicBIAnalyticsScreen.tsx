@@ -44,10 +44,10 @@ const routeColumns: DataColumn<RouteRankingRow>[] = [
   { key: 'name', header: 'Route Name', label: 'Route name', cell: (r) => <span className="font-semibold text-foreground">{r.name}</span> },
   { key: 'intake', header: 'Intake Volume', label: 'Intake volume', cell: (r) => <span className="tabular-nums font-semibold text-foreground">{r.totalLiters.toLocaleString()} L</span> },
   { key: 'ts13', header: '13% TS Volume', label: '13% TS volume', cell: (r) => <span className="tabular-nums font-semibold text-emerald-700">{r.at13TsLiters.toLocaleString()} L</span> },
-  { key: 'fat', header: 'Avg Fat %', label: 'Avg fat %', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.avgFat}%</span> },
-  { key: 'snf', header: 'Avg SNF %', label: 'Avg SNF %', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.avgSnf}%</span> },
+  { key: 'fat', header: 'Avg Fat %', label: 'Avg fat %', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.avgFat != null ? `${r.avgFat}%` : '—'}</span> },
+  { key: 'snf', header: 'Avg SNF %', label: 'Avg SNF %', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.avgSnf != null ? `${r.avgSnf}%` : '—'}</span> },
   { key: 'shops', header: 'Shops', label: 'Shops', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.shopCount} shops</span> },
-  { key: 'loss', header: 'Route Loss', label: 'Route loss', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.routeLossLiters.toLocaleString()} L</span> },
+  { key: 'loss', header: 'Route Loss', label: 'Route loss', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.routeLossLiters != null ? `${r.routeLossLiters.toLocaleString()} L` : '—'}</span> },
   {
     key: 'lossPct',
     header: 'Loss %',
@@ -59,7 +59,7 @@ const routeColumns: DataColumn<RouteRankingRow>[] = [
           r.routeLossPct > 1.0 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
         }`}
       >
-        {r.routeLossPct}%
+        {r.routeLossPct != null ? `${r.routeLossPct}%` : '—'}
       </span>
     ),
   },
@@ -280,7 +280,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
         <StatCard
           label="Total Procured"
           value={`${summaryKpis.totalProcuredLiters.toLocaleString()} L`}
-          hint={`+${summaryKpis.intakeVarianceVsPriorPct}% vs baseline`}
+          hint={summaryKpis.intakeVarianceVsPriorPct != null ? `${summaryKpis.intakeVarianceVsPriorPct >= 0 ? '+' : ''}${summaryKpis.intakeVarianceVsPriorPct}% vs previous period` : 'No earlier period to compare'}
           icon={TrendingUp}
           tone="info"
         />
@@ -300,22 +300,22 @@ export function ZMCCDynamicBIAnalyticsScreen({
         />
         <StatCard
           label="Tier 1 Route Loss"
-          value={`${summaryKpis.tier1RouteLossPct}%`}
-          hint={`${summaryKpis.tier1RouteLossLiters.toLocaleString()} L variance`}
+          value={summaryKpis.tier1RouteLossPct != null ? `${summaryKpis.tier1RouteLossPct}%` : '—'}
+          hint={summaryKpis.tier1RouteLossLiters != null ? `${summaryKpis.tier1RouteLossLiters.toLocaleString()} L variance` : 'No received journeys yet'}
           icon={Layers}
-          tone={summaryKpis.tier1RouteLossPct > 1.0 ? 'danger' : 'warning'}
+          tone={summaryKpis.tier1RouteLossPct != null && summaryKpis.tier1RouteLossPct > 1.0 ? 'danger' : 'default'}
         />
         <StatCard
           label="Tier 2 Storage Loss"
-          value={`${summaryKpis.tier2StorageLossPct}%`}
-          hint={`${summaryKpis.tier2StorageLossLiters.toLocaleString()} L tank diff`}
+          value={summaryKpis.tier2StorageLossPct != null ? `${summaryKpis.tier2StorageLossPct}%` : '—'}
+          hint={summaryKpis.tier2StorageLossLiters != null ? `${summaryKpis.tier2StorageLossLiters.toLocaleString()} L tank difference` : 'Not enough data yet'}
           icon={Layers}
           tone="default"
         />
         <StatCard
           label="Avg Temperature"
-          value={`${summaryKpis.avgTemperatureC} °C`}
-          hint="Holding standard"
+          value={summaryKpis.avgTemperatureC != null ? `${summaryKpis.avgTemperatureC} °C` : '—'}
+          hint={summaryKpis.avgTemperatureC != null ? 'Average in this period' : 'No temperature recorded'}
           icon={Thermometer}
           tone="info"
         />
@@ -351,11 +351,11 @@ export function ZMCCDynamicBIAnalyticsScreen({
             <span className="text-xs font-semibold text-muted-foreground block">Turnaround Performance</span>
             <div className="flex items-center justify-between text-secondary-foreground">
               <span>Collection Execution Rate:</span>
-              <span className="font-semibold text-emerald-700">{summaryKpis.shopCollectionRatePct}%</span>
+              <span className="font-semibold text-emerald-700">{summaryKpis.shopCollectionRatePct != null ? `${summaryKpis.shopCollectionRatePct}%` : '—'}</span>
             </div>
             <div className="flex items-center justify-between text-secondary-foreground">
               <span>On-Time Arrival Rate:</span>
-              <span className="font-semibold text-foreground">{summaryKpis.onTimeArrivalRatePct}%</span>
+              <span className="font-semibold text-foreground">{summaryKpis.onTimeArrivalRatePct != null ? `${summaryKpis.onTimeArrivalRatePct}%` : '—'}</span>
             </div>
           </div>
         </div>

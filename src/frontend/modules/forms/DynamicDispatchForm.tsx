@@ -82,7 +82,8 @@ function computeAutoVehicleQuality(
   const lrTest = lrId ? labTests.find((t) => t.testId === lrId) : undefined;
   const fatTest = fatId ? labTests.find((t) => t.testId === fatId) : undefined;
 
-  let totalQty = 0;
+  let lrQty = 0;
+  let fatQty = 0;
   let weightedLrSum = 0;
   let weightedFatSum = 0;
   let simpleLrSum = 0;
@@ -107,6 +108,7 @@ function computeAutoVehicleQuality(
       validLrCount++;
       if (qty > 0) {
         weightedLrSum += qty * lrVal;
+        lrQty += qty;
       }
     }
 
@@ -115,24 +117,22 @@ function computeAutoVehicleQuality(
       validFatCount++;
       if (qty > 0) {
         weightedFatSum += qty * fatVal;
+        fatQty += qty;
       }
     }
 
-    if (qty > 0) {
-      totalQty += qty;
-    }
   });
 
   const isSingle = portions.length === 1;
   const lr =
-    totalQty > 0 && weightedLrSum > 0
-      ? (weightedLrSum / totalQty).toFixed(2)
+    lrQty > 0
+      ? (weightedLrSum / lrQty).toFixed(2)
       : isSingle && validLrCount === 1
         ? (simpleLrSum).toFixed(2)
         : '';
   const fat =
-    totalQty > 0 && weightedFatSum > 0
-      ? (weightedFatSum / totalQty).toFixed(2)
+    fatQty > 0
+      ? (weightedFatSum / fatQty).toFixed(2)
       : isSingle && validFatCount === 1
         ? (simpleFatSum).toFixed(2)
         : '';

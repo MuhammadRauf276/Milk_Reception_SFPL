@@ -22,139 +22,36 @@ interface PlantQaComparisonRow {
   id: string;
   dispatchNote: string;
   vehicleNumber: string;
-  contractorName: string;
   sourceZmcc: string;
-  dispatchDate: string;
-  dispatchTime: string;
-  plantReceivedTime: string;
-  // Volume
-  dispatchedLiters: number;
-  plantAcceptedNetKg: number;
-  plantAcceptedLiters: number;
-  transitLossLiters: number;
-  transitLossPct: number;
-  // ZMCC Dispatch QA
-  dispatchFat: number;
-  dispatchLr: number;
-  dispatchTempC: number;
-  // Central Plant Lab QA
-  plantFat: number;
-  plantLr: number;
-  plantTempC: number;
-  adulterationOutcome: 'NEGATIVE' | 'POSITIVE';
-  // Delta
-  fatDelta: number;
-  lrDelta: number;
-  tempDelta: number;
+  dispatchDate: string | null;
+  plantReceivedTime: string | null;
+  dispatchedLiters: number | null;
+  plantAcceptedLiters: number | null;
+  /** Signed: received minus dispatched, so a loss is negative and a gain is positive. */
+  varianceLiters: number | null;
+  variancePct: number | null;
+  dispatchFat: number | null;
+  dispatchLr: number | null;
+  plantFat: number | null;
+  plantLr: number | null;
+  fatDelta: number | null;
   status: 'ACCEPTED' | 'FLAGGED_LOSS' | 'FLAGGED_QA' | 'IN_TRANSIT';
 }
 
-const MOCK_COMPARISON_DATA: PlantQaComparisonRow[] = [
-  {
-    id: '1',
-    dispatchNote: 'DSP-2026-0081',
-    vehicleNumber: 'LES-9102',
-    contractorName: 'National Logistics',
-    sourceZmcc: 'ZMCC Sahiwal',
-    dispatchDate: '2026-10-26',
-    dispatchTime: '06:15',
-    plantReceivedTime: '11:45',
-    dispatchedLiters: 15400,
-    plantAcceptedNetKg: 15769,
-    plantAcceptedLiters: 15310,
-    transitLossLiters: 90,
-    transitLossPct: 0.58,
-    dispatchFat: 3.90,
-    dispatchLr: 28.5,
-    dispatchTempC: 3.8,
-    plantFat: 3.88,
-    plantLr: 28.4,
-    plantTempC: 4.4,
-    adulterationOutcome: 'NEGATIVE',
-    fatDelta: -0.02,
-    lrDelta: -0.1,
-    tempDelta: 0.6,
-    status: 'ACCEPTED',
-  },
-  {
-    id: '2',
-    dispatchNote: 'DSP-2026-0082',
-    vehicleNumber: 'FDN-4019',
-    contractorName: 'Fast Track Logistics',
-    sourceZmcc: 'ZMCC Chichawatni',
-    dispatchDate: '2026-10-26',
-    dispatchTime: '07:30',
-    plantReceivedTime: '13:10',
-    dispatchedLiters: 18200,
-    plantAcceptedNetKg: 18632,
-    plantAcceptedLiters: 18090,
-    transitLossLiters: 110,
-    transitLossPct: 0.60,
-    dispatchFat: 4.10,
-    dispatchLr: 29.0,
-    dispatchTempC: 3.6,
-    plantFat: 4.05,
-    plantLr: 28.8,
-    plantTempC: 4.5,
-    adulterationOutcome: 'NEGATIVE',
-    fatDelta: -0.05,
-    lrDelta: -0.2,
-    tempDelta: 0.9,
-    status: 'ACCEPTED',
-  },
-  {
-    id: '3',
-    dispatchNote: 'DSP-2026-0083',
-    vehicleNumber: 'LHR-7721',
-    contractorName: 'Al-Hadeed Cargo',
-    sourceZmcc: 'ZMCC Okara',
-    dispatchDate: '2026-10-26',
-    dispatchTime: '08:00',
-    plantReceivedTime: '—',
-    dispatchedLiters: 14800,
-    plantAcceptedNetKg: 0,
-    plantAcceptedLiters: 0,
-    transitLossLiters: 0,
-    transitLossPct: 0.00,
-    dispatchFat: 3.85,
-    dispatchLr: 28.0,
-    dispatchTempC: 3.7,
-    plantFat: 0,
-    plantLr: 0,
-    plantTempC: 0,
-    adulterationOutcome: 'NEGATIVE',
-    fatDelta: 0,
-    lrDelta: 0,
-    tempDelta: 0,
-    status: 'IN_TRANSIT',
-  },
-  {
-    id: '4',
-    dispatchNote: 'DSP-2026-0084',
-    vehicleNumber: 'RAW-8819',
-    contractorName: 'Fast Track Logistics',
-    sourceZmcc: 'ZMCC Pakpattan',
-    dispatchDate: '2026-10-25',
-    dispatchTime: '14:20',
-    plantReceivedTime: '20:45',
-    dispatchedLiters: 16500,
-    plantAcceptedNetKg: 16809,
-    plantAcceptedLiters: 16320,
-    transitLossLiters: 180,
-    transitLossPct: 1.09,
-    dispatchFat: 4.25,
-    dispatchLr: 28.5,
-    dispatchTempC: 4.0,
-    plantFat: 3.95,
-    plantLr: 27.5,
-    plantTempC: 6.2,
-    adulterationOutcome: 'NEGATIVE',
-    fatDelta: -0.30,
-    lrDelta: -1.0,
-    tempDelta: 2.2,
-    status: 'FLAGGED_QA',
-  },
-];
+const numOrNull = (v: unknown): number | null => {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const fmtNum = (v: number | null, digits?: number, suffix = ''): string =>
+  v == null ? '—' : `${digits != null ? v.toFixed(digits) : v.toLocaleString()}${suffix}`;
+
+const fmtSigned = (v: number | null, digits: number, suffix = ''): string =>
+  v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(digits)}${suffix}`;
+
+// Loss flag limit (percent of dispatched volume). Hard-coded: no policy value found in the codebase.
+const LOSS_FLAG_PCT = 0.8;
 
 interface PlantQaComparisonViewProps {
   targetZmccId?: string;
@@ -176,55 +73,45 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
   });
 
   const activeData: PlantQaComparisonRow[] = useMemo(() => {
-    if (query.data && query.data.length > 0) {
-      return query.data.map((r: any) => {
-        const dispatched = r.dispatch_gross_liters != null ? Number(r.dispatch_gross_liters) : Number(r.sent_gross_liters || 0);
-        const received = r.received_gross_liters != null ? Number(r.received_gross_liters) : dispatched;
-        const lossLit = r.gross_variance_liters != null ? Math.abs(Number(r.gross_variance_liters)) : 0;
-        const lossPct = r.gross_variance_percent != null ? Math.abs(Number(r.gross_variance_percent)) : 0;
-        const dFat = Number(r.dispatch_fat || 3.9);
-        const pFat = Number(r.plant_fat || (dFat - 0.05));
-        const dLr = Number(r.dispatch_lr || 28.5);
-        const pLr = Number(r.plant_lr || (dLr - 0.2));
+    return (query.data ?? []).map((r: any) => {
+      const dispatched = numOrNull(r.dispatch_gross_liters) ?? numOrNull(r.sent_gross_liters);
+      const received = numOrNull(r.received_gross_liters);
+      const varianceLiters = numOrNull(r.gross_variance_liters);
+      const variancePct = numOrNull(r.gross_variance_percent);
+      const dFat = numOrNull(r.dispatch_fat);
+      const pFat = numOrNull(r.plant_fat);
+      const dLr = numOrNull(r.dispatch_lr);
+      const pLr = numOrNull(r.plant_lr);
+      const fatDelta = dFat != null && pFat != null ? Number((pFat - dFat).toFixed(2)) : null;
 
-        let status: 'ACCEPTED' | 'FLAGGED_LOSS' | 'FLAGGED_QA' | 'IN_TRANSIT' = 'ACCEPTED';
-        if (r.current_status === 'DISPATCHED' || r.current_status === 'IN_TRANSIT') {
-          status = 'IN_TRANSIT';
-        } else if (lossPct > 0.8) {
-          status = 'FLAGGED_LOSS';
-        } else if (Math.abs(pFat - dFat) > 0.2) {
-          status = 'FLAGGED_QA';
-        }
+      let status: PlantQaComparisonRow['status'] = 'ACCEPTED';
+      if (r.current_status === 'DISPATCHED' || r.current_status === 'IN_TRANSIT') {
+        status = 'IN_TRANSIT';
+      } else if (variancePct != null && variancePct < -LOSS_FLAG_PCT) {
+        status = 'FLAGGED_LOSS';
+      } else if (fatDelta != null && Math.abs(fatDelta) > 0.2) {
+        status = 'FLAGGED_QA';
+      }
 
-        return {
-          id: r.visit_id,
-          dispatchNote: r.visit_number || `DSP-${r.visit_id}`,
-          vehicleNumber: r.vehicle_number || '—',
-          contractorName: r.zmcc_name || 'National Logistics',
-          sourceZmcc: r.zmcc_name || 'ZMCC Central',
-          dispatchDate: r.operational_date || '2026-10-26',
-          dispatchTime: '08:00',
-          plantReceivedTime: r.reconciled_at ? formatTime(r.reconciled_at) : '—',
-          dispatchedLiters: dispatched,
-          plantAcceptedNetKg: Math.round(received * 1.028),
-          plantAcceptedLiters: received,
-          transitLossLiters: lossLit,
-          transitLossPct: lossPct,
-          dispatchFat: dFat,
-          dispatchLr: dLr,
-          dispatchTempC: 3.8,
-          plantFat: pFat,
-          plantLr: pLr,
-          plantTempC: 4.2,
-          adulterationOutcome: 'NEGATIVE' as const,
-          fatDelta: Number((pFat - dFat).toFixed(2)),
-          lrDelta: Number((pLr - dLr).toFixed(2)),
-          tempDelta: 0.4,
-          status,
-        };
-      });
-    }
-    return MOCK_COMPARISON_DATA;
+      return {
+        id: r.visit_id,
+        dispatchNote: r.visit_number || `DSP-${r.visit_id}`,
+        vehicleNumber: r.vehicle_number || '—',
+        sourceZmcc: r.zmcc_name || '—',
+        dispatchDate: r.operational_date || null,
+        plantReceivedTime: r.reconciled_at ? formatTime(r.reconciled_at) : null,
+        dispatchedLiters: dispatched,
+        plantAcceptedLiters: received,
+        varianceLiters,
+        variancePct,
+        dispatchFat: dFat,
+        dispatchLr: dLr,
+        plantFat: pFat,
+        plantLr: pLr,
+        fatDelta,
+        status,
+      };
+    });
   }, [query.data]);
 
   const filteredRows = activeData.filter((r) => {
@@ -237,10 +124,14 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
     return matchSearch && matchStatus;
   });
 
-  const totalDispatched = filteredRows.reduce((s, r) => s + r.dispatchedLiters, 0);
-  const totalReceived = filteredRows.filter((r) => r.status !== 'IN_TRANSIT').reduce((s, r) => s + r.plantAcceptedLiters, 0);
-  const totalLoss = filteredRows.reduce((s, r) => s + r.transitLossLiters, 0);
-  const avgTransitLossPct = totalDispatched > 0 ? (totalLoss / totalDispatched) * 100 : 0;
+  const arrived = filteredRows.filter((r) => r.status !== 'IN_TRANSIT');
+  const totalDispatched = filteredRows.reduce((s, r) => s + (r.dispatchedLiters ?? 0), 0);
+  const totalReceived = arrived.reduce((s, r) => s + (r.plantAcceptedLiters ?? 0), 0);
+  const withVariance = arrived.filter((r) => r.varianceLiters != null && r.dispatchedLiters != null);
+  // Signed total: negative is a net loss, positive a net gain. In-transit rows are excluded.
+  const totalVariance = withVariance.length > 0 ? withVariance.reduce((s, r) => s + (r.varianceLiters ?? 0), 0) : null;
+  const varianceBase = withVariance.reduce((s, r) => s + (r.dispatchedLiters ?? 0), 0);
+  const avgVariancePct = totalVariance != null && varianceBase > 0 ? (totalVariance / varianceBase) * 100 : null;
 
   return (
     <div className="space-y-5 animate-panel-in">
@@ -269,10 +160,10 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
           hint="Weighbridge net weight truth"
         />
         <StatCard
-          label="Transit Volume Loss"
-          value={<span>{totalLoss.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">L</span></span>}
-          hint={`${avgTransitLossPct.toFixed(2)}% average transit loss`}
-          tone={avgTransitLossPct > 1.0 ? 'danger' : 'default'}
+          label="Transit Volume Variance"
+          value={totalVariance != null ? <span>{fmtSigned(totalVariance, 0)} <span className="text-xs font-normal text-muted-foreground">L</span></span> : '—'}
+          hint={avgVariancePct != null ? `${fmtSigned(avgVariancePct, 2)}% of dispatched, arrived tankers only` : 'Arrived tankers only'}
+          tone={avgVariancePct != null && avgVariancePct < -LOSS_FLAG_PCT ? 'danger' : 'default'}
         />
         <StatCard
           label="Flagged Tankers"
@@ -304,7 +195,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
           >
             <option value="ALL">All Dispatches</option>
             <option value="ACCEPTED">Accepted (Normal)</option>
-            <option value="FLAGGED_LOSS">High Loss Alert (&gt; 1.0%)</option>
+            <option value="FLAGGED_LOSS">High Loss Alert (&gt; {LOSS_FLAG_PCT}%)</option>
             <option value="FLAGGED_QA">QA Discrepancy Alert</option>
             <option value="IN_TRANSIT">In-Transit</option>
           </select>
@@ -350,54 +241,61 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
                 <th className="py-2 px-3 text-right border-r border-border bg-emerald-50/20">LR</th>
 
                 {/* Delta & Status */}
-                <th className="py-2 px-3 text-right bg-amber-50/20">Loss (L)</th>
-                <th className="py-2 px-3 text-right bg-amber-50/20">Loss %</th>
+                <th className="py-2 px-3 text-right bg-amber-50/20">Variance (L)</th>
+                <th className="py-2 px-3 text-right bg-amber-50/20">Variance %</th>
                 <th className="py-2 px-3 text-right bg-amber-50/20">Fat Delta</th>
                 <th className="py-2 px-3 text-center">Audit Status</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-border/60">
+              {filteredRows.length === 0 && (
+                <tr>
+                  <td colSpan={14} className="py-8 px-3 text-center text-muted-foreground">
+                    {query.isLoading ? 'Loading dispatches…' : query.isError ? 'Could not load dispatches.' : 'No dispatches found.'}
+                  </td>
+                </tr>
+              )}
               {filteredRows.map((row) => (
                 <tr key={row.id} className="hover:bg-muted/30 transition-colors">
                   <td className="py-2 px-3 font-semibold text-foreground">{row.dispatchNote}</td>
                   <td className="py-2 px-3 font-mono">{row.vehicleNumber}</td>
                   <td className="py-2 px-3">{row.sourceZmcc}</td>
                   <td className="py-2 px-3 text-muted-foreground border-r border-border">
-                    {row.dispatchDate} {row.dispatchTime}
+                    {row.dispatchDate ?? '—'}
                   </td>
 
                   {/* Dispatch Values */}
                   <td className="py-2 px-3 text-right tabular-nums font-mono font-medium">
-                    {row.dispatchedLiters.toLocaleString()} L
+                    {fmtNum(row.dispatchedLiters, undefined, ' L')}
                   </td>
-                  <td className="py-2 px-3 text-right tabular-nums font-mono">{row.dispatchFat.toFixed(2)}%</td>
-                  <td className="py-2 px-3 text-right tabular-nums font-mono border-r border-border">{row.dispatchLr.toFixed(1)}</td>
+                  <td className="py-2 px-3 text-right tabular-nums font-mono">{fmtNum(row.dispatchFat, 2, '%')}</td>
+                  <td className="py-2 px-3 text-right tabular-nums font-mono border-r border-border">{fmtNum(row.dispatchLr, 1)}</td>
 
                   {/* Plant Values */}
                   <td className="py-2 px-3 text-right tabular-nums font-mono font-medium">
-                    {row.status === 'IN_TRANSIT' ? '—' : `${row.plantAcceptedLiters.toLocaleString()} L`}
+                    {row.status === 'IN_TRANSIT' ? '—' : fmtNum(row.plantAcceptedLiters, undefined, ' L')}
                   </td>
                   <td className="py-2 px-3 text-right tabular-nums font-mono">
-                    {row.status === 'IN_TRANSIT' ? '—' : `${row.plantFat.toFixed(2)}%`}
+                    {row.status === 'IN_TRANSIT' ? '—' : fmtNum(row.plantFat, 2, '%')}
                   </td>
                   <td className="py-2 px-3 text-right tabular-nums font-mono border-r border-border">
-                    {row.status === 'IN_TRANSIT' ? '—' : row.plantLr.toFixed(1)}
+                    {row.status === 'IN_TRANSIT' ? '—' : fmtNum(row.plantLr, 1)}
                   </td>
 
                   {/* Deltas & Loss */}
                   <td className="py-2 px-3 text-right tabular-nums font-mono font-semibold text-foreground">
-                    {row.status === 'IN_TRANSIT' ? '—' : `${row.transitLossLiters} L`}
+                    {row.status === 'IN_TRANSIT' ? '—' : fmtSigned(row.varianceLiters, 0, ' L')}
                   </td>
                   <td className={`py-2 px-3 text-right tabular-nums font-mono font-semibold ${
-                    row.transitLossPct > 1.0 ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'
+                    row.variancePct != null && row.variancePct < -LOSS_FLAG_PCT ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'
                   }`}>
-                    {row.status === 'IN_TRANSIT' ? '—' : `${row.transitLossPct.toFixed(2)}%`}
+                    {row.status === 'IN_TRANSIT' ? '—' : fmtSigned(row.variancePct, 2, '%')}
                   </td>
                   <td className={`py-2 px-3 text-right tabular-nums font-mono ${
-                    Math.abs(row.fatDelta) > 0.15 ? 'text-rose-600 font-semibold' : 'text-muted-foreground'
+                    row.fatDelta != null && Math.abs(row.fatDelta) > 0.15 ? 'text-rose-600 font-semibold' : 'text-muted-foreground'
                   }`}>
-                    {row.status === 'IN_TRANSIT' ? '—' : `${row.fatDelta > 0 ? '+' : ''}${row.fatDelta.toFixed(2)}%`}
+                    {row.status === 'IN_TRANSIT' ? '—' : fmtSigned(row.fatDelta, 2, '%')}
                   </td>
 
                   {/* Status Pill */}
@@ -414,7 +312,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
                     )}
                     {row.status === 'FLAGGED_LOSS' && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 text-xs font-semibold border border-amber-200 dark:border-amber-800">
-                        <AlertTriangle className="w-3 h-3" /> High Loss (&gt;1%)
+                        <AlertTriangle className="w-3 h-3" /> High Loss (&gt;{LOSS_FLAG_PCT}%)
                       </span>
                     )}
                     {row.status === 'IN_TRANSIT' && (

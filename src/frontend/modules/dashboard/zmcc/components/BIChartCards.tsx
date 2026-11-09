@@ -424,7 +424,7 @@ export function RouteLossBarChart({ rankings }: { rankings: RoutePerformanceRank
                   {r.totalLiters.toLocaleString()} L
                 </span>
                 <span className={`text-xs tabular-nums font-semibold px-2 py-0.5 rounded-md border ${lossTone}`}>
-                  {r.routeLossPct}% Loss
+                  {r.routeLossPct != null ? `${r.routeLossPct}% loss` : 'Loss not known yet'}
                 </span>
               </div>
             </div>

@@ -4,7 +4,8 @@ import { prisma } from '@core/db';
 import { getSupplyChainLossHierarchy } from './lossCalculationService';
 import { listZmccExitOutcomes } from './zmccManagerOverviewService';
 import { getTankPhysicalStock, getBatchTankPhysicalStock, getBatchTankCommercialStock } from './zmccTankService';
-import { getPakistanCalendarDate } from '@core/business-day';
+import { getPakistanDayWindow } from '@core/business-day';
+import { calculateAt13TSLiters } from '@/backend/utils/milkFormulas';
 import { findRoleResult, isRoleTest } from '@/backend/utils/roleAwareMatch';
 import { loadSystemRoles, type PolicyDb } from './testPointPolicyService';
 import { jsonRecord, jsonString } from '@/lib/json';
@@ -17,6 +18,8 @@ import { jsonRecord, jsonString } from '@/lib/json';
 export interface LossTierTelemetry {
   lossLiters: number;
   lossPercent: number;
+  /** Milk gained in this tier; a tier shows either a loss or a gain. */
+  gainLiters: number;
 }
 
 export interface MpdExecutiveTelemetry {
@@ -237,6 +240,21 @@ function portionLiters(
   return null;
 }
 
+/** Litres the plant received and accepted from a visit. In-transit and rejected milk is not delivered. */
+function deliveredVisitLiters(visit: {
+  current_status: string;
+  vehicle_dispatch_gross_liters: Numeric;
+  vehicle_dispatch_density: Numeric;
+  portions: Array<{ plant_decision: string | null; dispatch_quantity_value: Numeric; dispatch_quantity_unit: string | null }>;
+}): number {
+  if (visit.current_status === 'REJECTED') return 0;
+  const accepted = visit.portions.filter((p) => p.plant_decision === 'ACCEPTED');
+  if (accepted.length === 0) return 0;
+  if (accepted.length === visit.portions.length) return toNumber(visit.vehicle_dispatch_gross_liters) ?? 0;
+  const density = toNumber(visit.vehicle_dispatch_density);
+  return accepted.reduce((sum, p) => sum + (portionLiters(p, density) ?? 0), 0);
+}
+
 export type IncidentKind = 'formalin' | 'urea' | 'waterLowLr' | 'cobPositive';
 
 /** Maps a failed test to the incident category it counts toward, if any. */
@@ -414,11 +432,10 @@ export async function recordGovernanceAudit(params: {
 }
 
 export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boolean } = {}): Promise<MpdExecutiveTelemetry> {
-  const calendarDate = getPakistanCalendarDate();
-  // Same day-window convention as the supply-chain loss service, so figures agree.
-  const todayStart = new Date(`${calendarDate}T00:00:00.000Z`);
-  const todayEnd = new Date(`${calendarDate}T23:59:59.999Z`);
-  const today = { gte: todayStart, lte: todayEnd };
+  // Same Pakistan day as the supply-chain loss service, so figures agree.
+  const day = getPakistanDayWindow();
+  const calendarDate = day.calendarDate;
+  const today = { gte: day.start, lte: day.end };
   const substituteSince = new Date(Date.now() - GOVERNANCE_WINDOW_DAYS * 86400000);
   // Whether any lab test holds the stored LR / Fat role (then look-alike tests no longer count as LR / Fat).
   const storedRoles = [...(await loadSystemRoles(prisma as unknown as PolicyDb)).values()];
@@ -466,7 +483,7 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
     }),
     // 3. Today's MOT journeys
     prisma.motJourney.findMany({
-      where: { operational_date: today },
+      where: { operational_date: { gte: day.dateStart, lte: day.dateEnd } },
       include: {
         route: true,
         mot_vehicle: true,
@@ -594,7 +611,7 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
       id: c.id.toString(),
       code: c.code,
       name: c.name,
-      deliveredLiters: round(c.visits.reduce((sum, v) => sum + (toNumber(v.vehicle_dispatch_gross_liters) ?? 0), 0)),
+      deliveredLiters: round(c.visits.reduce((sum, v) => sum + deliveredVisitLiters(v), 0)),
       avgFatPercent: weightedMean(portions.map((p) => [numericResultFor(p.plant_lab_results, 'FAT', fatRoleHeld), toNumber(p.dispatch_quantity_value) ?? 1])),
       avgLr: weightedMean(portions.map((p) => [numericResultFor(p.plant_lab_results, 'LR', lrRoleHeld), toNumber(p.dispatch_quantity_value) ?? 1])),
       qualityPassRatePercent: percentOf(decided.filter((p) => p.plant_decision === 'ACCEPTED').length, decided.length),
@@ -657,13 +674,19 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
       snf: toNumber(r.snf),
       at13ts: toNumber(r.at_13ts_liters),
     })),
-    ...contractorVisits.map((v) => ({
-      liters: toNumber(v.vehicle_dispatch_gross_liters) ?? 0,
-      fat: toNumber(v.vehicle_dispatch_fat),
-      lr: toNumber(v.vehicle_dispatch_lr),
-      snf: toNumber(v.vehicle_dispatch_snf),
-      at13ts: toNumber(v.vehicle_dispatch_at_13ts_liters),
-    })),
+    ...contractorVisits.flatMap((v) => {
+      const liters = deliveredVisitLiters(v);
+      if (liters <= 0) return [];
+      const ts = toNumber(v.vehicle_dispatch_ts);
+      const fullVisit = liters === toNumber(v.vehicle_dispatch_gross_liters);
+      return [{
+        liters,
+        fat: toNumber(v.vehicle_dispatch_fat),
+        lr: toNumber(v.vehicle_dispatch_lr),
+        snf: toNumber(v.vehicle_dispatch_snf),
+        at13ts: fullVisit ? toNumber(v.vehicle_dispatch_at_13ts_liters) : ts !== null ? calculateAt13TSLiters(liters, ts) : null,
+      }];
+    }),
   ];
   const totalIntakeLiters = round(intakeRows.reduce((sum, r) => sum + r.liters, 0));
   const at13tsKnown = intakeRows.length > 0 && intakeRows.every((r) => r.at13ts !== null);
@@ -715,9 +738,10 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
   });
 
   const loss = lossData?.summary ?? null;
-  const tier = (t: { lossLiters: number; lossPercent: number }) => ({
+  const tier = (t: { lossLiters: number; lossPercent: number; gainLiters: number }) => ({
     lossLiters: round(t.lossLiters),
     lossPercent: round(t.lossPercent),
+    gainLiters: round(t.gainLiters),
   });
 
   return {

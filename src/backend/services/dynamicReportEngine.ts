@@ -2,7 +2,7 @@ import { getBatchTankPhysicalStock, getBatchTankTodayMovements } from '@/backend
 import { prisma } from '@core/db';
 import type { User } from '@core/types';
 import { canActAs } from '@core/roles/hierarchy';
-import { getPakistanCalendarDate } from '@core/business-day';
+import { getPakistanCalendarDate, getPakistanDayWindow } from '@core/business-day';
 import ExcelJS from 'exceljs';
 import { isTemperatureTest } from '@/lib/lab-test-roles';
 import { loadSystemRoles, type PolicyDb } from '@/backend/services/testPointPolicyService';
@@ -241,6 +241,8 @@ export async function executeDynamicReportQuery(
 
   let rawRows: Record<string, any>[] = [];
   let totalCount = 0;
+  // KPI figures across the whole filter, never just the current page.
+  let kpiTotals: DomainKpiTotals = {};
 
   // --------------------------------------------------------------------------
   // DOMAIN 1: MOT_COLLECTIONS
@@ -253,8 +255,9 @@ export async function executeDynamicReportQuery(
       applyCollectionFilter(where, flt);
     }
 
-    const [count, records] = await Promise.all([
+    const [count, totals, records] = await Promise.all([
       prisma.motShopCollection.count({ where }),
+      getCollectionKpiTotals(where),
       prisma.motShopCollection.findMany({
         where,
         skip: (page - 1) * pageSize,
@@ -270,6 +273,7 @@ export async function executeDynamicReportQuery(
     ]);
 
     totalCount = count;
+    kpiTotals = totals;
     rawRows = records.map((r) => ({
       id: r.id.toString(),
       collection_number: r.collection_number,
@@ -307,8 +311,21 @@ export async function executeDynamicReportQuery(
       applyHcFilter(where, flt);
     }
 
-    const [count, records] = await Promise.all([
+    const [count, hcKpiSessions, records] = await Promise.all([
       prisma.zmccLocalSupplierArrival.count({ where }),
+      // LR and Fat live in lab result rows, so the weighted figures cannot be a single SQL aggregate here.
+      prisma.zmccLocalSupplierArrival.findMany({
+        where,
+        select: {
+          lab_session: {
+            select: {
+              gross_liters: true,
+              snf: true,
+              results: { select: { test_id: true, test_code_snapshot: true, test_name_snapshot: true, numeric_value: true } },
+            },
+          },
+        },
+      }),
       prisma.zmccLocalSupplierArrival.findMany({
         where,
         skip: (page - 1) * pageSize,
@@ -337,21 +354,36 @@ export async function executeDynamicReportQuery(
     const roles = await loadSystemRoles(prisma as unknown as PolicyDb);
     const hasFatRole = [...roles.values()].includes('FAT');
     const hasLrRole = [...roles.values()].includes('LR');
-    rawRows = records.map((a) => {
-      let fatVal: number | null = null;
-      let lrVal: number | null = null;
-      let tempVal: number | null = null;
-
-      if (a.lab_session?.results) {
-        for (const res of a.lab_session.results) {
+    const readResults = (results: LabResultRow[] | undefined) => {
+      let fat: number | null = null;
+      let lr: number | null = null;
+      let temp: number | null = null;
+      for (const res of results ?? []) {
         const code = res.test_code_snapshot.toUpperCase();
         const num = res.numeric_value ? Number(res.numeric_value) : null;
         const role = roles.get(String(res.test_id));
-        if (role === 'FAT' || (!hasFatRole && code.includes('FAT'))) fatVal = num;
-        else if (role === 'LR' || (!hasLrRole && (code.includes('LR') || code.includes('CLR')))) lrVal = num;
-        else if (isTemperatureTest({ testCode: code, testName: res.test_name_snapshot, systemRole: role })) tempVal = num;
+        if (role === 'FAT' || (!hasFatRole && code.includes('FAT'))) fat = num;
+        else if (role === 'LR' || (!hasLrRole && (code.includes('LR') || code.includes('CLR')))) lr = num;
+        else if (isTemperatureTest({ testCode: code, testName: res.test_name_snapshot, systemRole: role })) temp = num;
       }
-      }
+      return { fat, lr, temp };
+    };
+
+    const hcKpiRows = hcKpiSessions.flatMap((a) => {
+      if (!a.lab_session) return [];
+      const liters = a.lab_session.gross_liters != null ? Number(a.lab_session.gross_liters) : 0;
+      const { fat, lr } = readResults(a.lab_session.results);
+      return [{ liters, fat, lr, snf: a.lab_session.snf != null ? Number(a.lab_session.snf) : null }];
+    });
+    kpiTotals = {
+      grossLiters: hcKpiRows.length > 0 ? hcKpiRows.reduce((sum, r) => sum + r.liters, 0) : null,
+      avgFat: weightedAverage(hcKpiRows.map((r) => [r.fat, r.liters])),
+      avgLr: weightedAverage(hcKpiRows.map((r) => [r.lr, r.liters])),
+      avgSnf: weightedAverage(hcKpiRows.map((r) => [r.snf, r.liters])),
+    };
+
+    rawRows = records.map((a) => {
+      const { fat: fatVal, lr: lrVal, temp: tempVal } = readResults(a.lab_session?.results);
 
       const rmrStr = a.rmr_issuance
         ? a.rmr_issuance.series
@@ -380,8 +412,8 @@ export async function executeDynamicReportQuery(
         fat: fatVal,
         lr: lrVal,
         snf: a.lab_session?.snf ? Number(a.lab_session.snf) : null,
-        temperature_c: tempVal || 4.2,
-        decision: a.lab_session?.decision || 'ACCEPTED',
+        temperature_c: tempVal,
+        decision: a.lab_session?.decision || 'PENDING',
         rmr_number: rmrStr || '—',
         rmr_status: rmrStatus,
       };
@@ -399,8 +431,9 @@ export async function executeDynamicReportQuery(
       applyJourneyFilter(where, flt);
     }
 
-    const [count, records] = await Promise.all([
+    const [count, totals, records] = await Promise.all([
       prisma.motJourney.count({ where }),
+      getJourneyKpiTotals(where),
       prisma.motJourney.findMany({
         where,
         skip: (page - 1) * pageSize,
@@ -412,17 +445,22 @@ export async function executeDynamicReportQuery(
           mot_vehicle: { select: { vehicle_number: true } },
           mot_arrival: { select: { arrival_timestamp: true } },
           _count: { select: { stops: true, collections: true } },
-          collections: { select: { gross_liters: true } },
+          collections: { select: { gross_liters: true, final_decision: true } },
         },
       }),
     ]);
 
     totalCount = count;
+    kpiTotals = totals;
     rawRows = records.map((j) => {
-      const shopLiters = j.collections.reduce((sum, c) => sum + Number(c.gross_liters), 0);
-      const gateLiters = j.area_received_liters ? Number(j.area_received_liters) : shopLiters;
-      const lossLit = Number((shopLiters - gateLiters).toFixed(2));
-      const lossPct = shopLiters > 0 ? Number(((lossLit / shopLiters) * 100).toFixed(2)) : 0;
+      // Rejected milk never travels to the ZMCC, so it is not part of the loss comparison.
+      const shopLiters = j.collections
+        .filter((c) => c.final_decision !== 'REJECTED')
+        .reduce((sum, c) => sum + Number(c.gross_liters), 0);
+      // Not received yet: gate litres and loss are unknown, not zero.
+      const gateLiters = j.area_received_liters != null ? Number(j.area_received_liters) : null;
+      const lossLit = gateLiters !== null ? Number((shopLiters - gateLiters).toFixed(2)) : null;
+      const lossPct = lossLit !== null && shopLiters > 0 ? Number(((lossLit / shopLiters) * 100).toFixed(2)) : null;
 
       const planned = j._count.stops;
       const visited = j._count.collections;
@@ -441,7 +479,7 @@ export async function executeDynamicReportQuery(
         visited_stops: visited,
         completion_rate: completionRate,
         shop_liters: Number(shopLiters.toFixed(2)),
-        gate_liters: Number(gateLiters.toFixed(2)),
+        gate_liters: gateLiters !== null ? Number(gateLiters.toFixed(2)) : null,
         loss_liters: lossLit,
         loss_pct: lossPct,
         dispatched_at: j.assigned_at.toISOString(),
@@ -470,7 +508,7 @@ export async function executeDynamicReportQuery(
     const tankIds = records.map((t) => t.id);
     const [physicalStocks, todayMovements] = await Promise.all([
       getBatchTankPhysicalStock(tankIds),
-      getBatchTankTodayMovements(tankIds, new Date(`${getPakistanCalendarDate()}T00:00:00+05:00`)),
+      getBatchTankTodayMovements(tankIds, getPakistanDayWindow().start),
     ]);
 
     totalCount = count;
@@ -500,87 +538,123 @@ export async function executeDynamicReportQuery(
   // DOMAIN 5: PLANT_TRANSIT (PostgreSQL Materialized View: mv_plant_transit_reconciliation)
   // --------------------------------------------------------------------------
   else if (domain === 'PLANT_TRANSIT') {
-    try {
-      const conditions = ['1=1'];
-      const params: any[] = [];
-      let pIdx = 1;
+    // A failed query throws to the caller: it must show as an error, never as made-up rows.
+    const conditions = ['1=1'];
+    const params: any[] = [];
+    let pIdx = 1;
 
-      if (effectiveZmccId) {
-        conditions.push(`zmcc_id = $${pIdx++}`);
-        params.push(effectiveZmccId);
-      }
-
-      const countRes = (await prisma.$queryRawUnsafe(
-        `SELECT COUNT(*)::text as count FROM mv_plant_transit_reconciliation WHERE ${conditions.join(' AND ')}`,
-        ...params
-      )) as { count: string }[];
-      totalCount = Number(countRes[0]?.count || 0);
-
-      const offset = (page - 1) * pageSize;
-      const records = (await prisma.$queryRawUnsafe(
-        `SELECT * FROM mv_plant_transit_reconciliation WHERE ${conditions.join(' AND ')} ORDER BY operational_date DESC, visit_id DESC LIMIT ${pageSize} OFFSET ${offset}`,
-        ...params
-      )) as any[];
-
-      if (records.length > 0) {
-        rawRows = records.map((r) => {
-          const dispatched = r.dispatch_gross_liters != null ? Number(r.dispatch_gross_liters) : Number(r.sent_gross_liters || 0);
-          const received = r.received_gross_liters != null ? Number(r.received_gross_liters) : dispatched;
-          const lossLit = r.gross_variance_liters != null ? Math.abs(Number(r.gross_variance_liters)) : 0;
-          const lossPct = r.gross_variance_percent != null ? Math.abs(Number(r.gross_variance_percent)) : 0;
-
-          return {
-            id: r.visit_id.toString(),
-            dispatch_note_number: r.visit_number || `DSP-${r.visit_id}`,
-            dispatch_date: r.operational_date ? (r.operational_date instanceof Date ? r.operational_date.toISOString().split('T')[0] : String(r.operational_date)) : '2026-10-26',
-            vehicle_number: r.vehicle_number || '—',
-            contractor_name: r.zmcc_name || 'National Logistics',
-            dispatched_liters: dispatched,
-            dispatched_13ts_liters: r.dispatch_at_13ts_liters != null ? Number(r.dispatch_at_13ts_liters) : Number(r.sent_at_13ts_liters || dispatched),
-            plant_received_liters: received,
-            transit_loss_liters: lossLit,
-            transit_loss_pct: lossPct,
-            status: r.current_status === 'COMPLETED' ? 'RECONCILED' : (r.current_status || 'IN_TRANSIT'),
-          };
-        });
-      } else {
-        totalCount = 5;
-        rawRows = [
-          { id: '1', dispatch_note_number: 'DSP-2026-0081', dispatch_date: '2026-10-26', vehicle_number: 'LES-9102', contractor_name: 'National Logistics', dispatched_liters: 15400, dispatched_13ts_liters: 15120, plant_received_liters: 15310, transit_loss_liters: 90, transit_loss_pct: 0.58, status: 'RECEIVED_AT_PLANT' },
-          { id: '2', dispatch_note_number: 'DSP-2026-0082', dispatch_date: '2026-10-26', vehicle_number: 'FDN-4019', contractor_name: 'Fast Track Logistics', dispatched_liters: 18200, dispatched_13ts_liters: 17950, plant_received_liters: 18090, transit_loss_liters: 110, transit_loss_pct: 0.60, status: 'RECEIVED_AT_PLANT' },
-          { id: '3', dispatch_note_number: 'DSP-2026-0083', dispatch_date: '2026-10-26', vehicle_number: 'LHR-7721', contractor_name: 'Al-Hadeed Cargo', dispatched_liters: 14800, dispatched_13ts_liters: 14500, plant_received_liters: 14800, transit_loss_liters: 0, transit_loss_pct: 0.00, status: 'IN_TRANSIT' },
-          { id: '4', dispatch_note_number: 'DSP-2026-0084', dispatch_date: '2026-10-25', vehicle_number: 'KHI-3312', contractor_name: 'National Logistics', dispatched_liters: 22000, dispatched_13ts_liters: 21650, plant_received_liters: 21850, transit_loss_liters: 150, transit_loss_pct: 0.68, status: 'RECONCILED' },
-          { id: '5', dispatch_note_number: 'DSP-2026-0085', dispatch_date: '2026-10-25', vehicle_number: 'RAW-8819', contractor_name: 'Fast Track Logistics', dispatched_liters: 16500, dispatched_13ts_liters: 16200, plant_received_liters: 16320, transit_loss_liters: 180, transit_loss_pct: 1.09, status: 'FLAGGED' },
-        ];
-      }
-    } catch (err) {
-      console.error('Error querying mv_plant_transit_reconciliation view:', err);
-      totalCount = 5;
-      rawRows = [
-        { id: '1', dispatch_note_number: 'DSP-2026-0081', dispatch_date: '2026-10-26', vehicle_number: 'LES-9102', contractor_name: 'National Logistics', dispatched_liters: 15400, dispatched_13ts_liters: 15120, plant_received_liters: 15310, transit_loss_liters: 90, transit_loss_pct: 0.58, status: 'RECEIVED_AT_PLANT' },
-        { id: '2', dispatch_note_number: 'DSP-2026-0082', dispatch_date: '2026-10-26', vehicle_number: 'FDN-4019', contractor_name: 'Fast Track Logistics', dispatched_liters: 18200, dispatched_13ts_liters: 17950, plant_received_liters: 18090, transit_loss_liters: 110, transit_loss_pct: 0.60, status: 'RECEIVED_AT_PLANT' },
-        { id: '3', dispatch_note_number: 'DSP-2026-0083', dispatch_date: '2026-10-26', vehicle_number: 'LHR-7721', contractor_name: 'Al-Hadeed Cargo', dispatched_liters: 14800, dispatched_13ts_liters: 14500, plant_received_liters: 14800, transit_loss_liters: 0, transit_loss_pct: 0.00, status: 'IN_TRANSIT' },
-        { id: '4', dispatch_note_number: 'DSP-2026-0084', dispatch_date: '2026-10-25', vehicle_number: 'KHI-3312', contractor_name: 'National Logistics', dispatched_liters: 22000, dispatched_13ts_liters: 21650, plant_received_liters: 21850, transit_loss_liters: 150, transit_loss_pct: 0.68, status: 'RECONCILED' },
-        { id: '5', dispatch_note_number: 'DSP-2026-0085', dispatch_date: '2026-10-25', vehicle_number: 'RAW-8819', contractor_name: 'Fast Track Logistics', dispatched_liters: 16500, dispatched_13ts_liters: 16200, plant_received_liters: 16320, transit_loss_liters: 180, transit_loss_pct: 1.09, status: 'FLAGGED' },
-      ];
+    if (effectiveZmccId) {
+      conditions.push(`zmcc_id = $${pIdx++}`);
+      params.push(effectiveZmccId);
     }
+
+    const countRes = (await prisma.$queryRawUnsafe(
+      `SELECT COUNT(*)::text as count FROM mv_plant_transit_reconciliation WHERE ${conditions.join(' AND ')}`,
+      ...params
+    )) as { count: string }[];
+    totalCount = Number(countRes[0]?.count || 0);
+
+    const offset = (page - 1) * pageSize;
+    const records = (await prisma.$queryRawUnsafe(
+      `SELECT * FROM mv_plant_transit_reconciliation WHERE ${conditions.join(' AND ')} ORDER BY operational_date DESC, visit_id DESC LIMIT ${pageSize} OFFSET ${offset}`,
+      ...params
+    )) as any[];
+
+    const optionalNumber = (value: unknown) => (value != null ? Number(value) : null);
+    rawRows = records.map((r) => {
+      // The stored variance is received minus sent, so a negative value is a loss and a gain is no loss.
+      const variance = optionalNumber(r.gross_variance_liters);
+      const variancePct = optionalNumber(r.gross_variance_percent);
+
+      return {
+        id: r.visit_id.toString(),
+        dispatch_note_number: r.visit_number || `DSP-${r.visit_id}`,
+        dispatch_date: r.operational_date ? (r.operational_date instanceof Date ? r.operational_date.toISOString().split('T')[0] : String(r.operational_date)) : null,
+        vehicle_number: r.vehicle_number || '—',
+        contractor_name: r.zmcc_name || '—',
+        dispatched_liters: optionalNumber(r.dispatch_gross_liters ?? r.sent_gross_liters),
+        dispatched_13ts_liters: optionalNumber(r.dispatch_at_13ts_liters ?? r.sent_at_13ts_liters),
+        plant_received_liters: optionalNumber(r.received_gross_liters),
+        transit_loss_liters: variance !== null ? Math.max(0, -variance) : null,
+        transit_loss_pct: variancePct !== null ? Math.max(0, -variancePct) : null,
+        status: r.current_status === 'COMPLETED' ? 'RECONCILED' : (r.current_status || 'IN_TRANSIT'),
+      };
+    });
   }
 
   // --------------------------------------------------------------------------
   // DOMAIN 6: QUALITY_SCREENING
   // --------------------------------------------------------------------------
   else {
-    totalCount = 8;
-    rawRows = [
-      { id: '1', sample_token: 'TKN-8812', source_type: 'Route MOT (R-01)', test_date: '2026-10-26', tested_at: '2026-10-26T07:45:00Z', gross_liters: 1450, fat: 3.85, lr: 28.5, snf: 8.65, temperature_c: 4.1, decision: 'ACCEPTED', exception_reason: '—' },
-      { id: '2', sample_token: 'TKN-8813', source_type: 'Direct HC (SUP-04)', test_date: '2026-10-26', tested_at: '2026-10-26T08:15:00Z', gross_liters: 420, fat: 3.12, lr: 25.0, snf: 7.90, temperature_c: 5.8, decision: 'REJECTED', exception_reason: 'Low Fat (< 3.5%) & Water Addition' },
-      { id: '3', sample_token: 'TKN-8814', source_type: 'Route MOT (R-03)', test_date: '2026-10-26', tested_at: '2026-10-26T08:30:00Z', gross_liters: 1890, fat: 4.15, lr: 29.0, snf: 8.80, temperature_c: 3.9, decision: 'ACCEPTED', exception_reason: '—' },
-      { id: '4', sample_token: 'TKN-8815', source_type: 'Direct HC (SUP-11)', test_date: '2026-10-26', tested_at: '2026-10-26T09:00:00Z', gross_liters: 680, fat: 4.40, lr: 28.2, snf: 8.70, temperature_c: 4.4, decision: 'ACCEPTED', exception_reason: '—' },
-    ];
+    const where: any = { final_decision: { in: ['ACCEPTED', 'REJECTED'] } };
+    if (effectiveZmccId) where.lab_session = { zmcc_id: effectiveZmccId };
+
+    for (const flt of filters) {
+      applyQualityFilter(where, flt);
+    }
+
+    const labResultSelect = { test_id: true, test_code_snapshot: true, test_name_snapshot: true, numeric_value: true } as const;
+    const [count, totals, records] = await Promise.all([
+      prisma.zmccLabPortion.count({ where }),
+      getQualityKpiTotals(where),
+      prisma.zmccLabPortion.findMany({
+        where,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: getOrderByClause(sortFieldId, sortDirection, 'decided_at'),
+        include: {
+          results: { select: labResultSelect },
+          lab_session: {
+            select: {
+              id: true,
+              arrival_type: true,
+              rejection_reason: true,
+              // Session-level results only: the portion's own results are loaded above.
+              results: { where: { portion_id: null }, select: labResultSelect },
+              mot_arrival: { select: { zmcc_token: true, journey: { select: { route: { select: { route_code: true } } } } } },
+              local_supplier_arrival: { select: { zmcc_token: true, local_supplier: { select: { local_supplier_code: true } } } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    totalCount = count;
+    kpiTotals = totals;
+    const roles = await loadSystemRoles(prisma as unknown as PolicyDb);
+    const readTemperature = (results: LabResultRow[]) => {
+      const match = results.find((res) =>
+        isTemperatureTest({ testCode: res.test_code_snapshot.toUpperCase(), testName: res.test_name_snapshot, systemRole: roles.get(String(res.test_id)) })
+      );
+      return match?.numeric_value != null ? Number(match.numeric_value) : null;
+    };
+    const optionalNumber = (value: unknown) => (value != null ? Number(value) : null);
+
+    rawRows = records.map((p) => {
+      const session = p.lab_session;
+      const testedAt = p.decided_at ?? p.created_at;
+      const reasons = Array.isArray(p.exception_reasons) ? (p.exception_reasons as string[]).join(', ') : '';
+      const routeCode = session.mot_arrival?.journey?.route?.route_code;
+      const supplierCode = session.local_supplier_arrival?.local_supplier?.local_supplier_code;
+
+      return {
+        id: p.id.toString(),
+        sample_token: session.mot_arrival?.zmcc_token ?? session.local_supplier_arrival?.zmcc_token ?? `S-${session.id}`,
+        source_type: session.arrival_type === 'HC' ? `Direct HC (${supplierCode ?? '—'})` : `Route MOT (${routeCode ?? '—'})`,
+        test_date: getPakistanCalendarDate(testedAt),
+        tested_at: testedAt.toISOString(),
+        gross_liters: optionalNumber(p.gross_liters),
+        fat: optionalNumber(p.fat),
+        lr: optionalNumber(p.lr),
+        snf: optionalNumber(p.snf),
+        temperature_c: readTemperature(p.results) ?? readTemperature(session.results),
+        decision: p.final_decision,
+        exception_reason: reasons || p.decision_remarks || session.rejection_reason || '—',
+      };
+    });
   }
 
-  // Compute Summary KPIs dynamically from the loaded records
-  const summaryKpis = computeDynamicSummaryKpis(domain, rawRows, totalCount);
+  const summaryKpis = computeDynamicSummaryKpis(totalCount, kpiTotals);
 
   // Compute Grouped Subtotals if requested
   const groupedSubtotals = groupByFieldId
@@ -676,6 +750,29 @@ function applyJourneyFilter(where: any, flt: DynamicFilterClause) {
   }
 }
 
+function applyQualityFilter(where: any, flt: DynamicFilterClause) {
+  if (flt.value === undefined || flt.value === null || flt.value === '') return;
+
+  if (flt.fieldId === 'test_date') {
+    const first = getPakistanDayWindow(String(flt.value));
+    if (flt.operator === 'EQUALS') where.decided_at = { gte: first.start, lte: first.end };
+    else if (flt.operator === 'BETWEEN' && flt.valueSecondary) {
+      where.decided_at = { gte: first.start, lte: getPakistanDayWindow(String(flt.valueSecondary)).end };
+    }
+  } else if (flt.fieldId === 'decision') {
+    where.final_decision = flt.value;
+  } else if (flt.fieldId === 'fat' || flt.fieldId === 'lr' || flt.fieldId === 'snf' || flt.fieldId === 'gross_liters') {
+    const num = Number(flt.value);
+    if (!isNaN(num)) {
+      if (flt.operator === 'GREATER_THAN') where[flt.fieldId] = { gt: num };
+      else if (flt.operator === 'LESS_THAN') where[flt.fieldId] = { lt: num };
+      else if (flt.operator === 'GREATER_EQUAL') where[flt.fieldId] = { gte: num };
+      else if (flt.operator === 'LESS_EQUAL') where[flt.fieldId] = { lte: num };
+      else if (flt.operator === 'EQUALS') where[flt.fieldId] = num;
+    }
+  }
+}
+
 function getOrderByClause(sortFieldId?: string, sortDirection?: 'asc' | 'desc', defaultField = 'created_at'): any {
   const dir = sortDirection === 'asc' ? 'asc' : 'desc';
   if (!sortFieldId) return { [defaultField]: dir };
@@ -692,7 +789,83 @@ function getOrderByClause(sortFieldId?: string, sortDirection?: 'asc' | 'desc', 
 // 5. SUMMARY KPI & GROUPING CALCULATORS
 // ============================================================================
 
-function computeDynamicSummaryKpis(domain: ReportDomain, rows: Record<string, any>[], totalCount: number): DynamicSummaryKpi[] {
+type LabResultRow = { test_id: bigint; test_code_snapshot: string; test_name_snapshot: string; numeric_value: unknown };
+
+/** Whole-filter figures behind the KPI cards. Null or absent means there is nothing to show. */
+interface DomainKpiTotals {
+  grossLiters?: number | null;
+  at13tsLiters?: number | null;
+  avgFat?: number | null;
+  avgLr?: number | null;
+  avgSnf?: number | null;
+  routeLossLiters?: number | null;
+}
+
+/** Volume-weighted average of (value, litres) pairs, ignoring missing values. Null when nothing is weighted. */
+function weightedAverage(pairs: Array<[number | null, number]>): number | null {
+  let sum = 0;
+  let weight = 0;
+  for (const [value, liters] of pairs) {
+    if (value === null || !(liters > 0)) continue;
+    sum += value * liters;
+    weight += liters;
+  }
+  return weight > 0 ? sum / weight : null;
+}
+
+/** Litres grouped by each distinct reading (a bounded set), turned into a volume-weighted average. */
+function weightedFromGroups(groups: any[], field: string): number | null {
+  return weightedAverage(
+    groups.map((g): [number | null, number] => [g[field] != null ? Number(g[field]) : null, Number(g._sum.gross_liters ?? 0)])
+  );
+}
+
+async function getCollectionKpiTotals(where: any): Promise<DomainKpiTotals> {
+  const [sums, byFat, byLr, bySnf] = await Promise.all([
+    prisma.motShopCollection.aggregate({ where, _sum: { gross_liters: true, at_13ts_liters: true } }),
+    prisma.motShopCollection.groupBy({ by: ['fat'], where, _sum: { gross_liters: true } }),
+    prisma.motShopCollection.groupBy({ by: ['lr'], where, _sum: { gross_liters: true } }),
+    prisma.motShopCollection.groupBy({ by: ['snf'], where, _sum: { gross_liters: true } }),
+  ]);
+  return {
+    grossLiters: sums._sum.gross_liters != null ? Number(sums._sum.gross_liters) : null,
+    at13tsLiters: sums._sum.at_13ts_liters != null ? Number(sums._sum.at_13ts_liters) : null,
+    avgFat: weightedFromGroups(byFat, 'fat'),
+    avgLr: weightedFromGroups(byLr, 'lr'),
+    avgSnf: weightedFromGroups(bySnf, 'snf'),
+  };
+}
+
+async function getQualityKpiTotals(where: any): Promise<DomainKpiTotals> {
+  const [sums, byFat, byLr, bySnf] = await Promise.all([
+    prisma.zmccLabPortion.aggregate({ where, _sum: { gross_liters: true } }),
+    prisma.zmccLabPortion.groupBy({ by: ['fat'], where, _sum: { gross_liters: true } }),
+    prisma.zmccLabPortion.groupBy({ by: ['lr'], where, _sum: { gross_liters: true } }),
+    prisma.zmccLabPortion.groupBy({ by: ['snf'], where, _sum: { gross_liters: true } }),
+  ]);
+  return {
+    grossLiters: sums._sum.gross_liters != null ? Number(sums._sum.gross_liters) : null,
+    avgFat: weightedFromGroups(byFat, 'fat'),
+    avgLr: weightedFromGroups(byLr, 'lr'),
+    avgSnf: weightedFromGroups(bySnf, 'snf'),
+  };
+}
+
+/** Route loss across journeys already received at the ZMCC: non-rejected shop litres minus received litres. */
+async function getJourneyKpiTotals(where: any): Promise<DomainKpiTotals> {
+  const received = { ...where, area_received_liters: { not: null } };
+  const [shop, gate] = await Promise.all([
+    prisma.motShopCollection.aggregate({
+      where: { journey: received, final_decision: { not: 'REJECTED' } },
+      _sum: { gross_liters: true },
+    }),
+    prisma.motJourney.aggregate({ where: received, _sum: { area_received_liters: true } }),
+  ]);
+  if (gate._sum.area_received_liters == null) return { routeLossLiters: null };
+  return { routeLossLiters: Number(shop._sum.gross_liters ?? 0) - Number(gate._sum.area_received_liters) };
+}
+
+function computeDynamicSummaryKpis(totalCount: number, totals: DomainKpiTotals): DynamicSummaryKpi[] {
   const kpis: DynamicSummaryKpi[] = [];
 
   kpis.push({
@@ -702,81 +875,64 @@ function computeDynamicSummaryKpis(domain: ReportDomain, rows: Record<string, an
     format: 'number',
   });
 
-  if (rows.length === 0) return kpis;
-
   // Volumes
-  if ('gross_liters' in rows[0]) {
-    const totalLit = rows.reduce((s, r) => s + (Number(r.gross_liters) || 0), 0);
+  if (totals.grossLiters != null) {
     kpis.push({
       id: 'kpi-liters',
       label: 'Total Gross Liters',
-      value: Number(totalLit.toFixed(2)),
+      value: Number(totals.grossLiters.toFixed(2)),
       unit: 'L',
       format: 'liters',
     });
   }
 
   // 13% TS
-  if ('at_13ts_liters' in rows[0]) {
-    const total13Ts = rows.reduce((s, r) => s + (Number(r.at_13ts_liters) || 0), 0);
+  if (totals.at13tsLiters != null) {
     kpis.push({
       id: 'kpi-13ts',
       label: 'Standardized 13% TS',
-      value: Number(total13Ts.toFixed(2)),
+      value: Number(totals.at13tsLiters.toFixed(2)),
       unit: 'L',
       format: 'liters',
     });
   }
 
-  // Quality: Fat, LR & SNF
-  if ('fat' in rows[0]) {
-    const withFat = rows.filter((r) => r.fat !== null && !isNaN(Number(r.fat)));
-    if (withFat.length > 0) {
-      const avgFat = withFat.reduce((s, r) => s + Number(r.fat), 0) / withFat.length;
-      kpis.push({
-        id: 'kpi-fat',
-        label: 'Average Fat',
-        value: Number(avgFat.toFixed(2)),
-        unit: '%',
-        format: 'percent',
-      });
-    }
+  // Quality: Fat, LR & SNF (volume-weighted)
+  if (totals.avgFat != null) {
+    kpis.push({
+      id: 'kpi-fat',
+      label: 'Average Fat',
+      value: Number(totals.avgFat.toFixed(2)),
+      unit: '%',
+      format: 'percent',
+    });
   }
 
-  if ('lr' in rows[0]) {
-    const withLr = rows.filter((r) => r.lr !== null && !isNaN(Number(r.lr)));
-    if (withLr.length > 0) {
-      const avgLr = withLr.reduce((s, r) => s + Number(r.lr), 0) / withLr.length;
-      kpis.push({
-        id: 'kpi-lr',
-        label: 'Average LR',
-        value: Number(avgLr.toFixed(1)),
-        format: 'number',
-      });
-    }
+  if (totals.avgLr != null) {
+    kpis.push({
+      id: 'kpi-lr',
+      label: 'Average LR',
+      value: Number(totals.avgLr.toFixed(1)),
+      format: 'number',
+    });
   }
 
-  if ('snf' in rows[0]) {
-    const withSnf = rows.filter((r) => r.snf !== null && !isNaN(Number(r.snf)));
-    if (withSnf.length > 0) {
-      const avgSnf = withSnf.reduce((s, r) => s + Number(r.snf), 0) / withSnf.length;
-      kpis.push({
-        id: 'kpi-snf',
-        label: 'Average SNF',
-        value: Number(avgSnf.toFixed(2)),
-        unit: '%',
-        format: 'percent',
-      });
-    }
+  if (totals.avgSnf != null) {
+    kpis.push({
+      id: 'kpi-snf',
+      label: 'Average SNF',
+      value: Number(totals.avgSnf.toFixed(2)),
+      unit: '%',
+      format: 'percent',
+    });
   }
 
   // Loss
-  if ('loss_liters' in rows[0]) {
-    const totalLoss = rows.reduce((s, r) => s + (Number(r.loss_liters) || 0), 0);
+  if (totals.routeLossLiters != null) {
     kpis.push({
       id: 'kpi-loss',
       label: 'Total Route Loss',
-      value: Number(totalLoss.toFixed(2)),
+      value: Number(totals.routeLossLiters.toFixed(2)),
       unit: 'L',
       format: 'liters',
     });
@@ -805,7 +961,7 @@ function computeGroupedSubtotals(
     const aggs: Record<string, number> = {};
     for (const f of fields) {
       if (f.dataType === 'number') {
-        const nums = group.records.map((r) => Number(r[f.id])).filter((n) => !isNaN(n));
+        const nums = group.records.filter((r) => r[f.id] != null).map((r) => Number(r[f.id])).filter((n) => !isNaN(n));
         if (nums.length > 0) {
           if (f.aggregations?.includes('SUM') || f.format === 'liters') {
             aggs[f.id] = Number(nums.reduce((a, b) => a + b, 0).toFixed(2));
@@ -945,7 +1101,7 @@ export async function generateDynamicExcelReport(
     const totalValues = queryRes.fields.map((f, idx) => {
       if (idx === 0) return 'TOTAL / SUMMARY';
       if (f.dataType === 'number') {
-        const nums = queryRes.rows.map((r) => Number(r[f.id])).filter((n) => !isNaN(n));
+        const nums = queryRes.rows.filter((r) => r[f.id] != null).map((r) => Number(r[f.id])).filter((n) => !isNaN(n));
         if (nums.length === 0) return '—';
         if (f.aggregations?.includes('SUM') || f.format === 'liters') {
           return Number(nums.reduce((a, b) => a + b, 0).toFixed(2));

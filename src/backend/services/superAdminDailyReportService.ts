@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import { getSupplyChainLossHierarchy } from '@/backend/services/lossCalculationService';
 import { QaWarningEscalationService } from '@/backend/services/qaWarningEscalationService';
 import { writeAuditLog } from '@/backend/core/audit';
+import { calculateGrossLiters } from '@/backend/utils/milkFormulas';
 import type { ActingContext } from '@/types/acting';
 
 export interface DailyReportFilter {
@@ -71,7 +72,8 @@ export interface PlantQaReportItem {
   vehicleNumber: string;
   sourceName: string;
   portionNumber: number;
-  grossLiters: number;
+  /** Null when the quantity is in kg and the dispatch LR needed to convert it is missing. */
+  grossLiters: number | null;
   mtdWarningCount: number;
   mtdThreshold: number;
   requiresAvpEscalation: boolean;
@@ -393,6 +395,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
     where: {
       visit: {
         operational_date: { gte: startOfDay, lte: endOfDay },
+        current_status: { notIn: ['DRAFT_DISPATCH', 'CANCELLED'] },
         ...(zmccIdBigInt ? { procurement_source_id: zmccIdBigInt } : {}),
       },
     },
@@ -420,8 +423,13 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
   const escalationCache = new Map<string, ReturnType<typeof QaWarningEscalationService.evaluateWarningEscalation>>();
 
   for (const p of plantPortionsRaw) {
-    const grossLiters = Number(p.dispatch_quantity_value || 0);
-    plantTotalLiters += grossLiters;
+    // The dispatch quantity may be in kg: Liters = Kg / Density.
+    const grossLiters = calculateGrossLiters(
+      p.dispatch_quantity_value != null ? Number(p.dispatch_quantity_value) : null,
+      p.dispatch_quantity_unit,
+      p.visit.vehicle_dispatch_lr != null ? Number(p.visit.vehicle_dispatch_lr) : null,
+    );
+    plantTotalLiters += grossLiters ?? 0;
     uniqueTankers.add(p.visit.vehicle_number);
 
     const warningEntries = p.plant_lab_results.filter((r) => r.evaluation_status === 'WARNING');
@@ -660,8 +668,9 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
       data.kpis.plantQa.acceptedCount,
       data.kpis.plantQa.warningCount,
       data.kpis.plantQa.rejectedCount,
-      data.kpis.plantQa.totalTankers > 0
-        ? `${(((data.kpis.plantQa.acceptedCount + data.kpis.plantQa.warningCount) / data.kpis.plantQa.totalTankers) * 100).toFixed(1)}%`
+      // Accepted and warning counts are portions, so the rate is out of portions too, not tankers.
+      data.plantQaVisits.length > 0
+        ? `${(((data.kpis.plantQa.acceptedCount + data.kpis.plantQa.warningCount) / data.plantQaVisits.length) * 100).toFixed(1)}%`
         : '0%',
     ],
   ];
@@ -970,7 +979,7 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
       p.vehicleNumber,
       p.sourceName,
       p.portionNumber,
-      p.grossLiters,
+      p.grossLiters ?? '—',
       `${p.mtdWarningCount} / ${p.mtdThreshold}`,
       p.requiresAvpEscalation ? 'YES (Limit Exceeded)' : 'NO',
       p.verdict,

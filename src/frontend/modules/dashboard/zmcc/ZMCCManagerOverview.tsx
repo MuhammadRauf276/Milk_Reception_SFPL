@@ -174,7 +174,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             label="Accepted intake today"
             icon={CheckCircle2}
             tone="success"
-            value={todayAcceptedIntakeLiters != null ? `${todayAcceptedIntakeLiters.toLocaleString()} L` : '0 L'}
+            value={todayAcceptedIntakeLiters != null ? `${todayAcceptedIntakeLiters.toLocaleString()} L` : '—'}
           />
           <StatCard
             label="Dispatches to plant"
@@ -200,7 +200,8 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-border/80 tabular-nums">
+        <p className="pt-2 border-t border-border/80 text-xs text-muted-foreground">Completed receipts in this period</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 tabular-nums">
           <div className="bg-card border-border p-4 rounded-2xl border space-y-2">
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-semibold text-foreground flex items-center gap-2">

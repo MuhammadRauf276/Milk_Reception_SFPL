@@ -87,7 +87,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
         </div>
 
         <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/60">
-          <span>Avg scale turnaround: ~{weighbridge.avgWeighmentMinutes} mins</span>
+          <span>Avg scale turnaround: {weighbridge.avgWeighmentMinutes != null ? `~${weighbridge.avgWeighmentMinutes} mins` : 'no data yet'}</span>
           <span>Completed today: {weighbridge.completedTodayCount} tickets</span>
         </div>
       </div>
@@ -167,7 +167,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
           <div className="p-3 rounded-lg border bg-background/50">
             <span className="text-xs text-muted-foreground">Avg Unload Duration</span>
             <p className="text-xl font-semibold text-foreground mt-1">
-              ~{reception.avgUnloadingMinutes}{' '}
+              {reception.avgUnloadingMinutes != null ? `~${reception.avgUnloadingMinutes}` : '—'}{' '}
               <span className="text-xs font-normal text-muted-foreground">mins/truck</span>
             </p>
           </div>

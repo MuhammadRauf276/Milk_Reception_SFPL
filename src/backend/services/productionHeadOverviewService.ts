@@ -40,7 +40,7 @@ export interface ProductionHeadSubordinateStations {
     waitingForGrossCount: number;
     waitingForTareCount: number;
     completedTodayCount: number;
-    avgWeighmentMinutes: number;
+    avgWeighmentMinutes: number | null;
   };
   reception: {
     operationalStatus: 'ACTIVE' | 'IDLE';
@@ -49,7 +49,7 @@ export interface ProductionHeadSubordinateStations {
     activePumpings: ActivePumpingDetail[];
     waitingForUnloadingCount: number;
     completedPortionsToday: number;
-    avgUnloadingMinutes: number;
+    avgUnloadingMinutes: number | null;
   };
 }
 
@@ -522,7 +522,7 @@ export async function getProductionHeadOverview(
       waitingForGrossCount,
       waitingForTareCount,
       completedTodayCount: kpis.weighbridgeTicketsToday,
-      avgWeighmentMinutes: weighmentCount > 0 ? Math.round(totalWeighmentMinutesSum / weighmentCount) : 12,
+      avgWeighmentMinutes: weighmentCount > 0 ? Math.round(totalWeighmentMinutesSum / weighmentCount) : null,
     },
     reception: {
       operationalStatus: activePumpings.length > 0 ? 'ACTIVE' : 'IDLE',
@@ -531,7 +531,7 @@ export async function getProductionHeadOverview(
       activePumpings,
       waitingForUnloadingCount,
       completedPortionsToday: kpis.unloadingPortionsToday,
-      avgUnloadingMinutes: pumpingCount > 0 ? Math.round(totalPumpingMinutesSum / pumpingCount) : 35,
+      avgUnloadingMinutes: pumpingCount > 0 ? Math.round(totalPumpingMinutesSum / pumpingCount) : null,
     },
   };
 

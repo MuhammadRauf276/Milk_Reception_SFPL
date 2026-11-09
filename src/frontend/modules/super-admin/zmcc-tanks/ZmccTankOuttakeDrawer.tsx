@@ -21,9 +21,9 @@ export function ZmccTankOuttakeDrawer({ tank, onClose, onSaved }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const stock = tank?.current_stock ?? 0;
-  const stockAt13 = tank?.current_commercial_stock_at_13ts ?? 0;
+  const stockAt13 = tank?.current_commercial_stock_at_13ts != null ? Number(tank.current_commercial_stock_at_13ts) : null;
   const gross = parseFloat(grossLiters) || 0;
-  const at13Out = stock > 0 ? Math.min(stockAt13, (stockAt13 * gross) / stock) : 0;
+  const at13Out = stockAt13 != null && stock > 0 ? Math.min(stockAt13, (stockAt13 * gross) / stock) : null;
   const tooMuch = gross > stock + 0.001;
 
   const mutation = useMutation({
@@ -84,7 +84,7 @@ export function ZmccTankOuttakeDrawer({ tank, onClose, onSaved }: Props) {
         </div>
         <div>
           <p className="text-xs text-muted-foreground">In tank (@13% TS)</p>
-          <p className="font-semibold tabular-nums">{stockAt13.toLocaleString('en-US', { minimumFractionDigits: 2 })} L</p>
+          <p className="font-semibold tabular-nums">{stockAt13 != null ? `${stockAt13.toLocaleString('en-US', { minimumFractionDigits: 2 })} L` : '—'}</p>
         </div>
       </div>
       <div>
@@ -105,7 +105,7 @@ export function ZmccTankOuttakeDrawer({ tank, onClose, onSaved }: Props) {
       </div>
       {gross > 0 && !tooMuch && (
         <p className="text-sm text-secondary-foreground">
-          @13% TS going out: <strong className="tabular-nums">{at13Out.toFixed(2)} L</strong>. Left in tank:{' '}
+          @13% TS going out: <strong className="tabular-nums">{at13Out != null ? `${at13Out.toFixed(2)} L` : '—'}</strong>. Left in tank:{' '}
           <strong className="tabular-nums">{(stock - gross).toFixed(2)} L</strong> gross.
         </p>
       )}

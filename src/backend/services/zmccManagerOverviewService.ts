@@ -1,4 +1,5 @@
 import { prisma } from '@/backend/core/db';
+import { getPakistanDayWindow } from '@/backend/core/business-day';
 
 export interface ZmccManagerOverview {
   source: { id: string; code: string; name: string };
@@ -137,16 +138,20 @@ export async function getZmccManagerOverview(zmccId: bigint): Promise<ZmccManage
   });
   if (!source) throw new Error('Assigned active ZMCC source was not found.');
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const tomorrowStart = new Date(todayStart);
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  const day = getPakistanDayWindow();
+  const arrivedToday = { arrival_date: { gte: day.dateStart, lte: day.dateEnd } };
+  // Lab sessions of today's arrivals, so accepted, rejected and waiting all count the same vehicles.
+  const todaysSessions = {
+    zmcc_id: zmccId,
+    OR: [{ mot_arrival: { is: arrivedToday } }, { local_supplier_arrival: { is: arrivedToday } }],
+  };
 
   const [
     expected,
     motArrived,
     localSupplierArrived,
     testing,
+    sessionsToday,
     accepted,
     rejected,
     unloaded,
@@ -160,11 +165,12 @@ export async function getZmccManagerOverview(zmccId: bigint): Promise<ZmccManage
     activeJourneys,
   ] = await Promise.all([
     prisma.motJourney.count({ where: { zmcc_id: zmccId, status: { in: ['ASSIGNED', 'IN_PROGRESS'] } } }),
-    prisma.zmccMotArrival.count({ where: { zmcc_id: zmccId, arrival_date: { gte: todayStart, lt: tomorrowStart } } }),
-    prisma.zmccLocalSupplierArrival.count({ where: { zmcc_id: zmccId, arrival_date: { gte: todayStart, lt: tomorrowStart } } }),
+    prisma.zmccMotArrival.count({ where: { zmcc_id: zmccId, ...arrivedToday } }),
+    prisma.zmccLocalSupplierArrival.count({ where: { zmcc_id: zmccId, ...arrivedToday } }),
     prisma.zmccLabSession.count({ where: { zmcc_id: zmccId, status: 'IN_PROGRESS' } }),
-    prisma.zmccLabSession.count({ where: { zmcc_id: zmccId, status: 'COMPLETED', decision: 'ACCEPTED' } }),
-    prisma.zmccLabSession.count({ where: { zmcc_id: zmccId, status: 'COMPLETED', decision: 'REJECTED' } }),
+    prisma.zmccLabSession.count({ where: todaysSessions }),
+    prisma.zmccLabSession.count({ where: { ...todaysSessions, status: 'COMPLETED', decision: 'ACCEPTED' } }),
+    prisma.zmccLabSession.count({ where: { ...todaysSessions, status: 'COMPLETED', decision: 'REJECTED' } }),
     prisma.vehicleVisit.count({ where: { procurement_source_id: zmccId, current_status: { in: ['READY_FOR_TARE', 'READY_FOR_GATE_EXIT', 'COMPLETED'] } } }),
     prisma.vehicleVisit.count({ where: { procurement_source_id: zmccId, current_status: { in: ['DISPATCHED', 'TOKEN_ISSUED', 'PLANT_QA', 'READY_FOR_GROSS', 'READY_FOR_UNLOADING', 'UNLOADING', 'READY_FOR_TARE', 'READY_FOR_GATE_EXIT'] } } }),
     prisma.vehicleVisit.count({ where: { procurement_source_id: zmccId, gate_log: { is: { entry_timestamp: { not: null }, exit_timestamp: null } } } }),
@@ -175,7 +181,7 @@ export async function getZmccManagerOverview(zmccId: bigint): Promise<ZmccManage
     listZmccExitOutcomes(zmccId),
     prisma.motJourney.findMany({
       where: { zmcc_id: zmccId, status: { in: ['ASSIGNED', 'IN_PROGRESS', 'COLLECTING'] } },
-      include: { collections: { select: { quantity_value: true } } },
+      include: { collections: { select: { gross_liters: true } } },
       orderBy: { started_at: 'asc' },
       take: 10,
     }),
@@ -188,7 +194,7 @@ export async function getZmccManagerOverview(zmccId: bigint): Promise<ZmccManage
     pipeline: {
       expected,
       arrived,
-      waiting: Math.max(0, arrived - testing - accepted - rejected),
+      waiting: Math.max(0, arrived - sessionsToday),
       testing,
       accepted,
       rejected,
@@ -212,7 +218,8 @@ export async function getZmccManagerOverview(zmccId: bigint): Promise<ZmccManage
       waitingMinutes: Math.max(0, Math.floor((now - journey.started_at.getTime()) / 60000)),
       journeyTotals: {
         shopsCollected: journey.collections.length,
-        quantity: journey.collections.reduce((total, collection) => total + Number(collection.quantity_value), 0),
+        // Gross litres: collections can be entered in kg or litres, and those cannot be added together.
+        quantity: Number(journey.collections.reduce((total, collection) => total + Number(collection.gross_liters), 0).toFixed(2)),
       },
     })),
   };

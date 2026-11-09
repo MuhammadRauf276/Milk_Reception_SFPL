@@ -43,8 +43,8 @@ const routeColumns: DataColumn<RouteLedgerRow>[] = [
   { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', cell: (row) => <span className="tabular-nums font-semibold text-secondary-foreground">{row.vehicleNumber}</span> },
   { key: 'shops', header: 'Shops', label: 'Shops', cell: (row) => <span className="tabular-nums text-secondary-foreground">{row.visitedStops} / {row.plannedStops}</span> },
   { key: 'shopL', header: 'Shop Liters', label: 'Shop liters', cell: (row) => <span className="tabular-nums font-semibold text-foreground">{row.shopLitersCollected.toLocaleString()} L</span> },
-  { key: 'arrival', header: 'ZMCC Arrival', label: 'ZMCC arrival', cell: (row) => <span className="tabular-nums font-semibold text-foreground">{row.zmccArrivalLiters.toLocaleString()} L</span> },
-  { key: 'loss', header: 'Route Loss', label: 'Route loss', cell: (row) => <span className="tabular-nums font-semibold text-amber-700">{row.routeLossLiters.toLocaleString()} L</span> },
+  { key: 'arrival', header: 'ZMCC Arrival', label: 'ZMCC arrival', cell: (row) => <span className="tabular-nums font-semibold text-foreground">{row.zmccArrivalLiters != null ? `${row.zmccArrivalLiters.toLocaleString()} L` : '—'}</span> },
+  { key: 'loss', header: 'Route Loss', label: 'Route loss', cell: (row) => <span className="tabular-nums font-semibold text-amber-700">{row.routeLossLiters != null ? `${row.routeLossLiters.toLocaleString()} L` : '—'}</span> },
   {
     key: 'lossPct',
     header: 'Loss %',
@@ -55,7 +55,7 @@ const routeColumns: DataColumn<RouteLedgerRow>[] = [
           row.routeLossPct > 1.0 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
         }`}
       >
-        {row.routeLossPct}%
+        {row.routeLossPct != null ? `${row.routeLossPct}%` : '—'}
       </span>
     ),
   },
@@ -72,8 +72,8 @@ const routeColumns: DataColumn<RouteLedgerRow>[] = [
     label: 'Loss @13% TS',
     cell: (row) => <span className="tabular-nums font-semibold text-amber-700">{row.routeLossAt13TsLiters !== null ? `${row.routeLossAt13TsLiters.toLocaleString()} L` : '—'}</span>,
   },
-  { key: 'fat', header: 'Fat %', label: 'Fat %', cell: (row) => <span className="tabular-nums font-medium text-secondary-foreground">{row.avgFat}%</span> },
-  { key: 'lr', header: 'LR', label: 'LR', cell: (row) => <span className="tabular-nums font-medium text-secondary-foreground">{row.avgLr}</span> },
+  { key: 'fat', header: 'Fat %', label: 'Fat %', cell: (row) => <span className="tabular-nums font-medium text-secondary-foreground">{row.avgFat != null ? `${row.avgFat}%` : '—'}</span> },
+  { key: 'lr', header: 'LR', label: 'LR', cell: (row) => <span className="tabular-nums font-medium text-secondary-foreground">{row.avgLr ?? '—'}</span> },
   {
     key: 'status',
     header: 'Status',

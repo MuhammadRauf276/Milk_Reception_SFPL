@@ -204,8 +204,12 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                       <span className="text-secondary-foreground font-medium">Tank stock (@13% TS)</span>
                       <span className="tabular-nums font-semibold text-foreground">
                         {z.siloStockAt13tsLiters != null
-                          ? `${z.siloStockAt13tsLiters.toLocaleString()} L @13% TS (${formatMetric(z.siloCapacityPercent, '%')})`
-                          : `${z.siloStockLiters.toLocaleString()} L (${formatMetric(z.siloCapacityPercent, '%')})`}
+                          ? `${z.siloStockAt13tsLiters.toLocaleString()} L @13% TS`
+                          : '—'}
+                        {' '}
+                        <span className="font-normal text-muted-foreground">
+                          (physical fill {formatMetric(z.siloCapacityPercent, '%')})
+                        </span>
                       </span>
                     </div>
                     <div className="w-full h-2 bg-muted rounded-full overflow-hidden">

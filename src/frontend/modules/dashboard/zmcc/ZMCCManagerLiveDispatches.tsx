@@ -342,9 +342,14 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                       <span className="font-semibold text-foreground">
                         {group.totalDispatch13TsLiters != null
                           ? `${group.totalDispatch13TsLiters.toLocaleString()} L @13% TS`
-                          : group.vehicleDispatchQuantityValue != null
-                          ? `${group.vehicleDispatchQuantityValue.toLocaleString()} ${group.vehicleDispatchQuantityUnit || ''}`
-                          : group.totalDispatchGrossLiters != null
+                          : '—'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-xs text-muted-foreground block">Dispatch (gross):</span>
+                      <span className="font-semibold text-foreground">
+                        {group.totalDispatchGrossLiters != null
                           ? `${group.totalDispatchGrossLiters.toLocaleString()} L`
                           : '—'}
                       </span>

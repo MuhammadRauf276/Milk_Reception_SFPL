@@ -5,6 +5,7 @@ import { createNotificationsForEvent } from '@/backend/services/notificationServ
 import { writeAuditLog } from '@/backend/core/audit';
 import type { ActingContext } from '@/types/acting';
 import { calculateAt13TSLiters, calculateDensity } from '@/backend/utils/milkFormulas';
+import { getPakistanCalendarDate, getPakistanDayWindow } from '@core/business-day';
 
 export interface LossMetricResult {
   lossLiters: number;
@@ -29,6 +30,8 @@ export interface Tier2ZmccLossResult extends LossMetricResult {
   motInwardGrossLiters: number;
   localInwardGrossLiters: number;
   adminAdjustmentGrossLiters?: number;
+  /** Manual stock removed from the tank (not a dispatch): accounted for as outflow. */
+  adminAdjustmentOutGrossLiters?: number;
   totalInwardGrossLiters: number;
   dispatchedGrossLiters: number;
   startingTankStockLiters: number;
@@ -37,6 +40,7 @@ export interface Tier2ZmccLossResult extends LossMetricResult {
   totalInwardAt13tsLiters: number;
   adminAdjustmentAt13tsLiters?: number;
   dispatchedAt13tsLiters: number;
+  deltaTankStockAt13tsLiters?: number;
 }
 
 export interface Tier3TransitLossResult extends LossMetricResult {
@@ -267,33 +271,39 @@ export async function computeAndStoreAreaLossTx(
 
 /**
  * Calculates Tier 2 (ZMCC Process & Chilling Loss):
- * ZMCC Loss = (Total MOT Inward + Total HC Inward + Admin Adjustment Inward) - Dispatched Tankers - Delta Tank Stock
+ * ZMCC Loss = (Total MOT Inward + Total HC Inward + Admin Adjustment Inward) - Dispatched Tankers - Admin Adjustment Outward - Delta Tank Stock
+ * The @13 TS figures follow the same equation with the @13 TS stock movement.
  */
 export function calculateTier2ZmccLoss(params: {
   motInwardGrossLiters: number;
   localInwardGrossLiters: number;
   adminAdjustmentGrossLiters?: number;
+  adminAdjustmentOutGrossLiters?: number;
   dispatchedGrossLiters: number;
   startingTankStockLiters: number;
   endingTankStockLiters: number;
   motInwardAt13tsLiters?: number;
   localInwardAt13tsLiters?: number;
   adminAdjustmentAt13tsLiters?: number;
+  adminAdjustmentOutAt13tsLiters?: number;
   dispatchedAt13tsLiters?: number;
+  startingTankStockAt13tsLiters?: number;
+  endingTankStockAt13tsLiters?: number;
 }): Tier2ZmccLossResult {
   const motInward = Math.max(0, Number(params.motInwardGrossLiters.toFixed(2)));
   const localInward = Math.max(0, Number(params.localInwardGrossLiters.toFixed(2)));
   const adminInward = Math.max(0, Number((params.adminAdjustmentGrossLiters ?? 0).toFixed(2)));
   const totalInward = Number((motInward + localInward + adminInward).toFixed(2));
   const dispatched = Math.max(0, Number(params.dispatchedGrossLiters.toFixed(2)));
+  const adminOutward = Math.max(0, Number((params.adminAdjustmentOutGrossLiters ?? 0).toFixed(2)));
   const startStock = Math.max(0, Number(params.startingTankStockLiters.toFixed(2)));
   const endStock = Math.max(0, Number(params.endingTankStockLiters.toFixed(2)));
   const deltaStock = Number((endStock - startStock).toFixed(2));
 
-  // Expected stock remaining or accounted for: totalInward - dispatched
+  // Expected stock remaining or accounted for: totalInward - dispatched - adminOutward
   // Actual physical change: deltaStock
-  // Variance = (dispatched + deltaStock) - totalInward (negative is loss)
-  const accountedLiters = Number((dispatched + deltaStock).toFixed(2));
+  // Variance = (dispatched + adminOutward + deltaStock) - totalInward (negative is loss)
+  const accountedLiters = Number((dispatched + adminOutward + deltaStock).toFixed(2));
   const signedGrossVar = Number((accountedLiters - totalInward).toFixed(2));
   const lossLiters = signedGrossVar < 0 ? Math.abs(signedGrossVar) : 0;
   const gainLiters = signedGrossVar > 0 ? signedGrossVar : 0;
@@ -304,7 +314,11 @@ export function calculateTier2ZmccLoss(params: {
   const admin13ts = Math.max(0, Number((params.adminAdjustmentAt13tsLiters ?? 0).toFixed(2)));
   const totalInward13ts = Number((mot13ts + local13ts + admin13ts).toFixed(2));
   const dispatched13ts = Math.max(0, Number((params.dispatchedAt13tsLiters ?? 0).toFixed(2)));
-  const signed13tsVar = Number((dispatched13ts - totalInward13ts).toFixed(2));
+  const adminOutward13ts = Math.max(0, Number((params.adminAdjustmentOutAt13tsLiters ?? 0).toFixed(2)));
+  const startStock13ts = Math.max(0, Number((params.startingTankStockAt13tsLiters ?? 0).toFixed(2)));
+  const endStock13ts = Math.max(0, Number((params.endingTankStockAt13tsLiters ?? 0).toFixed(2)));
+  const deltaStock13ts = Number((endStock13ts - startStock13ts).toFixed(2));
+  const signed13tsVar = Number((dispatched13ts + adminOutward13ts + deltaStock13ts - totalInward13ts).toFixed(2));
   const loss13ts = signed13tsVar < 0 ? Math.abs(signed13tsVar) : 0;
   const gain13ts = signed13tsVar > 0 ? signed13tsVar : 0;
   const loss13tsPercent = totalInward13ts > 0 ? Number(((loss13ts / totalInward13ts) * 100).toFixed(4)) : 0;
@@ -313,6 +327,8 @@ export function calculateTier2ZmccLoss(params: {
     motInwardGrossLiters: motInward,
     localInwardGrossLiters: localInward,
     adminAdjustmentGrossLiters: adminInward,
+    adminAdjustmentOutGrossLiters: adminOutward,
+    deltaTankStockAt13tsLiters: deltaStock13ts,
     totalInwardGrossLiters: totalInward,
     dispatchedGrossLiters: dispatched,
     startingTankStockLiters: startStock,
@@ -433,53 +449,55 @@ export function resolvePeriodDateRange(
   period: 'today' | 'wtd' | 'mtd' | 'custom' = 'today',
   customFrom?: string | Date,
   customTo?: string | Date
-): { startDate: Date; endDate: Date; label: string } {
+): {
+  /** For @db.Date columns such as operational_date. */
+  startDate: Date;
+  endDate: Date;
+  /** For timestamp columns: the same Pakistan days, as real instants. */
+  timestampStart: Date;
+  timestampEnd: Date;
+  label: string;
+} {
   const now = new Date();
-  // Pakistan standard business time (UTC+5)
-  const pkNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
+  const todayStr = getPakistanCalendarDate(now);
+  const pakistanDays = (startStr: string, endStr: string, label: string) => {
+    const first = getPakistanDayWindow(startStr);
+    const last = getPakistanDayWindow(endStr);
+    return { startDate: first.dateStart, endDate: last.dateEnd, timestampStart: first.start, timestampEnd: last.end, label };
+  };
 
   if (period === 'custom' && customFrom) {
-    const s = typeof customFrom === 'string' ? new Date(`${customFrom}T00:00:00.000Z`) : customFrom;
-    const e = customTo
-      ? typeof customTo === 'string' ? new Date(`${customTo}T23:59:59.999Z`) : customTo
-      : new Date();
-    return { startDate: s, endDate: e, label: 'Custom Range' };
+    const range = pakistanDays(
+      typeof customFrom === 'string' ? customFrom : todayStr,
+      typeof customTo === 'string' ? customTo : todayStr,
+      'Custom Range',
+    );
+    if (customFrom instanceof Date) {
+      range.startDate = customFrom;
+      range.timestampStart = customFrom;
+    }
+    if (customTo instanceof Date || !customTo) {
+      range.endDate = customTo instanceof Date ? customTo : now;
+      range.timestampEnd = range.endDate;
+    }
+    return range;
   }
 
   if (period === 'wtd') {
     // Week starts Monday
-    const day = pkNow.getUTCDay();
+    const today = new Date(`${todayStr}T00:00:00.000Z`);
+    const day = today.getUTCDay();
     const diff = (day === 0 ? 6 : day - 1);
-    const monday = new Date(pkNow);
-    monday.setUTCDate(pkNow.getUTCDate() - diff);
-    const startStr = monday.toISOString().split('T')[0];
-    const endStr = pkNow.toISOString().split('T')[0];
-    return {
-      startDate: new Date(`${startStr}T00:00:00.000Z`),
-      endDate: new Date(`${endStr}T23:59:59.999Z`),
-      label: 'Weekly (WTD)',
-    };
+    today.setUTCDate(today.getUTCDate() - diff);
+    return pakistanDays(today.toISOString().split('T')[0], todayStr, 'Weekly (WTD)');
   }
 
   if (period === 'mtd') {
-    const year = pkNow.getUTCFullYear();
-    const month = String(pkNow.getUTCMonth() + 1).padStart(2, '0');
-    const startStr = `${year}-${month}-01`;
-    const endStr = pkNow.toISOString().split('T')[0];
-    return {
-      startDate: new Date(`${startStr}T00:00:00.000Z`),
-      endDate: new Date(`${endStr}T23:59:59.999Z`),
-      label: 'Monthly (MTD)',
-    };
+    return pakistanDays(`${todayStr.slice(0, 7)}-01`, todayStr, 'Monthly (MTD)');
   }
 
   // Default: today
-  const todayStr = pkNow.toISOString().split('T')[0];
-  return {
-    startDate: new Date(`${todayStr}T00:00:00.000Z`),
-    endDate: new Date(`${todayStr}T23:59:59.999Z`),
-    label: 'Daily (Today)',
-  };
+  return pakistanDays(todayStr, todayStr, 'Daily (Today)');
 }
 
 // -------------------------------------------------------------
@@ -495,7 +513,7 @@ export async function getSupplyChainLossHierarchy(filters: {
   summary: SupplyChainLossSummary;
   details: LossReconciliationDetailRow[];
 }> {
-  const { startDate, endDate } = resolvePeriodDateRange(
+  const { startDate, endDate, timestampStart, timestampEnd } = resolvePeriodDateRange(
     filters.period || 'today',
     filters.from,
     filters.to
@@ -595,7 +613,7 @@ export async function getSupplyChainLossHierarchy(filters: {
     prisma.zmccTankReceipt.findMany({
       where: {
         arrival_type: 'HC',
-        received_at: { gte: startDate, lte: endDate },
+        received_at: { gte: timestampStart, lte: timestampEnd },
         ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
       },
       select: {
@@ -609,7 +627,7 @@ export async function getSupplyChainLossHierarchy(filters: {
         status: { notIn: ['WEIGHED', 'LOADED'] },
         lab_session: {
           arrival_type: 'HC',
-          created_at: { gte: startDate, lte: endDate },
+          created_at: { gte: timestampStart, lte: timestampEnd },
           ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
         },
       },
@@ -618,8 +636,9 @@ export async function getSupplyChainLossHierarchy(filters: {
     prisma.vehicleVisit.findMany({
       where: {
         operational_date: { gte: startDate, lte: endDate },
-        ...(zmccIdBigInt ? { procurement_source_id: zmccIdBigInt } : {}),
-        current_status: { notIn: ['CANCELLED', 'REJECTED'] },
+        // ZMCC dispatches only: contractor visits never left a ZMCC tank.
+        ...(zmccIdBigInt ? { procurement_source_id: zmccIdBigInt } : { procurement_source: { source_type: 'ZMCC' } }),
+        current_status: { notIn: ['DRAFT_DISPATCH', 'CANCELLED', 'REJECTED'] },
       },
       // Only the columns the rows below read: a visit row also carries large JSON decision columns that are never used here.
       select: {
@@ -640,11 +659,14 @@ export async function getSupplyChainLossHierarchy(filters: {
     }),
     prisma.zmccTankInventoryTransaction.findMany({
       where: {
-        transaction_type: 'ADJUSTMENT_IN',
-        operational_timestamp: { gte: startDate, lte: endDate },
+        transaction_type: { in: ['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'] },
+        // A correction is already in the corrected receipt or dispatch figure; counting its ledger row too would double it.
+        reference_type: { notIn: ['ZMCC_LAB_SESSION_CORRECTION', 'DISPATCH_CORRECTION'] },
+        operational_timestamp: { gte: timestampStart, lte: timestampEnd },
         ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
       },
       select: {
+        transaction_type: true,
         quantity_liters: true,
         at_13ts_liters: true,
       },
@@ -660,9 +682,18 @@ export async function getSupplyChainLossHierarchy(filters: {
 
   let adminInwardGross = 0;
   let adminInward13ts = 0;
+  let adminOutwardGross = 0;
+  let adminOutward13ts = 0;
   for (const a of adminAdjustmentTransactions) {
-    adminInwardGross += a.quantity_liters ? Number(a.quantity_liters) : 0;
-    adminInward13ts += a.at_13ts_liters ? Number(a.at_13ts_liters) : 0;
+    const gross = a.quantity_liters ? Number(a.quantity_liters) : 0;
+    const at13 = a.at_13ts_liters ? Number(a.at_13ts_liters) : 0;
+    if (a.transaction_type === 'ADJUSTMENT_OUT') {
+      adminOutwardGross += gross;
+      adminOutward13ts += at13;
+    } else {
+      adminInwardGross += gross;
+      adminInward13ts += at13;
+    }
   }
 
   for (const p of hcNotReceivedPortions) {
@@ -672,6 +703,9 @@ export async function getSupplyChainLossHierarchy(filters: {
 
   let totalDispatchedGrossLiters = 0;
   let totalDispatchedAt13tsLiters = 0;
+  // Transit loss compares only visits the plant has reconciled; both sides must cover the same tankers.
+  let reconciledDispatchedGrossLiters = 0;
+  let reconciledDispatchedAt13tsLiters = 0;
   let totalPlantAcceptedGrossLiters = 0;
   let totalPlantAcceptedAt13tsLiters = 0;
   let totalPlantNetKg = 0;
@@ -683,24 +717,45 @@ export async function getSupplyChainLossHierarchy(filters: {
 
     const dual = v.dual_reconciliation;
     const weight = v.weight_ticket;
-
-    const plantGross = dual ? Number(dual.received_gross_liters) : (dispGross > 0 ? dispGross : 0);
-    const plant13ts = dual ? Number(dual.received_at_13ts_liters) : (disp13ts > 0 ? disp13ts : 0);
     const netKg = weight?.net_weight_kg ? Number(weight.net_weight_kg) : 0;
 
+    // Everything dispatched left the ZMCC tank, reconciled or not (Tier 2 outflow).
     totalDispatchedGrossLiters += dispGross;
     totalDispatchedAt13tsLiters += disp13ts;
+
+    const dispLr = v.vehicle_dispatch_lr ? Number(v.vehicle_dispatch_lr) : undefined;
+    const dispFat = v.vehicle_dispatch_fat ? Number(v.vehicle_dispatch_fat) : undefined;
+
+    if (!dual || v.vehicle_dispatch_gross_liters == null) {
+      // Not reconciled yet: no plant figure and no loss, so these fields stay absent.
+      detailRows.push({
+        date: (v.operational_date || v.created_at).toISOString().split('T')[0],
+        zmccName: v.procurement_source?.name || 'ZMCC',
+        zmccCode: v.procurement_source?.code || '',
+        vehicleNumber: v.vehicle_number,
+        referenceNumber: v.raw_milk_dispatch_note_number || v.visit_number,
+        dispatchedGrossLiters: dispGross,
+        plantNetKg: netKg,
+        dispatchLr: dispLr,
+        dispatchFat: dispFat,
+      });
+      continue;
+    }
+
+    const plantGross = Number(dual.received_gross_liters);
+
+    reconciledDispatchedGrossLiters += dispGross;
     totalPlantAcceptedGrossLiters += plantGross;
-    totalPlantAcceptedAt13tsLiters += plant13ts;
+    if (v.vehicle_dispatch_at_13ts_liters != null) {
+      reconciledDispatchedAt13tsLiters += disp13ts;
+      totalPlantAcceptedAt13tsLiters += Number(dual.received_at_13ts_liters);
+    }
     totalPlantNetKg += netKg;
 
     const transitLossL = dispGross > plantGross ? Number((dispGross - plantGross).toFixed(2)) : 0;
     const transitLossPct = dispGross > 0 ? Number(((transitLossL / dispGross) * 100).toFixed(2)) : 0;
     const isHigh = transitLossPct > 1.0;
     if (isHigh) highLossCount++;
-
-    const dispLr = v.vehicle_dispatch_lr ? Number(v.vehicle_dispatch_lr) : undefined;
-    const dispFat = v.vehicle_dispatch_fat ? Number(v.vehicle_dispatch_fat) : undefined;
 
     detailRows.push({
       date: (v.operational_date || v.created_at).toISOString().split('T')[0],
@@ -722,97 +777,47 @@ export async function getSupplyChainLossHierarchy(filters: {
     });
   }
 
-  let startStockLiters = 0;
-  let endStockLiters = 0;
-
-  try {
-    if (zmccIdBigInt) {
-      const [startRes, endRes] = await Promise.all([
-        prisma.$queryRaw<Array<{ stock: string | number | null }>>`
-          SELECT COALESCE(
-            SUM(
-              CASE 
-                WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN quantity_liters
-                WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -quantity_liters
-                ELSE 0
-              END
-            ), 0
-          ) as stock
-          FROM zmcc_tank_inventory_transaction
-          WHERE zmcc_id = ${zmccIdBigInt} AND operational_timestamp < ${startDate}
-        `,
-        prisma.$queryRaw<Array<{ stock: string | number | null }>>`
-          SELECT COALESCE(
-            SUM(
-              CASE 
-                WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN quantity_liters
-                WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -quantity_liters
-                ELSE 0
-              END
-            ), 0
-          ) as stock
-          FROM zmcc_tank_inventory_transaction
-          WHERE zmcc_id = ${zmccIdBigInt} AND operational_timestamp <= ${endDate}
-        `,
-      ]);
-      startStockLiters = Math.max(0, Number(startRes[0]?.stock || 0));
-      endStockLiters = Math.max(0, Number(endRes[0]?.stock || 0));
-    } else {
-      const [startRes, endRes] = await Promise.all([
-        prisma.$queryRaw<Array<{ stock: string | number | null }>>`
-          SELECT COALESCE(
-            SUM(
-              CASE 
-                WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN quantity_liters
-                WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -quantity_liters
-                ELSE 0
-              END
-            ), 0
-          ) as stock
-          FROM zmcc_tank_inventory_transaction
-          WHERE operational_timestamp < ${startDate}
-        `,
-        prisma.$queryRaw<Array<{ stock: string | number | null }>>`
-          SELECT COALESCE(
-            SUM(
-              CASE 
-                WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN quantity_liters
-                WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -quantity_liters
-                ELSE 0
-              END
-            ), 0
-          ) as stock
-          FROM zmcc_tank_inventory_transaction
-          WHERE operational_timestamp <= ${endDate}
-        `,
-      ]);
-      startStockLiters = Math.max(0, Number(startRes[0]?.stock || 0));
-      endStockLiters = Math.max(0, Number(endRes[0]?.stock || 0));
-    }
-  } catch {
-    startStockLiters = 0;
-    endStockLiters = 0;
-  }
+  // Tank stock at both ends of the period, physical and @13 TS. A failed query throws: zero stock would be invented.
+  const stockScope = zmccIdBigInt ? Prisma.sql`zmcc_id = ${zmccIdBigInt}` : Prisma.sql`TRUE`;
+  const stockRows = await prisma.$queryRaw<Array<{
+    start_stock: string | number | null;
+    end_stock: string | number | null;
+    start_stock_13ts: string | number | null;
+    end_stock_13ts: string | number | null;
+  }>>`
+    SELECT
+      COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN quantity_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -quantity_liters ELSE 0 END) FILTER (WHERE operational_timestamp < ${timestampStart}), 0) AS start_stock,
+      COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN quantity_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -quantity_liters ELSE 0 END) FILTER (WHERE operational_timestamp <= ${timestampEnd}), 0) AS end_stock,
+      COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN at_13ts_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -at_13ts_liters ELSE 0 END) FILTER (WHERE operational_timestamp < ${timestampStart}), 0) AS start_stock_13ts,
+      COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN at_13ts_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -at_13ts_liters ELSE 0 END) FILTER (WHERE operational_timestamp <= ${timestampEnd}), 0) AS end_stock_13ts
+    FROM zmcc_tank_inventory_transaction
+    WHERE ${stockScope}
+  `;
+  const stock = stockRows[0];
 
   const tier2Calc = calculateTier2ZmccLoss({
     motInwardGrossLiters: totalZmccArrivalGrossLiters,
     localInwardGrossLiters: localInwardGross,
     adminAdjustmentGrossLiters: adminInwardGross,
+    adminAdjustmentOutGrossLiters: adminOutwardGross,
     dispatchedGrossLiters: totalDispatchedGrossLiters,
-    startingTankStockLiters: startStockLiters,
-    endingTankStockLiters: endStockLiters,
+    startingTankStockLiters: Number(stock?.start_stock ?? 0),
+    endingTankStockLiters: Number(stock?.end_stock ?? 0),
     motInwardAt13tsLiters: totalZmccArrivalAt13tsLiters,
     localInwardAt13tsLiters: localInward13ts,
     adminAdjustmentAt13tsLiters: adminInward13ts,
+    adminAdjustmentOutAt13tsLiters: adminOutward13ts,
     dispatchedAt13tsLiters: totalDispatchedAt13tsLiters,
+    startingTankStockAt13tsLiters: Number(stock?.start_stock_13ts ?? 0),
+    endingTankStockAt13tsLiters: Number(stock?.end_stock_13ts ?? 0),
   });
 
   // 3. Query Tier 3 (Road Transit Loss)
   const tier3Calc = calculateTier3TransitLoss({
-    dispatchedGrossLiters: totalDispatchedGrossLiters,
+    dispatchedGrossLiters: reconciledDispatchedGrossLiters,
     plantAcceptedGrossLiters: totalPlantAcceptedGrossLiters,
     plantAcceptedNetKg: totalPlantNetKg,
-    dispatchedAt13tsLiters: totalDispatchedAt13tsLiters,
+    dispatchedAt13tsLiters: reconciledDispatchedAt13tsLiters,
     plantAcceptedAt13tsLiters: totalPlantAcceptedAt13tsLiters,
   });
 
@@ -930,8 +935,8 @@ export async function generateLossReconciliationExcel(data: {
     tier: 'Tier 1: MOT Route / Area Loss',
     initial: tier1RouteLoss.shopGrossLiters,
     final: tier1RouteLoss.zmccArrivalGrossLiters,
-    lossLiters: tier1RouteLoss.lossLiters,
-    lossPercent: tier1RouteLoss.lossPercent / 100,
+    lossL: tier1RouteLoss.lossLiters,
+    lossPct: tier1RouteLoss.lossPercent / 100,
     lossTs: tier1RouteLoss.at13tsLossLiters,
     status: tier1RouteLoss.lossLiters > 0 ? 'Normal Variance' : 'Zero Loss',
   });
@@ -939,9 +944,9 @@ export async function generateLossReconciliationExcel(data: {
   summarySheet.addRow({
     tier: 'Tier 2: ZMCC Process & Chilling Loss',
     initial: tier2ZmccLoss.totalInwardGrossLiters,
-    final: tier2ZmccLoss.dispatchedGrossLiters + tier2ZmccLoss.deltaTankStockLiters,
-    lossLiters: tier2ZmccLoss.lossLiters,
-    lossPercent: tier2ZmccLoss.lossPercent / 100,
+    final: tier2ZmccLoss.dispatchedGrossLiters + (tier2ZmccLoss.adminAdjustmentOutGrossLiters ?? 0) + tier2ZmccLoss.deltaTankStockLiters,
+    lossL: tier2ZmccLoss.lossLiters,
+    lossPct: tier2ZmccLoss.lossPercent / 100,
     lossTs: tier2ZmccLoss.at13tsLossLiters,
     status: tier2ZmccLoss.lossLiters > 0 ? 'Process Loss' : 'Balanced',
   });
@@ -950,8 +955,8 @@ export async function generateLossReconciliationExcel(data: {
     tier: 'Tier 3: Road Transit Loss',
     initial: tier3TransitLoss.dispatchedGrossLiters,
     final: tier3TransitLoss.plantAcceptedGrossLiters,
-    lossLiters: tier3TransitLoss.lossLiters,
-    lossPercent: tier3TransitLoss.lossPercent / 100,
+    lossL: tier3TransitLoss.lossLiters,
+    lossPct: tier3TransitLoss.lossPercent / 100,
     lossTs: tier3TransitLoss.at13tsLossLiters,
     status: tier3TransitLoss.isHighLoss ? 'HIGH LOSS (>1.0%)' : 'Normal',
   });
@@ -960,8 +965,8 @@ export async function generateLossReconciliationExcel(data: {
     tier: 'Tier 4: Total Supply Chain Loss',
     initial: tier4TotalLoss.totalInitialIntakeLiters,
     final: tier4TotalLoss.totalFinalPlantLiters,
-    lossLiters: tier4TotalLoss.lossLiters,
-    lossPercent: tier4TotalLoss.lossPercent / 100,
+    lossL: tier4TotalLoss.lossLiters,
+    lossPct: tier4TotalLoss.lossPercent / 100,
     lossTs: tier4TotalLoss.at13tsLossLiters,
     status: 'Cumulative Total',
   });
@@ -1036,7 +1041,7 @@ export async function generateLossReconciliationExcel(data: {
       zmccLossPercent: d.zmccLossPercent !== undefined ? d.zmccLossPercent / 100 : null,
       transitLossLiters: d.transitLossLiters ?? null,
       transitLossPercent: d.transitLossPercent !== undefined ? d.transitLossPercent / 100 : null,
-      isHighTransitLoss: d.isHighTransitLoss ? 'HIGH LOSS (>1%)' : 'NORMAL',
+      isHighTransitLoss: d.transitLossLiters === undefined ? 'NOT RECONCILED' : d.isHighTransitLoss ? 'HIGH LOSS (>1%)' : 'NORMAL',
       financialImpactEstimatedRs: d.financialImpactEstimatedRs ?? null,
     });
 

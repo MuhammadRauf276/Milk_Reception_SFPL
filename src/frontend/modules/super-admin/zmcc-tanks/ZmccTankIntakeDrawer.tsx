@@ -43,7 +43,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
   const numLr = parseFloat(lr) || 0;
 
   const density = useMemo(() => {
-    if (numLr <= 0) return 1.028;
+    if (numLr <= 0) return null;
     return Number((1 + numLr / 1000).toFixed(4));
   }, [numLr]);
 
@@ -278,7 +278,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
             /* Live Calculated Preview */
             <div className="bg-subtle rounded-lg p-3 border border-border text-xs space-y-1.5">
               <div className="flex items-center justify-between text-muted-foreground font-medium">
-                <span>Density: <strong className="text-foreground font-semibold tabular-nums">{density.toFixed(4)}</strong></span>
+                <span>Density: <strong className="text-foreground font-semibold tabular-nums">{density != null ? density.toFixed(4) : '—'}</strong></span>
                 <span>SNF: <strong className="text-foreground font-semibold tabular-nums">{snf.toFixed(2)}%</strong></span>
                 <span>TS: <strong className="text-foreground font-semibold tabular-nums">{ts.toFixed(2)}%</strong></span>
               </div>

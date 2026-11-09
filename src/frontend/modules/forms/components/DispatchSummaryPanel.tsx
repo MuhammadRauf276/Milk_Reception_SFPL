@@ -100,7 +100,8 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
       !t.testName.toLowerCase().includes('snf')
   );
 
-  let totalQty = 0;
+  let lrQty = 0;
+  let fatQty = 0;
   let weightedLrSum = 0;
   let weightedFatSum = 0;
   let simpleLrSum = 0;
@@ -125,6 +126,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
       validLrCount++;
       if (qty > 0) {
         weightedLrSum += qty * lrVal;
+        lrQty += qty;
       }
     }
 
@@ -133,23 +135,21 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
       validFatCount++;
       if (qty > 0) {
         weightedFatSum += qty * fatVal;
+        fatQty += qty;
       }
     }
 
-    if (qty > 0) {
-      totalQty += qty;
-    }
   });
 
   const isSingle = portions.length === 1;
-  const avgLr = totalQty > 0 && weightedLrSum > 0
-    ? (weightedLrSum / totalQty).toFixed(2)
+  const avgLr = lrQty > 0
+    ? (weightedLrSum / lrQty).toFixed(2)
     : isSingle && validLrCount === 1
     ? (simpleLrSum).toFixed(2)
     : null;
 
-  const avgFat = totalQty > 0 && weightedFatSum > 0
-    ? (weightedFatSum / totalQty).toFixed(2)
+  const avgFat = fatQty > 0
+    ? (weightedFatSum / fatQty).toFixed(2)
     : isSingle && validFatCount === 1
     ? (simpleFatSum).toFixed(2)
     : null;
