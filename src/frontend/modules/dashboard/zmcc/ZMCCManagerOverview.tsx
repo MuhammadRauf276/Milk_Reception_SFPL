@@ -139,7 +139,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 {assignedSourceName} overview
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {displayCalendarDate}
+                {formatDate(displayCalendarDate)}
               </p>
             </div>
           </div>
@@ -154,7 +154,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
               aria-label="Select overview period"
               className="px-3 py-2 text-xs font-semibold rounded-lg bg-subtle border border-border/80 text-foreground focus:ring-2 focus:ring-primary outline-hidden shadow-xs min-h-11"
             >
-              <option value="TODAY">Today ({displayCalendarDate})</option>
+              <option value="TODAY">Today ({formatDate(displayCalendarDate)})</option>
               <option value="YESTERDAY">Yesterday</option>
               <option value="LAST_7">Last 7 Days</option>
               <option value="LAST_15">Last 15 Days</option>
@@ -168,7 +168,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             label="Current tank stock (@13% TS)"
             icon={Milk}
             tone="info"
-            value={zmccTankStock != null ? `${zmccTankStock.toLocaleString()} L @13% TS` : '—'}
+            value={zmccTankStock != null ? `${zmccTankStock.toLocaleString()} L` : '—'}
           />
           <StatCard
             label="Accepted intake today"
