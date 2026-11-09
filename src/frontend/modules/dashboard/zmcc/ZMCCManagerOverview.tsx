@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { ZmccManagerExitPanel } from './ZmccManagerSnapshot';
+import { formatDate } from '@/lib/format';
 import { MilkProcessLog } from '@backend/core/types';
 import {
   OverviewDateRange,
