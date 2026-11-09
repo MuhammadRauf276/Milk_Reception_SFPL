@@ -258,9 +258,9 @@ export function DynamicReportGeneratorScreen({
           <span className="text-xs font-semibold text-muted-foreground mr-2 shrink-0">Data Domain:</span>
           {(metaQuery.data?.domains || [
             { id: 'MOT_COLLECTIONS', label: 'Mobile Tester collections' },
-            { id: 'HC_SUPPLIERS', label: 'Direct HC Suppliers' },
+            { id: 'HC_SUPPLIERS', label: 'HC suppliers' },
             { id: 'JOURNEY_RECONCILIATION', label: 'Journey Reconciliation' },
-            { id: 'TANK_STORAGE', label: 'Silo Tank Inventory' },
+            { id: 'TANK_STORAGE', label: 'Tank storage' },
             { id: 'PLANT_TRANSIT', label: 'Plant Transit' },
             { id: 'QUALITY_SCREENING', label: 'Quality Lab Screening' },
           ]).map((d) => (

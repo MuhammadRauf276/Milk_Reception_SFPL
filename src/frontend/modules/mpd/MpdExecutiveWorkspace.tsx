@@ -74,7 +74,8 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedZmccId, setSelectedZmccId] = useState<string>('');
-  const [mpdReportMode, setMpdReportMode] = useState<'STUDIO' | 'LEDGERS'>('STUDIO');
+  const urlReport = searchParams?.get('report')?.toUpperCase();
+  const mpdReportMode = urlReport && urlReport !== 'BUILDER' ? 'LEDGERS' : 'STUDIO';
 
   const telemetryQuery = useQuery({
     queryKey: ['mpd', 'executive-overview'],
@@ -302,33 +303,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
             )}
             {activeTab === 'REPORTS' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between border-b border-border pb-3">
-                  <div className="flex items-center gap-2 bg-muted/60 p-1 rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => setMpdReportMode('STUDIO')}
-                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                        mpdReportMode === 'STUDIO'
-                          ? 'bg-background text-foreground shadow-2xs font-semibold'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      Dynamic Report Studio
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMpdReportMode('LEDGERS')}
-                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                        mpdReportMode === 'LEDGERS'
-                          ? 'bg-background text-foreground shadow-2xs font-semibold'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      Standard Operational Ledgers
-                    </button>
-                  </div>
-                </div>
-
+                
                 {mpdReportMode === 'STUDIO' ? (
                   <DynamicReportGeneratorScreen
                     currentUser={currentUser ?? null}
@@ -338,6 +313,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
                   <ZMCCComprehensiveReportsScreen
                     currentUser={currentUser ?? null}
                     targetZmccId={selectedZmccId || undefined}
+                    initialView={urlReport}
                   />
                 )}
               </div>

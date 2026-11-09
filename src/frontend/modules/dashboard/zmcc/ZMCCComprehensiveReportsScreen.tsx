@@ -185,16 +185,6 @@ export function ZMCCComprehensiveReportsScreen({
     }
   }, [initialView]);
 
-  const handleViewChange = (view: ReportView) => {
-    setActiveView(view);
-    setPage(1);
-    const params = new URLSearchParams(searchParams?.toString() || '');
-    params.set('tab', 'REPORTS');
-    params.set('view', view);
-    params.delete('mode');
-    router.replace(`${pathname}?${params.toString()}`);
-  };
-
   const todayStr = getPakistanCalendarDate(new Date());
   const [fromDate, setFromDate] = useState<string>(todayStr);
   const [toDate, setToDate] = useState<string>(todayStr);
@@ -305,11 +295,8 @@ export function ZMCCComprehensiveReportsScreen({
         <div>
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-muted-foreground" />
-            <h1 className="text-lg font-semibold text-foreground">Reports</h1>
+            <h1 className="text-lg font-semibold text-foreground">{activeView === 'HC_SUPPLIERS' ? 'HC supplier milk' : activeView === 'TANK_STORAGE' ? 'Tank storage' : 'Route collections'}</h1>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Route, HC and tank records by shift
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -332,47 +319,8 @@ export function ZMCCComprehensiveReportsScreen({
         </div>
       </div>
 
-      {/* Subtabs & Date Controls */}
+      {/* Date controls */}
       <div className="bg-card p-4 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        {/* Subtabs */}
-        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => handleViewChange('ROUTE_COLLECTIONS')}
-            className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap flex items-center gap-2 ${
-              activeView === 'ROUTE_COLLECTIONS'
-                ? 'bg-primary text-white shadow-2xs'
-                : 'text-secondary-foreground hover:text-foreground'
-            }`}
-          >
-            <Truck className="w-3.5 h-3.5" />
-            <span>Route and Mobile Tester collections</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleViewChange('HC_SUPPLIERS')}
-            className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap flex items-center gap-2 ${
-              activeView === 'HC_SUPPLIERS'
-                ? 'bg-primary text-white shadow-2xs'
-                : 'text-secondary-foreground hover:text-foreground'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>HC Supplier Milk</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleViewChange('TANK_STORAGE')}
-            className={`min-h-8 px-3 text-xs font-semibold rounded-md transition whitespace-nowrap flex items-center gap-2 ${
-              activeView === 'TANK_STORAGE'
-                ? 'bg-primary text-white shadow-2xs'
-                : 'text-secondary-foreground hover:text-foreground'
-            }`}
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            <span>Tank Storage & Chilling</span>
-          </button>
-        </div>
 
         {/* Filters */}
         {activeView !== 'TANK_STORAGE' && (

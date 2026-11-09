@@ -669,55 +669,6 @@ export const CentralCorrectionDesk: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Top-Level Tab Navigation (Synchronized with ?tab=) */}
-      <div className="flex flex-wrap items-center gap-2 p-1 bg-muted rounded-xl border border-border text-xs lg:hidden">
-        <button
-          type="button"
-          onClick={() => setTab('REQUESTS')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
-            activeTab === 'REQUESTS'
-              ? 'bg-card text-primary shadow-xs'
-              : 'text-secondary-foreground hover:text-foreground'
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>Correction Requests Queue</span>
-          {counts.pending > 0 && (
-            <span className="px-2 py-0.2 rounded-md text-xs font-semibold bg-amber-100 text-amber-800">
-              {counts.pending}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setTab('DIRECT_EDIT')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
-            activeTab === 'DIRECT_EDIT'
-              ? 'bg-card text-primary shadow-xs'
-              : 'text-secondary-foreground hover:text-foreground'
-          }`}
-        >
-          <Edit3 className="w-4 h-4" />
-          <span>Direct Record Corrections (Stages 1-4)</span>
-          <span className="px-2 py-0.2 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">
-            Live Hub
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setTab('AUDIT')}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
-            activeTab === 'AUDIT'
-              ? 'bg-card text-primary shadow-xs'
-              : 'text-secondary-foreground hover:text-foreground'
-          }`}
-        >
-          <History className="w-4 h-4" />
-          <span>Audit log</span>
-        </button>
-      </div>
 
       {/* Action Success / Error Feedback */}
       {actionSuccessMsg && (
@@ -1283,7 +1234,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                 <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-3 rounded-xl border">
                   <div>
                     <label className="block font-semibold text-secondary-foreground mb-1">
-                      Corrected LR
+                      LR
                     </label>
                     <input
                       type="number"

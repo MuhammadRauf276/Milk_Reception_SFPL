@@ -58,11 +58,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const searchParams = useSearchParams();
   const urlView = searchParams?.get('view')?.toUpperCase();
   const initialMode = searchParams?.get('mode')?.toUpperCase() === 'LEDGERS' || urlView ? 'LEDGERS' : 'STUDIO';
-  const [reportSubMode, setReportSubMode] = useState<'STUDIO' | 'LEDGERS'>(initialMode);
-
-  useEffect(() => {
-    setReportSubMode(initialMode);
-  }, [initialMode]);
+  const reportSubMode = initialMode;
   const urlTab =
     parseManagerTab(searchParams?.get('tab')) ??
     (urlView === 'MOT_EXCEPTIONS' || urlView === 'LAB_EXCEPTIONS' || urlView === 'DISPATCH_REQUESTS'
@@ -121,13 +117,13 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
     if (activeTab === 'REPORTS' || activeTab === 'HISTORY') {
       const hTitle =
         urlView === 'HC_SUPPLIERS'
-          ? 'HC Suppliers Ledger'
+          ? 'HC suppliers'
           : urlView === 'TANK_STORAGE'
-          ? 'Tank Storage & Chilling Log'
+          ? 'Tank storage'
           : urlView === 'QUALITY_REJECTIONS'
           ? 'Quality & Rejections'
-          : 'Route Collections Ledger';
-      return { sectionTitle: 'Reports & Ledgers', subpageTitle: hTitle };
+          : 'Route collections';
+      return { sectionTitle: 'Reports', subpageTitle: hTitle };
     }
     if (activeTab === 'MASTER_DATA') {
       const rawView = searchParams?.get('view')?.toUpperCase();
@@ -422,47 +418,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
           {(activeTab === 'REPORTS' || (activeTab === 'HISTORY' && urlView === 'QUALITY_REJECTIONS')) && (
             <div id="tabpanel-REPORTS" role="tabpanel" aria-labelledby="tab-REPORTS" className="space-y-6 animate-panel-in">
               {/* Studio vs Ledgers Mode Switcher */}
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <div className="flex items-center gap-2 bg-muted/60 p-1 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReportSubMode('STUDIO');
-                      const params = new URLSearchParams(searchParams?.toString() || '');
-                      params.set('tab', 'REPORTS');
-                      params.set('mode', 'STUDIO');
-                      params.delete('view');
-                      router.replace(`/mpd/zmcc-manager?${params.toString()}`);
-                    }}
-                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                      reportSubMode === 'STUDIO'
-                        ? 'bg-background text-foreground shadow-2xs font-semibold'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    Report Studio
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReportSubMode('LEDGERS');
-                      const params = new URLSearchParams(searchParams?.toString() || '');
-                      params.set('tab', 'REPORTS');
-                      params.set('view', 'ROUTE_COLLECTIONS');
-                      params.delete('mode');
-                      router.replace(`/mpd/zmcc-manager?${params.toString()}`);
-                    }}
-                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                      reportSubMode === 'LEDGERS'
-                        ? 'bg-background text-foreground shadow-2xs font-semibold'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    Operational Ledgers
-                  </button>
-                </div>
-              </div>
-
+              
               {reportSubMode === 'STUDIO' ? (
                 <DynamicReportGeneratorScreen currentUser={currentUser} />
               ) : (

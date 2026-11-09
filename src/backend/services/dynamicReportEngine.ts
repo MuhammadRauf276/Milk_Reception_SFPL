@@ -35,7 +35,7 @@ export const MOT_COLLECTIONS_FIELDS: ReportFieldDefinition[] = [
   { id: 'gross_liters', label: 'Gross Liters', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] },
   { id: 'at_13ts_liters', label: '13% TS Liters', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
   { id: 'fat', label: 'Fat %', category: 'QUALITY', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
-  { id: 'lr', label: 'LR (Corrected)', category: 'QUALITY', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
+  { id: 'lr', label: 'LR', category: 'QUALITY', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
   { id: 'snf', label: 'SNF %', category: 'QUALITY', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
   { id: 'density', label: 'Density (g/ml)', category: 'QUALITY', dataType: 'number', format: 'number', align: 'right', defaultSelected: false, sortable: true, filterable: true, aggregations: ['AVG'] },
   { id: 'final_decision', label: 'Lab Decision', category: 'QUALITY', dataType: 'enum', format: 'status_pill', defaultSelected: true, sortable: true, filterable: true, enumValues: ['ACCEPTED', 'REJECTED', 'FLAGGED', 'CONDITIONAL'] },

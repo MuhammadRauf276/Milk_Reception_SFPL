@@ -90,43 +90,6 @@ function PlantContractorManagerContent() {
 
       <main className="flex-1 overflow-y-auto w-full max-w-[100rem] mx-auto flex flex-col p-4 sm:p-6 space-y-6">
         <PageTransition>
-          {/* Top-Level Mode Tabs */}
-          <div className="bg-card border-border flex lg:hidden flex-wrap items-center gap-2 p-3 rounded-xl border shadow-2xs">
-            <button
-              type="button"
-              onClick={() => router.push('/contractor/manager?tab=APPROVALS')}
-              className={`px-4 py-2 min-h-11 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
-                isApprovals
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-secondary-foreground hover:bg-muted'
-              }`}
-            >
-              <ShieldAlert className="w-4 h-4" />
-              <span>Approval Inbox</span>
-              {pendingCount !== null && pendingCount > 0 && (
-                <span
-                  className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
-                    isApprovals ? 'bg-card text-amber-700' : 'bg-amber-100 text-amber-800'
-                  }`}
-                >
-                  {pendingCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => router.push('/contractor/manager?tab=OVERVIEW')}
-              className={`px-4 py-2 min-h-11 rounded-lg text-xs font-semibold transition flex items-center gap-2 ${
-                !isApprovals
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-secondary-foreground hover:bg-muted'
-              }`}
-            >
-              <Building2 className="w-4 h-4" />
-              <span>Operations</span>
-            </button>
-          </div>
 
           {isApprovals ? (
             <ApprovalInbox

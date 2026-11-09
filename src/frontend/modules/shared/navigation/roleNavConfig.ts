@@ -59,10 +59,14 @@ export interface RoleNavSection {
 }
 
 const MPD_VIEW_LINKS: RoleNavLeaf[] = [
-  { id: 'mpd-v-fleet', label: 'Fleet Radar', href: '/command?view=FLEET_RADAR', icon: Truck },
-  { id: 'mpd-v-hierarchy', label: 'Subordinate Hierarchy', href: '/command?view=HIERARCHY', icon: Network },
+  { id: 'mpd-v-fleet', label: 'Live fleet', href: '/command?view=FLEET_RADAR', icon: Truck },
+  { id: 'mpd-v-hierarchy', label: 'Routes and shops', href: '/command?view=HIERARCHY&sub=ROUTES', icon: Network },
+  { id: 'mpd-v-hierarchy-hc', label: 'HC suppliers', href: '/command?view=HIERARCHY&sub=HC_SUPPLIERS', icon: Users },
   { id: 'mpd-v-journeys', label: 'Mobile Tester journeys', href: '/command?view=MOT_JOURNEYS', icon: RouteIcon },
-  { id: 'mpd-v-reports', label: 'Reports', href: '/command?view=REPORTS', icon: FileSpreadsheet },
+  { id: 'mpd-v-reports', label: 'Report builder', href: '/command?view=REPORTS&report=BUILDER', icon: FileSpreadsheet },
+  { id: 'mpd-v-rep-routes', label: 'Route collections', href: '/command?view=REPORTS&report=ROUTE_COLLECTIONS', icon: RouteIcon },
+  { id: 'mpd-v-rep-hc', label: 'HC supplier milk', href: '/command?view=REPORTS&report=HC_SUPPLIERS', icon: Users },
+  { id: 'mpd-v-rep-tanks', label: 'Tank storage', href: '/command?view=REPORTS&report=TANK_STORAGE', icon: Building2 },
   { id: 'mpd-v-sources', label: 'Sources & Silos', href: '/command?view=SOURCES', icon: Building2 },
   { id: 'mpd-v-quality', label: 'Quality Screening', href: '/command?view=QUALITY_FUNNEL', icon: FlaskConical },
   { id: 'mpd-v-loss', label: 'Supply Chain Loss', href: '/command?view=LOSS_DIAGNOSTICS', icon: ArrowRightLeft },
@@ -87,9 +91,9 @@ const CORRECTION_LINKS: RoleNavLeaf[] = [
 ];
 
 const REPORT_GOVERNANCE_LINKS: RoleNavLeaf[] = [
-  { id: 'rep-daily', label: 'Daily Quality & Ops', href: '/super-admin/reports?tab=daily', icon: FileSpreadsheet },
-  { id: 'rep-hierarchy', label: 'Work for Lower Roles', href: '/super-admin/reports?tab=hierarchy', icon: UserCheck },
-  { id: 'rep-warnings', label: 'Warning Limits & Policy', href: '/super-admin/reports?tab=warnings', icon: AlertTriangle },
+  { id: 'rep-daily', label: 'Daily report', href: '/super-admin/reports?tab=daily', icon: FileSpreadsheet },
+  { id: 'rep-hierarchy', label: 'Senior actions', href: '/super-admin/reports?tab=hierarchy', icon: UserCheck },
+  { id: 'rep-warnings', label: 'Warning limits', href: '/super-admin/reports?tab=warnings', icon: AlertTriangle },
 ];
 
 /**
@@ -411,7 +415,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         children: [
           {
             id: 'rep-studio',
-            label: 'Dynamic Report Studio',
+            label: 'Report builder',
             href: '/mpd/zmcc-manager?tab=REPORTS&mode=STUDIO',
             icon: Sparkles,
           },
@@ -851,7 +855,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
     return [
       {
         id: 'production-head-hub',
-        label: 'Production Command',
+        label: 'Production',
         icon: Factory,
         href: '/department/production-head',
         children: [
@@ -869,7 +873,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
           },
           {
             id: 'prod-history',
-            label: 'Subordinate History',
+            label: 'Team history',
             href: '/department/production-head?tab=HISTORY',
             icon: History,
           },

@@ -66,7 +66,7 @@ export function VehicleSheet({ editing, defaultZmccId, isCentralRole, sources = 
         </div>
         {isCentralRole && !editing ? (
           <div>
-            <label className={sheetLabelClass}>Home ZMCC *</label>
+            <label className={sheetLabelClass}>Select ZMCC *</label>
             <Combobox
               className="min-h-[44px]"
               value={form.zmcc_id}

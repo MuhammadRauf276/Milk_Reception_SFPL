@@ -12,6 +12,7 @@ import { InfoTip } from '@/components/ui/info-tip';
 import { Button } from '@/components/ui/button';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { formatNumber } from '@/lib/format';
+import { useSearchParams } from 'next/navigation';
 
 type MotRow = DailyReportData['motCollections'][number];
 type ZmccRow = DailyReportData['zmccPortions'][number];
@@ -173,7 +174,8 @@ type ReportTab = 'MOT' | 'ZMCC' | 'EXCEPTIONS' | 'PLANT_QA';
 
 export function DailyReportDashboard() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [activeTab, setActiveTab] = useState<ReportTab>('MOT');
+  const urlSection = useSearchParams()?.get('section')?.toUpperCase();
+  const activeTab: ReportTab = urlSection === 'ZMCC' || urlSection === 'EXCEPTIONS' || urlSection === 'PLANT_QA' ? urlSection : 'MOT';
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACCEPTED' | 'WARNING' | 'REJECTED'>('ALL');
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
@@ -469,65 +471,15 @@ export function DailyReportDashboard() {
       {/* Tabs & Search Controls */}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-3">
-          {/* Tabs */}
-          <div className="flex flex-wrap gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('MOT');
-                setStatusFilter('ALL');
-              }}
-              className={`min-h-11 rounded-lg px-3 text-xs font-medium transition-colors ${
-                activeTab === 'MOT'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-subtle text-secondary-foreground hover:bg-muted'
-              }`}
-            >
-              Mobile Tester collections ({data?.motCollections.length ?? 0})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('ZMCC');
-                setStatusFilter('ALL');
-              }}
-              className={`min-h-11 rounded-lg px-3 text-xs font-medium transition-colors ${
-                activeTab === 'ZMCC'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-subtle text-secondary-foreground hover:bg-muted'
-              }`}
-            >
-              ZMCC lab portions ({data?.zmccPortions.length ?? 0})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('EXCEPTIONS');
-                setStatusFilter('ALL');
-              }}
-              className={`min-h-11 rounded-lg px-3 text-xs font-medium transition-colors ${
-                activeTab === 'EXCEPTIONS'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-subtle text-secondary-foreground hover:bg-muted'
-              }`}
-            >
-              Exceptions audit ({data?.exceptions.length ?? 0})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('PLANT_QA');
-                setStatusFilter('ALL');
-              }}
-              className={`min-h-11 rounded-lg px-3 text-xs font-medium transition-colors ${
-                activeTab === 'PLANT_QA'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-subtle text-secondary-foreground hover:bg-muted'
-              }`}
-            >
-              Plant QA tankers ({data?.plantQaVisits.length ?? 0})
-            </button>
-          </div>
+          <h2 className="min-w-0 text-sm font-semibold text-foreground">
+            {activeTab === 'MOT'
+              ? `Mobile Tester collections (${data?.motCollections?.length ?? 0})`
+              : activeTab === 'ZMCC'
+                ? `ZMCC lab portions (${data?.zmccPortions?.length ?? 0})`
+                : activeTab === 'EXCEPTIONS'
+                  ? `Exceptions audit (${data?.exceptions?.length ?? 0})`
+                  : `Plant QA tankers (${data?.plantQaVisits.length ?? 0})`}
+          </h2>
 
           {/* Search & Filter */}
           <div className="flex min-w-0 flex-wrap items-center gap-2">

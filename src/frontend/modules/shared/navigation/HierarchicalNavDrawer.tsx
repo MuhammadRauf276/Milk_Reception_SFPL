@@ -109,7 +109,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
             // default view for mot journeys tab
           } else if (leafPath === '/mpd/zmcc-manager' && key === 'view' && val === 'IN_TRANSIT' && searchParams?.get('tab') === 'PLANT_TRANSIT') {
             // default view for plant transit tab
-          } else if (leafPath === '/mpd/zmcc-manager' && key === 'mode' && val === 'STUDIO' && searchParams?.get('tab') === 'REPORTS') {
+          } else if (leafPath === '/mpd/zmcc-manager' && key === 'mode' && val === 'STUDIO' && searchParams?.get('tab') === 'REPORTS' && !searchParams?.get('view')) {
             // default view for reports tab
           } else if (leafPath === '/mpd/zmcc-manager' && key === 'view' && val === 'PLANT_HISTORY') {
             // default view for history tab

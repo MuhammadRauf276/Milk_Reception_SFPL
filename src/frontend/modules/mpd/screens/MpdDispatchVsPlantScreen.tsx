@@ -17,7 +17,7 @@ interface Props {
 }
 
 const REPORT_GUIDE: Array<{ tab: MpdTabId; title: string; about: string }> = [
-  { tab: 'REPORTS', title: 'Report Studio and Ledgers', about: 'Build your own report from any field, or open the standard operational ledgers and export them.' },
+  { tab: 'REPORTS', title: 'Reports', about: 'Build your own report from any field, or open the standard operational ledgers and export them.' },
   { tab: 'LOSS_DIAGNOSTICS', title: 'Supply Chain Loss', about: 'Litres and 13 TS lost between the shop, the ZMCC, the tanker and the plant.' },
   { tab: 'QUALITY_FUNNEL', title: 'Quality Screening', about: 'How much milk passes or fails the tests at each step.' },
   { tab: 'SOURCES', title: 'Sources and Silos', about: 'Intake by ZMCC and contractor, and what is in each silo.' },

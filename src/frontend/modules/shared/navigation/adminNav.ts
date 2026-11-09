@@ -61,9 +61,12 @@ const MC_OPS_CHILDREN = [
 ];
 
 const REPORTS_GOVERNANCE_CHILDREN = [
-  { href: '/super-admin/reports?tab=daily', label: 'Daily Quality & Ops' },
-  { href: '/super-admin/reports?tab=hierarchy', label: 'Work for Lower Roles' },
-  { href: '/super-admin/reports?tab=warnings', label: 'Warning Limits & Policy' },
+  { href: '/super-admin/reports?tab=daily&section=MOT', label: 'Daily: Mobile Tester' },
+  { href: '/super-admin/reports?tab=daily&section=ZMCC', label: 'Daily: ZMCC lab' },
+  { href: '/super-admin/reports?tab=daily&section=PLANT_QA', label: 'Daily: Plant QA' },
+  { href: '/super-admin/reports?tab=daily&section=EXCEPTIONS', label: 'Daily: exceptions' },
+  { href: '/super-admin/reports?tab=hierarchy', label: 'Senior actions' },
+  { href: '/super-admin/reports?tab=warnings', label: 'Warning limits' },
 ];
 
 export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [

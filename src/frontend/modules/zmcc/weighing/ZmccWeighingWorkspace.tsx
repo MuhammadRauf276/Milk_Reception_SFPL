@@ -266,51 +266,6 @@ export const ZmccWeighingWorkspace: React.FC = () => {
       {/* Top Header: Two Separate Tabs & Refresh Button */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-border pb-3">
         {/* Two Tabs: Weigh Milk & Done / Unloaded */}
-        <div className="inline-flex rounded-xl bg-muted p-1 border border-border lg:hidden" role="tablist" aria-label="Weighing Navigation">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'WEIGH'}
-            onClick={() => setActiveTab('WEIGH')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer ${
-              activeTab === 'WEIGH'
-                ? 'bg-card text-foreground shadow-2xs'
-                : 'text-secondary-foreground hover:text-foreground'
-            }`}
-          >
-            <Scale className="h-4 w-4 text-muted-foreground" />
-            <span>Weigh milk</span>
-            {ready.length > 0 && (
-              <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
-                activeTab === 'WEIGH' ? 'bg-amber-100 text-amber-800' : 'bg-muted text-secondary-foreground'
-              }`}>
-                {ready.length}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'DONE'}
-            onClick={() => setActiveTab('DONE')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer ${
-              activeTab === 'DONE'
-                ? 'bg-card text-foreground shadow-2xs'
-                : 'text-secondary-foreground hover:text-foreground'
-            }`}
-          >
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            <span>Done / Unloaded</span>
-            {(data?.done_total ?? 0) > 0 && (
-              <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
-                activeTab === 'DONE' ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-secondary-foreground'
-              }`}>
-                {data?.done_total}
-              </span>
-            )}
-          </button>
-        </div>
 
         {/* Global Refresh Button */}
         <button

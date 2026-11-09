@@ -22,55 +22,8 @@ function ReportsContent() {
   const activeTab: ReportSubTab =
     activeTabParam === 'hierarchy' || activeTabParam === 'warnings' ? activeTabParam : 'daily';
 
-  const handleTabChange = (tab: ReportSubTab) => {
-    const sp = new URLSearchParams(searchParams.toString());
-    sp.set('tab', tab);
-    router.push(`/super-admin/reports?${sp.toString()}`);
-  };
-
   return (
     <div className="w-full min-w-0 max-w-full space-y-4 p-1">
-      {/* Sub-Tabs Navigation Bar */}
-      <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-border bg-card p-2 shadow-2xs">
-        <button
-          type="button"
-          onClick={() => handleTabChange('daily')}
-          className={`flex min-h-11 items-center gap-2 rounded-lg px-4 text-xs font-medium transition-colors ${
-            activeTab === 'daily'
-              ? 'bg-primary text-white shadow-2xs'
-              : 'bg-transparent text-secondary-foreground hover:bg-subtle hover:text-foreground'
-          }`}
-        >
-          <FileSpreadsheet className="h-4 w-4" />
-          <span>Daily quality and operations</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleTabChange('hierarchy')}
-          className={`flex min-h-11 items-center gap-2 rounded-lg px-4 text-xs font-medium transition-colors ${
-            activeTab === 'hierarchy'
-              ? 'bg-primary text-white shadow-2xs'
-              : 'bg-transparent text-secondary-foreground hover:bg-subtle hover:text-foreground'
-          }`}
-        >
-          <UserCheck className="h-4 w-4" />
-          <span>Work for lower roles</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleTabChange('warnings')}
-          className={`flex min-h-11 items-center gap-2 rounded-lg px-4 text-xs font-medium transition-colors ${
-            activeTab === 'warnings'
-              ? 'bg-primary text-white shadow-2xs'
-              : 'bg-transparent text-secondary-foreground hover:bg-subtle hover:text-foreground'
-          }`}
-        >
-          <AlertTriangle className="h-4 w-4" />
-          <span>Warning limits and policy</span>
-        </button>
-      </div>
 
       {/* Tab Panels */}
       <div className="pt-1">

@@ -140,9 +140,8 @@ export function ZMCCSubordinateHierarchyScreen({
   const [selectedShop, setSelectedShop] = useState<ZmccShopHierarchyNode | null>(null);
   const searchParams = useSearchParams();
   const urlView = searchParams?.get('view')?.toUpperCase();
-  const [internalTab, setInternalTab] = useState<'ROUTES' | 'HC_SUPPLIERS'>('ROUTES');
-  const activeTab = urlView === 'HC_SUPPLIERS' ? 'HC_SUPPLIERS' : urlView === 'ROUTES' ? 'ROUTES' : internalTab;
-  const setActiveTab = setInternalTab;
+    // Command Center uses ?view for its own page, so it picks this list with ?sub.
+  const activeTab = urlView === 'HC_SUPPLIERS' || searchParams?.get('sub')?.toUpperCase() === 'HC_SUPPLIERS' ? 'HC_SUPPLIERS' : 'ROUTES';
 
   const isSystemScope =
     currentUser?.role === 'HEAD_OF_MPD' ||
@@ -334,26 +333,6 @@ export function ZMCCSubordinateHierarchyScreen({
 
       {/* Tab Switcher & Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border lg:hidden">
-          <button
-            type="button"
-            onClick={() => setActiveTab('ROUTES')}
-            className={`min-h-9 px-3 py-2 text-xs font-semibold rounded-md transition ${
-              activeTab === 'ROUTES' ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
-            }`}
-          >
-            Routes & Collection Points ({reportData.routes.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('HC_SUPPLIERS')}
-            className={`min-h-9 px-3 py-2 text-xs font-semibold rounded-md transition ${
-              activeTab === 'HC_SUPPLIERS' ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
-            }`}
-          >
-            Direct HC Suppliers ({reportData.hcSuppliers.length})
-          </button>
-        </div>
 
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

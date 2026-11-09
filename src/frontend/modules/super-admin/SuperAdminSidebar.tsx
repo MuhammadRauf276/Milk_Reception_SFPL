@@ -95,7 +95,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
         if (key === 'zmccId' || key === 'zmcc_id' || key === 'sourceId') return;
         const curVal = searchParams?.get(key);
         if (!curVal && leafPath === '/super-admin/corrections' && val === 'requests') return;
-        if (!curVal && leafPath === '/super-admin/reports' && val === 'daily') return;
+        if (!curVal && leafPath === '/super-admin/reports' && (val === 'daily' || (key === 'section' && val === 'MOT'))) return;
         if (!curVal && key === 'view' && /LOCAL_SUPPLIERS|DISPATCH/.test(val)) return;
         if (curVal !== val) allMatch = false;
       });

@@ -189,7 +189,7 @@ export function DynamicReportTable({
                   <th
                     key={f.id}
                     onClick={() => f.sortable !== false && onSort(f.id)}
-                    className={`py-3 px-4 transition-colors select-none ${
+                    className={`py-3 px-4 whitespace-nowrap transition-colors select-none ${
                       f.sortable !== false ? 'cursor-pointer hover:bg-muted/80 hover:text-foreground' : ''
                     } ${f.align === 'right' ? 'text-right' : f.align === 'center' ? 'text-center' : 'text-left'}`}
                   >

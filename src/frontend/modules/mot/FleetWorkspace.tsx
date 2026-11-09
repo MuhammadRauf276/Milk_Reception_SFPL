@@ -131,8 +131,8 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
     },
     {
       key: 'zmcc',
-      header: 'Home ZMCC',
-      label: 'Home ZMCC',
+      header: 'ZMCC',
+      label: 'ZMCC',
       cell: (r) => <span className="font-medium text-secondary-foreground">{r.zmcc_name}</span>,
     },
     {
@@ -324,7 +324,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
         >
           {historyRow.transfers.length === 0 ? (
             <p className="text-xs font-semibold text-muted-foreground">
-              This vehicle has never been moved. Home ZMCC: {historyRow.zmcc_name}.
+              This vehicle has never been moved. ZMCC: {historyRow.zmcc_name}.
             </p>
           ) : (
             <ul className="space-y-2">

@@ -94,16 +94,6 @@ export function MpdSourcesWorkspace() {
         )}
       </AnimatePresence>
 
-      <div className="flex items-center gap-2 border-b border-border pb-2 overflow-x-auto lg:hidden">
-        <button type="button" onClick={() => setActiveSubTab('SOURCES')} className={tabClass(activeSubTab === 'SOURCES')}>
-          <Milk className="w-4 h-4" />
-          <span>Milk Sources ({sources.length})</span>
-        </button>
-        <button type="button" onClick={() => setActiveSubTab('CONTRACTORS')} className={tabClass(activeSubTab === 'CONTRACTORS')}>
-          <Truck className="w-4 h-4" />
-          <span>Contractors ({contractors.length})</span>
-        </button>
-      </div>
 
       {isLoading ? (
         <SkeletonList count={4} />

@@ -147,49 +147,6 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
       </div>
 
       {/* 2. Mobile View Switcher (Only on screens < 1024px; desktop uses Left Sidebar) */}
-      <div className="lg:hidden flex items-center p-1 rounded-xl border border-border bg-muted/30 text-xs font-semibold">
-        <button
-          type="button"
-          onClick={() => handleTabChange('OVERVIEW')}
-          className={`flex-1 min-h-10 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
-            currentTab === 'OVERVIEW'
-              ? 'bg-background text-foreground shadow-2xs font-semibold'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Activity className="h-3.5 w-3.5" />
-          <span>Live Stations</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTabChange('SILOS')}
-          className={`flex-1 min-h-10 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
-            currentTab === 'SILOS'
-              ? 'bg-background text-foreground shadow-2xs font-semibold'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Database className="h-3.5 w-3.5" />
-          <span>Plant Silos</span>
-          {data && (
-            <span className="text-xs px-2 py-0.2 rounded-md bg-muted text-foreground">
-              {data.silos.length}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTabChange('HISTORY')}
-          className={`flex-1 min-h-10 py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
-            currentTab === 'HISTORY'
-              ? 'bg-background text-foreground shadow-2xs font-semibold'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <History className="h-3.5 w-3.5" />
-          <span>Staff History</span>
-        </button>
-      </div>
 
       {/* 3. Tab View Content */}
       {data && (
