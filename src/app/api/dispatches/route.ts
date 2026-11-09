@@ -1,3 +1,4 @@
+import { isDraftVisitNumber, nextVisitNumber } from '@/backend/services/dispatch/visitNumber';
 import { NextResponse } from 'next/server';
 import { ACTING_AS_HEADER, requireRoles, scopeFailureResponse } from '@core/route-guards';
 import { asRoleFields } from '@core/acting-context';
@@ -719,10 +720,21 @@ export async function POST(req: Request) {
         await tx.visitPortion.deleteMany({ where: { visit_id: existingVisit.id } });
       }
 
-      const visitNumber = existingVisit.visit_number;
+      let visitNumber = existingVisit.visit_number;
+      if (existingVisit.current_status === 'DRAFT_DISPATCH' || isDraftVisitNumber(visitNumber)) {
+        // One at a time across the company until this transaction ends, so two vehicles cannot take the same number.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('vehicle_visit_number'))`;
+        const dateCode = dispatchCalendarDateStr.replace(/-/g, '');
+        const sameDay = await tx.vehicleVisit.findMany({
+          where: { visit_number: { startsWith: `VV-${dateCode}-` }, id: { not: existingVisit.id } },
+          select: { visit_number: true },
+        });
+        visitNumber = nextVisitNumber(dispatchCalendarDateStr, sameDay.map((v) => v.visit_number));
+      }
       const visit = await tx.vehicleVisit.update({
         where: { id: existingVisit.id },
         data: {
+          visit_number: visitNumber,
           vehicle_number: validated.vehicleNumber,
           reception_number: receptionNumber,
           raw_milk_dispatch_note_number: validatedDispatchNote,

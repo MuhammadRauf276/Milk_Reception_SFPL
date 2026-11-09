@@ -1,3 +1,4 @@
+import { isDraftVisitNumber, newDraftVisitNumber } from '@/backend/services/dispatch/visitNumber';
 import { NextResponse } from 'next/server';
 import { prisma } from '@core/db';
 import { ACTING_AS_HEADER, requireRoles, scopeFailureResponse } from '@core/route-guards';
@@ -127,7 +128,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         success: true,
         visitId: existingVisit.id.toString(),
-        visitNumber: existingVisit.visit_number,
+        visitNumber: isDraftVisitNumber(existingVisit.visit_number) ? null : existingVisit.visit_number,
         assignedTests: assigned.map(serializeAssignment),
         quantityPolicy: quantityPolicy,
       });
@@ -144,9 +145,6 @@ export async function POST(req: Request) {
     const sourceCheck = checkDispatchSource(actingResult.ctx, validated.procurementSourceId, sourceRecord);
     if (!sourceCheck.ok) return dispatchSourceFailureResponse(sourceCheck.code);
     const resolvedSourceId: bigint = sourceCheck.sourceId;
-
-    const dateStr = validated.operationalDate || getPakistanCalendarDate(new Date());
-    const dateCode = dateStr.replace(/-/g, '');
 
     // The form needs a visit to hold its tests and photos, but opening it again must not make another one: an operator
     // keeps one empty draft per source per day, and older empty ones are closed.
@@ -182,7 +180,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
           success: true,
           visitId: visit.id.toString(),
-          visitNumber: visit.visit_number,
+          visitNumber: isDraftVisitNumber(visit.visit_number) ? null : visit.visit_number,
           assignedTests: assigned.map(serializeAssignment),
           quantityPolicy: quantityPolicy,
         });
@@ -191,44 +189,10 @@ export async function POST(req: Request) {
 
     // 3. Create persistent DRAFT_DISPATCH work item with frozen assignment and quantity policy
     const result = await prisma.$transaction(async (tx) => {
-      const todayVisits = await tx.vehicleVisit.findMany({
-        where: {
-          visit_number: { startsWith: `VV-${dateCode}` },
-        },
-        select: { visit_number: true },
-      });
-
-      let maxSeq = 0;
-      for (const v of todayVisits) {
-        if (v.visit_number) {
-          const parts = v.visit_number.split('-');
-          const num = parseInt(parts[parts.length - 1], 10);
-          if (!isNaN(num) && num > maxSeq) {
-            maxSeq = num;
-          }
-        }
-      }
-
-      let seq = maxSeq + 1;
-      let visitNumber = `VV-${dateCode}-${String(seq).padStart(4, '0')}`;
-
-      // In case of concurrent drafts or race conditions, ensure uniqueness
-      let exists = await tx.vehicleVisit.findUnique({
-        where: { visit_number: visitNumber },
-        select: { id: true },
-      });
-      while (exists) {
-        seq++;
-        visitNumber = `VV-${dateCode}-${String(seq).padStart(4, '0')}`;
-        exists = await tx.vehicleVisit.findUnique({
-          where: { visit_number: visitNumber },
-          select: { id: true },
-        });
-      }
-
+      // The real visit number is given at submit, so a form that is never sent uses up nothing.
       const visit = await tx.vehicleVisit.create({
         data: {
-          visit_number: visitNumber,
+          visit_number: newDraftVisitNumber(),
           vehicle_number: (validated.vehicleNumber || 'DRAFT').toUpperCase().trim(),
           operational_date: null,
           current_status: 'DRAFT_DISPATCH',
@@ -253,7 +217,7 @@ export async function POST(req: Request) {
       {
         success: true,
         visitId: result.visit.id.toString(),
-        visitNumber: result.visit.visit_number,
+        visitNumber: null,
         assignedTests: result.assigned.map(serializeAssignment),
         quantityPolicy: result.quantityPolicy,
       },

@@ -1,3 +1,4 @@
+import { isDraftVisitNumber } from '@/backend/services/dispatch/visitNumber';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
@@ -57,7 +58,7 @@ export async function GET(req: Request) {
 
     const serialized = visits.map((v) => ({
       id: v.id.toString(),
-      visitNumber: v.visit_number,
+      visitNumber: isDraftVisitNumber(v.visit_number) ? 'Not sent yet' : v.visit_number,
       vehicleNumber: v.vehicle_number,
       tokenNumber: v.token_number,
       identifiers: vehicleVisitPaperIdentity(v),
