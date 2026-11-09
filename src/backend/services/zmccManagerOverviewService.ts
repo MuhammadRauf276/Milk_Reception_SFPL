@@ -113,6 +113,23 @@ export async function listZmccExitOutcomes(zmccId?: bigint, now: Date = new Date
 }
 
 /** Builds one manager-safe snapshot. The caller supplies only a trusted ZMCC ID. */
+/** Tank ledger total: receipts and adjustments in add, issues and adjustments out subtract. */
+function signedTankTotal(
+  rows: Array<{ transaction_type: string; _sum: { quantity_liters: unknown; at_13ts_liters: unknown } }>,
+  field: 'quantity_liters' | 'at_13ts_liters'
+): number | null {
+  let total = 0;
+  let found = false;
+  for (const row of rows) {
+    const value = row._sum[field];
+    if (value === null || value === undefined) continue;
+    found = true;
+    const sign = row.transaction_type === 'ISSUE' || row.transaction_type === 'ADJUSTMENT_OUT' ? -1 : 1;
+    total += sign * Number(value);
+  }
+  return found ? Number(total.toFixed(2)) : null;
+}
+
 export async function getZmccManagerOverview(zmccId: bigint): Promise<ZmccManagerOverview> {
   const source = await prisma.procurementSource.findFirst({
     where: { id: zmccId, source_type: 'ZMCC', is_active: true },
@@ -153,7 +170,7 @@ export async function getZmccManagerOverview(zmccId: bigint): Promise<ZmccManage
     prisma.vehicleVisit.count({ where: { procurement_source_id: zmccId, gate_log: { is: { entry_timestamp: { not: null }, exit_timestamp: null } } } }),
     prisma.vehicleVisit.count({ where: { procurement_source_id: zmccId, current_status: { in: ['DISPATCHED', 'TOKEN_ISSUED'] } } }),
     prisma.zmccTank.count({ where: { zmcc_id: zmccId, is_active: true } }),
-    prisma.zmccTankInventoryTransaction.aggregate({ where: { zmcc_id: zmccId }, _sum: { quantity_liters: true, at_13ts_liters: true } }),
+    prisma.zmccTankInventoryTransaction.groupBy({ by: ['transaction_type'], where: { zmcc_id: zmccId }, _sum: { quantity_liters: true, at_13ts_liters: true } }),
     prisma.zmccLabSession.count({ where: { zmcc_id: zmccId, manager_review_status: 'PENDING' } }),
     listZmccExitOutcomes(zmccId),
     prisma.motJourney.findMany({
@@ -179,8 +196,8 @@ export async function getZmccManagerOverview(zmccId: bigint): Promise<ZmccManage
       dispatched,
     },
     tank: {
-      grossLiters: Number(tankTransactions._sum.quantity_liters ?? 0),
-      at13TsLiters: tankTransactions._sum.at_13ts_liters === null ? null : Number(tankTransactions._sum.at_13ts_liters),
+      grossLiters: signedTankTotal(tankTransactions, 'quantity_liters') ?? 0,
+      at13TsLiters: signedTankTotal(tankTransactions, 'at_13ts_liters'),
       activeTankCount: tanks,
     },
     dispatch: { ready: dispatchReady, activeAtPlant },
