@@ -94,7 +94,7 @@ export function JourneyCard({
               onClick={onReturnToPhe}
               disabled={isSubmittingReturn}
               title="Conclude shop collection and return to ZMCC PHE"
-              className="inline-flex items-center gap-2 min-h-[44px] px-3 py-2 border border-border-strong hover:border-border-strong bg-subtle hover:bg-muted text-secondary-foreground rounded-xl text-xs font-semibold transition shrink-0"
+              className="inline-flex items-center gap-2 min-h-[44px] px-3 py-2 border border-action/30-strong hover:border-action/30-strong bg-action-soft hover:bg-action-soft text-action rounded-xl text-xs font-semibold transition shrink-0"
             >
               <Truck className="w-3.5 h-3.5 text-secondary-foreground" />
               <span>Return to PHE</span>
@@ -181,7 +181,7 @@ export function JourneyCard({
               type="button"
               onClick={onResumeCollection}
               disabled={isSubmittingReturn}
-              className="min-h-[44px] px-4 py-2 bg-card border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-semibold shrink-0 transition"
+              className="min-h-[44px] px-4 py-2 bg-accent border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-semibold shrink-0 transition"
             >
               Resume Collection
             </button>

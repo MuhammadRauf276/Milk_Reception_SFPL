@@ -265,7 +265,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
                     e.stopPropagation();
                     onOpenActionModal('RESUME', v.id);
                   }}
-                  className="w-full min-h-11 mt-1 py-2 px-3 rounded-xl border border-border bg-card hover:bg-muted text-foreground text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5 shadow-2xs"
+                  className="w-full min-h-11 mt-1 py-2 px-3 rounded-xl border border-action/30 bg-action-soft hover:bg-action-soft text-action text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5 shadow-2xs"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
                   <span>Resume testing</span>

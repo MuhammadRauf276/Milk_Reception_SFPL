@@ -227,7 +227,7 @@ export function SavedTemplateManager({
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-                <Button type="button" variant="outline" size="sm" onClick={() => setIsSaveModalOpen(false)}>
+                <Button type="button" variant="secondary" size="sm" onClick={() => setIsSaveModalOpen(false)}>
                   Cancel
                 </Button>
                 <Button type="submit" variant="default" size="sm">

@@ -378,7 +378,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={refreshData}
-                className="flex min-h-[44px] items-center space-x-1 px-3 rounded-xl border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
+                className="flex min-h-[44px] items-center space-x-1 px-3 rounded-xl border border-action/30 text-xs font-semibold text-action hover:bg-action-soft"
               >
                 <span>Refresh Journeys</span>
               </button>

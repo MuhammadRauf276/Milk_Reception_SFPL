@@ -1,18 +1,19 @@
 'use client';
 
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { currentPageSize } from '@/lib/pagination';
+import { Pagination } from '@/components/ui/pagination';
 
 export const DEFAULT_PAGE_SIZE = 25;
 
-/** Number of pages for `total` rows (at least 1). */
-export const pageCount = (total: number, pageSize = DEFAULT_PAGE_SIZE) => Math.max(1, Math.ceil(total / pageSize));
+/** Number of pages for `total` rows (at least 1). Fewer rows per page on a phone. */
+export const pageCount = (total: number, pageSize = currentPageSize()) => Math.max(1, Math.ceil(total / pageSize));
 
 /** Rows of the given 1-based page. */
-export function paginate<T>(rows: T[], page: number, pageSize = DEFAULT_PAGE_SIZE): T[] {
+export function paginate<T>(rows: T[], page: number, pageSize = currentPageSize()): T[] {
   return rows.slice((page - 1) * pageSize, page * pageSize);
 }
 
-/** Simple previous / next pager. Renders nothing when there is a single page. */
+/** Previous and Next, the same control as every other list. Renders nothing when there is a single page. */
 export function Pager({
   page,
   totalPages,
@@ -25,32 +26,5 @@ export function Pager({
   onPageChange: (page: number) => void;
 }) {
   if (totalPages <= 1) return null;
-  return (
-    <div className="flex items-center justify-between pt-2">
-      <span className="text-xs text-muted-foreground">
-        Page {page} of {totalPages}
-        {total !== undefined ? ` (${total} total)` : ''}
-      </span>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          aria-label="Previous page"
-          disabled={page <= 1}
-          onClick={() => onPageChange(Math.max(1, page - 1))}
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-border hover:bg-subtle disabled:opacity-40"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          aria-label="Next page"
-          disabled={page >= totalPages}
-          onClick={() => onPageChange(Math.min(totalPages, page + 1))}
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-border hover:bg-subtle disabled:opacity-40"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  );
+  return <Pagination page={page} totalPages={totalPages} totalRecords={total ?? 0} onPageChange={onPageChange} className="px-0 pt-2" />;
 }

@@ -470,7 +470,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
           <button
             onClick={fetchPoliciesAndRules}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border border-border bg-subtle text-secondary-foreground hover:bg-muted transition min-h-11"
+            className="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg border border-action/30 bg-action-soft text-action hover:bg-action-soft transition min-h-11"
           >
             <span>Refresh</span>
           </button>

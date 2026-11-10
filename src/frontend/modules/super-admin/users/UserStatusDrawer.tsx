@@ -64,7 +64,7 @@ export function UserStatusDrawer({ user, targetStatus, open, onClose, onSaved }:
         </div>
       )}
       <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
-        <Button type="button" variant="outline" className="h-11 px-4" disabled={busy} onClick={onClose}>
+        <Button type="button" variant="secondary" className="h-11 px-4" disabled={busy} onClick={onClose}>
           Cancel
         </Button>
         <Button

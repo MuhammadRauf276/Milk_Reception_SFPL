@@ -31,6 +31,7 @@ import { PortionCorrectionDrawer } from './PortionCorrectionDrawer';
 import { MySubmittedRequestsPanel } from '@/frontend/modules/approvals/MySubmittedRequestsPanel';
 import type { MainTab, LabSession, LabResult, ResultDrafts, LabQueueItem } from './labTypes';
 import { RequestCorrectionModal, type EditableFieldOption } from '@/frontend/modules/governance/RequestCorrectionModal';
+import { useListPageSize } from '@/components/ui/pagination';
 
 interface ZmccLabWorkspaceProps {
   currentUser: User | null;
@@ -131,7 +132,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   const [historyDate, setHistoryDate] = useState('');
   const [historyDecision, setHistoryDecision] = useState<string>('ALL');
   const [historyPage, setHistoryPage] = useState(1);
-  const [historyPageSize] = useState(20);
+  const historyPageSize = useListPageSize(20);
 
   // View / Correction Modal State
   const [selectedHistorySession, setSelectedHistorySession] = useState<LabSession | null>(null);

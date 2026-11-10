@@ -32,7 +32,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
             <button
               type="button"
               onClick={fetchInsideVehicles}
-              className="flex items-center space-x-1.5 min-h-[44px] px-4 bg-card border border-border rounded-xl text-xs font-semibold text-secondary-foreground hover:bg-subtle transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer"
+              className="flex items-center space-x-1.5 min-h-[44px] px-4 bg-action-soft border border-action/30 rounded-xl text-xs font-semibold text-action hover:bg-action-soft transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer"
             >
               {loadingInside && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               <span>Refresh</span>

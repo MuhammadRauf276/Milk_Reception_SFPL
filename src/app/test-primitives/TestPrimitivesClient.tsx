@@ -83,7 +83,7 @@ export default function TestPrimitivesClient() {
           Open Mobile Drawer
         </Button>
         <Drawer open={drawerOpen} onOpenChange={handleDrawerOpenChange}>
-          <DrawerContent data-testid="drawer-content">
+          <DrawerContent showClose={false} data-testid="drawer-content">
             <div className="p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <DrawerTitle data-testid="drawer-title">Test Drawer Modal</DrawerTitle>

@@ -2,16 +2,17 @@
 
 import { InfoTip } from '@/components/ui/info-tip';
 import React, { useMemo, useState } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { ChevronDown } from 'lucide-react';
 import { Combobox } from '@/components/ui/combobox';
 import { DataFilters, type ActiveFilter } from '@/components/ui/data-filters';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
-import { InfiniteScrollerLoader } from '@/components/ui/loaders';
+import { Pagination } from '@/components/ui/pagination';
 import { formatDateTime } from '@/lib/format';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { useDebouncedValue } from '@/frontend/modules/super-admin/shared/useDebouncedValue';
+import { useListPageSize } from '@/components/ui/pagination';
 
 interface AuditLogItem {
   id: string;
@@ -29,7 +30,6 @@ interface AuditResponse {
   pagination?: { totalRecords: number; totalPages: number; page: number };
 }
 
-const PAGE_SIZE = 25;
 const ENTITY_OPTIONS = ['', 'users', 'procurement_source', 'silo', 'lab_test', 'lab_test_rule', 'vehicle_visit'].map((v) => ({
   value: v,
   label: v || 'All entities',
@@ -47,29 +47,36 @@ function ValueBlock({ title, value }: { title: string; value: unknown }) {
 }
 
 export default function SuperAdminAuditPage() {
+  const PAGE_SIZE = useListPageSize();
   const [tableName, setTableName] = useState('');
   const [actionSearch, setActionSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const action = useDebouncedValue(actionSearch.trim(), 300);
 
-  const query = useInfiniteQuery({
-    queryKey: ['super-admin', 'audit', { tableName, action }],
-    initialPageParam: 1,
-    queryFn: ({ signal, pageParam }) => {
-      const params = new URLSearchParams({ page: String(pageParam), pageSize: String(PAGE_SIZE) });
+  const [page, setPage] = useState(1);
+  // A new filter starts again at page 1.
+  const filterKey = `${tableName}|${action}`;
+  const [lastFilterKey, setLastFilterKey] = useState(filterKey);
+  if (filterKey !== lastFilterKey) {
+    setLastFilterKey(filterKey);
+    setPage(1);
+  }
+
+  const query = useQuery({
+    queryKey: ['super-admin', 'audit', { tableName, action, page, PAGE_SIZE }],
+    placeholderData: keepPreviousData,
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
       if (tableName) params.set('tableName', tableName);
       if (action) params.set('action', action);
       return fetchJson<AuditResponse>(`/api/super-admin/audit?${params}`, { signal });
     },
-    getNextPageParam: (last) => {
-      const p = last.pagination;
-      return p && p.page < p.totalPages ? p.page + 1 : undefined;
-    },
   });
 
-  const logs = useMemo(() => query.data?.pages.flatMap((p) => p.auditLogs ?? []) ?? [], [query.data]);
-  const total = query.data?.pages[0]?.pagination?.totalRecords;
+  const logs = useMemo(() => query.data?.auditLogs ?? [], [query.data]);
+  const total = query.data?.pagination?.totalRecords;
+  const totalPages = query.data?.pagination?.totalPages ?? 1;
 
   const columns: DataColumn<AuditLogItem>[] = [
     {
@@ -85,8 +92,8 @@ export default function SuperAdminAuditPage() {
       ),
     },
     { key: 'user', header: 'User', label: 'User', cell: (l) => l.user },
-    { key: 'action', header: 'Action', label: 'Action', cell: (l) => <span className="font-mono text-xs">{l.action}</span> },
-    { key: 'entity', header: 'Entity', label: 'Entity', cell: (l) => <span className="font-mono text-xs">{l.tableName}</span> },
+    { key: 'action', header: 'Action', label: 'Action', cardAlways: true, cell: (l) => <span className="font-mono text-xs">{l.action}</span> },
+    { key: 'entity', header: 'Entity', label: 'Entity', cardAlways: true, cell: (l) => <span className="font-mono text-xs">{l.tableName}</span> },
   ];
 
   const active: ActiveFilter[] = [
@@ -126,13 +133,20 @@ export default function SuperAdminAuditPage() {
             </div>
           ) : null
         }
+        stale={query.isPlaceholderData}
         footer={
           logs.length ? (
-            <InfiniteScrollerLoader
-              hasMore={!!query.hasNextPage}
-              loading={query.isFetchingNextPage}
-              onLoadMore={() => void query.fetchNextPage()}
-              endLabel="End of audit log"
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalRecords={total ?? logs.length}
+              pageSize={PAGE_SIZE}
+              noun="entries"
+              disabled={query.isFetching}
+              onPageChange={(next) => {
+                setPage(next);
+                window.scrollTo({ top: 0 });
+              }}
             />
           ) : null
         }

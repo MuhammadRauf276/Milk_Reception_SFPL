@@ -400,7 +400,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                 <button
                   onClick={() => goToPage(Math.max(1, validCurrentPage - 1))}
                   disabled={validCurrentPage === 1}
-                  className="inline-flex items-center space-x-1 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
+                  className="inline-flex items-center space-x-1 px-3 py-2 rounded-lg border border-action/30 bg-action-soft hover:bg-action-soft text-xs font-semibold text-action disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
                   aria-label="Previous Page"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
@@ -426,7 +426,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                 <button
                   onClick={() => goToPage(Math.min(totalPages, validCurrentPage + 1))}
                   disabled={validCurrentPage === totalPages}
-                  className="inline-flex items-center space-x-1 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-secondary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
+                  className="inline-flex items-center space-x-1 px-3 py-2 rounded-lg border border-action/30 bg-action-soft hover:bg-action-soft text-xs font-semibold text-action disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
                   aria-label="Next Page"
                 >
                   <span>Next</span>

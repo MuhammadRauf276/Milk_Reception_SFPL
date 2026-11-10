@@ -1,5 +1,6 @@
 'use client';
 
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ClipboardList } from 'lucide-react';
@@ -44,6 +45,7 @@ export const MyCorrectionTicketsButton: React.FC<{ className?: string }> = ({ cl
   });
   const items = query.data?.items ?? [];
   const openCount = items.filter((i) => i.statusLabel === 'Open').length;
+  const paged = usePagedRows(items, (t) => String(t.id));
 
   return (
     <>
@@ -70,7 +72,7 @@ export const MyCorrectionTicketsButton: React.FC<{ className?: string }> = ({ cl
           <p className="text-xs text-muted-foreground">No requests</p>
         )}
         <ul className="space-y-3">
-          {items.map((t) => {
+          {paged.pageRows.map((t) => {
             const [field, proposed] = Object.entries(t.requestedChanges)[0] ?? [];
             return (
               <li key={t.id} className="rounded-xl border border-border p-3 text-xs space-y-1.5">
@@ -97,6 +99,9 @@ export const MyCorrectionTicketsButton: React.FC<{ className?: string }> = ({ cl
             );
           })}
         </ul>
+        {paged.totalPages > 1 ? (
+          <Pagination page={paged.page} totalPages={paged.totalPages} totalRecords={paged.totalRecords} pageSize={paged.pageSize} noun="requests" onPageChange={paged.setPage} />
+        ) : null}
       </ZmccDrawer>
     </>
   );

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Drawer as DrawerPrimitive } from 'vaul';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVisualViewport } from '@/frontend/hooks/useVisualViewport';
 
@@ -74,10 +75,15 @@ const DrawerOverlay = React.forwardRef<
 ));
 DrawerOverlay.displayName = 'DrawerOverlay';
 
-const DrawerContent = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, style, ...props }, ref) => {
+const CLOSE_CLASS =
+  'absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring';
+
+type DrawerContentProps = React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
+  /** A close button in the corner, so a form can always be left without saving. Off when the screen draws its own. */
+  showClose?: boolean;
+};
+
+const DrawerContent = React.forwardRef<React.ElementRef<typeof DrawerPrimitive.Content>, DrawerContentProps>(({ className, children, style, showClose = true, ...props }, ref) => {
   const desktop = React.useContext(DesktopContext);
   const { height: vvh, isKeyboardOpen } = useVisualViewport();
 
@@ -98,6 +104,11 @@ const DrawerContent = React.forwardRef<
           )}
           style={style}
         >
+          {showClose ? (
+            <DialogPrimitive.Close className={CLOSE_CLASS} aria-label="Close">
+              <X className="h-5 w-5" aria-hidden="true" />
+            </DialogPrimitive.Close>
+          ) : null}
           {children}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
@@ -129,6 +140,11 @@ const DrawerContent = React.forwardRef<
         {...props}
       >
         <div className="mx-auto mt-2 h-1.5 w-11 shrink-0 rounded-full bg-border-strong" aria-hidden="true" />
+        {showClose ? (
+          <DrawerPrimitive.Close className={CLOSE_CLASS} aria-label="Close">
+            <X className="h-5 w-5" aria-hidden="true" />
+          </DrawerPrimitive.Close>
+        ) : null}
         {children}
       </DrawerPrimitive.Content>
     </DrawerPrimitive.Portal>
@@ -165,7 +181,7 @@ const DrawerDescription = React.forwardRef<
 DrawerDescription.displayName = 'DrawerDescription';
 
 const DrawerHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex shrink-0 flex-col gap-2 px-4 pt-3 pb-2 text-left sm:px-6', className)} {...props} />
+  <div className={cn('flex shrink-0 flex-col gap-2 py-2 pt-3 pl-4 pr-14 text-left sm:pl-6', className)} {...props} />
 );
 DrawerHeader.displayName = 'DrawerHeader';
 

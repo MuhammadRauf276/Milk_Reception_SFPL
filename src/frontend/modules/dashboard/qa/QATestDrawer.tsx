@@ -237,7 +237,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
           if (!open && !isSubmitting) onClose();
         }}
       >
-        <DrawerContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DrawerContent showClose={false} className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5 shrink-0">
             <div>

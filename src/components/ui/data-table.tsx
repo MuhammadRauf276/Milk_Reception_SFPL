@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Columns3, X } from 'lucide-react';
+import { ChevronDown, Columns3, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
 import { EmptyState, ErrorState } from './empty-state';
@@ -9,6 +9,7 @@ import { SkeletonTable } from './loaders';
 import { Pagination, usePagedRows } from './pagination';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { TableWrapper } from './table-wrapper';
+import { DEFAULT_PAGE_SIZE, PHONE_PAGE_SIZE } from '@/lib/pagination';
 
 export interface DataColumn<T> {
   key: string;
@@ -18,15 +19,18 @@ export interface DataColumn<T> {
   cell: (row: T) => React.ReactNode;
   align?: 'left' | 'center' | 'right';
   className?: string;
-  /** The main line of the phone card, usually the name or code. */
+  /** The main line of the phone row, usually the name or code. */
   primary?: boolean;
-  /** Buttons and menus. Placed at the top right of the phone card, with no label. */
+  /** Buttons and menus. On phones they show when the row is opened. */
   actions?: boolean;
-  /** Leave this column out of the phone card. */
+  /** Leave this column out of the phone row. */
   hideOnCard?: boolean;
   /** Starts hidden in the column picker. */
   defaultHidden?: boolean;
+  /** Shown under the main item on the phone row, before other details. */
+  cardAlways?: boolean;
 }
+
 
 export interface BulkAction<T> {
   label: string;
@@ -54,7 +58,7 @@ export interface DataTableProps<T> {
   bulkActions?: BulkAction<T>[];
   /** Saves the column choice on this device under this name. Leave out to hide the picker. */
   columnPickerId?: string;
-  /** How much width the table needs before phone cards turn into columns. */
+  /** How much width the table needs before phone rows turn into columns. */
   tableFrom?: 'md' | 'lg';
   /** The screen's own pagination bar or infinite scroll loader. Turns off the built-in pages. */
   footer?: React.ReactNode;
@@ -70,6 +74,24 @@ export interface DataTableProps<T> {
 const ALIGN = { left: 'text-left', center: 'text-center', right: 'text-right' } as const;
 const CARD_CLASS = { md: '@3xl:hidden', lg: '@5xl:hidden' } as const;
 const TABLE_CLASS = { md: 'hidden @3xl:block', lg: 'hidden @5xl:block' } as const;
+/** The widths behind @3xl and @5xl, in pixels. */
+const TABLE_FROM_PX = { md: 768, lg: 1024 } as const;
+
+/**
+ * Width of an element, kept current. Null until measured, so the first paint from the server and the browser match;
+ * the CSS classes pick the right layout for that moment, and then only that layout is built.
+ */
+function useWidth(el: HTMLElement | null): number | null {
+  const [width, setWidth] = React.useState<number | null>(null);
+  // Watches the element itself, so it starts when the table appears, not while the loading skeleton shows.
+  React.useEffect(() => {
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [el]);
+  return width;
+}
 
 function readHidden(id: string | undefined): string[] | null {
   if (!id || typeof window === 'undefined') return null;
@@ -83,7 +105,7 @@ function readHidden(id: string | undefined): string[] | null {
 
 /**
  * The one table for lists. Follows the width of its container, not the screen:
- * cards when narrow, columns when wide. Nothing is cut off at any width.
+ * short rows that open on tap when narrow, columns when wide. Nothing is cut off at any width.
  */
 export function DataTable<T>({
   columns,
@@ -109,6 +131,14 @@ export function DataTable<T>({
   className,
 }: DataTableProps<T>) {
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(new Set());
+  const [openCards, setOpenCards] = React.useState<ReadonlySet<string>>(new Set());
+  const toggleCard = (id: string) =>
+    setOpenCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const [running, setRunning] = React.useState(false);
   const [hidden, setHidden] = React.useState<string[]>(
     () => readHidden(columnPickerId) ?? columns.filter((c) => c.defaultHidden).map((c) => c.key)
@@ -126,10 +156,19 @@ export function DataTable<T>({
     });
   };
 
-  const paged = usePagedRows(rows, getRowId, pageSize);
+  const topRef = React.useRef<HTMLDivElement | null>(null);
+  const [topEl, setTopEl] = React.useState<HTMLDivElement | null>(null);
+  const attachTop = React.useCallback((el: HTMLDivElement | null) => {
+    topRef.current = el;
+    setTopEl(el);
+  }, []);
+  const width = useWidth(topEl);
+  const showCards = width === null || width < TABLE_FROM_PX[tableFrom];
+  const showTable = width === null || width >= TABLE_FROM_PX[tableFrom];
+  // Fewer rows per page in the phone layout, so a page stays short.
+  const paged = usePagedRows(rows, getRowId, pageSize ?? (width !== null && width < TABLE_FROM_PX[tableFrom] ? PHONE_PAGE_SIZE : DEFAULT_PAGE_SIZE));
   const usePages = paginate && !footer;
   const shownRows = usePages ? paged.pageRows : rows;
-  const topRef = React.useRef<HTMLDivElement>(null);
   const goToPage = (next: number) => {
     paged.setPage(next);
     topRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
@@ -166,10 +205,15 @@ export function DataTable<T>({
   const primary = visible.find((c) => c.primary) ?? visible.find((c) => !c.actions);
   const actionCols = visible.filter((c) => c.actions);
   const detailCols = visible.filter((c) => c !== primary && !c.actions && !c.hideOnCard);
+  // Phone row: the main item, one figure on the right, two short details under it. Everything else opens on tap.
+  const trailing = detailCols.find((c) => c.align === 'right' && !c.cardAlways);
+  const subtitleCols = [...detailCols.filter((c) => c.cardAlways), ...detailCols.filter((c) => !c.cardAlways && c !== trailing)].slice(0, 2);
+  const openCols = detailCols.filter((c) => c !== trailing);
+  const hasMore = detailCols.some((c) => c !== trailing && !subtitleCols.includes(c)) || actionCols.length > 0;
   const interactive = (e: React.MouseEvent) => (e.target as Element).closest('button,a,input,select,label,[role="menu"],[role="menuitem"]');
 
   return (
-    <div ref={topRef} className={cn('@container min-w-0 scroll-mt-20 space-y-2', className)}>
+    <div ref={attachTop} className={cn('@container min-w-0 scroll-mt-20 space-y-2', className)}>
       {columnPickerId ? (
         <div className="flex justify-end">
           <Popover>
@@ -197,44 +241,81 @@ export function DataTable<T>({
         <EmptyState title={emptyTitle} description={emptyDescription} action={emptyAction} />
       ) : (
         <>
-          {/* Narrow container: cards */}
-          <ul className={cn('min-w-0 space-y-2', CARD_CLASS[tableFrom], stale && 'opacity-60')}>
+          {/* Narrow container: short rows. Only one layout is built once the width is known. */}
+          {showCards ? (
+          <ul data-layout="rows" className={cn('min-w-0 divide-y overflow-hidden rounded-2xl border bg-card shadow-2xs', CARD_CLASS[tableFrom], stale && 'opacity-60')}>
             {shownRows.map((row) => {
               const id = getRowId(row);
               const expanded = renderExpanded?.(row);
+              const isOpen = openCards.has(id);
+              const onMain = onRowClick ? () => onRowClick(row) : hasMore ? () => toggleCard(id) : undefined;
               return (
-                <li
-                  key={id}
-                  onClick={onRowClick ? (e) => !interactive(e) && onRowClick(row) : undefined}
-                  className={cn('min-w-0 rounded-2xl border bg-card p-4 shadow-2xs', onRowClick && 'cursor-pointer transition-colors hover:bg-subtle', rowClassName?.(row))}
-                >
-                  {/* Wraps, so several action buttons drop to their own line instead of leaving the card. */}
-                  <div className="flex min-w-0 flex-wrap items-start gap-2">
+                <li key={id} className={cn('min-w-0', rowClassName?.(row))}>
+                  <div className="flex min-h-11 min-w-0 items-center gap-1 pl-3 pr-1">
                     {canSelect ? (
-                      <label className="-ml-3 -mt-3 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
+                      <label className="-ml-3 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
                         <input type="checkbox" aria-label="Select row" checked={selected.has(id)} onChange={() => toggleRow(id)} className="h-4 w-4 accent-primary" />
                       </label>
                     ) : null}
-                    <div className="min-w-[min(100%,8rem)] flex-1 text-sm">{primary?.cell(row)}</div>
-                    {actionCols.length ? <div className="ml-auto flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1">{actionCols.map((c) => <React.Fragment key={c.key}>{c.cell(row)}</React.Fragment>)}</div> : null}
-                  </div>
-                  {detailCols.length ? (
-                    <dl className="mt-3 grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-x-4 gap-y-2 border-t pt-3 text-sm">
-                      {detailCols.map((c) => (
-                        <div key={c.key} className="min-w-0">
-                          <dt className="text-xs text-muted-foreground">{c.label ?? c.header}</dt>
-                          <dd className="min-w-0 break-words text-foreground">{c.cell(row)}</dd>
+                    <div
+                      onClick={onMain ? (e) => !interactive(e) && onMain() : undefined}
+                      className={cn('min-w-0 flex-1 py-2', onMain && 'cursor-pointer')}
+                    >
+                      <div className="flex min-w-0 items-start justify-between gap-3 text-sm">
+                        <div className="min-w-0 break-words font-medium text-foreground">{primary?.cell(row)}</div>
+                        {trailing ? <div className="shrink-0 text-right tabular-nums text-foreground">{trailing.cell(row)}</div> : null}
+                      </div>
+                      {subtitleCols.length ? (
+                        <div className="mt-0.5 min-w-0 truncate text-xs text-muted-foreground [&_*]:inline">
+                          {subtitleCols.map((c, i) => (
+                            <React.Fragment key={c.key}>
+                              {i > 0 ? <span aria-hidden="true"> · </span> : null}
+                              {c.cell(row)}
+                            </React.Fragment>
+                          ))}
                         </div>
-                      ))}
-                    </dl>
+                      ) : null}
+                    </div>
+                    {hasMore ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleCard(id)}
+                        aria-expanded={isOpen}
+                        aria-label={isOpen ? 'Hide details' : 'Show details'}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} aria-hidden="true" />
+                      </button>
+                    ) : null}
+                  </div>
+                  {isOpen && hasMore ? (
+                    <div className="min-w-0 space-y-3 bg-subtle px-3 pb-3 pt-2">
+                      {openCols.length ? (
+                        <dl className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-x-4 gap-y-2 text-sm">
+                          {openCols.map((c) => (
+                            <div key={c.key} className="min-w-0">
+                              <dt className="text-xs text-muted-foreground">{c.label ?? c.header}</dt>
+                              <dd className="min-w-0 break-words text-foreground">{c.cell(row)}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      ) : null}
+                      {actionCols.length ? (
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          {actionCols.map((c) => <React.Fragment key={c.key}>{c.cell(row)}</React.Fragment>)}
+                        </div>
+                      ) : null}
+                    </div>
                   ) : null}
-                  {expanded ? <div className="mt-3 min-w-0 border-t pt-3">{expanded}</div> : null}
+                  {expanded ? <div className="min-w-0 border-t bg-subtle px-3 py-3">{expanded}</div> : null}
                 </li>
               );
             })}
           </ul>
+          ) : null}
 
           {/* Wide container: columns */}
+          {showTable ? (
           <div className={TABLE_CLASS[tableFrom]}>
             <TableWrapper className="rounded-2xl">
               <table className={cn('w-full text-sm', stale && 'opacity-60')}>
@@ -297,6 +378,7 @@ export function DataTable<T>({
               </table>
             </TableWrapper>
           </div>
+          ) : null}
         </>
       )}
 

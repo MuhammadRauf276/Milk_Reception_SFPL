@@ -260,7 +260,7 @@ export function DispatchTab({
                   type="button"
                   onClick={acquireGps}
                   disabled={displayedGpsStatus === 'ACQUIRING'}
-                  className="flex items-center space-x-1 min-h-[44px] px-3 rounded-md bg-card border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
+                  className="flex items-center space-x-1 min-h-[44px] px-3 rounded-md bg-action-soft border border-action/30 text-xs font-semibold text-action hover:bg-action-soft"
                 >
                   <span>{displayedGpsStatus === 'ACQUIRING' ? 'Acquiring…' : 'Refresh GPS'}</span>
                 </button>

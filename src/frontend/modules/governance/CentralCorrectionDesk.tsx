@@ -918,7 +918,7 @@ export const CentralCorrectionDesk: React.FC = () => {
               className={`p-4 rounded-xl border text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                 selectedStage === '1'
                   ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/20'
-                  : 'bg-card border-border hover:border-border-strong'
+                  : 'bg-card border-border-strong hover:border-action/50 hover:bg-action-soft'
               }`}
             >
               <div className="flex items-center space-x-2">
@@ -939,7 +939,7 @@ export const CentralCorrectionDesk: React.FC = () => {
               className={`p-4 rounded-xl border text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                 selectedStage === '2'
                   ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/20'
-                  : 'bg-card border-border hover:border-border-strong'
+                  : 'bg-card border-border-strong hover:border-action/50 hover:bg-action-soft'
               }`}
             >
               <div className="flex items-center space-x-2">
@@ -960,7 +960,7 @@ export const CentralCorrectionDesk: React.FC = () => {
               className={`p-4 rounded-xl border text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                 selectedStage === '3'
                   ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/20'
-                  : 'bg-card border-border hover:border-border-strong'
+                  : 'bg-card border-border-strong hover:border-action/50 hover:bg-action-soft'
               }`}
             >
               <div className="flex items-center space-x-2">
@@ -981,7 +981,7 @@ export const CentralCorrectionDesk: React.FC = () => {
               className={`p-4 rounded-xl border text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
                 selectedStage === '4'
                   ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/20'
-                  : 'bg-card border-border hover:border-border-strong'
+                  : 'bg-card border-border-strong hover:border-action/50 hover:bg-action-soft'
               }`}
             >
               <div className="flex items-center space-x-2">
@@ -1122,7 +1122,7 @@ export const CentralCorrectionDesk: React.FC = () => {
           <div className="p-4 border-t border-border flex items-center justify-end space-x-2 bg-subtle">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               onClick={() => setIsReviewDrawerOpen(false)}
               className="text-xs font-semibold"
             >
@@ -1411,7 +1411,7 @@ export const CentralCorrectionDesk: React.FC = () => {
             <div className="p-4 border-t border-border flex items-center justify-end space-x-2 bg-subtle">
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 disabled={savingDirectEdit}
                 onClick={() => setIsEditDrawerOpen(false)}
                 className="text-xs font-semibold"
@@ -1446,7 +1446,7 @@ export const CentralCorrectionDesk: React.FC = () => {
             <div className="flex items-center justify-end space-x-2 pt-2 border-t border-border">
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={() => setRejectionModalId(null)}
                 className="text-xs font-semibold"
               >

@@ -121,7 +121,7 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
             type="button"
             disabled={isSubmitting}
             onClick={onClose}
-            className="w-full min-h-[44px] py-2 px-4 rounded-xl border border-border text-secondary-foreground hover:bg-subtle text-xs font-semibold transition disabled:opacity-50"
+            className="w-full min-h-[44px] py-2 px-4 rounded-xl border border-action/30 text-action hover:bg-action-soft text-xs font-semibold transition disabled:opacity-50"
           >
             Cancel / Continue Collecting
           </button>

@@ -15,6 +15,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { useDebouncedValue } from '@/frontend/modules/super-admin/shared/useDebouncedValue';
 import { PaginationBar } from '@/frontend/modules/super-admin/shared/PaginationBar';
+import { useListPageSize } from '@/components/ui/pagination';
 import {
   SourceCreateDrawer,
   SourceEditDrawer,
@@ -22,7 +23,6 @@ import {
   type Source,
 } from '@/frontend/modules/super-admin/sources/SourceDrawers';
 
-const PAGE_SIZE = 25;
 const TYPE_OPTIONS = [
   { value: '', label: 'All types' },
   { value: 'ZMCC', label: 'ZMCC' },
@@ -52,6 +52,7 @@ export default function SuperAdminProcurementSourcesPage() {
 }
 
 function ProcurementSourcesContent() {
+  const PAGE_SIZE = useListPageSize();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [type, setType] = useState('ZMCC');
@@ -65,7 +66,7 @@ function ProcurementSourcesContent() {
   const filters = useMemo(() => ({ q, type, status, page }), [q, type, status, page]);
 
   const query = useQuery({
-    queryKey: ['super-admin', 'procurement-sources', 'list', filters],
+    queryKey: ['super-admin', 'procurement-sources', 'list', filters, PAGE_SIZE],
     queryFn: ({ signal }) => {
       const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
       if (q) params.set('q', q);

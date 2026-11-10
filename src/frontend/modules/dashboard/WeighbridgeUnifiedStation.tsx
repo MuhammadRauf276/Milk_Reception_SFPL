@@ -433,7 +433,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
 
   return (
     <Drawer open onOpenChange={(o) => !o && onClose()}>
-      <DrawerContent>
+      <DrawerContent showClose={false}>
         <div className="overflow-y-auto p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 space-y-6 text-foreground max-w-4xl mx-auto w-full">
           <DrawerTitle className="sr-only">Progressive Scale Weighing</DrawerTitle>
 

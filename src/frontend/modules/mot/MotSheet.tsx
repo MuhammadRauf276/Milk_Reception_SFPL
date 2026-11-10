@@ -27,7 +27,7 @@ export function MotSheet({ title, subtitle, onClose, children }: MotSheetProps) 
         if (!open) onClose();
       }}
     >
-      <DrawerContent>
+      <DrawerContent showClose={false}>
         <div className="min-h-0 space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
           <div className="flex items-start justify-between gap-3 border-b border-border pb-3">
             <div className="min-w-0">
@@ -38,7 +38,7 @@ export function MotSheet({ title, subtitle, onClose, children }: MotSheetProps) 
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted"
+              className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-border-strong text-secondary-foreground hover:bg-secondary"
             >
               <X className="h-5 w-5" aria-hidden="true" />
             </button>

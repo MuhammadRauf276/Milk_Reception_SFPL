@@ -23,6 +23,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
+import { useListPageSize } from '@/components/ui/pagination';
 
 interface ContractorHistoryReportsProps {
   initialLogs: MilkProcessLog[];
@@ -38,7 +39,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
   const [toDate, setToDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [page, setPage] = useState<number>(1);
-  const [pageSize] = useState<number>(20);
+  const pageSize = useListPageSize(20);
   const [formError, setError] = useState<string | null>(null);
   // Null until the user applies/resets a filter; until then the server-provided initial logs are shown.
   const [applied, setApplied] = useState<{ fromDate: string; toDate: string; search: string } | null>(null);

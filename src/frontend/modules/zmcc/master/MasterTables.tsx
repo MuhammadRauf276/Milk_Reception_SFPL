@@ -153,7 +153,7 @@ export const MasterTables: React.FC<Props> = (p) => {
                 <button
                   type="button"
                   onClick={() => p.onIntakeTank!(tank)}
-                  className="p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition"
+                  className="p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-action/30 bg-primary/10 text-primary hover:bg-primary/20 transition"
                   title="Intake Milk Stock (@13% TS and Gross Liters)"
                   aria-label="Intake Milk Stock"
                 >

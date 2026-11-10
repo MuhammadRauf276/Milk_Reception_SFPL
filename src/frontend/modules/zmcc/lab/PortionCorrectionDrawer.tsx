@@ -182,7 +182,7 @@ export function PortionCorrectionDrawer({ open, sessionId, onClose, onSaved }: P
       {error ? <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs text-red-800">{error}</p> : null}
 
       <div className="flex items-center justify-end gap-3 pt-2">
-        <button type="button" onClick={onClose} disabled={saving} className="min-h-11 min-w-11 rounded-lg border border-border-strong px-4 py-2 text-xs font-semibold text-secondary-foreground hover:bg-subtle">
+        <button type="button" onClick={onClose} disabled={saving} className="min-h-11 min-w-11 rounded-lg border border-border-strong-strong px-4 py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary">
           Cancel
         </button>
         <button

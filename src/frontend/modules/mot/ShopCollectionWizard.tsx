@@ -187,7 +187,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
             onClick={onSaveDraft}
             disabled={busy}
             title="Save draft for later"
-            className="min-h-11 min-w-11 inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-border-strong bg-card px-3 text-xs font-semibold text-secondary-foreground hover:bg-muted disabled:opacity-50"
+            className="min-h-11 min-w-11 inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-action/30-strong bg-action-soft px-3 text-xs font-semibold text-action hover:bg-action-soft disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" aria-hidden="true" />
             <span className="hidden min-[420px]:inline">Draft</span>
@@ -407,7 +407,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
               onClick={goBack}
               disabled={busy}
               aria-label="Back"
-              className="inline-flex min-h-[48px] min-w-[48px] shrink-0 items-center justify-center gap-1 rounded-xl border border-border-strong bg-card px-3 text-sm font-semibold text-secondary-foreground hover:bg-subtle disabled:opacity-50"
+              className="inline-flex min-h-[48px] min-w-[48px] shrink-0 items-center justify-center gap-1 rounded-xl border border-border-strong-strong bg-secondary px-3 text-sm font-semibold text-secondary-foreground hover:bg-secondary disabled:opacity-50"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Back</span>
@@ -438,7 +438,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
 
       {/* Decide Modal: Opens in a centered Dialog on desktop, Drawer on mobile */}
       <Drawer open={decideOpen} onOpenChange={setDecideOpen} dismissible={!busy}>
-        <DrawerContent className="max-w-lg">
+        <DrawerContent showClose={false} className="max-w-lg">
           <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
             <div>
               <DrawerTitle className="text-base font-semibold text-foreground">

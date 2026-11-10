@@ -222,7 +222,7 @@ export function MilkSourcesPanel({
 
       {drawerOpen && (
         <Drawer open onOpenChange={(o) => !o && setDrawerOpen(false)}>
-          <DrawerContent>
+          <DrawerContent showClose={false}>
             <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
               <DrawerTitle className="sr-only">{editing ? 'Edit Milk Source' : 'Create Milk Source'}</DrawerTitle>
               <div className="flex items-center justify-between pb-3 border-b border-border">

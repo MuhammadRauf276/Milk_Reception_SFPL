@@ -224,7 +224,7 @@ const SecondWeightDrawer: React.FC<{
 
   return (
     <Drawer open onOpenChange={(o) => !o && onClose()}>
-      <DrawerContent>
+      <DrawerContent showClose={false}>
         <div className="overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 space-y-5 text-foreground">
           <DrawerTitle className="sr-only">Record second weight</DrawerTitle>
           <div className="flex items-start justify-between gap-2 pb-3 border-b border-border-strong">

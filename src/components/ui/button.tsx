@@ -10,8 +10,10 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-primary text-primary-foreground shadow-2xs hover:bg-primary-hover',
         destructive: 'bg-destructive text-destructive-foreground shadow-2xs hover:bg-destructive/90',
-        outline: 'border border-input bg-card shadow-2xs hover:bg-muted hover:text-foreground',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-accent',
+        // Any action that is not the main one: brand tint, so it reads as something to press. Icons take the text colour.
+        outline: 'border border-action/30 bg-action-soft text-action shadow-2xs hover:border-action/50 hover:bg-action/10 [&_svg]:text-current!',
+        // Cancel, Close and Back: clearly a button, never mistaken for the main action.
+        secondary: 'border border-border-strong bg-secondary text-secondary-foreground shadow-2xs hover:bg-muted',
         ghost: 'text-muted-foreground hover:bg-muted hover:text-foreground',
         link: 'text-primary underline-offset-4 hover:underline active:scale-100',
       },

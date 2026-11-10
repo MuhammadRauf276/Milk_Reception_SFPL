@@ -21,7 +21,7 @@ export const ZmccDrawer: React.FC<ZmccDrawerProps> = ({ open, onClose, title, su
       if (!o) onClose();
     }}
   >
-    <DrawerContent>
+    <DrawerContent showClose={false}>
       <div className="flex items-start justify-between gap-3 border-b border-border px-4 pb-3 pt-2 sm:px-5">
         <div className="flex min-w-0 items-start gap-2">
           {icon}

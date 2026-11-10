@@ -123,7 +123,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
 
   return (
     <Drawer open onOpenChange={(open) => { if (!open && !submitting) onClose(); }}>
-      <DrawerContent>
+      <DrawerContent showClose={false}>
       <div className="overflow-y-auto text-xs">
         {/* Header */}
         <div className="px-5 py-4 bg-subtle border-b border-border flex items-center justify-between">
@@ -249,7 +249,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="min-h-11 px-4 py-2 rounded-lg border border-border-strong text-secondary-foreground font-semibold hover:bg-muted transition-colors disabled:opacity-50"
+                className="min-h-11 px-4 py-2 rounded-lg border border-border-strong-strong text-secondary-foreground font-semibold hover:bg-secondary transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>

@@ -172,7 +172,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
           <button
             type="button"
             onClick={() => handleCopy(item.id, item.message_body)}
-            className="min-h-11 min-w-11 inline-flex items-center space-x-1 px-3 py-2 rounded-lg text-xs font-semibold border border-border text-secondary-foreground hover:bg-muted transition"
+            className="min-h-11 min-w-11 inline-flex items-center space-x-1 px-3 py-2 rounded-lg text-xs font-semibold border border-action/30 text-action hover:bg-action-soft transition"
             title="Copy receipt to clipboard"
           >
             {copiedId === item.id ? (
@@ -234,7 +234,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
           <button
             type="button"
             onClick={fetchOutbox}
-            className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-2 rounded-lg border border-border text-xs font-semibold text-secondary-foreground hover:bg-muted"
+            className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-2 rounded-lg border border-action/30 text-xs font-semibold text-action hover:bg-action-soft"
           >
             <span>Refresh</span>
           </button>

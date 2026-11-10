@@ -180,7 +180,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
             <button
               onClick={viewMode === 'ZMCC_LAB' ? fetchLabSessions : onRetry}
               disabled={labLoading || isLoading}
-              className="flex min-h-11 items-center space-x-1.5 px-3 py-2 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50"
+              className="flex min-h-11 items-center space-x-1.5 px-3 py-2 rounded-lg bg-action-soft border border-action/30 text-xs font-semibold text-action hover:bg-action/10 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50"
             >
               <span>{labLoading || isLoading ? 'Syncing…' : 'Refresh'}</span>
             </button>

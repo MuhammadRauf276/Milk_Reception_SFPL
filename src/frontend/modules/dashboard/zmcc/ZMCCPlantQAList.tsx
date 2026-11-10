@@ -78,7 +78,7 @@ export const ZMCCPlantQAList: React.FC<{
               <div>
                 <button
                   onClick={() => onInspectDetails(item.log)}
-                  className="flex min-h-11 items-center space-x-1 px-3 py-1 rounded-lg bg-muted border border-border text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-[color,background-color,border-color,box-shadow,opacity,transform]"
+                  className="flex min-h-11 items-center space-x-1 px-3 py-1 rounded-lg bg-action-soft border border-action/30 text-xs font-semibold text-action hover:bg-blue-50 hover:border-blue-200 transition-[color,background-color,border-color,box-shadow,opacity,transform]"
                 >
                   <span>View Details</span>
                   <ExternalLink className="w-3 h-3" />

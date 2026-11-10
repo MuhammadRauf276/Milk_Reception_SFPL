@@ -267,7 +267,7 @@ export function WarningLimitsGovernanceView() {
             </div>
 
             <div className="flex justify-end gap-2 border-t border-border pt-3">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+              <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
                 Cancel
               </Button>
               <Button

@@ -1,3 +1,4 @@
+import { getRoleLabel } from '@core/roles/labels';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
@@ -55,7 +56,7 @@ export async function GET(req: Request) {
       action: l.action,
       oldValues: l.old_values,
       newValues: l.new_values,
-      user: l.user ? `${l.user.full_name || l.user.username} (${l.user.role})` : 'System',
+      user: l.user ? `${l.user.full_name || l.user.username} (${getRoleLabel(l.user.role)})` : 'System',
       createdAt: l.created_at.toISOString(),
     }));
 

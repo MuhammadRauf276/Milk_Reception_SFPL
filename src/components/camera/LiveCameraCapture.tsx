@@ -103,7 +103,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
                   type="button"
                   onClick={handleCaptureClick}
                   disabled={processing}
-                  className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-border px-3 text-sm font-semibold text-secondary-foreground hover:bg-muted disabled:opacity-50"
+                  className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-action/30 px-3 text-sm font-semibold text-action hover:bg-action-soft disabled:opacity-50"
                 >
                   {processing && <Loader2 className="h-4 w-4 animate-spin" />}
                   Again
@@ -139,7 +139,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
           <button
             type="button"
             onClick={() => setPreviewOpen(true)}
-            className="group relative h-11 w-11 overflow-hidden rounded-lg border border-border bg-card transition hover:border-border-strong"
+            className="group relative h-11 w-11 overflow-hidden rounded-lg border border-action/30 bg-action-soft transition hover:border-action/30-strong text-action hover:bg-action/10"
             title={`View ${testLabel} photo`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -163,7 +163,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
               type="button"
               onClick={handleCaptureClick}
               disabled={processing}
-              className="inline-flex min-h-11 items-center gap-1 rounded-md border border-border px-2 text-xs font-semibold text-secondary-foreground hover:bg-muted transition disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-1 rounded-md border border-action/30 px-2 text-xs font-semibold text-action hover:bg-action-soft transition disabled:opacity-50"
               title={`Retake ${testLabel} photo`}
             >
               {processing && <Loader2 className="h-3 w-3 animate-spin text-secondary-foreground" />}

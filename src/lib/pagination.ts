@@ -1,4 +1,13 @@
 export const DEFAULT_PAGE_SIZE = 25;
+/** A phone shows fewer rows per page, so a page fits on a screen or two. */
+export const PHONE_PAGE_SIZE = 10;
+export const PHONE_QUERY = '(max-width: 767px)';
+
+/** Rows per page for this screen right now. The server, which has no screen, uses the bigger size. */
+export function currentPageSize(desktop: number = DEFAULT_PAGE_SIZE): number {
+  if (typeof window === 'undefined') return desktop;
+  return window.matchMedia(PHONE_QUERY).matches ? Math.min(PHONE_PAGE_SIZE, desktop) : desktop;
+}
 
 export function totalPagesFor(totalRecords: number, pageSize: number): number {
   return Math.max(1, Math.ceil(totalRecords / Math.max(1, pageSize)));

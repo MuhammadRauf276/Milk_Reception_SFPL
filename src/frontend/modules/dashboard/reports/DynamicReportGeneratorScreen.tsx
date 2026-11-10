@@ -430,7 +430,7 @@ export function DynamicReportGeneratorScreen({
             size="sm"
             disabled={isRefreshingViews}
             onClick={handleRefreshViews}
-            className="h-8 text-xs font-medium text-primary border-primary/30 hover:bg-primary/5"
+            className="h-8 text-xs font-medium text-primary border-action/30 hover:bg-primary/5"
             title="Concurrently refresh read-model materialized views"
           >
             {isRefreshingViews ? (

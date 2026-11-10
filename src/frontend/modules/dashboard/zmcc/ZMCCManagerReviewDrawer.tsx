@@ -69,7 +69,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
 
   return (
     <Drawer open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DrawerContent>
+      <DrawerContent showClose={false}>
         <div className="overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-subtle">
             <div className="flex items-center space-x-2">
@@ -82,7 +82,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:text-secondary-foreground hover:bg-muted/60 transition-[color,background-color,border-color,box-shadow,opacity,transform]"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-secondary-foreground hover:text-secondary-foreground hover:bg-muted transition-[color,background-color,border-color,box-shadow,opacity,transform]"
             >
               <X className="w-5 h-5" />
             </button>
@@ -193,7 +193,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
               <button
                 type="button"
                 onClick={onClose}
-                className="min-h-11 px-4 py-2 text-xs font-semibold text-secondary-foreground hover:bg-muted rounded-lg transition-[color,background-color,border-color,box-shadow,opacity,transform]"
+                className="min-h-11 px-4 py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary rounded-lg transition-[color,background-color,border-color,box-shadow,opacity,transform]"
               >
                 Cancel
               </button>

@@ -116,7 +116,7 @@ export function StationNameCardLogin() {
                   <button
                     type="button"
                     onClick={() => choose(c)}
-                    className="flex min-h-14 w-full items-center gap-3 rounded-xl border-2 border-border bg-white px-4 py-3 text-left active:bg-muted"
+                    className="flex min-h-14 w-full items-center gap-3 rounded-xl border-2 border-action/30 bg-action-soft px-4 py-3 text-left active:bg-action-soft hover:bg-action/10"
                   >
                     {c.locked ? <Lock className="size-6 shrink-0 text-rose-700" aria-hidden /> : <UserRound className="size-6 shrink-0 text-secondary-foreground" aria-hidden />}
                     <span className="min-w-0">
@@ -151,7 +151,7 @@ export function StationNameCardLogin() {
           {busy ? <p className="text-center text-secondary-foreground">Checking…</p> : null}
           <button
             type="button"
-            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border-2 border-border bg-white text-lg font-medium text-foreground"
+            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border-2 border-action/30 bg-action-soft text-lg font-medium text-action hover:bg-action/10"
             disabled={busy}
             onClick={() => { setSelected(null); setPin(''); setProblem(null); }}
           >

@@ -30,8 +30,8 @@ import { UserFormDrawer } from '@/frontend/modules/super-admin/users/UserFormDra
 import { UserStatusDrawer } from '@/frontend/modules/super-admin/users/UserStatusDrawer';
 import { UserResetPasswordDrawer } from '@/frontend/modules/super-admin/users/UserResetPasswordDrawer';
 import type { UserItem, UsersResponse } from '@/frontend/modules/super-admin/users/types';
+import { useListPageSize } from '@/components/ui/pagination';
 
-const PAGE_SIZE = 25;
 const ROLE_FILTER_OPTIONS = [
   { value: '', label: 'All roles' },
   ...CREATABLE_ROLES.map((r) => ({ value: r, label: ROLE_ASSIGNMENT_POLICIES[r].label, keywords: r })),
@@ -50,6 +50,7 @@ type Dialog =
   | null;
 
 export default function SuperAdminUsersPage() {
+  const PAGE_SIZE = useListPageSize();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -63,7 +64,7 @@ export default function SuperAdminUsersPage() {
   const filters = useMemo(() => ({ q, role: roleFilter, status: statusFilter, page }), [q, roleFilter, statusFilter, page]);
 
   const usersQuery = useQuery({
-    queryKey: ['super-admin', 'users', filters],
+    queryKey: ['super-admin', 'users', filters, PAGE_SIZE],
     queryFn: ({ signal }) => {
       const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
       if (q) params.set('q', q);

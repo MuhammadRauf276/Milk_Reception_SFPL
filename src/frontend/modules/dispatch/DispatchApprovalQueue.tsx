@@ -1,5 +1,6 @@
 'use client';
 
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { useLocalFormDraft } from '@/frontend/hooks/useLocalFormDraft';
 import React, { useState, useEffect, useMemo } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -155,6 +156,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
   const items = useMemo(() => {
     return sourceType === 'ALL' ? allItems : allItems.filter((i) => i.sourceType === sourceType);
   }, [allItems, sourceType]);
+  const paged = usePagedRows(items, (i) => String(i.id));
 
   useEffect(() => {
     if (tab === 'PENDING') {
@@ -272,7 +274,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
       {/* Compact Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <AnimatePresence>
-          {items.map((item) => {
+          {paged.pageRows.map((item) => {
             const wait = waitingInfo(item.submittedAt, now);
             const pending = item.status === 'PENDING_APPROVAL';
 
@@ -366,11 +368,14 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
           })}
         </AnimatePresence>
       </div>
+      {paged.totalPages > 1 ? (
+        <Pagination page={paged.page} totalPages={paged.totalPages} totalRecords={paged.totalRecords} pageSize={paged.pageSize} noun="dispatches" onPageChange={paged.setPage} />
+      ) : null}
 
       {/* Decision / Review Modal */}
       {selectedItem && (
         <Drawer open={Boolean(selectedItem)} onOpenChange={(open) => !open && handleCloseModal()}>
-          <DrawerContent>
+          <DrawerContent showClose={false}>
             <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-6">
               <div>
                 <DrawerTitle className="text-base font-semibold text-foreground">

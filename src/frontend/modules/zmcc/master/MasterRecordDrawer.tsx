@@ -59,7 +59,7 @@ export const MasterRecordDrawer: React.FC<Props> = ({ form, ...helpers }) => {
               type="button"
               onClick={form.closeModal}
               disabled={form.isSubmitting}
-              className="px-4 py-2 min-h-[44px] rounded-xl border border-border text-sm font-semibold text-secondary-foreground hover:bg-muted transition"
+              className="px-4 py-2 min-h-[44px] rounded-xl border border-border-strong text-sm font-semibold text-secondary-foreground hover:bg-secondary transition"
             >
               Cancel
             </button>

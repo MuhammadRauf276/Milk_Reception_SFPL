@@ -276,7 +276,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                   <button
                     type="button"
                     onClick={() => setActiveModalItem(item)}
-                    className="min-h-11 min-w-11 flex min-h-[40px] w-full items-center justify-center gap-2 rounded-lg border border-border bg-subtle px-3 text-xs font-semibold text-secondary-foreground hover:bg-muted"
+                    className="min-h-11 min-w-11 flex min-h-[40px] w-full items-center justify-center gap-2 rounded-lg border border-action/30 bg-action-soft px-3 text-xs font-semibold text-action hover:bg-action-soft"
                   >
                     <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>View Inspection Details</span>
@@ -295,7 +295,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
           if (!open && !busyId) setActiveModalItem(null);
         }}
       >
-        <DrawerContent className="max-w-2xl">
+        <DrawerContent showClose={false} className="max-w-2xl">
           {activeModalItem && (
             <>
               <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">

@@ -96,7 +96,7 @@ export function ApprovalInspectModal({
   return (
     <>
       <Drawer open={isOpen} onOpenChange={(open) => !open && !isSubmitting && onClose()}>
-        <DrawerContent className="max-h-[88dvh] md:max-h-[85dvh] flex flex-col bg-card">
+        <DrawerContent showClose={false} className="max-h-[88dvh] md:max-h-[85dvh] flex flex-col bg-card">
           {/* Header */}
           <div className="flex items-start justify-between p-4 sm:p-5 border-b border-border bg-subtle/70 shrink-0">
             <div className="space-y-1">
@@ -270,7 +270,7 @@ export function ApprovalInspectModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="min-h-11 px-4 py-2 text-xs font-semibold bg-muted hover:bg-border-strong text-foreground rounded-lg transition"
+                    className="min-h-11 px-4 py-2 text-xs font-semibold bg-secondary hover:bg-muted text-secondary-foreground rounded-lg transition"
                   >
                     Close
                   </button>
@@ -284,7 +284,7 @@ export function ApprovalInspectModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="min-h-11 px-5 py-2 text-xs font-semibold bg-muted hover:bg-border-strong text-foreground rounded-lg transition"
+                  className="min-h-11 px-5 py-2 text-xs font-semibold border border-action/30 bg-action-soft hover:bg-action/10 text-action rounded-lg transition"
                 >
                   Done
                 </button>

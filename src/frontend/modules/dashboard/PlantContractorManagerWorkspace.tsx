@@ -195,7 +195,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
                     fetchLogs(prevPage);
                   }}
                   disabled={page <= 1 || loading}
-                  className="px-4 py-2 min-h-11 bg-subtle hover:bg-muted/60 border border-border-strong rounded-lg font-semibold text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  className="px-4 py-2 min-h-11 bg-action-soft hover:bg-action/10 border border-action/30-strong rounded-lg font-semibold text-action disabled:opacity-40 disabled:cursor-not-allowed transition"
                 >
                   Previous
                 </button>

@@ -111,7 +111,7 @@ export const ProductionStartUnloadingDrawer: React.FC<{
 
   return (
     <Drawer open onOpenChange={(o) => !o && onClose()}>
-      <DrawerContent>
+      <DrawerContent showClose={false}>
         <div className="overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 space-y-6 text-foreground">
           <DrawerTitle className="sr-only">Start Silo Unloading</DrawerTitle>
           <div className="flex items-start justify-between gap-2 border-b border-border-strong pb-4">

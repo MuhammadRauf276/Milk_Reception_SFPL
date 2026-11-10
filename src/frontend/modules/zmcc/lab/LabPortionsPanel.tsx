@@ -603,7 +603,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               <button
                 type="button"
                 onClick={onViewHistory}
-                className="min-h-11 px-3 text-xs font-semibold rounded-lg border border-border-strong bg-card text-secondary-foreground hover:bg-subtle transition shadow-2xs"
+                className="min-h-11 px-3 text-xs font-semibold rounded-lg border border-action/30-strong bg-action-soft text-action hover:bg-action-soft transition shadow-2xs"
               >
                 View in Test History
               </button>
@@ -735,7 +735,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               type="button"
               onClick={handleAddPortion}
               disabled={Boolean(busy)}
-              className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 p-6 text-center text-primary transition hover:border-primary hover:bg-primary/10 shadow-2xs disabled:opacity-50"
+              className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-action/30 bg-primary/5 p-6 text-center text-primary transition hover:border-primary hover:bg-action/10 shadow-2xs disabled:opacity-50"
             >
               {busy === 'add-portion' ? (
                 <Loader2 className="mb-1 h-5 w-5 animate-spin text-muted-foreground" />
@@ -758,7 +758,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
           if (!open && !busy) setActivePortionModal(null);
         }}
       >
-        <DrawerContent className="max-w-2xl">
+        <DrawerContent showClose={false} className="max-w-2xl">
           {modalPortion && modalDraft && (
             <>
               <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">

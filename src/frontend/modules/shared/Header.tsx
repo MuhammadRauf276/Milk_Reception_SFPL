@@ -116,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => setIsCommandPaletteOpen(true)}
-            className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg text-sm text-muted-foreground transition-colors hover:bg-muted lg:min-h-9 lg:border lg:border-border lg:px-3"
+            className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg text-sm text-action transition-colors hover:bg-action-soft lg:min-h-9 lg:border lg:border-action/30 lg:px-3"
             aria-label="Search and jump (Ctrl+K)"
             title="Search and jump (Ctrl+K)"
           >

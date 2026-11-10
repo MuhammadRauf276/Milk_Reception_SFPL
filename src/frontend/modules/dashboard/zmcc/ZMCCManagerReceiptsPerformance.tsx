@@ -103,7 +103,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
               <button
                 onClick={onRetry}
                 disabled={isLoading}
-                className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-subtle border border-border/80 text-xs font-semibold text-foreground hover:bg-muted/60 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 min-h-11"
+                className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-action-soft border border-action/30 text-xs font-semibold text-action hover:bg-action/10 transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 min-h-11"
               >
                 <span>{isLoading ? 'Syncing…' : 'Refresh'}</span>
               </button>
@@ -328,7 +328,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                 <div>
                   <button
                     onClick={() => onInspectDetails(item.group.primaryLog)}
-                    className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-subtle border border-border text-xs font-semibold text-primary hover:bg-blue-50 hover:border-blue-200 transition-[color,background-color,border-color,box-shadow,opacity,transform] min-h-11"
+                    className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-action-soft border border-action/30 text-xs font-semibold text-action hover:bg-blue-50 hover:border-blue-200 transition-[color,background-color,border-color,box-shadow,opacity,transform] min-h-11"
                   >
                     <span>View Details</span>
                     <ExternalLink className="w-3 h-3" />

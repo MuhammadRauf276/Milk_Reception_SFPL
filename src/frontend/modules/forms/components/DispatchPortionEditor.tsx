@@ -414,7 +414,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                 key={`portion-open-${portion.clientId}`}
                 type="button"
                 onClick={() => onEditPortion(index)}
-                className="flex w-full min-h-[56px] items-center justify-between rounded-xl border border-dashed border-primary-hover bg-blue-50 px-4 text-left text-sm font-semibold text-primary-hover"
+                className="flex w-full min-h-[56px] items-center justify-between rounded-xl border border-dashed border-action/40 bg-action-soft px-4 text-left text-sm font-semibold text-action hover:bg-action/10"
               >
                 <span>Portion {portion.portionNumber}: enter quantity and tests</span>
                 <Edit3 className="h-4 w-4" aria-hidden="true" />

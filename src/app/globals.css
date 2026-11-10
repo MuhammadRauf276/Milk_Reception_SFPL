@@ -36,6 +36,8 @@
 
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-action: hsl(var(--action));
+  --color-action-soft: hsl(var(--action-soft));
 
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
@@ -244,6 +246,9 @@
     --muted-foreground: 215 16% 47%;
     --accent: 355 60% 96%;
     --accent-foreground: 358 82% 35%;
+    /* Actions that are not the main one: deep navy, the brand's second colour. Red stays for the main action and selection. */
+    --action: 226 71% 33%;
+    --action-soft: 214 100% 97%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 

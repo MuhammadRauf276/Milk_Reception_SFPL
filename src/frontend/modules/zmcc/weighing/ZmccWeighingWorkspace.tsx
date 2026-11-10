@@ -158,7 +158,7 @@ function VehicleCard({ session, onOpen }: { session: WeighingSessionView; onOpen
     <button
       type="button"
       onClick={onOpen}
-      className="group block min-h-[44px] w-full rounded-2xl border border-border bg-card p-4 text-left shadow-2xs hover:shadow-md hover:border-primary/50 focus:outline-hidden focus:ring-2 focus:ring-primary cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 flex flex-col justify-between"
+      className="group block min-h-[44px] w-full rounded-2xl border border-action/30 bg-action-soft p-4 text-left shadow-2xs hover:shadow-md hover:border-action/50 focus:outline-hidden focus:ring-2 focus:ring-primary cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 flex flex-col justify-between hover:bg-action/10"
     >
       {body}
     </button>
@@ -272,7 +272,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
           type="button"
           onClick={() => void reload()}
           disabled={queueQuery.isFetching}
-          className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg border border-border-strong bg-card hover:bg-subtle text-xs font-semibold text-foreground cursor-pointer transition-colors shrink-0 disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg border border-action/30-strong bg-action-soft hover:bg-action-soft text-xs font-semibold text-action cursor-pointer transition-colors shrink-0 disabled:opacity-50"
         >
           <Loader2 className={`h-3.5 w-3.5 ${queueQuery.isFetching ? 'animate-spin' : ''}`} />
           <span>Refresh</span>

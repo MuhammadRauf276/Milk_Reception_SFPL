@@ -94,7 +94,7 @@ export function PhotoEvidenceSlot({
             type="button"
             onClick={onTake}
             disabled={disabled}
-            className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+            className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg border border-action/30 bg-action-soft px-3 text-sm font-semibold text-action hover:bg-action-soft disabled:opacity-50"
           >
             <Camera className="h-5 w-5" aria-hidden="true" />
             Retake

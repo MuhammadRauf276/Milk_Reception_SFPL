@@ -232,7 +232,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
       {/* 4. Silo Inspection Drawer / Modal (Responsive dual-mode) */}
       <Drawer open={Boolean(selectedSilo)} onOpenChange={(open) => !open && setSelectedSilo(null)}>
         {selectedSilo && (
-          <DrawerContent className="max-w-lg">
+          <DrawerContent showClose={false} className="max-w-lg">
             <DrawerHeader className="border-b border-border pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

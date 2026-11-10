@@ -171,7 +171,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
             />
             <button
               type="submit"
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-white px-3 font-semibold text-secondary-foreground hover:bg-subtle"
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-action/30-strong bg-action-soft px-3 font-semibold text-action hover:bg-action-soft"
             >
               Add
             </button>
@@ -225,7 +225,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
               type="button"
               onClick={handleOpenGmail}
               disabled={isSending}
-              className="inline-flex items-center gap-1 rounded-lg border border-border-strong bg-white px-3 py-2 text-xs font-semibold text-secondary-foreground hover:bg-muted disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-lg border border-action/30-strong bg-action-soft px-3 py-2 text-xs font-semibold text-action hover:bg-action-soft disabled:opacity-50"
               title="Open pre-filled in Gmail"
             >
               <ExternalLink className="h-3.5 w-3.5 text-rose-600" />
@@ -248,7 +248,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
               type="button"
               onClick={onClose}
               disabled={isSending}
-              className="rounded-lg border border-border-strong bg-white px-3 py-2 text-xs font-semibold text-secondary-foreground hover:bg-subtle"
+              className="rounded-lg border border-border-strong-strong bg-secondary px-3 py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary"
             >
               Cancel
             </button>

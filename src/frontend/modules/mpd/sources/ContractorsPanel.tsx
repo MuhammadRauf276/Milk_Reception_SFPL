@@ -207,7 +207,7 @@ export function ContractorsPanel({
 
       {editing && (
         <Drawer open onOpenChange={(o) => !o && setEditing(null)}>
-          <DrawerContent>
+          <DrawerContent showClose={false}>
             <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
               <DrawerTitle className="sr-only">Contractor ERP Code</DrawerTitle>
               <div className="flex items-center justify-between pb-3 border-b border-border">
@@ -270,7 +270,7 @@ export function ContractorsPanel({
 
       {isAddingContractor && (
         <Drawer open onOpenChange={(o) => !o && setIsAddingContractor(false)}>
-          <DrawerContent>
+          <DrawerContent showClose={false}>
             <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
               <DrawerTitle className="sr-only">Register Direct Plant Contractor</DrawerTitle>
               <div className="flex items-center justify-between pb-3 border-b border-border">

@@ -358,7 +358,7 @@ export function ZMCCOperationalJourneysScreen({
               dispatchDataQuery.refetch();
               toast.success('Journeys updated');
             }}
-            className="min-h-11 flex items-center space-x-1.5 px-3 py-2 rounded-lg border border-border bg-subtle hover:bg-muted text-xs font-semibold text-foreground transition"
+            className="min-h-11 flex items-center space-x-1.5 px-3 py-2 rounded-lg border border-action/30 bg-action-soft hover:bg-action-soft text-xs font-semibold text-action transition"
           >
             <span>Refresh</span>
           </button>

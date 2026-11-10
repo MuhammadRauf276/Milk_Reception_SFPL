@@ -50,7 +50,7 @@ export const LabQueuePanel: React.FC<LabQueuePanelProps> = ({
             <button
               onClick={fetchQueue}
               disabled={loadingQueue}
-              className="min-h-11 min-w-11 flex items-center gap-2 px-4 py-2 bg-card border border-border-strong text-secondary-foreground text-sm font-medium rounded-lg hover:bg-subtle"
+              className="min-h-11 min-w-11 flex items-center gap-2 px-4 py-2 bg-action-soft border border-action/30-strong text-action text-sm font-medium rounded-lg hover:bg-action-soft"
             >
               Refresh
             </button>
@@ -67,7 +67,7 @@ export const LabQueuePanel: React.FC<LabQueuePanelProps> = ({
               <button
                 type="button"
                 onClick={fetchQueue}
-                className="mt-3 min-h-11 rounded-lg border border-border-strong bg-card px-4 text-sm font-medium text-secondary-foreground hover:bg-subtle"
+                className="mt-3 min-h-11 rounded-lg border border-action/30-strong bg-action-soft px-4 text-sm font-medium text-action hover:bg-action-soft"
               >
                 Refresh
               </button>

@@ -138,7 +138,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
           <button
             onClick={onClose}
-            className="p-2 min-h-[44px] min-w-[44px] rounded-xl text-muted-foreground hover:text-secondary-foreground hover:bg-muted transition-[color,background-color,border-color,box-shadow,opacity,transform] flex items-center justify-center"
+            className="p-2 min-h-[44px] min-w-[44px] rounded-xl text-secondary-foreground hover:text-secondary-foreground hover:bg-secondary transition-[color,background-color,border-color,box-shadow,opacity,transform] flex items-center justify-center"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />

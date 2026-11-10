@@ -247,7 +247,7 @@ export function DynamicPivotGrid({
           <button
             type="button"
             onClick={handleSwapDimensions}
-            className="p-2 rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            className="p-2 rounded-lg border border-action/30 bg-action-soft hover:bg-action-soft text-action hover:text-action transition-colors cursor-pointer"
             title="Swap rows and columns"
           >
             <ArrowRightLeft className="w-3.5 h-3.5" />

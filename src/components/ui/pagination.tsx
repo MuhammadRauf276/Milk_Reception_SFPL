@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { clampPage, DEFAULT_PAGE_SIZE, pageRange, pageSlice, totalPagesFor } from '@/lib/pagination';
+import { clampPage, DEFAULT_PAGE_SIZE, PHONE_PAGE_SIZE, PHONE_QUERY, pageRange, pageSlice, totalPagesFor } from '@/lib/pagination';
 import { formatNumber } from '@/lib/format';
 import { Button } from './button';
 
@@ -46,11 +46,25 @@ export function Pagination({ page, totalPages, totalRecords, pageSize, noun = 'r
   );
 }
 
+function subscribePhone(onChange: () => void) {
+  const mq = window.matchMedia(PHONE_QUERY);
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+}
+
+/** Rows per page: fewer on a phone. Starts at the desktop size, as the server does, then follows the screen. */
+export function useListPageSize(desktop: number = DEFAULT_PAGE_SIZE): number {
+  const isPhone = React.useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches, () => false);
+  return isPhone ? Math.min(PHONE_PAGE_SIZE, desktop) : desktop;
+}
+
 /**
  * Pages through a list already on screen. Stays on the page when a live refresh brings the same rows,
  * and goes back to page 1 when the list really changes, such as after a search or filter.
  */
-export function usePagedRows<T>(rows: readonly T[], getId: (row: T) => string, pageSize: number = DEFAULT_PAGE_SIZE) {
+export function usePagedRows<T>(rows: readonly T[], getId: (row: T) => string, pageSizeOverride?: number) {
+  const screenSize = useListPageSize();
+  const pageSize = pageSizeOverride ?? screenSize;
   const [wanted, setWanted] = React.useState(1);
   const totalPages = totalPagesFor(rows.length, pageSize);
   const page = clampPage(wanted, totalPages);
