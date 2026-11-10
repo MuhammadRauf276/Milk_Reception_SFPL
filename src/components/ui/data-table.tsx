@@ -265,13 +265,13 @@ export function DataTable<T>({
                         <div className="min-w-0 break-words font-medium text-foreground">{primary?.cell(row)}</div>
                         {trailing ? <div className="shrink-0 text-right tabular-nums text-foreground">{trailing.cell(row)}</div> : null}
                       </div>
+                      {/* The detail line wraps instead of cutting: a cut phone number or figure would be a wrong one. */}
                       {subtitleCols.length ? (
-                        <div className="mt-0.5 min-w-0 truncate text-xs text-muted-foreground [&_*]:inline">
-                          {subtitleCols.map((c, i) => (
-                            <React.Fragment key={c.key}>
-                              {i > 0 ? <span aria-hidden="true"> · </span> : null}
+                        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                          {subtitleCols.map((c) => (
+                            <span key={c.key} className="min-w-0 max-w-full break-words">
                               {c.cell(row)}
-                            </React.Fragment>
+                            </span>
                           ))}
                         </div>
                       ) : null}
