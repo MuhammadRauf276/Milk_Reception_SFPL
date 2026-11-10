@@ -60,7 +60,6 @@ const SCREENS: [id: string, path: string, username: string][] = [
   ['approvals', '/approvals', 'admin.head'],
   ['my-requests', '/my-requests', 'zmcc.operator'],
   ['tv-board', '/tv-board', SA],
-  ['affiliates', '/affiliates', SA],
   ['sa-home', '/super-admin', SA],
   ['sa-users', '/super-admin/users', SA],
   ['sa-sources', '/super-admin/procurement-sources', SA],

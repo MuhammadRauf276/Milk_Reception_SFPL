@@ -14,6 +14,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import type { LabPortionExceptionItem } from '@/backend/services/zmcc/labPortionReviewService';
+import { exceptionReasonShort } from '@/lib/exceptionReasons';
 
 type Tab = 'PENDING' | 'DECIDED';
 
@@ -26,11 +27,7 @@ export interface LabPortionExceptionQueueProps {
 }
 
 function reasonText(reason: string): string {
-  if (reason === 'MISMATCH') return 'Lab decision differs from the test result';
-  if (reason === 'PICTURE_MISSING') return 'Picture missing';
-  if (reason === 'MISSING_FIELD') return 'Test not done';
-  if (reason.startsWith('RULE_FAIL:')) return `${reason.slice('RULE_FAIL:'.length)} failed`;
-  return reason;
+  return exceptionReasonShort(reason);
 }
 
 function outcomeText(o: string) {

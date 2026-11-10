@@ -89,12 +89,11 @@ export function getPakistanCalendarDate(timestamp: Date | string | number = new 
 }
 
 /**
- * One Pakistan calendar day, in the two forms the database needs.
+ * One Pakistan calendar day (midnight to midnight), in the two forms the database needs. This is the day people see.
  * - dateStart / dateEnd: for @db.Date columns (operational_date, arrival_date), which hold the date itself.
- * - start / end: for timestamp columns (created_at, received_at, ...), which hold real instants. These run 08:00 to
- *   08:00 Pakistan time, the company's business day.
+ * - start / end: for timestamp columns (created_at, received_at, ...), which hold real instants.
  */
-export function getPakistanDayWindow(date: string = getOperationalBusinessDate(new Date())): {
+export function getPakistanDayWindow(date: string = getPakistanCalendarDate()): {
   calendarDate: string;
   dateStart: Date;
   dateEnd: Date;
@@ -105,7 +104,32 @@ export function getPakistanDayWindow(date: string = getOperationalBusinessDate(n
     calendarDate: date,
     dateStart: new Date(`${date}T00:00:00.000Z`),
     dateEnd: new Date(`${date}T23:59:59.999Z`),
-    start: new Date(`${date}T08:00:00.000+05:00`),
-    end: new Date(new Date(`${date}T08:00:00.000+05:00`).getTime() + 24 * 60 * 60 * 1000 - 1),
+    start: new Date(`${date}T00:00:00.000+05:00`),
+    end: new Date(`${date}T23:59:59.999+05:00`),
   };
+}
+
+/** One plant business day as real instants: 08:00 Pakistan time on `date` to 07:59:59.999 the next morning. Plant reports only. */
+export function getBusinessDayWindow(date: string = getOperationalBusinessDate(new Date())): { start: Date; end: Date } {
+  const start = new Date(`${date}T08:00:00.000+05:00`);
+  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1) };
+}
+
+/**
+ * How a plant report places a vehicle on a day.
+ * - calendar: the Pakistan date of its plant business-date time (business_date_set_at), as people read it.
+ * - business: its plant business date (operational_date), the 08:00 to 08:00 day.
+ */
+export type DateBasis = 'calendar' | 'business';
+
+export function parseDateBasis(value: string | null | undefined): DateBasis {
+  return value === 'business' ? 'business' : 'calendar';
+}
+
+/** Filter for plant vehicle visits dated from `fromDate` to `toDate` (YYYY-MM-DD) on the chosen basis. */
+export function plantVisitDateWhere(basis: DateBasis, fromDate: string, toDate: string = fromDate) {
+  if (basis === 'business') {
+    return { operational_date: { gte: new Date(`${fromDate}T00:00:00.000Z`), lte: new Date(`${toDate}T23:59:59.999Z`) } };
+  }
+  return { business_date_set_at: { gte: getPakistanDayWindow(fromDate).start, lte: getPakistanDayWindow(toDate).end } };
 }

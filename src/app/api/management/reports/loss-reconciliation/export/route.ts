@@ -1,3 +1,4 @@
+import { parseDateBasis } from '@/backend/core/business-day';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
@@ -46,6 +47,7 @@ export async function GET(req: Request) {
   try {
     const data = await getSupplyChainLossHierarchy({
       period,
+      dateBasis: parseDateBasis(new URL(req.url).searchParams.get('basis')),
       from,
       to,
       zmccId,

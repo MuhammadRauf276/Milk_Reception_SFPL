@@ -57,6 +57,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   const canTest = isZmccLabAttendant || isZmccManager || currentUser?.role === 'HEAD_OF_MPD' || isSuperAdmin;
   const canDirectCorrect = isDataExecutive || isSuperAdmin;
 
+  type LabHistoryPortion = { id: string; portionNumber: number; lr: number | null; fat: number | null; netWeightKg: number | null };
   const [requestCorrectionModal, setRequestCorrectionModal] = useState<{
     isOpen: boolean;
     session: LabSession | null;
@@ -67,13 +68,22 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
     fields: [],
   });
 
-  const openRequestCorrection = (session: LabSession) => {
-    const fields: EditableFieldOption[] = [
-      { field: 'quantity_value', label: 'Quantity Value', currentValue: session.quantity_value, type: 'number' },
-      { field: 'quantity_unit', label: 'Quantity Unit', currentValue: session.quantity_unit, type: 'select', options: [{ value: 'KG', label: 'KG' }] },
-      { field: 'remarks', label: 'Remarks / Notes', currentValue: session.remarks, type: 'text' },
-    ];
-    if (session.results) {
+  const openRequestCorrection = (session: LabSession & { portions?: LabHistoryPortion[] }) => {
+    const portions = session.portions ?? [];
+    const fields: EditableFieldOption[] = portions.length
+      ? portions.flatMap((p) => [
+          { field: `portion:${p.id}:lr`, label: `Portion ${p.portionNumber} · LR`, currentValue: p.lr, type: 'number' as const },
+          { field: `portion:${p.id}:fat`, label: `Portion ${p.portionNumber} · Fat %`, currentValue: p.fat, type: 'number' as const },
+          ...(p.netWeightKg !== null
+            ? [{ field: `portion:${p.id}:net_weight_kg`, label: `Portion ${p.portionNumber} · Net weight (kg)`, currentValue: p.netWeightKg, type: 'number' as const }]
+            : []),
+        ])
+      : [
+          { field: 'quantity_value', label: 'Quantity (kg)', currentValue: session.quantity_value, type: 'number' },
+          { field: 'remarks', label: 'Remarks', currentValue: session.remarks, type: 'text' },
+        ];
+    // Session test results belong to sessions tested as a whole; a portion's tests are corrected through its LR and Fat.
+    if (!portions.length && session.results) {
       for (const r of session.results) {
         fields.push({
           field: `result_${r.test_id}`,

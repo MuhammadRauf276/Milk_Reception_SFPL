@@ -7,6 +7,7 @@
  */
 
 import { prisma } from '@/backend/core/db';
+import { reasonSentences, storedDecisionTests } from '@/lib/exceptionReasons';
 
 export interface SubmitterRequestItem {
   id: string;
@@ -22,6 +23,8 @@ export interface SubmitterRequestItem {
   reviewedAt: string | null;
   reviewRemarks: string | null;
   summary: string;
+  /** Why it was sent, one sentence each, from the reasons stored when it was sent. */
+  reasons: string[];
   metadata?: Record<string, any>;
 }
 
@@ -88,6 +91,7 @@ export async function getMySubmittedRequests(
       reviewerName: p.reviewer?.full_name || null,
       reviewedAt: p.reviewed_at ? p.reviewed_at.toISOString() : null,
       reviewRemarks: p.review_remarks || p.decision_remarks || null,
+      reasons: reasonSentences(p.exception_reasons, storedDecisionTests(p.decision_details)),
       summary: `Portion #${p.portion_number}: LR ${p.lr ?? '—'}, Fat ${p.fat ?? '—'}%. System: ${p.system_outcome || 'FLAGGED'}`,
       metadata: { portionNumber: p.portion_number, sessionId: p.lab_session_id.toString() },
     });
@@ -146,6 +150,7 @@ export async function getMySubmittedRequests(
       reviewerName: s.manager_reviewer?.full_name || null,
       reviewedAt: s.manager_reviewed_at ? s.manager_reviewed_at.toISOString() : null,
       reviewRemarks: s.manager_review_reason || s.remarks || null,
+      reasons: s.rejection_reason ? [s.rejection_reason] : [],
       summary: `${s.arrival_type} Intake (${token}): ${s.gross_liters ?? '—'} L. Outcome: ${s.system_quality_outcome || 'FLAGGED'}.`,
       metadata: { sessionId: s.id.toString(), arrivalType: s.arrival_type },
     });
@@ -193,6 +198,7 @@ export async function getMySubmittedRequests(
       reviewerName: c.reviewed_by?.full_name || null,
       reviewedAt: c.reviewed_at ? c.reviewed_at.toISOString() : null,
       reviewRemarks: c.review_remarks || c.decision_remarks || null,
+      reasons: reasonSentences(c.exception_reasons, storedDecisionTests(c.decision_details)),
       summary: `${c.shop?.shop_name || 'Shop'}: ${c.gross_liters} L, Fat ${c.fat}%, LR ${c.lr}.`,
       metadata: { shopName: c.shop?.shop_name, liters: Number(c.gross_liters) },
     });
@@ -241,6 +247,7 @@ export async function getMySubmittedRequests(
       reviewerName: v.approval_decider?.full_name || null,
       reviewedAt: v.approval_decided_at ? v.approval_decided_at.toISOString() : null,
       reviewRemarks: v.approval_decision_remarks || null,
+      reasons: reasonSentences(v.dispatch_exception_reasons, storedDecisionTests(v.dispatch_decision_details)),
       summary: `Vehicle ${v.vehicle_number}: Dispatched ${v.vehicle_dispatch_gross_liters ?? '—'} L. Status: ${v.current_status}`,
       metadata: { vehicleNumber: v.vehicle_number },
     });
@@ -284,6 +291,7 @@ export async function getMySubmittedRequests(
       reviewerName: cr.reviewer?.full_name || null,
       reviewedAt: cr.reviewed_at ? cr.reviewed_at.toISOString() : null,
       reviewRemarks: cr.review_reason || null,
+      reasons: [],
       summary: `Module ${cr.module}: ${cr.reason}`,
       metadata: { module: cr.module, impact: cr.impact },
     });
@@ -333,6 +341,7 @@ export async function getMySubmittedRequests(
       reviewerName: vp.manager_reviewer?.full_name || null,
       reviewedAt: vp.manager_reviewed_at ? vp.manager_reviewed_at.toISOString() : null,
       reviewRemarks: vp.manager_review_reason || null,
+      reasons: reasonSentences(vp.exception_reasons),
       summary: `Vehicle ${vp.visit.vehicle_number} (Portion ${vp.portion_number}): Quality Exception Escalation. Decision: ${vp.plant_decision || 'PENDING'}.`,
       metadata: { portionId: vp.id.toString(), visitId: vp.visit_id.toString() },
     });

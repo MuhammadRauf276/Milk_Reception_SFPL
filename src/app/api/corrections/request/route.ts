@@ -10,6 +10,7 @@ const requestSchema = z.object({
   reason: z.string().trim().min(5, 'Substantive correction reason of at least 5 characters is required.'),
   requestedChanges: z.record(z.string(), z.unknown()),
   currentValues: z.record(z.string(), z.unknown()).optional().nullable(),
+  fieldLabels: z.record(z.string(), z.string().max(120)).optional().nullable(),
   impact: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
 });
 
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
       reason: validated.reason,
       requestedChanges: validated.requestedChanges,
       currentValues: validated.currentValues ?? null,
+      fieldLabels: validated.fieldLabels ?? null,
       impact: validated.impact,
     });
 

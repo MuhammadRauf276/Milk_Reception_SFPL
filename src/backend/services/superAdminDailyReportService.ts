@@ -5,7 +5,7 @@ import { getSupplyChainLossHierarchy } from '@/backend/services/lossCalculationS
 import { QaWarningEscalationService } from '@/backend/services/qaWarningEscalationService';
 import { writeAuditLog } from '@/backend/core/audit';
 import { calculateGrossLiters } from '@/backend/utils/milkFormulas';
-import { getPakistanDayWindow } from '@/backend/core/business-day';
+import { getPakistanDayWindow, plantVisitDateWhere, type DateBasis } from '@/backend/core/business-day';
 import { isHcSession } from '@/backend/services/zmccTankService';
 import type { ActingContext } from '@/types/acting';
 
@@ -19,6 +19,8 @@ function isRejectedVerdict(finalDecision: string | null | undefined, personDecis
 export interface DailyReportFilter {
   date: string; // YYYY-MM-DD
   zmccId?: string | number;
+  /** How plant vehicles are placed on the day. Other stages always use the calendar day. */
+  dateBasis?: DateBasis;
 }
 
 export interface MotCollectionReportItem {
@@ -417,7 +419,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
   const plantPortionsRaw = await prisma.visitPortion.findMany({
     where: {
       visit: {
-        operational_date: { gte: startOfDay, lte: endOfDay },
+        ...plantVisitDateWhere(filter.dateBasis ?? 'calendar', targetDateStr),
         current_status: { notIn: ['DRAFT_DISPATCH', 'CANCELLED'] },
         ...(zmccIdBigInt ? { procurement_source_id: zmccIdBigInt } : {}),
       },

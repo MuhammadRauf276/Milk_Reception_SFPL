@@ -1,4 +1,4 @@
-import { getOperationalBusinessDate } from '@/backend/core/business-day';
+import { getPakistanCalendarDate, parseDateBasis } from '@/backend/core/business-day';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { getSuperAdminDailyReportData } from '@/backend/services/superAdminDailyReportService';
@@ -17,11 +17,12 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const date = searchParams.get('date') || getOperationalBusinessDate(new Date());
+  const date = searchParams.get('date') || getPakistanCalendarDate();
   const zmccId = searchParams.get('zmccId') || undefined;
+  const dateBasis = parseDateBasis(searchParams.get('basis'));
 
   try {
-    const data = await getSuperAdminDailyReportData({ date, zmccId });
+    const data = await getSuperAdminDailyReportData({ date, zmccId, dateBasis });
     return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json(

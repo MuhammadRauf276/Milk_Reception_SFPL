@@ -3345,10 +3345,32 @@ export async function getLabHistory(
     }),
   ]);
 
+  // Portions per session, so a correction ticket can name the portion whose figures are wrong.
+  const historyPortions = items.length
+    ? await prisma.zmccLabPortion.findMany({
+        where: { lab_session_id: { in: items.map((i) => i.id) } },
+        select: { id: true, lab_session_id: true, portion_number: true, lr: true, fat: true, net_weight_kg: true },
+        orderBy: { portion_number: 'asc' },
+      })
+    : [];
+  const portionsBySession = new Map<string, Array<{ id: string; portionNumber: number; lr: number | null; fat: number | null; netWeightKg: number | null }>>();
+  for (const p of historyPortions) {
+    const key = p.lab_session_id.toString();
+    const list = portionsBySession.get(key) ?? [];
+    list.push({
+      id: p.id.toString(),
+      portionNumber: p.portion_number,
+      lr: p.lr !== null ? Number(p.lr) : null,
+      fat: p.fat !== null ? Number(p.fat) : null,
+      netWeightKg: p.net_weight_kg !== null ? Number(p.net_weight_kg) : null,
+    });
+    portionsBySession.set(key, list);
+  }
+
   return {
     status: 200,
     data: {
-      items: items.map(serializeLabSession),
+      items: items.map((i) => ({ ...serializeLabSession(i), portions: portionsBySession.get(i.id.toString()) ?? [] })),
       total,
       summary: {
         totalGrossLiters:

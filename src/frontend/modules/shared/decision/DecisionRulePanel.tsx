@@ -13,6 +13,7 @@ import React from 'react';
 import { AlertTriangle, CheckCircle2, Circle, Clock, Gavel, Loader2, MinusCircle, Send, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DecisionResult, DecisionRoute, ExceptionReason, PersonDecision } from '@/types/stage1-decision';
+import { exceptionReasonShort, exceptionReasonText as reasonSentence } from '@/lib/exceptionReasons';
 
 export type DecisionTestOutcome = 'PASS' | 'FAIL' | 'WARN' | 'NOT_TESTED';
 
@@ -70,22 +71,12 @@ const ROUTE_BUTTON: Record<DecisionRoute, { className: string; Icon: typeof Chec
 
 /** Simple English for each exception reason. */
 export function exceptionReasonText(reason: ExceptionReason): string {
-  if (reason === 'MISMATCH') return 'Your choice is different from the test result.';
-  if (reason === 'PICTURE_MISSING') return 'A test picture is missing.';
-  if (reason === 'MISSING_FIELD') return 'A must-do test is empty.';
-  if (reason === 'AWAY_FROM_SHOP') return 'You are far from the shop.';
-  if (reason.startsWith('RULE_FAIL:')) return `${reason.slice('RULE_FAIL:'.length)} failed the rule.`;
-  return reason;
+  return reasonSentence(reason);
 }
 
 /** Short chip text for each exception reason. */
 export function exceptionReasonChip(reason: ExceptionReason): string {
-  if (reason === 'MISMATCH') return 'Choice differs from result';
-  if (reason === 'PICTURE_MISSING') return 'Picture missing';
-  if (reason === 'MISSING_FIELD') return 'Required test empty';
-  if (reason === 'AWAY_FROM_SHOP') return 'Away from shop';
-  if (reason.startsWith('RULE_FAIL:')) return `${reason.slice('RULE_FAIL:'.length)}: outside SOP range`;
-  return reason;
+  return exceptionReasonShort(reason);
 }
 
 type SubmitProps = Pick<

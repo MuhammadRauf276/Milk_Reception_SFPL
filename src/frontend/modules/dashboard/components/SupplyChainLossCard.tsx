@@ -29,12 +29,14 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
   showExportButton = true,
 }) => {
   const [period, setPeriod] = useState<'today' | 'wtd' | 'mtd'>(initialPeriod);
+  // Plant vehicles counted on the calendar day or the 08:00 business day; ZMCC figures always use the calendar day.
+  const [basis, setBasis] = useState<'calendar' | 'business'>('calendar');
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
   const lossQuery = useQuery({
-    queryKey: ['dashboard', 'supply-chain-loss', { period, zmccId: zmccId ?? null }],
+    queryKey: ['dashboard', 'supply-chain-loss', { period, basis, zmccId: zmccId ?? null }],
     queryFn: ({ signal }) => {
-      const params = new URLSearchParams({ period });
+      const params = new URLSearchParams({ period, basis });
       if (zmccId) params.set('zmccId', zmccId);
       return fetchJson<{ summary: SupplyChainLossSummary }>(
         `/api/management/reports/loss-reconciliation?${params.toString()}`,
@@ -61,6 +63,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
       setIsExporting(true);
       const url = new URL('/api/management/reports/loss-reconciliation/export', window.location.origin);
       url.searchParams.set('period', period);
+      url.searchParams.set('basis', basis);
       if (zmccId) {
         url.searchParams.set('zmccId', zmccId);
       }
@@ -102,7 +105,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Period Selector Tabs */}
           <div className="flex items-center p-1 bg-muted rounded-lg border border-border text-xs font-semibold">
             <button
@@ -133,6 +136,19 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
               Monthly
             </button>
           </div>
+
+          <label className="flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs text-secondary-foreground">
+            <span>Plant by</span>
+            <select
+              value={basis}
+              onChange={(e) => setBasis(e.target.value === 'business' ? 'business' : 'calendar')}
+              className="min-h-9 bg-transparent font-medium text-foreground focus:outline-hidden"
+              aria-label="Date plant vehicles are counted on"
+            >
+              <option value="calendar">Calendar date</option>
+              <option value="business">Business date (08:00 to 08:00)</option>
+            </select>
+          </label>
 
           {/* Refresh Button */}
           <button

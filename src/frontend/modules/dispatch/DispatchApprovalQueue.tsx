@@ -12,6 +12,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { SkeletonList } from '@/components/ui/loaders';
 import { formatLabel } from '@/lib/format';
+import { exceptionReasonText } from '@/lib/exceptionReasons';
 
 type Tab = 'PENDING' | 'DECIDED';
 type Outcome = 'PASS' | 'FAIL' | 'WARN' | 'NOT_TESTED';
@@ -60,12 +61,7 @@ export interface DispatchApprovalQueueProps {
 }
 
 function reasonText(reason: string): string {
-  if (reason === 'MISMATCH') return 'Person decision differs from test rule result';
-  if (reason === 'PICTURE_MISSING') return 'Portion test picture missing';
-  if (reason === 'MISSING_FIELD' || reason === 'COMPULSORY_TEST_MISSING') return 'Compulsory test missing';
-  if (reason === 'LAB_REPORT_MISSING') return 'Hand-written lab report picture missing';
-  if (reason.startsWith('RULE_FAIL:')) return `${reason.slice('RULE_FAIL:'.length)} failed quality SOP`;
-  return reason.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase());
+  return exceptionReasonText(reason);
 }
 
 function waitingInfo(iso: string, now: number) {

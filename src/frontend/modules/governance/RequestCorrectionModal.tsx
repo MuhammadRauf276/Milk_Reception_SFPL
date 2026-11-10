@@ -92,6 +92,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
       currentValues: currentFieldConfig?.currentValue !== undefined && currentFieldConfig.currentValue !== null
         ? { [selectedField]: currentFieldConfig.currentValue }
         : null,
+      fieldLabels: currentFieldConfig ? { [selectedField]: currentFieldConfig.label } : null,
       impact: 'MEDIUM',
     };
 

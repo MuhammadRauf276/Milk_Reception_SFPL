@@ -39,6 +39,7 @@ import { evaluate3ZoneTest } from '@/lib/sop-evaluation';
 import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 import { buildSopChipText } from '@/lib/sop-chip';
 import { useServerDraft } from '@/frontend/hooks/useServerDraft';
+import { exceptionReasonShort } from '@/lib/exceptionReasons';
 
 export interface LabPortionsPanelProps {
   sessionId: string;
@@ -68,11 +69,7 @@ const emptyDraft = (): Draft => ({
 });
 
 function reasonText(reason: string): string {
-  if (reason === 'MISMATCH') return 'Differs from test result';
-  if (reason === 'PICTURE_MISSING') return 'Picture missing';
-  if (reason === 'MISSING_FIELD') return 'Test not done';
-  if (reason.startsWith('RULE_FAIL:')) return `${reason.slice('RULE_FAIL:'.length)} failed`;
-  return reason;
+  return exceptionReasonShort(reason);
 }
 
 function portionBadge(p: LabPortionView) {

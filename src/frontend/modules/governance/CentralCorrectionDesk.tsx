@@ -199,25 +199,7 @@ export const CentralCorrectionDesk: React.FC = () => {
     setActionError(null);
     try {
       await fetchJson(`/api/corrections/${id}/apply`, { method: 'POST' });
-      setActionSuccessMsg(`Correction #${id} successfully applied to production database.`);
-      setIsReviewDrawerOpen(false);
-      setSelectedRequest(null);
-      handleRefresh();
-      setTimeout(() => setActionSuccessMsg(null), 5000);
-    } catch (err) {
-      setActionError(getErrorMessage(err));
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  // Tab 1: Mark a ticket Approved (agreed, correction still to be made)
-  const handleApproveRequest = async (id: string) => {
-    setProcessingId(id);
-    setActionError(null);
-    try {
-      await fetchJson(`/api/corrections/${id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-      setActionSuccessMsg(`Ticket #${id} marked Approved.`);
+      setActionSuccessMsg(`Ticket #${id} done. The record now shows the corrected values.`);
       setIsReviewDrawerOpen(false);
       setSelectedRequest(null);
       handleRefresh();
@@ -807,7 +789,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                         <div className="space-y-1">
                           {Object.entries(req.requestedChanges).map(([k, v]) => (
                             <div key={k} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-border">
-                              <span className="font-semibold text-secondary-foreground">{k}:</span>
+                              <span className="font-semibold text-secondary-foreground">{req.fieldLabels?.[k] ?? k}:</span>
                               <span className="tabular-nums">
                                 <span className="text-rose-700">{String(req.currentValues?.[k] ?? '—')}</span>
                                 {' → '}
@@ -890,7 +872,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                               className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
                             >
                               
-                              <span>{processingId === req.id ? 'Saving…' : 'Apply & mark Done'}</span>
+                              <span>{processingId === req.id ? 'Saving…' : req.autoApply ? 'Approve and apply' : 'Mark done'}</span>
                             </Button>
                           </>
                         )}
@@ -1091,7 +1073,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                 {selectedRequest &&
                   Object.entries(selectedRequest.requestedChanges).map(([k, v]) => (
                     <div key={k} className="bg-card border-border flex items-center justify-between gap-2 p-2 rounded-lg border">
-                      <span className="font-semibold text-secondary-foreground">{k}</span>
+                      <span className="font-semibold text-secondary-foreground">{selectedRequest.fieldLabels?.[k] ?? k}</span>
                       <span className="tabular-nums">
                         <span className="text-rose-700">{String(selectedRequest.currentValues?.[k] ?? '—')}</span>
                         {' → '}
@@ -1115,7 +1097,7 @@ export const CentralCorrectionDesk: React.FC = () => {
             {/* Audit Warning */}
             <div className="bg-card border-border p-3 rounded-xl border flex items-start space-x-2 text-amber-900 text-xs">
               <Lock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-              <span className="inline-flex items-center">Audit logged<InfoTip text="Applying a ticket changes the record and logs it. For weighing and exit tickets, fix the record first, then apply." /></span>
+              <span className="inline-flex items-center">Audit logged<InfoTip text="Approve and apply changes the record and logs who changed it and why. Tickets marked “fixed by hand” only close after you correct the record directly." /></span>
             </div>
           </div>
 
@@ -1143,15 +1125,6 @@ export const CentralCorrectionDesk: React.FC = () => {
                     >
                       Reject
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={processingId === selectedRequest.id}
-                      onClick={() => handleApproveRequest(selectedRequest.id)}
-                      className="text-xs font-semibold"
-                    >
-                      Approve only
-                    </Button>
                   </>
                 )}
                 <Button
@@ -1161,7 +1134,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                   className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
                 >
                   
-                  <span>{processingId === selectedRequest.id ? 'Saving…' : 'Apply & mark Done'}</span>
+                  <span>{processingId === selectedRequest.id ? 'Saving…' : selectedRequest.autoApply ? 'Approve and apply' : 'Mark done'}</span>
                 </Button>
               </>
             )}

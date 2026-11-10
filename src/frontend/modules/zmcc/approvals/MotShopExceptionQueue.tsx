@@ -15,6 +15,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import type { MotShopExceptionItem } from '@/backend/services/mot/motShopReviewService';
+import { exceptionReasonShort } from '@/lib/exceptionReasons';
 
 type Tab = 'PENDING' | 'DECIDED';
 
@@ -24,12 +25,7 @@ interface MotShopExceptionQueueProps {
 }
 
 export function reasonText(reason: string): string {
-  if (reason === 'MISMATCH') return 'Person decision differs from the test result';
-  if (reason === 'PICTURE_MISSING') return 'Picture missing';
-  if (reason === 'MISSING_FIELD') return 'Test not done';
-  if (reason === 'AWAY_FROM_SHOP') return 'Recorded away from the shop';
-  if (reason.startsWith('RULE_FAIL:')) return `${reason.slice('RULE_FAIL:'.length)} failed`;
-  return reason;
+  return exceptionReasonShort(reason);
 }
 
 function waitingInfo(iso: string, now: number) {

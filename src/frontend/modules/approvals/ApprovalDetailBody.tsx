@@ -22,8 +22,21 @@ export function ApprovalDetailBody({
       {/* 1. Immediate Actionable Summary (High Prominence) */}
       <div className="space-y-3">
         <h3 className="text-xs font-semibold text-muted-foreground">
-          Exception Summary
+          Why it was sent
         </h3>
+
+        {item.details.reasons && item.details.reasons.length > 0 ? (
+          <ul className="space-y-1.5 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-950">
+            {item.details.reasons.map((r) => (
+              <li key={r} className="flex gap-2">
+                <ShieldAlert className="mt-0.5 size-4 shrink-0 text-rose-700" aria-hidden />
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-secondary-foreground">{item.reasonChips.join(' · ')}</p>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {failedTests.length ? (
@@ -57,7 +70,7 @@ export function ApprovalDetailBody({
             <div className="bg-card border-border p-4 rounded-2xl border text-emerald-950 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
-                <p className="text-xs font-semibold">All Test Values In Range</p>
+                <p className="text-xs font-semibold">No test is outside the SOP range</p>
               </div>
             </div>
           )}

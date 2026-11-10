@@ -6,7 +6,7 @@ import { createNotificationsForEvent } from '@/backend/services/notificationServ
 import { writeAuditLog } from '@/backend/core/audit';
 import type { ActingContext } from '@/types/acting';
 import { calculateAt13TSLiters, calculateDensity } from '@/backend/utils/milkFormulas';
-import { getOperationalBusinessDate, getPakistanDayWindow } from '@core/business-day';
+import { getPakistanCalendarDate, getPakistanDayWindow, plantVisitDateWhere, type DateBasis } from '@core/business-day';
 
 export interface LossMetricResult {
   lossLiters: number;
@@ -461,7 +461,7 @@ export function resolvePeriodDateRange(
   label: string;
 } {
   const now = new Date();
-  const todayStr = getOperationalBusinessDate(now);
+  const todayStr = getPakistanCalendarDate(now);
   const pakistanDays = (startStr: string, endStr: string, label: string) => {
     const first = getPakistanDayWindow(startStr);
     const last = getPakistanDayWindow(endStr);
@@ -511,6 +511,8 @@ export async function getSupplyChainLossHierarchy(filters: {
   from?: string;
   to?: string;
   zmccId?: string | bigint;
+  /** How plant vehicles are placed on a day; ZMCC and MOT figures always use the calendar day. */
+  dateBasis?: DateBasis;
 }): Promise<{
   summary: SupplyChainLossSummary;
   details: LossReconciliationDetailRow[];
@@ -644,7 +646,11 @@ export async function getSupplyChainLossHierarchy(filters: {
     }),
     prisma.vehicleVisit.findMany({
       where: {
-        operational_date: { gte: startDate, lte: endDate },
+        ...plantVisitDateWhere(
+          filters.dateBasis ?? 'calendar',
+          startDate.toISOString().slice(0, 10),
+          endDate.toISOString().slice(0, 10)
+        ),
         // ZMCC dispatches only: contractor visits never left a ZMCC tank.
         ...(zmccIdBigInt ? { procurement_source_id: zmccIdBigInt } : { procurement_source: { source_type: 'ZMCC' } }),
         // A tanker the plant rejected still left the tank. Only requests never sent are left out.

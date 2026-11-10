@@ -1,4 +1,4 @@
-import { getOperationalBusinessDate } from '@/backend/core/business-day';
+import { getPakistanCalendarDate } from '@/backend/core/business-day';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { resolveActingContext } from '@/backend/core/acting-context';
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'At least one recipient email address is required.' }, { status: 400 });
     }
 
-    const reportDate = date || getOperationalBusinessDate(new Date());
+    const reportDate = date || getPakistanCalendarDate();
     const reportData = await getSuperAdminDailyReportData({ date: reportDate, zmccId });
 
     const actingResult = resolveActingContext(user, allowedRoles);

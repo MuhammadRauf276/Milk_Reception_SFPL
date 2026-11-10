@@ -157,6 +157,12 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{item.summary}</p>
+                  {item.reasons?.length > 0 && (
+                    <p className="mt-1 text-xs text-foreground">
+                      <span className="font-semibold">Sent because: </span>
+                      {item.reasons.join(' ')}
+                    </p>
+                  )}
                 </div>
 
                 <span

@@ -1,6 +1,6 @@
 'use client';
 
-import { getOperationalBusinessDate } from '@/backend/core/business-day';
+import { getPakistanCalendarDate } from '@/backend/core/business-day';
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Download, Share2, Search, CheckCircle2, AlertTriangle, XCircle, Truck, FlaskConical, Store, ShieldCheck, Loader2 } from 'lucide-react';
@@ -174,7 +174,9 @@ const plantQaColumns: DataColumn<PlantQaRow>[] = [
 type ReportTab = 'MOT' | 'ZMCC' | 'EXCEPTIONS' | 'PLANT_QA';
 
 export function DailyReportDashboard() {
-  const [date, setDate] = useState(() => getOperationalBusinessDate(new Date()));
+  const [date, setDate] = useState(() => getPakistanCalendarDate());
+  // Plant vehicles can be counted on the calendar day or the 08:00 business day; other stages use the calendar day.
+  const [basis, setBasis] = useState<'calendar' | 'business'>('calendar');
   const urlSection = useSearchParams()?.get('section')?.toUpperCase();
   const activeTab: ReportTab = urlSection === 'ZMCC' || urlSection === 'EXCEPTIONS' || urlSection === 'PLANT_QA' ? urlSection : 'MOT';
   const [searchQuery, setSearchQuery] = useState('');
@@ -183,8 +185,8 @@ export function DailyReportDashboard() {
   const [isExporting, setIsExporting] = useState(false);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery<DailyReportData>({
-    queryKey: ['super-admin', 'daily-report', date],
-    queryFn: () => fetchJson<DailyReportData>(`/api/super-admin/daily-report?date=${date}`),
+    queryKey: ['super-admin', 'daily-report', date, basis],
+    queryFn: () => fetchJson<DailyReportData>(`/api/super-admin/daily-report?date=${date}&basis=${basis}`),
   });
 
   const changeDateBy = (days: number) => {
@@ -196,7 +198,7 @@ export function DailyReportDashboard() {
   const handleExportExcel = async () => {
     setIsExporting(true);
     try {
-      const res = await fetch(`/api/super-admin/daily-report/export?date=${date}`);
+      const res = await fetch(`/api/super-admin/daily-report/export?date=${date}&basis=${basis}`);
       if (!res.ok) throw new Error('Failed to generate Excel report');
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -270,7 +272,7 @@ export function DailyReportDashboard() {
         <div>
           <div className="flex items-center gap-2">
             <p className="text-sm text-muted-foreground">Mobile Tester collections, ZMCC lab portions, plant QA, exceptions and losses</p>
-            <InfoTip text="Covers the selected date." />
+            <InfoTip text="Covers the selected Pakistan date. Plant vehicles can instead be counted on the business day, 08:00 to 08:00." />
           </div>
         </div>
 
@@ -302,12 +304,25 @@ export function DailyReportDashboard() {
             </button>
             <button
               type="button"
-              onClick={() => setDate(getOperationalBusinessDate(new Date()))}
+              onClick={() => setDate(getPakistanCalendarDate())}
               className="ml-1 min-h-11 rounded-lg border border-border bg-card px-3 text-xs font-medium text-secondary-foreground transition-colors hover:bg-muted"
             >
               Today
             </button>
           </div>
+
+          <label className="flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-xs text-secondary-foreground">
+            <span>Plant by</span>
+            <select
+              value={basis}
+              onChange={(e) => setBasis(e.target.value === 'business' ? 'business' : 'calendar')}
+              className="min-h-9 bg-transparent font-medium text-foreground focus:outline-hidden"
+              aria-label="Date plant vehicles are counted on"
+            >
+              <option value="calendar">Calendar date</option>
+              <option value="business">Business date (08:00 to 08:00)</option>
+            </select>
+          </label>
 
           <Button variant="outline" onClick={() => refetch()} disabled={isFetching} title="Refresh data" aria-label="Refresh">
             <Loader2 className={isFetching ? 'animate-spin text-primary' : 'text-muted-foreground'} />

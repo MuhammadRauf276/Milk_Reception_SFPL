@@ -6,6 +6,7 @@ import { User } from '@/backend/core/types';
 import { Prisma } from '@prisma/client';
 import { toJsonInput } from '@/lib/json';
 import { correctCompletedSession } from '@/backend/services/zmccLabService';
+import { correctLabPortion } from '@/backend/services/zmcc/labPortionCorrectionService';
 import { correctShopCollection } from '@/backend/services/mot/motCore';
 import { correctMotArrival, correctLocalSupplierArrival } from '@/backend/services/zmccArrivalService';
 
@@ -23,6 +24,33 @@ export const CORRECTION_TICKET_MODULES = [
   'VEHICLE_VISIT',
   'PLANT_QA_MEASUREMENT',
 ] as const;
+
+/** Modules whose "Apply" changes the record. The rest are fixed on the record by hand; Apply then only closes the ticket. */
+export const AUTO_APPLY_MODULES: ReadonlySet<string> = new Set(['ZMCC_LAB_SESSION', 'MOT_SHOP_COLLECTION', 'ZMCC_MC_ARRIVAL', 'ZMCC_HC_ARRIVAL']);
+
+/** A lab ticket's changes, split by where they are corrected. Keys: portion:<id>:lr|fat|net_weight_kg, result_<testId>. */
+export function splitLabTicketChanges(changes: Record<string, unknown>) {
+  const portions = new Map<string, { lr?: number; fat?: number; net_weight_kg?: number }>();
+  const results: Array<{ test_id: string; numeric_value?: number | null; text_value?: string | null }> = [];
+  for (const [key, raw] of Object.entries(changes)) {
+    const p = /^portion:(\d{1,18}):(lr|fat|net_weight_kg)$/.exec(key);
+    if (p) {
+      const n = Number(raw);
+      if (raw === null || raw === '' || !Number.isFinite(n)) throw new Error(`${p[2]} for portion #${p[1]} is not a number.`);
+      portions.set(p[1], { ...portions.get(p[1]), [p[2]]: n });
+      continue;
+    }
+    const r = /^result_(\d{1,18})$/.exec(key);
+    if (r) {
+      const n = Number(raw);
+      results.push(typeof raw === 'number' || (typeof raw === 'string' && raw.trim() !== '' && Number.isFinite(n))
+        ? { test_id: r[1], numeric_value: n }
+        : { test_id: r[1], text_value: raw === null || raw === undefined ? null : String(raw) });
+    }
+  }
+  if (Array.isArray(changes.results)) results.push(...(changes.results as typeof results));
+  return { portions, results };
+}
 
 export function correctionStatusLabel(status: string): 'Open' | 'Approved' | 'Rejected' | 'Done' {
   switch (status) {
@@ -48,6 +76,8 @@ export interface CreateCorrectionRequestInput {
   requestedChanges: Record<string, unknown>;
   /** What is recorded now (the wrong value), per field. Stored with the ticket for the resolver. */
   currentValues?: Record<string, unknown> | null;
+  /** Readable name per field (e.g. "Portion 2 · LR"), shown to the person who resolves the ticket. */
+  fieldLabels?: Record<string, string> | null;
   impact?: 'LOW' | 'MEDIUM' | 'HIGH';
 }
 
@@ -63,6 +93,9 @@ export interface SerializedCorrectionRequest {
   reason: string;
   requestedChanges: Record<string, unknown>;
   currentValues: Record<string, unknown>;
+  fieldLabels: Record<string, string>;
+  /** True when "Apply" changes the record itself; false when the record is fixed by hand and the ticket only closes. */
+  autoApply: boolean;
   requestedAt: string;
   requestedBy: {
     id: string;
@@ -91,9 +124,11 @@ export async function createCorrectionRequest(input: CreateCorrectionRequestInpu
       impact,
       status: 'REQUESTED',
       reason: input.reason.trim(),
-      requested_changes: (input.currentValues && Object.keys(input.currentValues).length > 0
-        ? { ...input.requestedChanges, __current: input.currentValues }
-        : input.requestedChanges) as Prisma.InputJsonValue,
+      requested_changes: {
+        ...input.requestedChanges,
+        ...(input.currentValues && Object.keys(input.currentValues).length > 0 ? { __current: input.currentValues } : {}),
+        ...(input.fieldLabels && Object.keys(input.fieldLabels).length > 0 ? { __labels: input.fieldLabels } : {}),
+      } as Prisma.InputJsonValue,
       requested_by_user_id: input.userId,
     },
     include: {
@@ -176,6 +211,8 @@ export async function listCorrectionRequests(filter: {
     reason: item.reason,
     requestedChanges: stripInternal((item.requested_changes as Record<string, unknown>) || {}),
     currentValues: ((item.requested_changes as Record<string, unknown> | null)?.__current as Record<string, unknown>) || {},
+    fieldLabels: ((item.requested_changes as Record<string, unknown> | null)?.__labels as Record<string, string>) || {},
+    autoApply: AUTO_APPLY_MODULES.has(item.module),
     requestedAt: item.requested_at.toISOString(),
     requestedBy: {
       id: item.requester.id.toString(),
@@ -299,19 +336,42 @@ export async function applyCorrectionRequest(
   const changes = (req.requested_changes as Record<string, unknown>) || {};
   let applicationResult: unknown = null;
 
+  const appliedReason = `Correction ticket ${req.correlation_id}: ${req.reason}`;
+
   // Execute module-specific application
   if (req.module === 'ZMCC_LAB_SESSION') {
-    const res = await correctCompletedSession(reviewerUser, req.record_id, {
-      reason: `Applied from Correction Request #${req.correlation_id}: ${req.reason}`,
-      quantity_value: typeof changes.quantity_value === 'number' ? changes.quantity_value : undefined,
-      quantity_unit: typeof changes.quantity_unit === 'string' ? (changes.quantity_unit as 'KG' | 'LITER') : undefined,
-      decision: typeof changes.decision === 'string' ? (changes.decision as 'ACCEPTED' | 'REJECTED') : undefined,
-      results: Array.isArray(changes.results) ? changes.results : undefined,
-    });
-    if (res.error) {
-      throw new Error(`Lab correction failed: ${res.error}`);
+    const { portions, results } = splitLabTicketChanges(changes);
+    const applied: unknown[] = [];
+    // Portion figures go through the portion correction, which keeps the tank ledger, receipt and loss in step.
+    for (const [portionId, values] of portions) {
+      const current = await prisma.zmccLabPortion.findUnique({ where: { id: BigInt(portionId) }, select: { version: true, lab_session_id: true } });
+      if (!current || current.lab_session_id.toString() !== req.record_id) throw new Error(`Portion #${portionId} is not part of this lab session.`);
+      const res = await correctLabPortion(reviewerUser, portionId, {
+        reason: appliedReason,
+        version: current.version,
+        ...values,
+        idempotency_key: `${req.correlation_id}:${portionId}`,
+      });
+      if ('error' in res) throw new Error(`Portion #${portionId}: ${res.error}`);
+      applied.push(res.data);
     }
-    applicationResult = res.data;
+    const quantityValue = changes.quantity_value === undefined ? undefined : Number(changes.quantity_value);
+    const sessionChange =
+      results.length > 0 || quantityValue !== undefined || typeof changes.quantity_unit === 'string' || typeof changes.remarks === 'string';
+    if (sessionChange) {
+      const res = await correctCompletedSession(reviewerUser, req.record_id, {
+        reason: appliedReason,
+        quantity_value: quantityValue,
+        quantity_unit: typeof changes.quantity_unit === 'string' ? (changes.quantity_unit as 'KG' | 'LITER') : undefined,
+        decision: typeof changes.decision === 'string' ? (changes.decision as 'ACCEPTED' | 'REJECTED') : undefined,
+        remarks: typeof changes.remarks === 'string' ? changes.remarks : undefined,
+        results: results.length > 0 ? results : undefined,
+      });
+      if (res.error) throw new Error(`Lab correction failed: ${res.error}`);
+      applied.push(res.data);
+    }
+    if (applied.length === 0) throw new Error('This ticket has no value the system can apply. Correct the record directly, then reject the ticket with a note.');
+    applicationResult = applied;
   } else if (req.module === 'MOT_SHOP_COLLECTION') {
     const res = await correctShopCollection(reviewerUser, req.record_id, {
       reason: `Applied from Correction Request #${req.correlation_id}: ${req.reason}`,
@@ -359,7 +419,7 @@ export async function applyCorrectionRequest(
       status: 'APPLIED',
       reviewed_by_user_id: reviewerId,
       reviewed_at: new Date(),
-      review_reason: 'Approved and applied to production database.',
+      review_reason: applicationResult ? 'Approved and applied to the record.' : 'Closed. The record was corrected by hand.',
     },
     include: {
       requester: true,

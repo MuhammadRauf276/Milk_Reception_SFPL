@@ -1,6 +1,6 @@
 import { prisma } from '@/backend/core/db';
 import ExcelJS from 'exceljs';
-import { getOperationalBusinessDate, getPakistanDayWindow } from '@/backend/core/business-day';
+import { getPakistanCalendarDate, getPakistanDayWindow } from '@/backend/core/business-day';
 import { computeWeightedMilkMetrics } from '@/backend/utils/milkFormulas';
 import { getSupplyChainLossHierarchy } from '@/backend/services/lossCalculationService';
 import { getBatchTankPhysicalStock, getBatchTankCommercialStock, getBatchTankTodayMovements } from '@/backend/services/zmccTankService';
@@ -268,7 +268,7 @@ export async function getZmccHierarchyReport(
   zmccId?: bigint,
   dateStr?: string
 ): Promise<ZmccHierarchyReport | ZmccHierarchyReport[]> {
-  const targetDate = dateStr || getOperationalBusinessDate(new Date());
+  const targetDate = dateStr || getPakistanCalendarDate(new Date());
   const dateObj = new Date(`${targetDate}T00:00:00.000Z`);
 
   const zmccWhere = zmccId ? { id: zmccId, source_type: 'ZMCC' } : { source_type: 'ZMCC', is_active: true };
@@ -540,7 +540,7 @@ export async function getZmccBIAnalytics(
   toDateStr?: string,
   filters?: { routeId?: string; shift?: string }
 ): Promise<ZmccBIAnalyticsData> {
-  const today = getOperationalBusinessDate(new Date());
+  const today = getPakistanCalendarDate(new Date());
   const to = toDateStr || today;
   let from = fromDateStr;
   if (!from) {
@@ -733,7 +733,7 @@ export async function getZmccBIAnalytics(
     if (isMorning) morningLiters += lit;
     else eveningLiters += lit;
 
-    const dateKey = getOperationalBusinessDate(r.received_at);
+    const dateKey = getPakistanCalendarDate(r.received_at);
     const dRec = dateMap.get(dateKey) || { gross: 0, ts: 0, morning: 0, evening: 0, count: 0, fatSum: 0, lrSum: 0, snfSum: 0 };
     dRec.gross += lit;
     dRec.ts += tsLit;
@@ -861,7 +861,7 @@ export async function getZmccRouteLedgerReport(
   page = 1,
   pageSize = 20
 ): Promise<{ rows: RouteLedgerRow[]; totalRecords: number; totalPages: number }> {
-  const today = getOperationalBusinessDate(new Date());
+  const today = getPakistanCalendarDate(new Date());
   const from = fromDateStr || today;
   const to = toDateStr || today;
 
@@ -960,7 +960,7 @@ export async function getZmccHcSupplierLedgerReport(
   page = 1,
   pageSize = 20
 ): Promise<{ rows: HcSupplierLedgerRow[]; totalRecords: number; totalPages: number }> {
-  const today = getOperationalBusinessDate(new Date());
+  const today = getPakistanCalendarDate(new Date());
   const from = fromDateStr || today;
   const to = toDateStr || today;
 

@@ -12,6 +12,7 @@ import {
   type ApprovalType,
   type OperationalStage,
 } from '@/backend/services/escalation/approvalMatrix';
+import { exceptionReasonShort, exceptionReasonText, reasonCodes, testNameLookup } from '@/lib/exceptionReasons';
 
 export type SlaStatus = 'NORMAL' | 'WARNING' | 'BREACHED';
 
@@ -41,6 +42,8 @@ export interface UnifiedApprovalDetails {
   vehicleNumber?: string | null;
   grossLiters?: number | null;
   testValues?: TestValueSnapshot[];
+  /** Why the record was sent for approval, one sentence each, from the reasons stored when it was sent. */
+  reasons?: string[];
   photos?: PhotoSnapshot[];
   sealNumber?: string | null;
   plantSealNumberEntered?: string | null;
@@ -128,29 +131,34 @@ function calculateSla(submittedAt: Date): { waitingMinutes: number; slaStatus: S
   return { waitingMinutes, slaStatus };
 }
 
-function formatReasonChips(reasons: unknown): string[] {
-  if (!Array.isArray(reasons)) return [];
-  const chips: string[] = [];
-  for (const r of reasons) {
-    if (typeof r !== 'string') continue;
-    const upper = r.toUpperCase();
-    if (upper.includes('RULE') || upper.includes('FAIL') || upper.includes('OUT_OF_SPEC')) {
-      chips.push('Rule Mismatch');
-    } else if (upper.includes('PHOTO') || upper.includes('PICTURE')) {
-      chips.push('Missing Photo');
-    } else if (upper.includes('SEAL')) {
-      chips.push('Seal Mismatch');
-    } else if (upper.includes('GEOFENCE')) {
-      chips.push('Outside Geofence');
-    } else if (upper.includes('OVERRIDE') || upper.includes('DECISION_MISMATCH')) {
-      chips.push('Operator Override');
-    } else if (upper.includes('UNAPPROVED')) {
-      chips.push('Unapproved Supplier');
-    } else {
-      chips.push(r.replace(/_/g, ' '));
-    }
-  }
-  return Array.from(new Set(chips));
+type StoredTest = { testCode?: string; testName?: string; value?: unknown; textValue?: unknown; outcome?: string };
+
+/** Test rows as stored with the decision ({ testCode, testName, value, outcome }). */
+function storedTests(value: unknown): StoredTest[] {
+  return Array.isArray(value) ? value.filter((t): t is StoredTest => !!t && typeof t === 'object') : [];
+}
+
+/** Stored test rows as shown in the request. The outcome is the one saved with the decision, never re-judged here. */
+function testValuesFrom(tests: StoredTest[], prefix = ''): TestValueSnapshot[] {
+  return tests
+    .filter((t) => t.outcome !== 'NOT_TESTED' || t.value !== null || t.textValue !== null)
+    .map((t) => ({
+      code: t.testCode || 'TEST',
+      name: `${prefix}${t.testName || t.testCode || 'Test'}`,
+      value: t.value !== null && t.value !== undefined ? (t.value as string | number) : ((t.textValue as string | number | null) ?? null),
+      outcome: typeof t.outcome === 'string' ? t.outcome : undefined,
+      pass: t.outcome === 'FAIL' ? false : t.outcome === 'PASS' ? true : null,
+    }));
+}
+
+/** Chips and sentences for the reasons stored when the record was sent. */
+function describeReasons(value: unknown, tests: StoredTest[] = []): { chips: string[]; sentences: string[] } {
+  const codes = reasonCodes(value);
+  const nameOf = testNameLookup(tests);
+  return {
+    chips: Array.from(new Set(codes.map((c) => exceptionReasonShort(c, nameOf)))),
+    sentences: Array.from(new Set(codes.map((c) => exceptionReasonText(c, nameOf)))),
+  };
 }
 
 /**
@@ -249,20 +257,13 @@ export async function getApprovalInbox(
         const { waitingMinutes, slaStatus } = calculateSla(submittedAt);
         const detailsObj = (col.decision_details && typeof col.decision_details === 'object' ? col.decision_details : {}) as Record<string, unknown>;
 
-        const testValues: TestValueSnapshot[] = [
-          {
-            code: 'LR',
-            name: 'Lactometer Reading (LR)',
-            value: col.lr !== null ? Number(col.lr) : null,
-            outcome: col.lr !== null && Number(col.lr) >= 28 ? 'PASS' : 'FAIL',
-          },
-          {
-            code: 'FAT',
-            name: 'Fat %',
-            value: col.fat !== null ? Number(col.fat) : null,
-            outcome: col.fat !== null && Number(col.fat) >= 3.5 ? 'PASS' : 'FAIL',
-          },
-        ];
+        const shopTests = storedTests(detailsObj.tests);
+        const testValues: TestValueSnapshot[] = shopTests.length
+          ? testValuesFrom(shopTests)
+          : [
+              { code: 'LR', name: 'LR', value: col.lr !== null ? Number(col.lr) : null },
+              { code: 'FAT', name: 'Fat %', value: col.fat !== null ? Number(col.fat) : null },
+            ];
 
         // Format captured photos
         const colPhotos = photosByMotId.get(col.id.toString()) || [];
@@ -278,8 +279,8 @@ export async function getApprovalInbox(
         const submitterId = col.submitted_by_user_id.toString();
         const submitterRole = submitterUser?.role || col.performed_as_role || 'MOT';
 
-        const reasons = formatReasonChips(col.exception_reasons);
-        if (reasons.length === 0) reasons.push('Rule Mismatch');
+        const shopReasons = describeReasons(col.exception_reasons, shopTests);
+        const reasons = shopReasons.chips.length ? shopReasons.chips : ['Sent for review'];
 
         const item: UnifiedApprovalItem = {
           id: `mot_${col.id}`,
@@ -308,6 +309,7 @@ export async function getApprovalInbox(
             sourceType: 'ZMCC',
             grossLiters: Number(col.gross_liters),
             testValues,
+            reasons: shopReasons.sentences,
             photos: mappedPhotos,
             personDecision: col.person_decision === 'REJECT' ? 'REJECT' : 'ACCEPT',
             personRemarks: col.decision_remarks,
@@ -568,31 +570,12 @@ export async function getApprovalInbox(
         const { waitingMinutes, slaStatus } = calculateSla(submittedAt);
         const detailsObj = (portion.decision_details && typeof portion.decision_details === 'object' ? portion.decision_details : {}) as Record<string, unknown>;
 
-        const testValues: TestValueSnapshot[] = Array.isArray(detailsObj.tests)
-          ? detailsObj.tests.map((t: unknown) => {
-              const test = (t && typeof t === 'object' ? t : {}) as Record<string, unknown>;
-              return {
-                code: typeof test.testCode === 'string' ? test.testCode : 'TEST',
-                name: typeof test.testName === 'string' ? test.testName : 'Lab Test',
-                value: test.value !== null && test.value !== undefined ? (test.value as string | number) : (test.textValue as string | number | null),
-                outcome: typeof test.outcome === 'string' ? test.outcome : undefined,
-              };
-            })
+        const portionTests = storedTests(detailsObj.tests);
+        const testValues: TestValueSnapshot[] = portionTests.length
+          ? testValuesFrom(portionTests)
           : [
-              {
-                code: 'LR',
-                name: 'Lactometer Reading (LR)',
-                value: portion.lr !== null ? Number(portion.lr) : null,
-                min: 28.0,
-                pass: portion.lr !== null && Number(portion.lr) >= 28,
-              },
-              {
-                code: 'FAT',
-                name: 'Fat %',
-                value: portion.fat !== null ? Number(portion.fat) : null,
-                min: 3.5,
-                pass: portion.fat !== null && Number(portion.fat) >= 3.5,
-              },
+              { code: 'LR', name: 'LR', value: portion.lr !== null ? Number(portion.lr) : null },
+              { code: 'FAT', name: 'Fat %', value: portion.fat !== null ? Number(portion.fat) : null },
             ];
 
         const pPhotos = photosByPortionId.get(portion.id.toString()) || [];
@@ -611,8 +594,8 @@ export async function getApprovalInbox(
         const submitterRole = submitterUser?.role || portion.performed_as_role || 'ZMCC_LAB_ATTENDANT';
 
         const token = session?.mot_arrival?.zmcc_token || session?.local_supplier_arrival?.zmcc_token || `SES-${session?.id}`;
-        const reasons = formatReasonChips(portion.exception_reasons);
-        if (reasons.length === 0) reasons.push('Rule Mismatch');
+        const portionReasons = describeReasons(portion.exception_reasons, portionTests);
+        const reasons = portionReasons.chips.length ? portionReasons.chips : ['Sent for review'];
 
         items.push({
           id: `lab_portion_${portion.id}`,
@@ -641,6 +624,7 @@ export async function getApprovalInbox(
             sourceType: 'ZMCC',
             grossLiters: Number(portion.gross_liters || 0),
             testValues,
+            reasons: portionReasons.sentences,
             photos: mappedPhotos,
             personDecision: portion.person_decision === 'REJECT' ? 'REJECT' : 'ACCEPT',
             personRemarks: portion.decision_remarks,
@@ -724,7 +708,7 @@ export async function getApprovalInbox(
           name: r.test_name_snapshot || 'Lab Test',
           value: r.numeric_value !== null ? Number(r.numeric_value) : r.text_value,
           pass: r.is_passed,
-          outcome: r.is_passed ? 'PASS' : 'FAIL',
+          outcome: r.is_passed === true ? 'PASS' : r.is_passed === false ? 'FAIL' : null,
         }));
 
         const zmccId = sess.zmcc_id.toString();
@@ -736,10 +720,12 @@ export async function getApprovalInbox(
         const token = sess.mot_arrival?.zmcc_token || sess.local_supplier_arrival?.zmcc_token || `SES-${sess.id}`;
         const vehicleNum = sess.mot_arrival?.journey?.mot_vehicle?.vehicle_number || sess.local_supplier_arrival?.vehicle_number;
 
-        const reasons: string[] = [];
-        if (sess.rejection_reason) reasons.push(sess.rejection_reason);
-        if (sess.system_quality_outcome === 'FAIL') reasons.push('Rule Mismatch');
-        if (reasons.length === 0) reasons.push('Quality Exception');
+        const failedSessionTests = sess.results.filter((r) => r.is_passed === false);
+        const sessionSentences = failedSessionTests.map((r) => `${r.test_name_snapshot || r.test_code_snapshot || 'A test'} is outside the SOP range.`);
+        if (sess.rejection_reason) sessionSentences.push(sess.rejection_reason);
+        const reasons = failedSessionTests.length
+          ? failedSessionTests.map((r) => `${r.test_name_snapshot || r.test_code_snapshot || 'Test'} out of range`)
+          : ['Sent for review'];
 
         items.push({
           id: `lab_session_${sess.id}`,
@@ -769,6 +755,7 @@ export async function getApprovalInbox(
             vehicleNumber: vehicleNum,
             grossLiters: Number(sess.gross_liters || 0),
             testValues,
+            reasons: sessionSentences,
             personDecision: sess.manager_requested_decision === 'REJECT' || sess.decision === 'REJECT' ? 'REJECT' : 'ACCEPT',
             personRemarks: sess.rejection_reason || sess.remarks,
             metadata: {
@@ -927,24 +914,20 @@ export async function getApprovalInbox(
       const submitterId = submitterUser?.id?.toString() || '';
       const submitterRole = submitterUser?.role || disp.approval_requested_as_role || (isContractor ? 'CONTRACTOR_OPERATOR' : 'ZMCC_LAB_ATTENDANT');
 
-      const reasons = formatReasonChips(disp.dispatch_exception_reasons);
-      if (reasons.length === 0) reasons.push('Dispatch Approval Required');
+      const dispDetails = (disp.dispatch_decision_details && typeof disp.dispatch_decision_details === 'object'
+        ? disp.dispatch_decision_details
+        : {}) as { portions?: Array<{ portionNumber?: number; tests?: unknown }> };
+      const dispPortions = Array.isArray(dispDetails.portions) ? dispDetails.portions : [];
+      const dispTests = dispPortions.flatMap((p) => storedTests(p.tests));
+      const dispReasons = describeReasons(disp.dispatch_exception_reasons, dispTests);
+      const reasons = dispReasons.chips.length ? dispReasons.chips : ['Sent for review'];
 
       const testValues: TestValueSnapshot[] = [
-        {
-          code: 'WEIGHTED_LR',
-          name: 'Weighted LR',
-          value: disp.vehicle_dispatch_lr !== null ? Number(disp.vehicle_dispatch_lr) : null,
-          min: 28.0,
-          pass: disp.vehicle_dispatch_lr !== null && Number(disp.vehicle_dispatch_lr) >= 28,
-        },
-        {
-          code: 'WEIGHTED_FAT',
-          name: 'Weighted Fat %',
-          value: disp.vehicle_dispatch_fat !== null ? Number(disp.vehicle_dispatch_fat) : null,
-          min: 3.5,
-          pass: disp.vehicle_dispatch_fat !== null && Number(disp.vehicle_dispatch_fat) >= 3.5,
-        },
+        { code: 'WEIGHTED_LR', name: 'Weighted LR', value: disp.vehicle_dispatch_lr !== null ? Number(disp.vehicle_dispatch_lr) : null },
+        { code: 'WEIGHTED_FAT', name: 'Weighted Fat %', value: disp.vehicle_dispatch_fat !== null ? Number(disp.vehicle_dispatch_fat) : null },
+        ...dispPortions.flatMap((p) =>
+          testValuesFrom(storedTests(p.tests), dispPortions.length > 1 ? `Portion ${p.portionNumber ?? ''} · ` : '')
+        ),
       ];
 
       items.push({
@@ -976,6 +959,7 @@ export async function getApprovalInbox(
           vehicleNumber: disp.vehicle_number,
           grossLiters: Number(disp.vehicle_dispatch_gross_liters || 0),
           testValues,
+          reasons: dispReasons.sentences,
           personDecision: disp.dispatch_person_decision === 'REJECT' ? 'REJECT' : 'ACCEPT',
           personRemarks: disp.dispatch_decision_remarks,
           metadata: {
@@ -1052,19 +1036,18 @@ export async function getApprovalInbox(
           min: r.applied_rule?.min_value !== null && r.applied_rule?.min_value !== undefined ? Number(r.applied_rule.min_value) : null,
           max: r.applied_rule?.max_value !== null && r.applied_rule?.max_value !== undefined ? Number(r.applied_rule.max_value) : null,
           pass: r.is_passed,
-          outcome: r.is_passed ? 'PASS' : 'FAIL',
+          outcome: r.is_passed === true ? 'PASS' : r.is_passed === false ? 'FAIL' : null,
         }));
 
-        const reasons: string[] = [];
-        if (p.seal_match === false) {
-          reasons.push('Seal Mismatch');
+        const plantTests = p.plant_lab_results.map((r) => ({ testCode: r.lab_test?.testCode, testName: r.lab_test?.testName }));
+        const plantCodes = reasonCodes(p.exception_reasons);
+        if (p.seal_match === false && !plantCodes.includes('SEAL_MISMATCH')) plantCodes.push('SEAL_MISMATCH');
+        for (const r of p.plant_lab_results) {
+          const code = r.lab_test?.testCode;
+          if (r.is_passed === false && code && !plantCodes.includes(`RULE_FAIL:${code}`)) plantCodes.push(`RULE_FAIL:${code}`);
         }
-        if (p.system_quality_outcome === 'FAIL') {
-          reasons.push('Rule Mismatch');
-        }
-        if (reasons.length === 0) {
-          reasons.push('Quality Exception');
-        }
+        const plantReasons = describeReasons(plantCodes, plantTests);
+        const reasons = plantReasons.chips.length ? plantReasons.chips : ['Sent for review'];
 
         items.push({
           id: `plant_portion_${p.id}`,
@@ -1095,6 +1078,7 @@ export async function getApprovalInbox(
             plantSealNumberEntered: p.plant_seal_number_entered,
             sealMatch: p.seal_match,
             testValues,
+            reasons: plantReasons.sentences,
             personDecision: p.manager_requested_decision === 'REJECT' ? 'REJECT' : 'ACCEPT',
             personRemarks: p.manager_review_reason,
             metadata: {

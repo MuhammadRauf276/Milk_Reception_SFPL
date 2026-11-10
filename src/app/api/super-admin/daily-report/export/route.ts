@@ -1,4 +1,4 @@
-import { getOperationalBusinessDate } from '@/backend/core/business-day';
+import { getPakistanCalendarDate, parseDateBasis } from '@/backend/core/business-day';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import {
@@ -19,11 +19,12 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const date = searchParams.get('date') || getOperationalBusinessDate(new Date());
+  const date = searchParams.get('date') || getPakistanCalendarDate();
+  const dateBasis = parseDateBasis(searchParams.get('basis'));
   const zmccId = searchParams.get('zmccId') || undefined;
 
   try {
-    const reportData = await getSuperAdminDailyReportData({ date, zmccId });
+    const reportData = await getSuperAdminDailyReportData({ date, zmccId, dateBasis });
     const buffer = await generateDailyReportExcel(reportData);
 
     const filename = `shakarganj-daily-report-${date}.xlsx`;

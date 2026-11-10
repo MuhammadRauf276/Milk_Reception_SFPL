@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { planTankCorrectionRows } from '../tankCorrectionLedger';
 import { resolveCollectionTime } from '../mot/collectionTime';
-import { getPakistanDayWindow } from '../../core/business-day';
+import { getBusinessDayWindow, getPakistanDayWindow, plantVisitDateWhere } from '../../core/business-day';
 
 test('no change writes no ledger row', () => {
   assert.deepEqual(planTankCorrectionRows(0, 0), []);
@@ -72,11 +72,21 @@ test('a time after the journey ended moves back to the end and is flagged', () =
 
 test('the business day runs 08:00 to 08:00 Pakistan time', () => {
   const day = getPakistanDayWindow('2026-11-09');
-  assert.equal(day.start.toISOString(), '2026-11-09T03:00:00.000Z');
-  assert.equal(day.end.toISOString(), '2026-11-10T02:59:59.999Z');
+  assert.equal(day.start.toISOString(), '2026-11-08T19:00:00.000Z');
+  assert.equal(day.end.toISOString(), '2026-11-09T18:59:59.999Z');
   assert.equal(day.dateStart.toISOString(), '2026-11-09T00:00:00.000Z');
+  const business = getBusinessDayWindow('2026-11-09');
+  assert.equal(business.start.toISOString(), '2026-11-09T03:00:00.000Z');
+  assert.equal(business.end.toISOString(), '2026-11-10T02:59:59.999Z');
 });
 
 test('the business day crosses a month end', () => {
-  assert.equal(getPakistanDayWindow('2026-11-30').end.toISOString(), '2026-12-01T02:59:59.999Z');
+  assert.equal(getBusinessDayWindow('2026-11-30').end.toISOString(), '2026-12-01T02:59:59.999Z');
+});
+
+test('plant reports filter by calendar time or by business date', () => {
+  const calendar = plantVisitDateWhere('calendar', '2026-11-09') as { business_date_set_at: { gte: Date; lte: Date } };
+  assert.equal(calendar.business_date_set_at.gte.toISOString(), '2026-11-08T19:00:00.000Z');
+  const business = plantVisitDateWhere('business', '2026-11-09', '2026-11-10') as { operational_date: { gte: Date; lte: Date } };
+  assert.equal(business.operational_date.lte.toISOString(), '2026-11-10T23:59:59.999Z');
 });
