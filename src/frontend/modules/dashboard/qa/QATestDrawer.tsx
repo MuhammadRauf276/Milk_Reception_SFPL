@@ -25,6 +25,7 @@ import type { User } from '@core/types';
 import { evaluateAllCalculatedTests } from '@/lib/calculated-tests';
 import { buildSopChipText } from '@/lib/sop-chip';
 import { pickRoleTest, isCalculatedTest, calculatedValueFor } from '@/lib/lab-test-roles';
+import { stampEmployeeCode, stampRoleLabel } from '@/lib/photo/stampIdentity';
 
 export interface QATestDrawerProps {
   isOpen: boolean;
@@ -722,8 +723,8 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
       {cameraTest && (
         <LiveCamera
           stamp={{
-            employeeCode: currentUser?.username || 'QA-OPERATOR',
-            roleLabel: currentUser?.role || 'Plant QA Reception',
+            employeeCode: stampEmployeeCode(currentUser),
+            roleLabel: stampRoleLabel(currentUser),
             actingAsLabel: null,
             pointLabel: `Plant QA - ${cameraTest.testName}`,
             vehicleNo: visitDetail.vehicle_number || null,

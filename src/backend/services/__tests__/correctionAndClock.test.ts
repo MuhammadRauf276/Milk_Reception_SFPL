@@ -85,8 +85,8 @@ test('the business day crosses a month end', () => {
 });
 
 test('plant reports filter by calendar time or by business date', () => {
-  const calendar = plantVisitDateWhere('calendar', '2026-11-09') as { business_date_set_at: { gte: Date; lte: Date } };
-  assert.equal(calendar.business_date_set_at.gte.toISOString(), '2026-11-08T19:00:00.000Z');
+  const calendar = plantVisitDateWhere('calendar', '2026-11-09') as { OR: Array<{ weight_ticket: { gross_timestamp: { gte: Date } } }> };
+  assert.equal(calendar.OR[0].weight_ticket.gross_timestamp.gte.toISOString(), '2026-11-08T19:00:00.000Z');
   const business = plantVisitDateWhere('business', '2026-11-09', '2026-11-10') as { operational_date: { gte: Date; lte: Date } };
   assert.equal(business.operational_date.lte.toISOString(), '2026-11-10T23:59:59.999Z');
 });

@@ -419,6 +419,192 @@ export async function getSiloProvisionalAvailableCapacity(siloIdInput: bigint | 
  * AUTHORITATIVE RULE: Uses calculateVehicleReceivedQuantity engine.
  * QA remains portion-wise, final Plant received quantity remains vehicle-wise.
  */
+/** What was sent, less the compartments the plant rejected. Transit loss compares received milk against this. */
+function effectiveSentFigures(
+  visit: {
+    portions: Array<{ plant_decision: string | null; dispatch_quantity_value: Prisma.Decimal | null; dispatch_quantity_unit: string | null }>;
+    vehicle_dispatch_lr: Prisma.Decimal | null;
+  },
+  sentGrossLiters: number | null,
+  sentAt13tsLiters: number | null
+) {
+  // Partial Rejection Isolation: Exclude dispatched volume of rejected compartments from transit loss evaluation
+  const rejectedPortions = (visit.portions || []).filter((p) => p.plant_decision === 'REJECTED');
+  let rejectedGrossLiters = 0;
+
+  if (rejectedPortions.length > 0 && sentGrossLiters !== null) {
+    const totalPortionsCount = visit.portions.length || 1;
+    for (const rp of rejectedPortions) {
+      if (rp.dispatch_quantity_value && Number(rp.dispatch_quantity_value) > 0) {
+        const rpUnit = (rp.dispatch_quantity_unit || 'LITER').toUpperCase();
+        if (['KG', 'KGS'].includes(rpUnit)) {
+          const dispatchLr = visit.vehicle_dispatch_lr != null ? Number(visit.vehicle_dispatch_lr) : 0;
+          rejectedGrossLiters += dispatchLr > 0
+            ? calculatePhysicalLiters(Number(rp.dispatch_quantity_value), dispatchLr)
+            : sentGrossLiters / totalPortionsCount;
+        } else {
+          rejectedGrossLiters += Number(rp.dispatch_quantity_value);
+        }
+      } else {
+        rejectedGrossLiters += sentGrossLiters / totalPortionsCount;
+      }
+    }
+  }
+
+  const effectiveSentGrossLiters = sentGrossLiters !== null ? Math.max(0, sentGrossLiters - rejectedGrossLiters) : null;
+  const effectiveSentAt13tsLiters = sentAt13tsLiters !== null && sentGrossLiters && sentGrossLiters > 0
+    ? Math.max(0, sentAt13tsLiters * (1 - Math.min(1, rejectedGrossLiters / sentGrossLiters)))
+    : sentAt13tsLiters;
+
+  return { effectiveSentGrossLiters, effectiveSentAt13tsLiters };
+}
+
+/**
+ * Moves a portion's milk to another silo after a Super Admin corrects the unloading record. A receipt covering the
+ * whole vehicle moves as one, with every accepted portion. Both silos are checked before anything moves.
+ */
+export async function moveUnloadingSiloTx(tx: Prisma.TransactionClient, visitId: bigint, portionId: bigint, targetSiloId: bigint): Promise<void> {
+  const target = await tx.silo.findUnique({ where: { id: targetSiloId } });
+  if (!target) throw new Error('Silo not found.');
+  if (!target.is_active) throw new Error(`Silo ${target.silo_code} is inactive.`);
+  const receipts = await tx.siloInventoryTransaction.findMany({ where: { visit_id: visitId, transaction_type: SiloTransactionType.RECEIPT } });
+  const own = receipts.find((r) => r.portion_id === portionId && r.idempotency_key?.includes(':PORTION:'));
+  const toMove = own ? [own] : receipts;
+  for (const id of new Set([targetSiloId, ...toMove.map((r) => r.silo_id)])) {
+    await tx.$executeRaw`SELECT id FROM silo WHERE id = ${id} FOR UPDATE`;
+  }
+  const moving = toMove.filter((r) => r.silo_id !== targetSiloId);
+  const liters = moving.reduce((n, r) => n + Number(r.quantity_liters ?? 0), 0);
+  if (liters > 0) {
+    const targetStock = await getSiloStockVolumeState(targetSiloId, tx);
+    if (targetStock.knownLiters + liters > Number(target.capacity_liters)) throw new Error(`Silo ${target.silo_code} has no room for ${Math.round(liters)} L.`);
+  }
+  for (const r of moving) {
+    const stock = await getSiloStockVolumeState(r.silo_id, tx);
+    if (stock.knownLiters - Number(r.quantity_liters ?? 0) < 0) throw new Error('This milk has already been issued from its silo, so it cannot be moved.');
+    await tx.siloInventoryTransaction.update({ where: { id: r.id }, data: { silo_id: targetSiloId } });
+  }
+  const portionIds = receipts.length > 0 && !own
+    ? (await tx.visitPortion.findMany({ where: { visit_id: visitId, plant_decision: 'ACCEPTED' }, select: { id: true } })).map((p) => p.id)
+    : [portionId];
+  await tx.unloadingLog.updateMany({
+    where: { portion_id: { in: portionIds.includes(portionId) ? portionIds : [...portionIds, portionId] } },
+    data: { silo_id: targetSiloId, silo_number: target.silo_code },
+  });
+}
+
+/**
+ * Recalculates a posted final receipt after a Super Admin corrects plant weights or QA results: the silo receipt rows and
+ * the dual reconciliation move together. Run inside the correction's transaction, after the corrected values are saved.
+ */
+export async function recomputeFinalReceiptTx(tx: Prisma.TransactionClient, visitId: bigint): Promise<void> {
+  const visit = await tx.vehicleVisit.findUnique({
+    where: { id: visitId },
+    include: { portions: { include: { unloading_log: true, plant_lab_results: { include: { lab_test: true } } } }, weight_ticket: true },
+  });
+  if (!visit?.weight_ticket || visit.weight_ticket.gross_weight_kg === null || visit.weight_ticket.tare_weight_kg === null) {
+    throw new Error('Gross or tare weight is missing, so the final receipt cannot be recalculated.');
+  }
+  const calc = calculateVehicleReceivedQuantity({
+    grossWeightKg: Number(visit.weight_ticket.gross_weight_kg),
+    secondWeightKg: Number(visit.weight_ticket.tare_weight_kg),
+    testMode: visit.test_mode || 'COMPOSITE',
+    portions: visit.portions.map((p) => ({
+      portionId: p.id,
+      portionNumber: p.portion_number,
+      netWeightKg: p.net_weight_kg !== null ? Number(p.net_weight_kg) : null,
+      plantDecision: p.plant_decision,
+      plantLabResults: p.plant_lab_results.map((r) => ({
+        testCode: r.lab_test?.testCode || null,
+        testName: r.lab_test?.testName || null,
+        systemRole: r.lab_test?.systemRole ?? null,
+        numericValue: r.numeric_value !== null ? Number(r.numeric_value) : null,
+        performanceStatus: r.performance_status || null,
+      })),
+    })),
+  });
+  if (!calc.isCalculable) throw new Error(calc.message || 'These values cannot be used to calculate the received milk.');
+
+  const receipts = await tx.siloInventoryTransaction.findMany({ where: { visit_id: visitId, transaction_type: SiloTransactionType.RECEIPT } });
+  if (receipts.length === 0) throw new Error('The final silo receipt was not found.');
+  for (const siloId of new Set(receipts.map((r) => r.silo_id))) {
+    await tx.$executeRaw`SELECT id FROM silo WHERE id = ${siloId} FOR UPDATE`;
+  }
+
+  const basis = calc.internalCalculationBasis;
+  let receivedLiters = calc.finalPhysicalLiters;
+  let receivedAt13 = calc.finalAt13TSLiters;
+  const plans = receipts.map((r) => {
+    const portion = r.idempotency_key?.includes(':PORTION:') ? visit.portions.find((p) => p.id === r.portion_id) : undefined;
+    if (!portion) {
+      return { r, kg: calc.netWeightKg, liters: calc.finalPhysicalLiters, at13: calc.finalAt13TSLiters, lr: basis.averagePlantLr, fat: basis.averagePlantFat, density: calc.vehicleDensity, snf: calc.vehicleSnf, ts: calc.vehicleTs };
+    }
+    const find = (test: typeof isPlantLrTest) => portion.plant_lab_results.find((x) => test(x.lab_test?.testCode, x.lab_test?.testName, x.lab_test?.systemRole) && x.performance_status === 'PERFORMED');
+    const lrRow = find(isPlantLrTest);
+    const fatRow = find(isPlantFatTest);
+    const lr = lrRow ? Number(lrRow.numeric_value) : basis.averagePlantLr;
+    const fat = fatRow ? Number(fatRow.numeric_value) : basis.averagePlantFat;
+    const kg = Number(portion.net_weight_kg);
+    const liters = calculatePhysicalLiters(kg, lr);
+    const snf = calculateSNF(lr, fat);
+    const ts = calculateTS(fat, snf);
+    return { r, kg, liters, at13: calculateAt13TSLiters(liters, ts), lr, fat, density: calculateDensity(lr), snf, ts };
+  });
+  if (plans.length > 1) {
+    receivedLiters = plans.reduce((n, p) => n + p.liters, 0);
+    receivedAt13 = plans.reduce((n, p) => n + p.at13, 0);
+  }
+
+  for (const p of plans) {
+    const delta = p.liters - Number(p.r.quantity_liters ?? 0);
+    if (Math.abs(delta) >= 0.005) {
+      const silo = await tx.silo.findUnique({ where: { id: p.r.silo_id } });
+      const stock = await getSiloStockVolumeState(p.r.silo_id, tx);
+      if (stock.knownLiters + delta < 0) throw new Error(`This correction would take silo ${silo?.silo_code} below zero. Stock is ${Math.round(stock.knownLiters)} L.`);
+      if (silo && stock.knownLiters + delta > Number(silo.capacity_liters)) throw new Error(`Silo ${silo.silo_code} has no room for this correction.`);
+    }
+    await tx.siloInventoryTransaction.update({
+      where: { id: p.r.id },
+      data: {
+        quantity_kg: new Prisma.Decimal(p.kg),
+        quantity_liters: new Prisma.Decimal(p.liters),
+        plant_composite_lr: new Prisma.Decimal(p.lr),
+        plant_composite_fat: new Prisma.Decimal(p.fat),
+        plant_density: new Prisma.Decimal(p.density),
+        plant_snf: new Prisma.Decimal(p.snf),
+        plant_ts: new Prisma.Decimal(p.ts),
+        plant_final_at_13ts_liters: new Prisma.Decimal(p.at13),
+        plant_calculation_version: calc.plantCalculationVersion,
+      },
+    });
+  }
+
+  const sentGross = visit.vehicle_dispatch_gross_liters !== null ? Number(visit.vehicle_dispatch_gross_liters) : null;
+  const sentAt13 = visit.vehicle_dispatch_at_13ts_liters !== null ? Number(visit.vehicle_dispatch_at_13ts_liters) : null;
+  const { effectiveSentGrossLiters, effectiveSentAt13tsLiters } = effectiveSentFigures(visit, sentGross, sentAt13);
+  const dual = calculateDualReconciliation({
+    sentGrossLiters: effectiveSentGrossLiters,
+    receivedGrossLiters: receivedLiters,
+    sentAt13tsLiters: effectiveSentAt13tsLiters,
+    receivedAt13tsLiters: receivedAt13,
+  });
+  const dec = (v: number | null) => (v !== null ? new Prisma.Decimal(v) : null);
+  await tx.plantFinalDualReconciliation.update({
+    where: { visit_id: visitId },
+    data: {
+      sent_gross_liters: dec(dual.sentGrossLiters),
+      received_gross_liters: new Prisma.Decimal(dual.receivedGrossLiters),
+      gross_variance_liters: dec(dual.grossVarianceLiters),
+      gross_variance_percent: dec(dual.grossVariancePercent),
+      sent_at_13ts_liters: dec(dual.sentAt13tsLiters),
+      received_at_13ts_liters: new Prisma.Decimal(dual.receivedAt13tsLiters),
+      at_13ts_variance_liters: dec(dual.at13tsVarianceLiters),
+      at_13ts_variance_percent: dec(dual.at13tsVariancePercent),
+      reconciliation_calculation_version: dual.reconciliationCalculationVersion,
+    },
+  });
+}
+
 /**
  * Internal executor of vehicle final silo receipt.
  * Must run inside an atomic transaction (either user-provided txPrisma or root prisma.$transaction).
@@ -721,33 +907,7 @@ async function executeFinalizeSiloReceiptForVisit(
       ? Number(visit.vehicle_dispatch_at_13ts_liters)
       : null;
 
-  // Partial Rejection Isolation: Exclude dispatched volume of rejected compartments from transit loss evaluation
-  const rejectedPortions = (visit.portions || []).filter((p) => p.plant_decision === 'REJECTED');
-  let rejectedGrossLiters = 0;
-
-  if (rejectedPortions.length > 0 && sentGrossLiters !== null) {
-    const totalPortionsCount = visit.portions.length || 1;
-    for (const rp of rejectedPortions) {
-      if (rp.dispatch_quantity_value && Number(rp.dispatch_quantity_value) > 0) {
-        const rpUnit = (rp.dispatch_quantity_unit || 'LITER').toUpperCase();
-        if (['KG', 'KGS'].includes(rpUnit)) {
-          const dispatchLr = visit.vehicle_dispatch_lr != null ? Number(visit.vehicle_dispatch_lr) : 0;
-          rejectedGrossLiters += dispatchLr > 0
-            ? calculatePhysicalLiters(Number(rp.dispatch_quantity_value), dispatchLr)
-            : sentGrossLiters / totalPortionsCount;
-        } else {
-          rejectedGrossLiters += Number(rp.dispatch_quantity_value);
-        }
-      } else {
-        rejectedGrossLiters += sentGrossLiters / totalPortionsCount;
-      }
-    }
-  }
-
-  const effectiveSentGrossLiters = sentGrossLiters !== null ? Math.max(0, sentGrossLiters - rejectedGrossLiters) : null;
-  const effectiveSentAt13tsLiters = sentAt13tsLiters !== null && sentGrossLiters && sentGrossLiters > 0
-    ? Math.max(0, sentAt13tsLiters * (1 - Math.min(1, rejectedGrossLiters / sentGrossLiters)))
-    : sentAt13tsLiters;
+  const { effectiveSentGrossLiters, effectiveSentAt13tsLiters } = effectiveSentFigures(visit, sentGrossLiters, sentAt13tsLiters);
 
   const dualRecon = calculateDualReconciliation({
     sentGrossLiters: effectiveSentGrossLiters,

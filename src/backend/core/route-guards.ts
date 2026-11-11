@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/backend/core/auth';
 import type { User } from '@/backend/core/types';
 import type { ActingContext, DelegationMode, ScopeFailure } from '@/types/acting';
 import { resolveActingContext } from '@/backend/core/acting-context';
-import { isCorrectionAuthority, isDeviceAdministrator } from '@/backend/core/roles/capabilities';
+import { isCorrectionAuthority, isDeviceAdministrator, isDirectEditAuthority } from '@/backend/core/roles/capabilities';
 
 /** Header a client may send to ask to act as a role below its own. Validated server side. */
 export const ACTING_AS_HEADER = 'x-acting-as';
@@ -78,6 +78,17 @@ export async function requireCorrectionAuthority(req: Request): Promise<RoleGuar
   const guard = await requireRoles(req, ['SUPER_ADMIN', 'DATA_EXECUTIVE'], { delegation: 'none', requestedAs: null });
   if ('response' in guard) return guard;
   if (!isCorrectionAuthority(guard.acting.actorRole)) return { response: forbidden() };
+  return guard;
+}
+
+/**
+ * Change a saved record directly, without a ticket: SUPER_ADMIN only.
+ * Non-delegable, so the acting-as header is ignored and the result is never delegated.
+ */
+export async function requireDirectEditAuthority(req: Request): Promise<RoleGuardResult> {
+  const guard = await requireRoles(req, ['SUPER_ADMIN'], { delegation: 'none', requestedAs: null });
+  if ('response' in guard) return guard;
+  if (!isDirectEditAuthority(guard.acting.actorRole)) return { response: forbidden() };
   return guard;
 }
 

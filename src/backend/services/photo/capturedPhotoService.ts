@@ -196,6 +196,8 @@ export interface SaveCapturedPhotoInput {
   bytes: Buffer;
   actor: AuditActor & { userId: bigint };
   now?: Date;
+  /** Where to store the file, relative to the storage root (see photoStoragePath.ts). */
+  relPath?: string;
 }
 
 export function photoStorageRoot(): string {
@@ -291,7 +293,7 @@ export async function saveCapturedPhoto(
 
   const yyyy = String(now.getUTCFullYear());
   const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
-  const relPath = `${yyyy}/${mm}/${meta.testingPoint}/${meta.captureId}.jpg`;
+  const relPath = input.relPath ?? `${yyyy}/${mm}/${meta.testingPoint}/${meta.captureId}.jpg`;
   const fileSystem = fs ?? (await defaultFs());
   const fullPath = path.join(/*turbopackIgnore: true*/ photoStorageRoot(), ...relPath.split('/'));
   const tmpPath = `${fullPath}.${randomBytes(6).toString('hex')}.tmp`;

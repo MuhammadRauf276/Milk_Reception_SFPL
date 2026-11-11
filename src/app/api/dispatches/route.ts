@@ -714,7 +714,7 @@ export async function POST(req: Request) {
 
       // Clean up previous portions/results if resubmitting a REOPENED visit
       await tx.dispatchLabResult.deleteMany({ where: { visit_id: existingVisit.id } });
-      const oldPortions = await tx.visitPortion.findMany({ where: { visit_id: existingVisit.id }, select: { id: true } });
+      const oldPortions = await tx.visitPortion.findMany({ where: { visit_id: existingVisit.id }, select: { id: true, portion_number: true } });
       if (oldPortions.length > 0) {
         await tx.dispatchInfo.deleteMany({ where: { portion_id: { in: oldPortions.map((p) => p.id) } } });
         await tx.visitPortion.deleteMany({ where: { visit_id: existingVisit.id } });
@@ -854,6 +854,11 @@ export async function POST(req: Request) {
           },
         });
         createdPortions.push(portion);
+        // A resubmitted dispatch gets new portion records; its saved photos move to the portion with the same number.
+        const previous = oldPortions.find((p) => p.portion_number === portion.portion_number);
+        if (previous) {
+          await tx.capturedPhoto.updateMany({ where: { entity_type: 'dispatch_portion', entity_id: previous.id }, data: { entity_id: portion.id } });
+        }
 
         const portionChrono = validateOperationalTimestamp(portionInput.dispatchTimestamp || validated.operationalDate, null, 'Dispatch', 'Baseline');
         await tx.dispatchInfo.create({

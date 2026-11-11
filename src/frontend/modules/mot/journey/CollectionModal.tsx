@@ -7,6 +7,7 @@ import { getRoleLabel } from '@/backend/core/roles/labels';
 import { ShopCollectionWizard } from '../ShopCollectionWizard';
 import type { useCollection } from './useCollection';
 import type { CurrentJourney } from './types';
+import { stampEmployeeCode } from '@/lib/photo/stampIdentity';
 
 interface Props {
   collection: ReturnType<typeof useCollection>;
@@ -68,7 +69,7 @@ export function CollectionModal({ collection: c, currentUser, journey, isCoverin
                   onPhotoTaken: (test, result) => void handlePhotoTaken(test, result),
                   onPhotoRemoved: handlePhotoRemoved,
                   stamp: {
-                    employeeCode: currentUser.username,
+                    employeeCode: stampEmployeeCode(currentUser),
                     roleLabel: getRoleLabel(currentUser.role),
                     actingAsLabel: isCovering ? getRoleLabel('MOT') : null,
                     vehicleNo: journey?.mot_vehicle?.vehicle_number || null,

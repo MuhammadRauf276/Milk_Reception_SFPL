@@ -16,6 +16,7 @@ import {
 } from '@/backend/services/photo/capturedPhotoService';
 import type { CapturedPhotoMeta } from '@/types/captured-photo';
 import type { AuditActor } from '@/backend/core/audit';
+import { photoRelPathFor } from '@/backend/services/photo/photoStoragePath';
 
 // Field roles that take photos; roles above them are added by resolveActingContext (delegation 'ancestors').
 const PHOTO_CAPTURE_ROLES = [
@@ -121,7 +122,16 @@ export async function POST(req: Request) {
 
   try {
     const bytes = Buffer.from(await file.arrayBuffer());
-    const result = await saveCapturedPhoto({ meta, bytes, actor });
+    const relPath = await photoRelPathFor(prisma, {
+      entityType,
+      entityId: BigInt(meta.entityId),
+      labTestId: meta.labTestId ? BigInt(meta.labTestId) : null,
+      testingPoint: meta.testingPoint,
+      photoKind: meta.photoKind,
+      captureId: meta.captureId,
+      takenAt: Number.isNaN(Date.parse(meta.deviceCapturedAt)) ? new Date() : new Date(meta.deviceCapturedAt),
+    }).catch(() => undefined);
+    const result = await saveCapturedPhoto({ meta, bytes, actor, relPath });
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof PhotoError) return bad(err.message, err.status, err.code);

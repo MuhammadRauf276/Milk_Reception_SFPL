@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, Loader2, Undo2, TriangleAlert, Check, X } from 'lucide-react';
 import { captureFrame } from '@/lib/photo/captureFrame';
 import type { LiveCameraResult, StampInfo } from '@/types/captured-photo';
+import { isStampIdentityKnown } from '@/lib/photo/stampIdentity';
 
 export interface LiveCameraProps {
   /** Text for the stamp band. captureId and offline are filled in automatically. */
@@ -38,6 +39,8 @@ function getGpsOnce(): Promise<LiveCameraResult['gps']> {
 }
 
 export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCancel }) => {
+  // The name is printed into the picture, so a photo is never taken before the signed-in person is known.
+  const identityReady = isStampIdentityKnown(stamp.employeeCode) && isStampIdentityKnown(stamp.roleLabel);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -246,11 +249,11 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
           <button
             type="button"
             onClick={() => void handleTake()}
-            disabled={phase === 'working'}
+            disabled={phase === 'working' || !identityReady}
             className="inline-flex h-14 min-w-[220px] items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 text-lg font-semibold text-white shadow-lg disabled:opacity-60 hover:bg-emerald-600 transition-colors"
           >
             {phase === 'working' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
-            {phase === 'working' ? 'Please wait' : 'Take photo'}
+            {phase === 'working' ? 'Please wait' : identityReady ? 'Take photo' : 'Loading your details…'}
           </button>
         )}
         {phase === 'review' && result && (

@@ -3,6 +3,7 @@ import {
   getMotArrivalById,
   correctMotArrival,
 } from '@/backend/services/zmccArrivalService';
+import { requireDirectEditAuthority } from '@/backend/core/route-guards';
 
 export async function GET(
   req: Request,
@@ -25,6 +26,8 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const guard = await requireDirectEditAuthority(req);
+  if ('response' in guard) return guard.response;
   try {
     const { id } = await params;
     const body = await req.json();

@@ -55,7 +55,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   const isZmccLabAttendant = currentUser?.role === 'ZMCC_LAB_ATTENDANT';
   // Superiors may do lab work in their own ZMCC (delegation).
   const canTest = isZmccLabAttendant || isZmccManager || currentUser?.role === 'HEAD_OF_MPD' || isSuperAdmin;
-  const canDirectCorrect = isDataExecutive || isSuperAdmin;
+  const canDirectCorrect = isSuperAdmin;
 
   type LabHistoryPortion = { id: string; portionNumber: number; lr: number | null; fat: number | null; netWeightKg: number | null };
   const [requestCorrectionModal, setRequestCorrectionModal] = useState<{
@@ -569,7 +569,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
           fetchHistory={fetchHistory}
           canTest={canTest}
           canDirectCorrect={canDirectCorrect}
-          canRequestCorrection={!canDirectCorrect}
+          canRequestCorrection={!canDirectCorrect && !isDataExecutive}
           showLitres={!isZmccLabAttendant}
           openCorrection={openCorrection}
           openRequestCorrection={openRequestCorrection}

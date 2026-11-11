@@ -40,6 +40,7 @@ import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 import { buildSopChipText } from '@/lib/sop-chip';
 import { useServerDraft } from '@/frontend/hooks/useServerDraft';
 import { exceptionReasonShort } from '@/lib/exceptionReasons';
+import { stampEmployeeCode, stampRoleLabel } from '@/lib/photo/stampIdentity';
 
 export interface LabPortionsPanelProps {
   sessionId: string;
@@ -128,7 +129,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
   const [photos, setPhotos] = useState<Record<string, Record<string, string>>>({}); // portionId -> labTestId -> captureId
   const [camera, setCamera] = useState<{ portion: LabPortionView; test: LabPolicyTest } | null>(null);
   const [activePortionModal, setActivePortionModal] = useState<LabPortionView | null>(null);
-  const [me, setMe] = useState<{ code: string; role: string }>({ code: 'unknown', role: 'unknown' });
+  const [me, setMe] = useState<{ code: string; role: string }>({ code: '', role: '' });
 
   const queryClient = useQueryClient();
 
@@ -164,8 +165,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
   const { currentUser } = useCurrentUser();
   useEffect(() => {
     if (!currentUser) return;
-    const code = (currentUser as { employee_code?: string }).employee_code || currentUser.username || 'unknown';
-    setMe({ code, role: currentUser.role || 'unknown' });
+    setMe({ code: stampEmployeeCode(currentUser), role: stampRoleLabel(currentUser) });
   }, [currentUser]);
 
   const anyDecided = !!state?.portions.some((p) => p.personDecision !== null || p.finalDecision !== 'PENDING');

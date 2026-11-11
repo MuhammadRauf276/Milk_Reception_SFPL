@@ -50,6 +50,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ captureId: stri
     return NextResponse.json({ error: user ? 'Forbidden.' : 'Unauthorized.' }, { status: user ? 403 : 401 });
   }
 
+  const etag = `"${photo.sha256}${new URL(req.url).searchParams.get('w') === String(THUMBNAIL_WIDTH) ? '-t' : ''}"`;
+  if (req.headers.get('if-none-match') === etag) return new NextResponse(null, { status: 304, headers: { ETag: etag, 'Cache-Control': 'private, no-cache' } });
+
   const full = resolvePhotoPath(photo.file_path);
   if (!full) return NextResponse.json({ error: 'Photo not found.' }, { status: 404 });
   try {
@@ -59,8 +62,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ captureId: stri
       headers: {
         'Content-Type': 'image/jpeg',
         'Content-Length': String(data.length),
-        // A capture id always means the same image, so the browser never has to ask for it twice.
-        'Cache-Control': 'private, max-age=31536000, immutable',
+        // A Super Admin can replace a picture, so the browser checks it is still current.
+        'Cache-Control': 'private, no-cache',
+        ETag: `"${photo.sha256}${wantsThumbnail ? '-t' : ''}"`,
         'X-Content-Type-Options': 'nosniff',
       },
     });

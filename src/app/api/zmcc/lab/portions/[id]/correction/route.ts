@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { correctLabPortion } from '@/backend/services/zmcc/labPortionCorrectionService';
+import { requireDirectEditAuthority } from '@/backend/core/route-guards';
 
 /** Body: { reason, version, lr?, fat?, net_weight_kg?, idempotency_key? } */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const guard = await requireDirectEditAuthority(req);
+  if ('response' in guard) return guard.response;
   try {
     const { id } = await params;
     const body = await req.json().catch(() => null);

@@ -117,7 +117,7 @@ export function getBusinessDayWindow(date: string = getOperationalBusinessDate(n
 
 /**
  * How a plant report places a vehicle on a day.
- * - calendar: the Pakistan date of its plant business-date time (business_date_set_at), as people read it.
+ * - calendar: the Pakistan date of its first weight, as people read it (a vehicle never weighed: its business-date time).
  * - business: its plant business date (operational_date), the 08:00 to 08:00 day.
  */
 export type DateBasis = 'calendar' | 'business';
@@ -131,5 +131,6 @@ export function plantVisitDateWhere(basis: DateBasis, fromDate: string, toDate: 
   if (basis === 'business') {
     return { operational_date: { gte: new Date(`${fromDate}T00:00:00.000Z`), lte: new Date(`${toDate}T23:59:59.999Z`) } };
   }
-  return { business_date_set_at: { gte: getPakistanDayWindow(fromDate).start, lte: getPakistanDayWindow(toDate).end } };
+  const range = { gte: getPakistanDayWindow(fromDate).start, lte: getPakistanDayWindow(toDate).end };
+  return { OR: [{ weight_ticket: { gross_timestamp: range } }, { weight_ticket: { is: null }, business_date_set_at: range }] };
 }

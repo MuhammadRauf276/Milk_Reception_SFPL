@@ -5,6 +5,7 @@ import { Camera, Check, Eye, X, Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { LiveCamera } from '@/components/camera/LiveCamera';
 import type { LiveCameraResult } from '@/types/captured-photo';
+import { stampEmployeeCode, stampRoleLabel } from '@/lib/photo/stampIdentity';
 
 export interface LiveCameraCaptureProps {
   testType: 'LR' | 'FAT' | string;
@@ -39,7 +40,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
   const [cameraOpen, setCameraOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [me, setMe] = useState<{ code: string; role: string }>({ code: 'unknown', role: 'unknown' });
+  const [me, setMe] = useState<{ code: string; role: string }>({ code: '', role: '' });
 
   const testLabel = testType.toUpperCase().includes('FAT') ? 'FAT' : 'LR';
 
@@ -50,7 +51,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const u = d?.user;
-        if (alive && u) setMe({ code: u.employee_code || u.username || 'unknown', role: u.role || 'unknown' });
+        if (alive && u) setMe({ code: stampEmployeeCode(u), role: stampRoleLabel(u) });
       })
       .catch(() => undefined);
     return () => {

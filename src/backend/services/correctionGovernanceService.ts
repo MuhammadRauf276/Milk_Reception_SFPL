@@ -7,6 +7,9 @@ import { Prisma } from '@prisma/client';
 import { toJsonInput } from '@/lib/json';
 import { correctCompletedSession } from '@/backend/services/zmccLabService';
 import { correctLabPortion } from '@/backend/services/zmcc/labPortionCorrectionService';
+import { correctDispatchVisit, type CorrectionResponse } from '@/backend/services/corrections/dispatchCorrection';
+import { correctPlantQaResults } from '@/backend/services/corrections/plantQaCorrection';
+import { correctPlantReception } from '@/backend/services/corrections/plantReceptionCorrection';
 import { correctShopCollection } from '@/backend/services/mot/motCore';
 import { correctMotArrival, correctLocalSupplierArrival } from '@/backend/services/zmccArrivalService';
 
@@ -26,14 +29,53 @@ export const CORRECTION_TICKET_MODULES = [
 ] as const;
 
 /** Modules whose "Apply" changes the record. The rest are fixed on the record by hand; Apply then only closes the ticket. */
-export const AUTO_APPLY_MODULES: ReadonlySet<string> = new Set(['ZMCC_LAB_SESSION', 'MOT_SHOP_COLLECTION', 'ZMCC_MC_ARRIVAL', 'ZMCC_HC_ARRIVAL']);
+export const AUTO_APPLY_MODULES: ReadonlySet<string> = new Set([
+  'ZMCC_LAB_SESSION',
+  'MOT_SHOP_COLLECTION',
+  'ZMCC_MC_ARRIVAL',
+  'ZMCC_HC_ARRIVAL',
+  'VEHICLE_VISIT',
+  'PLANT_QA_MEASUREMENT',
+]);
+
+const PLANT_RECEPTION_FIELDS = ['token_number', 'vehicle_number', 'gross_weight_kg', 'tare_weight_kg'];
+
+/** A vehicle ticket's changes, split between the dispatch record and the plant reception. */
+export function splitVisitTicketChanges(changes: Record<string, unknown>) {
+  const dispatch: Record<string, unknown> = {};
+  const plant: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(changes)) {
+    if (PLANT_RECEPTION_FIELDS.includes(key)) plant[key] = value;
+    else if (key === 'raw_milk_dispatch_note_number' || key.startsWith('vehicle_dispatch_')) dispatch[key] = value;
+  }
+  return { dispatch, plant };
+}
+
+/** The message from a failed correction, as an error, so the ticket stays open. */
+function assertCorrected(res: CorrectionResponse, label: string) {
+  if (res.status < 400) return;
+  throw new Error(`${label}: ${res.body?.message || res.body?.error || 'The correction was refused.'}`);
+}
 
 /** A lab ticket's changes, split by where they are corrected. Keys: portion:<id>:lr|fat|net_weight_kg, result_<testId>. */
 export function splitLabTicketChanges(changes: Record<string, unknown>) {
-  const portions = new Map<string, { lr?: number; fat?: number; net_weight_kg?: number }>();
-  const results: Array<{ test_id: string; numeric_value?: number | null; text_value?: string | null }> = [];
+  type ResultChange = { test_id: string; numeric_value?: number | null; text_value?: string | null };
+  const toResult = (testId: string, raw: unknown): ResultChange => {
+    const n = Number(raw);
+    return typeof raw === 'number' || (typeof raw === 'string' && raw.trim() !== '' && Number.isFinite(n))
+      ? { test_id: testId, numeric_value: n }
+      : { test_id: testId, text_value: raw === null || raw === undefined ? null : String(raw) };
+  };
+  const portions = new Map<string, { lr?: number; fat?: number; net_weight_kg?: number; first_weight_kg?: number; second_weight_kg?: number; results?: ResultChange[] }>();
+  const results: ResultChange[] = [];
   for (const [key, raw] of Object.entries(changes)) {
-    const p = /^portion:(\d{1,18}):(lr|fat|net_weight_kg)$/.exec(key);
+    const pr = /^portion:(\d{1,18}):result_(\d{1,18})$/.exec(key);
+    if (pr) {
+      const current = portions.get(pr[1]);
+      portions.set(pr[1], { ...current, results: [...(current?.results ?? []), toResult(pr[2], raw)] });
+      continue;
+    }
+    const p = /^portion:(\d{1,18}):(lr|fat|net_weight_kg|first_weight_kg|second_weight_kg)$/.exec(key);
     if (p) {
       const n = Number(raw);
       if (raw === null || raw === '' || !Number.isFinite(n)) throw new Error(`${p[2]} for portion #${p[1]} is not a number.`);
@@ -41,12 +83,7 @@ export function splitLabTicketChanges(changes: Record<string, unknown>) {
       continue;
     }
     const r = /^result_(\d{1,18})$/.exec(key);
-    if (r) {
-      const n = Number(raw);
-      results.push(typeof raw === 'number' || (typeof raw === 'string' && raw.trim() !== '' && Number.isFinite(n))
-        ? { test_id: r[1], numeric_value: n }
-        : { test_id: r[1], text_value: raw === null || raw === undefined ? null : String(raw) });
-    }
+    if (r) results.push(toResult(r[1], raw));
   }
   if (Array.isArray(changes.results)) results.push(...(changes.results as typeof results));
   return { portions, results };
@@ -380,6 +417,7 @@ export async function applyCorrectionRequest(
       lr: typeof changes.lr === 'number' ? changes.lr : undefined,
       fat: typeof changes.fat === 'number' ? changes.fat : undefined,
       shop_rmr_number: typeof changes.shop_rmr_number === 'string' ? changes.shop_rmr_number : undefined,
+      results: splitLabTicketChanges(changes).results,
     });
     if (res.error) {
       throw new Error(`MOT collection correction failed: ${res.error}`);
@@ -401,6 +439,7 @@ export async function applyCorrectionRequest(
     const res = await correctLocalSupplierArrival(reviewerUser, req.record_id, {
       reason: `Applied from Correction Request #${req.correlation_id}: ${req.reason}`,
       raw_milk_token_number: typeof changes.raw_milk_token_number === 'string' ? changes.raw_milk_token_number : undefined,
+      rmr_number: typeof changes.rmr_number === 'string' ? changes.rmr_number : undefined,
       vehicle_number: typeof changes.vehicle_number === 'string' ? changes.vehicle_number : undefined,
       arrival_timestamp: typeof changes.arrival_timestamp === 'string' ? changes.arrival_timestamp : undefined,
     });
@@ -408,6 +447,30 @@ export async function applyCorrectionRequest(
       throw new Error(`HC arrival correction failed: ${res.error}`);
     }
     applicationResult = res.data;
+  }
+  else if (req.module === 'VEHICLE_VISIT') {
+    const { dispatch, plant } = splitVisitTicketChanges(changes);
+    const applied: unknown[] = [];
+    if (Object.keys(dispatch).length > 0) {
+      const res = await correctDispatchVisit(reviewerUser, req.record_id, { reason: appliedReason, idempotency_key: req.correlation_id, ...dispatch });
+      assertCorrected(res, 'Dispatch correction failed');
+      applied.push(res.body);
+    }
+    if (Object.keys(plant).length > 0) {
+      const res = await correctPlantReception(reviewerUser, { recordId: req.record_id, reason: appliedReason, changes: plant });
+      assertCorrected(res, 'Plant reception correction failed');
+      applied.push(res.body);
+    }
+    if (applied.length === 0) throw new Error('This ticket has no value the system can apply. Reject it with a note.');
+    applicationResult = applied;
+  } else if (req.module === 'PLANT_QA_MEASUREMENT') {
+    const { results } = splitLabTicketChanges(changes);
+    if (results.length === 0) throw new Error('This ticket has no value the system can apply. Reject it with a note.');
+    const portion = await prisma.visitPortion.findUnique({ where: { id: BigInt(req.record_id) }, select: { visit_id: true } });
+    if (!portion) throw new Error('Plant portion not found.');
+    const res = await correctPlantQaResults(reviewerUser, portion.visit_id.toString(), req.record_id, { reason: appliedReason, results });
+    assertCorrected(res, 'Plant QA correction failed');
+    applicationResult = res.body;
   }
   // ZMCC_WEIGHING, ZMCC_EXIT and the other modules are fixed by the Data Executive on the record itself;
   // applying the ticket then closes it as Done (MANUAL_APPLY in the audit trail).

@@ -7,7 +7,7 @@ import { Sheet } from '@/components/ui/sheet';
 import { resolveRoleHome } from '@/lib/role-routing';
 import { LayoutDashboard } from 'lucide-react';
 import { resolveDelegationContext } from '../delegation/stations';
-import { getRoleNavSections, RoleNavSection } from './roleNavConfig';
+import { getRoleNavSections, REQUEST_CORRECTION_NAV_ID, RoleNavSection } from './roleNavConfig';
 import { NavPanel, formatRoleLabel } from './NavPanel';
 
 interface HierarchicalNavDrawerProps {
@@ -44,7 +44,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
       // Station-aware mode: render the active station's full operational navigation
       const stationSections = getRoleNavSections({ ...currentUser, role: delegationContext.actingAs }, zmccId);
       // The delegation banner already offers 'Return to My Work'.
-      return stationSections;
+      return stationSections.filter((s) => s.id !== REQUEST_CORRECTION_NAV_ID);
     }
 
     const roleSections = getRoleNavSections(currentUser, zmccId);

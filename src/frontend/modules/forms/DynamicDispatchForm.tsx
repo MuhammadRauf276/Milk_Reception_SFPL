@@ -61,6 +61,7 @@ import type { LiveCameraResult } from '@/types/captured-photo';
 import type { DecisionResult, PersonDecision } from '@/types/stage1-decision';
 import { getErrorMessage } from '@/lib/errors';
 import { confirmAction } from '@/components/ui/confirm-dialog';
+import { stampEmployeeCode, stampRoleLabel } from '@/lib/photo/stampIdentity';
 
 export type { QuantityUnitType, MeasurementBasisType, QuantityState, LabTestDef, TestResultState, PortionFormState };
 
@@ -284,7 +285,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const [result, setResult] = useState<DispatchResultView | null>(null);
   const [uploadQueue, setUploadQueue] = useState<PendingUpload[]>([]);
   const [uploading, setUploading] = useState(false);
-  const meCode = (currentUser as (User & { employee_code?: string }) | null)?.employee_code || currentUser?.username || 'unknown';
+  const meCode = stampEmployeeCode(currentUser);
   const [restartingWorkItem, setRestartingWorkItem] = useState(false);
 
   const [availableSources, setAvailableSources] = useState<Array<{ id: string; name: string; source_type: string }>>([]);
@@ -350,7 +351,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         : 'ZMCC_DISPATCH'
       : null;
   const approverLabel = isContractorSource ? 'Contractor Manager' : 'Zonal Manager';
-  const roleLabel = currentUser?.role ?? 'unknown';
+  const roleLabel = stampRoleLabel(currentUser);
   // Preview only: the server decides again. Superiors decide on the same screen; Super Admin does everything below it.
   const deciderCanApprove = roleLabel === 'SUPER_ADMIN' || (isContractorSource
     ? roleLabel === 'CONTRACTOR_MANAGER' || roleLabel === 'HEAD_OF_MPD'

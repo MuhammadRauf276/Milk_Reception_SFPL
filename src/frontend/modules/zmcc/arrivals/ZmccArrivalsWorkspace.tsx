@@ -44,7 +44,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const isDataExecutive = currentUser?.role === 'DATA_EXECUTIVE';
   // PHE Operator, MDO and every role above them can record arrivals (server checks again).
   const canSubmit = !!currentUser && (canActAs(currentUser.role, 'PHE_OPERATOR') || canActAs(currentUser.role, 'MDO'));
-  const canDirectCorrect = isDataExecutive || isSuperAdmin;
+  const canDirectCorrect = isSuperAdmin;
   const isManager = Boolean(currentUser && canActAs(currentUser.role, 'ZMCC_MANAGER'));
 
   const [requestModalState, setRequestModalState] = useState<{
@@ -205,7 +205,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
               mcArrivals={data.mcArrivals}
               hcArrivals={data.hcArrivals}
               canDirectCorrect={canDirectCorrect}
-              canRequestCorrection={!canDirectCorrect}
+              canRequestCorrection={!canDirectCorrect && !isDataExecutive}
               onCorrect={correction.open}
               onRequestCorrection={openRequestCorrection}
             />

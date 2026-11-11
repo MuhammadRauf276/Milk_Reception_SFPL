@@ -30,6 +30,14 @@ export function isCorrectionAuthority(role: string): boolean {
   return holdsNonDelegable(role, 'CORRECT');
 }
 
+/**
+ * Who may change any saved record directly: SUPER_ADMIN only.
+ * A Data Executive holds CORRECT too, but uses it only through a correction ticket, on the values requested.
+ */
+export function isDirectEditAuthority(role: string): boolean {
+  return role === 'SUPER_ADMIN';
+}
+
 /** Who may control devices (register, release, block, diary, alerts): SUPER_ADMIN and DATA_EXECUTIVE. */
 export function isDeviceAdministrator(role: string): boolean {
   return holdsNonDelegable(role, 'ADMINISTER');

@@ -17,6 +17,7 @@ import {
   Scale,
   FileSpreadsheet,
   Building2,
+  Camera,
 } from 'lucide-react';
 import type { RoleNavSection } from './roleNavConfig';
 
@@ -89,6 +90,7 @@ export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/super-admin/devices', label: 'Phones', icon: Smartphone },
   { href: '/super-admin/operations', label: 'Operations', icon: Activity },
   { href: '/super-admin/audit', label: 'Audit', icon: History },
+  { href: '/super-admin/photos', label: 'Photo register', icon: Camera },
   { href: '/super-admin/procurement-sources', label: 'ZMCCs', icon: Store },
   { href: '/super-admin/zmcc-master-data', label: 'Master Data', icon: Store, children: MASTER_DATA_CHILDREN },
   { href: '/super-admin/mot-operations', label: 'Mobile Testers', icon: Navigation, children: MC_OPS_CHILDREN },
@@ -98,8 +100,9 @@ export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
 ];
 
 export const DATA_EXECUTIVE_NAV_ITEMS: AdminNavItem[] = [
-  { href: '/super-admin/corrections', label: 'Corrections', icon: ShieldCheck, children: CORRECTION_CHILDREN },
+  { href: '/super-admin/corrections', label: 'Corrections', icon: ShieldCheck, children: CORRECTION_CHILDREN.filter((c) => !c.href.includes('direct_edit')) },
   { href: '/super-admin/audit', label: 'Audit', icon: History },
+  { href: '/super-admin/photos', label: 'Photo register', icon: Camera },
   { href: '/super-admin/test-policies', label: 'Lab Policies', icon: FlaskConical },
   {
     href: '/super-admin/reports',

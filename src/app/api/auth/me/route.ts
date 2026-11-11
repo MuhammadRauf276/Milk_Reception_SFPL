@@ -28,6 +28,7 @@ export async function GET(request: Request) {
       id: dbUser.id.toString(),
       username: dbUser.username,
       name: dbUser.full_name || dbUser.username,
+      employee_code: dbUser.employee_code ?? null,
       role: dbUser.role,
       department: dbUser.department || '',
       scope_type: dbUser.scope_type,

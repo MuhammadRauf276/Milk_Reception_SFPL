@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@core/db';
 import { writeAuditLog } from '@/backend/core/audit';
-import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
+import { isCorrectionAuthority, isDirectEditAuthority } from '@/backend/core/roles/capabilities';
 import { getTankPhysicalStock } from '@/backend/services/zmccTankService';
 import { computeAndStoreAreaLossTx } from '@/backend/services/lossCalculationService';
 import { createNotificationsForEvent } from '@/backend/services/notificationService';
@@ -18,6 +18,12 @@ export interface CorrectLabPortionPayload {
   lr?: number | string | null;
   fat?: number | string | null;
   net_weight_kg?: number | string | null;
+  first_weight_kg?: number | string | null;
+  second_weight_kg?: number | string | null;
+  first_weight_at?: string | null;
+  second_weight_at?: string | null;
+  /** Tests other than LR and Fat, which have their own fields. */
+  results?: Array<{ test_id: string | number; numeric_value?: number | null; text_value?: string | null }>;
   idempotency_key?: string;
 }
 
@@ -97,7 +103,9 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
         throw new CorrectionRefused(403, 'This record is outside your area.');
       }
       if (portion.version !== version) throw new CorrectionRefused(409, 'This portion was changed by someone else. Reload.');
-      if (portion.final_decision === 'PENDING' || portion.review_status === 'PENDING') {
+      if (portion.status === 'TESTING') throw new CorrectionRefused(409, 'This portion is still being tested.');
+      const waitingForDecision = portion.final_decision === 'PENDING' || portion.review_status === 'PENDING';
+      if (waitingForDecision && !isDirectEditAuthority(auth.role)) {
         throw new CorrectionRefused(409, 'This portion is still waiting for a decision. Correct it after the decision.');
       }
 
@@ -106,10 +114,30 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
       const oldNet = toNumber(portion.net_weight_kg);
       const newLr = lrInput ?? oldLr;
       const newFat = fatInput ?? oldFat;
-      const newNet = netInput ?? oldNet;
+      // Scale weights: the net follows from them.
+      const firstKg = optionalNumber(payload?.first_weight_kg) ?? toNumber(portion.first_weight_kg);
+      const secondKg = optionalNumber(payload?.second_weight_kg) ?? toNumber(portion.second_weight_kg);
+      const weightsGiven = optionalNumber(payload?.first_weight_kg) !== undefined || optionalNumber(payload?.second_weight_kg) !== undefined;
+      if (weightsGiven && (firstKg === null || secondKg === null || firstKg <= secondKg)) {
+        throw new CorrectionRefused(400, 'First weight must be more than second weight.');
+      }
+      const firstAt = payload?.first_weight_at ? new Date(payload.first_weight_at) : portion.first_weight_at;
+      const secondAt = payload?.second_weight_at ? new Date(payload.second_weight_at) : portion.second_weight_at;
+      if ((firstAt && Number.isNaN(firstAt.getTime())) || (secondAt && Number.isNaN(secondAt.getTime()))) throw new CorrectionRefused(400, 'Enter a valid date and time.');
+      const timesChanged = firstAt?.getTime() !== portion.first_weight_at?.getTime() || secondAt?.getTime() !== portion.second_weight_at?.getTime();
+      const weightsChanged = weightsGiven && (firstKg !== toNumber(portion.first_weight_kg) || secondKg !== toNumber(portion.second_weight_kg));
+      const newNet = weightsGiven ? Number((firstKg! - secondKg!).toFixed(3)) : netInput ?? oldNet;
       if (newLr === null || newFat === null) throw new CorrectionRefused(400, 'Enter both LR and Fat.');
       if (netInput !== undefined && oldNet === null) throw new CorrectionRefused(400, 'This portion has not been weighed yet.');
-      if (newLr === oldLr && newFat === oldFat && newNet === oldNet) throw new CorrectionRefused(400, 'Nothing was changed.');
+      const savedResults = await tx.zmccLabResult.findMany({ where: { portion_id: portionId } });
+      const resultChanges = (Array.isArray(payload?.results) ? payload.results : []).map((item) => {
+        const saved = savedResults.find((r) => r.test_id.toString() === String(item.test_id));
+        if (!saved) throw new CorrectionRefused(400, `Test ${item.test_id} is not part of this portion.`);
+        if (saved.result_type_snapshot === 'CALCULATED') throw new CorrectionRefused(400, `${saved.test_name_snapshot} is calculated and cannot be typed in.`);
+        return { saved, numeric: item.numeric_value ?? null, text: item.text_value ?? null };
+      }).filter((c) => (c.saved.numeric_value !== null ? Number(c.saved.numeric_value) : null) !== c.numeric || (c.saved.text_value ?? null) !== c.text);
+      const changedById = new Map(resultChanges.map((c) => [c.saved.test_id.toString(), c]));
+      if (newLr === oldLr && newFat === oldFat && newNet === oldNet && resultChanges.length === 0 && !timesChanged && !weightsChanged) throw new CorrectionRefused(400, 'Nothing was changed.');
       // The paper receipt already states this quantity, so the system must not move away from it.
       if (newNet !== oldNet && session.local_supplier_rmr?.status === 'ACTIVE') {
         throw new CorrectionRefused(409, 'A receipt was already issued for this milk, so its net weight cannot be changed. LR and Fat can still be corrected.');
@@ -143,6 +171,7 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
       let newDetails: LabPortionDecisionDetails | null = oldDetails;
       let systemOutcome = portion.system_outcome;
       let nowOutside = false;
+      let rejudged: unknown[] | null = null;
       if (oldDetails?.tests?.length) {
         const point = session.arrival_type === 'HC' ? 'ZMCC_LAB_HC' : 'ZMCC_LAB_MC';
         const policy = await loadLabPolicy(point, portion.decided_at ?? new Date(), tx);
@@ -150,8 +179,8 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
         const built = buildLabPortionDecision(policy, {
           tests: oldDetails.tests.map((t) => ({
             labTestId: t.labTestId,
-            value: flags.get(t.labTestId)?.isLr ? newLr : flags.get(t.labTestId)?.isFat ? newFat : t.value,
-            textValue: t.textValue,
+            value: flags.get(t.labTestId)?.isLr ? newLr : flags.get(t.labTestId)?.isFat ? newFat : changedById.has(t.labTestId) ? changedById.get(t.labTestId)!.numeric : t.value,
+            textValue: changedById.has(t.labTestId) ? changedById.get(t.labTestId)!.text : t.textValue,
           })),
           photos: oldDetails.tests.filter((t) => t.photoCaptureId).map((t) => ({ labTestId: t.labTestId, captureId: t.photoCaptureId! })),
           personDecision: (portion.person_decision ?? 'ACCEPT') as PersonDecision,
@@ -159,6 +188,7 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
           deciderCanApprove: false,
         });
         systemOutcome = built.decision.systemOutcome;
+        rejudged = built.decision.exceptionReasons;
         newDetails = built.details;
         // LR and Fat limits are monitoring norms, so they never fail a decision. A correction outside them still gets told.
         const outsideNorm = policy.tests.some((t) => {
@@ -182,6 +212,9 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
           snf: new Prisma.Decimal(figures.snf.toFixed(3)),
           ts: new Prisma.Decimal(figures.ts.toFixed(3)),
           system_outcome: systemOutcome,
+          ...(waitingForDecision && rejudged ? { exception_reasons: rejudged as unknown as Prisma.InputJsonValue } : {}),
+          ...(weightsChanged ? { first_weight_kg: new Prisma.Decimal(firstKg!.toFixed(3)), second_weight_kg: new Prisma.Decimal(secondKg!.toFixed(3)) } : {}),
+          ...(timesChanged ? { first_weight_at: firstAt, second_weight_at: secondAt } : {}),
           ...(newDetails ? { decision_details: newDetails as unknown as Prisma.InputJsonValue } : {}),
           ...(figures.grossLiters !== null
             ? {
@@ -198,6 +231,18 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
           version: { increment: 1 },
         },
       });
+
+      for (const c of resultChanges) {
+        const outcome = newDetails?.tests?.find((t) => t.labTestId === c.saved.test_id.toString())?.outcome;
+        await tx.zmccLabResult.update({
+          where: { id: c.saved.id },
+          data: {
+            numeric_value: c.numeric !== null ? new Prisma.Decimal(c.numeric) : null,
+            text_value: c.text,
+            ...(outcome === 'FAIL' ? { is_passed: false } : outcome === 'PASS' || outcome === 'WARN' ? { is_passed: true } : {}),
+          },
+        });
+      }
 
       const correctionNumber = session.correction_count + 1;
       if (inTank && receipt) {
@@ -283,6 +328,13 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
           requested_lr: lrInput ?? null,
           requested_fat: fatInput ?? null,
           requested_net: netInput ?? null,
+          results: resultChanges.map((c) => ({
+            test_id: c.saved.test_id.toString(),
+            old_numeric: c.saved.numeric_value !== null ? Number(c.saved.numeric_value) : null,
+            new_numeric: c.numeric,
+            old_text: c.saved.text_value,
+            new_text: c.text,
+          })),
           lab_session_id: session.id.toString(),
           portion_number: portion.portion_number,
           lr: newLr,

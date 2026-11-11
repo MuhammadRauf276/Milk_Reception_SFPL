@@ -38,7 +38,7 @@ import { paperLinkedIdentity } from '@/backend/modules/paper-references';
 import { loadMotShopPolicy } from '@/backend/services/mot/motShopPolicy';
 import { buildMotShopDecision } from '@/backend/services/mot/motShopDecision';
 import { evaluateGeofence, DEFAULT_SHOP_GEOFENCE_M } from '@/backend/services/mot/geofence';
-import type { PersonDecision } from '@/types/stage1-decision';
+import type { MotShopDecisionDetails, PersonDecision } from '@/types/stage1-decision';
 import { clearHandledNotifications, createNotificationsForEvent } from '@/backend/services/notificationService';
 import { getErrorCode, getErrorMessage, getErrorMetaTarget } from '@/lib/errors';
 import { requireZmccScope } from '@/backend/core/scope';
@@ -4266,6 +4266,8 @@ export interface CorrectShopCollectionPayload {
   fat?: number;
   milk_source_id?: string | number | bigint | null;
   notes?: string | null;
+  /** Saved tests other than LR and Fat. */
+  results?: Array<{ test_id: string | number; numeric_value?: number | null; text_value?: string | null }>;
   reason: string;
 }
 
@@ -4392,7 +4394,35 @@ export async function correctShopCollection(
       Math.abs(newFat - Number(collection.fat)) > 0.001);
   const isNotesChanged = isNotesProvided && newNotes !== collection.collection_notes;
 
-  if (!isRmrChanged && !isMeasurementChanged && !isNotesChanged) {
+  // Tests other than LR and Fat live in the decision record, so correcting one re-judges it against the limits of that day.
+  const oldTestDetails = collection.decision_details as unknown as MotShopDecisionDetails | null;
+  const testChanges = new Map(
+    (Array.isArray(payload.results) ? payload.results : [])
+      .filter((item) => {
+        const saved = oldTestDetails?.tests?.find((t) => t.labTestId === String(item.test_id));
+        return !!saved && (saved.value !== (item.numeric_value ?? null) || saved.textValue !== (item.text_value ?? null));
+      })
+      .map((item) => [String(item.test_id), item])
+  );
+  let rebuiltDecision: ReturnType<typeof buildMotShopDecision> | null = null;
+  if (testChanges.size > 0 && oldTestDetails) {
+    const policy = await loadMotShopPolicy(collection.device_collected_at);
+    rebuiltDecision = buildMotShopDecision(policy, {
+      lr: newLr,
+      fat: newFat,
+      tests: oldTestDetails.tests.map((t) => {
+        const c = testChanges.get(t.labTestId);
+        return { labTestId: t.labTestId, value: c ? c.numeric_value ?? null : t.value, textValue: c ? c.text_value ?? null : t.textValue, photoCaptureId: t.photoCaptureId };
+      }),
+      photos: oldTestDetails.tests.filter((t) => t.photoCaptureId).map((t) => ({ labTestId: t.labTestId, captureId: t.photoCaptureId! })),
+      personDecision: (collection.person_decision ?? 'ACCEPT') as PersonDecision,
+      remarks: collection.decision_remarks,
+      geofence: oldTestDetails.geofence,
+      deciderCanApprove: false,
+    });
+  }
+
+  if (!isRmrChanged && !isMeasurementChanged && !isNotesChanged && !rebuiltDecision) {
     return { status: 200, data: serializeCollection(collection) };
   }
 
@@ -4444,6 +4474,11 @@ export async function correctShopCollection(
       }
       if (isNotesChanged) {
         updateData.collection_notes = newNotes;
+      }
+      if (rebuiltDecision) {
+        updateData.decision_details = toJsonInput(rebuiltDecision.details);
+        updateData.system_outcome = rebuiltDecision.decision.systemOutcome;
+        if (collection.review_status === 'PENDING') updateData.exception_reasons = toJsonInput(rebuiltDecision.decision.exceptionReasons);
       }
       if (payload.milk_source_id !== undefined) {
         if (payload.milk_source_id) {
@@ -4511,6 +4546,10 @@ export async function correctShopCollection(
       if (isNotesChanged) {
         oldAuditValues.collection_notes = collection.collection_notes;
         newAuditValues.collection_notes = newNotes;
+      }
+      if (rebuiltDecision) {
+        oldAuditValues.tests = oldTestDetails?.tests.filter((t) => testChanges.has(t.labTestId)).map((t) => ({ labTestId: t.labTestId, value: t.value, textValue: t.textValue }));
+        newAuditValues.tests = Array.from(testChanges.values());
       }
 
       await writeAuditLog(tx, {

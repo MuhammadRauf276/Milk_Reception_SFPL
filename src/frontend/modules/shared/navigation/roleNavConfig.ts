@@ -36,10 +36,15 @@ import {
   BarChart3,
   AlertTriangle,
   UserCheck,
+  FilePenLine,
 } from 'lucide-react';
+import { requestableEntities } from '@/lib/recordEditor';
 import { getTeamStationsForRole } from '../delegation/stations';
 import { DATA_EXECUTIVE_NAV_ITEMS, SUPER_ADMIN_NAV_ITEMS, toSection } from './adminNav';
 import { canSeeTestPolicies, isTestPolicyPath } from '@/lib/test-policy-access';
+
+/** The sidebar item for raising a correction request. */
+export const REQUEST_CORRECTION_NAV_ID = 'request-correction';
 
 export interface RoleNavLeaf {
   id: string;
@@ -945,6 +950,14 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
   return [];
 }
 
+/** Roles that enter records get "Request correction" in the sidebar, above the Yard Board when there is one. */
+function withRequestCorrection(sections: RoleNavSection[], role: string): RoleNavSection[] {
+  if (sections.length === 0 || requestableEntities(role).length === 0) return sections;
+  const item: RoleNavSection = { id: REQUEST_CORRECTION_NAV_ID, label: 'Request correction', icon: FilePenLine, href: '/request-correction' };
+  const at = sections.findIndex((x) => x.id === 'tv-board');
+  return at >= 0 ? [...sections.slice(0, at), item, ...sections.slice(at)] : [...sections, item];
+}
+
 /**
  * Returns the hierarchical navigation structure for a given user role.
  * Dynamically derives and mounts "Team Stations (Cover Staff)" for authorized superiors (§5.2, §5.4).
@@ -955,8 +968,8 @@ export function getRoleNavSections(
 ): RoleNavSection[] {
   if (!currentUser) return [];
 
-  const baseSections = getBaseRoleNavSections(currentUser);
   const role = currentUser.role || '';
+  const baseSections = withRequestCorrection(getBaseRoleNavSections(currentUser), role);
 
   const teamStations = getTeamStationsForRole(role, currentSourceId);
   if (teamStations.length === 0) {
