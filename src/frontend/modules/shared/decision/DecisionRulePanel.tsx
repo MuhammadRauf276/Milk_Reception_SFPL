@@ -65,7 +65,7 @@ const OUTCOME_STYLE: Record<DecisionTestOutcome, { word: string; className: stri
 const ROUTE_BUTTON: Record<DecisionRoute, { className: string; Icon: typeof CheckCircle2 }> = {
   PROCEED: { className: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs', Icon: CheckCircle2 },
   REJECT: { className: 'bg-rose-600 hover:bg-rose-700', Icon: XCircle },
-  SEND_TO_APPROVER: { className: 'bg-neutral-800 hover:bg-neutral-900', Icon: Send },
+  SEND_TO_APPROVER: { className: 'bg-primary hover:bg-primary-hover', Icon: Send },
   DECIDE_NOW: { className: 'bg-amber-700 hover:bg-amber-800', Icon: Gavel },
 };
 

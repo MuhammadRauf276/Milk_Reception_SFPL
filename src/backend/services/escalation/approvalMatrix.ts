@@ -217,7 +217,8 @@ export function canDecideApproval(
       item.submittedByUserId &&
         String(actor.userId) === String(item.submittedByUserId)
     );
-    if (isSelf && (remarks ?? '').trim().length < 5) {
+    // Listing passes no remarks, so the request stays open to decide; the reason is checked when the decision is sent.
+    if (isSelf && remarks !== undefined && (remarks ?? '').trim().length < 5) {
       return {
         allowed: false,
         disabledReason: `${getRoleLabel(actor.role as CanonicalRole)} self-approval requires justification remarks (at least 5 characters).`,

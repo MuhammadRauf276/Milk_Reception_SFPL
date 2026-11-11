@@ -20,6 +20,8 @@ import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/lib/query/useDebouncedValue';
 import { Pager, pageCount, paginate } from '../dashboard/components/Pager';
 import { STAGE_LABELS, cleanEntityTitle, formatWaitingLabel } from './approvalInboxShared';
+import { BriefText } from '@/components/ui/brief-text';
+import { InfoTip } from '@/components/ui/info-tip';
 
 export function filterApprovalItems(
   items: UnifiedApprovalItem[] | null | undefined,
@@ -222,7 +224,9 @@ export function ApprovalQueueList({
                           <span className="ml-2 text-muted-foreground">· {formatDateTime(item.decision.decidedAt)}</span>
                         )}
                         {item.decision?.remarks && (
-                          <p className="text-secondary-foreground mt-1 break-words">&ldquo;{item.decision.remarks}&rdquo;</p>
+                          <p className="text-secondary-foreground mt-1 break-words">
+                            <BriefText text={item.decision.remarks} label="Decision remarks" />
+                          </p>
                         )}
                       </div>
                     )}
@@ -238,6 +242,9 @@ export function ApprovalQueueList({
                             {chip}
                           </span>
                         ))}
+                        {item.details.reasons && item.details.reasons.length > 0 && (
+                          <InfoTip label="Why it was sent" text={<ul className="list-disc space-y-1 pl-4">{item.details.reasons.map((r) => <li key={r}>{r}</li>)}</ul>} />
+                        )}
                       </div>
                     )}
                   </div>
@@ -253,9 +260,11 @@ export function ApprovalQueueList({
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-secondary-foreground font-medium bg-muted px-2 py-0.5 rounded-md border border-border">
-                            {item.disabledReason?.includes('You submitted')
-                              ? 'Submitted by you'
-                              : item.disabledReason || 'Pending review'}
+                            {item.disabledReason?.includes('You submitted') ? (
+                              'Submitted by you'
+                            ) : (
+                              <BriefText text={item.disabledReason || 'Pending review'} label="In review" />
+                            )}
                           </span>
                         )
                       ) : (

@@ -398,7 +398,7 @@ export async function reviewPortionException(
     if (row.version !== i.version || row.review_status !== 'PENDING') {
       return { status: 409, error: 'Someone already decided this. Reload.' };
     }
-    if (row.created_by_user_id !== null && row.created_by_user_id === ctx.userId) {
+    if (row.created_by_user_id !== null && row.created_by_user_id === ctx.userId && ctx.actorRole !== 'SUPER_ADMIN' && ctx.actorRole !== 'DATA_EXECUTIVE') {
       return { status: 403, error: 'You cannot decide your own test.' };
     }
 

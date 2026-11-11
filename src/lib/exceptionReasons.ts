@@ -74,6 +74,35 @@ export function exceptionReasonShort(reason: string, nameOf: TestNameOf = sameCo
   }
 }
 
+/** Tag for a card: three words or fewer. The test names are in the full sentence. */
+export function exceptionReasonLabel(reason: string): string {
+  if (reason.startsWith('RULE_FAIL:')) return 'Out of range';
+  switch (reason) {
+    case 'MISMATCH':
+    case 'DECISION_MISMATCH':
+      return 'Decision differs';
+    case 'MISSING_FIELD':
+    case 'COMPULSORY_TEST_MISSING':
+      return 'Test not done';
+    case 'LAB_REPORT_MISSING':
+      return 'Lab report missing';
+    default: {
+      const short = exceptionReasonShort(reason);
+      return short.split(/\s+/).length <= 3 ? short : short.split(/\s+/).slice(0, 3).join(' ');
+    }
+  }
+}
+
+/** Tags for a list of reason codes; a repeated tag shows its count. */
+export function reasonLabels(codes: string[]): string[] {
+  const counts = new Map<string, number>();
+  for (const c of codes) {
+    const label = exceptionReasonLabel(c);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return Array.from(counts, ([label, n]) => (n > 1 ? `${label} ×${n}` : label));
+}
+
 /** Reason codes from a stored JSON value, without duplicates. */
 export function reasonCodes(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

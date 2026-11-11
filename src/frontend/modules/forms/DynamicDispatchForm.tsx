@@ -1819,11 +1819,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             onClick={() => (formStep === 0 ? handleNextToPortions() : handleOpenDecide())}
             className={cn(
               'min-h-14 w-full rounded-xl text-base font-semibold text-white shadow-xs transition flex items-center justify-center gap-2',
-              formStep === 0
-                ? 'bg-primary-hover hover:bg-blue-800'
-                : goesToApprover
-                  ? 'bg-neutral-800 hover:bg-neutral-900'
-                  : 'bg-primary-hover hover:bg-blue-800'
+              'bg-primary hover:bg-primary-hover'
             )}
           >
             {formStep === 0 ? (

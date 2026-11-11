@@ -25,18 +25,17 @@ export function ApprovalDetailBody({
           Why it was sent
         </h3>
 
-        {item.details.reasons && item.details.reasons.length > 0 ? (
-          <ul className="space-y-1.5 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-950">
-            {item.details.reasons.map((r) => (
-              <li key={r} className="flex gap-2">
-                <ShieldAlert className="mt-0.5 size-4 shrink-0 text-rose-700" aria-hidden />
-                <span>{r}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-secondary-foreground">{item.reasonChips.join(' · ')}</p>
-        )}
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-rose-300 bg-rose-50 p-3">
+          <ShieldAlert className="size-4 shrink-0 text-rose-700" aria-hidden />
+          {item.reasonChips.map((chip) => (
+            <span key={chip} className="rounded-md border border-rose-200 bg-card px-2 py-0.5 text-xs font-semibold text-rose-800">
+              {chip}
+            </span>
+          ))}
+          {item.details.reasons && item.details.reasons.length > 0 && (
+            <InfoTip label="Why it was sent" text={<ul className="list-disc space-y-1 pl-4">{item.details.reasons.map((r) => <li key={r}>{r}</li>)}</ul>} />
+          )}
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {failedTests.length ? (

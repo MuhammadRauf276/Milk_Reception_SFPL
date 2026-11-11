@@ -51,8 +51,8 @@ export function ApprovalDecisionDrawer({
     const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
 
     // Validation
-    if (isSelfApproval && isSuperAdmin && decisionRemarks.trim().length < 20) {
-      setDecisionError('Super Admin self-approval requires substantive justification of at least 20 characters.');
+    if (isSelfApproval && isSuperAdmin && decisionRemarks.trim().length < 5) {
+      setDecisionError('You sent this request, so please write why you are deciding it yourself (at least 5 letters).');
       return;
     }
     if (verdict === 'NO' && decisionRemarks.trim().length < 5) {

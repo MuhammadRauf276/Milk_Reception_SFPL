@@ -10,6 +10,8 @@ import type { SubmitterRequestItem } from '@/backend/services/approvals/submitte
 import { SkeletonList } from '@/components/ui/loaders';
 import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { formatDate, formatTime } from '@/lib/format';
+import { BriefText } from '@/components/ui/brief-text';
+import { InfoTip } from '@/components/ui/info-tip';
 
 interface MySubmittedRequestsPanelProps {
   onClose?: () => void;
@@ -156,11 +158,13 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
                       {item.referenceNumber}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{item.summary}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    <BriefText text={item.summary} label="Details" />
+                  </p>
                   {item.reasons?.length > 0 && (
-                    <p className="mt-1 text-xs text-foreground">
-                      <span className="font-semibold">Sent because: </span>
-                      {item.reasons.join(' ')}
+                    <p className="mt-1 inline-flex items-center text-xs font-semibold text-foreground">
+                      Why it was sent
+                      <InfoTip label="Why it was sent" className="-my-3" text={<ul className="list-disc space-y-1 pl-4">{item.reasons.map((r) => <li key={r}>{r}</li>)}</ul>} />
                     </p>
                   )}
                 </div>
@@ -192,7 +196,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
 
                 {item.reviewRemarks && (
                   <div className="text-xs font-medium text-foreground pt-0.5">
-                    Manager Remarks: <span className=" font-normal text-muted-foreground">"{item.reviewRemarks}"</span>
+                    <BriefText text={item.reviewRemarks} label="Manager remarks" />
                   </div>
                 )}
               </div>

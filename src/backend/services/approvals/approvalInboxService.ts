@@ -12,7 +12,7 @@ import {
   type ApprovalType,
   type OperationalStage,
 } from '@/backend/services/escalation/approvalMatrix';
-import { exceptionReasonShort, exceptionReasonText, reasonCodes, testNameLookup } from '@/lib/exceptionReasons';
+import { exceptionReasonText, reasonCodes, reasonLabels, testNameLookup } from '@/lib/exceptionReasons';
 
 export type SlaStatus = 'NORMAL' | 'WARNING' | 'BREACHED';
 
@@ -156,7 +156,7 @@ function describeReasons(value: unknown, tests: StoredTest[] = []): { chips: str
   const codes = reasonCodes(value);
   const nameOf = testNameLookup(tests);
   return {
-    chips: Array.from(new Set(codes.map((c) => exceptionReasonShort(c, nameOf)))),
+    chips: reasonLabels(codes),
     sentences: Array.from(new Set(codes.map((c) => exceptionReasonText(c, nameOf)))),
   };
 }
@@ -724,7 +724,7 @@ export async function getApprovalInbox(
         const sessionSentences = failedSessionTests.map((r) => `${r.test_name_snapshot || r.test_code_snapshot || 'A test'} is outside the SOP range.`);
         if (sess.rejection_reason) sessionSentences.push(sess.rejection_reason);
         const reasons = failedSessionTests.length
-          ? failedSessionTests.map((r) => `${r.test_name_snapshot || r.test_code_snapshot || 'Test'} out of range`)
+          ? [failedSessionTests.length > 1 ? `Out of range ×${failedSessionTests.length}` : 'Out of range']
           : ['Sent for review'];
 
         items.push({
