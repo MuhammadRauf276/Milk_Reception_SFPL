@@ -16,15 +16,16 @@ export function InfoTip({ text, className, label = 'More info' }: { text: React.
         <button
           type="button"
           aria-label={label}
+          onClick={(e) => e.stopPropagation()}
           className={cn(
-            'inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-secondary-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
+            'inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/60 hover:text-secondary-foreground active:scale-95 active:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
             className
           )}
         >
           <Info className="h-4 w-4" aria-hidden="true" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-3 text-xs leading-relaxed text-secondary-foreground">{text}</PopoverContent>
+      <PopoverContent className="w-64 max-w-[calc(100vw-1.5rem)] p-3 text-xs leading-relaxed text-secondary-foreground">{text}</PopoverContent>
     </Popover>
   );
 }

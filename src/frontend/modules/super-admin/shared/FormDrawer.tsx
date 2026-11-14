@@ -28,7 +28,7 @@ export function FormDrawer({ open, onClose, title, busy, error, children }: Form
         <div className="border-b border-border px-5 py-3">
           <DrawerTitle>{title}</DrawerTitle>
         </div>
-        <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 text-xs">
+        <div className="scrollbar-thin overscroll-contain flex-1 min-h-0 space-y-3 overflow-y-auto px-5 py-4 text-xs">
           {error && (
             <div role="alert" className="flex items-center gap-2 rounded-xl border border-border bg-card p-3 font-semibold text-rose-800">
               <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />

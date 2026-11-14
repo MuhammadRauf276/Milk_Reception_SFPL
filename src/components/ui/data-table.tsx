@@ -10,6 +10,7 @@ import { Pagination, usePagedRows } from './pagination';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { TableWrapper } from './table-wrapper';
 import { DEFAULT_PAGE_SIZE, PHONE_PAGE_SIZE } from '@/lib/pagination';
+import { formatLabel } from '@/lib/format';
 
 export interface DataColumn<T> {
   key: string;
@@ -165,8 +166,13 @@ export function DataTable<T>({
   const width = useWidth(topEl);
   const showCards = width === null || width < TABLE_FROM_PX[tableFrom];
   const showTable = width === null || width >= TABLE_FROM_PX[tableFrom];
-  // Fewer rows per page in the phone layout, so a page stays short.
-  const paged = usePagedRows(rows, getRowId, pageSize ?? (width !== null && width < TABLE_FROM_PX[tableFrom] ? PHONE_PAGE_SIZE : DEFAULT_PAGE_SIZE));
+  // Fewer rows per page in the phone layout (10 cards), so a page stays short.
+  const isSmallContainer = width !== null ? width < TABLE_FROM_PX[tableFrom] : undefined;
+  const paged = usePagedRows(
+    rows,
+    getRowId,
+    pageSize ?? (isSmallContainer !== undefined ? (isSmallContainer ? PHONE_PAGE_SIZE : DEFAULT_PAGE_SIZE) : undefined)
+  );
   const usePages = paginate && !footer;
   const shownRows = usePages ? paged.pageRows : rows;
   const goToPage = (next: number) => {
@@ -229,7 +235,7 @@ export function DataTable<T>({
                 .map((c) => (
                   <label key={c.key} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 text-sm hover:bg-muted">
                     <input type="checkbox" checked={!hidden.includes(c.key)} onChange={() => toggleColumn(c.key)} className="h-4 w-4 shrink-0 accent-primary" />
-                    <span className="min-w-0">{c.label ?? c.key}</span>
+                    <span className="min-w-0">{c.label ?? (typeof c.header === 'string' && c.header ? c.header : formatLabel(c.key))}</span>
                   </label>
                 ))}
             </PopoverContent>
@@ -294,7 +300,7 @@ export function DataTable<T>({
                         <dl className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-x-4 gap-y-2 text-sm">
                           {openCols.map((c) => (
                             <div key={c.key} className="min-w-0">
-                              <dt className="text-xs text-muted-foreground">{c.label ?? c.header}</dt>
+                              <dt className="text-xs text-muted-foreground">{c.label ?? (typeof c.header === 'string' && c.header ? c.header : formatLabel(c.key))}</dt>
                               <dd className="min-w-0 break-words text-foreground">{c.cell(row)}</dd>
                             </div>
                           ))}
@@ -335,7 +341,7 @@ export function DataTable<T>({
                       </th>
                     ) : null}
                     {visible.map((c) => (
-                      <th key={c.key} scope="col" className={cn('px-3 py-2 font-medium', ALIGN[c.align ?? 'left'])}>
+                      <th key={c.key} scope="col" className={cn('px-3 py-2 font-medium whitespace-nowrap', ALIGN[c.align ?? 'left'])}>
                         {c.actions ? <span className="sr-only">{c.label ?? 'Actions'}</span> : c.header}
                       </th>
                     ))}
@@ -359,7 +365,7 @@ export function DataTable<T>({
                             </td>
                           ) : null}
                           {visible.map((c) => (
-                            <td key={c.key} className={cn('px-3 py-2 break-words', ALIGN[c.align ?? 'left'], c.className)}>
+                            <td key={c.key} className={cn('px-3 py-2', ALIGN[c.align ?? 'left'], c.className)}>
                               {c.cell(row)}
                             </td>
                           ))}
@@ -388,7 +394,7 @@ export function DataTable<T>({
       ) : null}
 
       {canSelect && pickedRows.length > 0 ? (
-        <div role="region" aria-label="Bulk actions" className="sticky bottom-2 z-sticky flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border bg-card p-2 shadow-lg">
+        <div role="region" aria-label="Bulk actions" className="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-sticky flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border bg-card p-2 shadow-lg">
           <button type="button" onClick={() => setSelected(new Set())} aria-label="Clear selection" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted">
             <X className="h-4 w-4" />
           </button>

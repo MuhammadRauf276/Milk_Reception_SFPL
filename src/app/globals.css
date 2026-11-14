@@ -68,6 +68,23 @@
     'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular,
     Menlo, monospace;
 
+  /* ── Fluid Auto-Scaling Typography ───────────────────────
+     Scales smoothly between compact mobile (320px) and desktop (1440px+),
+     while keeping >= 12px (0.75rem) floor on text-xs so labels stay legible. */
+  --text-xs: clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem);
+  --text-xs--line-height: 1.4;
+  --text-sm: clamp(0.8125rem, 0.78rem + 0.18vw, 0.875rem);
+  --text-sm--line-height: 1.45;
+  --text-base: clamp(0.875rem, 0.83rem + 0.25vw, 1rem);
+  --text-base--line-height: 1.5;
+  --text-lg: clamp(1rem, 0.93rem + 0.35vw, 1.125rem);
+  --text-lg--line-height: 1.45;
+  --text-xl: clamp(1.0625rem, 0.98rem + 0.45vw, 1.25rem);
+  --text-xl--line-height: 1.35;
+  --text-2xl: clamp(1.2rem, 1.08rem + 0.6vw, 1.5rem);
+  --text-2xl--line-height: 1.25;
+  --text-3xl: clamp(1.375rem, 1.2rem + 0.85vw, 1.875rem);
+  --text-3xl--line-height: 1.2;
 
   /* ── Motion ─────────────────────────────────────────────
      One easing and a short duration scale keep motion consistent.
@@ -204,22 +221,43 @@
   overscroll-behavior-x: contain;
 }
 
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+.overflow-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 @utility scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--border-strong)) transparent;
   &::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
   }
   &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: hsl(var(--border-strong));
+    background: hsl(var(--muted) / 0.65);
     border-radius: 9999px;
   }
+  &::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border-strong));
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    background-clip: content-box;
+  }
   &::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.6);
+    background-color: hsl(var(--muted-foreground) / 0.85);
+  }
+  &::-webkit-scrollbar-thumb:active {
+    background-color: hsl(var(--foreground) / 0.6);
+  }
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  @supports (-moz-appearance: none) {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border-strong)) hsl(var(--muted) / 0.65);
   }
 }
 
@@ -289,19 +327,79 @@
   }
 
   html {
+    /* Phones: text stays the size the layout was built for, and the app's own pull-to-refresh replaces the browser's. */
     -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    color-scheme: light;
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+    overscroll-behavior-y: contain;
+    max-width: 100vw;
+    overflow-x: clip;
   }
 
-  html {
-    /* The app's own pull to refresh replaces the browser's. */
-    overscroll-behavior-y: contain;
+  /* Main page (root viewport) + all inner scroll containers.
+     Keep ::-webkit-scrollbar un-gated for Chromium/Safari, and isolate Firefox to @supports (-moz-appearance: none)
+     because Chromium 121+ disables ::-webkit-scrollbar whenever scrollbar-width is also present. */
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border-strong) / 0.82);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.8);
+  }
+  *::-webkit-scrollbar-thumb:active {
+    background-color: hsl(var(--foreground) / 0.55);
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Main page viewport scrollbar (comfortable 10px hit area with 6px floating pill over page background) */
+  :root::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  :root::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  :root::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border-strong));
+    border-radius: 9999px;
+    border: 2px solid hsl(var(--background));
+  }
+  :root::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.85);
+  }
+  :root::-webkit-scrollbar-thumb:active {
+    background-color: hsl(var(--foreground) / 0.6);
+  }
+
+  @supports (-moz-appearance: none) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: hsl(var(--border-strong) / 0.85) transparent;
+    }
+    html {
+      scrollbar-width: auto;
+      scrollbar-color: hsl(var(--border-strong)) hsl(var(--background));
+    }
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
+    overflow-x: clip;
     font-feature-settings: 'cv11', 'ss01';
     text-rendering: optimizeLegibility;
   }
@@ -340,19 +438,14 @@
     text-overflow: ellipsis;
   }
 
-  /* Phones: text stays the size the layout was built for, even when the phone tries to enlarge it. */
-  html {
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-    max-width: 100vw;
-    overflow-x: hidden;
-  }
-
-  /* A long vehicle number or name wraps inside its card instead of pushing out of it. */
+  /* Keep normal English word boundaries across the app; only explicit flex/grid
+     wrappers with .flex-1 / .grow / .min-w-0 shrink below content width. */
   body {
-    overflow-wrap: break-word;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
     max-width: 100vw;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   img,
@@ -368,11 +461,40 @@
     max-width: 100%;
   }
 
-  /* A flex or grid child can otherwise refuse to shrink below its content and spill out of its card. */
-  .flex > *,
-  .inline-flex > *,
-  .grid > * {
+  /* Narrow flex/grid shrink policy: only grid items and explicitly flexible children shrink */
+  .grid > *,
+  .flex > .flex-1,
+  .flex > .grow,
+  .flex > .min-w-0 {
     min-width: 0;
+  }
+
+  /* Protect buttons, tabs, badges, pills, table headers, labels, numeric values,
+     and inline-flex label groups from mid-word breaks or squashing */
+  button,
+  [role='button'],
+  [role='tab'],
+  [data-badge],
+  th,
+  label,
+  .tabular-nums,
+  .inline-flex > span {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .flex > button:not([role='combobox']):not(.w-full):not(.flex-1):not(.whitespace-normal):not(.min-w-0),
+  .flex > [role='button']:not([role='combobox']):not(.w-full):not(.flex-1):not(.whitespace-normal):not(.min-w-0),
+  .inline-flex > button:not([role='combobox']):not(.w-full):not(.flex-1):not(.whitespace-normal):not(.min-w-0),
+  .inline-flex > [role='button']:not([role='combobox']):not(.w-full):not(.flex-1):not(.whitespace-normal):not(.min-w-0),
+  .flex > [role='tab']:not(.whitespace-normal):not(.min-w-0),
+  .inline-flex > [role='tab']:not(.whitespace-normal):not(.min-w-0),
+  .flex > [data-badge]:not(.whitespace-normal):not(.min-w-0):not(.max-w-full):not(.truncate),
+  .inline-flex > [data-badge]:not(.whitespace-normal):not(.min-w-0):not(.max-w-full):not(.truncate) {
+    min-width: fit-content;
+    max-width: 100%;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   @media (max-width: 640px) {
@@ -380,7 +502,7 @@
     input:not([type='checkbox']):not([type='radio']),
     select,
     textarea {
-      font-size: 16px !important;
+      font-size: max(16px, 1em) !important;
     }
   }
 

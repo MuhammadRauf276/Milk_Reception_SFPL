@@ -16,14 +16,6 @@ interface Props {
   onOpenTab?: (tab: MpdTabId) => void;
 }
 
-const REPORT_GUIDE: Array<{ tab: MpdTabId; title: string; about: string }> = [
-  { tab: 'REPORTS', title: 'Reports', about: 'Build your own report from any field, or open the standard operational ledgers and export them.' },
-  { tab: 'LOSS_DIAGNOSTICS', title: 'Supply Chain Loss', about: 'Litres and 13 TS lost between the shop, the ZMCC, the tanker and the plant.' },
-  { tab: 'QUALITY_FUNNEL', title: 'Quality Screening', about: 'How much milk passes or fails the tests at each step.' },
-  { tab: 'SOURCES', title: 'Sources and Silos', about: 'Intake by ZMCC and contractor, and what is in each silo.' },
-  { tab: 'GOVERNANCE', title: 'Exception Desk', about: 'Decisions that went against the system recommendation.' },
-];
-
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
 const Stat: React.FC<{ icon: React.ReactNode; label: string; dispatch: string; plant: string; variance: string; note?: string }> = ({ icon, label, dispatch, plant, variance, note }) => (
@@ -32,7 +24,7 @@ const Stat: React.FC<{ icon: React.ReactNode; label: string; dispatch: string; p
       {icon}
       <span>{label}</span>
     </div>
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 text-xs">
+    <div className="grid grid-cols-2 gap-2 text-xs">
       <div>
         <p className="text-muted-foreground">ZMCC sent</p>
         <p className="text-sm font-semibold tabular-nums text-foreground">{dispatch}</p>
@@ -52,13 +44,12 @@ const Stat: React.FC<{ icon: React.ReactNode; label: string; dispatch: string; p
 const signed = (n: number | null | undefined, suffix = '') =>
   n === null || n === undefined ? NO_DATA : `${n > 0 ? '+' : ''}${n.toLocaleString()}${suffix}`;
 
-
 type TestRow = DispatchVsPlantReport['tests'][number];
 type TankerRow = DispatchVsPlantReport['rows'][number];
 
 const R = 'right' as const;
 
-export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab }) => {
+export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId }) => {
   const [to, setTo] = useState(() => isoDay(new Date()));
   const [from, setFrom] = useState(() => isoDay(new Date(Date.now() - 6 * 86400000)));
   const [open, setOpen] = useState<string | null>(null);
@@ -127,25 +118,6 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId, onOpenTab })
 
   return (
     <div className="space-y-6">
-      {onOpenTab && (
-        <div className="bg-card border border-border rounded-2xl p-4 shadow-xs space-y-3">
-          <h2 className="text-xs font-semibold text-foreground">Reports in this Command Center</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {REPORT_GUIDE.map((g) => (
-              <button
-                key={g.tab}
-                type="button"
-                onClick={() => onOpenTab(g.tab)}
-                className="text-left rounded-lg border border-border p-3 hover:border-primary/40 hover:bg-muted/40 transition"
-              >
-                <p className="text-xs font-semibold text-foreground">{g.title}</p>
-                <p className="text-xs text-secondary-foreground mt-0.5">{g.about}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-xs font-semibold text-secondary-foreground space-y-1">
           <span className="block">From</span>

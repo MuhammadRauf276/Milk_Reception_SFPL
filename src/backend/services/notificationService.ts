@@ -3,15 +3,9 @@ import {
   notificationEventCatalog,
   type NotificationEventKey,
 } from '@/backend/modules/notifications/eventCatalog';
+import { resolveNotificationDeepLink } from '@/lib/notification-links';
 
 type Db = PrismaClient | Prisma.TransactionClient;
-
-function safeDeepLink(value: string | null | undefined): string | null {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('://')) {
-    return null;
-  }
-  return value;
-}
 
 export async function createNotificationsForEvent(
   db: Db,
@@ -31,13 +25,24 @@ export async function createNotificationsForEvent(
   const definition = notificationEventCatalog[input.eventKey];
   if (!definition) return [];
 
-  // For ZMCC-scoped events, notify users at that specific ZMCC plus system-wide supervisors (null source)
+  // For ZMCC-scoped events, notify users bound to that specific ZMCC plus global (null-source) supervisors only.
+  // Unassigned ZMCC-scoped roles (e.g. ZMCC_MANAGER without a procurement_source_id) do NOT receive other ZMCCs' alerts.
+  const GLOBAL_SUPERVISOR_ROLES = [
+    'HEAD_OF_MPD',
+    'SUPER_ADMIN',
+    'DATA_EXECUTIVE',
+    'QA_HEAD',
+    'FINANCE_ACCOUNTS',
+  ];
   const sourceFilter: Prisma.UserWhereInput =
     input.sourceZmccId !== undefined && input.sourceZmccId !== null
       ? {
           OR: [
             { procurement_source_id: input.sourceZmccId },
-            { procurement_source_id: null },
+            {
+              procurement_source_id: null,
+              role: { in: GLOBAL_SUPERVISOR_ROLES as any },
+            },
           ],
         }
       : {};
@@ -51,43 +56,46 @@ export async function createNotificationsForEvent(
     select: { id: true, role: true },
   });
 
-  return Promise.all(
-    users.map(async (user) => {
-      const dedupeKey = `${input.eventKey}:${input.dedupeSuffix}:${user.id}`;
-      const notification = await db.notification.upsert({
-        where: { dedupe_key: dedupeKey },
-        create: {
-          recipient_user_id: user.id,
-          event_key: input.eventKey,
-          priority: definition.priority,
-          title: input.title,
-          body: input.body,
-          deep_link: safeDeepLink(input.deepLinkByRole?.[user.role] ?? input.deepLink),
-          source_type: definition.sourceType,
-          source_id: input.sourceId || null,
-          dedupe_key: dedupeKey,
-          expires_at: input.expiresAt || null,
-        },
-        update: {},
-      });
+  const createdIds: bigint[] = [];
+  for (const user of users) {
+    const dedupeKey = `${input.eventKey}:${input.dedupeSuffix}:${user.id}`;
+    const notification = await db.notification.upsert({
+      where: { dedupe_key: dedupeKey },
+      create: {
+        recipient_user_id: user.id,
+        event_key: input.eventKey,
+        priority: definition.priority,
+        title: input.title,
+        body: input.body,
+        deep_link: resolveNotificationDeepLink(input.deepLinkByRole?.[user.role] ?? input.deepLink, {
+          eventKey: input.eventKey,
+          role: user.role,
+        }),
+        source_type: definition.sourceType,
+        source_id: input.sourceId || null,
+        dedupe_key: dedupeKey,
+        expires_at: input.expiresAt || null,
+      },
+      update: {},
+    });
 
-      await db.notificationDelivery.upsert({
-        where: {
-          notification_id_channel: {
-            notification_id: notification.id,
-            channel: 'IN_APP',
-          },
-        },
-        create: {
+    await db.notificationDelivery.upsert({
+      where: {
+        notification_id_channel: {
           notification_id: notification.id,
           channel: 'IN_APP',
         },
-        update: {},
-      });
+      },
+      create: {
+        notification_id: notification.id,
+        channel: 'IN_APP',
+      },
+      update: {},
+    });
 
-      return notification.id;
-    })
-  );
+    createdIds.push(notification.id);
+  }
+  return createdIds;
 }
 
 /**
@@ -150,7 +158,7 @@ export async function emitSelfApprovalReviewNotification(
     sourceId: input.sourceId,
     title: 'Super Admin Self-Approval Compliance Alert',
     body: `${input.adminName} self-approved ${input.approvalType} #${input.sourceId}. Justification: "${input.remarks.slice(0, 150)}"`,
-    deepLink: `/control-center?audit=1&id=${input.sourceId}`,
+    deepLink: '/super-admin/audit',
     dedupeSuffix: `self-approval:${input.sourceId}:${Date.now()}`,
   });
 }

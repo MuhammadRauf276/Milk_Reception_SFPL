@@ -80,7 +80,7 @@ export function ConfirmHost() {
           </label>
         ) : null}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="outline" onClick={() => close(false)}>
+          <Button variant="secondary" onClick={() => close(false)}>
             {cancelLabel}
           </Button>
           <Button variant={destructive ? 'destructive' : 'default'} disabled={blocked} onClick={() => close(true)}>

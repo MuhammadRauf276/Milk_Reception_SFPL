@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Mail, Send, X, ExternalLink, MessageSquare, Check, Loader2 } from 'lucide-react';
+import { Modal } from '@/components/ui/modal';
 import { toast } from '@/frontend/lib/appToast';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
@@ -111,8 +112,14 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="flex max-h-[92vh] w-full max-w-xl flex-col rounded-2xl border border-border bg-white shadow-xl">
+    <Modal
+      onClose={onClose}
+      preventClose={isSending}
+      size="lg"
+      title="Send Daily Report to Executives"
+      showHeader={false}
+      className="max-w-xl flex max-h-[92vh] flex-col overflow-hidden"
+    >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
@@ -171,7 +178,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
             />
             <button
               type="submit"
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-action/30-strong bg-action-soft px-3 font-semibold text-action hover:bg-action-soft"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-action/30 bg-action-soft px-3 font-semibold text-action hover:bg-action/15 active:scale-[0.98]"
             >
               Add
             </button>
@@ -225,7 +232,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
               type="button"
               onClick={handleOpenGmail}
               disabled={isSending}
-              className="inline-flex items-center gap-1 rounded-lg border border-action/30-strong bg-action-soft px-3 py-2 text-xs font-semibold text-action hover:bg-action-soft disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-action/30 bg-action-soft px-3 py-2 text-xs font-semibold text-action hover:bg-action/15 active:scale-[0.98] disabled:opacity-50"
               title="Open pre-filled in Gmail"
             >
               <ExternalLink className="h-3.5 w-3.5 text-rose-600" />
@@ -248,7 +255,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
               type="button"
               onClick={onClose}
               disabled={isSending}
-              className="rounded-lg border border-border-strong-strong bg-secondary px-3 py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary"
+              className="min-h-11 rounded-lg border border-border-strong bg-secondary px-3 py-2 text-xs font-semibold text-secondary-foreground hover:bg-muted active:scale-[0.98]"
             >
               Cancel
             </button>
@@ -263,7 +270,6 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

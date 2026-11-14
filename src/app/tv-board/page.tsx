@@ -75,7 +75,7 @@ export default function PublicYardTVBoardPage() {
   if (barredHome) return null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
       {user ? (
         <>
           <Header
@@ -151,7 +151,7 @@ export default function PublicYardTVBoardPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-4">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-4">
               {activeVehicles.length === 0 ? (
                 <div className="col-span-full space-y-4">
                   <div className="p-10 text-center border border-border rounded-xl bg-card text-muted-foreground shadow-2xs">
@@ -226,9 +226,6 @@ export default function PublicYardTVBoardPage() {
                           >
                             {isNext ? 'NEXT IN LINE' : `POSITION #${idx + 1}`}
                           </span>
-                          <span className="text-xs font-semibold text-secondary-foreground tabular-nums bg-subtle px-2 py-0.5 rounded border border-border">
-                            Visit #{vehicle.visitId}
-                          </span>
                         </div>
                         <span className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 tabular-nums text-xs font-semibold text-emerald-800">
                           {vehicle.portionCount} Portion{vehicle.portionCount > 1 ? 's' : ''}
@@ -252,13 +249,6 @@ export default function PublicYardTVBoardPage() {
                           <span>·</span>
                           <span className="min-w-0 break-words">Source: <strong className="text-foreground">{vehicle.sourceName}</strong></span>
                         </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-subtle/80 px-2.5 py-1.5 text-xs">
-                        <span className="text-muted-foreground font-semibold text-xs">Station / Stage:</span>
-                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-                          {lc.currentStageLabel}
-                        </span>
                       </div>
 
                       <div className="py-1">

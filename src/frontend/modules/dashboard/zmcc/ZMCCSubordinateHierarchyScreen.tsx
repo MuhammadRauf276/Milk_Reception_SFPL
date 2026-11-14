@@ -310,7 +310,7 @@ export function ZMCCSubordinateHierarchyScreen({
       </div>
 
       {/* Summary KPI Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3">
         <StatCard label="Total Routes" value={summary.totalRoutes} icon={Truck} tone="info" />
         <StatCard label="Total Areas" value={summary.totalAreas} icon={Building2} tone="default" />
         <StatCard label="Total Shops" value={summary.totalShops} hint={`${summary.activeShops} active`} icon={Store} tone="default" />
@@ -506,7 +506,7 @@ export function ZMCCSubordinateHierarchyScreen({
               ><X className="w-4 h-4" /></button>
             </div>
 
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="bg-subtle p-3 rounded-lg">
                 <span className="text-xs text-muted-foreground block">Owner</span>
                 <span className="font-semibold text-foreground">{selectedShop.ownerName}</span>

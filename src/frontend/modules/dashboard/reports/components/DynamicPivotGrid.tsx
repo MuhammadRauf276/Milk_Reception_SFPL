@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import type { ReportFieldDefinition } from '../dynamicReportTypes';
 import { Layers, ArrowRightLeft, Table, Hash, Percent } from 'lucide-react';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 
 interface DynamicPivotGridProps {
   fields: ReportFieldDefinition[];
@@ -288,7 +289,7 @@ export function DynamicPivotGrid({
       </div>
 
       {/* Cross-Tabulation Grid */}
-      <div className="overflow-x-auto min-h-[300px]">
+      <TableWrapper className="min-h-[300px]">
         {rowKeys.length === 0 ? (
           <div className="py-12 text-center text-muted-foreground text-xs">
             No records available to construct the pivot table with current filters.
@@ -370,7 +371,7 @@ export function DynamicPivotGrid({
             </tfoot>
           </table>
         )}
-      </div>
+      </TableWrapper>
     </div>
   );
 }

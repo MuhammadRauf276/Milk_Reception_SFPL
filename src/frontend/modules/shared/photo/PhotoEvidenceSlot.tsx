@@ -8,6 +8,7 @@
 import React from 'react';
 import { Camera, CheckCircle2, MapPin, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Progress } from '@/components/ui/progress';
 
 export interface PhotoEvidence {
   previewUrl: string;
@@ -23,6 +24,8 @@ export interface PhotoEvidenceSlotProps {
   onTake: () => void;
   onRemove: () => void;
   disabled?: boolean;
+  uploading?: boolean;
+  uploadProgress?: number;
   className?: string;
 }
 
@@ -40,6 +43,8 @@ export function PhotoEvidenceSlot({
   onTake,
   onRemove,
   disabled = false,
+  uploading = false,
+  uploadProgress,
   className,
 }: PhotoEvidenceSlotProps) {
   if (!photo) {
@@ -47,19 +52,19 @@ export function PhotoEvidenceSlot({
       <button
         type="button"
         onClick={onTake}
-        disabled={disabled}
+        disabled={disabled || uploading}
         className={cn(
-          'flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 text-base font-semibold transition disabled:opacity-50',
+          'flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 text-base font-semibold transition-all duration-150 active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50 cursor-pointer',
           required
-            ? 'border-neutral-400 bg-muted text-foreground hover:border-neutral-900 hover:bg-muted'
-            : 'border-border bg-white text-secondary-foreground hover:bg-muted',
+            ? 'border-neutral-400 bg-muted text-foreground hover:border-neutral-900 hover:bg-muted active:brightness-95'
+            : 'border-border bg-white text-secondary-foreground hover:bg-muted active:brightness-95',
           className
         )}
       >
         <Camera className="h-6 w-6 shrink-0" aria-hidden="true" />
         <span>
           Take {testName} picture{' '}
-          <span className={required ? 'text-rose-700' : 'font-normal text-muted-foreground'}>
+          <span className={required ? 'text-rose-700 font-semibold' : 'font-normal text-muted-foreground'}>
             ({required ? 'Required' : 'Optional'})
           </span>
         </span>
@@ -70,7 +75,18 @@ export function PhotoEvidenceSlot({
   const gpsText = photo.gps ? `${photo.gps.lat.toFixed(4)}, ${photo.gps.lng.toFixed(4)}` : 'No GPS';
 
   return (
-    <div className={cn('overflow-hidden rounded-xl border-2 border-emerald-600 bg-card', className)}>
+    <div className={cn('relative overflow-hidden rounded-xl border-2 border-emerald-600 bg-card', className)}>
+      {uploading && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/85 p-4 backdrop-blur-xs">
+          <Progress
+            value={uploadProgress ?? undefined}
+            label={`Uploading ${testName} photo…`}
+            showValueLabel
+            status="uploading"
+            size="md"
+          />
+        </div>
+      )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photo.previewUrl}
@@ -89,12 +105,25 @@ export function PhotoEvidenceSlot({
             {gpsText}
           </span>
         </p>
+        {!uploading && uploadProgress === 100 && (
+          <Progress
+            value={100}
+            variant="success"
+            size="sm"
+            status="complete"
+            label="Photo uploaded (100%)"
+            showValueLabel
+          />
+        )}
+        {!uploading && uploadProgress !== 100 && (
+          <p className="text-xs font-medium text-emerald-700">Photo ready: uploads on submit</p>
+        )}
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onTake}
-            disabled={disabled}
-            className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg border border-action/30 bg-action-soft px-3 text-sm font-semibold text-action hover:bg-action-soft disabled:opacity-50"
+            disabled={disabled || uploading}
+            className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg border border-action/30 bg-action-soft px-3 text-sm font-semibold text-action transition-all duration-150 hover:bg-action/15 active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
           >
             <Camera className="h-5 w-5" aria-hidden="true" />
             Retake
@@ -102,9 +131,9 @@ export function PhotoEvidenceSlot({
           <button
             type="button"
             onClick={onRemove}
-            disabled={disabled}
+            disabled={disabled || uploading}
             aria-label={`Remove ${testName} picture`}
-            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg border border-border bg-white text-secondary-foreground hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+            className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg border border-border bg-white text-secondary-foreground transition-all duration-150 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-destructive disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50 cursor-pointer"
           >
             <Trash2 className="h-5 w-5" aria-hidden="true" />
           </button>

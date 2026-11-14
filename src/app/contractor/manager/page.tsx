@@ -71,7 +71,7 @@ function PlantContractorManagerContent() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
       <Header
         currentUser={user}
         title={subpageTitle}
@@ -88,7 +88,7 @@ function PlantContractorManagerContent() {
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      <main className="flex-1 overflow-y-auto w-full max-w-[100rem] mx-auto flex flex-col p-4 sm:p-6 space-y-6">
+      <main className="flex-1 w-full min-w-0 max-w-[100rem] mx-auto flex flex-col p-4 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-6">
         <PageTransition>
 
           {isApprovals ? (

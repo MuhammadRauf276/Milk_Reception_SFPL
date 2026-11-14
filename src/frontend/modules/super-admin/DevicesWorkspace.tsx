@@ -2,15 +2,16 @@
 
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Ban, CheckCircle2, Clock, KeyRound, Plus, ScrollText, Search, Smartphone, Undo2, UserPlus, Users } from 'lucide-react';
+import { AlertTriangle, Ban, CheckCircle2, Clock, KeyRound, Plus, ScrollText, Smartphone, Undo2, UserPlus, Users } from 'lucide-react';
 import { InfoTip } from '@/components/ui/info-tip';
-import { SkeletonList } from '@/components/ui/loaders';
 import { Button } from '@/components/ui/button';
-import { PageHeader } from '@/components/ui/page-header';
+import { DataFilters, FilterToggle, type ActiveFilter } from '@/components/ui/data-filters';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import { useDebouncedValue } from './shared/useDebouncedValue';
 import { PaginationBar } from './shared/PaginationBar';
+import { useListPageSize } from '@/components/ui/pagination';
 import { DeviceDrawer, formatTime, type DeviceDialog, type DeviceItem, type DeviceStatus } from './devices/DeviceDrawer';
 
 const STATUS_VIEW: Record<DeviceStatus, { word: string; icon: React.ReactNode; cls: string }> = {
@@ -28,13 +29,10 @@ const STATUS_FILTERS: Array<{ value: '' | DeviceStatus; label: string }> = [
   { value: 'RELEASED', label: 'Back in office' },
 ];
 
-const BTN = 'min-h-11 px-4';
-const PAGE_SIZE = 12;
-
 function StatusPill({ status }: { status: DeviceStatus }) {
   const v = STATUS_VIEW[status] ?? STATUS_VIEW.PENDING;
   return (
-    <span className={`inline-flex items-center gap-2 rounded-md border px-3 py-1 text-sm font-medium ${v.cls}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-0.5 text-xs font-medium ${v.cls}`}>
       {v.icon}
       {v.word}
     </span>
@@ -51,14 +49,15 @@ export function DevicesWorkspace() {
   const [status, setStatus] = useState<'' | DeviceStatus>('');
   const [page, setPage] = useState(1);
   const [dialog, setDialog] = useState<DeviceDialog | null>(null);
+  const pageSize = useListPageSize(25);
 
   const q = useDebouncedValue(search.trim(), 300);
-  const filters = useMemo(() => ({ q, status, page }), [q, status, page]);
+  const filters = useMemo(() => ({ q, status, page, pageSize }), [q, status, page, pageSize]);
 
   const query = useQuery({
     queryKey: ['super-admin', 'devices', 'list', filters],
     queryFn: ({ signal }) => {
-      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE), options: '0' });
+      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize), options: '0' });
       if (q) params.set('q', q);
       if (status) params.set('status', status);
       return fetchJson<DevicesResponse>(`/api/devices?${params}`, { signal });
@@ -70,123 +69,165 @@ export function DevicesWorkspace() {
   const pagination = query.data?.pagination;
   const error = query.error ? getErrorMessage(query.error) : null;
 
-  return (
-    <div className="space-y-4">
-      <PageHeader
-        title={<span className="inline-flex items-center">Phones<InfoTip text="Register field phones, give them to users, and see what each phone did." /></span>}
-        actions={
-          <Button className={BTN} onClick={() => setDialog({ kind: 'register' })}>
-            <Plus aria-hidden /> Register phone
+  const activeFilters: ActiveFilter[] = [];
+  if (search) activeFilters.push({ key: 'q', label: `Search: ${search}`, onClear: () => { setSearch(''); setPage(1); } });
+  if (status) {
+    const label = STATUS_FILTERS.find((f) => f.value === status)?.label ?? status;
+    activeFilters.push({ key: 'status', label: `Status: ${label}`, onClear: () => { setStatus(''); setPage(1); } });
+  }
+
+  const columns: DataColumn<DeviceItem>[] = [
+    {
+      key: 'phone',
+      header: 'Phone',
+      label: 'Phone',
+      primary: true,
+      cell: (d) => (
+        <div className="min-w-0 space-y-0.5">
+          <div className="flex items-center gap-2 font-semibold text-foreground">
+            <Smartphone className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="min-w-0 break-words">{d.label || d.deviceUid}</span>
+          </div>
+          <div className="break-all font-mono text-xs text-muted-foreground">{d.deviceUid}</div>
+          {d.status === 'BLOCKED' && d.blockReason ? (
+            <p className="text-xs font-medium text-rose-800">Reason: {d.blockReason}</p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cardAlways: true,
+      cell: (d) => <StatusPill status={d.status} />,
+    },
+    {
+      key: 'user',
+      header: 'Assigned user',
+      label: 'Assigned user',
+      cardAlways: true,
+      cell: (d) => (
+        <span className="text-foreground">
+          {d.assignedUserName ?? (d.isSharedStation ? 'Shared station' : 'Nobody')}
+        </span>
+      ),
+    },
+    {
+      key: 'zmcc',
+      header: 'ZMCC',
+      label: 'ZMCC',
+      cell: (d) => <span className="text-secondary-foreground">{d.procurementSourceName ?? '—'}</span>,
+    },
+    {
+      key: 'activity',
+      header: 'Last seen',
+      label: 'Last seen',
+      cell: (d) => (
+        <div className="space-y-0.5 text-xs text-secondary-foreground">
+          <div>{formatTime(d.lastSeenAt)}</div>
+          <div className="tabular-nums text-muted-foreground">
+            {d.lastAppVersion ? `v${d.lastAppVersion}` : '—'} · {d.lastUnsentCount} unsent
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      label: 'Actions',
+      actions: true,
+      align: 'right',
+      cell: (d) => (
+        <div className="flex flex-wrap justify-end gap-1.5">
+          <Button variant="outline" size="sm" disabled={d.status === 'BLOCKED'} onClick={() => setDialog({ kind: 'assign', device: d })}>
+            <UserPlus aria-hidden /> Assign user
           </Button>
-        }
-      />
-
-      <div className="space-y-2">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Search phones…"
-            aria-label="Search phones"
-            className="h-11 w-full rounded-lg border border-border-strong bg-card pl-9 pr-3 text-sm focus:outline-hidden focus:border-primary"
-          />
+          <Button variant="secondary" size="sm" disabled={d.status === 'BLOCKED'} onClick={() => setDialog({ kind: 'key', device: d })}>
+            <KeyRound aria-hidden /> Show key
+          </Button>
+          {d.isSharedStation ? (
+            <Button variant="secondary" size="sm" disabled={d.status !== 'ACTIVE'} onClick={() => setDialog({ kind: 'station', device: d })}>
+              <Users aria-hidden /> Station users
+            </Button>
+          ) : null}
+          <Button variant="secondary" size="sm" onClick={() => setDialog({ kind: 'diary', device: d })}>
+            <ScrollText aria-hidden /> Diary
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setDialog({ kind: 'release', device: d })}>
+            <Undo2 aria-hidden /> Release
+          </Button>
+          <Button variant="destructive" size="sm" disabled={d.status === 'BLOCKED'} onClick={() => setDialog({ kind: 'block', device: d })}>
+            <Ban aria-hidden /> Block
+          </Button>
         </div>
-        <div role="group" aria-label="Status filter" className="flex flex-wrap gap-1">
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              aria-pressed={status === f.value}
-              onClick={() => {
-                setStatus(f.value);
-                setPage(1);
-              }}
-              className={`min-h-11 rounded-lg border px-4 text-xs font-medium transition-colors ${
-                status === f.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-strong bg-card text-secondary-foreground hover:bg-subtle'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      ),
+    },
+  ];
 
+  return (
+    <div className="w-full min-w-0 max-w-full space-y-4">
       {error ? (
-        <div role="alert" className="flex items-center gap-2 rounded-md border border-border bg-card p-3 text-sm text-rose-900">
-          <AlertTriangle className="size-4" aria-hidden /> {error}
+        <div role="alert" className="flex items-center gap-2 rounded-2xl border border-border bg-card p-3 text-sm text-rose-900">
+          <AlertTriangle className="size-4 shrink-0" aria-hidden /> {error}
         </div>
       ) : null}
 
-      {query.isPending ? (
-        <SkeletonList count={4} />
-      ) : devices.length === 0 ? (
-        <p className="rounded-md border p-6 text-center text-sm text-muted-foreground">
-          {q || status ? 'No phones match.' : 'No phones yet.'}
-        </p>
-      ) : (
-        <ul className={`grid gap-4 lg:grid-cols-2 ${query.isPlaceholderData ? 'opacity-60' : ''}`}>
-          {devices.map((d) => (
-            <li key={d.id} className="space-y-3 rounded-2xl border bg-card p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 font-semibold">
-                    <Smartphone className="size-4 shrink-0" aria-hidden />
-                    <span className="min-w-0 break-words">{d.label || d.deviceUid}</span>
-                  </div>
-                  <div className="break-all text-xs text-muted-foreground">{d.deviceUid}</div>
-                </div>
-                <StatusPill status={d.status} />
+      <div className="w-full min-w-0 max-w-full rounded-2xl border border-border/80 bg-card shadow-2xs">
+        <div className="space-y-3 border-b border-border p-3 sm:px-4 sm:py-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-foreground">Phones</h2>
+                <InfoTip text="Register field phones, give them to users, and see what each phone did." />
               </div>
-              <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-x-4 gap-y-1 text-sm">
-                <dt className="text-muted-foreground">User</dt>
-                <dd>{d.assignedUserName ?? (d.isSharedStation ? 'Shared station' : 'Nobody')}</dd>
-                <dt className="text-muted-foreground">ZMCC</dt>
-                <dd>{d.procurementSourceName ?? '-'}</dd>
-                <dt className="text-muted-foreground">Last seen</dt>
-                <dd>{formatTime(d.lastSeenAt)}</dd>
-                <dt className="text-muted-foreground">App version</dt>
-                <dd>{d.lastAppVersion ?? '-'}</dd>
-                <dt className="text-muted-foreground">Not sent yet</dt>
-                <dd>{d.lastUnsentCount}</dd>
-              </dl>
-              {d.status === 'BLOCKED' && d.blockReason ? <p className="text-sm text-rose-900">Reason: {d.blockReason}</p> : null}
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" className={BTN} disabled={d.status === 'BLOCKED'} onClick={() => setDialog({ kind: 'assign', device: d })}>
-                  <UserPlus aria-hidden /> Assign user
-                </Button>
-                <Button variant="outline" className={BTN} onClick={() => setDialog({ kind: 'release', device: d })}>
-                  <Undo2 aria-hidden /> Release phone
-                </Button>
-                <Button variant="outline" className={BTN} disabled={d.status === 'BLOCKED'} onClick={() => setDialog({ kind: 'key', device: d })}>
-                  <KeyRound aria-hidden /> Show key
-                </Button>
-                {d.isSharedStation ? (
-                  <Button variant="outline" className={BTN} disabled={d.status !== 'ACTIVE'} onClick={() => setDialog({ kind: 'station', device: d })}>
-                    <Users aria-hidden /> Station users
-                  </Button>
-                ) : null}
-                <Button variant="outline" className={BTN} onClick={() => setDialog({ kind: 'diary', device: d })}>
-                  <ScrollText aria-hidden /> Diary
-                </Button>
-                <Button variant="destructive" className={BTN} disabled={d.status === 'BLOCKED'} onClick={() => setDialog({ kind: 'block', device: d })}>
-                  <Ban aria-hidden /> Block
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+              <span className="rounded-md border border-border bg-subtle px-2 py-0.5 text-xs tabular-nums text-secondary-foreground">
+                {pagination?.totalRecords ?? devices.length}
+              </span>
+            </div>
+            <Button onClick={() => setDialog({ kind: 'register' })}>
+              <Plus aria-hidden /> Register phone
+            </Button>
+          </div>
+          <DataFilters
+            search={search}
+            onSearchChange={(v) => {
+              setSearch(v);
+              setPage(1);
+            }}
+            searchPlaceholder="Search phones…"
+            active={activeFilters}
+          >
+            <FilterToggle
+              label="Status filter"
+              options={STATUS_FILTERS}
+              value={status}
+              onChange={(v) => {
+                setStatus(v);
+                setPage(1);
+              }}
+            />
+          </DataFilters>
+        </div>
 
-      <div className="overflow-hidden rounded-xl border border-border/80 bg-card">
+        <div className="p-3 sm:p-4">
+          <DataTable
+            paginate={false}
+            columns={columns}
+            rows={devices}
+            getRowId={(d) => d.id}
+            loading={query.isPending}
+            stale={query.isPlaceholderData}
+            emptyTitle={q || status ? 'No phones match.' : 'No phones yet.'}
+            tableFrom="lg"
+          />
+        </div>
+
         <PaginationBar
           page={pagination?.page ?? page}
           totalPages={pagination?.totalPages ?? 1}
           totalRecords={pagination?.totalRecords ?? devices.length}
+          pageSize={pageSize}
           noun="phones"
           disabled={query.isFetching}
           onPageChange={setPage}

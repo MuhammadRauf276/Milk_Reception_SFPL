@@ -73,7 +73,7 @@ function ContractorDispatchContent() {
     'Contractor Source';
 
   return (
-    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-hidden">
+    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-clip">
       <Header
         currentUser={currentUser}
         sourceName={assignedSourceName}

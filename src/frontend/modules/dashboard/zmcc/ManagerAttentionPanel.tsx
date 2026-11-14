@@ -107,9 +107,11 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
                       <span className="tabular-nums font-semibold text-xs text-foreground block">
                         {item.vehicleNumber}
                       </span>
-                      <span className="text-xs text-muted-foreground font-semibold">
-                        Visit #{item.visitId}
-                      </span>
+                      {item.log?.token_number ? (
+                        <span className="text-xs text-muted-foreground font-semibold">
+                          Token {item.log.token_number}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${badgeStyle}`}>
@@ -117,9 +119,9 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
                   </span>
                 </div>
 
-                <div>
+                <div className="flex items-center gap-1 min-w-0">
                   <h4 className="text-xs font-semibold text-foreground">{item.title}</h4>
-                  {item.description ? <InfoTip text={item.description} className="-ml-2" /> : null}
+                  {item.description ? <InfoTip text={item.description} /> : null}
                 </div>
 
                 {item.metrics && item.metrics.length > 0 && (

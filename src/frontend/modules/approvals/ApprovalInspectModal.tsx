@@ -198,10 +198,10 @@ export function ApprovalInspectModal({
                         <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                           {verdict === 'NO' ? (
                             <span>
-                              Rejection Justification <span className="text-rose-600">* (Min 5 chars)</span>
+                              Reason for rejection <span className="text-rose-600">* (Min 5 chars)</span>
                             </span>
                           ) : (
-                            <span>Supervisor Approval Notes (Optional)</span>
+                            <span>Approval notes (optional)</span>
                           )}
                         </label>
                         <textarea
@@ -210,8 +210,8 @@ export function ApprovalInspectModal({
                           onChange={(e) => setDecisionRemarks(e.target.value)}
                           placeholder={
                             verdict === 'NO'
-                              ? 'State specific technical or operational reason for rejection…'
-                              : 'Optional notes for audit logs…'
+                              ? 'Enter the reason for rejection…'
+                              : 'Optional notes…'
                           }
                           className="w-full p-3 text-xs border border-border rounded-lg bg-card resize-none focus:outline-none focus:ring-1 focus:ring-primary min-h-11"
                         />
@@ -264,7 +264,7 @@ export function ApprovalInspectModal({
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>
-                      {item.disabledReason || 'Action disabled: Segregation of duties applies.'}
+                      {item.disabledReason || 'Another supervisor must review this item.'}
                     </span>
                   </div>
                   <button
@@ -311,7 +311,7 @@ export function ApprovalInspectModal({
               <button
                 type="button"
                 onClick={() => setPreviewPhotoUrl(null)}
-                className="min-h-11 px-4 py-2 text-xs font-semibold bg-muted hover:bg-muted text-foreground rounded-lg"
+                className="min-h-11 px-4 py-2 text-xs font-semibold bg-muted hover:bg-muted/80 active:scale-95 text-foreground rounded-lg transition-colors"
               >
                 Close
               </button>

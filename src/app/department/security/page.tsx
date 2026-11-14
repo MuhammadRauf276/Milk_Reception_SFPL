@@ -53,7 +53,7 @@ function SecurityDepartmentContent() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
       <Header
         currentUser={user}
         title="Gate Entry & Exit"

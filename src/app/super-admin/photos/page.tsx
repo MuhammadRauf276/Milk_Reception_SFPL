@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { FormField } from '@/components/ui/form-field';
+import { Camera, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { DataFilters, type ActiveFilter } from '@/components/ui/data-filters';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
 import { Pagination, useListPageSize } from '@/components/ui/pagination';
-import { PageHeader } from '@/components/ui/page-header';
 import { formatDateTime } from '@/lib/format';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -28,10 +30,10 @@ const STATUS: Record<PhotoRecordStatus, { label: string; tone: string }> = {
   NOT_FOUND: { label: 'Record not found', tone: 'bg-rose-50 text-rose-800 border-rose-200' },
 };
 
-const select = 'min-h-11 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground';
+const select = 'min-h-11 rounded-lg border border-input bg-card px-3 text-sm text-foreground focus:border-primary focus:outline-hidden';
 
 export default function PhotoRegisterPage() {
-  const pageSize = useListPageSize();
+  const pageSize = useListPageSize(25);
   const [date, setDate] = useState('');
   const [stage, setStage] = useState('');
   const [status, setStatus] = useState<'' | PhotoRecordStatus>('');
@@ -57,85 +59,188 @@ export default function PhotoRegisterPage() {
   });
   const rows = query.data?.rows ?? [];
   const counts = query.data?.counts;
+  const total = query.data?.total ?? rows.length;
+
+  const activeFilters: ActiveFilter[] = [];
+  if (date) activeFilters.push({ key: 'date', label: `Date: ${date}`, onClear: () => reset(setDate, '') });
+  if (stage) activeFilters.push({ key: 'stage', label: `Point: ${STAGE_LABEL[stage] ?? stage}`, onClear: () => reset(setStage, '') });
+  if (status) activeFilters.push({ key: 'status', label: `Status: ${STATUS[status].label}`, onClear: () => reset(setStatus, '') });
+  if (takenBy.trim()) activeFilters.push({ key: 'takenBy', label: `User: ${takenBy.trim()}`, onClear: () => reset(setTakenBy, '') });
+
+  const columns: DataColumn<PhotoRegisterRow>[] = [
+    {
+      key: 'preview',
+      header: 'Preview',
+      label: 'Preview',
+      cell: (r) => (
+        <a href={`/api/photos/${r.captureId}?v=${r.version}`} target="_blank" rel="noreferrer" className="inline-block shrink-0" aria-label={`Open photo: ${r.test}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/api/photos/${r.captureId}?w=320&v=${r.version}`}
+            alt={r.test}
+            className="h-12 w-14 rounded-md border border-border object-cover bg-muted"
+            loading="lazy"
+          />
+        </a>
+      ),
+    },
+    {
+      key: 'test',
+      header: 'Test & Point',
+      label: 'Test & Point',
+      primary: true,
+      cell: (r) => (
+        <div className="min-w-0 space-y-0.5">
+          <p className="text-sm font-semibold text-foreground break-words">{r.test}</p>
+          <p className="text-xs text-secondary-foreground break-words">
+            {STAGE_LABEL[r.stage] ?? r.stage}
+            {r.source ? ` · ${r.source}` : ''}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cardAlways: true,
+      cell: (r) => (
+        <span className={`inline-block rounded-md border px-2 py-0.5 text-xs font-semibold ${STATUS[r.status].tone}`}>
+          {STATUS[r.status].label}
+        </span>
+      ),
+    },
+    {
+      key: 'takenBy',
+      header: 'Taken by',
+      label: 'Taken by',
+      cardAlways: true,
+      cell: (r) => (
+        <div className="text-xs text-secondary-foreground break-words">
+          <div className="font-medium text-foreground">{r.takenBy}</div>
+          <div className="tabular-nums text-muted-foreground">
+            {formatDateTime(r.takenAt)}
+            {r.wasOffline ? ' · taken offline' : ''}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'record',
+      header: 'Record & File',
+      label: 'Record & File',
+      cell: (r) => (
+        <div className="min-w-0 space-y-0.5 text-xs">
+          {r.record ? <p className="text-secondary-foreground break-words">Record: {r.record}</p> : null}
+          <p className="text-muted-foreground break-all font-mono">{r.filePath}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'action',
+      header: 'Photo',
+      label: 'Photo',
+      actions: true,
+      align: 'right',
+      cell: (r) => (
+        <Button asChild variant="outline" size="sm">
+          <a href={`/api/photos/${r.captureId}?v=${r.version}`} target="_blank" rel="noreferrer">
+            <ExternalLink aria-hidden />
+            Open photo
+          </a>
+        </Button>
+      ),
+    },
+  ];
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
-      <PageHeader title="Photo register" description="Every photo taken at every point, who took it and where it is stored" />
-
-      {counts && (
-        <div className="flex flex-wrap gap-2 text-xs">
-          {(Object.keys(STATUS) as PhotoRecordStatus[]).map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => reset(setStatus, status === k ? '' : k)}
-              aria-pressed={status === k}
-              className={`min-h-11 rounded-md border px-3 font-semibold ${STATUS[k].tone} ${status === k ? 'ring-2 ring-action' : ''}`}
-            >
-              {STATUS[k].label}: {counts[k]}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-3 rounded-2xl border border-border bg-card p-4 sm:grid-cols-3">
-        <FormField label="Date taken" htmlFor="ph-date" hint="Empty shows every date.">
-          <Input id="ph-date" type="date" value={date} onChange={(e) => reset(setDate, e.target.value)} />
-        </FormField>
-        <FormField label="Point" htmlFor="ph-stage">
-          <select id="ph-stage" value={stage} onChange={(e) => reset(setStage, e.target.value)} className={select}>
-            {STAGES.map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Taken by" htmlFor="ph-user">
-          <Input id="ph-user" value={takenBy} onChange={(e) => reset(setTakenBy, e.target.value)} placeholder="Name, username or code" />
-        </FormField>
-      </div>
-
-      {query.isPending && <p className="text-sm text-muted-foreground">Loading photos…</p>}
-      {query.isError && (
-        <p role="alert" className="text-sm text-rose-700">
-          {getErrorMessage(query.error) || 'Could not load photos.'}
-        </p>
-      )}
-      {query.isSuccess && rows.length === 0 && <p className="text-sm text-muted-foreground">No photo matches these filters.</p>}
-
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {rows.map((r) => (
-          <li key={r.captureId} className="flex gap-3 rounded-2xl border border-border bg-card p-3">
-            <a href={`/api/photos/${r.captureId}?v=${r.version}`} target="_blank" rel="noreferrer" className="shrink-0" aria-label={`Open photo: ${r.test}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/api/photos/${r.captureId}?w=320&v=${r.version}`} alt={r.test} className="h-24 w-24 rounded-md border border-border object-cover" loading="lazy" />
-            </a>
-            <div className="min-w-0 space-y-0.5 text-xs">
-              <p className="text-sm font-semibold text-foreground break-words">{r.test}</p>
-              <p className="text-secondary-foreground break-words">
-                {STAGE_LABEL[r.stage] ?? r.stage}
-                {r.source ? ` · ${r.source}` : ''}
-              </p>
-              {r.record && <p className="text-secondary-foreground break-words">Record: {r.record}</p>}
-              <p className="text-secondary-foreground break-words">
-                {r.takenBy} · {formatDateTime(r.takenAt)}
-                {r.wasOffline ? ' · taken offline' : ''}
-              </p>
-              <span className={`inline-block rounded-md border px-2 py-0.5 font-semibold ${STATUS[r.status].tone}`}>{STATUS[r.status].label}</span>
-              <p className="text-muted-foreground break-all">{r.filePath}</p>
+    <div className="w-full min-w-0 max-w-full space-y-4">
+      <div className="w-full min-w-0 max-w-full rounded-2xl border border-border/80 bg-card shadow-2xs">
+        <div className="space-y-3 border-b border-border p-3 sm:px-4 sm:py-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <Camera className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+              <h2 className="text-sm font-semibold text-foreground">Photo register</h2>
+              <span className="rounded-md border border-border bg-subtle px-2 py-0.5 text-xs tabular-nums text-secondary-foreground">
+                {total}
+              </span>
+              <span className="hidden text-xs text-muted-foreground sm:inline">Every capture, user, and storage path</span>
             </div>
-          </li>
-        ))}
-      </ul>
+            {counts ? (
+              <div className="flex flex-wrap gap-1.5 text-xs">
+                {(Object.keys(STATUS) as PhotoRecordStatus[]).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => reset(setStatus, status === k ? '' : k)}
+                    aria-pressed={status === k}
+                    className={`min-h-11 rounded-lg border px-3 font-semibold transition-colors ${STATUS[k].tone} ${
+                      status === k ? 'ring-2 ring-action' : 'hover:opacity-90'
+                    }`}
+                  >
+                    {STATUS[k].label}: {counts[k]}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
 
-      <Pagination
-        page={page}
-        totalPages={Math.max(1, Math.ceil((query.data?.total ?? 0) / pageSize))}
-        totalRecords={query.data?.total ?? 0}
-        onPageChange={setPage}
-        noun="photos"
-      />
+          <DataFilters
+            search={takenBy}
+            onSearchChange={(v) => reset(setTakenBy, v)}
+            searchPlaceholder="Taken by (name, username or code)"
+            active={activeFilters}
+          >
+            <Input
+              id="ph-date"
+              type="date"
+              aria-label="Date taken"
+              value={date}
+              onChange={(e) => reset(setDate, e.target.value)}
+              className="w-full sm:w-44"
+            />
+            <select
+              id="ph-stage"
+              aria-label="Point"
+              value={stage}
+              onChange={(e) => reset(setStage, e.target.value)}
+              className={`${select} w-full sm:w-56`}
+            >
+              {STAGES.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </DataFilters>
+        </div>
+
+        <div className="p-3 sm:p-4">
+          <DataTable
+            paginate={false}
+            columns={columns}
+            rows={rows}
+            getRowId={(r) => r.captureId}
+            loading={query.isPending}
+            stale={query.isPlaceholderData}
+            error={query.isError ? getErrorMessage(query.error) || 'Could not load photos.' : null}
+            onRetry={() => void query.refetch()}
+            emptyTitle="No photo matches these filters."
+            tableFrom="lg"
+          />
+        </div>
+
+        <Pagination
+          page={page}
+          totalPages={Math.max(1, Math.ceil(total / pageSize))}
+          totalRecords={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          noun="photos"
+          disabled={query.isFetching}
+          className="border-t border-border bg-card"
+        />
+      </div>
     </div>
   );
 }

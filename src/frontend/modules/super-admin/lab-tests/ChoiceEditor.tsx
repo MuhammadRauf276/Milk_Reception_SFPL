@@ -97,7 +97,7 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
             key={p.label}
             type="button"
             onClick={() => onChange(JSON.parse(JSON.stringify(p.options)))}
-            className="min-h-11 rounded bg-muted px-3 text-xs font-semibold text-secondary-foreground transition hover:bg-muted"
+            className="min-h-11 rounded bg-muted px-3 text-xs font-semibold text-secondary-foreground transition hover:bg-muted/80 active:scale-95"
           >
             {p.label}
           </button>

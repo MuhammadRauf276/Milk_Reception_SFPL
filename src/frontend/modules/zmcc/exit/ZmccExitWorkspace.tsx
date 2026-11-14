@@ -16,6 +16,7 @@ import {
   zmccPrimaryBtn,
 } from '@/frontend/modules/zmcc/shared/ZmccDrawer';
 import { InfoTip } from '@/components/ui/info-tip';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import type { ExitQueueItem } from '@/backend/services/zmccArrival/zmccExitService';
 
 const REASONS: Array<{ value: string; label: string }> = [
@@ -137,7 +138,7 @@ const ExitDrawer: React.FC<{ kind: 'exit' | 'close'; item: ExitQueueItem; onClos
       open
       onClose={onClose}
       title={kind === 'exit' ? 'Record vehicle exit' : 'Close without unloading'}
-      subtitle={`${item.vehicle_number || 'Vehicle'} - ${item.source_type}`}
+      subtitle={`${item.vehicle_number || 'Vehicle'}${item.zmcc_token ? ` · Token ${item.zmcc_token}` : ''} - ${item.source_type}`}
       icon={<DoorOpen className="mt-0.5 h-5 w-5 text-secondary-foreground" />}
     >
       {kind === 'exit' ? (
@@ -187,6 +188,7 @@ export const ZmccExitWorkspace: React.FC = () => {
     refetchInterval: () => (typeof document !== 'undefined' && document.hidden ? false : 30_000),
   });
   const items = query.data?.items ?? [];
+  const paged = usePagedRows(items, (item) => String(item.session_id));
   const error = query.error ? getErrorMessage(query.error) || 'Could not load the list.' : null;
 
   return (
@@ -215,15 +217,15 @@ export const ZmccExitWorkspace: React.FC = () => {
       {!query.isLoading && items.length === 0 && <p className="text-sm text-secondary-foreground">No vehicles waiting.</p>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {items.map((item) => (
+        {paged.pageRows.map((item) => (
           <div
             key={item.session_id}
             className="bg-card border-border rounded-2xl border p-4 shadow-2xs flex flex-col justify-between space-y-3"
           >
             <div>
               {/* Header row: Vehicle with Truck icon + Source Type badge + Status badge */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
                     <Truck className="h-4 w-4 text-secondary-foreground" />
                   </div>
@@ -232,7 +234,7 @@ export const ZmccExitWorkspace: React.FC = () => {
                       {item.vehicle_number || 'Vehicle'}
                     </div>
                     <span
-                      className={`inline-block mt-0.5 px-2 py-0.2 rounded text-xs font-semibold tracking-wider ${
+                      className={`inline-block mt-0.5 px-2 py-0.5 rounded text-xs font-semibold tracking-wider ${
                         item.source_type === 'MC' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
@@ -242,7 +244,7 @@ export const ZmccExitWorkspace: React.FC = () => {
                 </div>
 
                 <span
-                  className={`inline-flex items-center gap-1 rounded-md px-3 py-1 text-xs font-semibold shrink-0 ${
+                  className={`inline-flex max-w-full flex-wrap items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold ${
                     item.unloaded
                       ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-muted text-secondary-foreground'
@@ -298,6 +300,17 @@ export const ZmccExitWorkspace: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {paged.totalRecords > 0 && (
+        <Pagination
+          page={paged.page}
+          totalPages={paged.totalPages}
+          totalRecords={paged.totalRecords}
+          pageSize={paged.pageSize}
+          noun="vehicles"
+          onPageChange={paged.setPage}
+        />
+      )}
 
       {dialog && (
         <ExitDrawer

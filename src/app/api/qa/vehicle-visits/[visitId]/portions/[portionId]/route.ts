@@ -67,10 +67,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Portion record not found' }, { status: 404 });
     }
 
-    // Do not allow deleting an already finalized portion
-    if (portion.plant_decision === 'ACCEPTED' || portion.plant_decision === 'REJECTED') {
+    // Do not allow deleting an already finalized or manager-pending portion
+    if (
+      portion.plant_decision === 'ACCEPTED' ||
+      portion.plant_decision === 'REJECTED' ||
+      portion.manager_review_status === 'PENDING'
+    ) {
       return NextResponse.json(
-        { error: 'Cannot remove portion. This portion has already been finalized.' },
+        { error: 'Cannot remove portion. This portion has already been submitted or finalized.' },
         { status: 400 }
       );
     }
@@ -90,6 +94,13 @@ export async function DELETE(
       await tx.visitPortion.delete({
         where: { id: portionId },
       });
+
+      if (visit.portions.length - 1 === 1 && visit.test_mode === 'PORTION_WISE') {
+        await tx.vehicleVisit.update({
+          where: { id: visitId },
+          data: { test_mode: 'COMPOSITE' },
+        });
+      }
 
       // Close the numbering gap so the screen shows Portion 1..N. Only when no later portion
       // already has a decision, weight or seal check (those numbers are referenced elsewhere).

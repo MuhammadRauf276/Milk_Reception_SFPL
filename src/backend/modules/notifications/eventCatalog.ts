@@ -57,5 +57,5 @@ export const notificationEventCatalog: Record<NotificationEventKey, Notification
   NEW_HC_PENDING: { recipients: ['ZMCC_MANAGER'], priority: 'NORMAL', sourceType: 'ZMCC_LOCAL_SUPPLIER' },
   MOT_SHOP_WARNING_LOGGED: { recipients: ['ZMCC_MANAGER', 'HEAD_OF_MPD'], priority: 'NORMAL', sourceType: 'MOT_SHOP_COLLECTION' },
   ZMCC_LAB_WARNING_LOGGED: { recipients: ['ZMCC_MANAGER', 'HEAD_OF_MPD'], priority: 'NORMAL', sourceType: 'ZMCC_LAB_SESSION' },
-  PLANT_QA_WARNING_LOGGED: { recipients: ['QA_HEAD'], priority: 'HIGH', sourceType: 'PLANT_QA_PORTION' },
+  PLANT_QA_WARNING_LOGGED: { recipients: ['QA_HEAD'], priority: 'NORMAL', sourceType: 'PLANT_QA_PORTION' },
 };

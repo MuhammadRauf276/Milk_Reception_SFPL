@@ -242,7 +242,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 tabular-nums">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9.5rem),1fr))] gap-2 tabular-nums">
             <div className="bg-card border-border p-3 rounded-lg border">
               <span className="text-xs font-sans text-muted-foreground block font-semibold">Total Portions</span>
               <span className="text-lg font-semibold text-foreground">{plantSummary.totalPortions}</span>
@@ -308,7 +308,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
 
         {/* Filter Chips */}
         {viewMode === 'ZMCC_LAB' ? (
-          <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-border/60 text-xs">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1.5 pt-2 border-t border-border/60 text-xs">
             <span className="text-xs font-semibold text-muted-foreground mr-1">Filter:</span>
             {([
               { id: 'ALL', label: 'All' },
@@ -331,7 +331,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
             ))}
           </div>
         ) : (
-          <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-border/60 text-xs">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1.5 pt-2 border-t border-border/60 text-xs">
             <span className="text-xs font-semibold text-muted-foreground mr-1">Filter:</span>
             {PLANT_FILTER_OPTIONS.map((opt) => (
               <button

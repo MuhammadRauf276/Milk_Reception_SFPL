@@ -254,13 +254,13 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
         </div>
 
         {isCentralRole && sources.length > 0 && (
-          <div className="flex items-center space-x-2">
-            <label htmlFor="zmcc-select" className="text-xs font-semibold text-secondary-foreground">
+          <div className="flex flex-wrap items-center gap-2 min-w-0 w-full sm:w-auto">
+            <label htmlFor="zmcc-select" className="text-xs font-semibold text-secondary-foreground shrink-0">
               ZMCC
             </label>
             <Combobox
               id="zmcc-select"
-              className="min-h-[44px] w-full sm:w-auto sm:min-w-[200px]"
+              className="min-h-[44px] w-full sm:w-64 max-w-full"
               value={selectedZmccId}
               onValueChange={setSelectedZmccId}
               placeholder="Select ZMCC"
@@ -358,12 +358,12 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
         {activeTab === 'JOURNEY_MAP' && (
           <div className="space-y-4 animate-panel-in">
             <div className="p-3 bg-card rounded-xl border border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center space-x-2">
-                <label className="text-xs font-semibold text-secondary-foreground">
+              <div className="flex flex-wrap items-center gap-2 min-w-0 w-full sm:w-auto">
+                <label className="text-xs font-semibold text-secondary-foreground shrink-0">
                   Select Journey:
                 </label>
                 <Combobox
-                  className="min-h-[44px] w-full sm:w-auto sm:min-w-[220px]"
+                  className="min-h-[44px] w-full sm:w-72 max-w-full"
                   value={selectedMapJourneyId || ''}
                   onValueChange={setSelectedMapJourneyId}
                   placeholder="Choose journey"

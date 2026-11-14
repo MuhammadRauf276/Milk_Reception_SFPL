@@ -88,7 +88,7 @@ export const CANONICAL_STATIONS: readonly CanonicalStation[] = [
     href: '/phe?section=mot&view=dispatch',
     basePath: '/phe',
     primaryRole: 'MDO',
-    subordinateRoleLabel: 'MDO (Milk Development Officer)',
+    subordinateRoleLabel: 'Milk Development Officer',
     icon: RouteIcon,
     group: 'ZMCC Operations',
     targetSourceType: 'ZMCC',

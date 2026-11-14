@@ -147,7 +147,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
             </span>
           </div>
 
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 sm:gap-2 text-center text-xs">
+          <div className="grid grid-cols-3 gap-2 text-center text-xs">
             <div className="bg-card p-2 rounded-lg border border-border overflow-hidden">
               <span className="text-xs text-muted-foreground block font-medium">Capacity</span>
               <span className="font-mono font-semibold text-foreground tabular-nums block break-words">
@@ -220,7 +220,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
             </label>
           </div>
 
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label htmlFor="intake-fat" className={fieldLabelClass}>
                 Fat % *

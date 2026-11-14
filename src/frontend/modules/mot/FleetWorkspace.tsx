@@ -5,12 +5,14 @@ import React, { useMemo, useState } from 'react';
 import { History, Plus, Truck } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { User } from '@core/types';
+import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
+import { DataFilters, type ActiveFilter } from '@/components/ui/data-filters';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { stationQueryKeys } from '@/lib/query/stationQueryKeys';
 import { getErrorMessage } from '@/lib/errors';
-import { Pager, paginate, pageCount } from '@/frontend/modules/dashboard/components/Pager';
 import { MotSheet } from './MotSheet';
 import { VehicleSheet } from './workspace/VehicleSheet';
 import { TransferSheet } from './workspace/TransferSheet';
@@ -60,7 +62,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
   const queryClient = useQueryClient();
   const [zmccFilter, setZmccFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   useAutoClearMessage(message, setMessage);
@@ -83,13 +85,35 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
         { signal }
       ),
   });
-  const rows = useMemo(
-    () => (fleetQuery.data?.vehicles ?? []).filter((r) => !statusFilter || r.status === statusFilter),
-    [fleetQuery.data, statusFilter]
-  );
-  const totalPages = pageCount(rows.length);
-  const currentPage = Math.min(page, totalPages);
-  const pageRows = paginate(rows, currentPage);
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (fleetQuery.data?.vehicles ?? []).filter((r) => {
+      if (statusFilter && r.status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        r.vehicle_number.toLowerCase().includes(q) ||
+        r.zmcc_name.toLowerCase().includes(q) ||
+        r.zmcc_code.toLowerCase().includes(q) ||
+        (r.arrival_token ?? '').toLowerCase().includes(q) ||
+        (r.last_journey?.journey_number ?? '').toLowerCase().includes(q) ||
+        (r.last_journey?.route_name ?? '').toLowerCase().includes(q) ||
+        (r.last_journey?.mot_name ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [fleetQuery.data, statusFilter, search]);
+
+  const paged = usePagedRows(rows, (r) => r.id);
+
+  const activeFilters: ActiveFilter[] = [];
+  if (search.trim()) activeFilters.push({ key: 'search', label: `Search: ${search.trim()}`, onClear: () => setSearch('') });
+  if (zmccFilter) {
+    const label = sources.find((s) => s.id === zmccFilter)?.name ?? zmccFilter;
+    activeFilters.push({ key: 'zmcc', label: `ZMCC: ${label}`, onClear: () => setZmccFilter('') });
+  }
+  if (statusFilter) {
+    const label = STATUS_META[statusFilter as FleetStatus]?.label ?? statusFilter;
+    activeFilters.push({ key: 'status', label: `Status: ${label}`, onClear: () => setStatusFilter('') });
+  }
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: FLEET_KEY });
 
@@ -133,21 +157,23 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
       key: 'zmcc',
       header: 'ZMCC',
       label: 'ZMCC',
+      cardAlways: true,
       cell: (r) => <span className="font-medium text-secondary-foreground">{r.zmcc_name}</span>,
     },
     {
       key: 'status',
       header: 'Status',
       label: 'Status',
+      cardAlways: true,
       cell: (r) => {
         const st = STATUS_META[r.status];
         return (
-          <>
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${st.tone}`}>{st.label}</span>
             {r.arrival_token ? (
-              <span className="ml-2 text-xs tabular-nums text-muted-foreground">{r.arrival_token}</span>
+              <span className="text-xs tabular-nums text-muted-foreground">{r.arrival_token}</span>
             ) : null}
-          </>
+          </div>
         );
       },
     },
@@ -178,123 +204,127 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
       align: 'right',
       cell: (r) => {
         const busy = r.status === 'COLLECTING' || r.status === 'RETURNING' || r.status === 'AT_ZMCC_WAITING_UNLOAD';
+        const isToggling = toggleMutation.isPending && toggleMutation.variables?.id === r.id;
         return (
-          <div className="flex flex-wrap justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setHistoryRow(r)}
-              className="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-muted px-3 font-semibold text-foreground hover:bg-border"
-            >
-              <History className="h-3.5 w-3.5" />
-              History{r.transfers.length > 0 ? ` (${r.transfers.length})` : ''}
-            </button>
-            <button
-              type="button"
-              onClick={() => setTransferVehicle(toItem(r))}
-              disabled={busy}
-              title={busy ? 'The vehicle must be free to move it' : 'Move vehicle to another ZMCC'}
-              className="min-h-[44px] rounded-lg bg-blue-50 px-3 font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-            >
+          <div className="flex flex-wrap justify-end gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => setTransferVehicle(toItem(r))} disabled={busy} title={busy ? 'The vehicle must be free to move it' : 'Move vehicle to another ZMCC'}>
               Transfer
-            </button>
-            <button
-              type="button"
-              onClick={() => setVehicleSheet({ editing: toItem(r) })}
-              className="min-h-[44px] rounded-lg bg-muted px-3 font-semibold text-foreground hover:bg-border"
-            >
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setVehicleSheet({ editing: toItem(r) })}>
               Edit
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleMutation.mutate({ id: r.id, is_active: !r.is_active })}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setHistoryRow(r)}>
+              <History aria-hidden />
+              History{r.transfers.length > 0 ? ` (${r.transfers.length})` : ''}
+            </Button>
+            <Button
+              variant={r.is_active ? 'destructive' : 'secondary'}
+              size="sm"
+              loading={isToggling}
+              loadingText={r.is_active ? 'Deactivating…' : 'Activating…'}
               disabled={r.is_active && (r.status === 'COLLECTING' || r.status === 'RETURNING')}
-              className={`min-h-[44px] rounded-lg px-3 font-semibold ${
-                r.is_active
-                  ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-50'
-                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-              }`}
+              onClick={() => toggleMutation.mutate({ id: r.id, is_active: !r.is_active })}
             >
               {r.is_active ? 'Deactivate' : 'Activate'}
-            </button>
+            </Button>
           </div>
         );
       },
     },
   ];
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-primary p-3 text-white">
-            <Truck className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-base font-semibold text-foreground sm:text-lg">Fleet</h1>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => setVehicleSheet({ editing: null })}
-          className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-semibold text-white hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Add Vehicle
-        </button>
-      </div>
-
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-center">
-        <Combobox
-          className="min-h-[44px] sm:min-w-[220px]"
-          value={zmccFilter}
-          onValueChange={(v) => {
-            setZmccFilter(v);
-            setPage(1);
-          }}
-          placeholder="All ZMCCs"
-          searchPlaceholder="Search ZMCC"
-          options={[
-            { value: '', label: 'All ZMCCs' },
-            ...sources.map((s) => ({ value: s.id, label: `${s.name} · ${s.code}`, keywords: `${s.code} ${s.name}` })),
-          ]}
-        />
-        <Combobox
-          className="min-h-[44px] sm:min-w-[220px]"
-          value={statusFilter}
-          onValueChange={(v) => {
-            setStatusFilter(v);
-            setPage(1);
-          }}
-          placeholder="Any status"
-          searchPlaceholder="Search status"
-          options={[
-            { value: '', label: 'Any status' },
-            ...(Object.keys(STATUS_META) as FleetStatus[]).map((k) => ({ value: k, label: STATUS_META[k].label })),
-          ]}
-        />
-      </div>
-
+    <div className="w-full min-w-0 max-w-full space-y-4">
       {error ? (
-        <div className="bg-card border-border rounded-xl border p-3 text-xs font-semibold text-rose-800">{error}</div>
+        <div className="bg-card border-border rounded-2xl border p-3 text-xs font-semibold text-rose-800">{error}</div>
       ) : null}
       {message ? (
-        <div className="bg-card border-border rounded-xl border p-3 text-xs font-semibold text-emerald-800">
+        <div className="bg-card border-border rounded-2xl border p-3 text-xs font-semibold text-emerald-800">
           {message}
         </div>
       ) : null}
       {fleetQuery.error ? (
-        <div className="bg-card border-border rounded-xl border p-3 text-xs font-semibold text-rose-800">
+        <div className="bg-card border-border rounded-2xl border p-3 text-xs font-semibold text-rose-800">
           {getErrorMessage(fleetQuery.error)}
         </div>
       ) : null}
 
-      <DataTable paginate={false}
-        columns={columns}
-        rows={pageRows}
-        getRowId={(r) => r.id}
-        loading={fleetQuery.isLoading}
-        emptyTitle="No vehicles found."
-      />
-      <Pager page={currentPage} totalPages={totalPages} total={rows.length} onPageChange={setPage} />
+      <div className="w-full min-w-0 max-w-full rounded-2xl border border-border/80 bg-card shadow-2xs">
+        <div className="space-y-3 border-b border-border p-3 sm:px-4 sm:py-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="rounded-lg bg-primary p-2 text-white shrink-0">
+                <Truck className="h-4 w-4" aria-hidden />
+              </div>
+              <h1 className="text-base font-semibold text-foreground sm:text-lg">Fleet</h1>
+              <span className="rounded-md border border-border bg-subtle px-2 py-0.5 text-xs tabular-nums text-secondary-foreground">
+                {rows.length}
+              </span>
+            </div>
+            <Button onClick={() => setVehicleSheet({ editing: null })}>
+              <Plus aria-hidden />
+              Add Vehicle
+            </Button>
+          </div>
+
+          <DataFilters
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search vehicle, ZMCC, or journey"
+            active={activeFilters}
+          >
+            <div className="min-w-[min(100%,14rem)] flex-1 sm:max-w-60">
+              <Combobox
+                className="min-h-[44px]"
+                value={zmccFilter}
+                onValueChange={setZmccFilter}
+                placeholder="All ZMCCs"
+                searchPlaceholder="Search ZMCC"
+                options={[
+                  { value: '', label: 'All ZMCCs' },
+                  ...sources.map((s) => ({ value: s.id, label: `${s.name} · ${s.code}`, keywords: `${s.code} ${s.name}` })),
+                ]}
+              />
+            </div>
+            <div className="min-w-[min(100%,12rem)] flex-1 sm:max-w-52">
+              <Combobox
+                className="min-h-[44px]"
+                value={statusFilter}
+                onValueChange={setStatusFilter}
+                placeholder="Any status"
+                searchPlaceholder="Search status"
+                options={[
+                  { value: '', label: 'Any status' },
+                  ...(Object.keys(STATUS_META) as FleetStatus[]).map((k) => ({ value: k, label: STATUS_META[k].label })),
+                ]}
+              />
+            </div>
+          </DataFilters>
+        </div>
+
+        <div className="p-3 sm:p-4">
+          <DataTable
+            paginate={false}
+            columns={columns}
+            rows={paged.pageRows}
+            getRowId={(r) => r.id}
+            loading={fleetQuery.isLoading}
+            stale={fleetQuery.isFetching && !fleetQuery.isLoading}
+            emptyTitle="No vehicles found."
+            tableFrom="lg"
+          />
+        </div>
+
+        <Pagination
+          page={paged.page}
+          totalPages={paged.totalPages}
+          totalRecords={paged.totalRecords}
+          pageSize={paged.pageSize}
+          noun="vehicles"
+          disabled={fleetQuery.isFetching}
+          onPageChange={paged.setPage}
+          className="border-t border-border bg-card"
+        />
+      </div>
 
       {vehicleSheet && (
         <VehicleSheet

@@ -21,6 +21,193 @@ interface Args {
   isSuperior: boolean;
 }
 
+export function computePortionLiveDecision(input: {
+  displayableTests: LabTestDef[];
+  requiredManualPlantTests: LabTestDef[];
+  testInputs: Record<string, TestInputState>;
+  activePhotos: Record<string, string>;
+  personDecision: PersonDecision | null;
+  decisionRemarks: string;
+  isSuperior: boolean;
+}) {
+  const {
+    displayableTests,
+    requiredManualPlantTests,
+    testInputs,
+    activePhotos,
+    personDecision,
+    decisionRemarks,
+  } = input;
+  void input.isSuperior;
+
+  const lrTest = pickRoleTest(displayableTests, 'LR') ?? undefined;
+  const fatTest = pickRoleTest(displayableTests, 'FAT') ?? undefined;
+  const lrNum = lrTest && testInputs[lrTest.id]?.numericValue ? Number(testInputs[lrTest.id]?.numericValue) : null;
+  const fatNum = fatTest && testInputs[fatTest.id]?.numericValue ? Number(testInputs[fatTest.id]?.numericValue) : null;
+  const autoCalculations = evaluateAllCalculatedTests({ LR: lrNum, FAT: fatNum });
+
+  const ruleFailures: string[] = [];
+  const missingCompulsory: string[] = [];
+  const missingPhotos: string[] = [];
+  const extraReasons: ExceptionReason[] = [];
+
+  for (const test of requiredManualPlantTests) {
+    const isCalculated = isCalculatedTest(test as LabTestDef & { formulaId?: unknown });
+
+    if (isCalculated) {
+      const calcVal = calculatedValueFor(test, autoCalculations);
+      if (calcVal == null) {
+        missingCompulsory.push(test.testCode);
+      }
+      continue;
+    }
+
+    const state = testInputs[test.id];
+    const photoMissingForTest = Boolean(test.isPhotoRequired) && !activePhotos[test.id];
+    if (photoMissingForTest) {
+      missingPhotos.push(test.testCode);
+    }
+    if (!state) {
+      missingCompulsory.push(test.testCode);
+      continue;
+    }
+    if (state.performanceStatus === 'NOT_PERFORMED') {
+      ruleFailures.push(test.testCode);
+      missingCompulsory.push(test.testCode);
+    } else if (state.performanceStatus === 'PERFORMED') {
+      if (test.resultType === 'NUMERIC' && (!state.numericValue || isNaN(Number(state.numericValue)))) {
+        missingCompulsory.push(test.testCode);
+      } else if (test.resultType === 'NUMERIC' && test.rule) {
+        const evalRes = evaluate3ZoneTest(
+          {
+            min: test.rule.min,
+            max: test.rule.max,
+            warningTrigger: test.rule.warningTrigger,
+            decisionConsequence: test.rule.decisionConsequence,
+            acceptableOption: test.rule.acceptableOption,
+            category: test.rule.ruleCategory,
+            ruleCategory: test.rule.ruleCategory,
+            testMode: test.isRequired ? 'COMPULSORY' : 'OPTIONAL',
+            resultType: test.resultType,
+            resultOptions: test.resultOptions,
+            unit: test.unit,
+          },
+          state.numericValue
+        );
+        if (evalRes.isRuleFailure) {
+          ruleFailures.push(test.testCode);
+        }
+      } else if (test.resultType !== 'NUMERIC' && !state.textValue) {
+        missingCompulsory.push(test.testCode);
+      }
+      if (test.resultOptions) {
+        const opt = test.resultOptions.find((o) => o.value === state.textValue);
+        if (opt && opt.isPassing === false) {
+          ruleFailures.push(test.testCode);
+        }
+      }
+    }
+  }
+
+  // Also check optional manual tests for rule failures or missing required photos (even if left blank).
+  const requiredIds = new Set(requiredManualPlantTests.map((t) => t.id));
+  for (const test of displayableTests) {
+    if (requiredIds.has(test.id)) continue;
+    if (isCalculatedTest(test as LabTestDef & { formulaId?: unknown })) continue;
+    if (Boolean(test.isPhotoRequired) && !activePhotos[test.id]) {
+      missingPhotos.push(test.testCode);
+    }
+    const state = testInputs[test.id];
+    if (!state || state.performanceStatus !== 'PERFORMED') continue;
+    const hasVal = test.resultType === 'NUMERIC' ? Boolean(state.numericValue && !isNaN(Number(state.numericValue))) : Boolean(state.textValue?.trim());
+    if (!hasVal) continue;
+    if (test.resultType === 'NUMERIC' && test.rule) {
+      const evalRes = evaluate3ZoneTest(
+        {
+          min: test.rule.min,
+          max: test.rule.max,
+          warningTrigger: test.rule.warningTrigger,
+          decisionConsequence: test.rule.decisionConsequence,
+          acceptableOption: test.rule.acceptableOption,
+          category: test.rule.ruleCategory,
+          ruleCategory: test.rule.ruleCategory,
+          testMode: test.isRequired ? 'COMPULSORY' : 'OPTIONAL',
+          resultType: test.resultType,
+          resultOptions: test.resultOptions,
+          unit: test.unit,
+        },
+        state.numericValue
+      );
+      if (evalRes.isRuleFailure) ruleFailures.push(test.testCode);
+    }
+    if (test.resultOptions) {
+      const opt = test.resultOptions.find((o) => o.value === state.textValue);
+      if (opt && opt.isPassing === false) ruleFailures.push(test.testCode);
+    }
+  }
+
+  if (missingPhotos.length > 0) {
+    extraReasons.push('PICTURE_MISSING');
+  }
+  if (personDecision === 'REJECT' && missingCompulsory.length > 0 && ruleFailures.length === 0) {
+    extraReasons.push('MISSING_FIELD');
+  }
+
+  const decision = evaluateDecision({
+    ruleFailures,
+    missingCompulsory,
+    missingPhotos,
+    extraReasons,
+    personDecision: personDecision || 'ACCEPT',
+    remarks: decisionRemarks,
+    deciderCanApprove: false,
+  });
+
+  const nameOf = (code: string) => displayableTests.find((t) => t.testCode === code)?.testName || code;
+  const reasons: string[] = [];
+  const ruleReasons: string[] = [];
+  for (const r of decision.exceptionReasons) {
+    if (r === 'MISMATCH') {
+      reasons.push("The person's decision differs from the test result.");
+    } else if (r.startsWith('RULE_FAIL:')) {
+      const msg = `${nameOf(r.slice('RULE_FAIL:'.length))} is outside the allowed limit.`;
+      reasons.push(msg);
+      ruleReasons.push(msg);
+    } else if (r === 'MISSING_FIELD') {
+      const msg = 'A compulsory test was not done.';
+      reasons.push(msg);
+      ruleReasons.push(msg);
+    } else if (r === 'PICTURE_MISSING' || r.startsWith('PICTURE_MISSING:')) {
+      const code = r.includes(':') ? r.slice(r.indexOf(':') + 1).trim() : '';
+      if (code) {
+        const msg = `Test photo is required for ${nameOf(code)}.`;
+        reasons.push(msg);
+        ruleReasons.push(msg);
+      } else {
+        for (const tCode of missingPhotos) {
+          const msg = `Test photo is required for ${nameOf(tCode)}.`;
+          reasons.push(msg);
+          ruleReasons.push(msg);
+        }
+      }
+    }
+  }
+  for (const t of displayableTests) {
+    if (missingPhotos.includes(t.testCode)) {
+      const msg = `Test photo is required for ${t.testName}.`;
+      reasons.push(msg);
+      ruleReasons.push(msg);
+    }
+  }
+
+  return {
+    decision,
+    reasons: Array.from(new Set(reasons)),
+    systemAccepts: decision.systemOutcome === 'PASS' && ruleReasons.length === 0,
+    autoCalculations,
+  };
+}
+
 /** Seal evaluation plus the live decision-rule rows / result for the active portion. */
 export function useQADecisionPreview({
   visitDetail,
@@ -115,23 +302,34 @@ export function useQADecisionPreview({
       }
 
       if (!state || (state.performanceStatus === 'PERFORMED' && !state.numericValue && !state.textValue)) {
+        const missingPic = photoRequired && !hasPhoto;
         rows.push({
           key: test.id,
           name: test.testName,
-          outcome: test.isRequired ? 'WARN' : 'NOT_TESTED',
+          outcome: test.isRequired || missingPic ? 'WARN' : 'NOT_TESTED',
           valueText: null,
-          note: test.isRequired ? 'Mandatory test pending' : 'Optional (Applied)',
+          note: missingPic
+            ? `${test.isRequired ? 'Mandatory test pending' : 'Optional'} · Picture missing`
+            : test.isRequired
+              ? 'Mandatory test pending'
+              : 'Optional (Applied)',
         });
         continue;
       }
 
       if (state.performanceStatus === 'NOT_PERFORMED') {
+        const missingPic = photoRequired && !hasPhoto;
         rows.push({
           key: test.id,
           name: test.testName,
-          outcome: test.isRequired ? 'FAIL' : 'NOT_TESTED',
+          outcome: test.isRequired ? 'FAIL' : missingPic ? 'WARN' : 'NOT_TESTED',
           valueText: 'Omitted',
-          note: state.notPerformedReason || (test.isRequired ? 'Compulsory test omitted' : 'Not performed'),
+          note: [
+            state.notPerformedReason || (test.isRequired ? 'Compulsory test omitted' : 'Not performed'),
+            missingPic ? 'Picture missing' : null,
+          ]
+            .filter(Boolean)
+            .join(' · '),
         });
         continue;
       }
@@ -145,11 +343,11 @@ export function useQADecisionPreview({
         {
           min: test.rule?.min,
           max: test.rule?.max,
-          warningTrigger: (test.rule as any)?.warningTrigger,
-          decisionConsequence: (test.rule as any)?.decisionConsequence,
-          acceptableOption: (test.rule as any)?.acceptableOption,
-          category: (test.rule as any)?.ruleCategory,
-          ruleCategory: (test.rule as any)?.ruleCategory,
+          warningTrigger: test.rule?.warningTrigger,
+          decisionConsequence: test.rule?.decisionConsequence,
+          acceptableOption: test.rule?.acceptableOption,
+          category: test.rule?.ruleCategory,
+          ruleCategory: test.rule?.ruleCategory,
           testMode: test.isRequired ? 'COMPULSORY' : 'OPTIONAL',
           resultType: test.resultType,
           resultOptions: test.resultOptions,
@@ -189,102 +387,24 @@ export function useQADecisionPreview({
   // Live decision calculation
   const liveDecision = React.useMemo<DecisionResult | null>(() => {
     if (!currentPortion) return null;
-    const ruleFailures: string[] = [];
-    const missingCompulsory: string[] = [];
-    const missingPhotos: string[] = [];
-    const extraReasons: ExceptionReason[] = [];
-
-    // The seal is optional at Plant QA: it is not part of the system decision.
-
-    // Check tests
-    for (const test of requiredManualPlantTests) {
-      const isCalculated = isCalculatedTest(test as LabTestDef & { formulaId?: unknown });
-
-      if (isCalculated) {
-        const calcVal = calculatedValueFor(test, autoCalculations);
-
-        if (calcVal == null) {
-          missingCompulsory.push(test.testCode);
-        }
-        continue;
-      }
-
-      const state = testInputs[test.id];
-      if (!state) {
-        missingCompulsory.push(test.testCode);
-        continue;
-      }
-      if (state.performanceStatus === 'NOT_PERFORMED') {
-        ruleFailures.push(test.testCode);
-        missingCompulsory.push(test.testCode);
-      } else if (state.performanceStatus === 'PERFORMED') {
-        if (test.resultType === 'NUMERIC' && (!state.numericValue || isNaN(Number(state.numericValue)))) {
-          missingCompulsory.push(test.testCode);
-        } else if (test.resultType === 'NUMERIC' && test.rule) {
-          const evalRes = evaluate3ZoneTest(
-            {
-              min: test.rule.min,
-              max: test.rule.max,
-              warningTrigger: (test.rule as any)?.warningTrigger,
-              decisionConsequence: (test.rule as any)?.decisionConsequence,
-              acceptableOption: (test.rule as any)?.acceptableOption,
-              category: (test.rule as any)?.ruleCategory,
-              ruleCategory: (test.rule as any)?.ruleCategory,
-              testMode: test.isRequired ? 'COMPULSORY' : 'OPTIONAL',
-              resultType: test.resultType,
-              resultOptions: test.resultOptions,
-              unit: test.unit,
-            },
-            state.numericValue
-          );
-          if (evalRes.isRuleFailure) {
-            ruleFailures.push(test.testCode);
-          }
-        } else if (test.resultType !== 'NUMERIC' && !state.textValue) {
-          missingCompulsory.push(test.testCode);
-        }
-        if (test.resultOptions) {
-          const opt = test.resultOptions.find((o) => o.value === state.textValue);
-          if (opt && opt.isPassing === false) {
-            ruleFailures.push(test.testCode);
-          }
-        }
-      }
-
-      if (Boolean(test.isPhotoRequired) && !activePhotos[test.id]) {
-        missingPhotos.push(test.testCode);
-      }
-    }
-
-    if (missingPhotos.length > 0) {
-      extraReasons.push('PICTURE_MISSING');
-    }
-    if (missingCompulsory.length > 0) {
-      extraReasons.push('MISSING_FIELD');
-    }
-
-    return evaluateDecision(
-      {
-        ruleFailures,
-        missingCompulsory,
-        missingPhotos,
-        extraReasons,
-        personDecision: personDecision || 'ACCEPT',
-        remarks: decisionRemarks,
-        deciderCanApprove: isSuperior,
-      }
-    );
+    return computePortionLiveDecision({
+      displayableTests,
+      requiredManualPlantTests,
+      testInputs,
+      activePhotos,
+      personDecision,
+      decisionRemarks,
+      isSuperior,
+    }).decision;
   }, [
     currentPortion,
-    hasDispatchSeal,
-    isSealMatched,
+    displayableTests,
     requiredManualPlantTests,
     testInputs,
     activePhotos,
     personDecision,
     decisionRemarks,
     isSuperior,
-    autoCalculations,
   ]);
 
   return {

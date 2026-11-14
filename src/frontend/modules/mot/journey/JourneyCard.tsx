@@ -3,6 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Truck, CheckCircle2 } from 'lucide-react';
+import { HorizontalScrollRow } from '@/components/ui/horizontal-scroll-row';
 import type { CurrentJourney, StopDetail } from './types';
 
 interface Props {
@@ -94,7 +95,7 @@ export function JourneyCard({
               onClick={onReturnToPhe}
               disabled={isSubmittingReturn}
               title="Conclude shop collection and return to ZMCC PHE"
-              className="inline-flex items-center gap-2 min-h-[44px] px-3 py-2 border border-action/30-strong hover:border-action/30-strong bg-action-soft hover:bg-action-soft text-action rounded-xl text-xs font-semibold transition shrink-0"
+              className="inline-flex items-center gap-2 min-h-[44px] px-3 py-2 border border-action/30 hover:border-action/50 bg-action-soft hover:bg-action/15 active:scale-[0.98] text-action rounded-xl text-xs font-semibold transition shrink-0"
             >
               <Truck className="w-3.5 h-3.5 text-secondary-foreground" />
               <span>Return to PHE</span>
@@ -103,42 +104,44 @@ export function JourneyCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2 sm:gap-3 text-center">
-        <div className="bg-card border-border p-2 sm:p-3 rounded-xl border">
-          <span className="text-xs font-semibold text-muted-foreground block">Active shops</span>
-          <span className="font-semibold text-xs sm:text-sm text-foreground tabular-nums">
-            {journey.stops.length}
-          </span>
+      <HorizontalScrollRow>
+        <div className="flex items-stretch gap-2 sm:gap-3 min-w-max text-center">
+          <div className="min-w-[92px] flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
+            <span className="text-xs font-semibold text-muted-foreground block">Active shops</span>
+            <span className="font-semibold text-xs sm:text-sm text-foreground tabular-nums">
+              {journey.stops.length}
+            </span>
+          </div>
+          <div className="min-w-[92px] flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
+            <span className="text-xs font-semibold text-emerald-800 block">Collected</span>
+            <span className="font-semibold text-xs sm:text-sm text-emerald-950 tabular-nums">
+              {visitedStops.length}
+            </span>
+          </div>
+          <div className="min-w-[96px] flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
+            <span className="text-xs font-semibold text-rose-800 block">
+              {skippedStops.length > 0 ? 'Skipped / Rejected' : 'Rejected'}
+            </span>
+            <span className="font-semibold text-xs sm:text-sm text-rose-950 tabular-nums">
+              {skippedStops.length > 0
+                ? `${skippedStops.length} / ${rejectedStops.length}`
+                : rejectedStops.length}
+            </span>
+          </div>
+          <div className="min-w-[96px] flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
+            <span className="text-xs font-semibold text-blue-800 block">Milk (L)</span>
+            <span className="font-semibold text-xs sm:text-sm text-blue-950 tabular-nums">
+              {totalGross.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
+            </span>
+          </div>
+          <div className="min-w-[96px] flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
+            <span className="text-xs font-semibold text-emerald-800 block">@13TS (L)</span>
+            <span className="font-semibold text-xs sm:text-sm text-emerald-950 tabular-nums">
+              {totalAt13ts.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
+            </span>
+          </div>
         </div>
-        <div className="bg-card border-border p-2 sm:p-3 rounded-xl border">
-          <span className="text-xs font-semibold text-emerald-800 block">Collected</span>
-          <span className="font-semibold text-xs sm:text-sm text-emerald-950 tabular-nums">
-            {visitedStops.length}
-          </span>
-        </div>
-        <div className="bg-card border-border p-2 sm:p-3 rounded-xl border">
-          <span className="text-xs font-semibold text-rose-800 block">
-            {skippedStops.length > 0 ? 'Skipped / Rejected' : 'Rejected'}
-          </span>
-          <span className="font-semibold text-xs sm:text-sm text-rose-950 tabular-nums">
-            {skippedStops.length > 0
-              ? `${skippedStops.length} / ${rejectedStops.length}`
-              : rejectedStops.length}
-          </span>
-        </div>
-        <div className="bg-card border-border p-2 sm:p-3 rounded-xl border">
-          <span className="text-xs font-semibold text-blue-800 block">Milk (L)</span>
-          <span className="font-semibold text-xs sm:text-sm text-blue-950 tabular-nums">
-            {totalGross.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
-          </span>
-        </div>
-        <div className="bg-card border-border p-2 sm:p-3 rounded-xl border">
-          <span className="text-xs font-semibold text-emerald-800 block">@13TS (L)</span>
-          <span className="font-semibold text-xs sm:text-sm text-emerald-950 tabular-nums">
-            {totalAt13ts.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
-          </span>
-        </div>
-      </div>
+      </HorizontalScrollRow>
 
       {isAtZmcc ? (
         <div role="status" className="bg-card border-border mt-2 p-3 sm:p-4 border rounded-2xl flex items-start gap-2 text-emerald-950">

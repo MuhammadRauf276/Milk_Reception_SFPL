@@ -88,20 +88,34 @@ export function evaluateLabResult(
   isCompulsory: boolean = true
 ): LabResultEvaluation {
   const rawText = textValue ? textValue.trim().toUpperCase() : '';
+  const hasMissingText = !rawText || rawText === 'NOT_TESTED' || rawText === 'NOT_PERFORMED' || rawText === '—' || rawText === 'N/A';
 
   // Formulate Observed Result String
   let observed = '';
   if (resultType === 'NUMERIC' || resultType === 'CALCULATED') {
-    observed = numericValue !== null && numericValue !== undefined ? String(numericValue) : (textValue || 'N/A');
+    observed = numericValue !== null && numericValue !== undefined ? String(numericValue) : (hasMissingText ? 'N/A' : (textValue || 'N/A'));
   } else {
-    observed = rawText || 'N/A';
+    observed = hasMissingText ? 'N/A' : rawText;
   }
 
-  // 0. APPLIED MODE CHECK (Optional Test — System rules NOT applied)
+  // Missing / unwritten test value is NEVER a pass
+  const hasMissingNumeric = (resultType === 'NUMERIC' || resultType === 'CALCULATED') && (numericValue === null || numericValue === undefined || isNaN(numericValue));
+  if (hasMissingNumeric || (!(resultType === 'NUMERIC' || resultType === 'CALCULATED') && hasMissingText)) {
+    return {
+      isPassed: isCompulsory ? false : null,
+      status: isCompulsory ? 'EVALUATED' : 'NEUTRAL',
+      zone: isCompulsory ? 'FAIL' : 'NEUTRAL',
+      observedResult: observed,
+      reason: isCompulsory ? 'Missing observation for compulsory test' : 'Observation not recorded',
+      isAppliedOptional: !isCompulsory,
+    };
+  }
+
+  // 0. APPLIED MODE CHECK (Optional Test — System rules NOT enforced for auto-rejection)
   if (!isCompulsory) {
     return {
-      isPassed: true,
-      status: 'EVALUATED',
+      isPassed: null,
+      status: 'NEUTRAL',
       zone: 'INFORMATIONAL_APPLIED',
       observedResult: observed,
       reason: 'Not under SOP — Optional test, system rules not applied',
@@ -249,9 +263,9 @@ export function evaluateLabResult(
     }
   }
 
-  // Default fallback if no explicit rule is violated
+  // Default fallback if no explicit rule is configured — never claim PASS without an active rule
   return {
-    isPassed: true,
+    isPassed: null,
     status: 'NO_ACTIVE_RULE',
     zone: 'NO_ACTIVE_RULE',
     observedResult: observed,

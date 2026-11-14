@@ -92,11 +92,11 @@ export function Combobox({
           aria-controls={listId}
           disabled={disabled}
           className={cn(
-            'flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border-strong bg-card px-4 text-left text-sm font-semibold text-foreground outline-hidden focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50',
+            'flex min-h-11 w-full min-w-0 shrink items-center justify-between gap-2 rounded-lg border border-border-strong bg-card px-4 py-2 text-left text-sm font-semibold text-foreground outline-hidden focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50',
             className
           )}
         >
-          <span className={cn('truncate', !selected && 'font-normal text-muted-foreground')}>{selected?.label ?? placeholder}</span>
+          <span className={cn('min-w-0 flex-1 whitespace-normal wrap-break-word leading-snug', !selected && 'font-normal text-muted-foreground')}>{selected?.label ?? placeholder}</span>
           <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </button>
       </PopoverTrigger>
@@ -116,7 +116,7 @@ export function Combobox({
             className="h-11 w-full bg-transparent text-sm outline-hidden"
           />
         </div>
-        <ul id={listId} role="listbox" className="max-h-64 overflow-y-auto p-1">
+        <ul id={listId} role="listbox" className="scrollbar-thin overscroll-contain max-h-64 overflow-y-auto p-1">
           {filtered.length === 0 ? (
             <li className="px-3 py-4 text-center text-sm text-muted-foreground">{emptyText}</li>
           ) : (

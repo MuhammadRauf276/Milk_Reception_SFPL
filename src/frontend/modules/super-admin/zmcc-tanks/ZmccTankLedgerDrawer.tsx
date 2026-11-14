@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowDownRight, ArrowUpRight, History, ShieldAlert } from 'lucide-react';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { useListPageSize } from '@/components/ui/pagination';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -53,13 +54,14 @@ interface TransactionsResponse {
 
 export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
   const [page, setPage] = useState(1);
+  const pageSize = useListPageSize(25);
 
   const query = useQuery({
-    queryKey: ['super-admin', 'zmcc-tanks', tank?.id, 'transactions', page],
+    queryKey: ['super-admin', 'zmcc-tanks', tank?.id, 'transactions', page, pageSize],
     enabled: !!tank,
     queryFn: ({ signal }) =>
       fetchJson<TransactionsResponse>(
-        `/api/super-admin/zmcc-tanks/${tank!.id}/transactions?page=${page}&pageSize=20`,
+        `/api/super-admin/zmcc-tanks/${tank!.id}/transactions?page=${page}&pageSize=${pageSize}`,
         { signal }
       ),
   });
@@ -192,7 +194,7 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
 
         <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 sm:py-4 space-y-4 text-xs">
           {/* Tank Summary Header */}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 bg-subtle p-3 rounded-xl border border-border text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-subtle p-3 rounded-xl border border-border text-center">
             <div className="bg-card p-2 rounded-lg border border-border">
               <span className="text-xs text-muted-foreground font-medium block">Total capacity</span>
               <span className="font-mono font-semibold text-foreground tabular-nums">

@@ -16,6 +16,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
+import { Pagination, useListPageSize } from '@/components/ui/pagination';
 
 interface PlantContractorManagerWorkspaceProps {
   currentUser: User | null;
@@ -32,7 +33,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
   const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
 
   const [page, setPage] = useState<number>(1);
-  const [pageSize] = useState<number>(20);
+  const pageSize = useListPageSize(25);
   const queryClient = useQueryClient();
   type LogsResponse = {
     items?: MilkProcessLog[];
@@ -176,41 +177,16 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
           </div>
 
           {activeTab !== 'HISTORY' && totalRecords > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-card border border-border-strong rounded-xl text-xs shadow-2xs mt-4">
-              <div className="text-secondary-foreground font-medium">
-                Showing page <span className="font-semibold text-foreground">{page}</span> of{' '}
-                <span className="font-semibold text-foreground">{totalPages}</span>{' '}
-                (<span className="font-semibold text-foreground">{totalRecords}</span> total visits)
-                {totalPages > 1 && (
-                  <span className="ml-2 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                    Bounded view · navigate pages for older records
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const prevPage = Math.max(1, page - 1);
-                    fetchLogs(prevPage);
-                  }}
-                  disabled={page <= 1 || loading}
-                  className="px-4 py-2 min-h-11 bg-action-soft hover:bg-action/10 border border-action/30-strong rounded-lg font-semibold text-action disabled:opacity-40 disabled:cursor-not-allowed transition"
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const nextPage = Math.min(totalPages, page + 1);
-                    fetchLogs(nextPage);
-                  }}
-                  disabled={page >= totalPages || !hasMore || loading}
-                  className="px-4 py-2 bg-subtle hover:bg-muted/60 border border-border-strong rounded-lg font-semibold text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition min-h-11"
-                >
-                  Next
-                </button>
-              </div>
+            <div className="mt-4 bg-card border border-border-strong rounded-xl overflow-hidden shadow-2xs">
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalRecords={totalRecords}
+                pageSize={pageSize}
+                noun="visits"
+                disabled={loading}
+                onPageChange={(p) => fetchLogs(p)}
+              />
             </div>
           )}
         </div>

@@ -1,20 +1,12 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import {
-  X,
-  Camera,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  Loader2,
-  ShieldCheck,
-  Send,
-  Calculator,
-  Info,
-} from 'lucide-react';
+import { Check, CheckCircle2, XCircle, AlertTriangle, Loader2, ShieldCheck, Send, Calculator, Info, X, Camera } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { InfoTip } from '@/components/ui/info-tip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Progress } from '@/components/ui/progress';
 import { LiveCamera } from '@/components/camera/LiveCamera';
 import { cn } from '@/lib/utils';
 import { toast } from '@/frontend/lib/appToast';
@@ -50,25 +42,11 @@ export interface QATestDrawerProps {
   liveDecision: DecisionResult | null;
   onAcceptSubmit?: () => Promise<void> | void;
   onRejectSubmit?: () => Promise<void> | void;
+  onSavePortion?: () => void;
+  onRemovePortion?: () => void;
+  canRemovePortion?: boolean;
   isSubmitting: boolean;
   currentUser?: User | null;
-}
-
-function outsideLabRange(rule?: { min?: number | null; max?: number | null } | null, raw?: string): boolean {
-  if (!raw || raw.trim() === '') return false;
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return false;
-  const min = rule?.min ?? null;
-  const max = rule?.max ?? null;
-  return (min != null && n < min) || (max != null && n > max);
-}
-
-function isDisallowedLabOption(rule?: { allowed?: string[] | null } | null, val?: string): boolean {
-  if (!val || !val.trim()) return false;
-  const allowed = rule?.allowed;
-  if (!allowed || allowed.length === 0) return false;
-  const upper = val.trim().toUpperCase();
-  return !allowed.some((a) => a.trim().toUpperCase() === upper);
 }
 
 // Photo evidence follows the Super Admin policy only (no test is hard-coded to need a photo).
@@ -145,16 +123,22 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
   onPersonDecisionChange,
   decisionRemarks,
   onDecisionRemarksChange,
-  canAccept,
+  canAccept: _canAccept,
   performedCount,
   requiredManualPlantTests,
   liveDecision,
   onAcceptSubmit,
   onRejectSubmit,
+  onSavePortion,
+  onRemovePortion,
+  canRemovePortion = false,
   isSubmitting,
   currentUser,
 }) => {
   const [cameraTest, setCameraTest] = useState<LabTestDef | null>(null);
+  const [photoUploadState, setPhotoUploadState] = useState<
+    Record<string, { progress: number; status: 'uploading' | 'complete' | 'error' }>
+  >({});
 
   const isPending = portion.plant_decision === 'PENDING' || !portion.plant_decision;
   const dispatchSeal = portion.seal_number?.trim() || '';
@@ -164,26 +148,45 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
   const isSealMismatch = hasDispatchSeal && Boolean(currentEnteredSeal) && !isSealMatched;
 
   // The system recommends ACCEPT only when nothing is failing, missing, or waiting for a required photo.
-  const systemRejectReasons = useMemo(() => {
-    if (!liveDecision) return [] as string[];
-    const nameOf = (code: string) => requiredManualPlantTests.find((t) => t.testCode === code)?.testName || code;
+  const { systemRejectReasons, ruleReasons } = useMemo(() => {
+    if (!liveDecision) return { systemRejectReasons: [] as string[], ruleReasons: [] as string[] };
+    const nameOf = (code: string) => displayableTests.find((t) => t.testCode === code)?.testName || code;
     const reasons: string[] = [];
+    const rules: string[] = [];
     for (const r of liveDecision.exceptionReasons) {
-      if (r.startsWith('RULE_FAIL:')) reasons.push(`${nameOf(r.slice('RULE_FAIL:'.length))} is outside the allowed limit.`);
-      else if (r === 'MISSING_FIELD') reasons.push('A required test result is missing.');
-    }
-    for (const t of requiredManualPlantTests) {
-      if (t.isPhotoRequired && !isCalculatedTest(t as LabTestDef & { formulaId?: unknown }) && !photoStates[t.id]) {
-        reasons.push(`Test photo is required for ${t.testName}.`);
+      if (r === 'MISMATCH') {
+        reasons.push("The person's decision differs from the test result.");
+      } else if (r.startsWith('RULE_FAIL:')) {
+        const msg = `${nameOf(r.slice('RULE_FAIL:'.length))} is outside the allowed limit.`;
+        reasons.push(msg);
+        rules.push(msg);
+      } else if (r === 'MISSING_FIELD') {
+        const msg = 'A compulsory test was not done.';
+        reasons.push(msg);
+        rules.push(msg);
+      } else if (r === 'PICTURE_MISSING' || r.startsWith('PICTURE_MISSING:')) {
+        const code = r.includes(':') ? r.slice(r.indexOf(':') + 1).trim() : '';
+        const msg = code ? `Test photo is required for ${nameOf(code)}.` : 'A required test picture is missing.';
+        reasons.push(msg);
+        rules.push(msg);
       }
     }
-    return Array.from(new Set(reasons));
-  }, [liveDecision, requiredManualPlantTests, photoStates, hasDispatchSeal, isSealMatched]);
-  const systemAccepts = liveDecision?.systemOutcome === 'PASS' && systemRejectReasons.length === 0;
-  // Authorized roles decide on the spot; everyone else cannot accept a system-rejected portion, only ask the AVP.
-  // Super Admin and Data Executive (and the heads above QAE) decide on their own account, even on the QAE station.
-  const isAuthorizedToOverride = ['SUPER_ADMIN', 'DATA_EXECUTIVE', 'QA_HEAD'].includes(currentUser?.role || '');
-  const mustRequestAvp = Boolean(liveDecision) && !systemAccepts && !isAuthorizedToOverride;
+    for (const t of displayableTests) {
+      if (t.isPhotoRequired && !isCalculatedTest(t as LabTestDef & { formulaId?: unknown }) && !photoStates[t.id]) {
+        const msg = `Test photo is required for ${t.testName}.`;
+        reasons.push(msg);
+        rules.push(msg);
+      }
+    }
+    return { systemRejectReasons: Array.from(new Set(reasons)), ruleReasons: Array.from(new Set(rules)) };
+  }, [liveDecision, displayableTests, photoStates]);
+  const systemAccepts = liveDecision?.systemOutcome === 'PASS' && ruleReasons.length === 0;
+  // Testing stations always route exceptions and rule contradictions to AVP QA for review.
+  const mustRequestAvp = Boolean(
+    personDecision &&
+      liveDecision &&
+      (liveDecision.route === 'SEND_TO_APPROVER' || liveDecision.exceptionReasons.length > 0)
+  );
 
   // Check if executive user for information cloaking
   const isExecutiveUser = Boolean(
@@ -299,14 +302,40 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                   <div className="space-y-1.5 pt-1">
                     <p className="font-semibold text-foreground">Recorded results</p>
                     <div className="divide-y divide-border rounded-lg border border-border overflow-hidden bg-card">
-                      {portion.plant_results.map((pr) => (
-                        <div key={pr.testId} className="flex items-center justify-between p-2 text-xs">
-                          <span className="font-medium text-secondary-foreground">{pr.testName}</span>
-                          <span className="font-mono font-semibold text-foreground">
-                            {pr.numericValue != null ? `${pr.numericValue} ${pr.unit || ''}` : pr.textValue || '—'}
-                          </span>
-                        </div>
-                      ))}
+                      {portion.plant_results.map((pr) => {
+                        const notDone = pr.performanceStatus === 'NOT_PERFORMED';
+                        const statusLabel = notDone
+                          ? 'Not tested'
+                          : pr.isPassed === true
+                            ? 'PASS'
+                            : pr.isPassed === false
+                              ? 'FAIL'
+                              : 'Monitoring';
+                        const statusClass = notDone
+                          ? 'bg-muted text-secondary-foreground border-border'
+                          : pr.isPassed === true
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : pr.isPassed === false
+                              ? 'bg-rose-50 text-rose-800 border-rose-200'
+                              : 'bg-muted text-secondary-foreground border-border';
+                        return (
+                          <div key={pr.testId} className="flex items-center justify-between gap-2 p-2 text-xs">
+                            <span className="font-medium text-secondary-foreground">{pr.testName}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="font-mono font-semibold text-foreground">
+                                {notDone
+                                  ? '—'
+                                  : pr.numericValue != null
+                                    ? `${pr.numericValue} ${pr.unit || ''}`.trim()
+                                    : pr.textValue || '—'}
+                              </span>
+                              <span className={cn('rounded border px-2 py-0.5 text-xs font-semibold', statusClass)}>
+                                {statusLabel}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -378,7 +407,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                       Lab tests ({sortedTests.length})
                     </span>
                     <span className="text-xs font-semibold text-muted-foreground">
-                      Performed: <strong className="text-foreground">{performedCount}</strong> / {sortedTests.length}
+                      Required done: <strong className="text-foreground">{performedCount}</strong> / {requiredManualPlantTests.length}
                     </span>
                   </div>
 
@@ -412,11 +441,11 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                           {
                             min: t.rule?.min,
                             max: t.rule?.max,
-                            warningTrigger: (t.rule as any)?.warningTrigger,
-                            decisionConsequence: (t.rule as any)?.decisionConsequence,
-                            acceptableOption: (t.rule as any)?.acceptableOption,
-                            category: (t.rule as any)?.ruleCategory,
-                            ruleCategory: (t.rule as any)?.ruleCategory,
+                            warningTrigger: t.rule?.warningTrigger,
+                            decisionConsequence: t.rule?.decisionConsequence,
+                            acceptableOption: t.rule?.acceptableOption,
+                            category: t.rule?.ruleCategory,
+                            ruleCategory: t.rule?.ruleCategory,
                             testMode: t.isRequired ? 'COMPULSORY' : 'OPTIONAL',
                             resultType: t.resultType,
                             resultOptions: t.resultOptions,
@@ -431,6 +460,8 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
 
                       const hasCamera = isPhotoEligible(t) && !isCalculated;
                       const hasPhoto = Boolean(photoStates[t.id]);
+                      const uploadState = photoUploadState[`${portion.id}:${t.id}`];
+                      const isUploadingPhoto = uploadState?.status === 'uploading';
 
                       return (
                         <div
@@ -456,6 +487,18 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                                 >
                                   {isCalculated ? 'Auto' : t.isRequired ? 'Required *' : 'Optional'}
                                 </span>
+                                {hasCamera && (
+                                  <span
+                                    className={cn(
+                                      'rounded-md border px-2 py-0.5 text-xs font-semibold',
+                                      hasPhoto
+                                        ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                                        : 'border-amber-300 bg-amber-50 text-amber-900'
+                                    )}
+                                  >
+                                    {hasPhoto ? 'Photo OK' : 'Photo required'}
+                                  </span>
+                                )}
                                 {chip && (
                                   <span
                                     className={cn(
@@ -548,30 +591,66 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                               {hasCamera && (
                                 <button
                                   type="button"
+                                  disabled={isUploadingPhoto}
                                   onClick={() => setCameraTest(t)}
                                   className={cn(
-                                    'min-h-11 min-w-11 flex items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors',
+                                    'min-h-11 min-w-11 flex items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors disabled:opacity-50',
                                     hasPhoto
                                       ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
-                                      : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
+                                      : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
                                   )}
                                 >
-                                  <Camera className="h-4 w-4" />
-                                  <span>{hasPhoto ? 'Photo' : 'Snap'}</span>
+                                  {isUploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                                  <span>{isUploadingPhoto ? 'Uploading…' : hasPhoto ? 'Photo saved' : 'Take photo *'}</span>
                                 </button>
                               )}
                             </div>
                           </div>
 
+                          {hasCamera && (uploadState || hasPhoto) && (
+                            <Progress
+                              value={uploadState ? uploadState.progress : 100}
+                              status={uploadState ? uploadState.status : 'complete'}
+                              variant={
+                                uploadState?.status === 'error'
+                                  ? 'destructive'
+                                  : uploadState?.status === 'complete' || hasPhoto
+                                    ? 'success'
+                                    : 'default'
+                              }
+                              size="sm"
+                              label={
+                                uploadState?.status === 'uploading'
+                                  ? 'Uploading photo…'
+                                  : uploadState?.status === 'error'
+                                    ? 'Photo upload failed'
+                                    : 'Photo uploaded (100%)'
+                              }
+                              showValueLabel
+                              className="mt-2"
+                            />
+                          )}
+
                           {isAppliedOnly && (
-                            <p className="text-xs text-muted-foreground font-medium">
-                              Not under SOP: Optional test, system rules not applied.
-                            </p>
+                            <div className="inline-flex items-center text-xs text-muted-foreground font-medium">
+                              <span>Optional</span>
+                              <InfoTip
+                                label="Optional test info"
+                                className="-my-2"
+                                text="Not under SOP: Optional test, system rules not applied."
+                              />
+                            </div>
                           )}
                           {isCalculated && (
-                            <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                              <Calculator className="h-3 w-3" /> Calculated by Richmond formula
-                            </p>
+                            <div className="inline-flex items-center gap-1 text-xs text-muted-foreground font-medium">
+                              <Calculator className="h-3 w-3 shrink-0" />
+                              <span>Auto-calculated</span>
+                              <InfoTip
+                                label="Formula details"
+                                className="-my-2"
+                                text="Calculated automatically by Richmond formula."
+                              />
+                            </div>
                           )}
                           {!isCalculated && !isAppliedOnly && Boolean(isNumeric ? effectiveVal : state.textValue) && (
                             <p
@@ -639,7 +718,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => onPersonDecisionChange?.('ACCEPT')}
@@ -650,8 +729,8 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                           : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
                       )}
                     >
-                      {mustRequestAvp ? <Send className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                      <span>{mustRequestAvp ? 'Request AVP to accept' : 'Accept milk'}</span>
+                      {!systemAccepts ? <Send className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                      <span>{!systemAccepts ? 'Request AVP to accept' : 'Accept milk'}</span>
                     </button>
                     <button
                       type="button"
@@ -677,42 +756,107 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                       type="text"
                       value={decisionRemarks}
                       onChange={(e) => onDecisionRemarksChange?.(e.target.value)}
-                      placeholder={personDecision === 'REJECT' ? 'Mandatory rejection reason' : mustRequestAvp ? 'Mandatory: tell the AVP why this should be accepted' : 'Remarks'}
+                      placeholder={
+                        mustRequestAvp
+                          ? 'Mandatory: explain why this request should be approved'
+                          : personDecision === 'REJECT'
+                            ? 'Mandatory rejection reason'
+                            : 'Remarks'
+                      }
                       className="mt-1 w-full min-h-11 rounded-lg border border-border p-2 text-base sm:text-xs focus:border-primary focus:outline-hidden"
                     />
                   </div>
                 </div>
 
-                {/* Final Submit Actions */}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    disabled={isSubmitting || !personDecision || ((personDecision === 'REJECT' || mustRequestAvp) && !decisionRemarks.trim())}
-                    onClick={handleSubmit}
-                    className={cn(
-                      'w-full min-h-12 rounded-lg text-white font-semibold text-sm transition-colors flex items-center justify-center space-x-2 disabled:opacity-50',
-                      personDecision === 'REJECT'
-                        ? 'bg-rose-600 hover:bg-rose-700'
-                        : 'bg-primary hover:bg-primary-hover'
-                    )}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>{mustRequestAvp && personDecision !== 'REJECT' ? 'Sending request…' : 'Submitting decision…'}</span>
-                      </>
-                    ) : (
-                      <>
+                {/* Final Footer Actions */}
+                {(() => {
+                  const hasUploadingPhoto = Object.entries(photoUploadState).some(
+                    ([k, st]) => k.startsWith(`${portion.id}:`) && st.status === 'uploading'
+                  );
+                  const hasAnyPerformedTest = sortedTests.some((t) => {
+                    if (isCalculatedTest(t as LabTestDef & { formulaId?: unknown })) return false;
+                    const st = testInputs[t.id];
+                    if (!st || st.performanceStatus === 'NOT_PERFORMED') return false;
+                    if (t.resultType === 'NUMERIC') return st.numericValue !== '' && Number.isFinite(Number(st.numericValue));
+                    return Boolean(st.textValue && st.textValue.trim() !== '');
+                  });
+                  const needsRemarks = personDecision === 'REJECT' || mustRequestAvp;
+                  const remarksTooShort = needsRemarks && decisionRemarks.trim().length < 3;
+
+                  if (onSavePortion) {
+                    return (
+                      <div className="space-y-2 pt-2">
+                        {hasUploadingPhoto && (
+                          <p className="text-xs font-semibold text-amber-800">Please wait for photo upload to finish…</p>
+                        )}
+                        {personDecision === 'REJECT' && !hasAnyPerformedTest && (
+                          <p className="text-xs font-semibold text-rose-700">
+                            Record at least one test measurement before saving Reject.
+                          </p>
+                        )}
+                        {personDecision && remarksTooShort && (
+                          <p className="text-xs font-semibold text-amber-800">
+                            Please write remarks (at least 3 letters).
+                          </p>
+                        )}
+                        <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border pt-3">
+                          {canRemovePortion && onRemovePortion && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={isSubmitting}
+                              onClick={onRemovePortion}
+                              className="min-h-11 border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100 hover:text-rose-800"
+                            >
+                              Remove
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="lg"
+                            loading={isSubmitting}
+                            loadingText="Saving…"
+                            disabled={
+                              isSubmitting ||
+                              hasUploadingPhoto ||
+                              !personDecision ||
+                              (personDecision === 'REJECT' && !hasAnyPerformedTest) ||
+                              remarksTooShort
+                            }
+                            onClick={onSavePortion}
+                            className="min-h-12 flex-1 bg-emerald-700 px-6 text-base font-semibold text-white hover:bg-emerald-800 sm:flex-initial"
+                          >
+                            <Check className="h-4 w-4" />
+                            <span>Save Portion</span>
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="pt-2">
+                      <Button
+                        type="button"
+                        variant={personDecision === 'REJECT' ? 'destructive' : 'default'}
+                        size="lg"
+                        loading={isSubmitting}
+                        loadingText={mustRequestAvp ? 'Sending request…' : 'Submitting decision…'}
+                        disabled={isSubmitting || !personDecision || (needsRemarks && !decisionRemarks.trim())}
+                        onClick={handleSubmit}
+                        className="min-h-12 h-auto w-full min-w-0 shrink whitespace-normal rounded-xl px-4 py-3 text-sm font-semibold"
+                      >
                         <Send className="h-4 w-4" />
                         <span>
-                          {mustRequestAvp && personDecision !== 'REJECT'
+                          {mustRequestAvp
                             ? 'Send request to AVP QA reception lab'
                             : 'Confirm portion decision'}
                         </span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                      </Button>
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
@@ -731,7 +875,9 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
           }}
           onCapture={async (res) => {
             const currentTest = cameraTest;
+            const photoKey = `${portion.id}:${currentTest.id}`;
             setCameraTest(null);
+            setPhotoUploadState((prev) => ({ ...prev, [photoKey]: { progress: 25, status: 'uploading' } }));
             try {
               const form = new FormData();
               form.append('file', res.blob, `${res.captureId}.jpg`);
@@ -757,13 +903,16 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                 })
               );
               const r = await fetch('/api/photos', { method: 'POST', body: form });
+              setPhotoUploadState((prev) => ({ ...prev, [photoKey]: { progress: 80, status: 'uploading' } }));
               if (!r.ok) {
                 const d = await r.json().catch(() => ({}));
                 throw new Error(d.error || 'The photo could not be saved.');
               }
               // Only a photo the server saved counts: keep its address, never the phone-only preview.
               onPhotoChange(currentTest.id, `/api/photos/${res.captureId}`);
+              setPhotoUploadState((prev) => ({ ...prev, [photoKey]: { progress: 100, status: 'complete' } }));
             } catch (err) {
+              setPhotoUploadState((prev) => ({ ...prev, [photoKey]: { progress: 0, status: 'error' } }));
               console.error('Failed to upload photo:', err);
               toast.error(`Photo for ${currentTest.testName} was not saved. Please take it again. ${err instanceof Error ? err.message : ''}`.trim());
             }

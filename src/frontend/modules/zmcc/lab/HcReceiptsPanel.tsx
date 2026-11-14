@@ -7,6 +7,7 @@ import { CheckCircle2, Search } from 'lucide-react';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import { useToast } from '@/frontend/context/ToastContext';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 
 interface ReceiptRow {
   session_id: string;
@@ -52,6 +53,8 @@ export function HcReceiptsPanel() {
   };
   const waiting = useMemo(() => (query.data?.waiting ?? []).filter(matches), [query.data, search]); // eslint-disable-line react-hooks/exhaustive-deps
   const issued = useMemo(() => (query.data?.issued ?? []).filter(matches), [query.data, search]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pagedWaiting = usePagedRows(waiting, (r) => r.arrival_id);
+  const pagedIssued = usePagedRows(issued, (r) => r.arrival_id);
 
   const issue = async (row: ReceiptRow) => {
     const number = (numbers[row.arrival_id] ?? '').trim();
@@ -102,44 +105,57 @@ export function HcReceiptsPanel() {
             No HC vehicle is waiting for a receipt number.
           </p>
         ) : (
-          waiting.map((row) => (
-            <div key={row.arrival_id} className="space-y-2 rounded-xl border border-border p-3">
-              <p className="text-sm font-semibold text-foreground">
-                {row.vehicle_number} · {row.supplier_name}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Token {row.token} · {row.supplier_code} · Unloaded {when(row.unloaded_at)}
-                {row.net_weight_kg !== null && ` · ${row.net_weight_kg.toLocaleString()} kg`}
-                {row.gross_liters !== null && ` · ${row.gross_liters.toLocaleString()} L`}
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                <div className="min-w-0 flex-1">
-                  <label htmlFor={`hc-rmr-${row.arrival_id}`} className="mb-1 block text-xs font-semibold text-foreground">
-                    RMR Token (Paper Receipt No.)
-                  </label>
-                  <input
-                    id={`hc-rmr-${row.arrival_id}`}
-                    value={numbers[row.arrival_id] ?? ''}
-                    onChange={(e) =>
-                      setNumbers((prev) => ({ ...prev, [row.arrival_id]: e.target.value.replace(/[^0-9]/g, '') }))
-                    }
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="e.g. 004821"
-                    className="min-h-11 w-full rounded-lg border border-border bg-subtle px-3 text-sm tabular-nums"
-                  />
+          <>
+            {pagedWaiting.pageRows.map((row) => (
+              <div key={row.arrival_id} className="space-y-2 rounded-xl border border-border p-3">
+                <p className="text-sm font-semibold text-foreground">
+                  {row.vehicle_number} · {row.supplier_name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Token {row.token} · {row.supplier_code} · Unloaded {when(row.unloaded_at)}
+                  {row.net_weight_kg !== null && ` · ${row.net_weight_kg.toLocaleString()} kg`}
+                  {row.gross_liters !== null && ` · ${row.gross_liters.toLocaleString()} L`}
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1">
+                    <label htmlFor={`hc-rmr-${row.arrival_id}`} className="mb-1 block text-xs font-semibold text-foreground">
+                      RMR Token (Paper Receipt No.)
+                    </label>
+                    <input
+                      id={`hc-rmr-${row.arrival_id}`}
+                      value={numbers[row.arrival_id] ?? ''}
+                      onChange={(e) =>
+                        setNumbers((prev) => ({ ...prev, [row.arrival_id]: e.target.value.replace(/[^0-9]/g, '') }))
+                      }
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="e.g. 004821"
+                      className="min-h-11 w-full rounded-lg border border-border bg-subtle px-3 text-sm tabular-nums"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={busyId === row.arrival_id || !numbers[row.arrival_id]}
+                    onClick={() => issue(row)}
+                    className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {busyId === row.arrival_id ? 'Saving…' : 'Save Receipt'}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  disabled={busyId === row.arrival_id || !numbers[row.arrival_id]}
-                  onClick={() => issue(row)}
-                  className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  {busyId === row.arrival_id ? 'Saving…' : 'Save Receipt'}
-                </button>
               </div>
-            </div>
-          ))
+            ))}
+            {pagedWaiting.totalPages > 1 && (
+              <Pagination
+                page={pagedWaiting.page}
+                totalPages={pagedWaiting.totalPages}
+                totalRecords={pagedWaiting.totalRecords}
+                pageSize={pagedWaiting.pageSize}
+                noun="receipts"
+                onPageChange={pagedWaiting.setPage}
+                className="bg-card rounded-xl border border-border p-2 text-xs"
+              />
+            )}
+          </>
         )}
       </section>
 
@@ -148,16 +164,29 @@ export function HcReceiptsPanel() {
         {issued.length === 0 ? (
           <p className="text-sm text-muted-foreground">None yet.</p>
         ) : (
-          issued.map((row) => (
-            <div key={row.arrival_id} className="rounded-xl border border-border p-3">
-              <p className="text-sm font-semibold text-foreground">
-                RMR {row.receipt_number} · {row.vehicle_number} · {row.supplier_name}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Token {row.token} · By {row.issued_by ?? '—'} · {when(row.issued_at)}
-              </p>
-            </div>
-          ))
+          <>
+            {pagedIssued.pageRows.map((row) => (
+              <div key={row.arrival_id} className="rounded-xl border border-border p-3">
+                <p className="text-sm font-semibold text-foreground">
+                  RMR {row.receipt_number} · {row.vehicle_number} · {row.supplier_name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Token {row.token} · By {row.issued_by ?? '—'} · {when(row.issued_at)}
+                </p>
+              </div>
+            ))}
+            {pagedIssued.totalPages > 1 && (
+              <Pagination
+                page={pagedIssued.page}
+                totalPages={pagedIssued.totalPages}
+                totalRecords={pagedIssued.totalRecords}
+                pageSize={pagedIssued.pageSize}
+                noun="receipts"
+                onPageChange={pagedIssued.setPage}
+                className="bg-card rounded-xl border border-border p-2 text-xs"
+              />
+            )}
+          </>
         )}
       </section>
     </div>

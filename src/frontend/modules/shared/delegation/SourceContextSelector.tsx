@@ -57,7 +57,7 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
   const targetSourceType = delegation.station?.targetSourceType;
   const endpoint =
     targetSourceType === 'CONTRACTOR'
-      ? '/api/zmcc/arrivals/contractors'
+      ? '/api/mpd/sources/contractors?activeOnly=true'
       : '/api/zmcc/sources';
 
   const sourcesQuery = useQuery({
@@ -80,6 +80,7 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
     if (!data) return [];
     if (Array.isArray(data)) return data;
     if (Array.isArray(data.zmccs)) return data.zmccs;
+    if (Array.isArray(data.contractors)) return data.contractors;
     if (Array.isArray(data.sources)) return data.sources;
     return [];
   }, [sourcesQuery.data]);
@@ -157,11 +158,11 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
         type="button"
         onClick={() => setModalOverride(true)}
         aria-label={`Current location: ${displayLabel}. Click to switch.`}
-        className="inline-flex min-h-11 items-center gap-2 rounded-md border border-action/30 bg-action-soft hover:bg-action/10 px-3 py-1 text-xs font-medium text-action transition-colors cursor-pointer shadow-2xs max-w-[200px]"
+        className="inline-flex min-h-11 items-center gap-1.5 sm:gap-2 rounded-md border border-action/30 bg-action-soft hover:bg-action/10 px-2 sm:px-3 py-1 text-xs font-medium text-action transition-colors cursor-pointer shadow-2xs max-w-[130px] sm:max-w-[200px]"
       >
         <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
         <span className="truncate">{displayLabel}</span>
-        <span className="text-xs text-muted-foreground font-normal shrink-0">(Change)</span>
+        <span className="hidden sm:inline text-xs text-muted-foreground font-normal shrink-0">(Change)</span>
         <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" aria-hidden="true" />
       </button>
 

@@ -123,7 +123,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
 
   const motComboboxOptions = availableMotProfiles.map((m) => ({
     value: m.id,
-    label: `${m.mot_code} · ${m.name}${m.phone_number ? ` (${m.phone_number})` : ''}`,
+    label: `${m.name}${m.phone_number ? ` (${m.phone_number})` : ''}`,
     keywords: `${m.mot_code} ${m.name} ${m.phone_number}`,
     disabled: !m.is_available,
     disabledReason: m.busy_reason || 'Busy',
@@ -140,7 +140,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
           <Combobox
             options={availableSources.map((x) => ({
               value: x.id,
-              label: `${x.name} · ${x.source_type || 'SOURCE'}`,
+              label: x.name,
             }))}
             value={selectedSourceId}
             onValueChange={onSelectSourceId}
@@ -172,7 +172,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
           )}
         </div>
 
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-4 min-w-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
           {/* 1. Vehicle Selection (Combobox for ZMCC with manual fallback, text input for Contractor) */}
           <div className="space-y-1 min-w-0">
             <div className="flex items-center justify-between">

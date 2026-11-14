@@ -56,16 +56,25 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
   const setShowCorrectionModal = (v: boolean) => {
     if (!v) onClose();
   };
+  const sessionToken =
+    selectedHistorySession.mot_arrival?.zmcc_token ||
+    selectedHistorySession.local_supplier_arrival?.zmcc_token;
+  const sessionVehicle =
+    selectedHistorySession.mot_arrival?.journey?.mot_vehicle?.vehicle_number ||
+    selectedHistorySession.local_supplier_arrival?.vehicle_number;
+  const sessionSubtitle =
+    [sessionVehicle, sessionToken ? `Token ${sessionToken}` : null].filter(Boolean).join(' · ') ||
+    undefined;
   return (
     <ZmccDrawer
       open={open}
       onClose={onClose}
       title="Correct lab record"
       icon={<ShieldAlert className="mt-0.5 h-5 w-5 text-amber-600" aria-hidden="true" />}
-      subtitle={`Correction: Session #${selectedHistorySession.id}`}
+      subtitle={sessionSubtitle}
     >
             <div className="bg-card border-border text-xs text-secondary-foreground p-3 rounded-xl border">
-              <strong>Correction policy:</strong> corrections are unlimited, but every change is counted and permanently audited.
+              Every change is logged and audited.
             </div>
 
             
@@ -84,7 +93,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
             </div>
 
             
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-secondary-foreground mb-1">
                   Corrected Decision

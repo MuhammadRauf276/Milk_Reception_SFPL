@@ -106,15 +106,23 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
     options: Array.isArray(test.resultOptions) ? test.resultOptions.map((o) => o.value) : null,
   } as DispatchPolicyTest;
 
-  // System rules are only enforced for compulsory tests!
+  // Monitoring-only norms and optional tests must never show red "Outside SOP" failure styling.
+  const isMonitoringOnly = test.rule?.ruleCategory === 'MONITORING';
+  const enforceSop = !isMonitoringOnly && test.isRequired;
+
   const isQualitativeFail =
+    enforceSop &&
     hasValue &&
     (Boolean(selectedOption && selectedOption.isPassing === false) || isDisallowedOption(ruleTest, state.textValue));
 
-  const isNumericFail = !isCalculated && hasValue && outsideRange(ruleTest, effectiveNumericVal);
+  const isNumericFail = enforceSop && !isCalculated && hasValue && outsideRange(ruleTest, effectiveNumericVal);
   const isOut = isNumericFail || isQualitativeFail;
   const range = sopRangeText(ruleTest);
-  const sopHint = sopChipText(ruleTest);
+  const sopHint = isMonitoringOnly
+    ? range
+      ? `Monitoring: ${range}`
+      : 'Monitoring norm'
+    : sopChipText(ruleTest);
 
   return (
     <div
@@ -147,7 +155,6 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
               {isCalculated ? 'AUTO (Formula)' : test.isRequired ? 'Required *' : 'Optional (Applied)'}
             </span>
           </div>
-          <span className="text-xs font-mono text-muted-foreground block mt-0.5">{test.testCode}</span>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -235,7 +242,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
                   className={cn(
                     'min-h-11 rounded-xl border-2 px-4 text-sm font-semibold transition',
                     isSelected
-                      ? isOptionFail && !isAppliedOnly
+                      ? isOptionFail && enforceSop
                         ? 'border-rose-600 bg-rose-600 text-white shadow-xs'
                         : 'border-primary bg-primary text-white shadow-xs'
                       : 'border-border bg-card text-secondary-foreground hover:bg-muted'

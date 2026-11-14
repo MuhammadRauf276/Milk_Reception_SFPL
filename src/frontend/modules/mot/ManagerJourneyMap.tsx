@@ -15,6 +15,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/fetch-json';
 import { LiveMap, type LiveMapVehicle } from '@/frontend/modules/shared/map/LiveMap';
 import { buildJourneyOverlays } from '@/frontend/modules/shared/map/journeyOverlays';
+import { HorizontalScrollRow } from '@/components/ui/horizontal-scroll-row';
 import { formatLabel } from '@/lib/format';
 
 interface ManagerJourneyMapProps {
@@ -274,7 +275,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
           </div>
           <div className="text-right text-xs text-muted-foreground">
             <div>
-              Route: <span className="font-semibold text-foreground">{journey.route?.name}</span> ({journey.route?.route_code})
+              Route: <span className="font-semibold text-foreground">{journey.route?.name}</span>
             </div>
             <div>
               Mobile Tester: <span className="font-semibold text-foreground">{journey.mot_profile?.name}</span> | Vehicle: <span className="font-semibold text-foreground">{journey.mot_vehicle?.vehicle_number}</span>
@@ -282,35 +283,37 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="bg-card border-border p-3 rounded-xl border">
-            <span className="text-xs font-semibold text-muted-foreground block">Stops Visited</span>
-            <span className="text-sm font-semibold text-foreground">
-              {totals.visited_stops} / {totals.total_stops}
-            </span>
+        <HorizontalScrollRow>
+          <div className="flex items-stretch gap-3 min-w-max">
+            <div className="min-w-[132px] flex-1 bg-card border-border p-3 rounded-xl border">
+              <span className="text-xs font-semibold text-muted-foreground block">Stops Visited</span>
+              <span className="text-sm font-semibold text-foreground tabular-nums">
+                {totals.visited_stops} / {totals.total_stops}
+              </span>
+            </div>
+            <div className="min-w-[132px] flex-1 bg-card border-border p-3 rounded-xl border">
+              <span className="text-xs font-semibold text-muted-foreground block">Pending Stops</span>
+              <span className="text-sm font-semibold text-amber-600 tabular-nums">{totals.pending_stops}</span>
+            </div>
+            <div className="min-w-[132px] flex-1 bg-card border-border p-3 rounded-xl border">
+              <span className="text-xs font-semibold text-muted-foreground block">Total Gross Ltr</span>
+              <span className="text-sm font-semibold text-emerald-700 tabular-nums">{totals.total_gross_liters} L</span>
+            </div>
+            <div className="min-w-[132px] flex-1 bg-card border-border p-3 rounded-xl border">
+              <span className="text-xs font-semibold text-muted-foreground block">@13 TS Liters</span>
+              <span className="text-sm font-semibold text-emerald-700 tabular-nums">{totals.total_at_13ts_liters} L</span>
+            </div>
+            <div className="min-w-[144px] flex-1 bg-card border-border p-3 rounded-xl border">
+              <span className="text-xs font-semibold text-muted-foreground block">GPS Points / Sync</span>
+              <span className="text-xs font-semibold text-secondary-foreground tabular-nums">
+                {totals.gps_point_count} pts
+              </span>
+              <span className="text-xs text-muted-foreground block tabular-nums">
+                {formatTime(totals.last_sync_time)}
+              </span>
+            </div>
           </div>
-          <div className="bg-card border-border p-3 rounded-xl border">
-            <span className="text-xs font-semibold text-muted-foreground block">Pending Stops</span>
-            <span className="text-sm font-semibold text-amber-600">{totals.pending_stops}</span>
-          </div>
-          <div className="bg-card border-border p-3 rounded-xl border">
-            <span className="text-xs font-semibold text-muted-foreground block">Total Gross Ltr</span>
-            <span className="text-sm font-semibold text-emerald-700">{totals.total_gross_liters} L</span>
-          </div>
-          <div className="bg-card border-border p-3 rounded-xl border">
-            <span className="text-xs font-semibold text-muted-foreground block">@13 TS Liters</span>
-            <span className="text-sm font-semibold text-emerald-700">{totals.total_at_13ts_liters} L</span>
-          </div>
-          <div className="bg-card border-border p-3 rounded-xl border">
-            <span className="text-xs font-semibold text-muted-foreground block">GPS Points / Sync</span>
-            <span className="text-xs font-semibold text-secondary-foreground">
-              {totals.gps_point_count} pts
-            </span>
-            <span className="text-xs text-neutral-400 block">
-              {formatTime(totals.last_sync_time)}
-            </span>
-          </div>
-        </div>
+        </HorizontalScrollRow>
       </div>
 
       <div className="relative bg-card rounded-xl border border-border overflow-hidden shadow-md">
@@ -325,7 +328,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
           onPinSelect={(id) => setSelectedStop(id ? stops.find((s) => s.id === id) ?? null : null)}
         />
         <div className="px-3 pb-2 text-xs font-semibold text-secondary-foreground">
-          Endpoint: <span className="text-amber-600">{journey.endpoint_status}</span>
+          Status: <span className="text-amber-600">{formatLabel(journey.endpoint_status)}</span>
         </div>
 
         {selectedStop && (
@@ -336,7 +339,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                   Stop #{selectedStop.planned_sequence}
                 </span>
                 <span className="font-semibold text-white text-sm">
-                  {selectedStop.shop_name} ({selectedStop.shop_code})
+                  {selectedStop.shop_name}
                 </span>
                 <span
                   className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
@@ -349,7 +352,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                 </span>
               </div>
               <p className="text-xs text-neutral-400">
-                Owner: {selectedStop.owner_name} | Contact: {selectedStop.phone_number} | Area: {selectedStop.area_name} ({selectedStop.area_code})
+                Owner: {selectedStop.owner_name} | Contact: {selectedStop.phone_number} | Area: {selectedStop.area_name}
               </p>
               {selectedStop.collection && (
                 <div className="text-xs text-emerald-400 font-medium">

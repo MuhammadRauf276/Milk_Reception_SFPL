@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StatCard } from '@/components/ui/stat-card';
+import { TableWrapper } from '@/components/ui/table-wrapper';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { formatTime } from '@/lib/format';
 
 interface PlantQaComparisonRow {
@@ -95,7 +97,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
 
       return {
         id: r.visit_id,
-        dispatchNote: r.visit_number || `DSP-${r.visit_id}`,
+        dispatchNote: r.visit_number || '—',
         vehicleNumber: r.vehicle_number || '—',
         sourceZmcc: r.zmcc_name || '—',
         dispatchDate: r.operational_date || null,
@@ -123,6 +125,8 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
     const matchStatus = statusFilter === 'ALL' || r.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  const pagedRows = usePagedRows(filteredRows, (r) => String(r.id));
 
   const arrived = filteredRows.filter((r) => r.status !== 'IN_TRANSIT');
   const totalDispatched = filteredRows.reduce((s, r) => s + (r.dispatchedLiters ?? 0), 0);
@@ -204,7 +208,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
 
       {/* Side-by-Side Audit Table */}
       <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <TableWrapper>
           <table className="w-full text-xs text-left border-collapse">
             <thead>
               {/* Category Super Header */}
@@ -213,13 +217,13 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
                   Tanker & Journey Identifiers
                 </th>
                 <th colSpan={3} className="py-2 px-3 border-r border-border bg-blue-50/50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300">
-                  1. ZMCC Dispatch QA & Volume
+                  ZMCC Dispatch QA & Volume
                 </th>
                 <th colSpan={3} className="py-2 px-3 border-r border-border bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300">
-                  2. Central Plant Reception QA & Volume
+                  Central Plant Reception QA & Volume
                 </th>
                 <th colSpan={4} className="py-2 px-3 bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300">
-                  3. Transit Reconciliation & Test Deltas
+                  Transit Reconciliation & Test Deltas
                 </th>
               </tr>
 
@@ -256,7 +260,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
                   </td>
                 </tr>
               )}
-              {filteredRows.map((row) => (
+              {pagedRows.pageRows.map((row) => (
                 <tr key={row.id} className="hover:bg-muted/30 transition-colors">
                   <td className="py-2 px-3 font-semibold text-foreground">{row.dispatchNote}</td>
                   <td className="py-2 px-3 font-mono">{row.vehicleNumber}</td>
@@ -325,7 +329,17 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
               ))}
             </tbody>
           </table>
-        </div>
+        </TableWrapper>
+        {pagedRows.totalPages > 1 && (
+          <Pagination
+            page={pagedRows.page}
+            totalPages={pagedRows.totalPages}
+            totalRecords={pagedRows.totalRecords}
+            pageSize={pagedRows.pageSize}
+            noun="dispatches"
+            onPageChange={pagedRows.setPage}
+          />
+        )}
       </div>
     </div>
   );

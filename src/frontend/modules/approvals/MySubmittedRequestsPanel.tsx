@@ -4,7 +4,6 @@ import { getRoleLabel } from '@core/roles/labels';
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
-import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { SubmitterRequestItem } from '@/backend/services/approvals/submitterRequestService';
 import { SkeletonList } from '@/components/ui/loaders';
@@ -42,19 +41,21 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
     <div className={`space-y-4 ${className || ''}`}>
       {/* Header and Filter Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-        <div>
-          <h3 className="text-base font-semibold text-foreground">My Submitted Requests</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Status of requests you sent
-          </p>
+        <div className="flex items-center gap-1">
+          <h3 className="text-base font-semibold text-foreground">My Sent Requests</h3>
+          <InfoTip
+            label="About sent requests"
+            className="-my-2"
+            text="Vehicle and quality exception requests sent to your upper head."
+          />
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-muted/50 border border-border rounded-lg p-0.5">
+        <div className="flex flex-wrap items-center gap-2 max-w-full">
+          <div className="flex flex-wrap items-center bg-muted/50 border border-border rounded-lg p-0.5 max-w-full">
             <button
               type="button"
               onClick={() => setFilterStatus('ALL')}
-              className={`min-h-9 px-3 py-1 rounded-md text-xs font-semibold transition ${
+              className={`min-h-9 px-2.5 sm:px-3 py-1 rounded-md text-xs font-semibold transition ${
                 filterStatus === 'ALL'
                   ? 'bg-background text-foreground shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -65,7 +66,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
             <button
               type="button"
               onClick={() => setFilterStatus('PENDING')}
-              className={`min-h-9 px-3 py-1 rounded-md text-xs font-semibold transition ${
+              className={`min-h-9 px-2.5 sm:px-3 py-1 rounded-md text-xs font-semibold transition ${
                 filterStatus === 'PENDING'
                   ? 'bg-amber-100 text-amber-900 shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -76,7 +77,7 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
             <button
               type="button"
               onClick={() => setFilterStatus('RESOLVED')}
-              className={`min-h-9 px-3 py-1 rounded-md text-xs font-semibold transition ${
+              className={`min-h-9 px-2.5 sm:px-3 py-1 rounded-md text-xs font-semibold transition ${
                 filterStatus === 'RESOLVED'
                   ? 'bg-background text-foreground shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -150,10 +151,15 @@ export function MySubmittedRequestsPanel({ onClose, className }: MySubmittedRequ
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold text-muted-foreground">
                       {item.categoryLabel}
                     </span>
+                    {typeof item.metadata?.vehicleNumber === 'string' && item.metadata.vehicleNumber.trim() !== '' && (
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-muted text-foreground border border-border">
+                        Vehicle: {item.metadata.vehicleNumber}
+                      </span>
+                    )}
                     <span className="text-xs font-semibold text-foreground">
                       {item.referenceNumber}
                     </span>

@@ -28,7 +28,7 @@ export function ApprovalDetailPanel({
     <section
       aria-label="Active approval inspection details"
       className={cn(
-        'flex-1 flex flex-col bg-card overflow-y-auto',
+        'scrollbar-thin overscroll-contain flex-1 min-h-0 flex flex-col bg-card overflow-y-auto',
         mobileInspectOpen ? 'flex fixed inset-0 z-40 lg:static' : 'hidden lg:flex'
       )}
     >
@@ -101,8 +101,8 @@ export function ApprovalDetailPanel({
             <footer className="p-3 sm:p-4 border-t border-border bg-card sticky bottom-0 z-20 flex items-center justify-between gap-3 shadow-xs">
               <div className="hidden sm:block text-xs text-muted-foreground">
                 {item.canDecide
-                  ? 'Select an action to record your official decision.'
-                  : 'Actions disabled by Segregation of Duties.'}
+                  ? 'Select Approve or Reject to record your decision.'
+                  : 'Another supervisor must review this item.'}
               </div>
 
               <div className="flex items-center gap-3 w-full sm:w-auto ml-auto">

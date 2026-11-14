@@ -210,7 +210,7 @@ export function CompactColumnPopover({
               <Layers className="w-3 h-3 text-muted-foreground" /> Active Column Order ({selectedFieldIds.length})
             </span>
 
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
+            <div className="flex items-center gap-1 overflow-x-auto pb-1.5 scrollbar-thin">
               {selectedFieldIds.map((fId, idx) => {
                 const def = allFields.find((f) => f.id === fId);
                 if (!def) return null;

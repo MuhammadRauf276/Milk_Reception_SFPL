@@ -7,6 +7,8 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
+import { formatLabel } from '@/lib/format';
+import { CORRECTION_MODULE_LABELS } from './MyCorrectionTickets';
 
 export interface EditableFieldOption {
   field: string;
@@ -135,7 +137,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
             <div>
               <DrawerTitle className="font-semibold text-sm text-foreground">Request a correction</DrawerTitle>
               <p className="text-muted-foreground text-xs">
-                {recordIdentifierLabel || `${module} #${recordId}`}
+                {recordIdentifierLabel || (CORRECTION_MODULE_LABELS[module] ?? formatLabel(module))}
               </p>
             </div>
           </div>
@@ -233,7 +235,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
             {/* Reason */}
             <div>
               <label className="block font-semibold text-secondary-foreground mb-1">
-                Substantive Reason / Audit Note <span className="text-rose-500">*</span>
+                Reason for correction <span className="text-rose-500">*</span>
               </label>
               <textarea
                 value={reason}
@@ -250,7 +252,7 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="min-h-11 px-4 py-2 rounded-lg border border-border-strong-strong text-secondary-foreground font-semibold hover:bg-secondary transition-colors disabled:opacity-50"
+                className="min-h-11 px-4 py-2 rounded-lg border border-border-strong text-secondary-foreground font-semibold hover:bg-secondary active:scale-[0.98] transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>

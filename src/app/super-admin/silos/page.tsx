@@ -51,7 +51,7 @@ export default function SuperAdminSilosPage() {
   };
 
   const columns: DataColumn<Silo>[] = [
-    { key: 'code', header: 'Code', label: 'Code', cell: (s) => <span className="break-all font-mono font-semibold tabular-nums text-foreground">{s.siloCode}</span> },
+    { key: 'code', header: 'Code', label: 'Code', cell: (s) => <span className="whitespace-nowrap font-mono font-semibold tabular-nums text-foreground">{s.siloCode}</span> },
     { key: 'name', header: 'Name', label: 'Name', primary: true, cell: (s) => <span className="font-semibold text-foreground">{s.siloName}</span> },
     { key: 'capacity', header: 'Capacity', label: 'Capacity', cell: (s) => <span className="font-mono tabular-nums text-muted-foreground">{s.capacityLiters.toLocaleString()} L</span> },
     {
@@ -150,7 +150,6 @@ export default function SuperAdminSilosPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <p className="text-sm text-muted-foreground">Capacity, fill level and reservations</p>
-          <InfoTip text="Plant raw milk storage silos with capacity, fill levels, and allocation tracking." />
         </div>
         <Button
           className="shrink-0"

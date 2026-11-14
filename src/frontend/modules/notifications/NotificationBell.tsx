@@ -7,8 +7,11 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Bell, CheckCheck, Settings, ArrowUpRight, Inbox } from 'lucide-react';
 import { User } from '@core/types';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { resolveNotificationDeepLink } from '@/lib/notification-links';
+import { formatPriorityLabel } from '@/lib/format';
 
 export interface NotificationItem {
   id: string;
@@ -30,6 +33,7 @@ interface NotificationBellProps {
 }
 
 export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser }) => {
+  const router = useRouter();
   // Open state and feed are tied to the user they belong to, so switching users never shows stale data.
   const [openForUserId, setOpenForUserId] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -77,8 +81,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
   }, [feedQuery.data]);
 
   useEffect(() => {
+    unreadRef.current = null;
     if (!userId) {
-      unreadRef.current = null;
       return;
     }
     const handleLoggedOut = () => {
@@ -123,6 +127,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id }),
+        keepalive: true,
       })
         .then((res) => {
           if (!res.ok) throw new Error('Refused');
@@ -135,13 +140,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
 
     setOpenForUserId(null);
 
-    if (
-      item.deepLink &&
-      item.deepLink.startsWith('/') &&
-      !item.deepLink.startsWith('//') &&
-      !item.deepLink.includes('://')
-    ) {
-      window.location.assign(item.deepLink);
+    const targetDeepLink = resolveNotificationDeepLink(item.deepLink, {
+      eventKey: item.eventKey,
+      role: currentUser?.role,
+    });
+    if (targetDeepLink) {
+      router.push(targetDeepLink);
     }
   };
 
@@ -208,7 +212,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
           )}
         </div>
 
-        <div className="scrollbar-thin max-h-[360px] overflow-y-auto">
+        <div className="scrollbar-thin overscroll-contain max-h-[360px] overflow-y-auto">
           {visibleNotifications.length === 0 ? (
             <div className="px-6 py-10 text-center">
               <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
@@ -220,7 +224,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
             <ul className="divide-y">
               {visibleNotifications.map((item) => {
                 const isUnread = !item.readAt;
-                const isHighPriority = item.priority === 'HIGH' || item.priority === 'URGENT';
+                const isHighPriority =
+                  item.priority === 'HIGH' || item.priority === 'URGENT' || item.priority === 'CRITICAL';
+                const targetDeepLink = resolveNotificationDeepLink(item.deepLink, {
+                  eventKey: item.eventKey,
+                  role: currentUser?.role,
+                });
 
                 return (
                   <li key={item.id}>
@@ -243,7 +252,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
                           </span>
                           {isHighPriority && (
                             <span className="shrink-0 rounded bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700">
-                              {item.priority}
+                              {formatPriorityLabel(item.priority)}
                             </span>
                           )}
                         </span>
@@ -254,7 +263,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
                               ? new Date(item.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                               : ''}
                           </span>
-                          {item.deepLink && (
+                          {targetDeepLink && (
                             <span className="inline-flex items-center gap-0.5 font-medium text-primary">
                               Open
                               <ArrowUpRight className="h-3 w-3" />
@@ -279,7 +288,6 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
             <Settings className="h-3.5 w-3.5" />
             Settings
           </Link>
-          <span className="text-muted-foreground">Refreshes every minute</span>
         </div>
       </PopoverContent>
     </Popover>

@@ -134,9 +134,10 @@ export interface MasterDataFilters {
   areaId: string;
   /** 1-based page for the paginated tabs (shops, local suppliers). */
   page: number;
+  pageSize?: number;
 }
 
-export const MASTER_PAGE_SIZE = 50;
+export const MASTER_PAGE_SIZE = 25;
 
 export interface MasterPagination {
   page: number;
@@ -160,7 +161,8 @@ export async function fetchMasterData(tab: MasterDataTab, filters: MasterDataFil
   const zmccParam = filters.zmccId ? `&zmcc_id=${filters.zmccId}` : '';
   const statusParam = filters.status !== 'all' ? `&is_active=${filters.status}` : '';
   const searchParam = filters.search ? `&search=${encodeURIComponent(filters.search)}` : '';
-  const pageParam = `&page=${filters.page}&page_size=${MASTER_PAGE_SIZE}`;
+  const effectivePageSize = filters.pageSize ?? MASTER_PAGE_SIZE;
+  const pageParam = `&page=${filters.page}&page_size=${effectivePageSize}`;
 
   const getJson = async (url: string, fallbackError: string) => {
     try {

@@ -1,6 +1,8 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { formatDeviceLabel } from '@/lib/format';
+import { getRoleLabel } from '@core/roles/labels';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 type Device = { id: string; user: string; role: string; deviceLabel: string | null; active: boolean; createdAt: string; revokedAt: string | null };
 const NO_ITEMS: Device[] = [];
@@ -19,8 +21,8 @@ export function SuperAdminDeviceSubscriptions() {
   const revoke = (id: string) => revokeMutation.mutate(id);
   const columns: DataColumn<Device>[] = [
     { key: 'user', header: 'User', label: 'User', primary: true, cell: (item) => item.user },
-    { key: 'role', header: 'Role', label: 'Role', cell: (item) => item.role },
-    { key: 'device', header: 'Device', label: 'Device', cell: (item) => item.deviceLabel || 'Unnamed browser' },
+    { key: 'role', header: 'Role', label: 'Role', cell: (item) => getRoleLabel(item.role, item.role) },
+    { key: 'device', header: 'Device', label: 'Device', cell: (item) => formatDeviceLabel(item.deviceLabel) },
     { key: 'state', header: 'State', label: 'State', cell: (item) => (item.active ? 'Active' : 'Revoked') },
     {
       key: 'revoke',

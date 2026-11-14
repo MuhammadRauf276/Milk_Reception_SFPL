@@ -167,7 +167,7 @@ function toRow(r: Raw): VehiclePortionRow {
  * range, one fixed page size, and a time limit that stops the query instead of letting it hold up other work.
  */
 export async function getVehiclePortionReport(
-  params: { from?: string | null; to?: string | null; page?: number; filters?: ReportColumnFilters },
+  params: { from?: string | null; to?: string | null; page?: number; pageSize?: number; filters?: ReportColumnFilters },
   db: VehiclePortionReportDb
 ): Promise<VehiclePortionReport> {
   const problem = dateRangeProblem(params.from, params.to);
@@ -179,6 +179,11 @@ export async function getVehiclePortionReport(
   const search = buildColumnSearch(params.filters ?? {}, 3);
   const where = `dispatched_at BETWEEN $1::timestamp AND $2::timestamp${search.sql}`;
   const page = Math.max(1, Math.floor(Number(params.page)) || 1);
+  const rawPageSize = Number(params.pageSize);
+  const effectivePageSize =
+    Number.isFinite(rawPageSize) && rawPageSize > 0
+      ? Math.min(REPORT_PAGE_SIZE, Math.max(1, Math.floor(rawPageSize)))
+      : REPORT_PAGE_SIZE;
 
   return db.$transaction(
     async (tx) => {
@@ -190,17 +195,17 @@ export async function getVehiclePortionReport(
         ...search.args
       )) as Raw[];
       const totalRows = Number(counted[0]?.total ?? 0);
-      const totalPages = Math.max(1, Math.ceil(totalRows / REPORT_PAGE_SIZE));
+      const totalPages = Math.max(1, Math.ceil(totalRows / effectivePageSize));
       const currentPage = Math.min(page, totalPages);
       const rows = (await tx.$queryRawUnsafe(
         `SELECT * FROM vw_vehicle_portion_report WHERE ${where}
          ORDER BY dispatched_at DESC, visit_id DESC, portion_number
-         LIMIT ${REPORT_PAGE_SIZE} OFFSET ${(currentPage - 1) * REPORT_PAGE_SIZE}`,
+         LIMIT ${effectivePageSize} OFFSET ${(currentPage - 1) * effectivePageSize}`,
         start,
         end,
         ...search.args
       )) as Raw[];
-      return { rows: rows.map(toRow), page: currentPage, pageSize: REPORT_PAGE_SIZE, totalRows, totalPages };
+      return { rows: rows.map(toRow), page: currentPage, pageSize: effectivePageSize, totalRows, totalPages };
     },
     { timeout: STATEMENT_TIMEOUT_MS * 2 + 2000, maxWait: 5000 }
   );

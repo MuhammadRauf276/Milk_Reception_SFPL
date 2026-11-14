@@ -448,11 +448,11 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                     : `${visit.total_weighments} weighings`}
                 </h3>
                 <InfoTip
-                  label="Weighing policy"
+                  label="Weighing guide"
                   text={
                     visit.accepted_portion_count === 0
-                      ? 'All compartments were rejected by QA. Under plant SOPs, fully rejected vehicles bypass physical gross/tare weighing. Direct vehicle to Security Gate.'
-                      : `Physical Weighment Rule: 1 Initial Loaded Gross (W0) + ${visit.accepted_portion_count} tare scale readings. Previously recorded weights are permanently audit-locked. Upstream dispatch quantities are double-blind hidden.`
+                      ? 'All compartments rejected by QA. Direct vehicle to Security Gate for exit.'
+                      : `1 gross weight + ${visit.accepted_portion_count} tare weight(s) after unloading.`
                   }
                 />
               </div>
@@ -487,7 +487,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                 <span className="font-semibold">All rejected by QA, send to security gate</span>
               </div>
               <InfoTip
-                text={`All ${visit.portion_count} compartments rejected during QA testing. Under plant SOPs, vehicle bypasses scale weighment. Direct to Security Gate for exit checkout.`}
+                text={`All ${visit.portion_count} compartments rejected by QA. Direct vehicle to Security Gate for exit.`}
               />
             </div>
           )}

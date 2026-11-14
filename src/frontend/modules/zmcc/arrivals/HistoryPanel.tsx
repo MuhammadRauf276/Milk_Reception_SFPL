@@ -224,7 +224,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
           <button
             type="button"
             onClick={p.onRefresh}
-            className="flex items-center space-x-1 min-h-[44px] px-4 bg-muted hover:bg-muted text-secondary-foreground rounded-xl text-xs font-semibold"
+            className="flex items-center space-x-1 min-h-[44px] px-4 bg-muted hover:bg-muted/80 active:scale-95 text-secondary-foreground rounded-xl text-xs font-semibold transition-colors"
           >
             <span>Refresh</span>
           </button>

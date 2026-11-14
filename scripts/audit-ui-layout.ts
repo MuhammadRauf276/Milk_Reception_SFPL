@@ -89,6 +89,7 @@ interface Metrics {
   escaped: string[];
   iconsOut: string[];
   clippedFigures: string[];
+  brokenWords: string[];
   smallText: number;
   tinyTargets: number;
   navActive?: string[];
@@ -121,7 +122,7 @@ const MEASURE = `(() => {
   const iconsOut = [];
   root.querySelectorAll('svg').forEach((s) => {
     const r = s.getBoundingClientRect();
-    if (!shown(r) || r.width > 48 || s.closest('.maplibregl-map')) return;
+    if (!shown(r) || r.width > 48 || s.closest('.maplibregl-map,[data-sonner-toaster],nextjs-portal,[data-nextjs-toast]')) return;
     // Check the icon against its button and against the card around it, and against the screen.
     const boxes = [s.parentElement && s.parentElement.closest('[class*="border"], button, a'), s.closest('li, [class*="rounded-2xl"], [class*="rounded-xl"]')];
     let reported = false;
@@ -138,6 +139,7 @@ const MEASURE = `(() => {
   });
   const clippedFigures = [];
   const longText = [];
+  const brokenWords = [];
   let smallText = 0;
   root.querySelectorAll('p,span,div,td,th,h1,h2,h3,h4,button,a,label,strong').forEach((e) => {
     if (!e.offsetWidth) return;
@@ -151,9 +153,34 @@ const MEASURE = `(() => {
       clippedFigures.push(e.textContent.trim().slice(0, 40));
     }
   });
+  const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let tn;
+  while ((tn = tw.nextNode())) {
+    const el = tn.parentElement;
+    if (!el || el.closest('.maplibregl-map,[data-sonner-toaster],nextjs-portal,[data-nextjs-toast],pre,code')) continue;
+    const es = getComputedStyle(el);
+    if (es.display === 'none' || es.visibility === 'hidden' || parseFloat(es.opacity) === 0) continue;
+    const er = el.getBoundingClientRect();
+    if (!shown(er)) continue;
+    const txt = tn.nodeValue || '';
+    const wre = /\\S+/g;
+    let wm;
+    while ((wm = wre.exec(txt)) !== null) {
+      const w = wm[0];
+      if (!/^[A-Za-z]{2,}:?$/.test(w)) continue;
+      const rng = document.createRange();
+      rng.setStart(tn, wm.index);
+      rng.setEnd(tn, wm.index + w.length);
+      const rects = [...rng.getClientRects()].filter((r) => r.width > 0.5 && r.height > 0.5);
+      if (rects.length > 1 && rects.some((r) => Math.abs(r.top - rects[0].top) > 4)) {
+        brokenWords.push(w + ' in ' + label(el));
+      }
+    }
+  }
   let tinyTargets = 0;
   const tinyList = [];
   root.querySelectorAll('button,a[href],input:not([type=hidden]),select').forEach((e) => {
+    if (e.closest('.maplibregl-map,[data-sonner-toaster],nextjs-portal,[data-nextjs-toast]')) return;
     const hit = e.matches('input[type=checkbox],input[type=radio]') && e.closest('label') ? e.closest('label') : e;
     const r = hit.getBoundingClientRect();
     if (shown(r) && (r.height < 36 || r.width < 36)) {
@@ -165,7 +192,7 @@ const MEASURE = `(() => {
   return {
     pageOverflow: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - vw,
     escaped: uniq(escaped), iconsOut: uniq(iconsOut), clippedFigures: uniq(clippedFigures),
-    smallText, tinyTargets, tinyList: uniq(tinyList), longText: uniq(longText), dialogOpen: !!dialog,
+    brokenWords: uniq(brokenWords), smallText, tinyTargets, tinyList: uniq(tinyList), longText: uniq(longText), dialogOpen: !!dialog,
     // More than one highlighted sidebar item means the page does not know where it is.
     navActive: uniq([...document.querySelectorAll('[aria-current="page"]')]
       .filter((e) => e.getBoundingClientRect().width > 0)
@@ -241,9 +268,9 @@ async function main() {
           if (mode !== 'base' || width === 360 || width === 1366) {
             await page.screenshot({ path: `${OUT}/shots/${id}-${width}-${mode}.png` });
           }
-          const bad = m.pageOverflow > 0 || m.escaped.length || m.iconsOut.length || m.clippedFigures.length;
+          const bad = m.pageOverflow > 0 || m.escaped.length || m.iconsOut.length || m.clippedFigures.length || m.brokenWords.length;
           if (bad) {
-            console.log(`x ${id} ${width} ${mode}: overflow=${m.pageOverflow} escaped=${m.escaped.length} icons=${m.iconsOut.length} clipped=${m.clippedFigures.length}`);
+            console.log(`x ${id} ${width} ${mode}: overflow=${m.pageOverflow} escaped=${m.escaped.length} icons=${m.iconsOut.length} clipped=${m.clippedFigures.length} brokenWords=${m.brokenWords.length}`);
           }
         } catch (e) {
           rows.push({ id, width, mode, error: String(e).slice(0, 160) });
@@ -257,9 +284,9 @@ async function main() {
   writeFileSync(`${OUT}/results.json`, JSON.stringify(rows, null, 1));
   const measured = rows.filter((r) => 'pageOverflow' in r) as unknown as Metrics[];
   const sum = (f: (m: Metrics) => number) => measured.reduce((n, m) => n + f(m), 0);
-  const blocking = sum((m) => Math.max(0, m.pageOverflow) + m.escaped.length + m.iconsOut.length);
+  const blocking = sum((m) => Math.max(0, m.pageOverflow) + m.escaped.length + m.iconsOut.length + m.brokenWords.length);
   console.log(
-    `\nChecks ${measured.length} | overflow+escaped ${sum((m) => Math.max(0, m.pageOverflow) + m.escaped.length)} | icons out ${sum((m) => m.iconsOut.length)} | clipped figures ${sum((m) => m.clippedFigures.length)} | small text ${sum((m) => m.smallText)} | tiny targets ${sum((m) => m.tinyTargets)} | errors ${rows.filter((r) => 'error' in r).length}`
+    `\nChecks ${measured.length} | overflow+escaped ${sum((m) => Math.max(0, m.pageOverflow) + m.escaped.length)} | icons out ${sum((m) => m.iconsOut.length)} | clipped figures ${sum((m) => m.clippedFigures.length)} | broken words ${sum((m) => m.brokenWords.length)} | small text ${sum((m) => m.smallText)} | tiny targets ${sum((m) => m.tinyTargets)} | errors ${rows.filter((r) => 'error' in r).length}`
   );
   await browser.close();
   await prisma.$disconnect();

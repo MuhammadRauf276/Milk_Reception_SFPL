@@ -25,6 +25,7 @@ import { QADecisionModals } from './qa/QADecisionModals';
 import { useQAVisitDetail } from './qa/useQAVisitDetail';
 import { useQAActions } from './qa/useQAActions';
 import { PageHeader } from '@/components/ui/page-header';
+import { MySubmittedRequestsPanel } from '@/frontend/modules/approvals/MySubmittedRequestsPanel';
 
 export type {
   WaitingVisit,
@@ -38,7 +39,7 @@ export type {
   TestInputState,
 };
 
-export type QATab = 'WAITING' | 'IN_TESTING' | 'ON_HOLD';
+export type QATab = 'WAITING' | 'IN_TESTING' | 'ON_HOLD' | 'REQUESTS';
 
 interface QALaboratoryWorkspaceProps {
   currentUser?: User | null;
@@ -124,6 +125,20 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
   });
   const { visitDetail, activePortion } = detail;
 
+  if (activeTab === 'REQUESTS') {
+    return (
+      <div className="w-full max-w-7xl mx-auto space-y-6 text-foreground">
+        <PageHeader
+          title="My Sent Requests"
+          description="Vehicle exception requests sent to AVP QA"
+        />
+        <div className="bg-card rounded-2xl border border-border p-5 shadow-2xs animate-panel-in">
+          <MySubmittedRequestsPanel />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 text-foreground">
       <PageHeader
@@ -142,6 +157,22 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
             : 'Held portions'
         }
       />
+
+      {queuesQuery.isError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-900"
+        >
+          <span>Could not load QA queues. Please check your connection and try again.</span>
+          <button
+            type="button"
+            onClick={() => void queuesQuery.refetch()}
+            className="min-h-11 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -178,6 +209,9 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
             onSelectPortion={detail.handleSelectPortion}
             isLoadingVisit={detail.isLoadingVisit}
             testInputs={detail.testInputs}
+            testInputsByPortion={detail.testInputsByPortion}
+            savedPortionsMap={detail.savedPortionsMap}
+            onSavePortionMap={detail.setSavedPortionsMap}
             onTestPerformanceStatusChange={detail.handleTestPerformanceStatusChange}
             onTestNumericChange={detail.handleTestNumericChange}
             onTestTextChange={detail.handleTestTextChange}
@@ -190,10 +224,16 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
             canAccept={detail.canAccept}
             isSubmitting={actions.isSubmitting}
             formatDispatchQty={detail.formatDispatchQty}
+            onModeSwitch={actions.handleModeSwitch}
+            isSwitchingMode={actions.isSwitchingMode}
             onAddPortion={actions.handleAddPortion}
             isAddingPortion={actions.isAddingPortion}
             onRemovePortion={actions.handleRemovePortion}
             isRemovingPortion={actions.isRemovingPortion}
+            enteredSealMap={detail.enteredSealMap}
+            photoStatesMap={detail.photoStatesMap}
+            personDecisionMap={detail.personDecisionMap}
+            decisionRemarksMap={detail.decisionRemarksMap}
             enteredSeal={
               activePortion
                 ? detail.enteredSealMap[activePortion.id] ?? (activePortion.plant_seal_number_entered || '')
@@ -234,6 +274,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
             currentUser={currentUser}
             onAcceptSubmit={() => actions.handleAcceptPortionConfirm()}
             onRejectSubmit={() => actions.handleRejectPortionConfirm()}
+            onSubmitAllPortions={actions.handleSubmitAllPortions}
             onRouteVehicle={actions.handleRouteVehicle}
             isRoutingVehicle={actions.isRoutingVehicle}
           />
@@ -248,6 +289,8 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
         activePortionIndex={detail.activePortionIndex}
         qaOpTimestamp={actions.qaOpTimestamp}
         onQaOpTimestampChange={(val) => actions.setQaOpTimestamp(val)}
+        holdReason={actions.holdReason}
+        onHoldReasonChange={(val) => actions.setHoldReason(val)}
         rejectionReason={actions.rejectionReason}
         onRejectionReasonChange={(val) => actions.setRejectionReason(val)}
         rejectionRemarks={actions.rejectionRemarks}
@@ -258,6 +301,7 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
         onStartTestingConfirm={actions.handleStartTesting}
         onResumeTestingConfirm={actions.handleResumeTesting}
         onAcceptPortionConfirm={actions.handleAcceptPortionConfirm}
+        onHoldPortionConfirm={actions.handleHoldPortionConfirm}
         onRejectPortionConfirm={actions.handleRejectPortionConfirm}
         isSubmitting={actions.isSubmitting}
         waitingVisits={waitingVisits}

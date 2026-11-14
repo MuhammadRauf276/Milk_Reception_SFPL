@@ -52,3 +52,51 @@ export function formatLabel(code: string | null | undefined): string {
     })
     .join(' ');
 }
+
+const PRIORITY_LABELS: Record<string, string> = {
+  CRITICAL: 'Urgent',
+  URGENT: 'Urgent',
+  HIGH: 'High',
+  MEDIUM: 'Normal',
+  NORMAL: 'Normal',
+  LOW: 'Low',
+};
+
+/** Maps priority codes (e.g. CRITICAL, HIGH) to clean sentence/title labels. */
+export function formatPriorityLabel(priority: string | null | undefined): string {
+  if (!priority) return PLACEHOLDER;
+  const upper = priority.trim().toUpperCase();
+  return PRIORITY_LABELS[upper] ?? formatLabel(upper);
+}
+
+/** Converts a raw browser User-Agent string into a short readable device name. */
+export function formatDeviceLabel(raw: string | null | undefined): string {
+  if (!raw || !raw.trim()) return 'Browser device';
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('Mozilla/') && !trimmed.includes('AppleWebKit') && trimmed.length <= 40) {
+    return trimmed;
+  }
+  const os = /Android/i.test(trimmed)
+    ? 'Android'
+    : /iPhone/i.test(trimmed)
+    ? 'iPhone'
+    : /iPad/i.test(trimmed)
+    ? 'iPad'
+    : /Windows/i.test(trimmed)
+    ? 'Windows'
+    : /Macintosh|Mac OS X/i.test(trimmed)
+    ? 'Mac'
+    : /Linux/i.test(trimmed)
+    ? 'Linux'
+    : 'Device';
+  const browser = /Edg\//i.test(trimmed)
+    ? 'Edge'
+    : /Chrome\//i.test(trimmed)
+    ? 'Chrome'
+    : /Firefox\//i.test(trimmed)
+    ? 'Firefox'
+    : /Safari\//i.test(trimmed)
+    ? 'Safari'
+    : 'Browser';
+  return `${os} (${browser})`;
+}

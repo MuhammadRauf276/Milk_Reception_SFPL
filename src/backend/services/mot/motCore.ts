@@ -2498,7 +2498,12 @@ export async function returnMotJourneyToPhe(
       sourceZmccId: journey.zmcc_id,
       title: 'MOT coming to ZMCC',
       body: `${res.mot_vehicle?.vehicle_number ?? 'Vehicle'} (${res.mot_profile?.name ?? 'MOT'}) is returning. Journey #${res.journey_number}.`,
-      deepLink: '/zmcc',
+      deepLink: '/phe',
+      deepLinkByRole: {
+        PHE_OPERATOR: '/phe',
+        MDO: '/phe',
+        ZMCC_MANAGER: '/mpd/zmcc-manager?tab=MOT_JOURNEYS',
+      },
       dedupeSuffix: `${journey.id}:${Date.now()}`,
     });
 
@@ -3568,7 +3573,7 @@ export async function submitShopCollection(
           sourceZmccId: stop.journey.zmcc_id,
           title: `Shop warning accepted: ${stop.shop_name_snapshot}`,
           body: `Shop ${stop.shop_name_snapshot} (${stop.shop_code_snapshot}): ${decisionDetails.warnings.join('; ')}. Accepted by ${stop.journey.mot_profile.name}.${decisionRemarks ? ` Remarks: ${decisionRemarks}` : ''}`,
-          deepLink: '/mpd/zmcc-manager?tab=COLLECTIONS',
+          deepLink: '/mpd/zmcc-manager?tab=OVERVIEW',
           dedupeSuffix: `${collection.id}:warning:${clientEventId}`,
         });
       }

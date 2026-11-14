@@ -39,7 +39,7 @@ export const ZmccDrawer: React.FC<ZmccDrawerProps> = ({ open, onClose, title, su
           <X className="h-5 w-5" />
         </button>
       </div>
-      <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">{children}</div>
+      <div className="scrollbar-thin overscroll-contain flex-1 min-h-0 space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">{children}</div>
     </DrawerContent>
   </Drawer>
 );

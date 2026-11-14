@@ -58,7 +58,7 @@ interface OutboxItem {
 }
 
 const outboxColumns: DataColumn<OutboxItem>[] = [
-  { key: 'recipient', header: 'Recipient', label: 'Recipient', primary: true, cell: (row) => <span className="break-all font-mono font-semibold text-foreground">{row.recipient_phone}</span> },
+  { key: 'recipient', header: 'Recipient', label: 'Recipient', primary: true, cell: (row) => <span className="whitespace-nowrap font-mono font-semibold text-foreground">{row.recipient_phone}</span> },
   { key: 'shop', header: 'Shop name', label: 'Shop name', cell: (row) => <span className="text-secondary-foreground">{row.collection?.shop_name || 'Bismillah Dairy Center'}</span> },
   {
     key: 'message',

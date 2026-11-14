@@ -652,20 +652,7 @@ export class QualityRuleService {
           };
         }
 
-        // Passes release rule. Now check coexisting monitoring rule if present
-        if (effectiveMonitoringRule) {
-          const monMinPass = effectiveMonitoringRule.min_value === null || numVal >= Number(effectiveMonitoringRule.min_value);
-          const monMaxPass = effectiveMonitoringRule.max_value === null || numVal <= Number(effectiveMonitoringRule.max_value);
-          if (!monMinPass || !monMaxPass) {
-            return {
-              appliedRuleId,
-              appliedRuleVersion,
-              evaluationStatus: 'WARNING',
-              isPassed: null,
-              reason: `Warning: observed ${numVal}, bounds [${effectiveMonitoringRule.min_value ?? '-∞'}, ${effectiveMonitoringRule.max_value ?? '+∞'}]`,
-            };
-          }
-        }
+        // Passes release rule; monitoring norms never override or warn on a passing release test.
 
         if (effectiveReleaseRule.decision_consequence === 'NEUTRAL') {
           return {
@@ -800,89 +787,17 @@ export class QualityRuleService {
     }
 
     // 4. Evaluation when ONLY MONITORING rule is present (0 RELEASE rules)
+    // Monitoring norms (e.g., LR/Fat monitoring bounds) are observational only and never
+    // emit WARNING alerts, MTD strikes, or approval exceptions unless switched to RELEASE.
     const appliedRuleId = effectiveMonitoringRule!.id;
     const appliedRuleVersion = effectiveMonitoringRule!.version;
-
-    if (resultType === 'NUMERIC' || resultType === 'CALCULATED') {
-      if (numericValue === null || numericValue === undefined) {
-        return {
-          appliedRuleId,
-          appliedRuleVersion,
-          evaluationStatus: 'WARNING',
-          isPassed: null,
-          reason: 'Missing numeric value for quantitative monitoring test',
-        };
-      }
-
-      const numVal = Number(numericValue);
-      if (Number.isNaN(numVal)) {
-        return {
-          appliedRuleId,
-          appliedRuleVersion,
-          evaluationStatus: 'WARNING',
-          isPassed: null,
-          reason: `Invalid numeric value: ${numericValue}`,
-        };
-      }
-
-      const minPass = effectiveMonitoringRule!.min_value === null || numVal >= Number(effectiveMonitoringRule!.min_value);
-      const maxPass = effectiveMonitoringRule!.max_value === null || numVal <= Number(effectiveMonitoringRule!.max_value);
-
-      if (minPass && maxPass) {
-        return {
-          appliedRuleId,
-          appliedRuleVersion,
-          evaluationStatus: 'NEUTRAL',
-          isPassed: null,
-        };
-      } else {
-        return {
-          appliedRuleId,
-          appliedRuleVersion,
-          evaluationStatus: 'WARNING',
-          isPassed: null,
-          reason: `Monitoring threshold exceeded: observed ${numVal}, bounds [${effectiveMonitoringRule!.min_value ?? '-∞'}, ${effectiveMonitoringRule!.max_value ?? '+∞'}]`,
-        };
-      }
-    }
-
-    const rawText = (textValue || '').trim().toUpperCase();
-
-    if (effectiveMonitoringRule!.acceptable_option) {
-      const acceptable = effectiveMonitoringRule!.acceptable_option.trim().toUpperCase();
-      if (rawText === acceptable) {
-        return {
-          appliedRuleId,
-          appliedRuleVersion,
-          evaluationStatus: 'NEUTRAL',
-          isPassed: null,
-        };
-      } else {
-        return {
-          appliedRuleId,
-          appliedRuleVersion,
-          evaluationStatus: 'WARNING',
-          isPassed: null,
-          reason: `Monitoring option mismatch: observed "${textValue}", expected "${effectiveMonitoringRule!.acceptable_option}"`,
-        };
-      }
-    }
-
-    if (['NOT_OK', 'FAIL', 'POSITIVE', 'FALSE', 'NO', 'ABNORMAL'].includes(rawText)) {
-      return {
-        appliedRuleId,
-        appliedRuleVersion,
-        evaluationStatus: 'WARNING',
-        isPassed: null,
-        reason: `Failing qualitative monitoring observation: "${textValue}"`,
-      };
-    }
 
     return {
       appliedRuleId,
       appliedRuleVersion,
       evaluationStatus: 'NEUTRAL',
       isPassed: null,
+      reason: 'Monitoring norm observation recorded',
     };
   }
 

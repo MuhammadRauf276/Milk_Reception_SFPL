@@ -77,7 +77,7 @@ export function Modal({
       <DialogPrimitive.Portal forceMount>
         <DialogPrimitive.Overlay asChild forceMount>
           <motion.div
-            className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto touch-scroll bg-neutral-950/40 p-3 pt-safe pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:p-6"
+            className="scrollbar-thin overscroll-contain fixed inset-0 z-modal flex items-start justify-center overflow-y-auto touch-scroll bg-neutral-950/40 p-3 pt-safe pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -99,7 +99,7 @@ export function Modal({
                 ref={contentRef}
                 tabIndex={-1}
                 className={cn(
-                  'relative my-auto w-full max-w-full rounded-2xl border border-border bg-card text-card-foreground shadow-xl outline-hidden',
+                  'scrollbar-thin overscroll-contain relative my-auto w-full max-w-full min-w-0 max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-3rem)] overflow-y-auto overflow-x-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-xl outline-hidden',
                   SIZE_CLASSES[size],
                   className
                 )}
@@ -109,7 +109,7 @@ export function Modal({
                 transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
               >
                 {showHeader ? (
-                  <div className="flex items-start justify-between gap-4 border-b px-4 py-3 sm:px-5 sm:py-4">
+                  <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b bg-card/95 backdrop-blur-xs px-4 py-3 sm:px-5 sm:py-4">
                     <div className="min-w-0 space-y-1">
                       <DialogPrimitive.Title className="text-base font-semibold leading-tight">{title}</DialogPrimitive.Title>
                       {description ? (
@@ -119,7 +119,8 @@ export function Modal({
                       ) : null}
                     </div>
                     <DialogPrimitive.Close
-                      className="-mr-1 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                      disabled={preventClose}
+                      className="-mr-1 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                       aria-label="Close"
                     >
                       <X className="h-4 w-4" />

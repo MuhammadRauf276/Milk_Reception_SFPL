@@ -95,7 +95,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
           )}
 
           {/* Scale Queues Telemetry */}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 pt-0.5">
+          <div className="grid grid-cols-2 gap-2 pt-0.5">
             <div className="rounded-lg border border-border/70 bg-background/50 p-3">
               <span className="text-xs font-medium text-muted-foreground block break-words">
                 Gross Queue (1st Weight)
@@ -221,7 +221,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
           )}
 
           {/* Reception Queues Telemetry */}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 pt-0.5">
+          <div className="grid grid-cols-2 gap-2 pt-0.5">
             <div className="rounded-lg border border-border/70 bg-background/50 p-3">
               <span className="text-xs font-medium text-muted-foreground block break-words">
                 Ready for Bay (QA Cleared)

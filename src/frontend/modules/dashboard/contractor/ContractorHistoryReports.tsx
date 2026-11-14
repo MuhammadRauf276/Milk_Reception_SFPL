@@ -39,7 +39,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
   const [toDate, setToDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [page, setPage] = useState<number>(1);
-  const pageSize = useListPageSize(20);
+  const pageSize = useListPageSize(25);
   const [formError, setError] = useState<string | null>(null);
   // Null until the user applies/resets a filter; until then the server-provided initial logs are shown.
   const [applied, setApplied] = useState<{ fromDate: string; toDate: string; search: string } | null>(null);
@@ -313,7 +313,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
               type="button"
               onClick={handleResetFilter}
               disabled={loading}
-              className="px-4 py-2 bg-muted hover:bg-muted text-secondary-foreground rounded-lg text-xs font-semibold transition active:scale-95 disabled:opacity-50 min-h-11"
+              className="px-4 py-2 bg-muted hover:bg-muted/80 text-secondary-foreground rounded-lg text-xs font-semibold transition active:scale-95 disabled:opacity-50 min-h-11"
             >
               Reset
             </button>

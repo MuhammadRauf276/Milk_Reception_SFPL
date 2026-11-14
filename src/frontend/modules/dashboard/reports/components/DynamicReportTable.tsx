@@ -17,6 +17,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 
 interface DynamicReportTableProps {
   fields: ReportFieldDefinition[];
@@ -170,7 +171,7 @@ export function DynamicReportTable({
   return (
     <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col">
       {/* Table Container */}
-      <div className="overflow-x-auto min-h-[300px] relative">
+      <TableWrapper className="min-h-[300px] relative border-0 rounded-none">
         {isLoading && (
           <div className="absolute inset-0 bg-background/60 backdrop-blur-2xs z-20 flex items-center justify-center">
             <div className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-xl shadow-lg">
@@ -339,7 +340,7 @@ export function DynamicReportTable({
             </tfoot>
           )}
         </table>
-      </div>
+      </TableWrapper>
 
       {/* Pagination Toolbar */}
       <div className="px-4 py-3 border-t border-border bg-card flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -351,7 +352,7 @@ export function DynamicReportTable({
             className="bg-background border border-border rounded-md px-2 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer"
           >
             <option value={10}>10</option>
-            <option value={20}>20</option>
+            <option value={25}>25</option>
             <option value={50}>50</option>
             <option value={100}>100</option>
           </select>

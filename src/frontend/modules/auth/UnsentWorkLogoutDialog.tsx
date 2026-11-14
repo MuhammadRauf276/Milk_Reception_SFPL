@@ -87,10 +87,23 @@ export function UnsentWorkLogoutDialog({
           ) : null}
         </div>
         <div className="flex flex-col gap-3">
-          <Button type="button" className="h-14 min-h-[44px] w-full text-base font-semibold" disabled={sending} onClick={() => void handleSendNow()}>
-            {sending ? 'Sending…' : 'Send now & Log out'}
+          <Button
+            type="button"
+            size="lg"
+            className="w-full"
+            loading={sending}
+            loadingText="Sending…"
+            onClick={() => void handleSendNow()}
+          >
+            Send now & Log out
           </Button>
-          <Button type="button" variant="outline" className="h-12 min-h-[44px] w-full text-base" disabled={sending} onClick={onKeepAndLogout}>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full whitespace-normal py-2.5 leading-snug"
+            disabled={sending}
+            onClick={onKeepAndLogout}
+          >
             Keep on device & Log out for next shift
           </Button>
         </div>

@@ -52,6 +52,7 @@ export function buildDispatchPreview(input: {
   tests: DispatchPolicyTest[];
   portions: PreviewPortion[];
   labReportTaken: boolean;
+  labReportRequired?: boolean;
   personDecision: PersonDecision | null;
   remarks: string;
   deciderCanApprove: boolean;
@@ -72,13 +73,32 @@ export function buildDispatchPreview(input: {
       // "missing" when LR or Fat is missing and the matrix makes the test compulsory.
       if (t.labTestId in calculated) {
         const calcValue = calculated[t.labTestId];
-        if (calcValue === null && t.testMode === 'COMPULSORY') missingCompulsory.push(`${prefix}${t.testName}`);
+        let outcome: DecisionRuleTestRow['outcome'] = 'NOT_TESTED';
+        let note: string | null = null;
+        if (calcValue === null) {
+          if (t.testMode === 'COMPULSORY') {
+            missingCompulsory.push(`${prefix}${t.testName}`);
+            note = 'Must be done';
+          }
+        } else if (ruleFails(t, calcValue, null)) {
+          if (t.ruleMode === 'APPLY') {
+            outcome = 'FAIL';
+            if (!ruleFailures.includes(`${prefix}${t.testCode}`)) ruleFailures.push(`${prefix}${t.testCode}`);
+            note = 'Outside SOP';
+          } else {
+            outcome = 'WARN';
+            warnings.push(`${prefix}${t.testName} is outside the allowed range.`);
+            note = 'Tolerance warning';
+          }
+        } else {
+          outcome = 'PASS';
+        }
         rows.push({
           key: `${p.portionNumber}:${t.labTestId}`,
           name: `${prefix}${t.testName}`,
-          outcome: calcValue !== null ? 'PASS' : 'NOT_TESTED',
+          outcome,
           valueText: calcValue !== null ? calcValue.toFixed(2) : null,
-          note: calcValue === null && t.testMode === 'COMPULSORY' ? 'Must be done' : null,
+          note,
         });
         continue;
       }
@@ -96,7 +116,7 @@ export function buildDispatchPreview(input: {
       } else if (ruleFails(t, num, text)) {
         if (t.ruleMode === 'APPLY') {
           outcome = 'FAIL';
-          ruleFailures.push(`${prefix}${t.testCode}`);
+          if (!ruleFailures.includes(`${prefix}${t.testCode}`)) ruleFailures.push(`${prefix}${t.testCode}`);
         } else {
           outcome = 'WARN';
           warnings.push(`${prefix}${t.testName} is outside the allowed range.`);
@@ -104,7 +124,7 @@ export function buildDispatchPreview(input: {
       } else {
         outcome = 'PASS';
       }
-      if (t.photoMode === 'REQUIRED' && !p.photos[t.labTestId] && (tested || t.testMode === 'COMPULSORY')) {
+      if (t.photoMode === 'REQUIRED' && !p.photos[t.labTestId]) {
         missingPhotos.push(`${prefix}${t.testName}`);
         note = note ? `${note}. Picture missing` : 'Picture missing';
       }
@@ -118,10 +138,11 @@ export function buildDispatchPreview(input: {
     }
   }
 
-  if (!input.labReportTaken) {
+  const labReportReq = input.labReportRequired ?? true;
+  if (labReportReq && !input.labReportTaken) {
     missingPhotos.push('Lab report');
     rows.push({ key: 'lab-report', name: 'Hand-written lab report', outcome: 'NOT_TESTED', note: 'Picture missing' });
-  } else {
+  } else if (labReportReq || input.labReportTaken) {
     rows.push({ key: 'lab-report', name: 'Hand-written lab report', outcome: 'PASS', valueText: 'Picture taken' });
   }
 

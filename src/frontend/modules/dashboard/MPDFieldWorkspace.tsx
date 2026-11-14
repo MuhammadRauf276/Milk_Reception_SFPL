@@ -8,6 +8,7 @@ import { User } from '@core/types';
 import { ChevronLeft, ChevronRight, Truck } from 'lucide-react';
 import { DynamicDispatchForm } from '@modules/forms/DynamicDispatchForm';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
+import { Pagination, useListPageSize } from '@/components/ui/pagination';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/fetch-json';
 import { useUrlSearchParam } from '@/frontend/hooks/useUrlSearchParam';
@@ -90,8 +91,9 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   const [customDateError, setCustomDateError] = useState<string | null>(null);
   const [appliedCustomDates, setAppliedCustomDates] = useState({ from: '', to: '' });
   const [page, setPage] = useState(1);
+  const pageSize = useListPageSize(25);
 
-  let queryUrl = `/api/dispatches?range=${dateRange}&page=${page}&pageSize=20`;
+  let queryUrl = `/api/dispatches?range=${dateRange}&page=${page}&pageSize=${pageSize}`;
   if (dateRange === 'custom') {
     if (appliedCustomDates.from) queryUrl += `&fromDate=${appliedCustomDates.from}`;
     if (appliedCustomDates.to) queryUrl += `&toDate=${appliedCustomDates.to}`;
@@ -100,7 +102,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
   const queryClient = useQueryClient();
   const dispatchesQuery = useQuery({
-    queryKey: ['dispatches', dateRange, page, appliedCustomDates],
+    queryKey: ['dispatches', dateRange, page, pageSize, appliedCustomDates],
     queryFn: ({ signal }) =>
       fetchJson<{ dispatches?: DispatchRecord[]; pagination?: PaginationMeta }>(
         queryUrl,
@@ -115,7 +117,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   const dbDispatches = dispatchesQuery.data?.dispatches ?? [];
   const pagination = dispatchesQuery.data?.pagination ?? {
     page: 1,
-    pageSize: 20,
+    pageSize,
     totalRecords: 0,
     totalPages: 1,
   };
@@ -159,7 +161,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 w-full overflow-x-hidden">
+    <div className="max-w-7xl mx-auto space-y-6 w-full overflow-x-clip">
       
       {/* Tab Panels: New Dispatch Panel (state preserved when hidden) */}
       <div
@@ -332,7 +334,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                     </span>
                   </div>
 
-                  <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 p-3 rounded-xl border text-xs tabular-nums font-semibold">
+                  <div className="bg-card border-border grid grid-cols-2 gap-2 p-3 rounded-xl border text-xs tabular-nums font-semibold">
                     <div>
                       <span className="text-muted-foreground font-sans block text-xs font-semibold">Vehicle Quantity</span>
                       <span className="text-foreground font-semibold text-sm">
@@ -365,40 +367,16 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
           {/* Server-side Pagination Footer */}
           {pagination.totalRecords > 0 && (
-            <div className="bg-card border-border p-4 rounded-2xl border shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-semibold">
-              <span className="text-secondary-foreground font-sans text-xs">
-                Showing {Math.min((pagination.page - 1) * pagination.pageSize + 1, pagination.totalRecords)}–{Math.min(pagination.page * pagination.pageSize, pagination.totalRecords)} of {pagination.totalRecords} dispatches
-              </span>
-
-              {pagination.totalPages > 1 && (
-                <div className="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    disabled={page <= 1 || isLoading}
-                    onClick={() => handlePageChange(page - 1)}
-                    className="min-h-11 min-w-11 flex items-center justify-center space-x-1 px-4 py-2 rounded-xl bg-muted border border-border-strong text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent transition focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
-                    aria-label="Previous page"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>Previous</span>
-                  </button>
-
-                  <span className="tabular-nums text-secondary-foreground px-2">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </span>
-
-                  <button
-                    type="button"
-                    disabled={page >= pagination.totalPages || isLoading}
-                    onClick={() => handlePageChange(page + 1)}
-                    className="min-h-11 min-w-11 flex items-center justify-center space-x-1 px-4 py-2 rounded-xl bg-muted border border-border-strong text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent transition focus:outline-hidden focus:ring-2 focus:ring-primary-hover"
-                    aria-label="Next page"
-                  >
-                    <span>Next</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+            <div className="bg-card border-border rounded-2xl border shadow-2xs overflow-hidden">
+              <Pagination
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                totalRecords={pagination.totalRecords}
+                pageSize={pagination.pageSize}
+                noun="dispatches"
+                disabled={isLoading}
+                onPageChange={handlePageChange}
+              />
             </div>
           )}
         </div>

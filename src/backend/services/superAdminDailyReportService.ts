@@ -38,7 +38,7 @@ export interface MotCollectionReportItem {
   fat: number;
   snf: number;
   ts: number;
-  verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED';
+  verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED' | 'PENDING';
   warnings: string[];
   remarks: string | null;
   exceptionReasons: string[];
@@ -57,7 +57,7 @@ export interface ZmccPortionReportItem {
   lr: number | null;
   fat: number | null;
   temperature: number | null;
-  verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED';
+  verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED' | 'PENDING';
   warnings: string[];
   remarks: string | null;
   performedByRole: string | null;
@@ -90,7 +90,7 @@ export interface PlantQaReportItem {
   mtdWarningCount: number;
   mtdThreshold: number;
   requiresAvpEscalation: boolean;
-  verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED';
+  verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED' | 'PENDING';
   warnings: string[];
   decidedBy: string;
   remarks: string | null;
@@ -198,15 +198,18 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
     const isWarning = warningList.length > 0;
     const isRejected = isRejectedVerdict(c.final_decision, c.person_decision);
 
-    let verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED' = 'ACCEPTED';
+    let verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED' | 'PENDING' = 'PENDING';
     if (isRejected) {
       verdict = 'REJECTED';
       motRejected++;
-    } else if (isWarning) {
-      verdict = 'WARNING';
-      motWarnings++;
-    } else {
-      motPassed++;
+    } else if (c.final_decision === 'ACCEPTED') {
+      if (isWarning) {
+        verdict = 'WARNING';
+        motWarnings++;
+      } else {
+        verdict = 'ACCEPTED';
+        motPassed++;
+      }
     }
 
     // Rejected milk stays listed with its verdict but is not intake, the same as the journey summary.
@@ -283,15 +286,18 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
     const isWarning = warningList.length > 0;
     const isRejected = isRejectedVerdict(p.final_decision, p.person_decision);
 
-    let verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED' = 'ACCEPTED';
+    let verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED' | 'PENDING' = 'PENDING';
     if (isRejected) {
       verdict = 'REJECTED';
       zmccRejected++;
-    } else if (isWarning) {
-      verdict = 'WARNING';
-      zmccWarnings++;
-    } else {
-      zmccPassed++;
+    } else if (p.final_decision === 'ACCEPTED') {
+      if (isWarning) {
+        verdict = 'WARNING';
+        zmccWarnings++;
+      } else {
+        verdict = 'ACCEPTED';
+        zmccPassed++;
+      }
     }
 
     if (!isRejected) zmccTotalLiters += grossLiters ?? 0;
@@ -463,15 +469,20 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
     const isWarning = warningList.length > 0;
     const isRejected = p.plant_decision === 'REJECTED';
 
-    let verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED' = 'ACCEPTED';
+    let verdict: 'ACCEPTED' | 'WARNING' | 'REJECTED' | 'PENDING' = 'PENDING';
     if (isRejected) {
       verdict = 'REJECTED';
       plantRejected++;
-    } else if (isWarning) {
-      verdict = 'WARNING';
-      plantWarnings++;
     } else if (p.plant_decision === 'ACCEPTED') {
-      plantAccepted++;
+      if (isWarning) {
+        verdict = 'WARNING';
+        plantWarnings++;
+      } else {
+        verdict = 'ACCEPTED';
+        plantAccepted++;
+      }
+    } else if (isWarning) {
+      plantWarnings++;
     }
 
     // Evaluate MTD threshold (same source, warning flag and role give the same answer on this day, so ask once)

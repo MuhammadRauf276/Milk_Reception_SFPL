@@ -266,7 +266,7 @@ export function DailyReportDashboard() {
   });
 
   return (
-    <div className="w-full max-w-full space-y-4 overflow-x-hidden p-1">
+    <div className="w-full max-w-full space-y-4 overflow-x-clip p-1">
       {/* Top Action Bar */}
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xs">
         <div>

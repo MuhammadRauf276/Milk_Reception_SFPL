@@ -58,6 +58,9 @@ export interface LabPortionDecisionDetails {
     testMode: string;
     ruleMode: string;
     photoMode: string;
+    min?: number | null;
+    max?: number | null;
+    allowed?: string[] | null;
     outcome: LabTestOutcome;
     photoCaptureId: string | null;
   }>;
@@ -157,7 +160,26 @@ export function buildLabPortionDecision(
     const input = i.tests.find((x) => x.labTestId === t.labTestId);
     if (t.labTestId in calculated) {
       const calcValue = calculated[t.labTestId];
-      if (calcValue === null && t.testMode === 'COMPULSORY') missingCompulsory.push(t.testName);
+      let outcome: LabTestOutcome = 'NOT_TESTED';
+      if (calcValue === null) {
+        if (t.testMode === 'COMPULSORY') missingCompulsory.push(t.testName);
+      } else {
+        const res = outcomeOf(t, calcValue, null);
+        if (res === 'FAIL') {
+          if (t.ruleMode === 'APPLY') {
+            outcome = 'FAIL';
+            ruleFailures.push(t.testCode);
+          } else {
+            outcome = 'WARN';
+            warnings.push(`${t.testName} violates specification threshold.`);
+          }
+        } else if (res === 'WARN') {
+          outcome = 'WARN';
+          warnings.push(`${t.testName} is in tolerance margin.`);
+        } else {
+          outcome = 'PASS';
+        }
+      }
       rows.push({
         labTestId: t.labTestId,
         testCode: t.testCode,
@@ -168,7 +190,10 @@ export function buildLabPortionDecision(
         testMode: t.testMode,
         ruleMode: t.ruleMode,
         photoMode: t.photoMode,
-        outcome: calcValue !== null ? 'PASS' : 'NOT_TESTED',
+        min: t.rule?.min ?? null,
+        max: t.rule?.max ?? null,
+        allowed: t.rule?.allowed ?? null,
+        outcome,
         photoCaptureId: null,
       });
       continue;
@@ -201,8 +226,8 @@ export function buildLabPortionDecision(
       } else {
         outcome = 'PASS';
       }
-      if (t.photoMode === 'REQUIRED' && !photoCaptureId) missingPhotos.push(t.testName);
     }
+    if (t.photoMode === 'REQUIRED' && !photoCaptureId) missingPhotos.push(t.testName);
     rows.push({
       labTestId: t.labTestId,
       testCode: t.testCode,
@@ -213,6 +238,9 @@ export function buildLabPortionDecision(
       testMode: t.testMode,
       ruleMode: t.ruleMode,
       photoMode: t.photoMode,
+      min: t.rule?.min ?? null,
+      max: t.rule?.max ?? null,
+      allowed: t.rule?.allowed ?? null,
       outcome,
       photoCaptureId,
     });

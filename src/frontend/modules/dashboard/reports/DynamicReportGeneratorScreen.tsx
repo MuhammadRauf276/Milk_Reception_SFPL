@@ -28,6 +28,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useListPageSize } from '@/components/ui/pagination';
 import { StatCard } from '@/components/ui/stat-card';
 import { toast } from '@/frontend/lib/appToast';
 import { CompactColumnPopover } from './components/CompactColumnPopover';
@@ -57,11 +58,16 @@ export function DynamicReportGeneratorScreen({
   const [groupByFieldId, setGroupByFieldId] = useState<string | undefined>(undefined);
   const [sortFieldId, setSortFieldId] = useState<string | undefined>(undefined);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const listPageSize = useListPageSize(25);
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(20);
+  const [pageSize, setPageSize] = useState<number>(listPageSize);
   const [viewMode, setViewMode] = useState<ViewMode>('GRID');
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isRefreshingViews, setIsRefreshingViews] = useState<boolean>(false);
+
+  useEffect(() => {
+    setPageSize(listPageSize);
+  }, [listPageSize]);
 
   const queryClient = useQueryClient();
   const isHeadOfMpd = currentUser?.role === 'HEAD_OF_MPD' || currentUser?.role === 'SUPER_ADMIN';
@@ -253,7 +259,7 @@ export function DynamicReportGeneratorScreen({
         </div>
 
         {/* Domain Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-t border-border pt-3 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1.5 border-t border-border pt-3 scrollbar-thin">
           <span className="text-xs font-semibold text-muted-foreground mr-2 shrink-0">Data Domain:</span>
           {(metaQuery.data?.domains || [
             { id: 'MOT_COLLECTIONS', label: 'Mobile Tester collections' },
@@ -301,7 +307,7 @@ export function DynamicReportGeneratorScreen({
 
       {/* KPI Summary Ribbon */}
       {viewMode !== 'PLANT_QA' && queryData?.summaryKpis && queryData.summaryKpis.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3">
           {queryData.summaryKpis.map((kpi) => (
             <StatCard
               key={kpi.id}
@@ -337,109 +343,111 @@ export function DynamicReportGeneratorScreen({
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
           {/* View Mode Toggle: Grid, Pivot, Chart, Plant QA */}
-          <div className="flex items-center bg-background border border-border rounded-lg p-0.5">
+          <div className="flex items-center overflow-x-auto scrollbar-thin pb-1 bg-background border border-border rounded-lg p-0.5 max-w-full">
             <button
               type="button"
               onClick={() => setViewMode('GRID')}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
                 viewMode === 'GRID'
                   ? 'bg-muted text-foreground font-semibold shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <TableIcon className="w-3.5 h-3.5" /> Table Grid
+              <TableIcon className="w-3.5 h-3.5 shrink-0" /> Table Grid
             </button>
             <button
               type="button"
               onClick={() => setViewMode('PIVOT')}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
                 viewMode === 'PIVOT'
                   ? 'bg-muted text-foreground font-semibold shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <GridIcon className="w-3.5 h-3.5" /> Pivot Matrix
+              <GridIcon className="w-3.5 h-3.5 shrink-0" /> Pivot Matrix
             </button>
             <button
               type="button"
               onClick={() => setViewMode('CHART')}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
                 viewMode === 'CHART'
                   ? 'bg-muted text-foreground font-semibold shadow-2xs'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <BarChart3 className="w-3.5 h-3.5" /> Visual Charts
+              <BarChart3 className="w-3.5 h-3.5 shrink-0" /> Visual Charts
             </button>
             {isHeadOfMpd && (
               <button
                 type="button"
                 onClick={() => setViewMode('PLANT_QA')}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
                   viewMode === 'PLANT_QA'
                     ? 'bg-primary text-primary-foreground font-semibold shadow-2xs'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <FlaskConical className="w-3.5 h-3.5" /> Plant QA Audit
+                <FlaskConical className="w-3.5 h-3.5 shrink-0" /> Plant QA Audit
               </button>
             )}
           </div>
 
           {/* Export Dropdown Buttons */}
-          {viewMode !== 'PLANT_QA' && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isExporting || (queryData?.rows.length || 0) === 0}
-                onClick={() => handleExport('XLSX')}
-                className="h-8 text-xs font-medium"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-                {isExporting ? 'Exporting…' : 'Export Excel'}
-              </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {viewMode !== 'PLANT_QA' && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isExporting || (queryData?.rows.length || 0) === 0}
+                  onClick={() => handleExport('XLSX')}
+                  className="h-9 px-3 text-xs font-medium shrink-0"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 mr-1 text-emerald-600 shrink-0" />
+                  {isExporting ? 'Exporting…' : 'Export Excel'}
+                </Button>
 
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isExporting || (queryData?.rows.length || 0) === 0}
-                onClick={() => handleExport('CSV')}
-                className="h-8 text-xs font-medium"
-              >
-                <FileText className="w-3.5 h-3.5 mr-1 text-secondary-foreground" />
-                CSV
-              </Button>
-            </>
-          )}
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.print()}
-            className="h-8 text-xs font-medium"
-          >
-            <Printer className="w-3.5 h-3.5 mr-1" />
-            Print
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isRefreshingViews}
-            onClick={handleRefreshViews}
-            className="h-8 text-xs font-medium text-primary border-action/30 hover:bg-primary/5"
-            title="Concurrently refresh read-model materialized views"
-          >
-            {isRefreshingViews ? (
-              <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-            ) : (
-              <Database className="w-3.5 h-3.5 mr-1" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isExporting || (queryData?.rows.length || 0) === 0}
+                  onClick={() => handleExport('CSV')}
+                  className="h-9 px-3 text-xs font-medium shrink-0"
+                >
+                  <FileText className="w-3.5 h-3.5 mr-1 text-secondary-foreground shrink-0" />
+                  CSV
+                </Button>
+              </>
             )}
-            {isRefreshingViews ? 'Refreshing…' : 'Refresh Views'}
-          </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              className="h-9 px-3 text-xs font-medium shrink-0"
+            >
+              <Printer className="w-3.5 h-3.5 mr-1 shrink-0" />
+              Print
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isRefreshingViews}
+              onClick={handleRefreshViews}
+              className="h-9 px-3 text-xs font-medium text-primary border-action/30 hover:bg-primary/5 shrink-0"
+              title="Concurrently refresh read-model materialized views"
+            >
+              {isRefreshingViews ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin shrink-0" />
+              ) : (
+                <Database className="w-3.5 h-3.5 mr-1 shrink-0" />
+              )}
+              {isRefreshingViews ? 'Refreshing…' : 'Refresh Views'}
+            </Button>
+          </div>
         </div>
       </div>
 

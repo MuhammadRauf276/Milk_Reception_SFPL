@@ -20,6 +20,7 @@ export async function GET(req: Request) {
         from: params.get('from'),
         to: params.get('to'),
         page: Number(params.get('page')) || 1,
+        pageSize: Number(params.get('pageSize')) || undefined,
         filters: parseColumnFilters(params),
       },
       prisma as unknown as VehiclePortionReportDb

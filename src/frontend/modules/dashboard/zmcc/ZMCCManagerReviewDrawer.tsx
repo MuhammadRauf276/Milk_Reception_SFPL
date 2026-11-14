@@ -34,7 +34,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
     e.preventDefault();
 
     if (!reviewReason.trim() || reviewReason.trim().length < 3) {
-      setReviewError('Substantive review reason is required (minimum 3 characters).');
+      setReviewError('Please enter a brief review reason (at least 3 characters).');
       return;
     }
 
@@ -52,10 +52,14 @@ export const ZMCCManagerReviewDrawer: React.FC<{
 
       formDraft.clear();
       const isReviewExited = data.manager_review_status === 'REVIEWED_EXITED';
+      const vehicleLabel =
+        session.mot_arrival?.journey?.mot_vehicle?.vehicle_number ||
+        session.local_supplier_arrival?.vehicle_number ||
+        'vehicle';
       onSubmitted(
         isReviewExited
-          ? `Review recorded for session #${session.id} (vehicle already exited).`
-          : `Decision ${reviewDecision} recorded successfully for session #${session.id}.`
+          ? `Review saved for ${vehicleLabel} (already exited).`
+          : `Decision (${reviewDecision}) saved for ${vehicleLabel}.`
       );
     } catch (err) {
       setReviewError(getErrorMessage(err) || 'Failed to submit manager decision.');
@@ -75,7 +79,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
             <div className="flex items-center space-x-2">
               <ShieldCheck className="w-5 h-5 text-muted-foreground" />
               <DrawerTitle className="text-sm font-semibold text-foreground">
-                Manager Quality Review: Session #{session.id}
+                Manager Quality Review · {session.mot_arrival?.journey?.mot_vehicle?.vehicle_number || session.local_supplier_arrival?.vehicle_number || 'Intake'}
               </DrawerTitle>
             </div>
             <button
@@ -120,7 +124,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
             )}
 
             {/* Session Meta */}
-            <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 text-xs tabular-nums p-3 rounded-xl border">
+            <div className="bg-card border-border grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs tabular-nums p-3 rounded-xl border">
               <div>
                 <span className="text-muted-foreground text-xs block font-sans font-semibold">Arrival Type</span>
                 <span className="font-semibold text-foreground">{session.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}</span>
@@ -144,7 +148,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
             {/* Decision Radio Choice */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground block">Manager Decision</label>
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setReviewDecision('ACCEPTED')}

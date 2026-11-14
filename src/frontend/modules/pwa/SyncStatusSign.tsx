@@ -14,7 +14,7 @@ import { isBackgroundKind, type QueueRecord } from './syncQueueCore';
 import { DEVICE_SYNC_STATE_EVENT, getDeviceSyncState, type DeviceSyncState } from './deviceIdentity';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatLabel } from '@/lib/format';
 
 const REFRESH_MS = 15_000;
 
@@ -179,6 +179,9 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
         >
           {icon}
           <span className="hidden sm:inline">{label}</span>
+          {(waiting > 0 || help > 0) && (
+            <span className="sm:hidden tabular-nums font-semibold">({waiting + help})</span>
+          )}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(92vw,360px)] p-3 text-sm shadow-xl">
@@ -205,7 +208,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
               <span>Offline Mode</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {forced ? 'Work is queued locally on device' : 'Connected to server in real time'}
+              {forced ? 'Saved on device · Sends when online' : 'Connected'}
             </p>
           </div>
           <button
@@ -252,7 +255,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
           ) : null}
           {counts.oldWaiting + counts.oldNeedsAttention > 0 ? (
             <p>
-              Old queue: {counts.oldWaiting} waiting{counts.oldNeedsAttention > 0 ? `, ${counts.oldNeedsAttention} need office help` : ''}
+              Unsent items: {counts.oldWaiting} waiting{counts.oldNeedsAttention > 0 ? `, ${counts.oldNeedsAttention} need office help` : ''}
             </p>
           ) : null}
         </div>
@@ -265,7 +268,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
               return (
                 <li key={r.clientUuid} className="flex min-h-[36px] items-center justify-between gap-2 border-b py-1 text-xs last:border-b-0">
                   <span className="min-w-0 break-words">
-                    <span className="block font-medium break-words">{KIND_LABELS[r.item.kind] ?? r.item.kind}</span>
+                    <span className="block font-medium break-words">{KIND_LABELS[r.item.kind] ?? formatLabel(r.item.kind)}</span>
                     <span className="block text-xs text-muted-foreground">{timeLabel(r.item.capturedAt)}</span>
                   </span>
                   <span className={`shrink-0 text-right font-semibold ${st.tone}`}>{st.word}</span>

@@ -14,6 +14,7 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import type { MotShopExceptionItem } from '@/backend/services/mot/motShopReviewService';
 import { exceptionReasonShort } from '@/lib/exceptionReasons';
 
@@ -91,6 +92,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
     refetchInterval: () => (typeof document !== 'undefined' && document.hidden ? false : 60_000),
   });
   const items = listQuery.data?.items ?? [];
+  const paged = usePagedRows(items, (item) => String(item.id));
   const loading = listQuery.isFetching && !listQuery.data;
   const error = listQuery.error ? getErrorMessage(listQuery.error) || 'Could not load the list.' : null;
   const load = () => queryClient.invalidateQueries({ queryKey: ['zmcc', 'exceptions'] });
@@ -181,7 +183,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
 
       {/* Compact Cards Grid */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((item) => {
+        {paged.pageRows.map((item) => {
           const wait = waitingInfo(item.submittedAt, now);
           const pending = item.reviewStatus === 'PENDING';
 
@@ -223,7 +225,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 </div>
 
                 {/* Metrics Pill Row */}
-                <div className="bg-card border-border border grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2 rounded-lg p-2 text-center text-xs">
+                <div className="bg-card border-border border grid grid-cols-3 gap-2 rounded-lg p-2 text-center text-xs">
                   <div>
                     <span className="block text-xs text-muted-foreground">Gross</span>
                     <strong className="text-foreground tabular-nums">{item.grossLiters} L</strong>
@@ -284,6 +286,17 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
         })}
       </div>
 
+      {paged.totalPages > 1 && (
+        <Pagination
+          page={paged.page}
+          totalPages={paged.totalPages}
+          totalRecords={paged.totalRecords}
+          pageSize={paged.pageSize}
+          noun="shops"
+          onPageChange={paged.setPage}
+        />
+      )}
+
       {/* Decision Modal: Centered Dialog on desktop, Bottom Drawer on mobile */}
       <Drawer
         open={Boolean(activeModalItem)}
@@ -316,7 +329,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
 
               <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
                 {/* Summary Metrics */}
-                <div className="bg-card border-border border grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2 rounded-xl p-3 text-center text-xs">
+                <div className="bg-card border-border border grid grid-cols-3 gap-2 rounded-xl p-3 text-center text-xs">
                   <div>
                     <span className="block text-xs text-muted-foreground">Gross Quantity</span>
                     <strong className="text-base text-foreground tabular-nums">{activeModalItem.grossLiters} L</strong>
@@ -371,7 +384,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 {activeModalItem.photos.length > 0 && (
                   <div>
                     <h4 className="mb-2 text-xs font-semibold text-foreground">Photo Evidence</h4>
-                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       {activeModalItem.photos.map((p) => (
                         <div key={p.captureId} className="bg-card border-border overflow-hidden rounded-xl border">
                           {p.received ? (
@@ -429,7 +442,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                       )}
                     </div>
 
-                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         disabled={busyId === activeModalItem.id}

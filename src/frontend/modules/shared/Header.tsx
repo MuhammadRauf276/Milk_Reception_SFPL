@@ -73,7 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <div className="sticky top-0 z-header flex flex-col w-full max-w-full shrink-0">
       {/* Main Header Bar with notch safe-area handling */}
-      <header className="flex h-16 w-full max-w-full items-center gap-2 border-b bg-card px-3 supports-backdrop-filter:bg-card/80 sm:gap-3 sm:px-6 pt-safe">
+      <header className="flex min-h-16 w-full max-w-full items-center gap-1.5 border-b bg-card px-2.5 supports-backdrop-filter:bg-card/80 sm:gap-3 sm:px-6 pt-safe">
         {shouldShowMenu && (
           <Button
             ref={menuButtonRef}
@@ -95,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-          <h1 className="line-clamp-2 min-w-0 break-words text-sm font-semibold leading-tight text-foreground">{title}</h1>
+          <h1 className="truncate min-w-0 text-sm font-semibold leading-tight text-foreground">{title}</h1>
 
           {/* Searchable Multi-Source Selector for System Superiors on Regional Stations (§5.5) */}
           <SourceContextSelector
@@ -112,13 +112,13 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 sm:gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <button
             type="button"
             onClick={() => setIsCommandPaletteOpen(true)}
-            className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg text-sm text-action transition-colors hover:bg-action-soft lg:min-h-9 lg:border lg:border-action/30 lg:px-3"
-            aria-label="Search and jump (Ctrl+K)"
-            title="Search and jump (Ctrl+K)"
+            className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg text-sm text-action transition-colors hover:bg-action-soft active:scale-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring lg:min-h-10 lg:border lg:border-action/30 lg:px-3"
+            aria-label="Search"
+            title="Search (Ctrl+K)"
           >
             <Search className="h-4 w-4" />
             <span className="hidden lg:inline">Search</span>

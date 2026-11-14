@@ -213,7 +213,7 @@ export default function SuperAdminZmccTanksPage() {
 
   const tankColumns: DataColumn<TankItem>[] = [
     { key: 'zmcc', header: 'ZMCC', label: 'ZMCC', cell: (t) => <span className="font-semibold text-foreground">{t.zmcc ? `${t.zmcc.name} (${t.zmcc.code})` : '—'}</span> },
-    { key: 'code', header: 'Tank code', label: 'Tank code', primary: true, cell: (t) => <span className="break-all font-mono font-semibold tabular-nums text-foreground">{t.tank_code}</span> },
+    { key: 'code', header: 'Tank code', label: 'Tank code', primary: true, cell: (t) => <span className="whitespace-nowrap font-mono font-semibold tabular-nums text-foreground">{t.tank_code}</span> },
     { key: 'name', header: 'Tank name', label: 'Tank name', cell: (t) => <span className="text-muted-foreground">{t.tank_name}</span> },
     { key: 'capacity', header: 'Capacity', label: 'Capacity', align: 'right', cell: (t) => <span className="font-mono tabular-nums">{Number(t.capacity_liters).toLocaleString('en-US', L2)} L</span> },
     {

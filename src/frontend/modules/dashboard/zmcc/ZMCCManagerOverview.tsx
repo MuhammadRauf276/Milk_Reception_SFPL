@@ -164,7 +164,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 stagger-children">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11.5rem),1fr))] gap-3 stagger-children">
           <StatCard
             label="Current tank stock (@13% TS)"
             icon={Milk}
@@ -210,7 +210,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 <span>Gross Volume</span>
               </span>
             </div>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 text-xs pt-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
               <div>
                 <span className="text-xs text-muted-foreground font-sans block">Dispatch gross</span>
                 <span className="font-semibold text-foreground">
@@ -255,7 +255,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 <span>Commercial Volume</span>
               </span>
             </div>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 text-xs pt-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
               <div>
                 <span className="text-xs text-muted-foreground font-sans block">Dispatch @13% TS</span>
                 <span className="font-semibold text-foreground">

@@ -527,7 +527,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
     >
       <form onSubmit={submit} className="space-y-4">
         {isEdit && (
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-2 rounded-xl border border-border bg-card p-3 text-xs text-secondary-foreground">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl border border-border bg-card p-3 text-xs text-secondary-foreground">
             <div>
               Result type: <strong className="tabular-nums text-foreground">{test!.resultType}</strong> (Locked)
             </div>
@@ -586,7 +586,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
           {!isEdit && (
             <div className="sm:col-span-2">
               <span className={fieldLabelClass}>Result type *</span>
-              <div role="group" aria-label="Result type" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2">
+              <div role="group" aria-label="Result type" className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {RESULT_TYPES.map((t) => (
                   <button
                     key={t.value}
@@ -713,7 +713,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
             </div>
 
             {/* Summary strip */}
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 rounded-lg border border-border bg-subtle p-2 text-center text-xs">
+            <div className="grid grid-cols-3 gap-2 rounded-lg border border-border bg-subtle p-2 text-center text-xs">
               <div className="min-w-0 space-y-0.5">
                 <div className="flex items-center justify-center gap-1 text-xs font-medium text-secondary-foreground">
                   <span className="size-2 rounded-full bg-emerald-500" />
@@ -751,7 +751,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                 <span className="text-xs font-medium text-secondary-foreground">Interval mode</span>
                 <InfoTip text="Choose whether this test has both minimum and maximum limits, or only a single boundary." />
               </div>
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {[
                   { id: 'RANGE', label: 'Min to max' },
                   { id: 'MIN_ONLY', label: 'Min only' },
@@ -825,7 +825,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                 <InfoTip text="Borderline tolerance readings that hold for QA review instead of passing or rejecting." />
               </div>
 
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => {

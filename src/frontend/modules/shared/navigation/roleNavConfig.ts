@@ -28,14 +28,11 @@ import {
   Database,
   CheckCircle2,
   MessageSquare,
-  FileText,
   FileCheck2,
   Network,
   FileSpreadsheet,
-  TrendingUp,
   BarChart3,
   AlertTriangle,
-  UserCheck,
   FilePenLine,
 } from 'lucide-react';
 import { requestableEntities } from '@/lib/recordEditor';
@@ -87,18 +84,6 @@ const SEVEN_DAY_VEHICLE_LINKS: RoleNavLeaf[] = [
 const SOURCE_LINKS: RoleNavLeaf[] = [
   { id: 'src-milk', label: 'Milk sources', href: '/sources', icon: Milk },
   { id: 'src-contractors', label: 'Contractors', href: '/sources?view=CONTRACTORS', icon: Truck },
-];
-
-const CORRECTION_LINKS: RoleNavLeaf[] = [
-  { id: 'corr-requests', label: 'Requests', href: '/super-admin/corrections?tab=requests', icon: ShieldCheck },
-  { id: 'corr-direct', label: 'Direct Edit', href: '/super-admin/corrections?tab=direct_edit', icon: FileCheck2 },
-  { id: 'corr-audit', label: 'Correction Audit', href: '/super-admin/corrections?tab=audit', icon: History },
-];
-
-const REPORT_GOVERNANCE_LINKS: RoleNavLeaf[] = [
-  { id: 'rep-daily', label: 'Daily report', href: '/super-admin/reports?tab=daily', icon: FileSpreadsheet },
-  { id: 'rep-hierarchy', label: 'Senior actions', href: '/super-admin/reports?tab=hierarchy', icon: UserCheck },
-  { id: 'rep-warnings', label: 'Warning limits', href: '/super-admin/reports?tab=warnings', icon: AlertTriangle },
 ];
 
 /**
@@ -595,13 +580,13 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
             href: '/department/qa?tab=ON_HOLD',
             icon: PauseCircle,
           },
+          {
+            id: 'qa-my-requests',
+            label: 'My Sent Requests',
+            href: '/department/qa?tab=REQUESTS',
+            icon: Send,
+          },
         ],
-      },
-      {
-        id: 'qa-my-requests',
-        label: 'My Submitted Requests',
-        icon: Send,
-        href: '/my-requests',
       },
       {
         id: 'tv-board',
@@ -761,6 +746,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         label: 'Dispatch',
         icon: Truck,
         href: '/contractor/dispatch',
+      },
+      {
+        id: 'contractor-my-requests',
+        label: 'My Sent Requests',
+        icon: Send,
+        href: '/my-requests',
       },
       {
         id: 'tv-board',

@@ -60,11 +60,27 @@ export const WeighbridgeSecondWeightPanel: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+      {secondQuery.isError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-900"
+        >
+          <span>Could not load second weight queue.</span>
+          <button
+            type="button"
+            onClick={() => void secondQuery.refetch()}
+            className="min-h-11 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18.5rem),1fr))] gap-3">
         {secondQuery.isPending ? (
-          <SkeletonList count={3} className="md:col-span-2 lg:col-span-3" />
+          <SkeletonList count={3} className="col-span-full" />
         ) : visits.length === 0 ? (
-          <EmptyAction message="No vehicles" onRefresh={() => secondQuery.refetch()} className="md:col-span-2 lg:col-span-3" />
+          <EmptyAction message="No vehicles" onRefresh={() => secondQuery.refetch()} className="col-span-full" />
         ) : (
           paginate(visits, currentPage).map((v) => (
             <div
@@ -73,14 +89,14 @@ export const WeighbridgeSecondWeightPanel: React.FC = () => {
               onKeyDown={onActivateKey}
               key={`second-weight-${v.id}`}
               onClick={() => setSelectedId(v.id)}
-              className="p-4 rounded-2xl border transition-colors cursor-pointer space-y-2 min-h-11 bg-card text-foreground border-border hover:border-border-strong hover:bg-subtle"
+              className="w-full min-w-0 p-4 rounded-2xl border transition-colors cursor-pointer space-y-2 min-h-11 bg-card text-foreground border-border hover:border-border-strong hover:bg-subtle"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <span className="font-mono tabular-nums font-semibold text-sm">{v.vehicle_number}</span>
-                  <span className="font-mono tabular-nums text-xs text-muted-foreground">({v.token_number || 'No token'})</span>
+              <div className="flex items-start justify-between gap-2 min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                  <span className="font-mono tabular-nums font-semibold text-sm whitespace-nowrap">{v.vehicle_number}</span>
+                  <span className="font-mono tabular-nums text-xs text-muted-foreground whitespace-nowrap">({v.token_number || 'No token'})</span>
                 </div>
-                <span className="px-2 py-0.5 rounded text-xs font-semibold tabular-nums bg-blue-100 text-primary border border-blue-300">
+                <span className="px-2 py-0.5 rounded text-xs font-semibold tabular-nums bg-blue-100 text-primary border border-blue-300 whitespace-nowrap shrink-0">
                   Unloading completed
                 </span>
               </div>
@@ -251,7 +267,7 @@ const SecondWeightDrawer: React.FC<{
             </button>
           </div>
 
-          <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
+          <div className="bg-card border-border grid grid-cols-2 gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
             <div>
               <span className="text-muted-foreground font-sans block text-xs">
                 {visit.is_portion_wise ? `Weight before compartment #${visit.active_portion_number} unloading` : 'Loaded gross weight, before unloading'}

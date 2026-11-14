@@ -25,6 +25,8 @@ import {
 import { Modal } from '@/components/ui/modal';
 import { AnimatePresence } from 'framer-motion';
 import { SkeletonTable } from '@/components/ui/loaders';
+import { TableWrapper } from '@/components/ui/table-wrapper';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 
 export type StationKey = 'PLANT_QA' | 'DISPATCH' | 'ZMCC_LAB' | 'MOT_SHOP';
 
@@ -447,6 +449,8 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
     );
   });
 
+  const pagedPolicies = usePagedRows(filteredPolicies, (p) => p.id);
+
   const activeMetadata = STATION_METADATA[activeStation];
 
   const isNumericTestType = (type?: string) =>
@@ -569,7 +573,8 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <TableWrapper>
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-subtle border-b border-border text-secondary-foreground font-semibold text-xs">
@@ -583,7 +588,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredPolicies.map((policy) => {
+                {pagedPolicies.pageRows.map((policy) => {
                   const isRowActive = policy.isActive;
                   const rule = activeRules[policy.labTestId];
                   const isNumeric = isNumericTestType(policy.labTest?.resultType);
@@ -634,7 +639,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                           className={`px-2 py-0.5 rounded text-xs font-semibold  transition ${
                             policy.isRequired
                               ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
-                              : 'bg-muted text-secondary-foreground border border-border-strong hover:bg-muted'
+                              : 'bg-muted text-secondary-foreground border border-border-strong hover:bg-muted/80'
                           }`}
                           title="Click to toggle Required / Optional"
                         >
@@ -717,7 +722,18 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                 })}
               </tbody>
             </table>
-          </div>
+          </TableWrapper>
+          {pagedPolicies.totalPages > 1 && (
+            <Pagination
+              page={pagedPolicies.page}
+              totalPages={pagedPolicies.totalPages}
+              totalRecords={pagedPolicies.totalRecords}
+              pageSize={pagedPolicies.pageSize}
+              noun="policies"
+              onPageChange={pagedPolicies.setPage}
+            />
+          )}
+          </>
         )}
       </div>
 
@@ -773,7 +789,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                 )}
               </div>
 
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-secondary-foreground mb-1">Display Order</label>
                   <input
@@ -809,7 +825,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                     <label className="block font-semibold text-secondary-foreground mb-1">
                       Acceptable Range ({selectedTestObj.unit || 'Numeric'})
                     </label>
-                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
                         <span className="text-xs text-muted-foreground block mb-0.5">Min Value</span>
                         <input
@@ -932,7 +948,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                   <label className="block font-semibold text-secondary-foreground mb-1">
                     Acceptable Range ({criteriaTargetPolicy.labTest?.unit || 'Numeric'})
                   </label>
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
                       <span className="text-xs text-muted-foreground block mb-0.5">Min Value</span>
                       <input

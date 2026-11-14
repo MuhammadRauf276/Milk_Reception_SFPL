@@ -142,7 +142,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   const [historyDate, setHistoryDate] = useState('');
   const [historyDecision, setHistoryDecision] = useState<string>('ALL');
   const [historyPage, setHistoryPage] = useState(1);
-  const historyPageSize = useListPageSize(20);
+  const historyPageSize = useListPageSize(25);
 
   // View / Correction Modal State
   const [selectedHistorySession, setSelectedHistorySession] = useState<LabSession | null>(null);
@@ -156,6 +156,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
   const [correctionValues, setCorrectionValues] = useState<ResultDrafts>({});
   const [savingCorrection, setSavingCorrection] = useState(false);
   const [portionCorrectionSessionId, setPortionCorrectionSessionId] = useState<string | null>(null);
+  const [portionCorrectionLabel, setPortionCorrectionLabel] = useState<string | undefined>(undefined);
 
   // Helper to compute live preview metrics using canonical core resolver
   const calculatePreview = useCallback((
@@ -287,6 +288,9 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
       const res = await fetch(`/api/zmcc/lab/sessions/${session.id}/portions`);
       const body = res.ok ? await res.json() : null;
       if (body?.portions?.length > 0) {
+        const tok = session.mot_arrival?.zmcc_token || session.local_supplier_arrival?.zmcc_token;
+        const veh = session.mot_arrival?.journey?.mot_vehicle?.vehicle_number || session.local_supplier_arrival?.vehicle_number;
+        setPortionCorrectionLabel([veh, tok ? `Token ${tok}` : null].filter(Boolean).join(' · ') || undefined);
         setPortionCorrectionSessionId(session.id);
         return;
       }
@@ -384,9 +388,9 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
     );
   });
 
-  const QUEUE_PAGE_SIZE = 6;
-  const totalQueuePages = Math.max(1, Math.ceil(filteredQueue.length / QUEUE_PAGE_SIZE));
-  const paginatedQueue = filteredQueue.slice((queuePage - 1) * QUEUE_PAGE_SIZE, queuePage * QUEUE_PAGE_SIZE);
+  const queuePageSize = useListPageSize(25);
+  const totalQueuePages = Math.max(1, Math.ceil(filteredQueue.length / queuePageSize));
+  const paginatedQueue = filteredQueue.slice((queuePage - 1) * queuePageSize, queuePage * queuePageSize);
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-12 w-full">
@@ -499,10 +503,12 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                    {activeSession.arrival_type}
+                    {activeSession.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}
                   </span>
                   <h2 className="text-lg font-semibold text-foreground">
-                    Testing Session #{activeSession.id}
+                    {activeSession.mot_arrival?.journey?.mot_vehicle?.vehicle_number ||
+                      activeSession.local_supplier_arrival?.vehicle_number ||
+                      'Lab Testing'}
                   </h2>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -588,10 +594,15 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
       <PortionCorrectionDrawer
         open={portionCorrectionSessionId !== null}
         sessionId={portionCorrectionSessionId}
-        onClose={() => setPortionCorrectionSessionId(null)}
+        subtitleLabel={portionCorrectionLabel}
+        onClose={() => {
+          setPortionCorrectionSessionId(null);
+          setPortionCorrectionLabel(undefined);
+        }}
         onSaved={(message) => {
           toast.showSuccess(message);
           setPortionCorrectionSessionId(null);
+          setPortionCorrectionLabel(undefined);
           fetchHistory();
         }}
       />
@@ -625,7 +636,21 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
           onClose={() => setRequestCorrectionModal((prev) => ({ ...prev, isOpen: false }))}
           module="ZMCC_LAB_SESSION"
           recordId={requestCorrectionModal.session.id}
-          recordIdentifierLabel={`Lab Session #${requestCorrectionModal.session.id}`}
+          recordIdentifierLabel={
+            [
+              requestCorrectionModal.session.mot_arrival?.journey?.mot_vehicle?.vehicle_number ||
+                requestCorrectionModal.session.local_supplier_arrival?.vehicle_number,
+              (requestCorrectionModal.session.mot_arrival?.zmcc_token ||
+                requestCorrectionModal.session.local_supplier_arrival?.zmcc_token)
+                ? `Token ${
+                    requestCorrectionModal.session.mot_arrival?.zmcc_token ||
+                    requestCorrectionModal.session.local_supplier_arrival?.zmcc_token
+                  }`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || 'Lab Record'
+          }
           availableFields={requestCorrectionModal.fields}
           onSuccess={() => {
             toast.showSuccess('Correction request sent. Follow it under My correction requests.');

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { InfoTip } from '@/components/ui/info-tip';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { formatDateTime } from '@/lib/format';
 
 export type ExitOutcomeRow = {
@@ -42,31 +44,40 @@ export function ZmccExitOutcomes({ left, pending, canDecide, busy, onDecide }: {
   onDecide?: (sessionId: string, decision: 'APPROVE' | 'REJECT', remarks: string) => void;
 }) {
   const [remarks, setRemarks] = useState<Record<string, string>>({});
+  const pagedPending = usePagedRows(pending, (r) => r.sessionId);
+  const pagedLeft = usePagedRows(left, (r) => r.sessionId);
+
   return <div className="grid gap-3 lg:grid-cols-2">
     <div className="bg-card border-border rounded-2xl border p-4 text-xs">
       <p className="font-semibold text-foreground">Close requests ({pending.length})</p>
-      {pending.length ? pending.map((row) => <div key={row.sessionId} className="mt-2 space-y-1 border-t pt-2">
-        <p className="font-medium">{row.arrivalLabel === 'MC' ? 'Mobile Tester' : row.arrivalLabel} · {row.reference}{row.vehicleNumber ? ` · ${row.vehicleNumber}` : ''}</p>
-        <p className="text-secondary-foreground">Not received: <strong>{qty(row)}</strong></p>
-        <div className="flex items-center gap-1 text-secondary-foreground"><span>{row.requestedBy ?? '—'}</span>
-          <InfoTip text={[row.reasonCode ? REASON_LABELS[row.reasonCode] ?? row.reasonCode : null, row.remarks, row.requestedAt ? formatDateTime(row.requestedAt) : null].filter(Boolean).join(' · ') || 'No details'} /></div>
-        {canDecide ? <div className="space-y-1">
-          <input value={remarks[row.sessionId] ?? ''} onChange={(e) => setRemarks((c) => ({ ...c, [row.sessionId]: e.target.value }))} placeholder="Remarks (min 3 letters)" aria-label="Decision remarks" className="min-h-11 w-full rounded border border-border-strong px-2" />
-          <div className="flex gap-2">
-            <button type="button" disabled={busy || (remarks[row.sessionId] ?? '').trim().length < 3} onClick={() => onDecide?.(row.sessionId, 'APPROVE', (remarks[row.sessionId] ?? '').trim())} className="min-h-11 rounded bg-emerald-700 px-3 text-white disabled:opacity-50">Approve</button>
-            <button type="button" disabled={busy || (remarks[row.sessionId] ?? '').trim().length < 3} onClick={() => onDecide?.(row.sessionId, 'REJECT', (remarks[row.sessionId] ?? '').trim())} className="min-h-11 rounded bg-neutral-700 px-3 text-white disabled:opacity-50">Reject</button>
-          </div>
-        </div> : null}
-      </div>) : <p className="mt-2 text-muted-foreground">None</p>}
+      {pending.length ? <>
+        {pagedPending.pageRows.map((row) => <div key={row.sessionId} className="mt-2 space-y-1 border-t pt-2">
+          <p className="font-medium">{row.arrivalLabel === 'MC' ? 'Mobile Tester' : row.arrivalLabel} · {row.reference}{row.vehicleNumber ? ` · ${row.vehicleNumber}` : ''}</p>
+          <p className="text-secondary-foreground">Not received: <strong>{qty(row)}</strong></p>
+          <div className="flex items-center gap-1 text-secondary-foreground"><span>{row.requestedBy ?? '—'}</span>
+            <InfoTip text={[row.reasonCode ? REASON_LABELS[row.reasonCode] ?? row.reasonCode : null, row.remarks, row.requestedAt ? formatDateTime(row.requestedAt) : null].filter(Boolean).join(' · ') || 'No details'} /></div>
+          {canDecide ? <div className="space-y-1">
+            <input value={remarks[row.sessionId] ?? ''} onChange={(e) => setRemarks((c) => ({ ...c, [row.sessionId]: e.target.value }))} placeholder="Remarks (min 3 letters)" aria-label="Decision remarks" className="min-h-11 w-full rounded border border-border-strong px-2" />
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="default" size="sm" loading={busy} loadingText="Approving…" disabled={busy || (remarks[row.sessionId] ?? '').trim().length < 3} onClick={() => onDecide?.(row.sessionId, 'APPROVE', (remarks[row.sessionId] ?? '').trim())}>Approve</Button>
+              <Button type="button" variant="secondary" size="sm" loading={busy} loadingText="Rejecting…" disabled={busy || (remarks[row.sessionId] ?? '').trim().length < 3} onClick={() => onDecide?.(row.sessionId, 'REJECT', (remarks[row.sessionId] ?? '').trim())}>Reject</Button>
+            </div>
+          </div> : null}
+        </div>)}
+        <Pagination page={pagedPending.page} totalPages={pagedPending.totalPages} totalRecords={pagedPending.totalRecords} pageSize={pagedPending.pageSize} noun="requests" onPageChange={pagedPending.setPage} className="px-0 pt-2" />
+      </> : <p className="mt-2 text-muted-foreground">None</p>}
     </div>
     <div className="bg-card border-border rounded-2xl border p-4 text-xs">
       <p className="font-semibold text-foreground">Left early ({left.length})</p>
-      {left.length ? left.map((row) => <div key={row.sessionId} className="mt-2 space-y-1 border-t pt-2">
-        <p className="font-medium">{row.arrivalLabel === 'MC' ? 'Mobile Tester' : row.arrivalLabel} · {row.reference}{row.vehicleNumber ? ` · ${row.vehicleNumber}` : ''}{row.sourceName ? ` · ${row.sourceName}` : ''}</p>
-        <p className="text-secondary-foreground">{row.exitOutcome === 'PARTLY_RECEIVED' ? 'Partly received' : 'Not received'}: <strong>{qty(row)}</strong></p>
-        <div className="flex items-center gap-1 text-muted-foreground"><span>{row.reasonCode ? REASON_LABELS[row.reasonCode] ?? row.reasonCode : '—'}</span>
-          <InfoTip text={[row.remarks, row.recordedBy, row.recordedAt ? formatDateTime(row.recordedAt) : null].filter(Boolean).join(' · ') || 'No details'} /></div>
-      </div>) : <p className="mt-2 text-muted-foreground">None</p>}
+      {left.length ? <>
+        {pagedLeft.pageRows.map((row) => <div key={row.sessionId} className="mt-2 space-y-1 border-t pt-2">
+          <p className="font-medium">{row.arrivalLabel === 'MC' ? 'Mobile Tester' : row.arrivalLabel} · {row.reference}{row.vehicleNumber ? ` · ${row.vehicleNumber}` : ''}{row.sourceName ? ` · ${row.sourceName}` : ''}</p>
+          <p className="text-secondary-foreground">{row.exitOutcome === 'PARTLY_RECEIVED' ? 'Partly received' : 'Not received'}: <strong>{qty(row)}</strong></p>
+          <div className="flex items-center gap-1 text-muted-foreground"><span>{row.reasonCode ? REASON_LABELS[row.reasonCode] ?? row.reasonCode : '—'}</span>
+            <InfoTip text={[row.remarks, row.recordedBy, row.recordedAt ? formatDateTime(row.recordedAt) : null].filter(Boolean).join(' · ') || 'No details'} /></div>
+        </div>)}
+        <Pagination page={pagedLeft.page} totalPages={pagedLeft.totalPages} totalRecords={pagedLeft.totalRecords} pageSize={pagedLeft.pageSize} noun="exits" onPageChange={pagedLeft.setPage} className="px-0 pt-2" />
+      </> : <p className="mt-2 text-muted-foreground">None</p>}
     </div>
   </div>;
 }

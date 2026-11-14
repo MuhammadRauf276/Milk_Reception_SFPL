@@ -77,7 +77,7 @@ export function ZmccTankOuttakeDrawer({ tank, onClose, onSaved }: Props) {
       error={error}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-3 rounded-xl border border-border bg-subtle p-3 text-sm">
+      <div className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-subtle p-3 text-sm">
         <div>
           <p className="text-xs text-muted-foreground">In tank (gross)</p>
           <p className="font-semibold tabular-nums">{stock.toLocaleString('en-US', { minimumFractionDigits: 2 })} L</p>

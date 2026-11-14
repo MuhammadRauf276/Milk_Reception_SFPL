@@ -79,6 +79,9 @@ export interface MotShopDecisionDetails {
     testMode: string;
     ruleMode: string;
     photoMode: string;
+    min?: number | null;
+    max?: number | null;
+    allowed?: string[] | null;
     outcome: 'PASS' | 'FAIL' | 'WARN' | 'NOT_TESTED';
     photoCaptureId: string | null;
   }>;

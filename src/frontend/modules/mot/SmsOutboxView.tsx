@@ -108,7 +108,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
         <div>
           <div className="font-semibold text-foreground">{item.recipient_phone}</div>
           <div className="text-xs text-muted-foreground">
-            {item.collection?.shop_name} ({item.collection?.shop_code})
+            {item.collection?.shop_name || '—'}
           </div>
         </div>
       ),
@@ -130,8 +130,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
       label: 'Milk Details',
       cell: (item) => (
         <div>
-          <div className="tabular-nums font-semibold text-blue-900">{item.collection?.collection_number}</div>
-          <div className="text-xs text-secondary-foreground">{item.collection?.gross_liters} Liters</div>
+          <div className="font-semibold text-foreground">{item.collection?.gross_liters} L</div>
         </div>
       ),
     },

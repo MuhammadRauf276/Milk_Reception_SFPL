@@ -14,7 +14,15 @@ export interface LabTestDef {
   displayOrder: number;
   resultOptions?: Array<{ value: string; label: string; isPassing: boolean | null }> | null;
   /** Active PLANT_QA release rule (same shape as the dispatch policy rule). */
-  rule?: { min: number | null; max: number | null; allowed?: string[] | null } | null;
+  rule?: {
+    min: number | null;
+    max: number | null;
+    allowed?: string[] | null;
+    warningTrigger?: string | null;
+    decisionConsequence?: string | null;
+    ruleCategory?: string | null;
+    acceptableOption?: string | null;
+  } | null;
 }
 
 export interface SavedPlantResult {
@@ -43,6 +51,7 @@ export interface VisitDetailPortion {
   dispatch_results: unknown[];
   plant_results: SavedPlantResult[];
   manager_review_status?: string | null;
+  manager_review_reason?: string | null;
   seal_number?: string | null;
   plant_seal_number_entered?: string | null;
   seal_match?: boolean | null;

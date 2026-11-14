@@ -95,7 +95,7 @@ function ProcurementSourcesContent() {
   };
 
   const columns: DataColumn<Source>[] = [
-    { key: 'code', header: 'Code', label: 'Code', cell: (s) => <span className="break-all font-mono font-semibold tabular-nums text-foreground">{s.code}</span> },
+    { key: 'code', header: 'Code', label: 'Code', cell: (s) => <span className="whitespace-nowrap font-mono font-semibold tabular-nums text-foreground">{s.code}</span> },
     { key: 'name', header: 'Name', label: 'Name', primary: true, cell: (s) => <span className="font-semibold text-foreground">{s.name}</span> },
     {
       key: 'type',
@@ -109,7 +109,7 @@ function ProcurementSourcesContent() {
             key: 'erp',
             header: 'ERP code',
             label: 'ERP code',
-            cell: (s: Source) => <span className="break-all font-mono tabular-nums text-secondary-foreground">{s.sourceType === 'CONTRACTOR' ? s.erpCode || '—' : ''}</span>,
+            cell: (s: Source) => <span className="whitespace-nowrap font-mono tabular-nums text-secondary-foreground">{s.sourceType === 'CONTRACTOR' ? s.erpCode || '—' : ''}</span>,
           },
         ]
       : []),

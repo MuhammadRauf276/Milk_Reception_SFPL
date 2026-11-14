@@ -4,8 +4,9 @@ import React, { useState, useRef } from 'react';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
-import { apiClient } from '@/frontend/lib/apiClient';
+import { apiClient, apiRequest } from '@/frontend/lib/apiClient';
 import type { QAVisitDetailState } from './useQAVisitDetail';
+import type { TestInputState, VisitDetail } from './qaTypes';
 import { confirmAction } from '@/components/ui/confirm-dialog';
 
 export type QAActionModal = 'START' | 'RESUME' | 'ACCEPT' | 'HOLD' | 'REJECT';
@@ -38,9 +39,17 @@ export function useQAActions({
     activePortionIndex,
     setActivePortionIndex,
     testInputs,
+    testInputsByPortion,
+    setTestInputsByPortion,
     enteredSealMap,
+    setEnteredSealMap,
     photoStatesMap,
+    setPhotoStatesMap,
+    personDecisionMap,
+    setPersonDecisionMap,
     decisionRemarksMap,
+    setDecisionRemarksMap,
+    setSavedPortionsMap,
     populateInputsForPortion,
     fetchVisitDetail,
   } = detail;
@@ -56,6 +65,7 @@ export function useQAActions({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAddingPortion, setIsAddingPortion] = useState(false);
   const [isRemovingPortion, setIsRemovingPortion] = useState(false);
+  const [isSwitchingMode, setIsSwitchingMode] = useState(false);
   const [isRoutingVehicle, setIsRoutingVehicle] = useState(false);
 
   // Stable client operation identities retained across transient network timeouts / errors
@@ -131,9 +141,10 @@ export function useQAActions({
   const buildResultsPayload = (
     portionPhotos: Record<string, string>,
     isRejecting = false,
-    decisionReason = ''
+    decisionReason = '',
+    inputsForPortion: Record<string, TestInputState> = testInputs
   ) =>
-    Object.entries(testInputs).map(([testId, state]) => {
+    Object.entries(inputsForPortion).map(([testId, state]) => {
       const hasNum = state.numericValue !== '' && !isNaN(Number(state.numericValue));
       const hasText = Boolean(state.textValue && state.textValue.trim() !== '');
       const isPerformed = hasNum || hasText;
@@ -317,10 +328,74 @@ export function useQAActions({
     }
   };
 
+  const handleModeSwitch = async (newMode: 'COMPOSITE' | 'PORTION_WISE') => {
+    if (!visitDetail || visitDetail.test_mode === newMode) return;
+    const locked = visitDetail.portions.some(
+      (p) =>
+        p.plant_decision === 'ACCEPTED' ||
+        p.plant_decision === 'REJECTED' ||
+        p.manager_review_status === 'PENDING'
+    );
+    if (locked) {
+      toast.showError('Cannot switch test mode after portions have been submitted or reviewed.', 'Mode Locked');
+      return;
+    }
+    if (newMode === 'COMPOSITE' && visitDetail.portions.length > 1) {
+      const ok = await confirmAction({
+        title: 'Switch to Composite mode?',
+        description: 'Only Portion 1 will be tested as one composite sample for this vehicle.',
+        confirmLabel: 'Switch to Composite',
+        destructive: true,
+      });
+      if (!ok) return;
+    }
+
+    setIsSwitchingMode(true);
+    try {
+      await apiRequest<{ success: boolean; test_mode: 'COMPOSITE' | 'PORTION_WISE' }>(
+        `/api/qa/vehicle-visits/${visitDetail.id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ test_mode: newMode }),
+          dedupKey: `qa-mode-${visitDetail.id}`,
+          timeoutMs: 15_000,
+        }
+      );
+      setVisitDetail((prev) => (prev ? { ...prev, test_mode: newMode } : prev));
+      if (newMode === 'COMPOSITE' && visitDetail.portions[0]) {
+        const firstId = visitDetail.portions[0].id;
+        setActivePortionIndex(0);
+        populateInputsForPortion(visitDetail.portions[0], visitDetail.active_plant_tests || [], false);
+        setSavedPortionsMap((prev) => (prev[firstId] ? { [firstId]: true } : {}));
+        setEnteredSealMap((prev) => (prev[firstId] !== undefined ? { [firstId]: prev[firstId] } : {}));
+        setPhotoStatesMap((prev) => (prev[firstId] ? { [firstId]: prev[firstId] } : {}));
+        setPersonDecisionMap((prev) => (prev[firstId] !== undefined ? { [firstId]: prev[firstId] } : {}));
+        setDecisionRemarksMap((prev) => (prev[firstId] !== undefined ? { [firstId]: prev[firstId] } : {}));
+        setTestInputsByPortion((prev) => (prev[firstId] ? { [firstId]: prev[firstId] } : {}));
+      }
+      toast.showSuccess(
+        newMode === 'COMPOSITE' ? 'Switched to Composite testing.' : 'Switched to Portion-wise testing.',
+        'Test Mode Updated'
+      );
+    } catch (err) {
+      reportError(err, 'Failed to Update Mode');
+    } finally {
+      setIsSwitchingMode(false);
+    }
+  };
+
   const handleAddPortion = async () => {
     if (!visitDetail) return;
     setIsAddingPortion(true);
     try {
+      if (visitDetail.test_mode === 'COMPOSITE') {
+        await apiRequest(`/api/qa/vehicle-visits/${visitDetail.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ test_mode: 'PORTION_WISE' }),
+          timeoutMs: 15_000,
+        });
+      }
+
       if (!activeAddPortionOpIdRef.current) {
         activeAddPortionOpIdRef.current = `add-portion-${visitDetail.id}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`;
       }
@@ -339,12 +414,12 @@ export function useQAActions({
       activeAddPortionOpIdRef.current = null;
       toast.showSuccess(`Portion ${data.portion.portion_number} added for independent testing.`, 'Portion Added');
 
-      const detailData = await apiClient.get<{ visit?: any }>(`/api/qa/vehicle-visits/${visitDetail.id}`);
+      const detailData = await apiClient.get<{ visit?: VisitDetail }>(`/api/qa/vehicle-visits/${visitDetail.id}`);
       if (detailData && detailData.visit) {
         setVisitDetail(detailData.visit);
         const newIndex = detailData.visit.portions.length - 1;
         setActivePortionIndex(newIndex);
-        populateInputsForPortion(detailData.visit.portions[newIndex], detailData.visit.active_plant_tests || []);
+        populateInputsForPortion(detailData.visit.portions[newIndex], detailData.visit.active_plant_tests || [], false);
       }
       await fetchQueues();
     } catch (err) {
@@ -372,17 +447,28 @@ export function useQAActions({
     setIsRemovingPortion(true);
     try {
       await apiClient.delete(`/api/qa/vehicle-visits/${visitDetail.id}/portions/${portionId}`);
+      const omitPortion = <T,>(prev: Record<string, T>) => {
+        const next = { ...prev };
+        delete next[portionId];
+        return next;
+      };
+      setSavedPortionsMap(omitPortion);
+      setTestInputsByPortion(omitPortion);
+      setEnteredSealMap(omitPortion);
+      setPhotoStatesMap(omitPortion);
+      setPersonDecisionMap(omitPortion);
+      setDecisionRemarksMap(omitPortion);
 
       toast.showSuccess(`Portion #${portionNumber} removed.`, 'Portion Removed');
 
       // Refresh visit detail and adjust active tab
-      const detailData = await apiClient.get<{ visit?: any }>(`/api/qa/vehicle-visits/${visitDetail.id}`);
+      const detailData = await apiClient.get<{ visit?: VisitDetail }>(`/api/qa/vehicle-visits/${visitDetail.id}`);
       if (detailData && detailData.visit) {
         setVisitDetail(detailData.visit);
         const fallbackIndex = Math.max(0, Math.min(activePortionIndex, detailData.visit.portions.length - 1));
         setActivePortionIndex(fallbackIndex);
         if (detailData.visit.portions[fallbackIndex]) {
-          populateInputsForPortion(detailData.visit.portions[fallbackIndex], detailData.visit.active_plant_tests || []);
+          populateInputsForPortion(detailData.visit.portions[fallbackIndex], detailData.visit.active_plant_tests || [], false);
         }
       }
       await fetchQueues();
@@ -390,6 +476,130 @@ export function useQAActions({
       toast.showError(getErrorMessage(err), 'Failed to Remove Portion');
     } finally {
       setIsRemovingPortion(false);
+    }
+  };
+
+  const handleSubmitAllPortions = async (): Promise<boolean> => {
+    if (!visitDetail) return false;
+    const targetPortions =
+      visitDetail.test_mode === 'COMPOSITE' ? visitDetail.portions.slice(0, 1) : visitDetail.portions;
+    const pendingPortions = targetPortions.filter(
+      (p) => !p.plant_decision || p.plant_decision === 'PENDING'
+    );
+
+    // Pre-flight check on every pending portion before sending any decision
+    for (const p of pendingPortions) {
+      const choice = personDecisionMap[p.id];
+      if (!choice) {
+        toast.showError(`Please save a decision (Accept or Reject) for Portion ${p.portion_number}.`, 'Validation Error');
+        return false;
+      }
+      const portionInputs = testInputsByPortion[p.id] || (visitDetail.portions[activePortionIndex]?.id === p.id ? testInputs : {});
+      const portionPhotos = photoStatesMap[p.id] || {};
+      const remarks = (decisionRemarksMap[p.id] || '').trim();
+      const isReject = choice === 'REJECT';
+      const payloadResults = buildResultsPayload(portionPhotos, isReject, remarks, portionInputs);
+      if (isReject && payloadResults.filter((r) => r.performanceStatus === 'PERFORMED').length === 0) {
+        toast.showError(
+          `Portion ${p.portion_number}: record at least one PERFORMED test result before rejecting.`,
+          'Validation Error'
+        );
+        return false;
+      }
+    }
+
+    setIsSubmitting(true);
+    let anyCompleted = false;
+    let anyEscalated = false;
+    try {
+      const opIso = datetimeLocalToIso(qaOpTimestamp) || undefined;
+      for (const p of pendingPortions) {
+        const choice = personDecisionMap[p.id]!;
+        const isReject = choice === 'REJECT';
+        const portionInputs = testInputsByPortion[p.id] || (visitDetail.portions[activePortionIndex]?.id === p.id ? testInputs : {});
+        const enteredSeal = enteredSealMap[p.id] || p.plant_seal_number_entered || '';
+        const portionPhotos = photoStatesMap[p.id] || {};
+        const primaryPhotoUrl = Object.values(portionPhotos)[0] || undefined;
+        const portionRemarks = (decisionRemarksMap[p.id] || '').trim();
+        const effectiveReason = portionRemarks || (isReject ? 'Quality Specification Breach' : '');
+        const resultsPayload = buildResultsPayload(portionPhotos, isReject, effectiveReason, portionInputs);
+
+        if (!activeCompletionOpIdMap.current[p.id]) {
+          activeCompletionOpIdMap.current[p.id] = `plant-qa-${p.id}-${typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Date.now()}`;
+        }
+        const completionClientEventId = activeCompletionOpIdMap.current[p.id];
+
+        const completeRes = await apiClient.post<{
+          success?: boolean;
+          managerReviewStatus?: string;
+          plantDecision?: string;
+        }>(
+          `/api/qa/vehicle-visits/${visitDetail.id}/portions/${p.id}/complete`,
+          {
+            decision: isReject ? 'REJECTED' : 'ACCEPTED',
+            completionClientEventId,
+            results: resultsPayload,
+            sealNumber: enteredSeal || undefined,
+            photoUrl: primaryPhotoUrl,
+            operationalTimestamp: opIso,
+            exceptionReason: isReject ? undefined : effectiveReason || undefined,
+            rejectionReason: effectiveReason || undefined,
+            rejectionRemarks: isReject ? effectiveReason : undefined,
+          },
+          {
+            idempotencyKey: completionClientEventId,
+            dedupKey: `qa-portion-complete-${visitDetail.id}-${p.id}`,
+            timeoutMs: 25_000,
+          }
+        );
+
+        if (completeRes?.managerReviewStatus === 'PENDING') {
+          anyEscalated = true;
+        }
+
+        delete activeCompletionOpIdMap.current[p.id];
+        anyCompleted = true;
+      }
+
+      setSavedPortionsMap({});
+      if (anyEscalated) {
+        const routeRes = await apiClient.post<{ success?: boolean; action?: string; message?: string }>(
+          `/api/qa/vehicle-visits/${visitDetail.id}/complete-session`,
+          {
+            action: 'ESCALATE_AVP_QA',
+            operationalTimestamp: opIso,
+          },
+          {
+            dedupKey: `qa-route-${visitDetail.id}`,
+            timeoutMs: 20_000,
+          }
+        );
+        toast.showSuccess(
+          routeRes?.message || `Vehicle ${visitDetail.vehicle_number} sent to AVP QA for approval.`,
+          'Sent to AVP QA'
+        );
+        setSelectedTestingVisitId(null);
+        setVisitDetail(null);
+        setActiveTab('ON_HOLD');
+      } else {
+        await fetchVisitDetail(visitDetail.id);
+        toast.showSuccess(
+          'QA decisions recorded. Select Proceed to Weighbridge or Send to Gate Exit below.',
+          'QA Decisions Saved'
+        );
+      }
+
+      await fetchQueues();
+      return true;
+    } catch (err) {
+      if (anyCompleted) {
+        await fetchVisitDetail(visitDetail.id);
+        await fetchQueues();
+      }
+      reportError(err, 'Failed to Submit Vehicle QA');
+      return false;
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -460,14 +670,17 @@ export function useQAActions({
     isSubmitting,
     isAddingPortion,
     isRemovingPortion,
+    isSwitchingMode,
     openActionModal,
     handleStartTesting,
     handleResumeTesting,
     handleAcceptPortionConfirm,
     handleRejectPortionConfirm,
     handleHoldPortionConfirm,
+    handleModeSwitch,
     handleAddPortion,
     handleRemovePortion,
+    handleSubmitAllPortions,
     handleRouteVehicle,
     isRoutingVehicle,
   };

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useEffectEvent, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AlertTriangle, CheckCircle2, Clock, Loader2, Send, Undo2, XCircle } from 'lucide-react';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { useToast } from '@/frontend/context/ToastContext';
@@ -46,6 +47,8 @@ import { LIVE_CONFIG_CHANGED_EVENT } from '@/frontend/modules/shared/LiveUpdateW
 import { applyDraftToExtras, applyDraftToPortions, dispatchDraftFromForm } from '@/lib/dispatch-draft';
 import { isCalculatedTest } from '@/lib/lab-test-roles';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { Button } from '@/components/ui/button';
+import { BatchUploadProgress } from '@/components/ui/progress';
 import { LabReportPhotoCard } from './components/LabReportPhotoCard';
 import { DecisionRulePanel, exceptionReasonText } from '@/frontend/modules/shared/decision/DecisionRulePanel';
 import { cn } from '@/lib/utils';
@@ -254,6 +257,7 @@ const STATUS_VIEW: Record<string, { word: string; className: string; Icon: typeo
   DISPATCHED: { word: 'Dispatched', className: 'border-emerald-300 bg-emerald-50 text-emerald-800', Icon: CheckCircle2 },
   PENDING_APPROVAL: { word: 'Waiting for approval', className: 'border-amber-300 bg-amber-50 text-amber-900', Icon: Clock },
   REOPENED: { word: 'Sent back to you', className: 'border-amber-300 bg-amber-50 text-amber-900', Icon: AlertTriangle },
+  DISPATCH_REJECTED: { word: 'Rejected', className: 'border-rose-300 bg-rose-50 text-rose-800', Icon: XCircle },
   REJECTED: { word: 'Rejected', className: 'border-rose-300 bg-rose-50 text-rose-800', Icon: XCircle },
 };
 
@@ -285,6 +289,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const [result, setResult] = useState<DispatchResultView | null>(null);
   const [uploadQueue, setUploadQueue] = useState<PendingUpload[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadStats, setUploadStats] = useState<{ total: number; completed: number }>({ total: 0, completed: 0 });
   const meCode = stampEmployeeCode(currentUser);
   const [restartingWorkItem, setRestartingWorkItem] = useState(false);
 
@@ -330,6 +335,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   >({});
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const searchParams = useSearchParams();
+  const urlSourceId = searchParams?.get('sourceId') || searchParams?.get('zmccId') || searchParams?.get('zmcc_id') || '';
 
   // Determine user procurement source
   const userSource = currentUser?.procurement_source || null;
@@ -387,21 +395,46 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
 
     async function loadSources() {
-      if (!isSourceBound && currentUser?.role === 'SUPER_ADMIN') {
+      const isGlobalOperator =
+        currentUser?.role === 'SUPER_ADMIN' ||
+        currentUser?.role === 'DATA_EXECUTIVE' ||
+        currentUser?.role === 'HEAD_OF_MPD';
+      if (!isSourceBound && isGlobalOperator) {
         try {
-          const res = await fetch('/api/super-admin/procurement-sources');
-          const data = await res.json();
-          if (data.sources) {
-            const normalized = data.sources.map((s: { id: string; name: string; sourceType?: string; source_type?: string }) => ({
-              id: s.id,
+          let list: Array<{ id: string; name: string; source_type: string }> = [];
+          if (sourceType === 'CONTRACTOR') {
+            const res = await fetch('/api/mpd/sources/contractors?activeOnly=true');
+            const data = await res.json();
+            const rows = data.contractors || data.sources || [];
+            list = rows.map((s: { id: string; name: string; sourceType?: string; source_type?: string }) => ({
+              id: String(s.id),
               name: s.name,
-              source_type: s.sourceType || s.source_type || '',
+              source_type: s.sourceType || s.source_type || 'CONTRACTOR',
             }));
-            const list = sourceType
-              ? normalized.filter((s: { source_type: string }) => s.source_type === sourceType)
-              : normalized;
-            setAvailableSources(list);
-            // Requirement A: Leave selectedSourceId empty initially; do NOT auto-select first source
+          } else if (sourceType === 'ZMCC') {
+            const res = await fetch('/api/zmcc/sources');
+            const data = await res.json();
+            const rows = data.zmccs || data.sources || [];
+            list = rows.map((s: { id: string; name: string }) => ({
+              id: String(s.id),
+              name: s.name,
+              source_type: 'ZMCC',
+            }));
+          } else {
+            const res = await fetch('/api/super-admin/procurement-sources?status=active');
+            const data = await res.json();
+            if (data.sources) {
+              list = data.sources.map((s: { id: string; name: string; sourceType?: string; source_type?: string }) => ({
+                id: String(s.id),
+                name: s.name,
+                source_type: s.sourceType || s.source_type || '',
+              }));
+            }
+          }
+          setAvailableSources(list);
+          // Sync with station context selector (?sourceId= or ?zmccId=) if chosen
+          if (urlSourceId && list.some((s) => s.id === urlSourceId)) {
+            setSelectedSourceId(urlSourceId);
           }
         } catch (err) {
           console.error('Failed to load procurement sources', err);
@@ -409,7 +442,14 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       }
     }
     loadSources();
-  }, [isSourceBound, currentUser?.role, sourceType]);
+  }, [isSourceBound, currentUser?.role, sourceType, urlSourceId]);
+
+  // Keep selectedSourceId synced when header station selector changes URL params
+  useEffect(() => {
+    if (!isSourceBound && urlSourceId && availableSources.some((s) => s.id === urlSourceId) && selectedSourceId !== urlSourceId) {
+      setSelectedSourceId(urlSourceId);
+    }
+  }, [isSourceBound, urlSourceId, availableSources, selectedSourceId]);
 
   // Load available vehicles and MOT profiles for ZMCC
   useEffect(() => {
@@ -933,10 +973,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     }
 
     const seal = target.sealNumber.trim();
-    if (!seal) {
-      errors.seal = 'Please write the seal number.';
-      if (!firstInvalidId) firstInvalidId = `portion-seal-input-${index}`;
-    } else if (getDuplicateSealMessage(portions, index)) {
+    if (seal && getDuplicateSealMessage(portions, index)) {
       errors.seal = getDuplicateSealMessage(portions, index) as string;
       if (!firstInvalidId) firstInvalidId = `portion-seal-input-${index}`;
     }
@@ -983,6 +1020,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   };
 
   const handleEditPortion = (index: number) => {
+    setDecideOpen(false);
     setEditingPortionIndex(index);
   };
 
@@ -1059,6 +1097,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       photos: Object.fromEntries(Object.keys(p.photos).map((k) => [k, true])),
     })),
     labReportTaken: Boolean(labReportPhoto),
+    labReportRequired: labReportTest ? labReportTest.photoMode === 'REQUIRED' : true,
     personDecision,
     remarks: decisionRemarks,
     deciderCanApprove,
@@ -1091,7 +1130,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const runUploads = async (queue: PendingUpload[]) => {
     if (queue.length === 0) return;
     setUploading(true);
+    setUploadStats({ total: queue.length, completed: 0 });
     const failed: PendingUpload[] = [];
+    let completedCount = 0;
     for (const item of queue) {
       try {
         const form = new FormData();
@@ -1119,6 +1160,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         );
         const r = await fetch('/api/photos', { method: 'POST', body: form });
         if (!r.ok) throw new Error('upload failed');
+        completedCount++;
+        setUploadStats({ total: queue.length, completed: completedCount });
       } catch {
         failed.push(item);
       }
@@ -1130,7 +1173,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const buildPayloadPortions = (isoDispatchTimestamp: string | undefined) =>
     portions.map((p) => ({
       portionNumber: p.portionNumber,
-      seal_number: p.sealNumber.trim(),
+      seal_number: p.sealNumber.trim() || null,
       quantity: {
         value: Number(p.quantity.value),
         unit: p.quantity.unit,
@@ -1366,14 +1409,27 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     if (labReportPhoto) URL.revokeObjectURL(labReportPhoto.previewUrl);
     setResult(null);
     setUploadQueue([]);
+    setUploadStats({ total: 0, completed: 0 });
     setLabReportPhoto(null);
+    setLabReportCamera(false);
     setPersonDecision(null);
     setDecisionRemarks('');
     setNeedsRequest(null);
     setSubmitError(null);
     setSealServerError(null);
     setReopenedNote(null);
+    setDecideOpen(false);
+    setShowWhy(false);
+    setFormStep(0);
+    setTestMode('COMPOSITE');
     setVehicleNumber('');
+    setVehicleNumberError(null);
+    setMotError(null);
+    setDriverError(null);
+    setVehicleQuantityError(null);
+    setSelectedMotVehicleId('');
+    setSelectedMotProfileId('');
+    setDriverName('');
     setRawMilkDispatchNoteNumber('');
     setVehicleQuantity((prev) => ({ ...prev, value: '' }));
     setVehicleLr('');
@@ -1449,12 +1505,12 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
           {result.status === 'PENDING_APPROVAL' && (
             <p className="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3">
-              Some test values are out of spec. A review request went to the {result.approverLabel} for approval.
+              Sent to {result.approverLabel} for approval because exceptions or missing requirements were found.
             </p>
           )}
 
           {result.totals && (
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,6rem),1fr))] gap-2 pt-2 text-left">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-left">
               <div className="bg-card border-border p-3 rounded-xl border">
                 <div className="text-xs font-semibold text-muted-foreground">Gross Litres</div>
                 <div className="text-sm font-semibold text-foreground tabular-nums mt-0.5">{fmtL(result.totals.grossLiters)}</div>
@@ -1481,27 +1537,25 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             </div>
           )}
 
-          {uploadQueue.length > 0 && (
-            <div className="bg-card border-border p-3 rounded-xl border text-left text-xs space-y-1">
-              <div className="font-semibold text-secondary-foreground flex items-center space-x-1.5">
-                {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
-                <span>{uploading ? 'Uploading pictures…' : 'All pictures uploaded'}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {uploadQueue.length} photo(s) in queue
-              </p>
-            </div>
+          {uploadStats.total > 0 && (
+            <BatchUploadProgress
+              total={uploadStats.total}
+              completed={uploadStats.completed}
+              isUploading={uploading}
+            />
           )}
 
           <div className="pt-2">
-            <button
+            <Button
               type="button"
+              variant="default"
+              size="lg"
               onClick={startNextDispatch}
-              className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-primary-hover text-white font-semibold text-sm shadow-xs hover:bg-blue-800 transition flex items-center justify-center space-x-2"
+              className="w-full"
             >
               <Undo2 className="w-4 h-4" />
               <span>New dispatch</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1542,7 +1596,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             </button>
           )}
 
-          <div className="bg-card border-border flex items-center space-x-2 px-3 py-2 rounded-xl border-strong">
+          <div className="bg-card flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl border border-border-strong">
             <span className="text-xs font-semibold text-muted-foreground">Source:</span>
             <span className="text-xs font-semibold text-primary-hover tabular-nums">
               {effectiveSource ? effectiveSource.name : (isSourceBound ? 'Loading source…' : 'None')}
@@ -1569,7 +1623,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         </div>
 
         <div className="w-full lg:col-span-7 space-y-5 order-1 lg:order-2">
-          <nav aria-label="Dispatch steps" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+          <nav aria-label="Dispatch steps" className="grid grid-cols-2 gap-2">
             {(['1. Vehicle', '2. Portions'] as const).map((label, i) => (
               <button
                 key={label}
@@ -1640,7 +1694,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           {/* Test Mode Selector */}
           <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border-strong shadow-xs space-y-2">
             <label className="block text-xs font-semibold text-secondary-foreground">Test mode</label>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => handleTestModeChange('COMPOSITE')}
@@ -1700,6 +1754,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             onPhotoChange={setLabReportPhoto}
             cameraOpen={labReportCamera}
             onCameraOpenChange={setLabReportCamera}
+            required={labReportTest ? labReportTest.photoMode === 'REQUIRED' : true}
             stamp={stamp}
           />
 
@@ -1802,40 +1857,42 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             </div>
           )}
 
-          <div className="flex items-stretch gap-2">
-          {formStep !== 0 && showWarning && (
-            <button
+          <div className="flex w-full items-stretch justify-end gap-2">
+            {formStep !== 0 && showWarning && (
+              <button
+                type="button"
+                onClick={() => setShowWhy((v) => !v)}
+                aria-label="Show what needs attention"
+                aria-expanded={showWhy}
+                className="flex min-h-14 min-w-14 shrink-0 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 text-amber-600 transition hover:bg-amber-100 active:scale-[0.97] active:bg-amber-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2"
+              >
+                <AlertTriangle className="h-6 w-6" />
+              </button>
+            )}
+            <Button
               type="button"
-              onClick={() => setShowWhy((v) => !v)}
-              aria-label="Show what needs attention"
-              aria-expanded={showWhy}
-              className="min-h-14 min-w-14 shrink-0 rounded-xl border border-amber-300 bg-amber-50 text-amber-600 flex items-center justify-center"
+              variant="default"
+              size="lg"
+              loading={isSubmitting}
+              loadingText="Submitting…"
+              disabled={isSubmitting}
+              onClick={() => (formStep === 0 ? handleNextToPortions() : handleOpenDecide())}
+              className="min-h-14 h-auto min-w-0 flex-1 shrink whitespace-normal rounded-xl px-5 py-2.5 text-base font-semibold sm:flex-initial sm:min-w-[260px] sm:px-8"
             >
-              <AlertTriangle className="w-6 h-6" />
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => (formStep === 0 ? handleNextToPortions() : handleOpenDecide())}
-            className={cn(
-              'min-h-14 w-full rounded-xl text-base font-semibold text-white shadow-xs transition flex items-center justify-center gap-2',
-              'bg-primary hover:bg-primary-hover'
-            )}
-          >
-            {formStep === 0 ? (
-              'Next: Portions'
-            ) : goesToApprover ? (
-              <>
-                <Send className="w-4 h-4" />
-                <span>Review & Send Request to {approverLabel}</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                <span>Dispatch</span>
-              </>
-            )}
-          </button>
+              {formStep === 0 ? (
+                'Next: Portions'
+              ) : goesToApprover ? (
+                <>
+                  <Send className="h-4 w-4" />
+                  <span>Review & Send Request to {approverLabel}</span>
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  <span>Dispatch</span>
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </div>

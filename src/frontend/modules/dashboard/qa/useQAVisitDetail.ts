@@ -16,6 +16,8 @@ import {
   TestInputState,
 } from './QATestingSection';
 
+const EMPTY_TEST_INPUTS: Record<string, TestInputState> = {};
+
 /**
  * Loaded detail of the visit under test: portions, per-test inputs, seal / photo / decision maps and the
  * derived accountability metrics used by the testing form.
@@ -26,26 +28,41 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
   const [visitDetail, setVisitDetail] = useState<VisitDetail | null>(null);
   const [activePortionIndex, setActivePortionIndex] = useState<number>(0);
 
-  // Per-test form state: testId → TestInputState
-  const [testInputs, setTestInputs] = useState<Record<string, TestInputState>>({});
+  // Per-test form state: portionId → testId → TestInputState
+  const [testInputsByPortion, setTestInputsByPortion] = useState<Record<string, Record<string, TestInputState>>>({});
   const [enteredSealMap, setEnteredSealMap] = useState<Record<string, string>>({});
   const [photoStatesMap, setPhotoStatesMap] = useState<Record<string, Record<string, string>>>({});
   const [personDecisionMap, setPersonDecisionMap] = useState<Record<string, PersonDecision | null>>({});
   const [decisionRemarksMap, setDecisionRemarksMap] = useState<Record<string, string>>({});
+  const [savedPortionsMap, setSavedPortionsMap] = useState<Record<string, boolean>>({});
+
+  const activePortion = visitDetail?.portions?.[activePortionIndex] ?? null;
+  const testInputs = useMemo(
+    () => (activePortion?.id ? (testInputsByPortion[activePortion.id] ?? EMPTY_TEST_INPUTS) : EMPTY_TEST_INPUTS),
+    [activePortion?.id, testInputsByPortion]
+  );
 
   const [isRefreshingVisit, setIsLoadingVisit] = useState(false);
   // Visit whose detail request last settled; a different selection means it is still loading.
   const [loadedVisitId, setLoadedVisitId] = useState<string | null>(null);
   const isLoadingVisit = isRefreshingVisit || (selectedTestingVisitId !== null && loadedVisitId !== selectedTestingVisitId);
 
-  // Clearing the visit under test clears its detail.
-  const [trackedTestingVisitId, setTrackedTestingVisitId] = useState(selectedTestingVisitId);
-  if (trackedTestingVisitId !== selectedTestingVisitId) {
-    setTrackedTestingVisitId(selectedTestingVisitId);
-    if (!selectedTestingVisitId) setVisitDetail(null);
-  }
+  // Clearing / switching the visit under test clears previous vehicle's client draft maps.
+  useEffect(() => {
+    setActivePortionIndex(0);
+    setTestInputsByPortion({});
+    setEnteredSealMap({});
+    setPhotoStatesMap({});
+    setPersonDecisionMap({});
+    setDecisionRemarksMap({});
+    setSavedPortionsMap({});
+    if (!selectedTestingVisitId) {
+      setVisitDetail(null);
+      setLoadedVisitId(null);
+    }
+  }, [selectedTestingVisitId]);
 
-  const populateInputsForPortion = (portion: VisitDetailPortion, plantTests: LabTestDef[]) => {
+  const buildInputsForPortion = (portion: VisitDetailPortion, plantTests: LabTestDef[]): Record<string, TestInputState> => {
     const inputs: Record<string, TestInputState> = {};
 
     plantTests.forEach((test) => {
@@ -67,9 +84,61 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
       }
     });
 
-    setTestInputs(inputs);
+    return inputs;
+  };
+
+  const syncAllPortionsFromVisit = (visit: VisitDetail, overwrite = false) => {
+    const plantTests = visit.active_plant_tests || [];
+    setTestInputsByPortion((prev) => {
+      const next: Record<string, Record<string, TestInputState>> = {};
+      for (const p of visit.portions) {
+        const shouldKeepExisting =
+          !overwrite &&
+          prev[p.id] &&
+          p.plant_decision !== 'ACCEPTED' &&
+          p.plant_decision !== 'REJECTED';
+        next[p.id] = shouldKeepExisting ? prev[p.id] : buildInputsForPortion(p, plantTests);
+      }
+      return next;
+    });
+
+    setEnteredSealMap((prev) => {
+      const next = { ...prev };
+      for (const p of visit.portions) {
+        if (p.plant_seal_number_entered && (overwrite || !next[p.id])) {
+          next[p.id] = p.plant_seal_number_entered;
+        }
+      }
+      return next;
+    });
+
+    setPhotoStatesMap((prev) => {
+      const next = { ...prev };
+      for (const p of visit.portions) {
+        const portionPhotos: Record<string, string> = {};
+        p.plant_results?.forEach((pr: SavedPlantResult & { photo_url?: string; photoUrl?: string }) => {
+          const pUrl = pr.photoUrl || pr.photo_url;
+          if (pUrl) portionPhotos[pr.testId] = pUrl;
+        });
+        if (Object.keys(portionPhotos).length > 0) {
+          next[p.id] = { ...portionPhotos, ...(overwrite ? {} : next[p.id] ?? {}) };
+        }
+      }
+      return next;
+    });
+  };
+
+  const populateInputsForPortion = (portion: VisitDetailPortion, plantTests: LabTestDef[], overwrite = false) => {
+    setTestInputsByPortion((prev) => {
+      const existing = !overwrite ? prev[portion.id] : undefined;
+      if (existing && Object.keys(existing).length > 0) return prev;
+      return { ...prev, [portion.id]: buildInputsForPortion(portion, plantTests) };
+    });
     if (portion.plant_seal_number_entered) {
-      setEnteredSealMap((prev) => ({ ...prev, [portion.id]: portion.plant_seal_number_entered! }));
+      setEnteredSealMap((prev) => ({
+        ...prev,
+        [portion.id]: (!overwrite && prev[portion.id]) ? prev[portion.id] : portion.plant_seal_number_entered!,
+      }));
     }
     const portionPhotos: Record<string, string> = {};
     portion.plant_results?.forEach((pr: SavedPlantResult & { photo_url?: string; photoUrl?: string }) => {
@@ -77,7 +146,10 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
       if (pUrl) portionPhotos[pr.testId] = pUrl;
     });
     if (Object.keys(portionPhotos).length > 0) {
-      setPhotoStatesMap((prev) => ({ ...prev, [portion.id]: portionPhotos }));
+      setPhotoStatesMap((prev) => ({
+        ...prev,
+        [portion.id]: overwrite ? portionPhotos : { ...portionPhotos, ...(prev[portion.id] ?? {}) },
+      }));
     }
   };
 
@@ -91,8 +163,10 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
       if (!data || !data.visit) throw new Error('Failed to fetch visit detail');
 
       setVisitDetail(data.visit);
-      if (data.visit?.portions && data.visit.portions.length > activePortionIndex) {
-        populateInputsForPortion(data.visit.portions[activePortionIndex], data.visit.active_plant_tests || []);
+      syncAllPortionsFromVisit(data.visit, true);
+      if (data.visit?.portions && data.visit.portions.length > 0) {
+        const idx = Math.min(activePortionIndex, data.visit.portions.length - 1);
+        populateInputsForPortion(data.visit.portions[idx], data.visit.active_plant_tests || [], true);
       }
     } catch (err) {
       toast.showError(getErrorMessage(err), 'Failed to Load Visit');
@@ -104,8 +178,9 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
   const applyLoadedVisit = useEffectEvent((visit: VisitDetail | null | undefined) => {
     if (visit) {
       setVisitDetail(visit);
+      syncAllPortionsFromVisit(visit, true);
       if (visit.portions && visit.portions.length > 0) {
-        populateInputsForPortion(visit.portions[0], visit.active_plant_tests || []);
+        populateInputsForPortion(visit.portions[0], visit.active_plant_tests || [], true);
       }
     } else {
       setVisitDetail(null);
@@ -136,47 +211,61 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
   const handleSelectPortion = (index: number) => {
     if (!visitDetail || !visitDetail.portions[index]) return;
     setActivePortionIndex(index);
-    populateInputsForPortion(visitDetail.portions[index], visitDetail.active_plant_tests || []);
+    populateInputsForPortion(visitDetail.portions[index], visitDetail.active_plant_tests || [], false);
+  };
+
+  const updateActivePortionTestInput = (
+    testId: string,
+    patch: Partial<TestInputState>,
+    defaults: TestInputState
+  ) => {
+    const portionId = activePortion?.id;
+    if (!portionId) return;
+    setTestInputsByPortion((prev) => {
+      const curMap = prev[portionId] || {};
+      return {
+        ...prev,
+        [portionId]: {
+          ...curMap,
+          [testId]: {
+            ...(curMap[testId] || defaults),
+            ...patch,
+          },
+        },
+      };
+    });
   };
 
   const handleTestPerformanceStatusChange = (testId: string, status: TestPerformanceStatus) => {
-    setTestInputs((prev) => ({
-      ...prev,
-      [testId]: {
-        ...(prev[testId] || { numericValue: '', textValue: '', notPerformedReason: '' }),
-        performanceStatus: status,
-      },
-    }));
+    updateActivePortionTestInput(
+      testId,
+      { performanceStatus: status },
+      { performanceStatus: status, numericValue: '', textValue: '', notPerformedReason: '' }
+    );
   };
 
   const handleTestNumericChange = (testId: string, val: string) => {
-    setTestInputs((prev) => ({
-      ...prev,
-      [testId]: {
-        ...(prev[testId] || { performanceStatus: 'PERFORMED', notPerformedReason: '', textValue: '' }),
-        numericValue: val,
-      },
-    }));
+    updateActivePortionTestInput(
+      testId,
+      { numericValue: val },
+      { performanceStatus: 'PERFORMED', notPerformedReason: '', numericValue: val, textValue: '' }
+    );
   };
 
   const handleTestTextChange = (testId: string, val: string) => {
-    setTestInputs((prev) => ({
-      ...prev,
-      [testId]: {
-        ...(prev[testId] || { performanceStatus: 'PERFORMED', notPerformedReason: '', numericValue: '' }),
-        textValue: val,
-      },
-    }));
+    updateActivePortionTestInput(
+      testId,
+      { textValue: val },
+      { performanceStatus: 'PERFORMED', notPerformedReason: '', numericValue: '', textValue: val }
+    );
   };
 
   const handleTestReasonChange = (testId: string, val: string) => {
-    setTestInputs((prev) => ({
-      ...prev,
-      [testId]: {
-        ...(prev[testId] || { performanceStatus: 'NOT_PERFORMED', numericValue: '', textValue: '' }),
-        notPerformedReason: val,
-      },
-    }));
+    updateActivePortionTestInput(
+      testId,
+      { notPerformedReason: val },
+      { performanceStatus: 'NOT_PERFORMED', numericValue: '', textValue: '', notPerformedReason: val }
+    );
   };
 
   // ─── Derived accountability metrics ────────────────────────────────────────
@@ -236,7 +325,6 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
   };
 
   // Active portion scoped accessors
-  const activePortion = visitDetail?.portions?.[activePortionIndex] ?? null;
 
   // Private server draft of the open portion: the same login continues on any device. Never a result.
   const draftPortionId = activePortion?.id ?? null;
@@ -265,10 +353,16 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
       // Opening: fill only what is still empty. Another device saved: its typed values win, nothing typed here is blanked.
       const take = (local: string | undefined, incoming: string | undefined) =>
         incoming && incoming.trim() !== '' && (reason === 'stale' || !local || local.trim() === '') ? incoming : local ?? '';
-      setTestInputs((prev) => {
-        const next = { ...prev };
-        for (const testId of Object.keys(prev)) {
-          const cur = prev[testId];
+      setTestInputsByPortion((prevMap) => {
+        let base = prevMap[draftPortionId];
+        if (!base) {
+          const targetPortion = visitDetail?.portions.find((p) => p.id === draftPortionId);
+          if (!targetPortion) return prevMap;
+          base = buildInputsForPortion(targetPortion, visitDetail?.active_plant_tests || []);
+        }
+        const next = { ...base };
+        for (const testId of Object.keys(base)) {
+          const cur = base[testId];
           next[testId] = {
             performanceStatus: (remote.values[`s:${testId}`] as TestPerformanceStatus) || cur.performanceStatus,
             notPerformedReason: take(cur.notPerformedReason, remote.values[`r:${testId}`]),
@@ -276,7 +370,7 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
             textValue: take(cur.textValue, remote.values[`t:${testId}`]),
           };
         }
-        return next;
+        return { ...prevMap, [draftPortionId]: next };
       });
       if (remote.values.seal) {
         setEnteredSealMap((prev) => ({ ...prev, [draftPortionId]: take(prev[draftPortionId], remote.values.seal) }));
@@ -289,6 +383,7 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
       }
     },
   });
+
   // Once the open portion is decided its draft is no longer needed: stop saving and remove the phone's copy.
   const portionDecided = activePortion?.plant_decision === 'ACCEPTED' || activePortion?.plant_decision === 'REJECTED';
   useEffect(() => {
@@ -303,6 +398,8 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
     setActivePortionIndex,
     activePortion,
     testInputs,
+    testInputsByPortion,
+    setTestInputsByPortion,
     enteredSealMap,
     setEnteredSealMap,
     photoStatesMap,
@@ -311,6 +408,8 @@ export function useQAVisitDetail(selectedTestingVisitId: string | null) {
     setPersonDecisionMap,
     decisionRemarksMap,
     setDecisionRemarksMap,
+    savedPortionsMap,
+    setSavedPortionsMap,
     isLoadingVisit,
     populateInputsForPortion,
     fetchVisitDetail,

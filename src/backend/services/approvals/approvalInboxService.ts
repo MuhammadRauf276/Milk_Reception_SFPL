@@ -13,6 +13,7 @@ import {
   type OperationalStage,
 } from '@/backend/services/escalation/approvalMatrix';
 import { exceptionReasonText, reasonCodes, reasonLabels, testNameLookup } from '@/lib/exceptionReasons';
+import { getEffectivePolicy } from '@/backend/services/testPointPolicyService';
 
 export type SlaStatus = 'NORMAL' | 'WARNING' | 'BREACHED';
 
@@ -20,10 +21,16 @@ export interface TestValueSnapshot {
   code: string;
   name: string;
   value: string | number | null;
+  unit?: string | null;
   min?: number | null;
   max?: number | null;
+  allowed?: string[] | null;
   pass?: boolean | null;
   outcome?: string | null;
+  testMode?: string | null;
+  ruleMode?: string | null;
+  photoMode?: string | null;
+  hasPhoto?: boolean;
 }
 
 export interface PhotoSnapshot {
@@ -131,24 +138,115 @@ function calculateSla(submittedAt: Date): { waitingMinutes: number; slaStatus: S
   return { waitingMinutes, slaStatus };
 }
 
-type StoredTest = { testCode?: string; testName?: string; value?: unknown; textValue?: unknown; outcome?: string };
+type StoredTest = {
+  labTestId?: string;
+  testCode?: string;
+  testName?: string;
+  unit?: string | null;
+  value?: unknown;
+  textValue?: unknown;
+  outcome?: string;
+  testMode?: string | null;
+  ruleMode?: string | null;
+  photoMode?: string | null;
+  photoCaptureId?: string | null;
+  min?: number | null;
+  max?: number | null;
+  allowed?: string[] | null;
+};
 
 /** Test rows as stored with the decision ({ testCode, testName, value, outcome }). */
 function storedTests(value: unknown): StoredTest[] {
   return Array.isArray(value) ? value.filter((t): t is StoredTest => !!t && typeof t === 'object') : [];
 }
 
-/** Stored test rows as shown in the request. The outcome is the one saved with the decision, never re-judged here. */
-function testValuesFrom(tests: StoredTest[], prefix = ''): TestValueSnapshot[] {
-  return tests
-    .filter((t) => t.outcome !== 'NOT_TESTED' || t.value !== null || t.textValue !== null)
-    .map((t) => ({
+function hasStoredVal(t: StoredTest): boolean {
+  const hasNum = t.value !== null && t.value !== undefined && String(t.value).trim() !== '';
+  const hasText = t.textValue !== null && t.textValue !== undefined && String(t.textValue).trim() !== '';
+  return hasNum || hasText;
+}
+
+/** Stored test rows as shown in the request. Unperformed tests stay NOT_TESTED and never render as PASS. */
+export function testValuesFrom(tests: StoredTest[], prefix = '', uploadedLabTestIds?: Set<string>): TestValueSnapshot[] {
+  const isEmptyMarker = (v: unknown) => {
+    if (v === null || v === undefined) return true;
+    const s = String(v).trim();
+    const upper = s.toUpperCase();
+    return s === '' || s === '—' || s === '-' || upper === 'NOT_TESTED' || upper === 'NOT_PERFORMED';
+  };
+  return tests.map((t) => {
+    const hasNum = !isEmptyMarker(t.value);
+    const hasText = !isEmptyMarker(t.textValue);
+    const hasVal = hasNum || hasText;
+    const rawOutcome =
+      !hasVal || t.outcome === 'NOT_TESTED' || t.outcome === 'NOT_PERFORMED'
+        ? 'NOT_TESTED'
+        : (t.outcome ?? 'PASS');
+    return {
       code: t.testCode || 'TEST',
       name: `${prefix}${t.testName || t.testCode || 'Test'}`,
-      value: t.value !== null && t.value !== undefined ? (t.value as string | number) : ((t.textValue as string | number | null) ?? null),
-      outcome: typeof t.outcome === 'string' ? t.outcome : undefined,
-      pass: t.outcome === 'FAIL' ? false : t.outcome === 'PASS' ? true : null,
-    }));
+      value: hasNum ? (t.value as string | number) : hasText ? (t.textValue as string) : null,
+      unit: t.unit ?? null,
+      min: t.min ?? null,
+      max: t.max ?? null,
+      allowed: Array.isArray(t.allowed) ? t.allowed : null,
+      outcome: rawOutcome,
+      pass: rawOutcome === 'FAIL' ? false : rawOutcome === 'PASS' ? true : null,
+      testMode: t.testMode ?? null,
+      ruleMode: t.ruleMode ?? null,
+      photoMode: t.photoMode ?? null,
+      hasPhoto: Boolean(t.photoCaptureId) || Boolean(t.labTestId && uploadedLabTestIds?.has(t.labTestId)),
+    };
+  });
+}
+
+/** Ensures stored compulsory test / photo omissions surface in reasons even for historical records. */
+export function enrichExceptionCodes(
+  value: unknown,
+  tests: StoredTest[] = [],
+  opts?: {
+    uploadedLabTestIds?: Set<string>;
+    labReportRequired?: boolean;
+    labReportCaptured?: boolean;
+  }
+): string[] {
+  const codes = [...reasonCodes(value)];
+  const hasPictureCode = codes.some(
+    (c) =>
+      c === 'PICTURE_MISSING' ||
+      c === 'PHOTO_MISSING' ||
+      c.startsWith('PICTURE_MISSING:') ||
+      c.startsWith('PHOTO_MISSING:')
+  );
+  if (!hasPictureCode) {
+    const missingRequiredPhoto = tests.some(
+      (t) =>
+        t.photoMode === 'REQUIRED' &&
+        !t.photoCaptureId &&
+        !(t.labTestId && opts?.uploadedLabTestIds?.has(t.labTestId))
+    );
+    if (missingRequiredPhoto) {
+      codes.push('PICTURE_MISSING');
+    }
+  }
+  if (
+    opts?.labReportRequired &&
+    !opts?.labReportCaptured &&
+    !codes.includes('LAB_REPORT_MISSING') &&
+    !codes.includes('PICTURE_MISSING')
+  ) {
+    codes.push('LAB_REPORT_MISSING');
+  }
+  const hasMissingFieldCode = codes.includes('MISSING_FIELD') || codes.includes('COMPULSORY_TEST_MISSING');
+  if (!hasMissingFieldCode) {
+    const missingCompulsoryTest = tests.some(
+      (t) => t.testMode === 'COMPULSORY' && (t.outcome === 'NOT_TESTED' || !hasStoredVal(t))
+    );
+    if (missingCompulsoryTest) {
+      codes.push('MISSING_FIELD');
+    }
+  }
+  return Array.from(new Set(codes));
 }
 
 /** Chips and sentences for the reasons stored when the record was sent. */
@@ -257,16 +355,20 @@ export async function getApprovalInbox(
         const { waitingMinutes, slaStatus } = calculateSla(submittedAt);
         const detailsObj = (col.decision_details && typeof col.decision_details === 'object' ? col.decision_details : {}) as Record<string, unknown>;
 
+        const colPhotos = photosByMotId.get(col.id.toString()) || [];
+        const uploadedLabTestIds = new Set(
+          colPhotos.map((p) => p.lab_test_id?.toString()).filter((x): x is string => Boolean(x))
+        );
+
         const shopTests = storedTests(detailsObj.tests);
         const testValues: TestValueSnapshot[] = shopTests.length
-          ? testValuesFrom(shopTests)
+          ? testValuesFrom(shopTests, '', uploadedLabTestIds)
           : [
-              { code: 'LR', name: 'LR', value: col.lr !== null ? Number(col.lr) : null },
-              { code: 'FAT', name: 'Fat %', value: col.fat !== null ? Number(col.fat) : null },
+              { code: 'LR', name: 'LR', value: col.lr !== null ? Number(col.lr) : null, outcome: col.lr !== null ? 'PASS' : 'NOT_TESTED', pass: col.lr !== null ? true : null },
+              { code: 'FAT', name: 'Fat %', value: col.fat !== null ? Number(col.fat) : null, outcome: col.fat !== null ? 'PASS' : 'NOT_TESTED', pass: col.fat !== null ? true : null },
             ];
 
         // Format captured photos
-        const colPhotos = photosByMotId.get(col.id.toString()) || [];
         const mappedPhotos: PhotoSnapshot[] = colPhotos.map((p) => ({
           captureId: p.capture_id,
           labTestId: p.lab_test_id?.toString() ?? null,
@@ -279,7 +381,8 @@ export async function getApprovalInbox(
         const submitterId = col.submitted_by_user_id.toString();
         const submitterRole = submitterUser?.role || col.performed_as_role || 'MOT';
 
-        const shopReasons = describeReasons(col.exception_reasons, shopTests);
+        const enrichedShopCodes = enrichExceptionCodes(col.exception_reasons, shopTests, { uploadedLabTestIds });
+        const shopReasons = describeReasons(enrichedShopCodes, shopTests);
         const reasons = shopReasons.chips.length ? shopReasons.chips : ['Sent for review'];
 
         const item: UnifiedApprovalItem = {
@@ -540,7 +643,15 @@ export async function getApprovalInbox(
           lab_session: {
             include: {
               zmcc: true,
-              mot_arrival: true,
+              mot_arrival: {
+                include: {
+                  journey: {
+                    select: {
+                      mot_vehicle: { select: { vehicle_number: true } },
+                    },
+                  },
+                },
+              },
               local_supplier_arrival: true,
             },
           },
@@ -570,15 +681,18 @@ export async function getApprovalInbox(
         const { waitingMinutes, slaStatus } = calculateSla(submittedAt);
         const detailsObj = (portion.decision_details && typeof portion.decision_details === 'object' ? portion.decision_details : {}) as Record<string, unknown>;
 
+        const pPhotos = photosByPortionId.get(portion.id.toString()) || [];
+        const uploadedLabTestIds = new Set(
+          pPhotos.map((p) => p.lab_test_id?.toString()).filter((x): x is string => Boolean(x))
+        );
         const portionTests = storedTests(detailsObj.tests);
         const testValues: TestValueSnapshot[] = portionTests.length
-          ? testValuesFrom(portionTests)
+          ? testValuesFrom(portionTests, '', uploadedLabTestIds)
           : [
-              { code: 'LR', name: 'LR', value: portion.lr !== null ? Number(portion.lr) : null },
-              { code: 'FAT', name: 'Fat %', value: portion.fat !== null ? Number(portion.fat) : null },
+              { code: 'LR', name: 'LR', value: portion.lr !== null ? Number(portion.lr) : null, outcome: portion.lr !== null ? 'PASS' : 'NOT_TESTED', pass: portion.lr !== null ? true : null },
+              { code: 'FAT', name: 'Fat %', value: portion.fat !== null ? Number(portion.fat) : null, outcome: portion.fat !== null ? 'PASS' : 'NOT_TESTED', pass: portion.fat !== null ? true : null },
             ];
 
-        const pPhotos = photosByPortionId.get(portion.id.toString()) || [];
         const mappedPhotos: PhotoSnapshot[] = pPhotos.map((p) => ({
           captureId: p.capture_id,
           labTestId: p.lab_test_id?.toString() ?? null,
@@ -593,15 +707,24 @@ export async function getApprovalInbox(
         const submitterId = portion.created_by_user_id?.toString() || submitterUser?.id?.toString() || '';
         const submitterRole = submitterUser?.role || portion.performed_as_role || 'ZMCC_LAB_ATTENDANT';
 
-        const token = session?.mot_arrival?.zmcc_token || session?.local_supplier_arrival?.zmcc_token || `SES-${session?.id}`;
-        const portionReasons = describeReasons(portion.exception_reasons, portionTests);
+        const token =
+          session?.mot_arrival?.zmcc_token ||
+          session?.mot_arrival?.raw_milk_token_number ||
+          session?.local_supplier_arrival?.zmcc_token ||
+          `SES-${session?.id}`;
+        const portionVehicleNum =
+          session?.mot_arrival?.journey?.mot_vehicle?.vehicle_number ||
+          session?.local_supplier_arrival?.vehicle_number ||
+          null;
+        const enrichedPortionCodes = enrichExceptionCodes(portion.exception_reasons, portionTests, { uploadedLabTestIds });
+        const portionReasons = describeReasons(enrichedPortionCodes, portionTests);
         const reasons = portionReasons.chips.length ? portionReasons.chips : ['Sent for review'];
 
         items.push({
           id: `lab_portion_${portion.id}`,
           stage: 'STAGE_2',
           approvalType: 'STAGE_2_PORTION_EXCEPTION',
-          referenceNumber: `Token: ${token} (Portion ${portion.portion_number})`,
+          referenceNumber: `Token: ${token}${portionVehicleNum ? ` (${portionVehicleNum})` : ''} · Portion ${portion.portion_number}`,
           sourceId: zmccId,
           sourceName: zmccName,
           zmccId,
@@ -622,6 +745,7 @@ export async function getApprovalInbox(
             entityTitle: `Session #${session?.id} · Portion ${portion.portion_number} (${session?.arrival_type || 'Intake'})`,
             sourceName: zmccName,
             sourceType: 'ZMCC',
+            vehicleNumber: portionVehicleNum,
             grossLiters: Number(portion.gross_liters || 0),
             testValues,
             reasons: portionReasons.sentences,
@@ -693,6 +817,7 @@ export async function getApprovalInbox(
           },
           results: {
             orderBy: { display_order_snapshot: 'asc' },
+            include: { applied_rule: true },
           },
         },
         orderBy: statusFilter === 'DECIDED' ? { manager_reviewed_at: 'desc' } : { manager_review_requested_at: 'asc' },
@@ -703,13 +828,34 @@ export async function getApprovalInbox(
         const submittedAt = sess.manager_review_requested_at || sess.completed_at || sess.created_at;
         const { waitingMinutes, slaStatus } = calculateSla(submittedAt);
 
-        const testValues: TestValueSnapshot[] = sess.results.map((r) => ({
-          code: r.test_code_snapshot || 'TEST',
-          name: r.test_name_snapshot || 'Lab Test',
-          value: r.numeric_value !== null ? Number(r.numeric_value) : r.text_value,
-          pass: r.is_passed,
-          outcome: r.is_passed === true ? 'PASS' : r.is_passed === false ? 'FAIL' : null,
-        }));
+        const testValues: TestValueSnapshot[] = sess.results.map((r) => {
+          const hasNum = r.numeric_value !== null && r.numeric_value !== undefined;
+          const textStr = r.text_value?.trim() || '';
+          const textUpper = textStr.toUpperCase();
+          const hasText = textStr !== '' && textStr !== '—' && textStr !== '-' && textUpper !== 'NOT_TESTED' && textUpper !== 'NOT_PERFORMED';
+          const hasVal = hasNum || hasText;
+          const outcome = !hasVal || r.evaluation_status === 'PENDING'
+            ? 'NOT_TESTED'
+            : r.is_passed === false || r.evaluation_status === 'OUT_OF_SPEC'
+              ? 'FAIL'
+              : r.evaluation_status === 'WARNING'
+                ? 'WARN'
+                : r.is_passed === true || r.evaluation_status === 'EVALUATED'
+                  ? 'PASS'
+                  : 'NEUTRAL';
+          return {
+            code: r.test_code_snapshot || 'TEST',
+            name: r.test_name_snapshot || 'Lab Test',
+            value: hasNum ? Number(r.numeric_value) : hasText ? r.text_value : null,
+            unit: r.unit_snapshot ?? null,
+            min: r.applied_rule?.min_value !== null && r.applied_rule?.min_value !== undefined ? Number(r.applied_rule.min_value) : null,
+            max: r.applied_rule?.max_value !== null && r.applied_rule?.max_value !== undefined ? Number(r.applied_rule.max_value) : null,
+            pass: !hasVal ? null : outcome === 'FAIL' ? false : outcome === 'PASS' ? true : null,
+            outcome,
+            testMode: r.is_required_snapshot ? 'COMPULSORY' : 'OPTIONAL',
+            ruleMode: r.applied_rule ? 'APPLY' : 'OFF',
+          };
+        });
 
         const zmccId = sess.zmcc_id.toString();
         const zmccName = sess.zmcc?.name || 'ZMCC';
@@ -717,15 +863,30 @@ export async function getApprovalInbox(
         const submitterId = submitterUser?.id?.toString() || '';
         const submitterRole = submitterUser?.role || sess.completed_as_role || 'ZMCC_LAB_ATTENDANT';
 
-        const token = sess.mot_arrival?.zmcc_token || sess.local_supplier_arrival?.zmcc_token || `SES-${sess.id}`;
+        const token =
+          sess.mot_arrival?.zmcc_token ||
+          sess.mot_arrival?.raw_milk_token_number ||
+          sess.local_supplier_arrival?.zmcc_token ||
+          `SES-${sess.id}`;
         const vehicleNum = sess.mot_arrival?.journey?.mot_vehicle?.vehicle_number || sess.local_supplier_arrival?.vehicle_number;
 
-        const failedSessionTests = sess.results.filter((r) => r.is_passed === false);
+        const failedSessionTests = sess.results.filter((r) => r.is_passed === false || r.evaluation_status === 'OUT_OF_SPEC');
+        const missingReqSessionTests = sess.results.filter(
+          (r) => r.is_required_snapshot && r.numeric_value === null && (!r.text_value || r.text_value.trim() === '')
+        );
         const sessionSentences = failedSessionTests.map((r) => `${r.test_name_snapshot || r.test_code_snapshot || 'A test'} is outside the SOP range.`);
+        if (missingReqSessionTests.length > 0) {
+          sessionSentences.push('A compulsory test was not done.');
+        }
         if (sess.rejection_reason) sessionSentences.push(sess.rejection_reason);
-        const reasons = failedSessionTests.length
-          ? [failedSessionTests.length > 1 ? `Out of range ×${failedSessionTests.length}` : 'Out of range']
-          : ['Sent for review'];
+        const sessionChips: string[] = [];
+        if (failedSessionTests.length > 0) {
+          sessionChips.push(failedSessionTests.length > 1 ? `Out of range ×${failedSessionTests.length}` : 'Out of range');
+        }
+        if (missingReqSessionTests.length > 0) {
+          sessionChips.push('Test not done');
+        }
+        const reasons = sessionChips.length ? sessionChips : ['Sent for review'];
 
         items.push({
           id: `lab_session_${sess.id}`,
@@ -916,15 +1077,31 @@ export async function getApprovalInbox(
 
       const dispDetails = (disp.dispatch_decision_details && typeof disp.dispatch_decision_details === 'object'
         ? disp.dispatch_decision_details
-        : {}) as { portions?: Array<{ portionNumber?: number; tests?: unknown }> };
+        : {}) as { portions?: Array<{ portionNumber?: number; tests?: unknown }>; labReport?: { required?: boolean; captureId?: string | null } };
       const dispPortions = Array.isArray(dispDetails.portions) ? dispDetails.portions : [];
       const dispTests = dispPortions.flatMap((p) => storedTests(p.tests));
-      const dispReasons = describeReasons(disp.dispatch_exception_reasons, dispTests);
+      const enrichedDispCodes = enrichExceptionCodes(disp.dispatch_exception_reasons, dispTests, {
+        labReportRequired: Boolean(dispDetails.labReport?.required),
+        labReportCaptured: Boolean(dispDetails.labReport?.captureId),
+      });
+      const dispReasons = describeReasons(enrichedDispCodes, dispTests);
       const reasons = dispReasons.chips.length ? dispReasons.chips : ['Sent for review'];
 
       const testValues: TestValueSnapshot[] = [
-        { code: 'WEIGHTED_LR', name: 'Weighted LR', value: disp.vehicle_dispatch_lr !== null ? Number(disp.vehicle_dispatch_lr) : null },
-        { code: 'WEIGHTED_FAT', name: 'Weighted Fat %', value: disp.vehicle_dispatch_fat !== null ? Number(disp.vehicle_dispatch_fat) : null },
+        {
+          code: 'WEIGHTED_LR',
+          name: 'Weighted LR',
+          value: disp.vehicle_dispatch_lr !== null ? Number(disp.vehicle_dispatch_lr) : null,
+          outcome: disp.vehicle_dispatch_lr !== null ? 'PASS' : 'NOT_TESTED',
+          pass: disp.vehicle_dispatch_lr !== null ? true : null,
+        },
+        {
+          code: 'WEIGHTED_FAT',
+          name: 'Weighted Fat %',
+          value: disp.vehicle_dispatch_fat !== null ? Number(disp.vehicle_dispatch_fat) : null,
+          outcome: disp.vehicle_dispatch_fat !== null ? 'PASS' : 'NOT_TESTED',
+          pass: disp.vehicle_dispatch_fat !== null ? true : null,
+        },
         ...dispPortions.flatMap((p) =>
           testValuesFrom(storedTests(p.tests), dispPortions.length > 1 ? `Portion ${p.portionNumber ?? ''} · ` : '')
         ),
@@ -1021,6 +1198,14 @@ export async function getApprovalInbox(
         take: limit,
       });
 
+      const plantPolicySnap = await getEffectivePolicy('PLANT_QA').catch(() => null);
+      const plantCellByTestId = new Map(
+        (plantPolicySnap?.cells ?? []).map((t) => [String(t.labTestId), t])
+      );
+      const plantPhotoRequiredIds = new Set(
+        (plantPolicySnap?.cells ?? []).filter((t) => t.photoMode === 'REQUIRED').map((t) => String(t.labTestId))
+      );
+
       for (const p of plantPortions) {
         const submittedAt = p.manager_review_requested_at || p.created_at;
         const { waitingMinutes, slaStatus } = calculateSla(submittedAt);
@@ -1029,31 +1214,82 @@ export async function getApprovalInbox(
         const submitterId = submitterUser?.id?.toString() || '';
         const submitterRole = submitterUser?.role || 'QA_LAB_ATTENDANT';
 
-        const testValues: TestValueSnapshot[] = p.plant_lab_results.map((r) => ({
-          code: r.lab_test?.testCode || 'TEST',
-          name: r.lab_test?.testName || 'QA Test',
-          value: r.numeric_value !== null ? Number(r.numeric_value) : r.text_value,
-          min: r.applied_rule?.min_value !== null && r.applied_rule?.min_value !== undefined ? Number(r.applied_rule.min_value) : null,
-          max: r.applied_rule?.max_value !== null && r.applied_rule?.max_value !== undefined ? Number(r.applied_rule.max_value) : null,
-          pass: r.is_passed,
-          outcome: r.is_passed === true ? 'PASS' : r.is_passed === false ? 'FAIL' : null,
-        }));
+        const testValues: TestValueSnapshot[] = p.plant_lab_results.map((r) => {
+          const hasNum = r.numeric_value !== null && r.numeric_value !== undefined;
+          const textStr = r.text_value?.trim() || '';
+          const textUpper = textStr.toUpperCase();
+          const hasText = textStr !== '' && textStr !== '—' && textStr !== '-' && textUpper !== 'NOT_TESTED' && textUpper !== 'NOT_PERFORMED';
+          const hasVal = r.performance_status !== 'NOT_PERFORMED' && (hasNum || hasText);
+          const outcome = !hasVal || r.evaluation_status === 'PENDING'
+            ? 'NOT_TESTED'
+            : r.is_passed === false || r.evaluation_status === 'OUT_OF_SPEC'
+              ? 'FAIL'
+              : r.evaluation_status === 'WARNING'
+                ? 'WARN'
+                : r.is_passed === true || r.evaluation_status === 'EVALUATED'
+                  ? 'PASS'
+                  : 'NEUTRAL';
+          const policyCell = plantCellByTestId.get(r.test_id.toString());
+          const photoReq = plantPhotoRequiredIds.has(r.test_id.toString());
+          const resolvedRuleMode = !r.applied_rule
+            ? 'OFF'
+            : r.applied_rule.rule_category === 'MONITORING'
+              ? 'WARN'
+              : policyCell?.ruleMode ?? 'APPLY';
+          return {
+            code: r.lab_test?.testCode || 'TEST',
+            name: r.lab_test?.testName || 'QA Test',
+            value: hasVal ? (hasNum ? Number(r.numeric_value) : r.text_value) : null,
+            unit: r.lab_test?.unit ?? null,
+            min: r.applied_rule?.min_value !== null && r.applied_rule?.min_value !== undefined ? Number(r.applied_rule.min_value) : null,
+            max: r.applied_rule?.max_value !== null && r.applied_rule?.max_value !== undefined ? Number(r.applied_rule.max_value) : null,
+            pass: !hasVal ? null : outcome === 'FAIL' ? false : outcome === 'PASS' ? true : null,
+            outcome,
+            testMode: policyCell?.testMode ?? 'COMPULSORY',
+            ruleMode: resolvedRuleMode,
+            photoMode: photoReq ? 'REQUIRED' : 'OFF',
+            hasPhoto: Boolean(r.photo_url),
+          };
+        });
 
-        const plantTests = p.plant_lab_results.map((r) => ({ testCode: r.lab_test?.testCode, testName: r.lab_test?.testName }));
-        const plantCodes = reasonCodes(p.exception_reasons);
-        if (p.seal_match === false && !plantCodes.includes('SEAL_MISMATCH')) plantCodes.push('SEAL_MISMATCH');
+        const plantPhotos: PhotoSnapshot[] = p.plant_lab_results
+          .filter((r) => Boolean(r.photo_url))
+          .map((r) => ({
+            captureId: r.id.toString(),
+            labTestId: r.test_id.toString(),
+            received: true,
+            testCode: r.lab_test?.testCode || null,
+            label: r.lab_test?.testName || 'QA Photo',
+            url: r.photo_url || undefined,
+          }));
+
+        const plantTests: StoredTest[] = p.plant_lab_results.map((r) => {
+          const policyCell = plantCellByTestId.get(r.test_id.toString());
+          return {
+            labTestId: r.test_id.toString(),
+            testCode: r.lab_test?.testCode,
+            testName: r.lab_test?.testName,
+            value: r.performance_status !== 'NOT_PERFORMED' ? (r.numeric_value !== null ? Number(r.numeric_value) : r.text_value) : null,
+            outcome: r.performance_status === 'NOT_PERFORMED' ? 'NOT_TESTED' : undefined,
+            testMode: policyCell?.testMode ?? 'COMPULSORY',
+            photoMode: plantPhotoRequiredIds.has(r.test_id.toString()) ? 'REQUIRED' : 'OFF',
+            photoCaptureId: r.photo_url ? r.id.toString() : null,
+          };
+        });
+        const plantCodes = enrichExceptionCodes(p.exception_reasons, plantTests);
         for (const r of p.plant_lab_results) {
           const code = r.lab_test?.testCode;
           if (r.is_passed === false && code && !plantCodes.includes(`RULE_FAIL:${code}`)) plantCodes.push(`RULE_FAIL:${code}`);
         }
         const plantReasons = describeReasons(plantCodes, plantTests);
         const reasons = plantReasons.chips.length ? plantReasons.chips : ['Sent for review'];
+        const tokenLabel = p.visit?.token_number ? ` · Token ${p.visit.token_number}` : '';
 
         items.push({
           id: `plant_portion_${p.id}`,
           stage: 'STAGE_4',
           approvalType: 'STAGE_4_PORTION_EXCEPTION',
-          referenceNumber: `Visit ${p.visit?.vehicle_number || p.visit_id} · P${p.portion_number}`,
+          referenceNumber: `Visit ${p.visit?.vehicle_number || p.visit_id}${tokenLabel} · P${p.portion_number}`,
           sourceId: p.visit?.procurement_source_id?.toString() || '',
           sourceName: p.visit?.procurement_source?.name || 'Plant Reception',
           submittedBy: {
@@ -1070,7 +1306,7 @@ export async function getApprovalInbox(
           canDecide: false,
           disabledReason: null,
           details: {
-            entityTitle: `Plant Reception: Vehicle ${p.visit?.vehicle_number} (Portion ${p.portion_number})`,
+            entityTitle: `Plant Reception: Vehicle ${p.visit?.vehicle_number}${tokenLabel} (Portion ${p.portion_number})`,
             sourceName: p.visit?.procurement_source?.name || 'Plant Reception',
             sourceType: 'PLANT',
             vehicleNumber: p.visit?.vehicle_number,
@@ -1079,11 +1315,13 @@ export async function getApprovalInbox(
             sealMatch: p.seal_match,
             testValues,
             reasons: plantReasons.sentences,
+            photos: plantPhotos,
             personDecision: p.manager_requested_decision === 'REJECT' ? 'REJECT' : 'ACCEPT',
             personRemarks: p.manager_review_reason,
             metadata: {
               portionId: p.id.toString(),
               visitId: p.visit_id.toString(),
+              tokenNumber: p.visit?.token_number || null,
               systemQualityOutcome: p.system_quality_outcome,
             },
           },

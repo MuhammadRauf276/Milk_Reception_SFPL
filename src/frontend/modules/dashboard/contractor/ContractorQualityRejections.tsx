@@ -70,8 +70,8 @@ const portionColumns: DataColumn<MilkProcessLog>[] = [
   },
   {
     key: 'lr',
-    header: `Plant LR (${PLANT_LR_TEST_CODE})`,
-    label: `Plant LR (${PLANT_LR_TEST_CODE})`,
+    header: 'Plant LR',
+    label: 'Plant LR',
     align: 'right',
     cell: (p) => (
       <span className="tabular-nums font-semibold text-foreground">{p.sampling_lr != null ? p.sampling_lr.toFixed(1) : '—'}</span>
@@ -79,8 +79,8 @@ const portionColumns: DataColumn<MilkProcessLog>[] = [
   },
   {
     key: 'fat',
-    header: `Plant Fat (${PLANT_FAT_TEST_CODE})`,
-    label: `Plant Fat (${PLANT_FAT_TEST_CODE})`,
+    header: 'Plant Fat',
+    label: 'Plant Fat',
     align: 'right',
     cell: (p) => (
       <span className="tabular-nums font-semibold text-foreground">
@@ -296,7 +296,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               decisionFilter === 'ALL'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-muted text-secondary-foreground hover:bg-muted'
+                : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             All ({metrics.totalPortions})
@@ -344,7 +344,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               decisionFilter === 'PENDING'
                 ? 'bg-neutral-800 text-white shadow-xs'
-                : 'bg-muted text-secondary-foreground hover:bg-muted'
+                : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             Pending ({metrics.pendingPortions})
@@ -390,8 +390,7 @@ export const ContractorQualityRejections: React.FC<ContractorQualityRejectionsPr
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground font-medium">
-                      Reception #{' '}
-                      <strong className="tabular-nums text-secondary-foreground">{v.receptionNumber}</strong> · Date:{' '}
+                      Date:{' '}
                       <strong className="tabular-nums text-secondary-foreground">{v.operationalDate || '—'}</strong> · Whole Vehicle Gross:{' '}
                       <strong className="tabular-nums text-foreground">
                         {v.grossLiters ? `${v.grossLiters.toLocaleString()} L` : '—'}

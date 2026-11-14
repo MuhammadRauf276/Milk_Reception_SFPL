@@ -41,8 +41,8 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
   activePortionIndex,
   qaOpTimestamp,
   onQaOpTimestampChange,
-
-
+  holdReason = '',
+  onHoldReasonChange,
   rejectionReason,
   onRejectionReasonChange,
   rejectionRemarks,
@@ -53,7 +53,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
   onStartTestingConfirm,
   onResumeTestingConfirm,
   onAcceptPortionConfirm,
-
+  onHoldPortionConfirm,
   onRejectPortionConfirm,
   isSubmitting,
   waitingVisits,
@@ -165,6 +165,67 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
               </form>
             )}
 
+            {activeActionModal === 'HOLD' && (
+              <form onSubmit={onHoldPortionConfirm} className="space-y-4">
+                <div className="flex items-center space-x-2.5 pb-2 border-b border-border-strong">
+                  <div className="p-2 bg-amber-600 text-white rounded-xl">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-base text-foreground">Place Portion On Hold</h3>
+                    <p className="text-xs text-secondary-foreground font-semibold">
+                      Portion #{currentPortion?.portion_number} of {visitDetail?.vehicle_number || 'Vehicle'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-foreground">
+                    Reason for Hold *
+                  </label>
+                  <textarea
+                    value={holdReason}
+                    onChange={(e) => onHoldReasonChange?.(e.target.value)}
+                    placeholder="Reason for placing testing on hold"
+                    rows={2}
+                    className="w-full min-w-0 resize-y break-words p-3 text-xs font-semibold rounded-lg border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-600 min-h-11"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-foreground">
+                    Hold time *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={qaOpTimestamp}
+                    onChange={(e) => onQaOpTimestampChange(e.target.value)}
+                    className="w-full min-h-11 px-4 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                </div>
+
+                <div className="flex items-center justify-end space-x-2 pt-3 border-t border-border-strong">
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={onCloseModal}
+                    className="min-h-11 px-4 py-2 text-xs font-semibold text-secondary-foreground hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !holdReason.trim()}
+                    className="min-h-11 px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl transition disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Placing on hold…' : 'Confirm Hold'}
+                  </button>
+                </div>
+              </form>
+            )}
+
             {activeActionModal === 'ACCEPT' && (
               <form onSubmit={onAcceptPortionConfirm} className="space-y-4">
                 <div className="flex items-center space-x-2.5 pb-2 border-b border-border-strong">
@@ -188,7 +249,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                       <div>
                         <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
                         <p className="mt-1 font-normal text-amber-900">
-                          A test failed, a photo is missing or the seal does not match. Your decision goes to <strong>AVP, Quality Assurance (QA Head)</strong> for final decision.
+                          A test failed or a compulsory photo is missing. Your decision goes to <strong>AVP, Quality Assurance (QA Head)</strong> for final decision.
                         </p>
                       </div>
                     </div>

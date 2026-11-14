@@ -211,6 +211,15 @@ export interface LabSessionRollUp {
  * All portions rejected -> the vehicle is rejected and the MOT journey is closed automatically.
  */
 export async function rollUpLabSessionTx(tx: Tx, sessionId: bigint, ctx: ActingContext): Promise<LabSessionRollUp> {
+  const initialSession = await tx.zmccLabSession.findUniqueOrThrow({
+    where: { id: sessionId },
+    include: { portions: true },
+  });
+  const initialSum = summarizePortions(initialSession.portions.map((p) => ({ finalDecision: p.final_decision })));
+  if (!initialSum.allDecided || initialSession.status === 'COMPLETED') {
+    return { ...initialSum, sessionStatus: initialSession.status, journeyClosed: !!initialSession.journey_closed_at };
+  }
+
   await tx.$queryRaw`SELECT id FROM zmcc_lab_session WHERE id = ${sessionId} FOR UPDATE`;
   const session = await tx.zmccLabSession.findUniqueOrThrow({
     where: { id: sessionId },
@@ -402,11 +411,60 @@ export async function reviewPortionException(
       return { status: 403, error: 'You cannot decide your own test.' };
     }
 
-    // Superior exception verdict is sovereign: Approve (OKAY) => ACCEPTED, Reject (NO) => REJECTED
-    const final: FinalDecision = i.verdict === 'OKAY' ? 'ACCEPTED' : 'REJECTED';
-    const reviewStatus: ReviewStatus = i.verdict === 'OKAY' ? 'APPROVED' : 'REJECTED';
     const now = new Date();
+    if (i.verdict === 'OKAY') {
+      // Honor the operator's requested decision upon Zonal Manager approval.
+      const final: FinalDecision = row.person_decision === 'REJECT' ? 'REJECTED' : 'ACCEPTED';
+      const reviewStatus: ReviewStatus = 'APPROVED';
 
+      const upd = await tx.zmccLabPortion.updateMany({
+        where: { id, version: i.version, review_status: 'PENDING' },
+        data: {
+          ...asRoleFields(ctx, 'reviewed'),
+          reviewed_by_user_id: ctx.userId,
+          reviewed_at: now,
+          review_remarks: remarks || null,
+          review_status: reviewStatus,
+          final_decision: final,
+          status: final,
+          version: { increment: 1 },
+        },
+      });
+      if (upd.count !== 1) return { status: 409, error: 'Someone already decided this. Reload.' };
+
+      await writeAuditLog(tx, {
+        tableName: 'zmcc_lab_portion',
+        recordId: id,
+        action: 'ZMCC_LAB_PORTION_EXCEPTION_REVIEWED',
+        oldValues: { review_status: row.review_status, final_decision: row.final_decision, status: row.status, version: row.version },
+        newValues: {
+          verdict: i.verdict,
+          review_status: reviewStatus,
+          final_decision: final,
+          person_decision: row.person_decision,
+          review_remarks: remarks || null,
+          lab_session_id: row.lab_session_id.toString(),
+          portion_number: row.portion_number,
+        },
+        actor: auditActorOf(ctx),
+      });
+
+      if (final === 'REJECTED') {
+        await recordRejectedMilkForDisposition(tx, {
+          portionId: id,
+          zmccId: existing.lab_session.zmcc_id,
+          summary: `session #${row.lab_session_id} portion ${row.portion_number}`,
+          actor: auditActorOf(ctx),
+        });
+      }
+      await clearHandledNotifications(tx, ['ZMCC_LAB_EXCEPTION_PENDING'], id);
+      const rollUp = await rollUpLabSessionTx(tx, row.lab_session_id, ctx);
+      const fresh = await tx.zmccLabPortion.findUniqueOrThrow({ where: { id }, include: queueInclude });
+      const photos = await loadPortionPhotos(tx, [id]);
+      return { status: 200, data: { item: toQueueItem(fresh, photos.get(id.toString()) ?? []), rollUp } };
+    }
+
+    // Manager denied (NO): return/reopen this portion to the Lab Attendant while preserving clear portions.
     const upd = await tx.zmccLabPortion.updateMany({
       where: { id, version: i.version, review_status: 'PENDING' },
       data: {
@@ -414,24 +472,36 @@ export async function reviewPortionException(
         reviewed_by_user_id: ctx.userId,
         reviewed_at: now,
         review_remarks: remarks || null,
-        review_status: reviewStatus,
-        final_decision: final,
-        status: final,
+        review_status: 'REJECTED',
+        final_decision: 'PENDING',
+        person_decision: null,
+        status: 'TESTING',
         version: { increment: 1 },
       },
     });
     if (upd.count !== 1) return { status: 409, error: 'Someone already decided this. Reload.' };
 
+    await tx.zmccLabSession.updateMany({
+      where: { id: row.lab_session_id, status: { not: 'IN_PROGRESS' } },
+      data: {
+        status: 'IN_PROGRESS',
+        decision: 'PENDING',
+        final_decision: null,
+        completed_by_user_id: null,
+        completed_at: null,
+      },
+    });
+
     await writeAuditLog(tx, {
       tableName: 'zmcc_lab_portion',
       recordId: id,
-      action: 'ZMCC_LAB_PORTION_EXCEPTION_REVIEWED',
+      action: 'ZMCC_LAB_PORTION_EXCEPTION_RETURNED',
       oldValues: { review_status: row.review_status, final_decision: row.final_decision, status: row.status, version: row.version },
       newValues: {
         verdict: i.verdict,
-        review_status: reviewStatus,
-        final_decision: final,
-        person_decision: row.person_decision,
+        review_status: 'REJECTED',
+        final_decision: 'PENDING',
+        person_decision: null,
         review_remarks: remarks || null,
         lab_session_id: row.lab_session_id.toString(),
         portion_number: row.portion_number,
@@ -439,14 +509,6 @@ export async function reviewPortionException(
       actor: auditActorOf(ctx),
     });
 
-    if (final === 'REJECTED') {
-      await recordRejectedMilkForDisposition(tx, {
-        portionId: id,
-        zmccId: existing.lab_session.zmcc_id,
-        summary: `session #${row.lab_session_id} portion ${row.portion_number}`,
-        actor: auditActorOf(ctx),
-      });
-    }
     await clearHandledNotifications(tx, ['ZMCC_LAB_EXCEPTION_PENDING'], id);
     const rollUp = await rollUpLabSessionTx(tx, row.lab_session_id, ctx);
     const fresh = await tx.zmccLabPortion.findUniqueOrThrow({ where: { id }, include: queueInclude });

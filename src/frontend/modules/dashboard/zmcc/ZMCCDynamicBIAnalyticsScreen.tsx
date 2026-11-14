@@ -276,7 +276,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
       </div>
 
       {/* Executive KPI Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3">
         <StatCard
           label="Total Procured"
           value={`${summaryKpis.totalProcuredLiters.toLocaleString()} L`}

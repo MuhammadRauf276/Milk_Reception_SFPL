@@ -305,7 +305,7 @@ export function CommandPalette({ isOpen, onClose, currentUser }: CommandPaletteP
         </div>
 
         {/* Results List */}
-        <div className="max-h-[380px] overflow-y-auto p-2 space-y-1">
+        <div className="scrollbar-thin overscroll-contain max-h-[380px] overflow-y-auto p-2 space-y-1">
           {filteredItems.length === 0 ? (
             <div className="p-8 text-center text-xs text-muted-foreground space-y-1">
               <Command className="w-6 h-6 mx-auto text-muted-foreground/60 mb-2" />
@@ -365,12 +365,12 @@ export function CommandPalette({ isOpen, onClose, currentUser }: CommandPaletteP
         </div>
 
         {/* Footer shortcuts info */}
-        <div className="px-4 py-2 bg-muted/30 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+        <div className="hidden sm:flex px-4 py-2 bg-muted/30 border-t border-border items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-3">
             <span>↑↓ Navigate</span>
             <span>↵ Select</span>
           </div>
-          <span>Milk Reception OS</span>
+          <span>Esc to close</span>
         </div>
       </div>
     </div>

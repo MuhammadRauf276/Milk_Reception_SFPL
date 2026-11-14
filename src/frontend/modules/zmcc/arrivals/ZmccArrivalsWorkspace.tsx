@@ -7,6 +7,7 @@ import { Truck, Clock, Users, Warehouse } from 'lucide-react';
 import { User } from '@backend/core/types';
 import { useToast } from '@/frontend/context/ToastContext';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
+import { useListPageSize } from '@/components/ui/pagination';
 import { fadeSlide } from '@/components/motion/presets';
 import { canActAs } from '@/backend/core/roles/hierarchy';
 import { RequestCorrectionModal, EditableFieldOption, type RequestCorrectionModalProps } from '@/frontend/modules/governance/RequestCorrectionModal';
@@ -58,17 +59,23 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const openRequestCorrection = (type: 'MC' | 'HC', record: McArrivalRow | HcArrivalRow) => {
     const fields: EditableFieldOption[] = [];
     let moduleName: RequestCorrectionModalProps['module'] = 'ZMCC_MC_ARRIVAL';
-    let label = `Arrival #${record.id}`;
+    let label = 'Arrival Record';
 
     if (type === 'MC') {
       const r = record as McArrivalRow;
       moduleName = 'ZMCC_MC_ARRIVAL';
-      label = `Mobile Tester Arrival (Token: ${r.zmcc_token || r.id})`;
+      label = r.zmcc_token ? `Mobile Tester Arrival · Token ${r.zmcc_token}` : 'Mobile Tester Arrival';
       fields.push({ field: 'raw_milk_token_number', label: 'Token Number', currentValue: r.raw_milk_token_number, type: 'text' });
     } else {
       const r = record as HcArrivalRow;
       moduleName = 'ZMCC_HC_ARRIVAL';
-      label = `HC Arrival (Token: ${r.zmcc_token || r.id})`;
+      label = [
+        'HC Arrival',
+        r.vehicle_number || null,
+        r.zmcc_token ? `Token ${r.zmcc_token}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ');
       fields.push({ field: 'raw_milk_token_number', label: 'Token Number', currentValue: r.raw_milk_token_number, type: 'text' });
       fields.push({ field: 'vehicle_number', label: 'Vehicle Number', currentValue: r.vehicle_number, type: 'text' });
     }
@@ -88,6 +95,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
   const [historyDate, setHistoryDate] = useState('');
   const [historySearch, setHistorySearch] = useState('');
   const [historyPage, setHistoryPage] = useState(1);
+  const historyPageSize = useListPageSize(25);
 
   const searchParams = useSearchParams();
   const effectiveZmccId =
@@ -108,7 +116,7 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     historyDate,
     historySearch,
     historyPage,
-    historyPageSize: 20,
+    historyPageSize,
   });
 
   const mcForm = useMcArrivalForm(data.rawMilkTokenPolicyMode, () => {

@@ -22,7 +22,6 @@ export const QAWaitingVisitCard: React.FC<{
           <p className="text-xs text-secondary-foreground font-medium mt-0.5">
             Vehicle <strong className="tabular-nums text-foreground">{visit.vehicle_number}</strong>
             {' · '}Token <strong className="tabular-nums text-primary">{visit.token_number || 'NO-TOKEN'}</strong>
-            {visit.reception_number && ` · Rec #${visit.reception_number}`}
           </p>
         </div>
       </div>
@@ -32,7 +31,7 @@ export const QAWaitingVisitCard: React.FC<{
       </span>
     </div>
 
-    <div className="bg-card border-border grid grid-cols-2 sm:grid-cols-3 gap-2 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
+    <div className="bg-card border-border grid grid-cols-2 gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
       <div className="space-y-0.5">
         <span className="text-muted-foreground font-sans block text-xs font-semibold">
           Portions
@@ -43,18 +42,6 @@ export const QAWaitingVisitCard: React.FC<{
         </span>
       </div>
       <div className="space-y-0.5">
-        <span className="text-muted-foreground font-sans block text-xs font-semibold">
-          Total Net Qty
-        </span>
-        <span className="text-sm font-semibold text-foreground">
-          {visit.vehicle_dispatch_quantity_value != null && visit.vehicle_dispatch_quantity_unit
-            ? `${Number(visit.vehicle_dispatch_quantity_value).toLocaleString()} ${visit.vehicle_dispatch_quantity_unit}`
-            : visit.total_quantity_value != null && visit.total_quantity_unit
-            ? `${Number(visit.total_quantity_value).toLocaleString()} ${visit.total_quantity_unit}`
-            : '—'}
-        </span>
-      </div>
-      <div className="space-y-0.5 col-span-2 sm:col-span-1">
         <span className="text-muted-foreground font-sans block text-xs font-semibold">
           Gate Entry
         </span>
@@ -112,7 +99,7 @@ export const QAHeldVisitCard: React.FC<{
       <p className="text-xs font-semibold text-amber-950">{visit.hold_reason}</p>
     </div>
 
-    <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
+    <div className="bg-card border-border grid grid-cols-2 gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
       <div>
         <span className="text-muted-foreground font-sans block text-xs font-semibold">Chemist</span>
         <span className="text-foreground">{visit.chemist_name}</span>

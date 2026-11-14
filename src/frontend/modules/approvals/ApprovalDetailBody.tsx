@@ -1,12 +1,19 @@
 'use client';
 
-import { CheckCircle2, Camera, ChevronRight, FileText, MapPin, Maximize2, ShieldAlert } from 'lucide-react';
-import type { UnifiedApprovalItem } from '@/backend/services/approvals/approvalInboxService';
+import { AlertTriangle, CheckCircle2, Camera, ChevronRight, FileText, MapPin, Maximize2, ShieldAlert } from 'lucide-react';
+import type { TestValueSnapshot, UnifiedApprovalItem } from '@/backend/services/approvals/approvalInboxService';
 import { getRoleLabel } from '@/backend/core/roles/labels';
 import { InfoTip } from '@/components/ui/info-tip';
 import { TableWrapper } from '@/components/ui/table-wrapper';
 import { cn } from '@/lib/utils';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatLabel } from '@/lib/format';
+
+function hasObservedValue(t: TestValueSnapshot): boolean {
+  if (t.value === null || t.value === undefined) return false;
+  const s = String(t.value).trim();
+  const upper = s.toUpperCase();
+  return s !== '' && s !== '—' && s !== '-' && upper !== 'NOT_TESTED' && upper !== 'NOT_PERFORMED';
+}
 
 export function ApprovalDetailBody({
   item,
@@ -15,7 +22,25 @@ export function ApprovalDetailBody({
   item: UnifiedApprovalItem;
   onPreviewPhoto: (url: string) => void;
 }) {
-  const failedTests = item.details.testValues?.filter((t) => t.outcome === 'FAIL' || t.pass === false) ?? [];
+  const testValues = item.details.testValues ?? [];
+  const failedTests = testValues.filter((t) => hasObservedValue(t) && (t.outcome === 'FAIL' || t.pass === false));
+  const warnTests = testValues.filter((t) => hasObservedValue(t) && t.outcome === 'WARN' && t.pass !== false);
+  const notDoneTests = testValues.filter(
+    (t) => !hasObservedValue(t) || t.outcome === 'NOT_TESTED' || t.outcome === 'NOT_PERFORMED'
+  );
+  const passedTests = testValues.filter(
+    (t) =>
+      hasObservedValue(t) &&
+      t.outcome !== 'FAIL' &&
+      t.pass !== false &&
+      t.outcome !== 'WARN' &&
+      t.outcome !== 'NOT_TESTED' &&
+      t.outcome !== 'NOT_PERFORMED'
+  );
+  const hasMissingTestChip = (item.reasonChips ?? []).some((c) => /test not done|missing/i.test(c));
+  const hasMissingPhotoChip = (item.reasonChips ?? []).some((c) => /picture missing|photo/i.test(c));
+  const hasSealMismatch = false;
+  const hasExceptionChip = (item.reasonChips ?? []).length > 0 || (item.details.reasons?.length ?? 0) > 0;
 
   return (
     <div className="p-4 sm:p-6 space-y-6 flex-1">
@@ -38,7 +63,7 @@ export function ApprovalDetailBody({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {failedTests.length ? (
+          {failedTests.length > 0 ? (
             failedTests.map((t, idx) => (
               <div
                 key={idx}
@@ -46,7 +71,7 @@ export function ApprovalDetailBody({
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-xs">
-                    {t.name} ({t.code})
+                    {t.name}
                   </span>
                   <span className="px-2 py-0.5 rounded text-xs font-semibold bg-rose-700 text-white">
                     Out of Range
@@ -65,40 +90,76 @@ export function ApprovalDetailBody({
                 </div>
               </div>
             ))
+          ) : notDoneTests.length > 0 || hasMissingTestChip || hasMissingPhotoChip || warnTests.length > 0 || testValues.length === 0 || hasSealMismatch ? (
+            <div className="border-amber-200 bg-amber-50/60 p-4 rounded-2xl border text-amber-950 flex items-start gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-xs font-semibold">
+                  {testValues.length > 0 && notDoneTests.length > 0
+                    ? `${passedTests.length} of ${testValues.length} test(s) recorded (${notDoneTests.length} not written)`
+                    : hasSealMismatch
+                      ? 'Dispatch seal mismatch reported'
+                      : warnTests.length > 0
+                        ? `${warnTests.length} test(s) in warning zone`
+                        : hasMissingPhotoChip
+                          ? 'Compulsory test picture missing'
+                          : 'Compulsory test or photo incomplete'}
+                </p>
+                {hasMissingPhotoChip && (
+                  <p className="text-xs text-rose-800 font-medium">Compulsory test picture is missing.</p>
+                )}
+                {passedTests.length > 0 && notDoneTests.length > 0 && (
+                  <p className="text-xs text-amber-900">
+                    Recorded test(s) are within range, but other tests were not written.
+                  </p>
+                )}
+                {warnTests.length > 0 && (
+                  <p className="text-xs text-amber-900">{warnTests.length} test(s) in warning tolerance require review.</p>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="bg-card border-border p-4 rounded-2xl border text-emerald-950 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
-                <p className="text-xs font-semibold">No test is outside the SOP range</p>
+                <p className="text-xs font-semibold">All recorded tests are within SOP limits</p>
               </div>
             </div>
           )}
 
-          {/* Seal Verification Status (Stage 4) */}
-          {item.details.sealNumber && (
+          {/* Seal Verification Status (Informational — Optional at all stages) */}
+          {(item.details.sealNumber || item.details.plantSealNumberEntered) && (
             <div
               className={cn(
                 'p-4 rounded-2xl border flex flex-col justify-between',
-                item.details.sealMatch === false
-                  ? 'border-rose-300 bg-rose-50 text-rose-950'
-                  : 'border-emerald-300 bg-emerald-50 text-emerald-950'
+                item.details.sealMatch === true
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-950'
+                  : 'border-border bg-card text-foreground'
               )}
             >
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-xs">Seal check</span>
+                <span className="font-semibold text-xs">Seal check (optional)</span>
                 <span
                   className={cn(
-                    'px-2 py-0.5 rounded text-xs font-semibold text-white',
-                    item.details.sealMatch === false ? 'bg-rose-700' : 'bg-emerald-700'
+                    'px-2 py-0.5 rounded text-xs font-semibold',
+                    item.details.sealMatch === true
+                      ? 'bg-emerald-700 text-white'
+                      : 'bg-muted text-secondary-foreground border border-border'
                   )}
                 >
-                  {item.details.sealMatch === false ? 'Mismatch' : 'Verified'}
+                  {item.details.sealMatch === true
+                    ? 'Verified'
+                    : item.details.sealMatch === false
+                      ? 'Differs (optional)'
+                      : 'Recorded'}
                 </span>
               </div>
               <div className="mt-2 text-xs">
-                <p>
-                  Dispatch Seal: <strong>{item.details.sealNumber}</strong>
-                </p>
+                {item.details.sealNumber && (
+                  <p>
+                    Dispatch Seal: <strong>{item.details.sealNumber}</strong>
+                  </p>
+                )}
                 {item.details.plantSealNumberEntered && (
                   <p>
                     Entered at Plant: <strong>{item.details.plantSealNumberEntered}</strong>
@@ -109,12 +170,25 @@ export function ApprovalDetailBody({
           )}
 
           {/* Operator Initial Decision Card */}
-          <div className="bg-card border-border p-4 rounded-2xl border flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-xs text-secondary-foreground">Operator Stated Verdict</span>
+          <div className="bg-card border-border p-4 rounded-2xl border flex flex-col justify-between gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <span className="font-semibold text-xs text-secondary-foreground block">Operator Stated Verdict</span>
+                <span className="text-xs text-muted-foreground">
+                  {failedTests.length > 0
+                    ? 'Contradicts System Failure'
+                    : hasSealMismatch
+                      ? 'Seal Mismatch Detected'
+                      : hasMissingTestChip || hasMissingPhotoChip || notDoneTests.length > 0
+                        ? 'Incomplete Tests / Missing Photo'
+                        : warnTests.length > 0 || hasExceptionChip
+                          ? 'Requires Manager Exception Review'
+                          : 'Within Acceptance Limits'}
+                </span>
+              </div>
               <span
                 className={cn(
-                  'px-2 py-0.5 rounded text-xs font-semibold',
+                  'px-2 py-0.5 rounded text-xs font-semibold shrink-0',
                   item.details.personDecision === 'REJECT'
                     ? 'bg-rose-100 text-rose-800 border border-rose-300'
                     : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
@@ -129,7 +203,7 @@ export function ApprovalDetailBody({
                 <InfoTip text={item.details.personRemarks} />
               </div>
             ) : (
-              <p className="mt-2 text-xs text-secondary-foreground ">{item.details.personRemarks || 'No remarks'}</p>
+              <p className="mt-1 text-xs text-secondary-foreground">{item.details.personRemarks || 'No remarks'}</p>
             )}
           </div>
 
@@ -165,7 +239,7 @@ export function ApprovalDetailBody({
                   </div>
                 )}
                 <div className="relative z-10 bg-neutral-900/80 backdrop-blur-xs text-white p-1 rounded text-xs flex items-center justify-between">
-                  <span className="break-words min-w-0">{photo.testCode || photo.label || 'Test Proof'}</span>
+                  <span className="break-words min-w-0">{photo.label || (photo.testCode ? formatLabel(photo.testCode) : 'Test Proof')}</span>
                   <Maximize2 className="w-3 h-3 shrink-0 ml-1 opacity-70 group-hover:opacity-100" />
                 </div>
               </div>
@@ -184,7 +258,7 @@ export function ApprovalDetailBody({
           <ChevronRight className="w-4 h-4 text-muted-foreground transition group-open:rotate-90" />
         </summary>
 
-        <div className="p-4 border-t border-border bg-white space-y-4">
+        <div className="p-4 border-t border-border bg-card space-y-4">
           {item.details.testValues && item.details.testValues.length > 0 && (
             <div>
               <h4 className="font-semibold text-secondary-foreground mb-2">Complete Laboratory Results</h4>
@@ -199,31 +273,59 @@ export function ApprovalDetailBody({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {item.details.testValues.map((t, tIdx) => (
-                      <tr key={tIdx} className={t.outcome === 'FAIL' || t.pass === false ? 'bg-rose-50/50' : ''}>
-                        <td className="p-2 font-medium">
-                          {t.name} ({t.code})
-                        </td>
-                        <td className="p-2 font-semibold">{t.value !== null && t.value !== undefined ? String(t.value) : '—'}</td>
-                        <td className="p-2 text-muted-foreground">
-                          {t.min !== undefined && t.min !== null ? `Min: ${t.min} ` : ''}
-                          {t.max !== undefined && t.max !== null ? `Max: ${t.max}` : ''}
-                          {!t.min && !t.max ? 'Monitoring' : ''}
-                        </td>
-                        <td className="p-2 text-right">
-                          <span
-                            className={cn(
-                              'px-2 py-0.5 rounded text-xs font-semibold',
-                              t.outcome === 'FAIL' || t.pass === false
-                                ? 'bg-rose-100 text-rose-800'
-                                : 'bg-emerald-100 text-emerald-800'
-                            )}
-                          >
-                            {t.outcome === 'FAIL' || t.pass === false ? 'FAIL' : 'PASS'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {item.details.testValues.map((t, tIdx) => {
+                      const hasVal = hasObservedValue(t);
+                      const isNotDone = !hasVal || t.outcome === 'NOT_TESTED' || t.outcome === 'NOT_PERFORMED';
+                      const isFail = !isNotDone && (t.outcome === 'FAIL' || t.pass === false);
+                      const isWarn = !isNotDone && !isFail && t.outcome === 'WARN';
+                      const missingReqPhoto = t.photoMode === 'REQUIRED' && !t.hasPhoto;
+                      const boundsText =
+                        t.min !== undefined && t.min !== null || t.max !== undefined && t.max !== null
+                          ? `${t.min !== undefined && t.min !== null ? `Min: ${t.min} ` : ''}${t.max !== undefined && t.max !== null ? `Max: ${t.max}` : ''}`.trim()
+                          : Array.isArray(t.allowed) && t.allowed.length > 0
+                            ? t.allowed.join(' / ')
+                            : t.ruleMode === 'APPLY'
+                              ? 'SOP Rule'
+                              : 'Monitoring';
+                      return (
+                        <tr key={tIdx} className={isFail ? 'bg-rose-50/50' : missingReqPhoto ? 'bg-amber-50/40' : ''}>
+                          <td className="p-2 font-medium">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span>
+                                {t.name}
+                              </span>
+                              {missingReqPhoto && (
+                                <span className="rounded border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-xs font-semibold text-rose-700">
+                                  Picture missing
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-2 font-semibold">
+                            {hasVal ? `${t.value}${t.unit ? ` ${t.unit}` : ''}` : '—'}
+                          </td>
+                          <td className="p-2 text-muted-foreground">{boundsText}</td>
+                          <td className="p-2 text-right">
+                            <span
+                              className={cn(
+                                'px-2 py-0.5 rounded text-xs font-semibold',
+                                isNotDone
+                                  ? t.testMode === 'COMPULSORY'
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                    : 'bg-muted text-muted-foreground border border-border'
+                                  : isFail
+                                    ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                    : isWarn
+                                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                      : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              )}
+                            >
+                              {isNotDone ? 'NOT DONE' : isFail ? 'FAIL' : isWarn ? 'WARN' : t.pass === null ? 'RECORDED' : 'PASS'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </TableWrapper>
@@ -232,38 +334,32 @@ export function ApprovalDetailBody({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-secondary-foreground">
             <div className="bg-card border-border p-3 rounded-lg border space-y-1">
-              <p className="font-semibold text-foreground">Audit & Attribution</p>
+              <p className="font-semibold text-foreground">Submitted By</p>
               <p>
-                Submitter User ID: <code className="text-xs font-mono">{item.submittedBy.id}</code>
+                Name: <strong>{item.submittedBy.name || '—'}</strong>
               </p>
               <p>
-                Real Role: <strong>{getRoleLabel(item.submittedBy.role)}</strong>
+                Role: <strong>{getRoleLabel(item.submittedBy.role)}</strong>
               </p>
               {item.submittedBy.performedAsRole && (
                 <p>
-                  Performed As Role: <strong>{getRoleLabel(item.submittedBy.performedAsRole)}</strong>
+                  Acting As: <strong>{getRoleLabel(item.submittedBy.performedAsRole)}</strong>
                 </p>
               )}
-              <p>
-                Delegated Action: <strong>{item.submittedBy.isDelegated ? 'Yes' : 'No'}</strong>
-              </p>
             </div>
 
             {item.details.formulaAudit?.gpsCoordinates && (
               <div className="bg-card border-border p-3 rounded-lg border space-y-1">
                 <p className="font-semibold text-foreground flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span>GPS Geofence Capture</span>
+                  <span>Location Verified</span>
                 </p>
                 <p>
-                  Latitude: <strong>{item.details.formulaAudit.gpsCoordinates.latitude.toFixed(6)}</strong>
+                  GPS captured at submission
+                  {item.details.formulaAudit.gpsCoordinates.accuracy
+                    ? ` (±${Math.round(item.details.formulaAudit.gpsCoordinates.accuracy)}m accuracy)`
+                    : ''}
                 </p>
-                <p>
-                  Longitude: <strong>{item.details.formulaAudit.gpsCoordinates.longitude.toFixed(6)}</strong>
-                </p>
-                {item.details.formulaAudit.gpsCoordinates.accuracy && (
-                  <p>Accuracy: ±{item.details.formulaAudit.gpsCoordinates.accuracy}m</p>
-                )}
               </div>
             )}
           </div>
@@ -275,10 +371,10 @@ export function ApprovalDetailBody({
         <div className="bg-card border-border p-4 rounded-2xl border text-amber-950 flex items-start gap-3">
           <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="space-y-1 text-xs">
-            <p className="font-semibold text-sm">Segregation of Duties Enforcement</p>
+            <p className="font-semibold text-sm">Review Locked</p>
             <p>
               {item.disabledReason ||
-                'You do not have administrative authority to decide this item or submitted it yourself.'}
+                'Another supervisor must review this item.'}
             </p>
           </div>
         </div>

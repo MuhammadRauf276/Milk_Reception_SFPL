@@ -328,7 +328,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
             className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border focus:outline-hidden focus:border-primary bg-subtle min-h-11"
           />
         </div>
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1.5 sm:pb-1">
           {(['ALL', 'TANKERS', 'MOT_ROUTES'] as const).map((filter) => (
             <button
               key={filter}
@@ -336,7 +336,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
               className={`px-3 py-2 min-h-11 shrink-0 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
                 activeFilter === filter
                   ? 'bg-primary text-white'
-                  : 'bg-muted text-secondary-foreground hover:bg-muted'
+                  : 'bg-muted text-secondary-foreground hover:bg-muted/80'
               }`}
             >
               {filter === 'ALL' && 'All'}
@@ -348,12 +348,12 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
       </div>
 
       {focusable.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1.5">
           <button
             type="button"
             onClick={() => setFocusId(null)}
             className={`px-3 min-h-11 shrink-0 rounded-lg text-xs font-semibold whitespace-nowrap ${
-              focusId === null ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
+              focusId === null ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             All
@@ -364,7 +364,7 @@ export const MpdFleetRadarScreen: React.FC<MpdFleetRadarScreenProps> = ({
               type="button"
               onClick={() => setFocusId(focusId === r.id ? null : r.id)}
               className={`px-3 min-h-11 shrink-0 rounded-lg text-xs font-semibold whitespace-nowrap tabular-nums ${
-                focusId === r.id ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
+                focusId === r.id ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted/80'
               }`}
             >
               {shortLabel(r.vehicleNumber ?? r.routeCode ?? 'Vehicle')}

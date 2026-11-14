@@ -13,6 +13,7 @@ import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/Decision
 import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import type { LabPortionExceptionItem } from '@/backend/services/zmcc/labPortionReviewService';
 import { exceptionReasonShort } from '@/lib/exceptionReasons';
 
@@ -88,6 +89,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
     refetchInterval: () => (typeof document !== 'undefined' && document.hidden ? false : 60_000),
   });
   const items = listQuery.data?.items ?? [];
+  const paged = usePagedRows(items, (item) => String(item.id));
   const loading = listQuery.isFetching && !listQuery.data;
   const error = listQuery.error ? getErrorMessage(listQuery.error) || 'Could not load the list.' : null;
   const load = () => queryClient.invalidateQueries({ queryKey: ['zmcc', 'exceptions'] });
@@ -161,7 +163,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
         </div>
       )}
 
-      {items.map((item) => {
+      {paged.pageRows.map((item) => {
         const wait = waitingInfo(item.decidedAt, now);
         const pending = item.reviewStatus === 'PENDING';
         const own = !!currentUserId && item.createdByUserId === currentUserId;
@@ -194,7 +196,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                 )}
               </header>
 
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2 text-center">
+              <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-muted-foreground">Weight (KG)</div><div className="text-base font-semibold">{item.quantityValue ?? item.grossLiters ?? '-'}</div></div>
                 <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-muted-foreground">LR</div><div className="text-base font-semibold">{item.lr ?? '-'}</div></div>
                 <div className="bg-card border-border border rounded-xl p-2"><div className="text-xs text-muted-foreground">Fat</div><div className="text-base font-semibold">{item.fat ?? '-'}</div></div>
@@ -221,7 +223,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
               )}
 
               {item.photos.length > 0 && (
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {item.photos.map((p) => (
                     <div key={p.captureId} className="overflow-hidden rounded-xl border border-border">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -245,7 +247,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
                   className="min-h-11 w-full rounded-lg border border-border-strong p-2 text-base"
                 />
                 {itemError[item.id] && <p className="text-sm font-semibold text-rose-700">{itemError[item.id]}</p>}
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     disabled={busyId === item.id}
@@ -268,6 +270,17 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
           </motion.article>
         );
       })}
+
+      {paged.totalPages > 1 && (
+        <Pagination
+          page={paged.page}
+          totalPages={paged.totalPages}
+          totalRecords={paged.totalRecords}
+          pageSize={paged.pageSize}
+          noun="portions"
+          onPageChange={paged.setPage}
+        />
+      )}
     </section>
   );
 };

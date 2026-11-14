@@ -45,7 +45,7 @@ import {
   loadDispatchPolicy,
   issueDispatchFromZmccTankTx,
   zmccTankRemainingLiters,
-  notifyDispatchApproversTx,
+  notifyDispatchApprovers,
   auditActorOf,
   DISPATCH_STATUS,
   DispatchFlowError,
@@ -447,16 +447,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate Seal Numbers: required per portion, unique within vehicle
-    for (const portion of validated.portions) {
-      if (!portion.seal_number || !portion.seal_number.trim()) {
-        return NextResponse.json(
-          { error: `Seal number is required for Portion ${portion.portionNumber}.`, code: 'SEAL_REQUIRED' },
-          { status: 400 }
-        );
-      }
-    }
-    const submittedSeals = validated.portions.map((p) => p.seal_number!.trim().toUpperCase());
+    // Validate Seal Numbers: optional per portion, unique within vehicle when provided
+    const submittedSeals = validated.portions
+      .map((p) => (p.seal_number || '').trim().toUpperCase())
+      .filter((s) => s.length > 0);
     const duplicateSeal = submittedSeals.find((s, idx) => submittedSeals.indexOf(s) !== idx);
     if (duplicateSeal) {
       return NextResponse.json(
@@ -496,7 +490,7 @@ export async function POST(req: Request) {
       }));
       return {
         portionNumber: portion.portionNumber,
-        sealNumber: portion.seal_number!.trim(),
+        sealNumber: (portion.seal_number || '').trim(),
         quantityValue: Number(portion.quantity.value),
         quantityUnit: portion.quantity.unit,
         tests,
@@ -802,18 +796,7 @@ export async function POST(req: Request) {
         }
       }
 
-      // Notify approvers if SEND_REQUEST
-      if (isSendRequest) {
-        await notifyDispatchApproversTx(tx, {
-          visitId: visit.id,
-          version: visit.dispatch_version,
-          sourceId: resolvedSourceId,
-          approverRole,
-          dispatchNumber: receptionNumber,
-          vehicleNumber: visit.vehicle_number,
-          sourceName: sourceRecord?.name || 'Procurement Source',
-        });
-      }
+      const policyTestById = new Map(dispatchPolicy.tests.map((t) => [t.labTestId, t]));
 
       // Stored system roles and options of the tests (the frozen assignment snapshot does not carry the role).
       const savedTestRows = await tx.labTest.findMany({
@@ -834,8 +817,9 @@ export async function POST(req: Request) {
         dispatchPolicy.tests.map((t) => ({ ...t, resultOptions: optionsByTestId.get(t.labTestId) }))
       );
 
-      // Create portions, dispatchInfo, and lab results
+      // Create portions, dispatchInfo, and batch lab results
       const createdPortions = [];
+      const labResultsToCreate: Prisma.DispatchLabResultCreateManyInput[] = [];
       for (const portionInput of validated.portions) {
         const portionQty = validatedQuantities.portionQuantities.find(
           (p) => p.portionNumber === portionInput.portionNumber
@@ -848,7 +832,7 @@ export async function POST(req: Request) {
             dispatch_quantity_value: new Prisma.Decimal(portionQty.value),
             dispatch_quantity_unit: portionQty.unit,
             dispatch_quantity_basis: portionQty.basis,
-            seal_number: portionInput.seal_number ? portionInput.seal_number.trim() : null,
+            seal_number: portionInput.seal_number?.trim() ? portionInput.seal_number.trim() : null,
             current_status: nextStatus,
             plant_decision: 'PENDING',
           },
@@ -947,26 +931,50 @@ export async function POST(req: Request) {
           }
 
           const testSnapshotOptions = (testDef.result_options_snapshot as LabTestResultOption[] | null) || null;
-          const evalRes = perfStatus === 'PERFORMED'
-            ? evaluateLabResult(testDef.test_code_snapshot, numVal, textVal, testDef.result_type_snapshot, testSnapshotOptions)
-            : { isPassed: null };
+          const pTestEval = pDetail?.tests.find((t) => t.labTestId === testIdStr);
+          const policyTest = policyTestById.get(testIdStr);
+          let isPassed: boolean | null = null;
+          if (perfStatus === 'PERFORMED') {
+            if (pTestEval && pTestEval.outcome !== 'NOT_TESTED') {
+              isPassed = pTestEval.outcome !== 'FAIL';
+            } else {
+              const evalRes = evaluateLabResult(
+                testDef.test_code_snapshot,
+                numVal,
+                textVal,
+                testDef.result_type_snapshot,
+                testSnapshotOptions,
+                policyTest?.rule
+                  ? {
+                      min: policyTest.rule.min ?? null,
+                      max: policyTest.rule.max ?? null,
+                      ruleCategory: policyTest.ruleMode === 'APPLY' ? 'RELEASE' : 'MONITORING',
+                    }
+                  : null,
+                policyTest ? policyTest.testMode === 'COMPULSORY' : true
+              );
+              isPassed = evalRes.isPassed;
+            }
+          }
 
-          await tx.dispatchLabResult.create({
-            data: {
-              visit_id: visit.id,
-              portion_id: portion.id,
-              test_id: testDef.test_id,
-              sample_timestamp: now,
-              result_timestamp: now,
-              numeric_value: numVal,
-              text_value: textVal,
-              performance_status: perfStatus,
-              not_performed_reason: notPerfReason,
-              is_passed: evalRes.isPassed,
-              tested_by: userIdBigInt,
-            },
+          labResultsToCreate.push({
+            visit_id: visit.id,
+            portion_id: portion.id,
+            test_id: testDef.test_id,
+            sample_timestamp: now,
+            result_timestamp: now,
+            numeric_value: numVal,
+            text_value: textVal,
+            performance_status: perfStatus,
+            not_performed_reason: notPerfReason,
+            is_passed: isPassed,
+            tested_by: userIdBigInt,
           });
         }
+      }
+
+      if (labResultsToCreate.length > 0) {
+        await tx.dispatchLabResult.createMany({ data: labResultsToCreate });
       }
 
       await writeAuditLog(tx, {
@@ -985,8 +993,21 @@ export async function POST(req: Request) {
         actor: auditActorOf(acting),
       });
 
-      return { visit, createdPortions, tankRemainingLiters };
-    });
+      return { visit, createdPortions, tankRemainingLiters, receptionNumber };
+    }, { timeout: 20000, maxWait: 10000 });
+
+    // Notify approvers post-commit so notification fan-out never slows or times out the dispatch transaction.
+    if (isSendRequest) {
+      await notifyDispatchApprovers({
+        visitId: result.visit.id,
+        version: result.visit.dispatch_version,
+        sourceId: resolvedSourceId,
+        approverRole,
+        dispatchNumber: result.receptionNumber,
+        vehicleNumber: result.visit.vehicle_number,
+        sourceName: sourceRecord?.name || 'Procurement Source',
+      }).catch((err) => console.error('Dispatch approver notification error:', err));
+    }
 
     // The dispatch is final now: the typed-values draft is no longer needed.
     await clearDraftsForScope(prisma as unknown as DraftDb, DISPATCH_DRAFT_TYPES, result.visit.id).catch(() => undefined);

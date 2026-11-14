@@ -911,7 +911,14 @@ export async function startOrResumeSession(
     const arrival = await prisma.zmccMotArrival.findUnique({
       where: { id: arrivalIdBigInt },
       include: {
-        journey: true,
+        journey: {
+          include: {
+            route: true,
+            mot_vehicle: true,
+            mot_profile: true,
+            summary: true,
+          },
+        },
         lab_session: {
           include: {
             zmcc: true,
@@ -943,7 +950,7 @@ export async function startOrResumeSession(
     if (arrival.lab_session) {
       return {
         status: 200,
-        data: serializeLabSession(arrival.lab_session),
+        data: serializeLabSession({ ...arrival.lab_session, mot_arrival: arrival }),
       };
     }
   } else {
@@ -978,7 +985,7 @@ export async function startOrResumeSession(
     if (arrival.lab_session) {
       return {
         status: 200,
-        data: serializeLabSession(arrival.lab_session),
+        data: serializeLabSession({ ...arrival.lab_session, local_supplier_arrival: arrival }),
       };
     }
   }
@@ -1701,7 +1708,15 @@ export async function completeSession(
     where: { id: sessionId },
     include: {
       results: true,
-      mot_arrival: true,
+      mot_arrival: {
+        include: {
+          journey: {
+            include: {
+              mot_vehicle: { select: { vehicle_number: true } },
+            },
+          },
+        },
+      },
       local_supplier_arrival: true,
     },
   });
@@ -1748,6 +1763,7 @@ export async function completeSession(
   }
 
   // Verify all frozen non-CALCULATED tests are present in submitted payload
+  let hasMissingRequiredTest = false;
   for (const snap of session.results) {
     const tid = snap.test_id.toString();
     const resType = snap.result_type_snapshot;
@@ -1776,20 +1792,33 @@ export async function completeSession(
       };
     }
 
+    let testMissingRequired = false;
     if (snap.is_required_snapshot) {
       if (resType === 'NUMERIC') {
         if (submitted.numeric_value === undefined || submitted.numeric_value === null || isNaN(Number(submitted.numeric_value))) {
-          return { status: 400, error: `Required numeric test "${snap.test_name_snapshot}" must have a valid numeric value.` };
+          testMissingRequired = true;
+          if (decision !== 'REJECTED') {
+            return { status: 400, error: `Required numeric test "${snap.test_name_snapshot}" must have a valid numeric value.` };
+          }
         }
       } else if (resType === 'TEXT') {
         if (!submitted.text_value || !submitted.text_value.trim()) {
-          return { status: 400, error: `Required text test "${snap.test_name_snapshot}" must have a valid text value.` };
+          testMissingRequired = true;
+          if (decision !== 'REJECTED') {
+            return { status: 400, error: `Required text test "${snap.test_name_snapshot}" must have a valid text value.` };
+          }
         }
       } else if (['QUALITATIVE', 'BOOLEAN', 'OK_NOT_OK', 'POSITIVE_NEGATIVE'].includes(resType)) {
         if (!submitted.text_value || !submitted.text_value.trim()) {
-          return { status: 400, error: `Required categorical test "${snap.test_name_snapshot}" must have a selected value.` };
+          testMissingRequired = true;
+          if (decision !== 'REJECTED') {
+            return { status: 400, error: `Required categorical test "${snap.test_name_snapshot}" must have a selected value.` };
+          }
         }
       }
+    }
+    if (testMissingRequired) {
+      hasMissingRequiredTest = true;
     }
 
     if (resType === 'NUMERIC') {
@@ -1884,8 +1913,24 @@ export async function completeSession(
     }
   }
 
+  const testingPoint = session.arrival_type === 'MOT'
+    ? 'ZMCC_LAB_MC'
+    : 'ZMCC_LAB_HC';
+  const ruleEffectiveAt = session.started_at || new Date();
+  const preloadedRules = new Map<string, Awaited<ReturnType<typeof QualityRuleService.resolveActiveRule>>>();
+  await Promise.all(
+    results.map(async (item) => {
+      const testIdStr = String(item.test_id).trim();
+      const existing = sessionResultsMap.get(testIdStr);
+      if (!existing || existing.result_type_snapshot === 'CALCULATED') return;
+      const rule = await QualityRuleService.resolveActiveRule(existing.test_id, testingPoint, ruleEffectiveAt, prisma);
+      preloadedRules.set(testIdStr, rule);
+    })
+  );
+
   // Execute completion transaction
   try {
+    let notifyException = false;
     const completedSession = await prisma.$transaction(async (tx) => {
       // Row-level lock
       const lockedSessionRows: Array<{ id: bigint; status: string; completion_client_event_id: string | null }> = await tx.$queryRaw`
@@ -1900,11 +1945,6 @@ export async function completeSession(
         }
         throw new Error('SESSION_ALREADY_COMPLETED');
       }
-
-      // Determine testing point
-      const testingPoint = session.arrival_type === 'MOT'
-        ? 'ZMCC_LAB_MC'
-      : 'ZMCC_LAB_HC';
 
       const evaluations: Array<QualityResultEvaluation & { isRequired: boolean }> = [];
 
@@ -1931,12 +1971,30 @@ export async function completeSession(
           }
         }
 
-        const activeRule = await QualityRuleService.resolveActiveRule(
-          existing.test_id,
-          testingPoint,
-          session.started_at || new Date(),
-          tx
-        );
+        const isUnperformed = numVal === null && txtVal === null;
+        const activeRule = preloadedRules.get(testIdStr) ?? null;
+
+        if (isUnperformed) {
+          await tx.zmccLabResult.update({
+            where: {
+              session_id_test_id: {
+                session_id: sessionId,
+                test_id: existing.test_id,
+              },
+            },
+            data: {
+              numeric_value: null,
+              text_value: null,
+              is_passed: null,
+              evaluation_status: 'PENDING',
+              applied_rule_id: null,
+              applied_rule_version: null,
+              evaluation_snapshot: Prisma.DbNull,
+              recorded_at: new Date(),
+            },
+          });
+          continue;
+        }
 
         const evalResult = QualityRuleService.evaluateQualityResult({
           rule: activeRule,
@@ -1965,7 +2023,7 @@ export async function completeSession(
             evaluation_status: evalResult.evaluationStatus,
             applied_rule_id: evalResult.appliedRuleId,
             applied_rule_version: evalResult.appliedRuleVersion,
-            evaluation_snapshot: toJsonInput(evalResult.evaluationSnapshot),
+            evaluation_snapshot: evalResult.evaluationSnapshot ? toJsonInput(evalResult.evaluationSnapshot) : Prisma.DbNull,
             recorded_at: new Date(),
           },
         });
@@ -1991,7 +2049,7 @@ export async function completeSession(
       const systemRecommendation = ['PASS', 'WARNING', 'NEUTRAL'].includes(systemQualityOutcome)
         ? 'ACCEPTED'
         : 'REJECTED';
-      const isAttendantException = decision !== systemRecommendation;
+      const isAttendantException = decision !== systemRecommendation || hasMissingRequiredTest;
       if (isAttendantException && !rejectionReasonTrimmed) {
         throw new Error('ATTENDANT_EXCEPTION_REASON_REQUIRED:A reason is required when the Lab Attendant decision differs from the system result.');
       }
@@ -2127,16 +2185,26 @@ export async function completeSession(
       });
 
       if (isAttendantException) {
-        await createNotificationsForEvent(tx, {
-          eventKey: 'ZMCC_LAB_EXCEPTION_PENDING', sourceId: sessionId.toString(), sourceZmccId: session.zmcc_id,
-          title: 'ZMCC lab exception needs review',
-          body: `A ${session.arrival_type.toLowerCase()} milk decision differs from the system recommendation.`,
-          deepLink: '/mpd/zmcc-manager?tab=HISTORY&view=LAB_CORRECTIONS', dedupeSuffix: `${sessionId}:${clientEventId}`,
-        });
+        notifyException = true;
       }
 
       return completedWithReceipt;
-    });
+    }, { timeout: 20000, maxWait: 10000 });
+
+    if (notifyException) {
+      const tokenNo = session.mot_arrival?.zmcc_token || session.local_supplier_arrival?.zmcc_token || null;
+      const vehicleNo = session.mot_arrival?.journey?.mot_vehicle?.vehicle_number || session.local_supplier_arrival?.vehicle_number || null;
+      const contextLabel = [vehicleNo ? `vehicle ${vehicleNo}` : null, tokenNo ? `token ${tokenNo}` : null].filter(Boolean).join(', ');
+      await createNotificationsForEvent(prisma, {
+        eventKey: 'ZMCC_LAB_EXCEPTION_PENDING',
+        sourceId: sessionId.toString(),
+        sourceZmccId: session.zmcc_id,
+        title: 'ZMCC lab exception needs review',
+        body: `A ${session.arrival_type.toLowerCase()} milk decision${contextLabel ? ` (${contextLabel})` : ''} differs from the system recommendation.`,
+        deepLink: '/mpd/zmcc-manager?tab=HISTORY&view=LAB_CORRECTIONS',
+        dedupeSuffix: `${sessionId}:${clientEventId}`,
+      }).catch((err) => console.error('completeSession notification error:', err));
+    }
 
     return {
       status: 200,
@@ -3400,6 +3468,8 @@ export interface LabPortionsState {
   sessionId: string;
   sessionStatus: string;
   arrivalType: string;
+  tokenNo: string | null;
+  vehicleNo: string | null;
   testMode: LabTestMode;
   point: LabPoint;
   policy: LabPolicySnapshot;
@@ -3416,10 +3486,26 @@ function parseId(value: unknown): bigint | null {
   return /^\d{1,18}$/.test(s) ? BigInt(s) : null;
 }
 
+const labPortionsSessionInclude = {
+  portions: { orderBy: { portion_number: 'asc' } },
+  mot_arrival: {
+    select: {
+      zmcc_token: true,
+      journey: { select: { mot_vehicle: { select: { vehicle_number: true } } } },
+    },
+  },
+  local_supplier_arrival: {
+    select: {
+      zmcc_token: true,
+      vehicle_number: true,
+    },
+  },
+} as const;
+
 async function buildPortionsState(auth: ZmccLabAuthContext, sessionId: bigint): Promise<ServiceResult<LabPortionsState>> {
   let session = await prisma.zmccLabSession.findUnique({
     where: { id: sessionId },
-    include: { portions: { orderBy: { portion_number: 'asc' } } },
+    include: labPortionsSessionInclude,
   });
   if (!session) return { status: 404, error: 'ZMCC Lab session not found.' };
   if (auth.effectiveZmccId !== null && session.zmcc_id !== auth.effectiveZmccId) {
@@ -3440,7 +3526,7 @@ async function buildPortionsState(auth: ZmccLabAuthContext, sessionId: bigint): 
     });
     session = await prisma.zmccLabSession.findUnique({
       where: { id: sessionId },
-      include: { portions: { orderBy: { portion_number: 'asc' } } },
+      include: labPortionsSessionInclude,
     });
     if (!session) return { status: 404, error: 'ZMCC Lab session not found.' };
   }
@@ -3448,17 +3534,24 @@ async function buildPortionsState(auth: ZmccLabAuthContext, sessionId: bigint): 
   const policy = await loadLabPolicy(point);
   const photos = await loadPortionPhotos(prisma, session.portions.map((p) => p.id));
   const portions = session.portions.map((p) => toPortionView(p, photos.get(p.id.toString()) ?? []));
+  const tokenNo = session.mot_arrival?.zmcc_token ?? session.local_supplier_arrival?.zmcc_token ?? null;
+  const vehicleNo =
+    session.mot_arrival?.journey?.mot_vehicle?.vehicle_number ??
+    session.local_supplier_arrival?.vehicle_number ??
+    null;
   return {
     status: 200,
     data: {
       sessionId: session.id.toString(),
       sessionStatus: session.status,
       arrivalType: session.arrival_type,
+      tokenNo,
+      vehicleNo,
       testMode: session.test_mode === 'PORTION_WISE' ? 'PORTION_WISE' : 'COMPOSITE',
       point,
       policy,
       portions,
-      canDecideNow: auth.deciderCanApprove,
+      canDecideNow: false,
       actorUserId: auth.actorUserId.toString(),
       rollUp: summarizePortions(portions),
       journeyClosed: !!session.journey_closed_at,
@@ -3833,7 +3926,26 @@ export async function submitPortionDecision(
 
   const portion = await prisma.zmccLabPortion.findUnique({
     where: { id: portionId },
-    include: { lab_session: { select: { id: true, zmcc_id: true, status: true, arrival_type: true, local_supplier_arrival_id: true } } },
+    include: {
+      lab_session: {
+        select: {
+          id: true,
+          zmcc_id: true,
+          status: true,
+          arrival_type: true,
+          local_supplier_arrival_id: true,
+          mot_arrival: {
+            select: {
+              zmcc_token: true,
+              journey: { select: { mot_vehicle: { select: { vehicle_number: true } } } },
+            },
+          },
+          local_supplier_arrival: {
+            select: { zmcc_token: true, vehicle_number: true },
+          },
+        },
+      },
+    },
   });
   if (!portion || portion.lab_session_id !== sessionId) return { status: 404, error: 'Portion not found.' };
   if (auth.effectiveZmccId !== null && portion.lab_session.zmcc_id !== auth.effectiveZmccId) {
@@ -3878,7 +3990,7 @@ export async function submitPortionDecision(
     photos: savedPhotos,
     personDecision: personDecision as PersonDecision,
     remarks,
-    deciderCanApprove: auth.deciderCanApprove,
+    deciderCanApprove: false,
   });
   if (!decision.remarksOk) return { status: 400, error: 'Please write remarks (at least 3 letters).' };
 
@@ -3898,106 +4010,123 @@ export async function submitPortionDecision(
   const portionStatus = decision.finalDecision === 'PENDING' ? 'PENDING_REVIEW' : decision.finalDecision;
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      const upd = await tx.zmccLabPortion.updateMany({
-        where: { id: portionId, version, status: 'TESTING', final_decision: 'PENDING' },
-        data: {
-          status: portionStatus,
-          system_outcome: decision.systemOutcome,
-          person_decision: personDecision,
-          decision_remarks: remarks || null,
-          exception_reasons: toJsonInput(decision.exceptionReasons),
-          review_status: decision.reviewStatus,
-          final_decision: decision.finalDecision,
-          decision_details: toJsonInput(details),
-          decided_at: now,
-          created_by_user_id: auth.actorUserId,
-          ...primaryActorFields(auth.acting),
-          lr: details.lr !== null ? new Prisma.Decimal(details.lr.toFixed(2)) : null,
-          fat: details.fat !== null ? new Prisma.Decimal(details.fat.toFixed(2)) : null,
-          quantity_value: quantity !== null ? new Prisma.Decimal(quantity.toFixed(2)) : null,
-          quantity_unit: unit as QuantityUnit | null,
-          density: quality ? new Prisma.Decimal(quality.density.toFixed(4)) : null,
-          gross_liters: metrics ? new Prisma.Decimal(metrics.grossLiters.toFixed(2)) : null,
-          snf: quality ? new Prisma.Decimal(quality.snf.toFixed(2)) : null,
-          ts: quality ? new Prisma.Decimal(quality.ts.toFixed(2)) : null,
-          at_13ts_liters: metrics ? new Prisma.Decimal(metrics.at13tsLiters.toFixed(2)) : null,
-          calculation_version: metrics ? metrics.calculationVersion : null,
-          // DECIDE_NOW: the superior's own exception is decided on the same screen.
-          ...(decision.route === 'DECIDE_NOW'
-            ? {
-                reviewed_by_user_id: auth.actorUserId,
-                reviewed_at: now,
-                review_remarks: remarks || null,
-                ...asRoleFields(auth.acting, 'reviewed'),
-              }
-            : {}),
-          version: { increment: 1 },
-        },
-      });
-      if (upd.count !== 1) throw new Error('VERSION_CONFLICT');
-
-      await writeAuditLog(tx, {
-        tableName: 'zmcc_lab_portion',
-        recordId: portionId,
-        action: decision.route === 'SEND_TO_APPROVER' ? 'ZMCC_LAB_PORTION_SENT_TO_ZM' : 'ZMCC_LAB_PORTION_DECIDED',
-        oldValues: { status: portion.status, final_decision: portion.final_decision, version: portion.version },
-        newValues: {
-          lab_session_id: sessionId.toString(),
-          portion_number: portion.portion_number,
-          point,
-          policy_version: policy.version,
-          route: decision.route,
-          system_outcome: decision.systemOutcome,
-          person_decision: personDecision,
-          exception_reasons: decision.exceptionReasons,
-          review_status: decision.reviewStatus,
-          final_decision: decision.finalDecision,
-          remarks: remarks || null,
-          lr: details.lr,
-          fat: details.fat,
-          gross_liters: metrics?.grossLiters ?? null,
-          photos: savedPhotos.map((p) => p.captureId),
-        },
-        actor: auditActorOf(auth.acting),
-      });
-
-      if (decision.route === 'SEND_TO_APPROVER') {
-        await createNotificationsForEvent(tx, {
-          eventKey: 'ZMCC_LAB_EXCEPTION_PENDING',
-          sourceId: portionId.toString(),
-          sourceZmccId: portion.lab_session.zmcc_id,
-          title: 'Lab portion needs your decision',
-          body: `Portion ${portion.portion_number} (session #${sessionId}): ${decision.exceptionReasons.join(', ')}. Lab said ${personDecision === 'ACCEPT' ? 'accept' : 'reject'}.${remarks ? ` Reason: ${remarks}` : ''}`,
-          deepLink: '/mpd/zmcc-manager?tab=APPROVALS&view=LAB_EXCEPTIONS',
-          dedupeSuffix: `portion:${portionId}:v${version}`,
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const upd = await tx.zmccLabPortion.updateMany({
+          where: { id: portionId, version, status: 'TESTING', final_decision: 'PENDING' },
+          data: {
+            status: portionStatus,
+            system_outcome: decision.systemOutcome,
+            person_decision: personDecision,
+            decision_remarks: remarks || null,
+            exception_reasons: toJsonInput(decision.exceptionReasons),
+            review_status: decision.reviewStatus,
+            final_decision: decision.finalDecision,
+            decision_details: toJsonInput(details),
+            decided_at: now,
+            created_by_user_id: auth.actorUserId,
+            ...primaryActorFields(auth.acting),
+            lr: details.lr !== null ? new Prisma.Decimal(details.lr.toFixed(2)) : null,
+            fat: details.fat !== null ? new Prisma.Decimal(details.fat.toFixed(2)) : null,
+            quantity_value: quantity !== null ? new Prisma.Decimal(quantity.toFixed(2)) : null,
+            quantity_unit: unit as QuantityUnit | null,
+            density: quality ? new Prisma.Decimal(quality.density.toFixed(4)) : null,
+            gross_liters: metrics ? new Prisma.Decimal(metrics.grossLiters.toFixed(2)) : null,
+            snf: quality ? new Prisma.Decimal(quality.snf.toFixed(2)) : null,
+            ts: quality ? new Prisma.Decimal(quality.ts.toFixed(2)) : null,
+            at_13ts_liters: metrics ? new Prisma.Decimal(metrics.at13tsLiters.toFixed(2)) : null,
+            calculation_version: metrics ? metrics.calculationVersion : null,
+            // DECIDE_NOW: the superior's own exception is decided on the same screen.
+            ...(decision.route === 'DECIDE_NOW'
+              ? {
+                  reviewed_by_user_id: auth.actorUserId,
+                  reviewed_at: now,
+                  review_remarks: remarks || null,
+                  ...asRoleFields(auth.acting, 'reviewed'),
+                }
+              : {}),
+            version: { increment: 1 },
+          },
         });
-      } else if (details.warnings && details.warnings.length > 0) {
-        // Warning tolerance: Non-blocking advisory notification to ZMCC Manager and Head of MPD
-        await createNotificationsForEvent(tx, {
-          eventKey: 'ZMCC_LAB_WARNING_LOGGED',
-          sourceId: portionId.toString(),
-          sourceZmccId: portion.lab_session.zmcc_id,
-          title: `Lab warning accepted: Portion ${portion.portion_number}`,
-          body: `Session #${sessionId} portion ${portion.portion_number}: ${details.warnings.join('; ')}. Accepted by ${auth.acting.actingAs || auth.acting.actorRole}.${remarks ? ` Remarks: ${remarks}` : ''}`,
-          deepLink: '/zmcc/lab?tab=history',
-          dedupeSuffix: `portion-warning:${portionId}:v${version}`,
-        });
-      }
+        if (upd.count !== 1) throw new Error('VERSION_CONFLICT');
 
-      if (decision.finalDecision === 'REJECTED') {
-        // MPD Head adds remarks on rejected milk (queue + notification).
-        await recordRejectedMilkForDisposition(tx, {
-          portionId,
-          zmccId: portion.lab_session.zmcc_id,
-          summary: `session #${sessionId} portion ${portion.portion_number}${metrics ? ` / ${metrics.grossLiters.toFixed(0)} L` : ''}`,
+        await writeAuditLog(tx, {
+          tableName: 'zmcc_lab_portion',
+          recordId: portionId,
+          action: decision.route === 'SEND_TO_APPROVER' ? 'ZMCC_LAB_PORTION_SENT_TO_ZM' : 'ZMCC_LAB_PORTION_DECIDED',
+          oldValues: { status: portion.status, final_decision: portion.final_decision, version: portion.version },
+          newValues: {
+            lab_session_id: sessionId.toString(),
+            portion_number: portion.portion_number,
+            point,
+            policy_version: policy.version,
+            route: decision.route,
+            system_outcome: decision.systemOutcome,
+            person_decision: personDecision,
+            exception_reasons: decision.exceptionReasons,
+            review_status: decision.reviewStatus,
+            final_decision: decision.finalDecision,
+            remarks: remarks || null,
+            lr: details.lr,
+            fat: details.fat,
+            gross_liters: metrics?.grossLiters ?? null,
+            photos: savedPhotos.map((p) => p.captureId),
+          },
           actor: auditActorOf(auth.acting),
         });
-      }
-      const rollUp = await rollUpLabSessionTx(tx, sessionId, auth.acting);
-      const fresh = await tx.zmccLabPortion.findUniqueOrThrow({ where: { id: portionId } });
-      return { portion: toPortionView(fresh, photoMap.get(portionId.toString()) ?? []), route: decision.route, rollUp };
-    });
+
+        if (decision.finalDecision === 'REJECTED') {
+          // MPD Head adds remarks on rejected milk (queue + notification).
+          await recordRejectedMilkForDisposition(tx, {
+            portionId,
+            zmccId: portion.lab_session.zmcc_id,
+            summary: `session #${sessionId} portion ${portion.portion_number}${metrics ? ` / ${metrics.grossLiters.toFixed(0)} L` : ''}`,
+            actor: auditActorOf(auth.acting),
+          });
+        }
+        const rollUp = await rollUpLabSessionTx(tx, sessionId, auth.acting);
+        const fresh = await tx.zmccLabPortion.findUniqueOrThrow({ where: { id: portionId } });
+        return { portion: toPortionView(fresh, photoMap.get(portionId.toString()) ?? []), route: decision.route, rollUp };
+      },
+      { timeout: 25000, maxWait: 10000 }
+    );
+
+    // Emit notifications post-commit so notification fan-out never locks or times out the interactive transaction.
+    const portionTokenNo =
+      portion.lab_session.mot_arrival?.zmcc_token ||
+      portion.lab_session.local_supplier_arrival?.zmcc_token ||
+      null;
+    const portionVehicleNo =
+      portion.lab_session.mot_arrival?.journey?.mot_vehicle?.vehicle_number ||
+      portion.lab_session.local_supplier_arrival?.vehicle_number ||
+      null;
+    const portionIdentity = [portionVehicleNo, portionTokenNo ? `Token ${portionTokenNo}` : null]
+      .filter(Boolean)
+      .join(' · ');
+    const portionRef = portionIdentity ? `${portionIdentity} · session #${sessionId}` : `session #${sessionId}`;
+
+    if (decision.route === 'SEND_TO_APPROVER') {
+      await createNotificationsForEvent(prisma, {
+        eventKey: 'ZMCC_LAB_EXCEPTION_PENDING',
+        sourceId: portionId.toString(),
+        sourceZmccId: portion.lab_session.zmcc_id,
+        title: 'Lab portion needs your decision',
+        body: `Portion ${portion.portion_number} (${portionRef}): ${decision.exceptionReasons.join(', ')}. Lab said ${personDecision === 'ACCEPT' ? 'accept' : 'reject'}.${remarks ? ` Reason: ${remarks}` : ''}`,
+        deepLink: '/mpd/zmcc-manager?tab=APPROVALS&view=LAB_EXCEPTIONS',
+        dedupeSuffix: `portion:${portionId}:v${version}`,
+      }).catch((err) => console.error('submitPortionDecision notification error:', err));
+    } else if (details.warnings && details.warnings.length > 0) {
+      await createNotificationsForEvent(prisma, {
+        eventKey: 'ZMCC_LAB_WARNING_LOGGED',
+        sourceId: portionId.toString(),
+        sourceZmccId: portion.lab_session.zmcc_id,
+        title: `Lab warning accepted: Portion ${portion.portion_number}`,
+        body: `Portion ${portion.portion_number} (${portionRef}): ${details.warnings.join('; ')}. Accepted by ${auth.acting.actingAs || auth.acting.actorRole}.${remarks ? ` Remarks: ${remarks}` : ''}`,
+        deepLink: '/zmcc/lab?tab=history',
+        dedupeSuffix: `portion-warning:${portionId}:v${version}`,
+      }).catch((err) => console.error('submitPortionDecision warning notification error:', err));
+    }
+
     // Decided: nobody's draft for this portion is needed any more. Best effort, never affects the result.
     await clearDraftsForPortion(prisma as unknown as DraftDb, labPointForArrival(portion.lab_session.arrival_type), sessionId, portionId.toString()).catch(() => 0);
     return { status: 200, data: result };

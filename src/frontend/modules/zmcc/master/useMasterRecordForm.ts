@@ -59,7 +59,7 @@ export function useMasterRecordForm({ activeTab, isSuperAdmin, selectedZmccId, c
       setFormData({ name: item.name ?? '', origin: item.origin ?? '', destination: item.destination ?? '' });
       setModalType('EDIT_ROUTE');
     } else if (activeTab === 'AREAS') {
-      setFormData({ name: item.name ?? '' });
+      setFormData({ name: item.name ?? '', route_id: item.route_id ?? '' });
       setModalType('EDIT_AREA');
     } else if (activeTab === 'MILK_SOURCES') {
       setFormData({ name: item.name ?? '', erp_code: item.erp_code ?? '' });

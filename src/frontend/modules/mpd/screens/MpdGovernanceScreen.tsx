@@ -7,7 +7,7 @@ import { InfoTip } from '@/components/ui/info-tip';
 import { NO_DATA } from '../format';
 import { Pager, paginate, pageCount } from '@/frontend/modules/dashboard/components/Pager';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatLabel } from '@/lib/format';
 
 interface MpdGovernanceScreenProps {
   overrides: GovernanceOverrideTelemetry[];
@@ -53,7 +53,6 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
       cell: (o) => (
         <div>
           <div className="tabular-nums font-semibold text-foreground">{o.reference}</div>
-          <div className="text-muted-foreground text-xs tabular-nums">{o.id}</div>
         </div>
       ),
     },
@@ -64,7 +63,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
       cell: (o) => (
         <div>
           <div className="font-semibold text-foreground">{o.sourceName ?? NO_DATA}</div>
-          <span className="inline-block px-2 py-0.5 mt-0.5 rounded text-xs tabular-nums font-semibold bg-muted text-secondary-foreground">{o.stage}</span>
+          <span className="inline-block px-2 py-0.5 mt-0.5 rounded text-xs font-semibold bg-muted text-secondary-foreground">{formatLabel(o.stage)}</span>
         </div>
       ),
     },
@@ -93,7 +92,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
             {o.managerJustification ? <InfoTip text={o.managerJustification} /> : <span>{NO_DATA}</span>}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            System {o.systemOutcome ?? NO_DATA} → final {o.finalDecision ?? NO_DATA}
+            System {o.systemOutcome ? formatLabel(o.systemOutcome) : NO_DATA} → Final {o.finalDecision ? formatLabel(o.finalDecision) : NO_DATA}
           </div>
         </div>
       ),
@@ -124,7 +123,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
               : 'bg-amber-50 text-amber-800 border border-amber-200'
           }`}
         >
-          {o.status}
+          {formatLabel(o.status)}
         </span>
       ),
     },
@@ -205,7 +204,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
           <button
             onClick={() => setStageFilter('ALL')}
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
-              stageFilter === 'ALL' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
+              stageFilter === 'ALL' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             All ({(overrides ?? []).length})
@@ -213,7 +212,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
           <button
             onClick={() => setStageFilter('ZMCC_GATE')}
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
-              stageFilter === 'ZMCC_GATE' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
+              stageFilter === 'ZMCC_GATE' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             ZMCC Gate
@@ -221,7 +220,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
           <button
             onClick={() => setStageFilter('PLANT_RECEPTION')}
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
-              stageFilter === 'PLANT_RECEPTION' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
+              stageFilter === 'PLANT_RECEPTION' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             Plant Reception

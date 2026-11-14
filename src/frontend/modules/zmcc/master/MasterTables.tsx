@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Milk, History } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { MasterTable, StatusPill, type MasterCol } from './MasterTable';
 import type {
   AreaItem,
@@ -119,7 +120,7 @@ export const MasterTables: React.FC<Props> = (p) => {
   const common = { canEdit: p.canEdit, onEdit: p.onEdit, onToggle: p.onToggle };
   switch (p.activeTab) {
     case 'LOCAL_SUPPLIERS':
-      return <MasterTable {...common} cols={supplierCols} rows={p.localSuppliers} entity="HC Supplier" emptyText="No HC suppliers." />;
+      return <MasterTable {...common} paginate={false} cols={supplierCols} rows={p.localSuppliers} entity="HC Supplier" emptyText="No HC suppliers." />;
     case 'ROUTES':
       return <MasterTable {...common} cols={routeCols} rows={p.routes} entity="Route" emptyText="No routes." />;
     case 'AREAS':
@@ -137,7 +138,7 @@ export const MasterTables: React.FC<Props> = (p) => {
     case 'CHILLER_OWNERSHIP':
       return <MasterTable {...common} cols={chillerCols} rows={p.chillerOwnerships} entity="Chiller Ownership" emptyText="No chillers." />;
     case 'SHOPS':
-      return <MasterTable {...common} cols={shopCols} rows={p.shops} entity="Shop" emptyText="No shops." />;
+      return <MasterTable {...common} paginate={false} cols={shopCols} rows={p.shops} entity="Shop" emptyText="No shops." />;
     case 'TANKS':
       return (
         <MasterTable
@@ -150,26 +151,28 @@ export const MasterTables: React.FC<Props> = (p) => {
           renderExtraActions={(tank) => (
             <>
               {tank.is_active && p.onIntakeTank && (
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="icon-sm"
                   onClick={() => p.onIntakeTank!(tank)}
-                  className="p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-action/30 bg-primary/10 text-primary hover:bg-primary/20 transition"
                   title="Intake Milk Stock (@13% TS and Gross Liters)"
                   aria-label="Intake Milk Stock"
                 >
-                  <Milk className="w-3.5 h-3.5" />
-                </button>
+                  <Milk aria-hidden />
+                </Button>
               )}
               {p.onViewLedger && (
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="icon-sm"
                   onClick={() => p.onViewLedger!(tank)}
-                  className="p-2 min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg border border-border hover:bg-muted text-secondary-foreground transition"
                   title="View Stock Ledger"
                   aria-label="View Stock Ledger"
                 >
-                  <History className="w-3.5 h-3.5" />
-                </button>
+                  <History aria-hidden />
+                </Button>
               )}
             </>
           )}

@@ -92,7 +92,7 @@ function OutcomeChip({ outcome }: { outcome: Outcome }) {
     );
   return (
     <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-secondary-foreground">
-      <Clock className="h-3 w-3" aria-hidden="true" /> Pending
+      <Clock className="h-3 w-3" aria-hidden="true" /> Not tested
     </span>
   );
 }
@@ -310,7 +310,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                   </div>
 
                   {/* Summary Metrics */}
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 bg-card p-3 rounded-xl border border-border text-center">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-card p-3 rounded-xl border border-border text-center">
                     <div>
                       <span className="text-xs text-muted-foreground font-semibold">Litres</span>
                       <p className="text-xs font-semibold tabular-nums text-foreground mt-0.5">
@@ -364,7 +364,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
           })}
         </AnimatePresence>
       </div>
-      {paged.totalPages > 1 ? (
+      {items.length > 0 ? (
         <Pagination page={paged.page} totalPages={paged.totalPages} totalRecords={paged.totalRecords} pageSize={paged.pageSize} noun="dispatches" onPageChange={paged.setPage} />
       ) : null}
 
@@ -400,7 +400,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               )}
 
               {/* Quality Totals Header */}
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 bg-card p-3 rounded-xl border border-border text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-card p-3 rounded-xl border border-border text-center">
                 <div>
                   <span className="text-xs text-muted-foreground font-semibold">Total Litres</span>
                   <p className="text-sm font-semibold tabular-nums text-foreground mt-0.5">
@@ -528,7 +528,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                     className="w-full text-xs font-semibold p-3 border rounded-xl outline-hidden focus:ring-2 focus:ring-primary bg-subtle"
                   />
 
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 pt-2">
+                  <div className="grid grid-cols-2 gap-3 pt-2">
                     <button
                       type="button"
                       disabled={busy}

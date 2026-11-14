@@ -158,9 +158,15 @@ export const LoginPage: React.FC = () => {
               Keep me signed in
             </label>
 
-            <Button type="submit" disabled={isSubmitting} className="h-11 w-full font-semibold">
-              {isSubmitting ? <Spinner className="text-primary-foreground" /> : null}
-              {isSubmitting ? 'Signing in…' : 'Sign in'}
+            <Button
+              type="submit"
+              variant="default"
+              size="lg"
+              loading={isSubmitting}
+              loadingText="Signing in…"
+              className="w-full font-semibold"
+            >
+              Sign in
             </Button>
           </form>
         </motion.section>

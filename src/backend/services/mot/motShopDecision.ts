@@ -72,7 +72,26 @@ export function buildMotShopDecision(
     const input = i.tests.find((x) => x.labTestId === t.labTestId);
     if (t.labTestId in calculated) {
       const calcValue = calculated[t.labTestId];
-      if (calcValue === null && t.testMode === 'COMPULSORY') missingCompulsory.push(t.testName);
+      let outcome: TestOutcome = 'NOT_TESTED';
+      if (calcValue === null) {
+        if (t.testMode === 'COMPULSORY') missingCompulsory.push(t.testName);
+      } else {
+        const res = outcomeOf(t, calcValue, null);
+        if (res === 'FAIL') {
+          if (t.ruleMode === 'APPLY') {
+            outcome = 'FAIL';
+            if (!ruleFailures.includes(t.testCode)) ruleFailures.push(t.testCode);
+          } else {
+            outcome = 'WARN';
+            warnings.push(`${t.testName} is outside the allowed range.`);
+          }
+        } else if (res === 'WARN') {
+          outcome = 'WARN';
+          warnings.push(`${t.testName}: check value.`);
+        } else {
+          outcome = 'PASS';
+        }
+      }
       rows.push({
         labTestId: t.labTestId,
         testCode: t.testCode,
@@ -82,7 +101,10 @@ export function buildMotShopDecision(
         testMode: t.testMode,
         ruleMode: t.ruleMode,
         photoMode: t.photoMode,
-        outcome: calcValue !== null ? 'PASS' : 'NOT_TESTED',
+        min: t.rule?.min ?? null,
+        max: t.rule?.max ?? null,
+        allowed: t.rule?.allowed ?? null,
+        outcome,
         photoCaptureId: null,
       });
       continue;
@@ -111,8 +133,8 @@ export function buildMotShopDecision(
       } else {
         outcome = 'PASS';
       }
-      if (t.photoMode === 'REQUIRED' && !photoCaptureId) missingPhotos.push(t.testName);
     }
+    if (t.photoMode === 'REQUIRED' && !photoCaptureId) missingPhotos.push(t.testName);
     rows.push({
       labTestId: t.labTestId,
       testCode: t.testCode,
@@ -122,6 +144,9 @@ export function buildMotShopDecision(
       testMode: t.testMode,
       ruleMode: t.ruleMode,
       photoMode: t.photoMode,
+      min: t.rule?.min ?? null,
+      max: t.rule?.max ?? null,
+      allowed: t.rule?.allowed ?? null,
       outcome,
       photoCaptureId,
     });

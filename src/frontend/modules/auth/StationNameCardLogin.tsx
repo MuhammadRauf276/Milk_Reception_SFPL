@@ -138,7 +138,7 @@ export function StationNameCardLogin() {
             ))}
           </div>
           {problem ? <ProblemBox problem={problem} /> : null}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3">
+          <div className="grid grid-cols-3 gap-3">
             {DIGITS.map((d) => (
               <button key={d} type="button" className={KEY} disabled={busy} onClick={() => press(d)}>{d}</button>
             ))}

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { AlertCircle, Clock, Loader2, Truck } from 'lucide-react';
+import { useListPageSize } from '@/components/ui/pagination';
 import type { InsideVehicle } from '@/backend/services/zmccArrival/zmccArrivalCore';
 
 interface Props {
@@ -20,6 +21,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
   onRefresh,
 }) => {
   const [insidePage, setInsidePage] = useState(1);
+  const insidePageSize = useListPageSize(25);
   const fetchInsideVehicles = onRefresh;
   return (
     <div className="space-y-4 animate-panel-in">
@@ -55,9 +57,8 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
             </div>
           ) : (
             (() => {
-              const INSIDE_PAGE_SIZE = 6;
-              const totalInsidePages = Math.ceil(insideVehicles.length / INSIDE_PAGE_SIZE) || 1;
-              const currentInsideVehicles = insideVehicles.slice((insidePage - 1) * INSIDE_PAGE_SIZE, insidePage * INSIDE_PAGE_SIZE);
+              const totalInsidePages = Math.ceil(insideVehicles.length / insidePageSize) || 1;
+              const currentInsideVehicles = insideVehicles.slice((insidePage - 1) * insidePageSize, insidePage * insidePageSize);
 
               return (
                 <div className="space-y-4">
@@ -78,7 +79,7 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                                   {v.vehicle_number}
                                 </div>
                                 <span
-                                  className={`inline-block mt-0.5 px-2 py-0.2 rounded text-xs font-semibold tracking-wider ${
+                                  className={`inline-block mt-0.5 px-2 py-0.5 rounded text-xs font-semibold tracking-wider ${
                                     v.arrival_type === 'MOT'
                                       ? 'bg-blue-100 text-blue-800'
                                       : 'bg-emerald-100 text-emerald-800'
@@ -134,10 +135,6 @@ export const InsideVehiclesPanel: React.FC<Props> = ({
                               </span>
                             )}
                           </div>
-                        </div>
-
-                        <div className="bg-subtle p-2 rounded-xl border border-border text-center">
-                          <span className="text-xs font-medium text-muted-foreground">Old record. Gate exit is no longer used.</span>
                         </div>
                       </div>
                     ))}

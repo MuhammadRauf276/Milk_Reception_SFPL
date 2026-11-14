@@ -15,6 +15,7 @@ import {
   Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { toast } from '@/frontend/lib/appToast';
 
 interface SavedTemplateManagerProps {
@@ -180,8 +181,12 @@ export function SavedTemplateManager({
 
       {/* Save View Modal */}
       {isSaveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-card border border-border w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-4 animate-panel-in">
+        <Modal
+          onClose={() => setIsSaveModalOpen(false)}
+          title="Save Custom Report View"
+          showHeader={false}
+          className="max-w-md p-6 space-y-4"
+        >
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
                 <Bookmark className="w-4 h-4 text-muted-foreground" />
@@ -235,8 +240,7 @@ export function SavedTemplateManager({
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

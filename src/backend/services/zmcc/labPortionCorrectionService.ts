@@ -190,14 +190,7 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
         systemOutcome = built.decision.systemOutcome;
         rejudged = built.decision.exceptionReasons;
         newDetails = built.details;
-        // LR and Fat limits are monitoring norms, so they never fail a decision. A correction outside them still gets told.
-        const outsideNorm = policy.tests.some((t) => {
-          if (!t.isLr && !t.isFat) return false;
-          const value = t.isLr ? newLr : newFat;
-          const { min, max } = (t.rule ?? {}) as { min?: number | string | null; max?: number | string | null };
-          return (min != null && value < Number(min)) || (max != null && value > Number(max));
-        });
-        nowOutside = (systemOutcome === 'FAIL' || outsideNorm) && portion.final_decision === 'ACCEPTED';
+        nowOutside = systemOutcome === 'FAIL' && portion.final_decision === 'ACCEPTED';
         if (nowOutside) newDetails = { ...built.details, warnings: [...built.details.warnings, OUTSIDE_LIMITS] };
       }
 

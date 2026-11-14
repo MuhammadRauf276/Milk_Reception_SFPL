@@ -3,6 +3,7 @@
 import { useAutoClearMessage } from '@/frontend/hooks/useAutoClearMessage';
 import { InfoTip } from '@/components/ui/info-tip';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { SkeletonTable } from '@/components/ui/loaders';
 import { TableWrapper } from '@/components/ui/table-wrapper';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -247,8 +248,13 @@ export function TestPointPolicyMatrix() {
       </TableWrapper>
 
       {showReason && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label="Reason for change">
-          <div className="w-full max-w-md space-y-3 rounded-2xl bg-card p-5 shadow-lg">
+        <Modal
+          onClose={() => !saving && setShowReason(false)}
+          preventClose={saving}
+          title="Why are you changing this?"
+          showHeader={false}
+          className="max-w-md space-y-3 p-5"
+        >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">Why are you changing this?</h2>
               <button type="button" onClick={() => setShowReason(false)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-lg text-secondary-foreground">
@@ -271,8 +277,7 @@ export function TestPointPolicyMatrix() {
                 {saving ? 'Saving…' : 'Confirm and save'}
               </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

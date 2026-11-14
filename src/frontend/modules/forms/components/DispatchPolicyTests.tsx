@@ -151,8 +151,8 @@ export function DispatchPolicyTests({
     const v = values[t.labTestId];
     return Boolean(v?.numericValue || v?.textValue || photos[t.labTestId] || errors[t.labTestId]);
   };
-  // LR, Fat and compulsory tests first; the rest sit in a collapsible list (opened when something is filled).
-  const primary = active.filter((t) => t.testMode === 'COMPULSORY' || t.isLr || t.isFat || hasInput(t));
+  // LR, Fat, compulsory tests, and photo-required tests first; remaining optional tests sit in collapsible list.
+  const primary = active.filter((t) => t.testMode === 'COMPULSORY' || t.photoMode === 'REQUIRED' || t.isLr || t.isFat || hasInput(t));
   const more = active.filter((t) => !primary.includes(t));
 
   const renderTest = (t: DispatchPolicyTest) => {
@@ -176,16 +176,26 @@ export function DispatchPolicyTests({
         )}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <label htmlFor={inputId} className="text-sm font-semibold text-foreground flex items-center">
-            {t.testName}
+          <label htmlFor={inputId} className="text-sm font-semibold text-foreground flex flex-wrap items-center gap-1.5">
+            <span>{t.testName}</span>
             <span
               className={cn(
-                'ml-2 rounded-md px-2 py-0.5 align-middle text-xs font-semibold',
+                'rounded-md px-2 py-0.5 align-middle text-xs font-semibold',
                 isRequired ? 'bg-primary text-white shadow-2xs' : 'bg-muted text-secondary-foreground'
               )}
             >
               {isCalc ? 'Auto' : isRequired ? 'Required *' : 'Optional'}
             </span>
+            {t.photoMode === 'REQUIRED' && !isCalc && (
+              <span
+                className={cn(
+                  'rounded-md px-2 py-0.5 align-middle text-xs font-semibold',
+                  photos[t.labTestId] ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'
+                )}
+              >
+                {photos[t.labTestId] ? 'Photo OK' : 'Photo required'}
+              </span>
+            )}
           </label>
           {chip && (
             <span

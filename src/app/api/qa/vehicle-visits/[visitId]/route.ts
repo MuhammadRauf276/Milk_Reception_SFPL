@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
+import { canActAs } from '@/backend/core/roles/hierarchy';
+import { writeAuditLog, auditActorFromUser } from '@core/audit';
 import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
 import { vehicleVisitPaperIdentity } from '@/backend/modules/paper-references';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
@@ -154,6 +156,7 @@ export async function GET(
         dispatch_quantity_basis: p.dispatch_quantity_basis || null,
         plant_decision: p.plant_decision || 'PENDING',
         manager_review_status: p.manager_review_status || null,
+        manager_review_reason: p.manager_review_reason || null,
         plant_rejection_reason: p.plant_rejection_reason || null,
         plant_decided_at: p.plant_decided_at ? p.plant_decided_at.toISOString() : null,
         seal_number: p.seal_number || null,
@@ -193,5 +196,86 @@ export async function GET(
     return NextResponse.json({ visit: formattedVisit });
   } catch (error) {
     return NextResponse.json({ error: getErrorMessage(error) || 'Failed to fetch vehicle visit details' }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ visitId: string }> }
+) {
+  const authUser = await getCurrentUser(req);
+  if (!authUser) {
+    return NextResponse.json({ error: 'Unauthorized. Authentication required.' }, { status: 401 });
+  }
+
+  const dbUser = await prisma.user.findFirst({
+    where: {
+      OR: [{ username: authUser.username }, { username: authUser.id }],
+      is_active: true,
+    },
+  });
+
+  if (!dbUser || !canActAs(dbUser.role, 'QA_LAB_ATTENDANT')) {
+    return NextResponse.json(
+      { error: 'Unauthorized. QA Laboratory role required.' },
+      { status: 403 }
+    );
+  }
+
+  const resolvedParams = await params;
+
+  try {
+    const visitId = BigInt(resolvedParams.visitId);
+    const body = await req.json().catch(() => ({}));
+    const testMode = body?.test_mode;
+    if (testMode !== 'COMPOSITE' && testMode !== 'PORTION_WISE') {
+      return NextResponse.json({ error: 'Invalid test_mode. Expected COMPOSITE or PORTION_WISE.' }, { status: 400 });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const visit = await tx.vehicleVisit.findUnique({
+        where: { id: visitId },
+        include: { portions: true },
+      });
+      if (!visit) return { error: 'Vehicle visit record not found', status: 404 as const };
+
+      const hasLockedPortion = visit.portions.some(
+        (p) =>
+          p.plant_decision === 'ACCEPTED' ||
+          p.plant_decision === 'REJECTED' ||
+          p.manager_review_status === 'PENDING'
+      );
+      if (hasLockedPortion) {
+        return {
+          error: 'Cannot change test mode after portions have been decided or sent for review.',
+          status: 409 as const,
+        };
+      }
+
+      if (visit.test_mode !== testMode) {
+        await tx.vehicleVisit.update({
+          where: { id: visitId },
+          data: { test_mode: testMode },
+        });
+        await writeAuditLog(tx, {
+          tableName: 'vehicle_visit',
+          recordId: visitId,
+          action: 'PLANT_QA_TEST_MODE_UPDATED',
+          oldValues: { test_mode: visit.test_mode },
+          newValues: { test_mode: testMode },
+          actor: auditActorFromUser(dbUser),
+        });
+      }
+
+      return { success: true as const, test_mode: testMode };
+    });
+
+    if ('error' in updated) {
+      return NextResponse.json({ error: updated.error }, { status: updated.status });
+    }
+
+    return NextResponse.json({ success: true, test_mode: updated.test_mode });
+  } catch (error) {
+    return NextResponse.json({ error: getErrorMessage(error) || 'Failed to update test mode' }, { status: 500 });
   }
 }

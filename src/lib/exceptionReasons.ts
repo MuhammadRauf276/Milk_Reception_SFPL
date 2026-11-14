@@ -9,6 +9,11 @@ const sameCode: TestNameOf = (code) => code;
 /** Full sentence, for the detail of a request. */
 export function exceptionReasonText(reason: string, nameOf: TestNameOf = sameCode): string {
   if (reason.startsWith('RULE_FAIL:')) return `${nameOf(reason.slice('RULE_FAIL:'.length))} is outside the SOP range.`;
+  if (reason.startsWith('PICTURE_MISSING:') || reason.startsWith('PHOTO_MISSING:')) {
+    const raw = reason.slice(reason.indexOf(':') + 1).trim();
+    const name = raw ? nameOf(raw) : '';
+    return name ? `Required picture is missing for ${name}.` : 'A required test picture is missing.';
+  }
   switch (reason) {
     case 'MISMATCH':
     case 'DECISION_MISMATCH':
@@ -43,6 +48,11 @@ export function exceptionReasonText(reason: string, nameOf: TestNameOf = sameCod
 /** Short label, for chips and list rows. */
 export function exceptionReasonShort(reason: string, nameOf: TestNameOf = sameCode): string {
   if (reason.startsWith('RULE_FAIL:')) return `${nameOf(reason.slice('RULE_FAIL:'.length))} out of range`;
+  if (reason.startsWith('PICTURE_MISSING:') || reason.startsWith('PHOTO_MISSING:')) {
+    const raw = reason.slice(reason.indexOf(':') + 1).trim();
+    const name = raw ? nameOf(raw) : '';
+    return name ? `${name} picture missing` : 'Picture missing';
+  }
   switch (reason) {
     case 'MISMATCH':
     case 'DECISION_MISMATCH':
@@ -77,10 +87,14 @@ export function exceptionReasonShort(reason: string, nameOf: TestNameOf = sameCo
 /** Tag for a card: three words or fewer. The test names are in the full sentence. */
 export function exceptionReasonLabel(reason: string): string {
   if (reason.startsWith('RULE_FAIL:')) return 'Out of range';
+  if (reason.startsWith('PICTURE_MISSING:') || reason.startsWith('PHOTO_MISSING:')) return 'Picture missing';
   switch (reason) {
     case 'MISMATCH':
     case 'DECISION_MISMATCH':
       return 'Decision differs';
+    case 'PICTURE_MISSING':
+    case 'PHOTO_MISSING':
+      return 'Picture missing';
     case 'MISSING_FIELD':
     case 'COMPULSORY_TEST_MISSING':
       return 'Test not done';

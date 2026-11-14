@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Edit2, Power } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 
 export interface MasterCol<T> {
@@ -46,6 +47,7 @@ interface Props<T extends { id: string; is_active: boolean }> {
   canEdit: boolean;
   /** Kept for existing callers. Read-only users never see an Actions column. */
   hideActionsWhenReadOnly?: boolean;
+  paginate?: boolean;
   renderExtraActions?: (row: T) => React.ReactNode;
   onEdit: (row: T) => void;
   onToggle: (row: T) => void;
@@ -58,6 +60,7 @@ export function MasterTable<T extends { id: string; is_active: boolean }>({
   emptyText,
   entity,
   canEdit,
+  paginate = true,
   renderExtraActions,
   onEdit,
   onToggle,
@@ -82,30 +85,31 @@ export function MasterTable<T extends { id: string; is_active: boolean }>({
       cell: (r) => (
         <div className="flex items-center justify-end gap-1">
           {renderExtraActions ? renderExtraActions(r) : null}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={() => onEdit(r)}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title={`Edit ${entity}`}
             aria-label={`Edit ${entity}`}
           >
-            <Edit2 className="h-4 w-4" />
-          </button>
-          <button
+            <Edit2 aria-hidden />
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={() => onToggle(r)}
-            className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors hover:bg-muted ${
-              r.is_active ? 'text-muted-foreground hover:text-destructive' : 'text-emerald-700'
-            }`}
+            className={r.is_active ? 'hover:text-destructive' : 'text-emerald-700 hover:text-emerald-800'}
             title={r.is_active ? `Deactivate ${entity}` : `Activate ${entity}`}
             aria-label={r.is_active ? `Deactivate ${entity}` : `Activate ${entity}`}
           >
-            <Power className="h-4 w-4" />
-          </button>
+            <Power aria-hidden />
+          </Button>
         </div>
       ),
     });
   }
 
-  return <DataTable columns={columns} rows={rows} getRowId={(r) => r.id} emptyTitle={emptyText} />;
+  return <DataTable paginate={paginate} columns={columns} rows={rows} getRowId={(r) => r.id} emptyTitle={emptyText} />;
 }

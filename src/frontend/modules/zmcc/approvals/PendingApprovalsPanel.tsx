@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
+import { useListPageSize } from '@/components/ui/pagination';
 import { User } from '@core/types';
 import { getErrorMessage } from '@/lib/errors';
 import { canApproveRoute, canApproveShop, canCreateRoute } from '@/frontend/modules/zmcc/stage1Capabilities';
@@ -111,7 +112,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
   const [routesPage, setRoutesPage] = useState(1);
   const [shopsPage, setShopsPage] = useState(1);
   const [hcsPage, setHcsPage] = useState(1);
-  const PAGE_SIZE = 6;
+  const pageSize = useListPageSize(25);
 
   // Rejection modal state
   const [rejectingItem, setRejectingItem] = useState<{
@@ -223,25 +224,25 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
   };
 
   const paginatedRoutes = useMemo(() => {
-    const start = (routesPage - 1) * PAGE_SIZE;
-    return routes.slice(start, start + PAGE_SIZE);
-  }, [routes, routesPage]);
+    const start = (routesPage - 1) * pageSize;
+    return routes.slice(start, start + pageSize);
+  }, [routes, routesPage, pageSize]);
 
-  const totalRoutePages = Math.max(1, Math.ceil(routes.length / PAGE_SIZE));
+  const totalRoutePages = Math.max(1, Math.ceil(routes.length / pageSize));
 
   const paginatedShops = useMemo(() => {
-    const start = (shopsPage - 1) * PAGE_SIZE;
-    return shops.slice(start, start + PAGE_SIZE);
-  }, [shops, shopsPage]);
+    const start = (shopsPage - 1) * pageSize;
+    return shops.slice(start, start + pageSize);
+  }, [shops, shopsPage, pageSize]);
 
-  const totalShopPages = Math.max(1, Math.ceil(shops.length / PAGE_SIZE));
+  const totalShopPages = Math.max(1, Math.ceil(shops.length / pageSize));
 
   const paginatedHcs = useMemo(() => {
-    const start = (hcsPage - 1) * PAGE_SIZE;
-    return hcs.slice(start, start + PAGE_SIZE);
-  }, [hcs, hcsPage]);
+    const start = (hcsPage - 1) * pageSize;
+    return hcs.slice(start, start + pageSize);
+  }, [hcs, hcsPage, pageSize]);
 
-  const totalHcPages = Math.max(1, Math.ceil(hcs.length / PAGE_SIZE));
+  const totalHcPages = Math.max(1, Math.ceil(hcs.length / pageSize));
 
   if (!canSeeRoutes && !canApproveShops && !canDecideHcs) {
     return (
@@ -393,9 +394,10 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   type="button"
                   disabled={routesPage >= totalRoutePages}
                   onClick={() => setRoutesPage((p) => p + 1)}
-                  className="min-h-11 min-w-11 p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
+                  aria-label="Next routes page"
+                  className="min-h-11 min-w-11 p-1 rounded border border-border disabled:opacity-30 hover:bg-muted inline-flex items-center justify-center"
                 >
-                  
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -504,9 +506,10 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   type="button"
                   disabled={shopsPage >= totalShopPages}
                   onClick={() => setShopsPage((p) => p + 1)}
-                  className="min-h-11 min-w-11 p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
+                  aria-label="Next shops page"
+                  className="min-h-11 min-w-11 p-1 rounded border border-border disabled:opacity-30 hover:bg-muted inline-flex items-center justify-center"
                 >
-                  
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -561,7 +564,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       onClick={() => handleApprove('HC', h.id)}
                       className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
-                      
+                      <CheckCircle2 className="w-4 h-4" />
                       <span>Approve</span>
                     </button>
                     <button
@@ -570,7 +573,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       onClick={() => setRejectingItem({ type: 'HC', id: h.id, name: h.name })}
                       className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
-                      
+                      <XCircle className="w-4 h-4" />
                       <span>Reject</span>
                     </button>
                   </div>
@@ -597,9 +600,10 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                   type="button"
                   disabled={hcsPage >= totalHcPages}
                   onClick={() => setHcsPage((p) => p + 1)}
-                  className="min-h-11 min-w-11 p-1 rounded border border-border disabled:opacity-30 hover:bg-muted"
+                  aria-label="Next HCs page"
+                  className="min-h-11 min-w-11 p-1 rounded border border-border disabled:opacity-30 hover:bg-muted inline-flex items-center justify-center"
                 >
-                  
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>

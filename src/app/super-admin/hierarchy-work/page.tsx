@@ -54,7 +54,7 @@ const columns: DataColumn<HierarchyWorkItem>[] = [
   },
   { key: 'action', header: 'Action taken', label: 'Action taken', cell: (r) => <span className="font-semibold text-foreground">{r.actionTaken}</span> },
   { key: 'station', header: 'Station', label: 'Station', cell: (r) => <span className="text-secondary-foreground">{r.station}</span> },
-  { key: 'reference', header: 'Reference #', label: 'Reference #', cell: (r) => <span className="break-all font-mono font-semibold text-foreground">{r.referenceNumber}</span> },
+  { key: 'reference', header: 'Reference #', label: 'Reference #', cell: (r) => <span className="whitespace-nowrap font-mono font-semibold text-foreground">{r.referenceNumber}</span> },
   { key: 'reason', header: 'Reason / notes', label: 'Reason / notes', cell: (r) => <span className="text-secondary-foreground">{r.reason}</span> },
 ];
 

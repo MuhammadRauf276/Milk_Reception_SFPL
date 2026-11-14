@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Eye, Truck } from 'lucide-react';
+import { Pagination, useListPageSize } from '@/components/ui/pagination';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 import { toast } from '@/frontend/lib/appToast';
 import type { MilkProcessLog } from '@backend/core/types';
 import { getPakistanCalendarDate } from '@backend/core/business-day';
@@ -92,6 +94,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
   const [page, setPage] = useState(1);
   const [typedFilters, setTypedFilters] = useState<ReportColumnFilters>({});
   const [filters, setFilters] = useState<ReportColumnFilters>({});
+  const requestedPageSize = useListPageSize(25);
   const [inspectVisitId, setInspectVisitId] = useState<string | null>(null);
 
   // Wait for a pause in typing, so one search sends one request instead of one per letter.
@@ -105,12 +108,12 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
 
   const rangeProblem = dateRangeProblem(from, to);
   const params = useMemo(() => {
-    const p = new URLSearchParams({ from, to, page: String(page) });
+    const p = new URLSearchParams({ from, to, page: String(page), pageSize: String(requestedPageSize) });
     for (const [key, value] of Object.entries(filters)) {
       if (value?.trim()) p.set(`f_${key}`, value.trim());
     }
     return p.toString();
-  }, [from, to, page, filters]);
+  }, [from, to, page, requestedPageSize, filters]);
 
   // No background refresh: a report only asks the database when the person changes something.
   const reportQuery = useQuery({
@@ -126,7 +129,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
   const totalPages = report?.totalPages ?? 1;
   const totalRows = report?.totalRows ?? 0;
   const currentPage = report?.page ?? page;
-  const pageSize = report?.pageSize ?? 50;
+  const pageSize = report?.pageSize ?? requestedPageSize;
 
   const visitQuery = useQuery({
     queryKey: ['executive', 'vehicle-report-visit', inspectVisitId],
@@ -205,7 +208,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
         </div>
       )}
 
-      <div className={`overflow-x-auto rounded-xl bg-card border border-border/80 shadow-2xs transition-opacity ${reportQuery.isFetching ? 'opacity-70' : ''}`}>
+      <TableWrapper className={`rounded-xl bg-card border border-border/80 shadow-2xs transition-opacity ${reportQuery.isFetching ? 'opacity-70' : ''}`}>
         <table className="w-full text-left text-xs tabular-nums">
           <thead>
             <tr className="border-b border-border text-muted-foreground">
@@ -263,37 +266,18 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
             )}
           </tbody>
         </table>
-      </div>
+      </TableWrapper>
 
       {totalPages > 1 && (
-        <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <span className="text-secondary-foreground font-semibold tabular-nums">
-            Showing{' '}
-            <strong className="text-foreground">
-              {((currentPage - 1) * pageSize + 1).toLocaleString()}–{Math.min(currentPage * pageSize, totalRows).toLocaleString()}
-            </strong>{' '}
-            of <strong className="text-foreground">{totalRows.toLocaleString()}</strong> portions (Page {currentPage} of {totalPages})
-          </span>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setPage(currentPage - 1)}
-              disabled={currentPage <= 1}
-              aria-label="Previous Page"
-              className="inline-flex items-center space-x-1 px-3 py-2 rounded-lg border border-action/30 bg-action-soft hover:bg-action-soft text-xs font-semibold text-action disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              <span>Previous</span>
-            </button>
-            <button
-              onClick={() => setPage(currentPage + 1)}
-              disabled={currentPage >= totalPages}
-              aria-label="Next Page"
-              className="inline-flex items-center space-x-1 px-3 py-2 rounded-lg border border-action/30 bg-action-soft hover:bg-action-soft text-xs font-semibold text-action disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs min-h-11"
-            >
-              <span>Next</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        <div className="rounded-2xl bg-card border border-border/80 shadow-2xs overflow-hidden">
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            totalRecords={totalRows}
+            pageSize={pageSize}
+            noun="portions"
+            onPageChange={setPage}
+          />
         </div>
       )}
 

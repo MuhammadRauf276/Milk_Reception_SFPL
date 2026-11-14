@@ -18,6 +18,7 @@ import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { EmptyAction } from './components/EmptyAction';
 import { DataTable } from '@/components/ui/data-table';
 import { SkeletonList } from '@/components/ui/loaders';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { formatTime } from '@/lib/format';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
@@ -181,6 +182,8 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
   const dispatchedVisits = useMemo(() => dispatchedQuery.data?.visits ?? [], [dispatchedQuery.data]);
   const activeVisits = useMemo(() => activeQuery.data?.visits ?? [], [activeQuery.data]);
   const readyExitVisits = useMemo(() => exitQuery.data?.visits ?? [], [exitQuery.data]);
+  const pagedEntryVisits = usePagedRows(dispatchedVisits, (v) => v.id);
+  const pagedExitVisits = usePagedRows(readyExitVisits, (v) => v.id);
   const isLoading = (activeTab === 'WAITING_ENTRY' && dispatchedQuery.isPending) ||
     (activeTab === 'INSIDE_PLANT' && activeQuery.isPending) ||
     (activeTab === 'READY_EXIT' && exitQuery.isPending);
@@ -336,7 +339,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
               ) : dispatchedVisits.length === 0 ? (
                 <EmptyAction message="No vehicles" onRefresh={() => queryClient.invalidateQueries()} />
               ) : (
-                dispatchedVisits.map((v) => {
+                pagedEntryVisits.pageRows.map((v) => {
                   const isSelected = selectedEntryVisit?.id === v.id;
                   return (
                     <div
@@ -369,6 +372,18 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 })
               )}
             </div>
+
+            {pagedEntryVisits.totalPages > 1 && (
+              <Pagination
+                page={pagedEntryVisits.page}
+                totalPages={pagedEntryVisits.totalPages}
+                totalRecords={pagedEntryVisits.totalRecords}
+                pageSize={pagedEntryVisits.pageSize}
+                noun="vehicles"
+                onPageChange={pagedEntryVisits.setPage}
+                className="bg-card rounded-xl border border-border p-2 text-xs"
+              />
+            )}
           </div>
 
           <div className="lg:col-span-7">
@@ -395,7 +410,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   </p>
                 </div>
 
-                <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
+                <div className="bg-card border-border grid grid-cols-2 gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
                   <div>
                     <span className="text-muted-foreground font-sans block text-xs">Portions</span>
                     <span>{selectedEntryVisit.portion_count} Portion{selectedEntryVisit.portion_count > 1 ? 's' : ''}</span>
@@ -505,7 +520,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
               {readyExitVisits.length === 0 ? (
                 <EmptyAction message="No vehicles" onRefresh={() => queryClient.invalidateQueries()} />
               ) : (
-                readyExitVisits.map((v) => {
+                pagedExitVisits.pageRows.map((v) => {
                   const isSelected = selectedExitVisit?.id === v.id;
                   return (
                     <div
@@ -545,6 +560,18 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 })
               )}
             </div>
+
+            {pagedExitVisits.totalPages > 1 && (
+              <Pagination
+                page={pagedExitVisits.page}
+                totalPages={pagedExitVisits.totalPages}
+                totalRecords={pagedExitVisits.totalRecords}
+                pageSize={pagedExitVisits.pageSize}
+                noun="vehicles"
+                onPageChange={pagedExitVisits.setPage}
+                className="bg-card rounded-xl border border-border p-2 text-xs"
+              />
+            )}
           </div>
 
           <div className="lg:col-span-7">
@@ -571,7 +598,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                   </p>
                 </div>
 
-                <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
+                <div className="bg-card border-border grid grid-cols-2 gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
                   <div>
                     <span className="text-muted-foreground font-sans block text-xs">Exit reason</span>
                     <span className={selectedExitVisit.is_all_rejected ? 'text-rose-700 font-semibold' : 'text-emerald-700 font-semibold'}>
@@ -586,7 +613,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 </div>
 
                 {!selectedExitVisit.is_all_rejected && (
-                  <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
+                  <div className="bg-card border-border grid grid-cols-2 gap-3 p-4 rounded-2xl border text-xs tabular-nums font-semibold">
                     <div>
                       <span className="text-muted-foreground font-sans block text-xs">Gross weight</span>
                       <span className="font-mono text-base tabular-nums">{selectedExitVisit.gross_weight_kg ? `${selectedExitVisit.gross_weight_kg.toLocaleString()} kg` : '—'}</span>
@@ -625,7 +652,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     )}
                   </div>
 
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setTankerWashed(true)}

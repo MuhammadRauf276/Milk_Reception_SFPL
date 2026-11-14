@@ -131,6 +131,22 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
       </div>
 
 
+      {((activeTab === 'READY' && readyQuery.isError) || (activeTab === 'UNLOADING' && unloadingQuery.isError)) && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-900"
+        >
+          <span>Could not load unloading queue. Please check your connection and try again.</span>
+          <button
+            type="button"
+            onClick={() => void (activeTab === 'READY' ? readyQuery.refetch() : unloadingQuery.refetch())}
+            className="min-h-11 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {activeTab === 'SILO_ISSUE' ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -233,7 +249,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                       key={`sidebar-silo-${silo.id}`}
                       className="p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition space-y-1.5"
                     >
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs min-w-0">
                         <span className="font-semibold tabular-nums text-foreground">{silo.silo_code}</span>
                         {stock13Ts != null ? (
                           <span className="tabular-nums font-semibold text-xs text-foreground">

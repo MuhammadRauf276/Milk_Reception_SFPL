@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ClipboardList } from 'lucide-react';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { ZmccDrawer } from '@/frontend/modules/zmcc/shared/ZmccDrawer';
+import { formatLabel } from '@/lib/format';
 import type { SerializedCorrectionRequest } from '@/backend/services/correctionGovernanceService';
 
 export const CORRECTION_MODULE_LABELS: Record<string, string> = {
@@ -54,7 +55,7 @@ export const MyCorrectionTicketsButton: React.FC<{ className?: string }> = ({ cl
         onClick={() => setOpen(true)}
         className={
           className ??
-          'flex items-center space-x-1 min-h-[44px] px-4 bg-muted hover:bg-muted text-secondary-foreground rounded-xl text-xs font-semibold cursor-pointer'
+          'flex items-center space-x-1 min-h-[44px] px-4 bg-muted hover:bg-muted/80 active:scale-95 text-secondary-foreground rounded-xl text-xs font-semibold cursor-pointer transition-colors'
         }
       >
         <ClipboardList className="w-3.5 h-3.5" />
@@ -78,13 +79,13 @@ export const MyCorrectionTicketsButton: React.FC<{ className?: string }> = ({ cl
               <li key={t.id} className="rounded-xl border border-border p-3 text-xs space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold text-foreground">
-                    {CORRECTION_MODULE_LABELS[t.module] ?? t.module} #{t.recordId}
+                    {CORRECTION_MODULE_LABELS[t.module] ?? formatLabel(t.module)}
                   </span>
                   <CorrectionStatusBadge label={t.statusLabel} />
                 </div>
                 {field !== undefined && (
                   <div className="text-secondary-foreground">
-                    <span className="font-medium">{field.replace(/_/g, ' ')}:</span>{' '}
+                    <span className="font-medium">{formatLabel(field)}:</span>{' '}
                     <span className="tabular-nums text-rose-700">{String(t.currentValues[field] ?? '—')}</span>
                     {' → '}
                     <span className="tabular-nums font-semibold text-emerald-700">{String(proposed)}</span>

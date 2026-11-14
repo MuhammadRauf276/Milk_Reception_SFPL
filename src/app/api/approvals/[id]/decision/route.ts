@@ -300,93 +300,256 @@ export async function POST(
       }
     } else if (approvalType === 'STAGE_4_PORTION_EXCEPTION') {
       await prisma.$transaction(async (tx) => {
+        const existingPortion = await tx.visitPortion.findUnique({
+          where: { id: numericId },
+          include: { visit: { include: { gate_log: true } } },
+        });
+        if (!existingPortion) {
+          throw new Error('Portion not found.');
+        }
+
+        await tx.$executeRaw`SELECT id FROM vehicle_visit WHERE id = ${existingPortion.visit_id} FOR UPDATE`;
+
         const portion = await tx.visitPortion.findUnique({
           where: { id: numericId },
-          include: { visit: true },
+          include: { visit: { include: { gate_log: true } } },
         });
         if (!portion || portion.manager_review_status !== 'PENDING') {
           throw new Error('Portion not in pending review state.');
         }
 
-        const newStatus = verdict === 'OKAY' ? 'APPROVED' : 'REJECTED';
-        const finalPlantDecision = verdict === 'OKAY' ? 'ACCEPTED' : 'REJECTED';
-
-        await tx.visitPortion.update({
-          where: { id: numericId },
-          data: {
-            manager_review_status: newStatus,
-            plant_decision: finalPlantDecision,
-            current_status: finalPlantDecision,
-            manager_reviewed_by_user_id: dbUser.id,
-            manager_review_reason: remarks || portion.manager_review_reason,
-            manager_reviewed_at: new Date(),
-          },
-        });
-
-        // Recompute the vehicle visit status upon superior exception decision
-        const isComposite = portion.visit.test_mode === 'COMPOSITE';
-        if (isComposite) {
-          await tx.visitPortion.updateMany({
-            where: { visit_id: portion.visit_id },
+        const now = new Date();
+        if (portion.visit.gate_log?.exit_timestamp) {
+          await tx.visitPortion.update({
+            where: { id: numericId },
             data: {
-              plant_decision: finalPlantDecision,
-              current_status: finalPlantDecision,
-              manager_review_status: newStatus,
+              manager_review_status: 'REVIEWED_EXITED',
               manager_reviewed_by_user_id: dbUser.id,
-              manager_reviewed_at: new Date(),
+              manager_review_reason: remarks || portion.manager_review_reason,
+              manager_reviewed_at: now,
             },
           });
-          const targetVisitStatus = finalPlantDecision === 'ACCEPTED' ? 'READY_FOR_GROSS' : 'READY_FOR_GATE_EXIT';
-          await tx.vehicleVisit.update({
-            where: { id: portion.visit_id },
-            data: { current_status: targetVisitStatus },
+          return;
+        }
+
+        if (verdict === 'OKAY') {
+          if (
+            portion.system_quality_outcome === 'RULE_CONFIGURATION_ERROR' ||
+            portion.system_quality_outcome === 'NO_ACTIVE_RULE'
+          ) {
+            throw new Error(
+              'Cannot approve exception: laboratory rule configuration is missing or invalid.'
+            );
+          }
+          const finalPlantDecision = ['REJECT', 'REJECTED'].includes(
+            (portion.manager_requested_decision || '').toUpperCase()
+          )
+            ? 'REJECTED'
+            : 'ACCEPTED';
+
+          await tx.visitPortion.update({
+            where: { id: numericId },
+            data: {
+              manager_review_status: 'APPROVED',
+              plant_decision: finalPlantDecision,
+              current_status: finalPlantDecision,
+              ...(finalPlantDecision === 'REJECTED'
+                ? {
+                    plant_rejection_reason:
+                      portion.plant_rejection_reason || remarks || portion.manager_review_reason || 'Approved rejection by AVP QA',
+                  }
+                : {}),
+              manager_reviewed_by_user_id: dbUser.id,
+              manager_review_reason: remarks || portion.manager_review_reason,
+              manager_reviewed_at: now,
+            },
           });
-        } else {
-          const allPortions = await tx.visitPortion.findMany({
-            where: { visit_id: portion.visit_id },
-          });
-          const hasPending = allPortions.some(
-            (p) =>
-              p.id !== numericId &&
-              (p.manager_review_status === 'PENDING' ||
-                !p.plant_decision ||
-                p.plant_decision === 'PENDING' ||
-                p.plant_decision === 'HOLD' ||
-                p.plant_decision === 'UNDER_TEST')
-          );
-          if (!hasPending) {
-            const decisions = allPortions.map((p) => (p.id === numericId ? finalPlantDecision : p.plant_decision));
-            const allRejected = decisions.every((d) => d === 'REJECTED');
-            const targetVisitStatus = allRejected ? 'READY_FOR_GATE_EXIT' : 'READY_FOR_GROSS';
+
+          // Recompute the vehicle visit status upon superior exception approval
+          const isComposite = portion.visit.test_mode === 'COMPOSITE';
+          if (isComposite) {
+            await tx.visitPortion.updateMany({
+              where: { visit_id: portion.visit_id },
+              data: {
+                plant_decision: finalPlantDecision,
+                current_status: finalPlantDecision,
+                manager_review_status: 'APPROVED',
+                ...(finalPlantDecision === 'REJECTED'
+                  ? {
+                      plant_rejection_reason:
+                        portion.plant_rejection_reason || remarks || portion.manager_review_reason || 'Approved rejection by AVP QA',
+                    }
+                  : {}),
+                manager_reviewed_by_user_id: dbUser.id,
+                manager_reviewed_at: now,
+              },
+            });
+            const targetVisitStatus = finalPlantDecision === 'ACCEPTED' ? 'READY_FOR_GROSS' : 'READY_FOR_GATE_EXIT';
             await tx.vehicleVisit.update({
               where: { id: portion.visit_id },
               data: { current_status: targetVisitStatus },
             });
+            await tx.qATestingSession.updateMany({
+              where: { visit_id: portion.visit_id, status: { not: 'COMPLETED' } },
+              data: {
+                status: 'COMPLETED',
+                completed_by: dbUser.id,
+                completed_at: now,
+              },
+            });
+          } else {
+            const allPortions = await tx.visitPortion.findMany({
+              where: { visit_id: portion.visit_id },
+            });
+            const hasPending = allPortions.some(
+              (p) =>
+                p.id !== numericId &&
+                (p.manager_review_status === 'PENDING' ||
+                  !p.plant_decision ||
+                  p.plant_decision === 'PENDING' ||
+                  p.plant_decision === 'HOLD' ||
+                  p.plant_decision === 'UNDER_TEST')
+            );
+            if (!hasPending) {
+              const decisions = allPortions.map((p) => (p.id === numericId ? finalPlantDecision : p.plant_decision));
+              const allRejected = decisions.every((d) => d === 'REJECTED');
+              const targetVisitStatus = allRejected ? 'READY_FOR_GATE_EXIT' : 'READY_FOR_GROSS';
+              await tx.vehicleVisit.update({
+                where: { id: portion.visit_id },
+                data: { current_status: targetVisitStatus },
+              });
+              await tx.qATestingSession.updateMany({
+                where: { visit_id: portion.visit_id, status: { not: 'COMPLETED' } },
+                data: {
+                  status: 'COMPLETED',
+                  completed_by: dbUser.id,
+                  completed_at: now,
+                },
+              });
+            } else {
+              const stillPendingManager = allPortions.some(
+                (p) => p.id !== numericId && p.manager_review_status === 'PENDING'
+              );
+              if (!stillPendingManager) {
+                await tx.qATestingSession.updateMany({
+                  where: { visit_id: portion.visit_id, status: { not: 'COMPLETED' } },
+                  data: { status: 'IN_PROGRESS', completed_by: null, completed_at: null },
+                });
+              }
+            }
           }
-        }
 
-        await writeAuditLog(tx, {
-          tableName: 'visit_portion',
-          recordId: numericId,
-          action: 'PLANT_QA_EXCEPTION_REVIEWED',
-          oldValues: {
-            manager_review_status: portion.manager_review_status,
-            plant_decision: portion.plant_decision,
-          },
-          newValues: {
-            manager_review_status: newStatus,
-            plant_decision: finalPlantDecision,
-            verdict,
-            remarks,
-          },
-          actor: {
-            userId: dbUser.id,
-            actorRole: dbUser.role,
-            performedAsRole: ctx.actingAs,
-            isDelegated: ctx.isDelegated,
-            selfApproved: decisionCheck.isSelfApproval,
-          },
-        });
+          await clearHandledNotifications(tx, ['PLANT_QA_EXCEPTION_PENDING'], numericId);
+          if (portion.visit.test_mode === 'COMPOSITE') {
+            await clearHandledNotifications(tx, ['PLANT_QA_EXCEPTION_PENDING'], portion.visit_id);
+          } else {
+            const remainingPending = await tx.visitPortion.count({
+              where: { visit_id: portion.visit_id, manager_review_status: 'PENDING' },
+            });
+            if (remainingPending === 0) {
+              await clearHandledNotifications(tx, ['PLANT_QA_EXCEPTION_PENDING'], portion.visit_id);
+            }
+          }
+
+          await writeAuditLog(tx, {
+            tableName: 'visit_portion',
+            recordId: numericId,
+            action: 'PLANT_QA_EXCEPTION_REVIEWED',
+            oldValues: {
+              manager_review_status: portion.manager_review_status,
+              plant_decision: portion.plant_decision,
+            },
+            newValues: {
+              manager_review_status: 'APPROVED',
+              plant_decision: finalPlantDecision,
+              verdict,
+              remarks,
+            },
+            actor: {
+              userId: dbUser.id,
+              actorRole: dbUser.role,
+              performedAsRole: ctx.actingAs,
+              isDelegated: ctx.isDelegated,
+              selfApproved: decisionCheck.isSelfApproval,
+            },
+          });
+        } else {
+          // Denied (NO): return/reopen this portion (and composite siblings) to the QA chemist while keeping other already-clear portion-wise portions intact.
+          const isComposite = portion.visit.test_mode === 'COMPOSITE';
+          if (isComposite) {
+            await tx.visitPortion.updateMany({
+              where: { visit_id: portion.visit_id },
+              data: {
+                manager_review_status: 'REJECTED',
+                plant_decision: 'PENDING',
+                current_status: 'UNDER_TEST',
+                manager_reviewed_by_user_id: dbUser.id,
+                manager_review_reason: remarks || portion.manager_review_reason,
+                manager_reviewed_at: now,
+              },
+            });
+          } else {
+            await tx.visitPortion.update({
+              where: { id: numericId },
+              data: {
+                manager_review_status: 'REJECTED',
+                plant_decision: 'PENDING',
+                current_status: 'UNDER_TEST',
+                manager_reviewed_by_user_id: dbUser.id,
+                manager_review_reason: remarks || portion.manager_review_reason,
+                manager_reviewed_at: now,
+              },
+            });
+          }
+
+          await clearHandledNotifications(tx, ['PLANT_QA_EXCEPTION_PENDING'], numericId);
+          if (isComposite) {
+            await clearHandledNotifications(tx, ['PLANT_QA_EXCEPTION_PENDING'], portion.visit_id);
+          } else {
+            const remainingPending = await tx.visitPortion.count({
+              where: { visit_id: portion.visit_id, manager_review_status: 'PENDING' },
+            });
+            if (remainingPending === 0) {
+              await clearHandledNotifications(tx, ['PLANT_QA_EXCEPTION_PENDING'], portion.visit_id);
+            }
+          }
+
+          await tx.vehicleVisit.update({
+            where: { id: portion.visit_id },
+            data: { current_status: 'PLANT_QA' },
+          });
+          await tx.qATestingSession.updateMany({
+            where: { visit_id: portion.visit_id },
+            data: {
+              status: 'IN_PROGRESS',
+              completed_by: null,
+              completed_at: null,
+            },
+          });
+
+          await writeAuditLog(tx, {
+            tableName: 'visit_portion',
+            recordId: numericId,
+            action: 'PLANT_QA_EXCEPTION_RETURNED',
+            oldValues: {
+              manager_review_status: portion.manager_review_status,
+              plant_decision: portion.plant_decision,
+            },
+            newValues: {
+              manager_review_status: 'REJECTED',
+              plant_decision: 'PENDING',
+              verdict,
+              remarks,
+            },
+            actor: {
+              userId: dbUser.id,
+              actorRole: dbUser.role,
+              performedAsRole: ctx.actingAs,
+              isDelegated: ctx.isDelegated,
+              selfApproved: decisionCheck.isSelfApproval,
+            },
+          });
+        }
       });
     }
 

@@ -133,21 +133,26 @@ export async function loadDispatchPolicy(point: DispatchPoint, at: Date = new Da
       .filter((o) => o.outcome === 'PASS' || o.isPassing === true)
       .map((o) => o.value.trim().toUpperCase());
 
+    const isMonitoringRule = Boolean(r && !r.isConfigurationError && r.rule_category === 'MONITORING');
     let allowed: string[] | null = null;
-    if (r && r.rule_category === 'RELEASE' && !r.isConfigurationError) {
-      if (r.acceptable_option && (!opts.length || opts.some((o) => o.value.trim().toUpperCase() === r.acceptable_option!.trim().toUpperCase()))) {
-        allowed = [r.acceptable_option];
+    if (!isMonitoringRule) {
+      if (r && r.rule_category === 'RELEASE' && !r.isConfigurationError) {
+        if (r.acceptable_option && (!opts.length || opts.some((o) => o.value.trim().toUpperCase() === r.acceptable_option!.trim().toUpperCase()))) {
+          allowed = [r.acceptable_option];
+        } else if (passOpts.length > 0) {
+          allowed = passOpts;
+        } else {
+          allowed = ['OK', 'PASS', 'NEGATIVE', 'NORMAL', 'CLEAN', 'TRUE', 'YES'];
+        }
       } else if (passOpts.length > 0) {
         allowed = passOpts;
-      } else {
-        allowed = ['OK', 'PASS', 'NEGATIVE', 'NORMAL', 'CLEAN', 'TRUE', 'YES'];
       }
-    } else if (passOpts.length > 0) {
-      allowed = passOpts;
     }
 
     const rule =
-      r && r.rule_category === 'RELEASE' && !r.isConfigurationError
+      isMonitoringRule
+        ? null
+        : r && r.rule_category === 'RELEASE' && !r.isConfigurationError
         ? {
             min: r.min_value !== null ? Number(r.min_value) : null,
             max: r.max_value !== null ? Number(r.max_value) : null,
@@ -277,6 +282,9 @@ export interface DispatchPortionDetails {
     testMode: string;
     ruleMode: string;
     photoMode: string;
+    min?: number | null;
+    max?: number | null;
+    allowed?: string[] | null;
     outcome: DispatchTestOutcome;
     photoCaptureId: string | null;
   }>;
@@ -348,7 +356,20 @@ export function buildDispatchDecision(
       const input = portion.tests.find((x) => x.labTestId === t.labTestId);
       if (t.labTestId in calculated) {
         const calcValue = calculated[t.labTestId];
-        if (calcValue === null && t.testMode === 'COMPULSORY') missingCompulsory.push(label(portion.portionNumber, t.testName));
+        let outcome: DispatchTestOutcome = 'NOT_TESTED';
+        if (calcValue === null) {
+          if (t.testMode === 'COMPULSORY') missingCompulsory.push(label(portion.portionNumber, t.testName));
+        } else if (outcomeOf(t, calcValue, null) === 'FAIL') {
+          if (t.ruleMode === 'APPLY' && t.testMode === 'COMPULSORY') {
+            outcome = 'FAIL';
+            if (!ruleFailures.includes(t.testCode)) ruleFailures.push(t.testCode);
+          } else {
+            outcome = 'WARN';
+            warnings.push(`${label(portion.portionNumber, t.testName)} is outside the allowed range.`);
+          }
+        } else {
+          outcome = 'PASS';
+        }
         rows.push({
           labTestId: t.labTestId,
           testCode: t.testCode,
@@ -359,7 +380,10 @@ export function buildDispatchDecision(
           testMode: t.testMode,
           ruleMode: t.ruleMode,
           photoMode: t.photoMode,
-          outcome: calcValue !== null ? 'PASS' : 'NOT_TESTED',
+          min: t.rule?.min ?? null,
+          max: t.rule?.max ?? null,
+          allowed: t.rule?.allowed ?? null,
+          outcome,
           photoCaptureId: null,
         });
         continue;
@@ -377,7 +401,7 @@ export function buildDispatchDecision(
         if (t.testMode === 'COMPULSORY') missingCompulsory.push(label(portion.portionNumber, t.testName));
       } else {
         if (outcomeOf(t, value, textValue) === 'FAIL') {
-          if (t.ruleMode === 'APPLY') {
+          if (t.ruleMode === 'APPLY' && t.testMode === 'COMPULSORY') {
             outcome = 'FAIL';
             if (!ruleFailures.includes(t.testCode)) ruleFailures.push(t.testCode);
           } else {
@@ -387,8 +411,8 @@ export function buildDispatchDecision(
         } else {
           outcome = 'PASS';
         }
-        if (t.photoMode === 'REQUIRED' && !photoCaptureId) missingPhotos.push(label(portion.portionNumber, t.testName));
       }
+      if (t.photoMode === 'REQUIRED' && !photoCaptureId) missingPhotos.push(label(portion.portionNumber, t.testName));
       rows.push({
         labTestId: t.labTestId,
         testCode: t.testCode,
@@ -399,6 +423,9 @@ export function buildDispatchDecision(
         testMode: t.testMode,
         ruleMode: t.ruleMode,
         photoMode: t.photoMode,
+        min: t.rule?.min ?? null,
+        max: t.rule?.max ?? null,
+        allowed: t.rule?.allowed ?? null,
         outcome,
         photoCaptureId,
       });
@@ -539,12 +566,12 @@ export async function issueDispatchFromZmccTankTx(
 // ---------------------------------------------------------------------------------------------
 
 function approverDeepLink(role: DispatchApproverRole): string {
-  return role === 'CONTRACTOR_MANAGER' ? '/contractor/manager' : '/mpd/zmcc-manager';
+  return role === 'CONTRACTOR_MANAGER' ? '/contractor/manager' : '/mpd/zmcc-manager?tab=APPROVALS';
 }
 
 /** Tells the Zonal Manager / Contractor Manager of this source that a dispatch request is waiting. */
 export async function notifyDispatchApproversTx(
-  tx: Tx,
+  tx: Db,
   i: { visitId: bigint; version: number; sourceId: bigint; approverRole: DispatchApproverRole; dispatchNumber: string; vehicleNumber: string; sourceName: string }
 ): Promise<number> {
   const users = await tx.user.findMany({
@@ -575,6 +602,13 @@ export async function notifyDispatchApproversTx(
     });
   }
   return users.length;
+}
+
+/** Post-commit notification helper so approver fan-out never delays the dispatch transaction. */
+export async function notifyDispatchApprovers(
+  i: { visitId: bigint; version: number; sourceId: bigint; approverRole: DispatchApproverRole; dispatchNumber: string; vehicleNumber: string; sourceName: string }
+): Promise<number> {
+  return notifyDispatchApproversTx(prisma, i);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -811,8 +845,11 @@ export async function decideDispatchApproval(
       let tankRemainingLiters: number | null = null;
       if (i.verdict === 'NO') {
         nextStatus = DISPATCH_STATUS.REOPENED;
+      } else if (person === 'REJECT') {
+        // Approving a dispatch operator's rejection rejects the dispatch without deducting ZMCC tank stock.
+        nextStatus = DISPATCH_STATUS.REJECTED;
       } else {
-        // Superior sovereign verdict: OKAY authorizes and finalizes dispatch
+        // Superior sovereign verdict: OKAY on ACCEPT authorizes and finalizes dispatch
         nextStatus = DISPATCH_STATUS.DISPATCHED;
         if (sourceType === 'ZMCC') {
           tankRemainingLiters = await issueDispatchFromZmccTankTx(tx, {

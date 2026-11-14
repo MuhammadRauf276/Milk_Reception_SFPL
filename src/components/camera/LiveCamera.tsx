@@ -194,9 +194,12 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
           </div>
         )}
         {phase === 'working' && (
-          <div className="flex flex-col items-center gap-3 px-6 text-center">
+          <div className="flex w-full max-w-sm flex-col items-center gap-3 px-6 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
-            <p className="text-base font-medium">Applying security stamp and hashing photo…</p>
+            <p className="text-base font-medium">Applying security stamp…</p>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-white/20">
+              <div className="h-full w-2/5 animate-progress-slide rounded-full bg-emerald-400" />
+            </div>
           </div>
         )}
         {phase === 'error' && (
@@ -205,12 +208,11 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             <p className="text-base font-semibold text-rose-300">{errorText}</p>
 
             <div className="rounded-2xl border border-neutral-800 bg-neutral-900/90 p-4 text-xs text-left space-y-2 text-neutral-300 w-full shadow-inner">
-              <p className="font-semibold text-amber-300">How to unblock permissions in Chrome:</p>
+              <p className="font-semibold text-amber-300">How to allow camera &amp; location:</p>
               <ol className="list-decimal pl-4 space-y-1.5 text-neutral-300 text-xs leading-relaxed">
-                <li>Click the <strong>Tune / Padlock</strong> icon on the left of the URL bar (next to <code className="text-emerald-400">mpd.sfpl.com.pk</code>).</li>
-                <li>Set <strong>Camera</strong> to <strong>Allow</strong>.</li>
-                <li>Set <strong>Location</strong> to <strong>Allow</strong>.</li>
-                <li>In Windows Settings &rarr; Privacy &rarr; Verify <em>&quot;Let desktop apps access your camera/location&quot;</em> is <strong>ON</strong>.</li>
+                <li>Tap or click the <strong>Lock / Tune</strong> icon in the address bar.</li>
+                <li>Set <strong>Camera</strong> and <strong>Location</strong> to <strong>Allow</strong>.</li>
+                <li>Tap <strong>Try again</strong> below.</li>
               </ol>
             </div>
 
@@ -261,7 +263,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             <button
               type="button"
               onClick={handleRetake}
-              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-white/15 px-4 text-base font-semibold hover:bg-white/25 transition-colors"
+              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-white/15 px-4 text-base font-semibold hover:bg-white/25 active:scale-[0.98] transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
             >
               <Undo2 className="h-5 w-5" />
               Retake
@@ -269,7 +271,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             <button
               type="button"
               onClick={() => onCapture(result)}
-              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-base font-semibold text-white shadow-lg hover:bg-emerald-600 transition-colors"
+              className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-base font-semibold text-white shadow-lg hover:bg-emerald-600 active:scale-[0.98] active:brightness-95 transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-400"
             >
               <Check className="h-5 w-5" />
               Use this photo

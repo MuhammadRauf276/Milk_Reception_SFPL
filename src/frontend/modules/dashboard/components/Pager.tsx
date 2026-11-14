@@ -1,7 +1,7 @@
 'use client';
 
 import { currentPageSize } from '@/lib/pagination';
-import { Pagination } from '@/components/ui/pagination';
+import { Pagination, useListPageSize } from '@/components/ui/pagination';
 
 export const DEFAULT_PAGE_SIZE = 25;
 
@@ -13,7 +13,7 @@ export function paginate<T>(rows: T[], page: number, pageSize = currentPageSize(
   return rows.slice((page - 1) * pageSize, page * pageSize);
 }
 
-/** Previous and Next, the same control as every other list. Renders nothing when there is a single page. */
+/** Previous and Next, the same control as every other list. */
 export function Pager({
   page,
   totalPages,
@@ -25,6 +25,7 @@ export function Pager({
   total?: number;
   onPageChange: (page: number) => void;
 }) {
-  if (totalPages <= 1) return null;
-  return <Pagination page={page} totalPages={totalPages} totalRecords={total ?? 0} onPageChange={onPageChange} className="px-0 pt-2" />;
+  const pageSize = useListPageSize(25);
+  if (totalPages <= 1 && (total ?? 0) === 0) return null;
+  return <Pagination page={page} totalPages={totalPages} totalRecords={total ?? 0} pageSize={pageSize} onPageChange={onPageChange} className="px-0 pt-2" />;
 }

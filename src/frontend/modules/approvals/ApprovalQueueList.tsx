@@ -118,7 +118,7 @@ export function ApprovalQueueList({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+      <div className="scrollbar-thin overscroll-contain flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
         {loading && !refreshing ? (
           <SkeletonList count={4} />
         ) : error ? (
@@ -152,8 +152,8 @@ export function ApprovalQueueList({
                 >
                   {/* Top Line: Reference, Stage, Status */}
                   <div className="space-y-1.5">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
                         <span className="font-semibold text-sm text-foreground break-words min-w-0 transition-colors">
                           {item.referenceNumber}
                         </span>
@@ -212,7 +212,7 @@ export function ApprovalQueueList({
                         <span>Submitted by: <strong className="text-secondary-foreground">{item.submittedBy.name}</strong></span>
                         <span>({getRoleLabel(item.submittedBy.role)})</span>
                         {item.submittedBy.isDelegated && (
-                          <span className="px-2 py-0.2 rounded text-xs font-semibold bg-subtle text-secondary-foreground border border-border">
+                          <span className="px-2 py-0.5 rounded text-xs font-semibold bg-subtle text-secondary-foreground border border-border">
                             Delegated
                           </span>
                         )}

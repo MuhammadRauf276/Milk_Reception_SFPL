@@ -46,9 +46,6 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, lo
                                   <span className="text-xs font-semibold text-foreground">
                                     {shopName}
                                   </span>
-                                  <span className="text-xs tabular-nums text-muted-foreground">
-                                    ({shopCode})
-                                  </span>
                                   {waitingDecision ? (
                                     <DecisionStatusBadge status="PENDING" />
                                   ) : isVisited ? (

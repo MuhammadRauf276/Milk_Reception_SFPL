@@ -104,7 +104,7 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
               />
             </div>
 
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className={zmccLabelClass}>Latitude</label>
                 <input type="number" step="0.0000001" value={c.lat} onChange={(e) => c.setLat(e.target.value)} className={zmccInputClass} />

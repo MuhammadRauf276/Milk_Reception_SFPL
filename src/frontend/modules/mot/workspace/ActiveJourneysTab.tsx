@@ -2,6 +2,7 @@
 
 import { formatTime } from '@/lib/format';
 import React from 'react';
+import { Button } from '@/components/ui/button';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import type { JourneyItem } from './types';
 
@@ -75,29 +76,17 @@ export function ActiveJourneysTab({ journeys, loading, canCancel, onRefresh, onV
       actions: true,
       align: 'right',
       cell: (j) => (
-        <div className="flex flex-wrap justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => onViewMap(j.id)}
-            className="min-h-[44px] px-3 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100"
-          >
+        <div className="flex flex-wrap justify-end gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => onViewMap(j.id)}>
             View Map
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewStops(j.id)}
-            className="min-h-[44px] px-3 rounded-lg bg-blue-50 text-primary font-semibold hover:bg-blue-100"
-          >
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => onViewStops(j.id)}>
             View Stops
-          </button>
+          </Button>
           {canCancel && (
-            <button
-              type="button"
-              onClick={() => onCancel(j)}
-              className="min-h-[44px] px-3 rounded-lg bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100"
-            >
+            <Button variant="destructive" size="sm" onClick={() => onCancel(j)}>
               Cancel
-            </button>
+            </Button>
           )}
         </div>
       ),
@@ -105,27 +94,24 @@ export function ActiveJourneysTab({ journeys, loading, canCancel, onRefresh, onV
   ];
 
   return (
-        <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden animate-panel-in">
-          <div className="p-4 border-b border-border flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Active journeys</h2>
-            </div>
-            <button
-              type="button"
-              onClick={onRefresh}
-              className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-2 rounded-lg border border-action/30 text-xs font-semibold text-action hover:bg-action-soft"
-            >
-              <span>Refresh</span>
-            </button>
-          </div>
-
-          <DataTable
-            columns={columns}
-            rows={journeys}
-            getRowId={(j) => j.id}
-            loading={loading}
-            emptyTitle="No active journeys currently in progress."
-          />
+    <div className="bg-card rounded-2xl border border-border/80 shadow-2xs overflow-hidden animate-panel-in">
+      <div className="p-4 border-b border-border flex items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Active journeys</h2>
         </div>
+        <Button variant="outline" size="sm" loading={loading} loadingText="Refreshing…" onClick={onRefresh}>
+          Refresh
+        </Button>
+      </div>
+
+      <DataTable
+        columns={columns}
+        rows={journeys}
+        getRowId={(j) => j.id}
+        loading={loading}
+        noun="journeys"
+        emptyTitle="No active journeys currently in progress."
+      />
+    </div>
   );
 }

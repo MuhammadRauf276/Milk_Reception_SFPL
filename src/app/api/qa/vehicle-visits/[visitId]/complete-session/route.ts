@@ -42,10 +42,12 @@ export async function POST(
     const opTimestamp = body.operationalTimestamp ? new Date(body.operationalTimestamp) : new Date();
 
     const result = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT id FROM vehicle_visit WHERE id = ${visitId} FOR UPDATE`;
+
       const visit = await tx.vehicleVisit.findUnique({
         where: { id: visitId },
         include: {
-          portions: true,
+          portions: { orderBy: { portion_number: 'asc' } },
           qa_session: true,
         },
       });
@@ -55,16 +57,20 @@ export async function POST(
       }
 
       const portions = visit.portions;
-      const decisions = portions.map((p) => p.plant_decision);
+      const effectivePortions = visit.test_mode === 'COMPOSITE' ? portions.slice(0, 1) : portions;
+      const decisions = effectivePortions.map((p) => p.plant_decision);
       const allRejected = decisions.length > 0 && decisions.every((d) => d === 'REJECTED');
       const hasAccepted = decisions.some((d) => d === 'ACCEPTED');
       const hasPending = decisions.some(
         (d) => !d || d === 'PENDING' || d === 'HOLD' || d === 'UNDER_TEST'
       );
-      const hasException = portions.some(
+      const hasException = effectivePortions.some(
         (p) =>
           p.manager_review_status === 'PENDING' ||
-          (p.exception_reasons && Array.isArray(p.exception_reasons) && p.exception_reasons.length > 0)
+          (p.plant_decision === 'PENDING' &&
+            p.exception_reasons &&
+            Array.isArray(p.exception_reasons) &&
+            p.exception_reasons.length > 0)
       );
 
       let targetAction = requestedAction;
@@ -187,17 +193,25 @@ export async function POST(
       }
 
       if (targetAction === 'ESCALATE_AVP_QA') {
-        const portionIdsToEscalate = portions
+        const portionIdsToEscalate = effectivePortions
           .filter(
             (p) =>
-              p.plant_decision === 'PENDING' ||
               p.manager_review_status === 'PENDING' ||
-              p.system_quality_outcome === 'FAIL' ||
-              (p.exception_reasons && Array.isArray(p.exception_reasons) && p.exception_reasons.length > 0)
+              !p.plant_decision ||
+              p.plant_decision === 'PENDING' ||
+              p.plant_decision === 'HOLD' ||
+              p.plant_decision === 'UNDER_TEST'
           )
           .map((p) => p.id);
 
-        const targetPortionIds = portionIdsToEscalate.length > 0 ? portionIdsToEscalate : portions.map((p) => p.id);
+        if (portionIdsToEscalate.length === 0) {
+          return {
+            error: 'No pending portions require AVP-QA escalation.',
+            status: 400,
+          };
+        }
+
+        const targetPortionIds = portionIdsToEscalate;
 
         await tx.visitPortion.updateMany({
           where: { id: { in: targetPortionIds } },
@@ -228,8 +242,8 @@ export async function POST(
         await createNotificationsForEvent(tx, {
           eventKey: 'PLANT_QA_EXCEPTION_PENDING',
           sourceId: visitId.toString(),
-          title: 'Plant QA exception needs review',
-          body: `Vehicle ${visit.vehicle_number} requires AVP-QA quality exception review.`,
+          title: `Plant QA exception: ${visit.vehicle_number}`,
+          body: `Vehicle ${visit.vehicle_number}${visit.token_number ? ` (Token ${visit.token_number})` : ''} requires AVP-QA quality exception review.`,
           deepLink: '/department/qa-head',
           dedupeSuffix: `qa-escalate:${visitId}:${Date.now()}`,
         });

@@ -129,7 +129,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
           <button
             onClick={() => setSourceFilter('ALL')}
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
-              sourceFilter === 'ALL' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
+              sourceFilter === 'ALL' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             All ({(zmccs ?? []).length + (contractors ?? []).length})
@@ -137,7 +137,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
           <button
             onClick={() => setSourceFilter('ZMCC')}
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
-              sourceFilter === 'ZMCC' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
+              sourceFilter === 'ZMCC' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             ZMCC ({(zmccs ?? []).length})
@@ -145,7 +145,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
           <button
             onClick={() => setSourceFilter('CONTRACTORS')}
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition-colors ${
-              sourceFilter === 'CONTRACTORS' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted'
+              sourceFilter === 'CONTRACTORS' ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             Contractors ({(contractors ?? []).length})
@@ -184,7 +184,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                   </div>
                   <h3 className="text-sm font-semibold text-foreground">{z.name}</h3>
 
-                  <div className="bg-card border-border mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 p-3 rounded-lg border">
+                  <div className="bg-card border-border mt-3 grid grid-cols-2 gap-2 p-3 rounded-lg border">
                     <div>
                       <div className="text-xs text-muted-foreground font-medium">Received today</div>
                       <div className="tabular-nums font-semibold text-foreground text-xs">

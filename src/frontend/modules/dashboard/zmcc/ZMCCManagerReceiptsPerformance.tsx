@@ -24,6 +24,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/loaders';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 
 interface ZMCCManagerReceiptsPerformanceProps {
   logs: MilkProcessLog[];
@@ -80,6 +81,8 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
     [dateFilteredItems, searchQuery, filterState]
   );
 
+  const pagedItems = usePagedRows(filteredItems, (item) => String(item.visitId));
+
   const showKpiPlaceholders = isLoading || error != null;
 
   return (
@@ -112,7 +115,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
         </div>
 
         {/* Summary KPI Cards (Shows placeholder '—' during loading/error) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 tabular-nums">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-2 tabular-nums">
           <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-muted-foreground block font-semibold">Completed Receipts</span>
             <span className="text-lg font-semibold text-foreground">
@@ -281,7 +284,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
       {/* 6. Receipt Performance Cards */}
       {!isLoading && !error && filteredItems.length > 0 && (
         <div className="space-y-4">
-          {filteredItems.map((item) => (
+          {pagedItems.pageRows.map((item) => (
             <div
               key={item.visitId}
               className={`p-5 rounded-xl bg-card border shadow-2xs space-y-4 transition-[color,background-color,border-color,box-shadow,opacity,transform] ${
@@ -348,7 +351,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                     <span className="text-xs font-semibold text-muted-foreground">Dispatch vs Final Receipt</span>
                   </div>
 
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 pt-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
                     <div>
                       <span className="text-xs font-sans text-muted-foreground block">Dispatch Gross Liters:</span>
                       <span className="font-semibold text-foreground">
@@ -377,7 +380,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 pt-2 border-t border-border/40 text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-border/40 text-xs">
                     <div>
                       <span className="text-xs font-sans text-muted-foreground block">Dispatch Liters @ 13% TS:</span>
                       <span className="font-semibold text-foreground">
@@ -417,7 +420,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                     <span className="text-xs font-semibold text-muted-foreground">Official Scale Records</span>
                   </div>
 
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                     <div>
                       <span className="text-xs font-sans text-muted-foreground block">First Weight (Loaded Vehicle):</span>
                       <span className="font-semibold text-foreground">
@@ -438,7 +441,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 pt-2 border-t border-border/40 text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-border/40 text-xs">
                     <div>
                       <span className="text-xs font-sans text-muted-foreground block">Destination Silo:</span>
                       <span className="font-semibold text-foreground">
@@ -460,6 +463,16 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
               </div>
             </div>
           ))}
+          {pagedItems.totalPages > 1 && (
+            <Pagination
+              page={pagedItems.page}
+              totalPages={pagedItems.totalPages}
+              totalRecords={pagedItems.totalRecords}
+              pageSize={pagedItems.pageSize}
+              noun="receipts"
+              onPageChange={pagedItems.setPage}
+            />
+          )}
         </div>
       )}
     </div>

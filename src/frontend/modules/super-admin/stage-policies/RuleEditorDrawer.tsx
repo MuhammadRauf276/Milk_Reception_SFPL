@@ -339,7 +339,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
 
                   <div>
                     <span className="mb-1 block font-semibold text-secondary-foreground">Warning applies to</span>
-                    <div role="group" aria-label="Warning applies to" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2">
+                    <div role="group" aria-label="Warning applies to" className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {WARNING_OPTIONS.map((o) => (
                         <button
                           key={o.value}

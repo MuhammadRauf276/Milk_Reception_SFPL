@@ -75,7 +75,7 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <div className="flex items-center justify-between px-2 py-2 text-xs select-none">
+        <div className="flex items-center justify-between gap-2 px-2 py-1.5 text-xs select-none">
           <span className="flex items-center gap-2 text-foreground font-medium">
             {forcedOffline ? <WifiOff className="h-3.5 w-3.5 text-amber-600" /> : <Wifi className="h-3.5 w-3.5 text-emerald-600" />}
             Offline Mode
@@ -84,23 +84,28 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
             type="button"
             role="switch"
             aria-checked={forcedOffline}
+            aria-label="Toggle offline mode"
             onClick={(e) => {
               e.stopPropagation();
               const next = !forcedOffline;
               setForcedOffline(next);
               if (!next) void runSyncOnce();
             }}
-            className={cn(
-              'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
-              forcedOffline ? 'bg-amber-600' : 'bg-border-strong'
-            )}
+            className="inline-flex min-h-11 min-w-11 items-center justify-end rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span
               className={cn(
-                'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-card shadow-xs ring-0 transition duration-200 ease-in-out',
-                forcedOffline ? 'translate-x-4' : 'translate-x-0'
+                'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
+                forcedOffline ? 'bg-amber-600' : 'bg-border-strong'
               )}
-            />
+            >
+              <span
+                className={cn(
+                  'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-card shadow-xs ring-0 transition duration-200 ease-in-out',
+                  forcedOffline ? 'translate-x-4' : 'translate-x-0'
+                )}
+              />
+            </span>
           </button>
         </div>
         <DropdownMenuSeparator />

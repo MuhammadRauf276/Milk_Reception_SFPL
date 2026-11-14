@@ -1,29 +1,40 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { InfoTip } from '@/components/ui/info-tip';
+import { Pagination, useListPageSize } from '@/components/ui/pagination';
 import { SupplyChainLossCard } from '@/frontend/modules/dashboard/components/SupplyChainLossCard';
 
-type Reconciliation = { summary: { finalizedJourneys: number; unresolvedJourneys: number; grossLossLiters: number; grossGainLiters: number; at13tsLossLiters: number; at13tsGainLiters: number; unresolvedOriginAt13tsLiters: number }; items: Array<{ journeyId: string; journeyNumber: string; source: { code: string; name: string }; route: { code: string }; vehicleNumber: string; isResolved: boolean }> };
+type Reconciliation = { total: number; totalPages: number; summary: { finalizedJourneys: number; unresolvedJourneys: number; grossLossLiters: number; grossGainLiters: number; at13tsLossLiters: number; at13tsGainLiters: number; unresolvedOriginAt13tsLiters: number }; items: Array<{ journeyId: string; journeyNumber: string; source: { code: string; name: string }; route: { code: string }; vehicleNumber: string; isResolved: boolean }> };
 type VehicleStages = { total: number; items: Array<{ visitId: string; vehicleNumber: string; source: { code: string }; route: { name: string } | null; stage: string; exception: { kind: string } | null }> };
 
 const number = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
 export function MpdReconciliationOverview() {
-  const query = useQuery({
-    queryKey: ['mpd', 'reconciliation-overview'],
-    queryFn: async ({ signal }) => {
-      const [reconciliation, stages] = await Promise.all([
-        fetchJson<Reconciliation>('/api/management/zmcc-reconciliation?pageSize=8', { signal }),
-        fetchJson<VehicleStages>('/api/management/vehicle-stages?exceptionOnly=true&pageSize=8', { signal }),
-      ]);
-      return { reconciliation, stages };
-    },
+  const pageSize = useListPageSize(25);
+  const [reconPage, setReconPage] = useState(1);
+  const [stagePage, setStagePage] = useState(1);
+
+  const reconQuery = useQuery({
+    queryKey: ['mpd', 'reconciliation-overview', 'recon', reconPage, pageSize],
+    queryFn: ({ signal }) =>
+      fetchJson<Reconciliation>(`/api/management/zmcc-reconciliation?page=${reconPage}&pageSize=${pageSize}`, { signal }),
+    placeholderData: keepPreviousData,
   });
-  const report = query.data?.reconciliation ?? null;
-  const vehicles = query.data?.stages ?? null;
-  const error = query.error ? (query.error instanceof Error ? query.error.message : 'Unable to load MPD overview.') : null;
+
+  const stageQuery = useQuery({
+    queryKey: ['mpd', 'reconciliation-overview', 'stages', stagePage, pageSize],
+    queryFn: ({ signal }) =>
+      fetchJson<VehicleStages>(`/api/management/vehicle-stages?exceptionOnly=true&page=${stagePage}&pageSize=${pageSize}`, { signal }),
+    placeholderData: keepPreviousData,
+  });
+
+  const report = reconQuery.data ?? null;
+  const vehicles = stageQuery.data ?? null;
+  const rawError = reconQuery.error ?? stageQuery.error;
+  const error = rawError ? (rawError instanceof Error ? rawError.message : 'Unable to load MPD overview.') : null;
 
   return (
     <div className="space-y-6">
@@ -68,30 +79,54 @@ export function MpdReconciliationOverview() {
             </div>
           </div>
           <div className="grid gap-3 lg:grid-cols-2">
-            <div className="bg-card border-border rounded-2xl border p-4 text-sm">
-              <p className="font-semibold">Latest Mobile Tester-to-ZMCC journeys</p>
-              {report.items.length ? (
-                report.items.map((item) => (
-                  <p key={item.journeyId} className="mt-2 text-secondary-foreground">
-                    {item.source.code} · {item.route.code} · {item.journeyNumber} · {item.vehicleNumber} · {item.isResolved ? 'finalized' : 'unresolved'}
-                  </p>
-                ))
-              ) : (
-                <p className="mt-2 text-muted-foreground">No journeys</p>
-              )}
+            <div className="bg-card border-border rounded-2xl border p-4 text-sm flex flex-col justify-between gap-3">
+              <div>
+                <p className="font-semibold">Latest Mobile Tester-to-ZMCC journeys</p>
+                {report.items.length ? (
+                  report.items.map((item) => (
+                    <p key={item.journeyId} className="mt-2 text-secondary-foreground">
+                      {item.source.code} · {item.route.code} · {item.journeyNumber} · {item.vehicleNumber} · {item.isResolved ? 'finalized' : 'unresolved'}
+                    </p>
+                  ))
+                ) : (
+                  <p className="mt-2 text-muted-foreground">No journeys</p>
+                )}
+              </div>
+              <Pagination
+                page={reconPage}
+                totalPages={report.totalPages ?? Math.max(1, Math.ceil((report.total ?? report.items.length) / pageSize))}
+                totalRecords={report.total ?? report.items.length}
+                pageSize={pageSize}
+                noun="journeys"
+                disabled={reconQuery.isFetching}
+                onPageChange={setReconPage}
+                className="border-t border-border px-0 pt-2 pb-0"
+              />
             </div>
-            <div className="bg-card border-border rounded-2xl border p-4 text-sm">
-              <p className="font-semibold">Vehicle exceptions ({vehicles.total})</p>
-              {vehicles.items.length ? (
-                vehicles.items.map((item) => (
-                  <p key={item.visitId} className="mt-2 text-secondary-foreground">
-                    {item.source.code} · {item.vehicleNumber} · {item.stage}
-                    {item.exception ? ` · ${item.exception.kind}` : ''}
-                  </p>
-                ))
-              ) : (
-                <p className="mt-2 text-muted-foreground">No active vehicle exceptions.</p>
-              )}
+            <div className="bg-card border-border rounded-2xl border p-4 text-sm flex flex-col justify-between gap-3">
+              <div>
+                <p className="font-semibold">Vehicle exceptions ({vehicles.total})</p>
+                {vehicles.items.length ? (
+                  vehicles.items.map((item) => (
+                    <p key={item.visitId} className="mt-2 text-secondary-foreground">
+                      {item.source.code} · {item.vehicleNumber} · {item.stage}
+                      {item.exception ? ` · ${item.exception.kind}` : ''}
+                    </p>
+                  ))
+                ) : (
+                  <p className="mt-2 text-muted-foreground">No active vehicle exceptions.</p>
+                )}
+              </div>
+              <Pagination
+                page={stagePage}
+                totalPages={Math.max(1, Math.ceil((vehicles.total ?? vehicles.items.length) / pageSize))}
+                totalRecords={vehicles.total ?? vehicles.items.length}
+                pageSize={pageSize}
+                noun="exceptions"
+                disabled={stageQuery.isFetching}
+                onPageChange={setStagePage}
+                className="border-t border-border px-0 pt-2 pb-0"
+              />
             </div>
           </div>
         </section>

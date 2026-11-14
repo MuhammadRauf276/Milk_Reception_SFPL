@@ -106,12 +106,17 @@ export interface ProgressBarLoaderProps {
 export function ProgressBarLoader({ progress, className, label }: ProgressBarLoaderProps) {
   const known = typeof progress === 'number';
   const pct = known ? Math.max(0, Math.min(100, progress)) : undefined;
+  const isComplete = known && pct === 100;
   return (
     <div className={cn('w-full min-w-0 space-y-1', className)}>
       {label ? (
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span className="min-w-0">{label}</span>
-          {known ? <span className="shrink-0 tabular-nums">{Math.round(pct!)}%</span> : null}
+          {known ? (
+            <span className={cn('shrink-0 tabular-nums font-mono', isComplete ? 'font-semibold text-emerald-700' : '')}>
+              {Math.round(pct!)}%
+            </span>
+          ) : null}
         </div>
       ) : null}
       <div
@@ -123,7 +128,13 @@ export function ProgressBarLoader({ progress, className, label }: ProgressBarLoa
         className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
       >
         {known ? (
-          <div className="h-full origin-left rounded-full bg-primary transition-transform duration-300 ease-out" style={{ transform: `scaleX(${pct! / 100})` }} />
+          <div
+            className={cn(
+              'h-full origin-left rounded-full transition-all duration-300 ease-out',
+              isComplete ? 'bg-emerald-600' : 'bg-primary'
+            )}
+            style={{ transform: `scaleX(${pct! / 100})` }}
+          />
         ) : (
           <div className="h-full w-2/5 animate-progress-slide rounded-full bg-primary" />
         )}

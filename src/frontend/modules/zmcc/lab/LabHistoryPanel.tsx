@@ -54,11 +54,15 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
 }) => {
   const columns: DataColumn<LabSession>[] = [
     {
-      key: 'session',
-      header: 'Session #',
-      label: 'Session #',
+      key: 'token',
+      header: 'Intake Token',
+      label: 'Intake Token',
       primary: true,
-      cell: (item) => <span className="tabular-nums font-semibold text-foreground">#{item.id}</span>,
+      cell: (item) => (
+        <span className="tabular-nums font-semibold text-foreground">
+          {item.mot_arrival?.zmcc_token || item.local_supplier_arrival?.zmcc_token || '—'}
+        </span>
+      ),
     },
     {
       key: 'type',
@@ -71,16 +75,6 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
           }`}
         >
           {item.arrival_type === 'MOT' ? 'Mobile Tester' : 'HC'}
-        </span>
-      ),
-    },
-    {
-      key: 'token',
-      header: 'Intake Token',
-      label: 'Intake Token',
-      cell: (item) => (
-        <span className="tabular-nums text-secondary-foreground">
-          {item.mot_arrival?.zmcc_token || item.local_supplier_arrival?.zmcc_token || '—'}
         </span>
       ),
     },
@@ -118,7 +112,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
               </span>
             </span>
           ) : (
-            <span className="text-xs text-muted-foreground ">Not captured under this version</span>
+            <span className="text-xs text-muted-foreground">Not weighed</span>
           )}
         </span>
       ),
@@ -279,7 +273,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
               <button
                 onClick={fetchHistory}
                 disabled={loadingHistory}
-                className="flex items-center gap-2 min-h-[44px] px-4 py-2 bg-muted hover:bg-muted text-secondary-foreground text-xs font-semibold rounded-xl"
+                className="flex items-center gap-2 min-h-[44px] px-4 py-2 bg-muted hover:bg-muted/80 active:scale-95 text-secondary-foreground text-xs font-semibold rounded-xl transition-colors"
               >
                 Filter
               </button>

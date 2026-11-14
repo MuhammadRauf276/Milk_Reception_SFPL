@@ -25,7 +25,7 @@ export interface SopRuleDefinition {
 }
 
 export interface SopEvaluationResult {
-  verdict: 'PASS' | 'WARN' | 'FAIL' | 'MONITORING' | 'NOT_APPLIED';
+  verdict: 'PASS' | 'WARN' | 'FAIL' | 'MONITORING' | 'NOT_APPLIED' | 'NOT_TESTED';
   label: string;
   message: string;
   isRuleFailure: boolean; // True ONLY if test is compulsory RELEASE and violates hard rejection threshold
@@ -93,14 +93,21 @@ export function evaluate3ZoneTest(
   const isAppliedOnly = ruleDef.testMode === 'OPTIONAL' || ruleDef.testMode === 'APPLIED';
   const isMonitoring = ruleDef.category === 'MONITORING' || ruleDef.ruleCategory === 'MONITORING';
 
-  if (rawInput === null || rawInput === undefined || String(rawInput).trim() === '') {
+  const trimmedInput = rawInput === null || rawInput === undefined ? '' : String(rawInput).trim();
+  const normalizedEmpty = trimmedInput.toUpperCase();
+  if (
+    trimmedInput === '' ||
+    normalizedEmpty === 'NOT_TESTED' ||
+    normalizedEmpty === 'NOT_PERFORMED' ||
+    trimmedInput === '—'
+  ) {
     return {
-      verdict: isAppliedOnly ? 'NOT_APPLIED' : 'PASS',
-      label: isAppliedOnly ? 'Optional' : 'Pending Entry',
+      verdict: isAppliedOnly ? 'NOT_APPLIED' : 'NOT_TESTED',
+      label: isAppliedOnly ? 'Optional' : 'Not tested',
       message: isAppliedOnly ? 'Optional test. Observation not recorded.' : 'Awaiting observation entry.',
       isRuleFailure: false,
       isWarning: false,
-      isPass: true,
+      isPass: false,
       colorClass: {
         badge: 'bg-muted text-secondary-foreground border-border',
         text: 'text-secondary-foreground',

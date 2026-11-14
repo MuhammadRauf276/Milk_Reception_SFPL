@@ -70,7 +70,7 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
               {journey.mot_vehicle?.vehicle_number || '—'}
             </strong>
           </div>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2 pt-2 border-t border-border text-center">
+          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border text-center">
             <div className="p-2 bg-card rounded-lg border border-border">
               <span className="text-xs text-muted-foreground block">Active shops</span>
               <strong className="text-foreground tabular-nums">{journey.stops.length}</strong>

@@ -5,6 +5,7 @@ import { EmptyAction } from '../components/EmptyAction';
 import React from 'react';
 import { Search, Play } from 'lucide-react';
 import { SkeletonList } from '@/components/ui/loaders';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { formatOperationalTime } from '@/lib/datetime-utils';
 import { onActivateKey } from '@/lib/a11y';
 import { cn } from '@/lib/utils';
@@ -89,6 +90,11 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
   isSubmitting,
 }) => {
   const queryClient = useQueryClient();
+  const pagedWaiting = usePagedRows(waitingVisits, (v) => v.id);
+  const pagedTesting = usePagedRows(inTestingVisits, (v) => v.id);
+  const pagedHeld = usePagedRows(onHoldVisits, (v) => v.id);
+  const currentPaged =
+    activeTab === 'WAITING' ? pagedWaiting : activeTab === 'IN_TESTING' ? pagedTesting : pagedHeld;
   return (
     <div className="space-y-3.5">
       <div className="flex items-center justify-between px-1">
@@ -119,7 +125,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
           waitingVisits.length === 0 ? (
             <EmptyAction message="No vehicles" onRefresh={() => queryClient.invalidateQueries()} />
           ) : (
-            waitingVisits.map((v) => {
+            pagedWaiting.pageRows.map((v) => {
               const isSelected = selectedWaitingVisitId === v.id;
               return (
                 <div
@@ -176,7 +182,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
               No active tests
             </div>
           ) : (
-            inTestingVisits.map((v) => {
+            pagedTesting.pageRows.map((v) => {
               const isSelected = selectedTestingVisitId === v.id;
               return (
                 <div
@@ -221,7 +227,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
             No held tests
           </div>
         ) : (
-          onHoldVisits.map((v) => {
+          pagedHeld.pageRows.map((v) => {
             const isSelected = selectedHeldVisitId === v.id;
             return (
               <div
@@ -275,6 +281,18 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
           })
         )}
       </div>
+
+      {currentPaged.totalPages > 1 && (
+        <Pagination
+          page={currentPaged.page}
+          totalPages={currentPaged.totalPages}
+          totalRecords={currentPaged.totalRecords}
+          pageSize={currentPaged.pageSize}
+          noun="vehicles"
+          onPageChange={currentPaged.setPage}
+          className="bg-card rounded-xl border border-border p-2 text-xs"
+        />
+      )}
     </div>
   );
 };

@@ -4,6 +4,7 @@ import React, { useEffect, useReducer, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Download, ShieldAlert, Loader2 } from 'lucide-react';
 import { useIsClient, useOnlineStatus } from '@/frontend/hooks/useOnlineStatus';
+import { formatDeviceLabel } from '@/lib/format';
 import { startSyncEngine } from './syncEngine';
 import { getActiveOwnerUserId, getDeviceUid, requestPersistentStorage, setActiveOwnerUserId } from './deviceIdentity';
 import { logDeviceEvent, startDeviceDiary } from './diary';
@@ -151,7 +152,7 @@ export function PwaShell() {
                     endpoint: json.endpoint,
                     p256dh: json.keys.p256dh,
                     auth: json.keys.auth,
-                    deviceLabel: navigator.userAgent.slice(0, 100),
+                    deviceLabel: formatDeviceLabel(navigator.userAgent),
                   }),
                 });
                 if (res.status === 401) {

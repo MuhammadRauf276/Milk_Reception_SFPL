@@ -8,6 +8,7 @@ import { User } from '@backend/core/types';
 import type { RouteLedgerRow, HcSupplierLedgerRow, TankStorageRow } from './zmccReportTypes';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { PageLoader } from '@/components/ui/spinner';
+import { Pagination, useListPageSize } from '@/components/ui/pagination';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
 import { getErrorMessage } from '@/lib/errors';
 import {
@@ -190,6 +191,7 @@ export function ZMCCComprehensiveReportsScreen({
   const [toDate, setToDate] = useState<string>(todayStr);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [page, setPage] = useState<number>(1);
+  const pageSize = useListPageSize(25);
 
   const isSystemScope =
     currentUser?.role === 'HEAD_OF_MPD' ||
@@ -205,13 +207,13 @@ export function ZMCCComprehensiveReportsScreen({
 
   // 1. Route Ledger Query
   const routeLedgerQuery = useQuery({
-    queryKey: ['zmcc', 'reports', 'route-ledger', facilityId, fromDate, toDate, page],
+    queryKey: ['zmcc', 'reports', 'route-ledger', facilityId, fromDate, toDate, page, pageSize],
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams({
         fromDate,
         toDate,
         page: String(page),
-        pageSize: '20',
+        pageSize: String(pageSize),
       });
       if (facilityId) params.append('zmccId', facilityId);
       return fetchJson<{ rows: RouteLedgerRow[]; totalRecords: number; totalPages: number }>(
@@ -224,13 +226,13 @@ export function ZMCCComprehensiveReportsScreen({
 
   // 2. HC Supplier Ledger Query
   const hcLedgerQuery = useQuery({
-    queryKey: ['zmcc', 'reports', 'hc-ledger', facilityId, fromDate, toDate, page],
+    queryKey: ['zmcc', 'reports', 'hc-ledger', facilityId, fromDate, toDate, page, pageSize],
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams({
         fromDate,
         toDate,
         page: String(page),
-        pageSize: '20',
+        pageSize: String(pageSize),
       });
       if (facilityId) params.append('zmccId', facilityId);
       return fetchJson<{ rows: HcSupplierLedgerRow[]; totalRecords: number; totalPages: number }>(
@@ -354,10 +356,11 @@ export function ZMCCComprehensiveReportsScreen({
                 routeLedgerQuery.refetch();
                 hcLedgerQuery.refetch();
               }}
-              className="p-2 rounded-lg border border-border bg-subtle hover:bg-muted text-secondary-foreground"
+              className="min-h-11 inline-flex items-center justify-center px-3 py-2 text-xs font-semibold rounded-lg border border-border bg-subtle hover:bg-muted text-secondary-foreground cursor-pointer"
               title="Apply & Refresh"
             >
-              </button>
+              Apply
+            </button>
           </div>
         )}
       </div>
@@ -435,32 +438,15 @@ export function ZMCCComprehensiveReportsScreen({
       )}
 
       {/* Pagination Bar */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between p-3 bg-card rounded-xl border border-border text-xs">
-          <span className="text-muted-foreground font-medium">
-            Page <span className="font-semibold text-foreground">{page}</span> of{' '}
-            <span className="font-semibold text-foreground">{totalPages}</span> ({totalRecords} records)
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="p-2 rounded-md border border-border bg-subtle hover:bg-muted disabled:opacity-40"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="p-2 rounded-md border border-border bg-subtle hover:bg-muted disabled:opacity-40"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalRecords={totalRecords}
+        pageSize={pageSize}
+        noun="records"
+        onPageChange={setPage}
+        className="bg-card rounded-xl border border-border p-3 text-xs"
+      />
     </div>
   );
 }

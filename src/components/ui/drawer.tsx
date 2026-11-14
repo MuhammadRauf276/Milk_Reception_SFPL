@@ -25,6 +25,7 @@ export function useIsDesktop(): boolean {
 }
 
 const DesktopContext = React.createContext(false);
+const DismissibleContext = React.createContext(true);
 
 type DrawerRootProps = React.ComponentProps<typeof DrawerPrimitive.Root>;
 
@@ -37,28 +38,32 @@ const Drawer = ({ shouldScaleBackground = false, dismissible = true, open, onOpe
   if (desktop) {
     return (
       <DesktopContext.Provider value>
-        <DialogPrimitive.Root
-          open={open}
-          onOpenChange={(o) => {
-            if (dismissible || o) onOpenChange?.(o);
-          }}
-        >
-          {children}
-        </DialogPrimitive.Root>
+        <DismissibleContext.Provider value={dismissible}>
+          <DialogPrimitive.Root
+            open={open}
+            onOpenChange={(o) => {
+              if (dismissible || o) onOpenChange?.(o);
+            }}
+          >
+            {children}
+          </DialogPrimitive.Root>
+        </DismissibleContext.Provider>
       </DesktopContext.Provider>
     );
   }
   return (
     <DesktopContext.Provider value={false}>
-      <DrawerPrimitive.Root
-        shouldScaleBackground={shouldScaleBackground}
-        dismissible={dismissible}
-        open={open}
-        onOpenChange={onOpenChange}
-        {...props}
-      >
-        {children}
-      </DrawerPrimitive.Root>
+      <DismissibleContext.Provider value={dismissible}>
+        <DrawerPrimitive.Root
+          shouldScaleBackground={shouldScaleBackground}
+          dismissible={dismissible}
+          open={open}
+          onOpenChange={onOpenChange}
+          {...props}
+        >
+          {children}
+        </DrawerPrimitive.Root>
+      </DismissibleContext.Provider>
     </DesktopContext.Provider>
   );
 };
@@ -76,7 +81,7 @@ const DrawerOverlay = React.forwardRef<
 DrawerOverlay.displayName = 'DrawerOverlay';
 
 const CLOSE_CLASS =
-  'absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring';
+  'absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring';
 
 type DrawerContentProps = React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
   /** A close button in the corner, so a form can always be left without saving. Off when the screen draws its own. */
@@ -85,10 +90,11 @@ type DrawerContentProps = React.ComponentPropsWithoutRef<typeof DrawerPrimitive.
 
 const DrawerContent = React.forwardRef<React.ElementRef<typeof DrawerPrimitive.Content>, DrawerContentProps>(({ className, children, style, showClose = true, ...props }, ref) => {
   const desktop = React.useContext(DesktopContext);
-  const { height: vvh, isKeyboardOpen } = useVisualViewport();
+  const dismissible = React.useContext(DismissibleContext);
+  const { height: vvh, isKeyboardOpen, keyboardHeight } = useVisualViewport();
 
   const keepCameraOpen = (e: { target: EventTarget | null; preventDefault: () => void }) => {
-    if ((e.target as HTMLElement | null)?.closest?.('[data-live-camera]')) e.preventDefault();
+    if (!dismissible || (e.target as HTMLElement | null)?.closest?.('[data-live-camera]')) e.preventDefault();
   };
 
   if (desktop) {
@@ -96,8 +102,12 @@ const DrawerContent = React.forwardRef<React.ElementRef<typeof DrawerPrimitive.C
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-neutral-950/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-150" />
         <DialogPrimitive.Content
+          ref={ref}
           aria-describedby={undefined}
           onInteractOutside={keepCameraOpen}
+          onEscapeKeyDown={(e) => {
+            if (!dismissible) e.preventDefault();
+          }}
           className={cn(
             'fixed left-1/2 top-1/2 z-modal flex max-h-[88dvh] w-[calc(100vw-3rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl outline-hidden data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 duration-150',
             className
@@ -105,7 +115,7 @@ const DrawerContent = React.forwardRef<React.ElementRef<typeof DrawerPrimitive.C
           style={style}
         >
           {showClose ? (
-            <DialogPrimitive.Close className={CLOSE_CLASS} aria-label="Close">
+            <DialogPrimitive.Close disabled={!dismissible} className={CLOSE_CLASS} aria-label="Close">
               <X className="h-5 w-5" aria-hidden="true" />
             </DialogPrimitive.Close>
           ) : null}
@@ -120,6 +130,7 @@ const DrawerContent = React.forwardRef<React.ElementRef<typeof DrawerPrimitive.C
     isKeyboardOpen && vvh
       ? `${Math.max(260, Math.floor(vvh - 12))}px`
       : '92dvh';
+  const keyboardBottom = isKeyboardOpen && keyboardHeight > 0 ? `${keyboardHeight}px` : undefined;
 
   return (
     <DrawerPrimitive.Portal>
@@ -130,18 +141,19 @@ const DrawerContent = React.forwardRef<React.ElementRef<typeof DrawerPrimitive.C
         aria-describedby={undefined}
         onInteractOutside={keepCameraOpen}
         className={cn(
-          'fixed inset-x-0 bottom-0 z-modal mx-auto flex w-full max-w-2xl flex-col rounded-t-3xl border border-border bg-card outline-hidden overflow-hidden touch-scroll transition-[max-height] duration-150 ease-out',
+          'fixed inset-x-0 bottom-0 z-modal mx-auto flex w-full max-w-2xl flex-col rounded-t-3xl border border-border bg-card outline-hidden overflow-hidden touch-scroll transition-[max-height,bottom] duration-150 ease-out',
           className
         )}
         style={{
           maxHeight: mobileMaxHeight,
+          ...(keyboardBottom ? { bottom: keyboardBottom } : {}),
           ...style,
         }}
         {...props}
       >
         <div className="mx-auto mt-2 h-1.5 w-11 shrink-0 rounded-full bg-border-strong" aria-hidden="true" />
         {showClose ? (
-          <DrawerPrimitive.Close className={CLOSE_CLASS} aria-label="Close">
+          <DrawerPrimitive.Close disabled={!dismissible} className={CLOSE_CLASS} aria-label="Close">
             <X className="h-5 w-5" aria-hidden="true" />
           </DrawerPrimitive.Close>
         ) : null}
@@ -186,7 +198,7 @@ const DrawerHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 DrawerHeader.displayName = 'DrawerHeader';
 
 const DrawerBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex-1 min-h-0 overflow-y-auto px-4 py-2 touch-scroll sm:px-6', className)} {...props} />
+  <div className={cn('scrollbar-thin overscroll-contain flex-1 min-h-0 overflow-y-auto px-4 py-2 touch-scroll sm:px-6', className)} {...props} />
 );
 DrawerBody.displayName = 'DrawerBody';
 

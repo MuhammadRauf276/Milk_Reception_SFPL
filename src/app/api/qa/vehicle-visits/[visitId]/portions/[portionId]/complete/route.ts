@@ -14,6 +14,7 @@ import type { VisitPortion } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import type { QualityEvaluationSnapshot } from '@/backend/services/qualityRuleService';
 import { toJsonInput } from '@/lib/json';
+import { isCalculatedTest } from '@/lib/lab-test-roles';
 import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
 import { alreadyDecidedMessage, clearDraftsForPortion, type DraftDb } from '@/backend/services/formDraftService';
@@ -65,8 +66,6 @@ export async function POST(
   const requestedAsHeader = req.headers.get('x-acting-as')?.trim() || null;
   const effectiveRole = requestedAsHeader && canActAs(dbUser.role, requestedAsHeader) ? requestedAsHeader : dbUser.role;
   const isDelegated = effectiveRole !== dbUser.role && !['SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(dbUser.role);
-  // Super Admin, Data Executive and AVP-QA or above decide on the spot, whatever station they work from.
-  const isSuperior = dbUser.role === 'SUPER_ADMIN' || canActAs(dbUser.role, 'QA_HEAD');
 
   const resolvedParams = await params;
   const visitIdStr = resolvedParams.visitId;
@@ -169,12 +168,8 @@ export async function POST(
     // exception, never blocks a decision and never changes the system recommendation (dispatch could not always write it).
     const sealMismatchException = false;
 
-    if (portion.seal_number) {
-      if (!enteredSeal) {
-        sealMatch = false;
-      } else {
-        sealMatch = portion.seal_number.trim().toUpperCase() === enteredSeal.toUpperCase();
-      }
+    if (portion.seal_number && enteredSeal) {
+      sealMatch = portion.seal_number.trim().toUpperCase() === enteredSeal.toUpperCase();
     }
 
     // Photo extraction per test
@@ -203,6 +198,34 @@ export async function POST(
     const submittedResultMap = new Map(validated.results.map((r) => [r.testId, r]));
 
     const isOperatorRejecting = explicitDecision === 'REJECTED';
+    let hasMissingRequiredTest = false;
+
+    for (const [reqId, reqTest] of Array.from(activeRequiredMap.entries())) {
+      const res = submittedResultMap.get(reqId);
+
+      if (!res || (res.performanceStatus || 'PERFORMED') === 'NOT_PERFORMED') {
+        hasMissingRequiredTest = true;
+        continue;
+      }
+
+      // Validate value formats when a performed result is submitted
+      const options = (reqTest.result_options_snapshot as LabTestResultOption[] | null) || null;
+      if (Array.isArray(options) && options.length > 0) {
+        const val = (res.textValue || '').trim().toUpperCase();
+        const match = options.find((opt) => opt.value.trim().toUpperCase() === val);
+        if (!match) {
+          return NextResponse.json(
+            { error: `Invalid option "${res.textValue}" for test "${reqTest.test_name_snapshot}". Allowed options: ${options.map((o) => o.label || o.value).join(', ')}.` },
+            { status: 400 }
+          );
+        }
+      } else if (reqTest.result_type_snapshot === 'NUMERIC') {
+        const numVal = validateNonNegativeDecimal(res.numericValue, reqTest.test_name_snapshot);
+        if (!numVal.isValid) {
+          return NextResponse.json({ error: numVal.error }, { status: 400 });
+        }
+      }
+    }
 
     if (isOperatorRejecting) {
       if (rejectionReasonInput.length < 3) {
@@ -221,46 +244,6 @@ export async function POST(
           { error: 'At least 1 actual PERFORMED test result is required to reject a portion.' },
           { status: 400 }
         );
-      }
-    } else {
-      // Operator is attempting to ACCEPT:
-      // ALL assigned required manual tests must be PERFORMED with valid inputs.
-      for (const [reqId, reqTest] of Array.from(activeRequiredMap.entries())) {
-        const res = submittedResultMap.get(reqId);
-
-        if (!res) {
-          return NextResponse.json(
-            { error: `Required plant test "${reqTest.test_name_snapshot}" (${reqTest.test_code_snapshot}) has no result. All required tests must be PERFORMED to accept.` },
-            { status: 400 }
-          );
-        }
-
-        const perfStatus = res.performanceStatus || 'PERFORMED';
-
-        if (perfStatus === 'NOT_PERFORMED') {
-          return NextResponse.json(
-            { error: `Required plant test "${reqTest.test_name_snapshot}" (${reqTest.test_code_snapshot}) is marked NOT_PERFORMED. All required tests must be PERFORMED to accept.` },
-            { status: 400 }
-          );
-        }
-
-        // Validate value formats
-        const options = (reqTest.result_options_snapshot as LabTestResultOption[] | null) || null;
-        if (Array.isArray(options) && options.length > 0) {
-          const val = (res.textValue || '').trim().toUpperCase();
-          const match = options.find((opt) => opt.value.trim().toUpperCase() === val);
-          if (!match) {
-            return NextResponse.json(
-              { error: `Invalid option "${res.textValue}" for test "${reqTest.test_name_snapshot}". Allowed options: ${options.map((o) => o.label || o.value).join(', ')}.` },
-              { status: 400 }
-            );
-          }
-        } else if (reqTest.result_type_snapshot === 'NUMERIC') {
-          const numVal = validateNonNegativeDecimal(res.numericValue, reqTest.test_name_snapshot);
-          if (!numVal.isValid) {
-            return NextResponse.json({ error: numVal.error }, { status: 400 });
-          }
-        }
       }
     }
 
@@ -398,7 +381,7 @@ export async function POST(
             textValue: null,
             appliedRuleId: null,
             appliedRuleVersion: null,
-            evaluationStatus: 'NO_ACTIVE_RULE',
+            evaluationStatus: 'PENDING',
             isPassed: null,
             photoUrl: null,
           });
@@ -452,41 +435,71 @@ export async function POST(
         }))
       );
 
-      if (['RULE_CONFIGURATION_ERROR', 'NO_ACTIVE_RULE'].includes(systemQualityOutcome)) {
+      if (systemQualityOutcome === 'RULE_CONFIGURATION_ERROR') {
         throw new RouteError('Laboratory rule configuration is incomplete or invalid. QA completion is blocked.', 422);
+      }
+      if (systemQualityOutcome === 'NO_ACTIVE_RULE') {
+        if (hasMissingRequiredTest || evaluationEntries.every((e) => e.performanceStatus === 'NOT_PERFORMED')) {
+          systemQualityOutcome = 'OUT_OF_SPEC';
+        } else {
+          throw new RouteError('Laboratory rule configuration is incomplete or invalid. QA completion is blocked.', 422);
+        }
       }
 
       // Collect rule failures and true exception reasons per Workflow 06 (§3 & §7)
       const ruleFailReasons: string[] = [];
       const exceptionReasonsList: string[] = [];
 
+      if (hasMissingRequiredTest) {
+        exceptionReasonsList.push('MISSING_FIELD');
+      }
       if (sealMismatchException) {
         exceptionReasonsList.push('SEAL_MISMATCH');
       }
 
       for (const entry of evaluationEntries) {
         const testDef = assignedTestMap.get(entry.testId.toString());
-        if (entry.evaluationStatus === 'OUT_OF_SPEC' || entry.isPassed === false) {
+        if (
+          activeRequiredMap.has(entry.testId.toString()) &&
+          (entry.evaluationStatus === 'OUT_OF_SPEC' || entry.isPassed === false)
+        ) {
           ruleFailReasons.push(`RULE_FAIL:${testDef?.test_code_snapshot || entry.testId}`);
-        }
-        if (entry.performanceStatus === 'PERFORMED') {
-          const photo = resPhotoMap.get(entry.testId.toString());
-          if (photoRequiredById.get(entry.testId.toString()) && !photo) {
-            exceptionReasonsList.push(`PICTURE_MISSING:${testDef?.test_code_snapshot || entry.testId}`);
-          }
         }
       }
 
-      const systemRecommendation = ['PASS', 'WARNING', 'NEUTRAL'].includes(systemQualityOutcome) && !sealMismatchException
-        ? 'ACCEPTED'
-        : 'REJECTED';
+      for (const at of assignedPlantTests) {
+        if (
+          at.result_type_snapshot === 'CALCULATED' ||
+          isCalculatedTest({ testCode: at.test_code_snapshot, testName: at.test_name_snapshot })
+        ) {
+          continue;
+        }
+        const tid = at.test_id.toString();
+        if (photoRequiredById.get(tid) && !resPhotoMap.get(tid)) {
+          exceptionReasonsList.push(`PICTURE_MISSING:${at.test_code_snapshot || tid}`);
+        }
+      }
+      if (exceptionReasonsList.length > 1) {
+        const uniqueReasons = Array.from(new Set(exceptionReasonsList));
+        exceptionReasonsList.length = 0;
+        exceptionReasonsList.push(...uniqueReasons);
+      }
+
+      const systemRecommendation =
+        ['PASS', 'WARNING', 'NEUTRAL'].includes(systemQualityOutcome) &&
+        !sealMismatchException &&
+        !hasMissingRequiredTest
+          ? 'ACCEPTED'
+          : 'REJECTED';
       const isAttendantException = explicitDecision !== systemRecommendation;
       if (isAttendantException) {
         exceptionReasonsList.push('MISMATCH');
       }
 
-      // Check Month-To-Date (MTD) Warning Escalation for Procurement Source
-      const warningEntries = evaluationEntries.filter((e) => e.evaluationStatus === 'WARNING');
+      // Check Month-To-Date (MTD) Warning Escalation for Procurement Source (required SOP tests only)
+      const warningEntries = evaluationEntries.filter(
+        (e) => e.evaluationStatus === 'WARNING' && activeRequiredMap.has(e.testId.toString())
+      );
       const hasWarning = warningEntries.length > 0;
       const warningTestCodes = warningEntries.map(
         (e) => assignedTestMap.get(e.testId.toString())?.test_code_snapshot || e.testId.toString()
@@ -577,7 +590,7 @@ export async function POST(
                     text_value: null,
                     applied_rule_id: null,
                     applied_rule_version: null,
-                    evaluation_status: 'NO_ACTIVE_RULE',
+                    evaluation_status: 'PENDING',
                     is_passed: null,
                     tested_by: userIdBigInt,
                   },
@@ -597,7 +610,7 @@ export async function POST(
                   text_value: null,
                   applied_rule_id: null,
                   applied_rule_version: null,
-                  evaluation_status: 'NO_ACTIVE_RULE',
+                  evaluation_status: 'PENDING',
                   is_passed: null,
                   tested_by: userIdBigInt,
                 },
@@ -610,9 +623,8 @@ export async function POST(
       // 8. Determine Portion Decision & AVP-QA Review Escalation per Workflow 06 (§3 & §7)
       // True exceptions: Attendant Mismatch, Missing Photo, or Seal Mismatch
       const hasException = exceptionReasonsList.length > 0;
-      // Only the server-side role check grants the right to decide. The client-sent action
-      // 'DECIDE_NOW' is still accepted (old clients) but is ignored for anyone who may not decide.
-      const isDecideNow = isSuperior;
+      // Testing stations always escalate exceptions and rule contradictions to AVP-QA for approval.
+      const isDecideNow = false;
       const fullExceptionReasons = [...exceptionReasonsList, ...ruleFailReasons.filter((r) => !exceptionReasonsList.includes(r))];
 
       if (hasException && !isDecideNow) {
@@ -655,11 +667,13 @@ export async function POST(
           });
         }
 
+        const vehicleLabel = lockedPortion.visit.vehicle_number || portion.visit.vehicle_number || `Visit #${lockedPortion.visit_id.toString()}`;
+        const tokenLabel = lockedPortion.visit.token_number ? ` (Token ${lockedPortion.visit.token_number})` : '';
         await createNotificationsForEvent(tx, {
           eventKey: 'PLANT_QA_EXCEPTION_PENDING',
           sourceId: portionId.toString(),
-          title: 'Plant QA exception needs review',
-          body: `Vehicle visit ${lockedPortion.visit_id.toString()} portion ${lockedPortion.portion_number} has an exception (${exceptionReasonsList.join(', ')}) and requires AVP-QA review.`,
+          title: `Plant QA exception: ${vehicleLabel}`,
+          body: `Vehicle ${vehicleLabel}${tokenLabel} portion #${lockedPortion.portion_number} has an exception (${exceptionReasonsList.join(', ')}) and requires AVP-QA review.`,
           deepLink: '/department/qa-head',
           dedupeSuffix: `${portionId}:${completionEventId}`,
         });
@@ -763,10 +777,12 @@ export async function POST(
       const isComposite = portion.visit.test_mode === 'COMPOSITE';
       if (isComposite && finalPlantDecision === 'REJECTED') {
         await tx.visitPortion.updateMany({
-          where: { visit_id: visitId },
+          where: { visit_id: visitId, id: { not: portionId } },
           data: {
             plant_decision: 'REJECTED',
             current_status: 'REJECTED',
+            system_quality_outcome: systemQualityOutcome,
+            exception_reasons: fullExceptionReasons.length > 0 ? fullExceptionReasons : Prisma.DbNull,
             plant_rejection_reason: rejectionReasonInput || 'Composite testing failed - entire vehicle load rejected',
             plant_decided_by: userIdBigInt,
             plant_decided_at: targetOpTs,

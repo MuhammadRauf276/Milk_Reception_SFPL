@@ -186,12 +186,14 @@ export function ApprovalInbox({
       {/* Top Master Control Bar */}
       <header className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-4 bg-card border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-muted-foreground" />
-            <h1 className="text-base sm:text-lg font-semibold text-foreground">
-              {fixedStage ? STAGE_LABELS[fixedStage]?.label : 'Approvals'}
-            </h1>
-          </div>
+          {fixedStage && (
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-muted-foreground" />
+              <h2 className="text-base font-semibold text-foreground">
+                {STAGE_LABELS[fixedStage]?.label}
+              </h2>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 ml-auto">

@@ -56,20 +56,26 @@ export const McSuccessCard: React.FC<{
                     {result.journey?.journey_number || journeyNumber}
                   </div>
                 </div>
+                <div>
+                  <span className="text-xs font-semibold text-muted-foreground">Vehicle Number</span>
+                  <div className="text-xs font-semibold text-foreground mt-0.5">
+                    {result.journey?.vehicle_number || '—'}
+                  </div>
+                </div>
               </div>
 
               {result.journey?.summary && (
                 <div className="bg-card border-border p-4 rounded-2xl border space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-secondary-foreground">
-                      Mobile Tester Journey Final Summary (v{result.journey.summary.summary_version}, Rev #{result.journey.summary.revision})
+                      Mobile Tester Journey Summary
                     </span>
                     <span className="text-xs font-semibold text-muted-foreground">
                       Ended: {formatTime(result.journey.summary.journey_ended_at)} PKT
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,6rem),1fr))] gap-2 text-center">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                     <div className="bg-card border-border p-2 rounded-lg border">
                       <div className="text-xs font-semibold text-muted-foreground">Active shops</div>
                       <div className="text-sm font-semibold text-foreground">{result.journey.summary.assigned_shop_count}</div>

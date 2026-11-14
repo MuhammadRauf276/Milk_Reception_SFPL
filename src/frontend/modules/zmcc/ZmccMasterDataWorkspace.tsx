@@ -23,6 +23,8 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Pagination, useListPageSize } from '@/components/ui/pagination';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { fadeSlide } from '@/components/motion/presets';
 import { getErrorMessage } from '@/lib/errors';
@@ -30,6 +32,7 @@ import { PendingApprovalsPanel } from './approvals/PendingApprovalsPanel';
 import { canCreateRoute, isFieldStationRole } from './stage1Capabilities';
 import {
   fetchMasterData,
+  MASTER_PAGE_SIZE,
   type AreaItem,
   type ChillerOwnershipItem,
   type MasterDataFilters,
@@ -44,7 +47,6 @@ import { MasterTables } from './master/MasterTables';
 import { MasterRecordDrawer } from './master/MasterRecordDrawer';
 import { ZmccTankIntakeDrawer } from '@/frontend/modules/super-admin/zmcc-tanks/ZmccTankIntakeDrawer';
 import { ZmccTankLedgerDrawer } from '@/frontend/modules/super-admin/zmcc-tanks/ZmccTankLedgerDrawer';
-import { ZmccPager } from './shared/ZmccDrawer';
 
 export type { MasterDataTab };
 
@@ -157,9 +159,10 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   }
 
   // Scoped reference data (search is debounced 300ms).
+  const pageSize = useListPageSize(MASTER_PAGE_SIZE);
   const debouncedSearch = useDebouncedValue(search, 300);
   const [pageState, setPageState] = useState({ key: '', page: 1 });
-  const filterKey = [activeTab, selectedZmccId, statusFilter, debouncedSearch, routeFilter, areaFilter].join('|');
+  const filterKey = [activeTab, selectedZmccId, statusFilter, debouncedSearch, routeFilter, areaFilter, pageSize].join('|');
   if (pageState.key !== filterKey) setPageState({ key: filterKey, page: 1 });
   const page = pageState.key === filterKey ? pageState.page : 1;
   const dataFilters = useMemo<MasterDataFilters>(
@@ -170,8 +173,9 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
       routeId: routeFilter,
       areaId: areaFilter,
       page,
+      pageSize,
     }),
-    [isSuperAdmin, selectedZmccId, statusFilter, debouncedSearch, routeFilter, areaFilter, page]
+    [isSuperAdmin, selectedZmccId, statusFilter, debouncedSearch, routeFilter, areaFilter, page, pageSize]
   );
   const masterQuery = useQuery({
     queryKey: ['zmcc', 'master', activeTab, dataFilters],
@@ -246,7 +250,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
   const routeOptions = [{ value: '', label: 'All routes' }, ...helperRoutes.map((r) => ({ value: r.id, label: `${r.name} · ${r.route_code}`, keywords: r.route_code }))];
 
   return (
-    <div className="space-y-6 max-w-full overflow-x-hidden">
+    <div className="space-y-6 max-w-full overflow-x-clip">
       {/* Header Banner */}
       <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-2">
@@ -372,32 +376,32 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {activeTab === 'TANKS' && (isSuperAdmin || isDataExecutive) && itemsFor('TANKS').some((t) => t.is_active) && (
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
                       onClick={() => setIntakeTank(itemsFor('TANKS').find((t) => t.is_active) || null)}
-                      className="flex items-center justify-center gap-2 px-4 py-2 min-h-[44px] bg-emerald-700 text-white rounded-xl text-xs font-semibold hover:bg-emerald-800 transition shadow-2xs shrink-0"
                     >
-                      <Milk className="w-4 h-4" />
+                      <Milk aria-hidden />
                       <span>Intake Milk Stock</span>
-                    </button>
+                    </Button>
                   )}
                   {canAdd && (
-                    <button
+                    <Button
                       type="button"
+                      variant="default"
                       onClick={form.openCreate}
-                      className="flex items-center justify-center gap-2 px-4 py-2 min-h-[44px] bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary-hover transition shadow-2xs shrink-0"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus aria-hidden />
                       <span>{ADD_LABEL[activeTab]}</span>
-                    </button>
+                    </Button>
                   )}
                 </div>
 
               </div>
 
-              <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden">
+              <div className="bg-card rounded-2xl border border-border/80 shadow-2xs overflow-hidden">
                 {loading ? (
                   <SkeletonTable />
                 ) : (
@@ -422,12 +426,14 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                   </div>
                 )}
                 {masterResult?.pagination && (
-                  <ZmccPager
+                  <Pagination
                     page={masterResult.pagination.page}
                     totalPages={masterResult.pagination.total_pages}
+                    totalRecords={masterResult.pagination.total}
+                    pageSize={masterResult.pagination.page_size}
                     disabled={loading}
-                    onPage={(p) => setPageState({ key: filterKey, page: p })}
-                    summary={<> ({masterResult.pagination.total} records)</>}
+                    onPageChange={(p) => setPageState({ key: filterKey, page: p })}
+                    className="border-t border-border bg-card"
                   />
                 )}
               </div>

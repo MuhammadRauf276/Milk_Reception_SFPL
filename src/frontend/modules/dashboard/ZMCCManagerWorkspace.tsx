@@ -27,6 +27,7 @@ import { ApprovalInbox } from '@/frontend/modules/approvals/ApprovalInbox';
 import { AnimatePresence } from 'framer-motion';
 import { PageTransition } from '@/components/motion/page-transition';
 import { getErrorMessage } from '@/lib/errors';
+import { useListPageSize } from '@/components/ui/pagination';
 
 interface ZMCCManagerWorkspaceProps {
   currentUser: User | null;
@@ -78,6 +79,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const [reportingPage, setReportingPage] = useState<number>(1);
+  const reportingPageSize = useListPageSize(25);
   const initialOverviewBounds = useMemo(() => getOverviewDateRangeBounds('TODAY'), []);
   const [fromDate, setFromDate] = useState<string>(initialOverviewBounds.fromDate);
   const [toDate, setToDate] = useState<string>(initialOverviewBounds.toDate);
@@ -199,9 +201,9 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
 
   // Reporting logs flow
   const reportingQuery = useQuery({
-    queryKey: ['zmcc-manager', facilityId, 'report-logs', { fromDate, toDate, page: reportingPage }],
+    queryKey: ['zmcc-manager', facilityId, 'report-logs', { fromDate, toDate, page: reportingPage, pageSize: reportingPageSize }],
     queryFn: ({ signal }) => {
-      const params = new URLSearchParams({ mode: 'report', page: String(reportingPage), pageSize: '20' });
+      const params = new URLSearchParams({ mode: 'report', page: String(reportingPage), pageSize: String(reportingPageSize) });
       if (fromDate) params.append('fromDate', fromDate);
       if (toDate) params.append('toDate', toDate);
       return fetchJson<LogsResponse>(`/api/logs?${params.toString()}`, { signal });
@@ -314,7 +316,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   }, [selectedLog, liveLogs, reportingLogs]);
 
   return (
-    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-hidden">
+    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-clip">
       <Header
         currentUser={currentUser}
         title={subpageTitle ?? sectionTitle}

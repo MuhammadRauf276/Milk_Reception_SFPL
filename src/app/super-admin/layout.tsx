@@ -58,7 +58,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="flex min-h-[100dvh] w-full max-w-full flex-col bg-background text-foreground overflow-x-hidden">
+    <div className="flex min-h-[100dvh] w-full max-w-full flex-col bg-background text-foreground overflow-x-clip">
       <SuperAdminHeader
         currentUser={currentUser}
         isOpen={isDrawerOpen}

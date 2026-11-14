@@ -250,9 +250,25 @@ export async function POST(
         },
       });
 
+      if (visit.test_mode === 'COMPOSITE') {
+        await tx.visitPortion.updateMany({
+          where: { visit_id: visitId, id: { not: portionId } },
+          data: {
+            plant_decision: newPlantDecision,
+            current_status: newPlantDecision,
+            manager_review_status: newManagerReviewStatus,
+            manager_reviewed_by_user_id: userIdBigInt,
+            manager_reviewed_at: now,
+            manager_review_reason: managerRemarks,
+            ...(validated.decision === 'REJECT' ? { plant_rejection_reason: managerRemarks } : {}),
+          },
+        });
+      }
+
       // Recalculate visit workflow status
       const allPortions = await tx.visitPortion.findMany({
         where: { visit_id: visitId },
+        orderBy: { portion_number: 'asc' },
       });
 
       const decisions = allPortions.map((p) => p.plant_decision);

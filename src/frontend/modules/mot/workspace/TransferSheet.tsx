@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { getErrorMessage } from '@/lib/errors';
-import { MotSheet, sheetLabelClass, sheetPrimaryButtonClass } from '../MotSheet';
+import { MotSheet, sheetLabelClass } from '../MotSheet';
 import { SheetError } from './SheetError';
 import { sendJson } from './mutationUtils';
 import { MOT_TAB_DATA_KEY, type MotVehicleItem, type ZmccSource } from './types';
@@ -65,9 +66,16 @@ export function TransferSheet({ vehicle, sources, onClose, onDone }: Props) {
           />
         </div>
         <SheetError message={error} />
-        <button type="submit" disabled={transferMutation.isPending || !targetZmccId} className={sheetPrimaryButtonClass}>
-          {transferMutation.isPending ? 'Transferring…' : 'Confirm Transfer'}
-        </button>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          loading={transferMutation.isPending}
+          loadingText="Moving vehicle…"
+          disabled={!targetZmccId}
+        >
+          Confirm Transfer
+        </Button>
       </form>
     </MotSheet>
   );

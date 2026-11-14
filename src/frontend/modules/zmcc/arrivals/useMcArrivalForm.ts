@@ -114,6 +114,8 @@ export function useMcArrivalForm(policyMode: PolicyMode, onRecorded: () => void)
         journey: {
           id: selectedJourney.id,
           journey_number: selectedJourney.journey_number,
+          vehicle_number: selectedJourney.mot_vehicle?.vehicle_number ?? null,
+          route_code: selectedJourney.route?.route_code ?? null,
           operational_date: selectedJourney.operational_date,
           status: 'ARRIVED',
         } as unknown as McArrivalRow['journey'],

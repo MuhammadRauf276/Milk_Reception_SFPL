@@ -97,7 +97,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           <div>
             <span>{v.vehicleNumber}</span>
             {v.tokenNumber && (
-              <span className="block text-xs text-muted-foreground font-normal">Tk: {v.tokenNumber}</span>
+              <span className="block text-xs text-muted-foreground font-normal">Token {v.tokenNumber}</span>
             )}
           </div>
         </div>
@@ -232,9 +232,6 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
               Final Receipt
             </span>
-            {v.finalReceiptTransactionId && (
-              <span className="block text-xs tabular-nums text-muted-foreground mt-0.5">Tx #{v.finalReceiptTransactionId}</span>
-            )}
           </div>
         ) : v.secondWeightTimestamp ? (
           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
@@ -375,7 +372,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'ALL'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-muted text-secondary-foreground hover:bg-muted'
+                : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             All ({visits.length})
@@ -411,7 +408,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               receiptFilter === 'BEFORE_RECEIPT'
                 ? 'bg-neutral-800 text-white shadow-xs'
-                : 'bg-muted text-secondary-foreground hover:bg-muted'
+                : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             Before ({visits.filter((v) => !v.finalReceiptExists && !v.secondWeightTimestamp).length})

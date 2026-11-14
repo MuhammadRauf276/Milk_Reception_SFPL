@@ -14,7 +14,7 @@ async function readScopeFor(req: Request, user: User): Promise<OperationalReadSc
   const scope = operationalReadScopeForUser(user);
   const rawSourceId = req.headers.get('x-acting-source-id');
   if (scope.kind !== 'ALL' || !rawSourceId) return scope;
-  if (!/^d+$/.test(rawSourceId)) return { kind: 'NONE' };
+  if (!/^\d+$/.test(rawSourceId)) return { kind: 'NONE' };
   const source = await prisma.procurementSource.findUnique({
     where: { id: BigInt(rawSourceId) },
     select: { id: true, source_type: true },

@@ -3,18 +3,18 @@ import { Search, ChevronLeft, ChevronRight, Scale, Database, Clock, User } from 
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { useListPageSize } from '@/components/ui/pagination';
 import type { SubordinateWorkHistoryItem } from '@/backend/services/productionHeadOverviewService';
 
 interface SubordinateWorkHistoryFeedProps {
   history: SubordinateWorkHistoryItem[];
 }
 
-const ITEMS_PER_PAGE = 10;
-
 export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProps> = ({ history }) => {
   const [stationFilter, setStationFilter] = useState<'ALL' | 'WEIGHBRIDGE' | 'RECEPTION'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = useListPageSize(25);
 
   const filteredHistory = useMemo(() => {
     return history.filter((item) => {
@@ -45,10 +45,10 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
     });
   }, [history, stationFilter, searchQuery]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredHistory.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredHistory.length / itemsPerPage));
   const activePage = Math.min(currentPage, totalPages);
-  const startIndex = (activePage - 1) * ITEMS_PER_PAGE;
-  const paginatedItems = filteredHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const startIndex = (activePage - 1) * itemsPerPage;
+  const paginatedItems = filteredHistory.slice(startIndex, startIndex + itemsPerPage);
 
   const getActionBadge = (action: SubordinateWorkHistoryItem['action'], label: string) => {
     switch (action) {
@@ -186,7 +186,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
             }`}
           >
             <span>All Activities</span>
-            <span className="text-xs px-2 py-0.2 rounded-md bg-primary-foreground/20">
+            <span className="text-xs px-2 py-0.5 rounded-md bg-primary-foreground/20">
               {history.length}
             </span>
           </button>
@@ -251,7 +251,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
           totalPages > 1 && paginatedItems.length > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-xs">
               <span className="text-muted-foreground">
-                Showing {startIndex + 1}–{Math.min(filteredHistory.length, startIndex + ITEMS_PER_PAGE)} of{' '}
+                Showing {startIndex + 1}–{Math.min(filteredHistory.length, startIndex + itemsPerPage)} of{' '}
                 {filteredHistory.length} events
               </span>
               <div className="flex items-center gap-2">

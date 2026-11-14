@@ -183,27 +183,39 @@ export async function correctPlantQaResults(
 
         const activeRule = activeRulesMap.get(String(testIdBigInt)) || null;
         const assignedDef = assignedMap.get(String(testIdBigInt));
-        const evalRes = QualityRuleService.evaluateQualityResult({
-          testId: testIdBigInt,
-          resultType: assignedDef?.result_type_snapshot || (existingResult.numeric_value !== null ? 'NUMERIC' : 'QUALITATIVE'),
-          numericValue: item.numeric_value ?? null,
-          textValue: item.text_value ?? null,
-          rule: activeRule,
-          resultOptions: assignedDef?.result_options_snapshot || existingResult.lab_test?.resultOptions,
-          testingPoint: 'PLANT_QA',
-        });
+        const isNotPerformed = item.performance_status === 'NOT_PERFORMED';
+        const evalRes = isNotPerformed
+          ? {
+              evaluationStatus: 'PENDING' as const,
+              isPassed: null,
+              evaluationSnapshot: null,
+              appliedRuleId: null,
+              appliedRuleVersion: null,
+            }
+          : QualityRuleService.evaluateQualityResult({
+              testId: testIdBigInt,
+              resultType: assignedDef?.result_type_snapshot || (existingResult.numeric_value !== null ? 'NUMERIC' : 'QUALITATIVE'),
+              numericValue: item.numeric_value ?? null,
+              textValue: item.text_value ?? null,
+              rule: activeRule,
+              resultOptions: assignedDef?.result_options_snapshot || existingResult.lab_test?.resultOptions,
+              testingPoint: 'PLANT_QA',
+            });
 
         // Update PlantLabResult keeping original tested_by immutable
         await tx.plantLabResult.update({
           where: { id: existingResult.id },
           data: {
-            numeric_value: item.numeric_value !== null && item.numeric_value !== undefined ? new Prisma.Decimal(item.numeric_value) : null,
-            text_value: item.text_value ?? null,
+            numeric_value:
+              !isNotPerformed && item.numeric_value !== null && item.numeric_value !== undefined
+                ? new Prisma.Decimal(item.numeric_value)
+                : null,
+            text_value: !isNotPerformed ? (item.text_value ?? null) : null,
             performance_status: item.performance_status,
-            not_performed_reason: item.performance_status === 'NOT_PERFORMED' ? (item.not_performed_reason || 'Not performed') : null,
+            not_performed_reason: isNotPerformed ? (item.not_performed_reason || 'Not performed') : null,
             is_passed: evalRes.isPassed,
             evaluation_status: evalRes.evaluationStatus,
-            evaluation_snapshot: toJsonInput(evalRes.evaluationSnapshot),
+            evaluation_snapshot: evalRes.evaluationSnapshot ? toJsonInput(evalRes.evaluationSnapshot) : Prisma.DbNull,
             result_timestamp: authoritativeTs,
             applied_rule_id: evalRes.appliedRuleId ?? null,
             applied_rule_version: evalRes.appliedRuleVersion ?? null,

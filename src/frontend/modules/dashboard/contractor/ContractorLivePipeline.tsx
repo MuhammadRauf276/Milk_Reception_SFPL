@@ -14,6 +14,8 @@ import {
   Receipt,
   AlertCircle,
 } from 'lucide-react';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
+import { HorizontalScrollRow } from '@/components/ui/horizontal-scroll-row';
 
 interface ContractorLivePipelineProps {
   logs: MilkProcessLog[];
@@ -65,6 +67,8 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
     });
   }, [activeVisits, searchQuery, stageFilter]);
 
+  const pagedVisits = usePagedRows(filteredVisits, (v) => String(v.visitId));
+
   if (error) {
     return (
       <div className="bg-card border-border p-6 rounded-2xl border text-center space-y-2">
@@ -101,7 +105,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'ALL_ACTIVE'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-muted text-secondary-foreground hover:bg-muted'
+                : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             All ({activeVisits.length})
@@ -113,7 +117,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'GATE'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-muted text-secondary-foreground hover:bg-muted'
+                : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             Security ({activeVisits.filter((v) => v.journeyStage === 'GATE_ENTRY').length})
@@ -125,7 +129,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'QA'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-muted text-secondary-foreground hover:bg-muted'
+                : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             QA ({activeVisits.filter((v) => v.journeyStage === 'PLANT_QA').length})
@@ -137,7 +141,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'SCALE'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-muted text-secondary-foreground hover:bg-muted'
+                : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             Scale ({activeVisits.filter((v) => v.journeyStage === 'WEIGHBRIDGE_GROSS').length})
@@ -149,7 +153,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold whitespace-nowrap transition shrink-0 ${
               stageFilter === 'UNLOADING'
                 ? 'bg-blue-900 text-white shadow-xs'
-                : 'bg-muted text-secondary-foreground hover:bg-muted'
+                : 'bg-muted text-secondary-foreground hover:bg-muted/80'
             }`}
           >
             Unloading ({activeVisits.filter((v) => v.journeyStage === 'UNLOADING').length})
@@ -183,7 +187,8 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             </p>
           </div>
         ) : (
-          filteredVisits.map((v) => (
+          <>
+            {pagedVisits.pageRows.map((v) => (
             <div
               key={v.visitId}
               className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-xs space-y-4 hover:border-blue-300 transition"
@@ -205,8 +210,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground font-medium">
-                      Reception #{' '}
-                      <strong className="tabular-nums text-secondary-foreground">{v.receptionNumber}</strong> · Date:{' '}
+                      Date:{' '}
                       <strong className="tabular-nums text-secondary-foreground">{v.operationalDate || '—'}</strong>
                     </p>
                   </div>
@@ -233,87 +237,89 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 text-center text-xs">
-                <div
-                  className={`p-3 rounded-xl border ${
-                    v.gateEntryTimestamp
-                      ? 'bg-card border-border text-emerald-800'
-                      : 'bg-card border-border text-muted-foreground'
-                  }`}
-                >
-                  <ShieldCheck className="w-4 h-4 mx-auto mb-1 text-inherit" />
-                  <span className="font-semibold block">1. Security Gate</span>
-                  <span className="text-xs tabular-nums">
-                    {v.gateEntryTimestamp ? 'Arrived' : 'Pending'}
-                  </span>
-                </div>
+              <HorizontalScrollRow className="pt-1">
+                <div className="flex items-stretch gap-2 min-w-max text-center text-xs">
+                  <div
+                    className={`w-[136px] shrink-0 p-3 rounded-xl border ${
+                      v.gateEntryTimestamp
+                        ? 'bg-card border-border text-emerald-800'
+                        : 'bg-card border-border text-muted-foreground'
+                    }`}
+                  >
+                    <ShieldCheck className="w-4 h-4 mx-auto mb-1 text-inherit" />
+                    <span className="font-semibold block">1. Security Gate</span>
+                    <span className="text-xs tabular-nums">
+                      {v.gateEntryTimestamp ? 'Arrived' : 'Pending'}
+                    </span>
+                  </div>
 
-                <div
-                  className={`p-3 rounded-xl border ${
-                    v.qaSummary.totalPortions > 0 && v.qaSummary.badgeType !== 'ALL_PENDING'
-                      ? 'bg-card border-border text-emerald-800'
-                      : v.journeyStage === 'PLANT_QA'
-                      ? 'bg-card border-border text-amber-800'
-                      : 'bg-card border-border text-muted-foreground'
-                  }`}
-                >
-                  <FlaskConical className="w-4 h-4 mx-auto mb-1 text-inherit" />
-                  <span className="font-semibold block">2. QA Lab</span>
-                  <span className="text-xs tabular-nums block break-words">
-                    {v.qaSummary.summaryText}
-                  </span>
-                </div>
+                  <div
+                    className={`w-[144px] shrink-0 p-3 rounded-xl border ${
+                      v.qaSummary.totalPortions > 0 && v.qaSummary.badgeType !== 'ALL_PENDING'
+                        ? 'bg-card border-border text-emerald-800'
+                        : v.journeyStage === 'PLANT_QA'
+                        ? 'bg-card border-border text-amber-800'
+                        : 'bg-card border-border text-muted-foreground'
+                    }`}
+                  >
+                    <FlaskConical className="w-4 h-4 mx-auto mb-1 text-inherit" />
+                    <span className="font-semibold block">2. QA Lab</span>
+                    <span className="text-xs tabular-nums block break-words">
+                      {v.qaSummary.summaryText}
+                    </span>
+                  </div>
 
-                <div
-                  className={`p-3 rounded-xl border ${
-                    v.firstWeightTimestamp
-                      ? 'bg-card border-border text-emerald-800'
-                      : 'bg-card border-border text-muted-foreground'
-                  }`}
-                >
-                  <Scale className="w-4 h-4 mx-auto mb-1 text-inherit" />
-                  <span className="font-semibold block">3. 1st Weight</span>
-                  <span className="text-xs tabular-nums">
-                    {v.firstWeightKg ? `${v.firstWeightKg.toLocaleString()} kg` : 'Pending'}
-                  </span>
-                </div>
+                  <div
+                    className={`w-[136px] shrink-0 p-3 rounded-xl border ${
+                      v.firstWeightTimestamp
+                        ? 'bg-card border-border text-emerald-800'
+                        : 'bg-card border-border text-muted-foreground'
+                    }`}
+                  >
+                    <Scale className="w-4 h-4 mx-auto mb-1 text-inherit" />
+                    <span className="font-semibold block">3. 1st Weight</span>
+                    <span className="text-xs tabular-nums">
+                      {v.firstWeightKg ? `${v.firstWeightKg.toLocaleString()} kg` : 'Pending'}
+                    </span>
+                  </div>
 
-                <div
-                  className={`p-3 rounded-xl border ${
-                    v.unloadingEndTimestamp
-                      ? 'bg-card border-border text-emerald-800'
-                      : v.journeyStage === 'UNLOADING'
-                      ? 'bg-card border-border text-blue-800'
-                      : 'bg-card border-border text-muted-foreground'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4 mx-auto mb-1 text-inherit" />
-                  <span className="font-semibold block">4. Silo Unload</span>
-                  <span className="text-xs tabular-nums">
-                    {v.unloadingEndTimestamp ? 'Completed' : 'In Progress'}
-                  </span>
-                </div>
+                  <div
+                    className={`w-[136px] shrink-0 p-3 rounded-xl border ${
+                      v.unloadingEndTimestamp
+                        ? 'bg-card border-border text-emerald-800'
+                        : v.journeyStage === 'UNLOADING'
+                        ? 'bg-card border-border text-blue-800'
+                        : 'bg-card border-border text-muted-foreground'
+                    }`}
+                  >
+                    <Building2 className="w-4 h-4 mx-auto mb-1 text-inherit" />
+                    <span className="font-semibold block">4. Silo Unload</span>
+                    <span className="text-xs tabular-nums">
+                      {v.unloadingEndTimestamp ? 'Completed' : 'In Progress'}
+                    </span>
+                  </div>
 
-                <div
-                  className={`p-3 rounded-xl border col-span-2 sm:col-span-1 ${
-                    v.finalReceiptExists
-                      ? 'bg-card border-border text-emerald-800'
-                      : v.journeyStage === 'RECEIPT_PENDING'
-                      ? 'bg-card border-border text-amber-800'
-                      : 'bg-card border-border text-muted-foreground'
-                  }`}
-                >
-                  <Receipt className="w-4 h-4 mx-auto mb-1 text-inherit" />
-                  <span className="font-semibold block">5. Final Receipt</span>
-                  <span className="text-xs tabular-nums font-semibold">
-                    {v.finalReceiptExists && v.authoritativeFinalLiters != null
-                      ? `${v.authoritativeFinalLiters.toLocaleString()} L`
-                      : v.journeyStage === 'RECEIPT_PENDING'
-                      ? 'Pending Receipt'
-                      : 'Awaiting Scale 2'}
-                  </span>
+                  <div
+                    className={`w-[144px] shrink-0 p-3 rounded-xl border ${
+                      v.finalReceiptExists
+                        ? 'bg-card border-border text-emerald-800'
+                        : v.journeyStage === 'RECEIPT_PENDING'
+                        ? 'bg-card border-border text-amber-800'
+                        : 'bg-card border-border text-muted-foreground'
+                    }`}
+                  >
+                    <Receipt className="w-4 h-4 mx-auto mb-1 text-inherit" />
+                    <span className="font-semibold block">5. Final Receipt</span>
+                    <span className="text-xs tabular-nums font-semibold">
+                      {v.finalReceiptExists && v.authoritativeFinalLiters != null
+                        ? `${v.authoritativeFinalLiters.toLocaleString()} L`
+                        : v.journeyStage === 'RECEIPT_PENDING'
+                        ? 'Pending Receipt'
+                        : 'Awaiting Scale 2'}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </HorizontalScrollRow>
 
               <div className="bg-card border-border p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div className="flex items-center space-x-2">
@@ -348,7 +354,18 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                 </div>
               </div>
             </div>
-          ))
+          ))}
+            {pagedVisits.totalPages > 1 && (
+              <Pagination
+                page={pagedVisits.page}
+                totalPages={pagedVisits.totalPages}
+                totalRecords={pagedVisits.totalRecords}
+                pageSize={pagedVisits.pageSize}
+                noun="tankers"
+                onPageChange={pagedVisits.setPage}
+              />
+            )}
+          </>
         )}
       </div>
     </div>

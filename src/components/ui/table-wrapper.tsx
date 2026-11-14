@@ -38,15 +38,23 @@ export const TableWrapper = React.forwardRef<HTMLDivElement, TableWrapperProps>(
       el.addEventListener('scroll', onChange, { passive: true });
       window.addEventListener('resize', onChange);
 
-      // Mutation observer to detect content/data row updates
+      // Observe both wrapper and first child table plus DOM mutations so dynamic rows/columns update scroll hints.
       const ro = new ResizeObserver(onChange);
       ro.observe(el);
+      if (el.firstElementChild) ro.observe(el.firstElementChild);
+
+      const mo = new MutationObserver(() => {
+        if (el.firstElementChild) ro.observe(el.firstElementChild);
+        onChange();
+      });
+      mo.observe(el, { childList: true, subtree: true });
 
       return () => {
         onChange.cancel();
         el.removeEventListener('scroll', onChange);
         window.removeEventListener('resize', onChange);
         ro.disconnect();
+        mo.disconnect();
       };
     }, [checkScroll]);
 

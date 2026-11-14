@@ -98,7 +98,7 @@ export function NetworkStatusBar() {
           >
             <div className="flex items-center gap-2">
               <Database className="h-4 w-4 shrink-0 text-white/90" />
-              <span>Database Unavailable · Server online but database unreachable</span>
+              <span>Service temporarily unavailable · Retrying…</span>
             </div>
             <button
               type="button"
@@ -131,8 +131,8 @@ export function NetworkStatusBar() {
               )}
               <span>
                 {isReconnecting
-                  ? 'Reconnecting to server…'
-                  : 'Server unreachable · Checking connection'}
+                  ? 'Reconnecting…'
+                  : 'No connection · Retrying…'}
               </span>
             </div>
             <button

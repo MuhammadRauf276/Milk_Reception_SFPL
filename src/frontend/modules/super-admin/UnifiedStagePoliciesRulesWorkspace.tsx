@@ -20,6 +20,7 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import { useDebouncedValue } from './shared/useDebouncedValue';
 import { PaginationBar } from './shared/PaginationBar';
+import { useListPageSize } from '@/components/ui/pagination';
 import {
   LabTestFormDrawer,
   LabTestStatusDrawer,
@@ -29,7 +30,7 @@ import { Button } from '@/components/ui/button';
 import { DataFilters, FilterToggle } from '@/components/ui/data-filters';
 import { SkeletonTable } from '@/components/ui/loaders';
 import { TableWrapper } from '@/components/ui/table-wrapper';
-import { type TestPointCode, TEST_POINT_LABELS } from '@/types/test-point-policy';
+import { type TestPointCode, TEST_POINT_LABELS, normalizeTestMode } from '@/types/test-point-policy';
 
 const ROW_PAGE_SIZE = 35;
 const LAB_TESTS_API = '/api/super-admin/lab-tests';
@@ -127,16 +128,17 @@ function WorkspaceInner({
   const [catalogDrawer, setCatalogDrawer] = useState<CatalogDrawer>(null);
 
   const debouncedCatalogSearch = useDebouncedValue(catalogSearch.trim(), 300);
+  const pageSize = useListPageSize(25);
 
   // User permission
   const role = currentUser?.role?.trim() || '';
-  const isRoleEditor = ['SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(role);
+  const isRoleEditor = role === 'SUPER_ADMIN';
   const canEdit = !forceReadOnly && isRoleEditor;
 
   // Master Catalog Query
   const catalogQueryKey = useMemo(
-    () => ['super-admin', 'lab-tests', { q: debouncedCatalogSearch, status: catalogStatus, stage: stageFilter, page: catalogPage }],
-    [debouncedCatalogSearch, catalogStatus, stageFilter, catalogPage]
+    () => ['super-admin', 'lab-tests', { q: debouncedCatalogSearch, status: catalogStatus, stage: stageFilter, page: catalogPage, pageSize }],
+    [debouncedCatalogSearch, catalogStatus, stageFilter, catalogPage, pageSize]
   );
 
   const catalogQuery = useQuery({
@@ -144,7 +146,7 @@ function WorkspaceInner({
     queryFn: ({ signal }) => {
       const params = new URLSearchParams({
         page: String(catalogPage),
-        pageSize: String(ROW_PAGE_SIZE),
+        pageSize: String(pageSize),
       });
       if (debouncedCatalogSearch) params.set('q', debouncedCatalogSearch);
       if (catalogStatus) params.set('status', catalogStatus);
@@ -238,7 +240,7 @@ function WorkspaceInner({
   const displayError = actionError || loadError;
 
   return (
-    <div className="w-full max-w-full space-y-4 overflow-x-hidden">
+    <div className="w-full max-w-full space-y-4 overflow-x-clip">
       {/* Error & Success Alerts */}
       {displayError && (
         <div role="alert" className="flex items-center gap-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-rose-800">
@@ -414,10 +416,11 @@ function WorkspaceInner({
                         {/* 6 Stage Matrix Columns */}
                         {MATRIX_STAGES.map((ms) => {
                           // An inactive test is off at every stage; its stage settings come back when it is made active again.
-                          const currentMode = t.isActive ? stageModes[ms.code] || 'NOT_APPLIED' : 'NOT_APPLIED';
+                          const rawMode = t.isActive ? stageModes[ms.code] || 'OFF' : 'OFF';
+                          const currentMode = normalizeTestMode(rawMode);
                           const isAuto = currentMode === 'AUTO' || t.resultType === 'CALCULATED';
                           const isCmp = currentMode === 'COMPULSORY';
-                          const isAppl = currentMode === 'APPLIED' || currentMode === 'OPTIONAL';
+                          const isAppl = currentMode === 'OPTIONAL';
 
                           return (
                             <td key={ms.code} className="p-2 text-center">
@@ -444,8 +447,8 @@ function WorkspaceInner({
                                   title={`${TEST_POINT_LABELS[ms.code]}: change mode`}
                                 >
                                   <option value="COMPULSORY">CMP</option>
-                                  <option value="APPLIED">APPL</option>
-                                  <option value="NOT_APPLIED">OFF</option>
+                                  <option value="OPTIONAL">APPL</option>
+                                  <option value="OFF">OFF</option>
                                   {isAuto && <option value="AUTO">AUTO</option>}
                                 </select>
                               ) : (
@@ -480,7 +483,7 @@ function WorkspaceInner({
                               className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3 text-xs font-medium transition-colors ${
                                 t.isActive
                                   ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                                  : 'border-border-strong bg-muted text-secondary-foreground hover:bg-muted'
+                                  : 'border-border-strong bg-muted text-secondary-foreground hover:bg-muted/80'
                               }`}
                             >
                               <span className={`h-2 w-2 rounded-full ${t.isActive ? 'bg-emerald-500' : 'bg-border-strong'}`} />

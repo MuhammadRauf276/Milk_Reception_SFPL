@@ -3,11 +3,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Plus, Store } from 'lucide-react';
+import { useListPageSize } from '@/components/ui/pagination';
 import { StopRow } from './StopRow';
 import { StopSearch } from './StopSearch';
 import { computeHaversineDistanceKm, type CurrentJourney, type StopDetail } from './types';
-
-const STOPS_PER_PAGE = 6;
 
 interface Props {
   journey: CurrentJourney;
@@ -17,10 +16,10 @@ interface Props {
   locked?: boolean;
 }
 
-/** Planned stops, nearest first when GPS is known (max 6 per screen). */
+/** Planned stops, nearest first when GPS is known. */
 export function StopsList({ journey, deviceGps, onRecord, onRequestShop, locked = false }: Props) {
   const [stopsPage, setStopsPage] = useState<number>(1);
-  const stopsPerPage = STOPS_PER_PAGE;
+  const stopsPerPage = useListPageSize(25);
   const visitedCount = journey.stops.filter((s) => s.status === 'VISITED').length;
 
   const computedStops = journey.stops.map((s) => {

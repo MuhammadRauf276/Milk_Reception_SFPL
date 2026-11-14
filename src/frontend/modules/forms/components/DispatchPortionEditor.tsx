@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { PlusCircle, Check, Edit3, Trash2, Hash } from 'lucide-react';
+import { PlusCircle, Check, Edit3, Trash2, Hash, X } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import type { LiveCameraResult } from '@/types/captured-photo';
 import { DispatchPolicyTests, type DispatchPhotoState } from './DispatchPolicyTests';
@@ -9,7 +9,6 @@ import type { DispatchPolicyTest, DispatchTestMode } from '../dispatchDecisionPr
 import {
   QuantityUnit,
   MeasurementBasis,
-  getAllowedBases,
   type AllowedMeasurementConfig,
 } from '@/backend/modules/dispatch/quantity-policy/types';
 
@@ -45,7 +44,7 @@ export interface PortionFormState {
   clientId: string;
   portionNumber: number;
   quantity: QuantityState;
-  /** Seal number of this portion: required, unique in the dispatch. */
+  /** Seal number of this portion: optional, unique when entered. */
   sealNumber: string;
   /** labTestId -> value typed for that policy test. */
   results: Record<string, TestResultState>;
@@ -111,9 +110,9 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
   onRemovePortion,
   onSavePortion,
   onPortionQuantityValueChange,
-  onPortionBasisChange,
+  onPortionBasisChange: _onPortionBasisChange,
   onTestResultChange,
-  portionAllowedMeasurements,
+  portionAllowedMeasurements: _portionAllowedMeasurements,
   portionErrors,
   testMode,
   sourceType,
@@ -206,7 +205,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,6rem),1fr))] gap-2 pt-2 border-t border-border text-xs tabular-nums font-semibold text-secondary-foreground">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-border text-xs tabular-nums font-semibold text-secondary-foreground">
                   <div className="bg-card border-border p-2 rounded-xl border">
                     <span className="text-xs font-sans text-muted-foreground block">SNF %</span>
                     <span className="text-foreground">{calcValues.snf !== null ? `${calcValues.snf.toFixed(2)}%` : '—'}</span>
@@ -238,7 +237,6 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
 
           // Expanded Portion Editor View
           if (isEditing) {
-            const pAllowedBases = getAllowedBases(portionAllowedMeasurements, portion.quantity.unit);
             const sealError = portionErrors[index]?.seal || getDuplicateSealMessage(portions, index);
             const portionLabel = 'Portion Quantity (Measured KG)';
 
@@ -274,14 +272,14 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                 <div className="space-y-1">
                   <label htmlFor={`portion-seal-input-${index}`} className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <Hash className="w-4 h-4" aria-hidden="true" />
-                    Seal number <span className="text-rose-600">*</span>
+                    Seal number (optional)
                   </label>
                   <input
                     id={`portion-seal-input-${index}`}
                     type="text"
                     value={portion.sealNumber}
                     onChange={(e) => onSealChange(index, e.target.value)}
-                    placeholder="Write the seal number"
+                    placeholder="Optional seal number"
                     autoComplete="off"
                     className={`w-full min-h-[48px] px-4 text-base font-semibold rounded-xl border bg-card text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition ${
                       sealError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-border-strong'
@@ -297,7 +295,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <label htmlFor={`portion-qty-input-${index}`} className="block text-xs font-semibold text-secondary-foreground">Value *</label>
                       <input
@@ -321,7 +319,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                       <label htmlFor={`portion-unit-select-${index}`} className="block text-xs font-semibold text-secondary-foreground">
                         Unit * {index > 0 && <span className="text-xs font-normal text-muted-foreground">(Shared from P1)</span>}
                       </label>
-                      <div className="bg-card border-border w-full h-11 px-4 flex items-center justify-between rounded-lg border-strong text-foreground">
+                      <div className="bg-card border w-full h-11 px-4 flex items-center justify-between rounded-lg border-border-strong text-foreground">
                         <span className="text-xs font-semibold tabular-nums text-foreground">
                           KG
                         </span>
@@ -336,7 +334,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                       <label className="block text-xs font-semibold text-secondary-foreground">
                         Basis
                       </label>
-                      <div className="bg-card border-border w-full h-11 px-4 flex items-center justify-between rounded-lg border-strong text-foreground">
+                      <div className="bg-card border w-full h-11 px-4 flex items-center justify-between rounded-lg border-border-strong text-foreground">
                         <span className="text-xs font-semibold tabular-nums text-foreground">
                           Measured
                         </span>
@@ -407,18 +405,30 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
             );
           }
 
-          // Not saved yet and sheet closed: keep a tappable placeholder so the user can reopen it.
+          // Not saved yet and sheet closed: keep a tappable placeholder so the user can reopen it, plus cross to cancel if extra.
           if (!portion.isSaved) {
             return (
-              <button
-                key={`portion-open-${portion.clientId}`}
-                type="button"
-                onClick={() => onEditPortion(index)}
-                className="flex w-full min-h-[56px] items-center justify-between rounded-xl border border-dashed border-action/40 bg-action-soft px-4 text-left text-sm font-semibold text-action hover:bg-action/10"
-              >
-                <span>Portion {portion.portionNumber}: enter quantity and tests</span>
-                <Edit3 className="h-4 w-4" aria-hidden="true" />
-              </button>
+              <div key={`portion-open-${portion.clientId}`} className="flex items-stretch gap-2">
+                <button
+                  type="button"
+                  onClick={() => onEditPortion(index)}
+                  className="flex flex-1 min-h-[56px] items-center justify-between rounded-xl border border-dashed border-action/40 bg-action-soft px-4 text-left text-sm font-semibold text-action hover:bg-action/10 transition"
+                >
+                  <span>Portion {portion.portionNumber}: enter quantity and tests</span>
+                  <Edit3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                </button>
+                {portions.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => onRemovePortion(index)}
+                    aria-label={`Cancel Portion ${portion.portionNumber}`}
+                    title={`Cancel Portion ${portion.portionNumber}`}
+                    className="min-h-[56px] min-w-[56px] shrink-0 inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
             );
           }
 

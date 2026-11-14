@@ -187,7 +187,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
             onClick={onSaveDraft}
             disabled={busy}
             title="Save draft for later"
-            className="min-h-11 min-w-11 inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-action/30-strong bg-action-soft px-3 text-xs font-semibold text-action hover:bg-action-soft disabled:opacity-50"
+            className="min-h-11 min-w-11 inline-flex items-center gap-2 rounded-lg border border-action/30 bg-action-soft px-3 text-xs font-semibold text-action hover:bg-action/15 active:scale-[0.98] disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" aria-hidden="true" />
             <span className="hidden min-[420px]:inline">Draft</span>
@@ -203,7 +203,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
         </div>
 
         {/* Step Tabs */}
-        <div className="mt-2 grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2" role="tablist">
+        <div className="mt-2 grid grid-cols-3 gap-2" role="tablist">
           {STEPS.map((label, i) => (
             <button
               key={label}
@@ -364,7 +364,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
 
                 {/* Live Yield calculations */}
                 {livePreview && parseFloat(quantity) > 0 && (
-                  <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 rounded-xl border p-3">
+                  <div className="bg-card border-border grid grid-cols-2 gap-2 rounded-xl border p-3">
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground">Gross Liters</p>
                       <p className="text-base font-semibold tabular-nums text-foreground">{livePreview.grossLiters} L</p>
@@ -407,7 +407,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
               onClick={goBack}
               disabled={busy}
               aria-label="Back"
-              className="inline-flex min-h-[48px] min-w-[48px] shrink-0 items-center justify-center gap-1 rounded-xl border border-border-strong-strong bg-secondary px-3 text-sm font-semibold text-secondary-foreground hover:bg-secondary disabled:opacity-50"
+              className="inline-flex min-h-[48px] min-w-[48px] shrink-0 items-center justify-center gap-1 rounded-xl border border-border-strong bg-secondary px-3 text-sm font-semibold text-secondary-foreground hover:bg-muted active:scale-[0.98] disabled:opacity-50"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Back</span>
@@ -461,7 +461,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
 
           <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
             {livePreview && (
-              <div className="bg-card border-border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 rounded-xl border p-3">
+              <div className="bg-card border-border grid grid-cols-2 gap-2 rounded-xl border p-3">
                 <div>
                   <span className="text-xs font-semibold text-muted-foreground">Gross Quantity</span>
                   <p className="text-lg font-semibold tabular-nums text-foreground">{livePreview.grossLiters} L</p>

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { ZmccDrawer, ZmccErrorBanner } from '../shared/ZmccDrawer';
 import { OrgRecordForms } from './OrgRecordForms';
 import { OperationalRecordForms } from './OperationalRecordForms';
@@ -55,32 +55,25 @@ export const MasterRecordDrawer: React.FC<Props> = ({ form, ...helpers }) => {
           {ORG.includes(formProps.modalType) ? <OrgRecordForms {...formProps} /> : <OperationalRecordForms {...formProps} />}
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={form.closeModal}
               disabled={form.isSubmitting}
-              className="px-4 py-2 min-h-[44px] rounded-xl border border-border-strong text-sm font-semibold text-secondary-foreground hover:bg-secondary transition"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              disabled={form.isSubmitting}
-              className={`px-5 py-2 min-h-[44px] rounded-xl text-sm font-semibold text-white transition shadow-2xs flex items-center gap-2 ${
-                modalType === 'TOGGLE_ACTIVE' && activeRecord?.is_active
-                  ? 'bg-rose-600 hover:bg-rose-700'
-                  : 'bg-primary hover:bg-primary-hover'
-              }`}
+              variant={modalType === 'TOGGLE_ACTIVE' && activeRecord?.is_active ? 'destructive' : 'default'}
+              loading={form.isSubmitting}
             >
-              {form.isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              <span>
-                {modalType === 'TOGGLE_ACTIVE'
-                  ? activeRecord?.is_active
-                    ? 'Confirm Deactivation'
-                    : 'Confirm Activation'
-                  : 'Save Record'}
-              </span>
-            </button>
+              {modalType === 'TOGGLE_ACTIVE'
+                ? activeRecord?.is_active
+                  ? 'Confirm Deactivation'
+                  : 'Confirm Activation'
+                : 'Save Record'}
+            </Button>
           </div>
         </form>
       )}

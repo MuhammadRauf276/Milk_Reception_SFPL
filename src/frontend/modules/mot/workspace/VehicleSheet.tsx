@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { getErrorMessage } from '@/lib/errors';
-import { MotSheet, sheetInputClass, sheetLabelClass, sheetPrimaryButtonClass } from '../MotSheet';
+import { MotSheet, sheetInputClass, sheetLabelClass } from '../MotSheet';
 import { SheetError } from './SheetError';
 import { sendJson } from './mutationUtils';
 import { MOT_TAB_DATA_KEY, type MotVehicleItem, type ZmccSource } from './types';
@@ -78,9 +79,16 @@ export function VehicleSheet({ editing, defaultZmccId, isCentralRole, sources = 
           </div>
         ) : null}
         <SheetError message={error} />
-        <button type="submit" disabled={saveMutation.isPending || (isCentralRole && !editing && !form.zmcc_id)} className={sheetPrimaryButtonClass}>
-          {saveMutation.isPending ? 'Saving…' : 'Save Vehicle'}
-        </button>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          loading={saveMutation.isPending}
+          loadingText={editing ? 'Saving changes…' : 'Creating vehicle…'}
+          disabled={isCentralRole && !editing && !form.zmcc_id}
+        >
+          Save Vehicle
+        </Button>
       </form>
     </MotSheet>
   );

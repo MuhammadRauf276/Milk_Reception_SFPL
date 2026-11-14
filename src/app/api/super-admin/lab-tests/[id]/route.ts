@@ -175,6 +175,13 @@ export async function PATCH(
         });
       }
 
+      if (body.category === 'RELEASE' || body.category === 'MONITORING') {
+        await tx.testPointPolicy.updateMany({
+          where: { lab_test_id: testId },
+          data: { rule_mode: ruleCategoryVal === 'MONITORING' ? 'WARN' : 'APPLY' },
+        });
+      }
+
       // 2. Synchronize stage policy assignments and stage rules
       if (Array.isArray(body.assignedStages)) {
         const ALL_POSSIBLE_STAGES = ['MOT_SHOP', 'ZMCC_LAB_MC', 'ZMCC_LAB_HC', 'DISPATCH', 'PLANT_QA'];

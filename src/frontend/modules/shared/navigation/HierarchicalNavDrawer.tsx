@@ -158,8 +158,12 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
   if (!currentUser) return null;
 
   const caption = delegationContext.isDelegated
-    ? `${delegationContext.subordinateRoleLabel} (Team Station)`
+    ? delegationContext.subordinateRoleLabel
     : formatRoleLabel(currentUser.role);
+  const autoExpandedSections = useMemo(
+    () => (sections.length <= 3 ? sections.map((s) => s.id) : []),
+    [sections]
+  );
   const footer = (
     <div className="min-w-0 text-xs">
       <p className="truncate font-medium text-foreground">{currentUser.name || 'Operator'}</p>
@@ -179,7 +183,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
             isActive={isActive}
             caption={caption}
             footer={footer}
-            defaultExpanded={['weighbridge', 'security', 'qa-lab', 'production', 'production-head-hub', 'team-stations', 'HISTORY', 'MASTER_DATA', 'MOT_JOURNEYS', 'PLANT_TRANSIT', 'REPORTS', 'arrivals', 'suppliers', 'mot']}
+            defaultExpanded={autoExpandedSections}
           />
         </aside>
       ) : null}
@@ -190,7 +194,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
           isActive={isActive}
           caption={caption}
           footer={footer}
-          defaultExpanded={['weighbridge', 'security', 'qa-lab', 'production', 'production-head-hub', 'team-stations', 'HISTORY', 'MASTER_DATA', 'MOT_JOURNEYS', 'PLANT_TRANSIT', 'REPORTS', 'arrivals', 'suppliers', 'mot']}
+          defaultExpanded={autoExpandedSections}
           showClose
           onNavigate={() => handleOpenChange(false)}
         />

@@ -292,7 +292,7 @@ export async function executeDynamicReportQuery(
       lr: r.lr ? Number(r.lr) : null,
       snf: r.snf ? Number(r.snf) : null,
       density: r.density ? Number(r.density) : null,
-      final_decision: r.final_decision || 'ACCEPTED',
+      final_decision: r.final_decision || 'PENDING',
       device_collected_at: r.device_collected_at ? r.device_collected_at.toISOString() : null,
       collection_latitude: r.collection_latitude ? Number(r.collection_latitude) : null,
       collection_longitude: r.collection_longitude ? Number(r.collection_longitude) : null,

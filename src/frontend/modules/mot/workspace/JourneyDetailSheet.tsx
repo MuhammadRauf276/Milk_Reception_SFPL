@@ -3,14 +3,13 @@
 import { formatTime } from '@/lib/format';
 import React, { useState } from 'react';
 import { Clock } from 'lucide-react';
+import { useListPageSize } from '@/components/ui/pagination';
 import { MotSheet } from '../MotSheet';
 import type { JourneyItem } from './types';
 
-const STOPS_PER_PAGE = 6;
-
 export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem; onClose: () => void }) {
   const [stopsPage, setStopsPage] = useState(1);
-  const stopsPerPage = STOPS_PER_PAGE;
+  const stopsPerPage = useListPageSize(25);
 
   return (
     <MotSheet
@@ -46,7 +45,7 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                     )}
                   </div>
 
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,6rem),1fr))] gap-2 text-center">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 text-center">
                     <div className="p-2 bg-card rounded-lg border border-border">
                       <div className="text-xs font-semibold text-muted-foreground">Active shops</div>
                       <div className="text-sm font-semibold text-foreground">{assignedCount}</div>

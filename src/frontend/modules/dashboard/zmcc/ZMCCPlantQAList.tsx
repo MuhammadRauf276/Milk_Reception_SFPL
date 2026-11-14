@@ -5,6 +5,7 @@ import { AlertTriangle, ExternalLink } from 'lucide-react';
 import type { MilkProcessLog } from '@backend/core/types';
 import { formatOperationalDatetime } from '@/lib/datetime-utils';
 import { Pager, pageCount, paginate } from '../components/Pager';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 import type { deriveQualityRejectionItems } from './zmccManagerHelpers';
 
 type PlantItem = ReturnType<typeof deriveQualityRejectionItems>[number];
@@ -96,7 +97,7 @@ export const ZMCCPlantQAList: React.FC<{
               </div>
             )}
 
-            <div className="overflow-x-auto rounded-lg border border-border/80">
+            <TableWrapper className="rounded-lg border border-border/80">
               <table className="w-full text-left text-xs tabular-nums">
                 <thead className="bg-muted text-xs font-sans font-semibold text-secondary-foreground border-b border-border/80">
                   <tr>
@@ -132,7 +133,7 @@ export const ZMCCPlantQAList: React.FC<{
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </TableWrapper>
           </div>
         );
       })}

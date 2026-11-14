@@ -4,6 +4,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { MilkProcessLog } from '@backend/core/types';
 import { buildVehicleVisitGroups } from './zmccManagerHelpers';
 import { ManagerLifecycleTracker } from './ManagerLifecycleTracker';
+import { HorizontalScrollRow } from '@/components/ui/horizontal-scroll-row';
+import { useListPageSize } from '@/components/ui/pagination';
 import {
   Truck,
   Search,
@@ -45,8 +47,6 @@ type LiveLifecycleFilter =
   | 'UNLOADING'
   | 'AWAITING_RECEIPT';
 
-const CARDS_PER_PAGE = 6;
-
 export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps> = ({
   logs,
   assignedSourceName,
@@ -61,6 +61,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
   const setSearchQuery = serverPaging ? serverPaging.onSearchChange : setLocalSearch;
   const [lifecycleFilter, setLifecycleFilter] = useState<LiveLifecycleFilter>('ALL_ACTIVE');
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const defaultCardsPerPage = useListPageSize(25);
 
   // Build vehicle visit groups (independent of historical Business Date filter)
   const allGroups = useMemo(() => {
@@ -106,17 +107,17 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
     setCurrentPage(1);
   }, [searchQuery, lifecycleFilter]);
 
-  // Pagination calculation: exactly 6 cards per screen/page
-  const perPage = serverPaging?.pageSize ?? CARDS_PER_PAGE;
+  // Pagination calculation: responsive page size (10 on mobile, 25 on desktop)
+  const perPage = serverPaging?.pageSize ?? defaultCardsPerPage;
   const totalVehicles = serverPaging?.totalVehicles ?? filteredActiveGroups.length;
-  const totalPages = serverPaging?.totalPages ?? Math.max(1, Math.ceil(filteredActiveGroups.length / CARDS_PER_PAGE));
+  const totalPages = serverPaging?.totalPages ?? Math.max(1, Math.ceil(filteredActiveGroups.length / defaultCardsPerPage));
   const validCurrentPage = serverPaging?.page ?? Math.min(currentPage, totalPages);
   const goToPage = serverPaging?.onPageChange ?? setCurrentPage;
   const paginatedGroups = useMemo(() => {
     if (serverPaging) return filteredActiveGroups;
-    const startIdx = (validCurrentPage - 1) * CARDS_PER_PAGE;
-    return filteredActiveGroups.slice(startIdx, startIdx + CARDS_PER_PAGE);
-  }, [filteredActiveGroups, validCurrentPage, serverPaging]);
+    const startIdx = (validCurrentPage - 1) * defaultCardsPerPage;
+    return filteredActiveGroups.slice(startIdx, startIdx + defaultCardsPerPage);
+  }, [filteredActiveGroups, validCurrentPage, serverPaging, defaultCardsPerPage]);
 
   // Error State
   if (error) {
@@ -185,68 +186,70 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
           </div>
 
           {!serverPaging && (
-          <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Stage filters">
-            <button
-              onClick={() => setLifecycleFilter('ALL_ACTIVE')}
-              className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition ${
-                lifecycleFilter === 'ALL_ACTIVE'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setLifecycleFilter('GATE_ENTERED')}
-              className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition ${
-                lifecycleFilter === 'GATE_ENTERED'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
-              }`}
-            >
-              Gate
-            </button>
-            <button
-              onClick={() => setLifecycleFilter('PLANT_QA')}
-              className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition ${
-                lifecycleFilter === 'PLANT_QA'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
-              }`}
-            >
-              QA
-            </button>
-            <button
-              onClick={() => setLifecycleFilter('WEIGHBRIDGE')}
-              className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition ${
-                lifecycleFilter === 'WEIGHBRIDGE'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
-              }`}
-            >
-              Scale
-            </button>
-            <button
-              onClick={() => setLifecycleFilter('UNLOADING')}
-              className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition ${
-                lifecycleFilter === 'UNLOADING'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
-              }`}
-            >
-              Silo
-            </button>
-            <button
-              onClick={() => setLifecycleFilter('AWAITING_RECEIPT')}
-              className={`px-3 py-2 min-h-11 rounded-lg text-xs font-semibold transition ${
-                lifecycleFilter === 'AWAITING_RECEIPT'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
-              }`}
-            >
-              Receipt
-            </button>
-          </div>
+          <HorizontalScrollRow className="min-w-0 lg:flex-1">
+            <div className="flex items-center gap-2 min-w-max" role="toolbar" aria-label="Stage filters">
+              <button
+                onClick={() => setLifecycleFilter('ALL_ACTIVE')}
+                className={`px-3 py-2 min-h-11 shrink-0 rounded-lg text-xs font-semibold transition ${
+                  lifecycleFilter === 'ALL_ACTIVE'
+                    ? 'bg-primary text-white shadow-2xs'
+                    : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setLifecycleFilter('GATE_ENTERED')}
+                className={`px-3 py-2 min-h-11 shrink-0 rounded-lg text-xs font-semibold transition ${
+                  lifecycleFilter === 'GATE_ENTERED'
+                    ? 'bg-primary text-white shadow-2xs'
+                    : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
+                }`}
+              >
+                Gate
+              </button>
+              <button
+                onClick={() => setLifecycleFilter('PLANT_QA')}
+                className={`px-3 py-2 min-h-11 shrink-0 rounded-lg text-xs font-semibold transition ${
+                  lifecycleFilter === 'PLANT_QA'
+                    ? 'bg-primary text-white shadow-2xs'
+                    : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
+                }`}
+              >
+                QA
+              </button>
+              <button
+                onClick={() => setLifecycleFilter('WEIGHBRIDGE')}
+                className={`px-3 py-2 min-h-11 shrink-0 rounded-lg text-xs font-semibold transition ${
+                  lifecycleFilter === 'WEIGHBRIDGE'
+                    ? 'bg-primary text-white shadow-2xs'
+                    : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
+                }`}
+              >
+                Scale
+              </button>
+              <button
+                onClick={() => setLifecycleFilter('UNLOADING')}
+                className={`px-3 py-2 min-h-11 shrink-0 rounded-lg text-xs font-semibold transition ${
+                  lifecycleFilter === 'UNLOADING'
+                    ? 'bg-primary text-white shadow-2xs'
+                    : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
+                }`}
+              >
+                Silo
+              </button>
+              <button
+                onClick={() => setLifecycleFilter('AWAITING_RECEIPT')}
+                className={`px-3 py-2 min-h-11 shrink-0 rounded-lg text-xs font-semibold transition ${
+                  lifecycleFilter === 'AWAITING_RECEIPT'
+                    ? 'bg-primary text-white shadow-2xs'
+                    : 'bg-subtle text-secondary-foreground border border-border/80 hover:bg-muted/60'
+                }`}
+              >
+                Receipt
+              </button>
+            </div>
+          </HorizontalScrollRow>
           )}
         </div>
       </div>
@@ -267,7 +270,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-4">
             {paginatedGroups.map((group, idx) => {
               const lc = group.lifecycle;
               const primary = group.primaryLog;
@@ -296,9 +299,6 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                           {isFirst ? 'NEXT IN LINE' : `POSITION #${overallIdx + 1}`}
                         </span>
                       )}
-                      <span className="text-xs font-semibold text-secondary-foreground tabular-nums bg-subtle px-2 py-0.5 rounded border border-border">
-                        Visit #{group.visitId}
-                      </span>
                     </div>
 
                     <span className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 tabular-nums text-xs font-semibold text-emerald-800">
@@ -325,59 +325,54 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-subtle/80 border border-border/60 text-xs">
-                    <span className="text-muted-foreground font-semibold text-xs">Station / Stage:</span>
-                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
-                      {lc.currentStageLabel}
-                    </span>
-                  </div>
-
                   <div className="py-1">
                     <ManagerLifecycleTracker lifecycle={lc} compact={true} />
                   </div>
 
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 text-xs tabular-nums pt-2 border-t border-border/80 bg-subtle/40 -mx-5 -mb-3.5 p-3 rounded-b-xl">
-                    <div>
-                      <span className="text-xs text-muted-foreground block">Dispatch (@13 TS):</span>
-                      <span className="font-semibold text-foreground">
-                        {group.totalDispatch13TsLiters != null
-                          ? `${group.totalDispatch13TsLiters.toLocaleString()} L @13% TS`
-                          : '—'}
-                      </span>
-                    </div>
+                  <div className="pt-3 border-t border-border/80 bg-subtle/40 -mx-5 -mb-3.5 p-3 rounded-b-xl space-y-2.5 text-xs tabular-nums">
+                    <HorizontalScrollRow>
+                      <div className="flex items-start gap-4 min-w-max pr-1">
+                        <div className="min-w-[100px] shrink-0">
+                          <span className="text-xs text-muted-foreground block">Dispatch (@13 TS):</span>
+                          <span className="font-semibold text-foreground">
+                            {group.totalDispatch13TsLiters != null
+                              ? `${group.totalDispatch13TsLiters.toLocaleString()} L @13% TS`
+                              : '—'}
+                          </span>
+                        </div>
 
-                    <div>
-                      <span className="text-xs text-muted-foreground block">Dispatch (gross):</span>
-                      <span className="font-semibold text-foreground">
-                        {group.totalDispatchGrossLiters != null
-                          ? `${group.totalDispatchGrossLiters.toLocaleString()} L`
-                          : '—'}
-                      </span>
-                    </div>
+                        <div className="min-w-[88px] shrink-0">
+                          <span className="text-xs text-muted-foreground block">Dispatch (gross):</span>
+                          <span className="font-semibold text-foreground">
+                            {group.totalDispatchGrossLiters != null
+                              ? `${group.totalDispatchGrossLiters.toLocaleString()} L`
+                              : '—'}
+                          </span>
+                        </div>
 
-                    <div>
-                      <span className="text-xs text-muted-foreground block">First Weight:</span>
-                      <span className="font-semibold text-foreground">
-                        {group.firstWeightKg != null ? `${group.firstWeightKg.toLocaleString()} KG` : '—'}
-                      </span>
-                    </div>
+                        <div className="min-w-[84px] shrink-0">
+                          <span className="text-xs text-muted-foreground block">First Weight:</span>
+                          <span className="font-semibold text-foreground">
+                            {group.firstWeightKg != null ? `${group.firstWeightKg.toLocaleString()} KG` : '—'}
+                          </span>
+                        </div>
 
-                    <div>
-                      <span className="text-xs text-muted-foreground block">Second Weight:</span>
-                      <span className="font-semibold text-foreground">
-                        {group.secondWeightKg != null ? `${group.secondWeightKg.toLocaleString()} KG` : '—'}
-                      </span>
-                    </div>
+                        <div className="min-w-[84px] shrink-0">
+                          <span className="text-xs text-muted-foreground block">Second Weight:</span>
+                          <span className="font-semibold text-foreground">
+                            {group.secondWeightKg != null ? `${group.secondWeightKg.toLocaleString()} KG` : '—'}
+                          </span>
+                        </div>
+                      </div>
+                    </HorizontalScrollRow>
 
-                    <div className="flex items-end justify-end">
-                      <button
-                        onClick={() => onInspectDetails(primary)}
-                        className="w-full py-1 px-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition flex items-center justify-center space-x-1 shadow-2xs min-h-11"
-                      >
-                        <Eye className="w-3 h-3" />
-                        <span>Inspect</span>
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => onInspectDetails(primary)}
+                      className="w-full py-1 px-3 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition flex items-center justify-center space-x-1.5 shadow-2xs min-h-11"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Inspect</span>
+                    </button>
                   </div>
                 </div>
               );

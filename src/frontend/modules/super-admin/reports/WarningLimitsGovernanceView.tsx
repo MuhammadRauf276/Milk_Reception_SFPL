@@ -8,6 +8,7 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import { Button } from '@/components/ui/button';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { Modal } from '@/components/ui/modal';
 import { formatDateTime } from '@/lib/format';
 
 interface WarningItem {
@@ -222,8 +223,13 @@ export function WarningLimitsGovernanceView() {
 
       {/* Edit Threshold Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-4 backdrop-blur-2xs">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-white p-5 shadow-xl space-y-4">
+        <Modal
+          onClose={() => !updateThresholdMutation.isPending && setIsModalOpen(false)}
+          preventClose={updateThresholdMutation.isPending}
+          title="Warning limit for plant reception"
+          showHeader={false}
+          className="max-w-md space-y-4 p-5"
+        >
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-sm font-semibold text-foreground">Warning limit for plant reception</h3>
               <button
@@ -282,8 +288,7 @@ export function WarningLimitsGovernanceView() {
                 {updateThresholdMutation.isPending ? 'Saving…' : 'Save limit'}
               </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

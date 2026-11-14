@@ -367,7 +367,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
           </div>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 tabular-nums">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9.5rem),1fr))] gap-2 tabular-nums">
           <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-muted-foreground block font-semibold">Visits on Page</span>
             <span className="text-lg font-semibold text-foreground">
@@ -409,7 +409,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
         {/* 2. Controls & Filter Pills */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2">
           {/* Filter Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin pb-1.5 max-w-full">
             {FILTER_OPTIONS.map((opt) => {
               const active = filterState === opt.id;
               return (
@@ -495,7 +495,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                       <Warehouse className="w-3.5 h-3.5 text-emerald-700" />
                       <span>Weighbridge & Destination Silo</span>
                     </div>
-                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2 pt-1 tabular-nums text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 tabular-nums text-xs">
                       <div>
                         <span className="text-xs text-muted-foreground font-sans block">1st Weight (Gross):</span>
                         <span className="font-semibold text-foreground">

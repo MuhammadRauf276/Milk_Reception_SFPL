@@ -1,10 +1,10 @@
 'use client';
 
-import { formatTime } from '@/lib/format';
+import { formatTime, formatLabel } from '@/lib/format';
 import React from 'react';
+import { Button } from '@/components/ui/button';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import type { JourneyItem } from './types';
-import { formatLabel } from '@/lib/format';
 
 interface Props {
   journeys: JourneyItem[];
@@ -83,72 +83,61 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
       actions: true,
       align: 'right',
       cell: (j) => (
-        <div className="flex flex-wrap justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => onViewMap(j.id)}
-            className="min-h-[44px] px-3 rounded-lg bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100"
-          >
+        <div className="flex flex-wrap justify-end gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => onViewMap(j.id)}>
             View Map
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewStops(j.id)}
-            className="min-h-[44px] px-3 rounded-lg bg-blue-50 text-primary font-semibold hover:bg-blue-100"
-          >
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => onViewStops(j.id)}>
             View Stops
-          </button>
+          </Button>
         </div>
       ),
     },
   ];
 
   return (
-        <div className="bg-card rounded-xl border border-border shadow-2xs overflow-hidden space-y-3 animate-panel-in">
-          <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Journey history</h2>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="bg-card border-border inline-flex rounded-xl border p-0.5" role="group" aria-label="Status filter">
-                {[
-                  ['all', 'All'],
-                  ['COLLECTING', 'Collecting'],
-                  ['RETURNING', 'Returning'],
-                  ['ARRIVED', 'At ZMCC'],
-                  ['COMPLETED', 'Completed'],
-                  ['CANCELLED', 'Cancelled'],
-                ].map(([v, l]) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => onStatusFilterChange(v)}
-                    aria-pressed={statusFilter === v}
-                    className={`min-h-[44px] px-3 rounded-lg text-xs font-semibold ${
-                      statusFilter === v ? 'bg-primary text-white' : 'text-secondary-foreground'
-                    }`}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={onRefresh}
-                className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-2 rounded-lg border border-action/30 text-xs font-semibold text-action hover:bg-action-soft"
-              >
-                <span>Refresh</span>
-              </button>
-            </div>
-          </div>
-
-          <DataTable
-            columns={columns}
-            rows={journeys}
-            getRowId={(j) => j.id}
-            loading={loading}
-            emptyTitle="No journeys recorded."
-          />
+    <div className="bg-card rounded-2xl border border-border/80 shadow-2xs overflow-hidden space-y-3 animate-panel-in">
+      <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Journey history</h2>
         </div>
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <div className="bg-card border-border inline-flex flex-wrap rounded-xl border p-0.5" role="group" aria-label="Status filter">
+            {[
+              ['all', 'All'],
+              ['COLLECTING', 'Collecting'],
+              ['RETURNING', 'Returning'],
+              ['ARRIVED', 'At ZMCC'],
+              ['COMPLETED', 'Completed'],
+              ['CANCELLED', 'Cancelled'],
+            ].map(([v, l]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => onStatusFilterChange(v)}
+                aria-pressed={statusFilter === v}
+                className={`min-h-[44px] px-3 rounded-lg text-xs font-semibold transition-colors ${
+                  statusFilter === v ? 'bg-primary text-white' : 'text-secondary-foreground hover:bg-muted'
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" loading={loading} loadingText="Refreshing…" onClick={onRefresh}>
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      <DataTable
+        columns={columns}
+        rows={journeys}
+        getRowId={(j) => j.id}
+        loading={loading}
+        noun="journeys"
+        emptyTitle="No journeys recorded."
+      />
+    </div>
   );
 }

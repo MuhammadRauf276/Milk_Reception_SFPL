@@ -50,7 +50,7 @@ export const LabQueuePanel: React.FC<LabQueuePanelProps> = ({
             <button
               onClick={fetchQueue}
               disabled={loadingQueue}
-              className="min-h-11 min-w-11 flex items-center gap-2 px-4 py-2 bg-action-soft border border-action/30-strong text-action text-sm font-medium rounded-lg hover:bg-action-soft"
+              className="min-h-11 min-w-11 flex items-center gap-2 px-4 py-2 bg-action-soft border border-action/30 text-action text-sm font-medium rounded-lg hover:bg-action/15 active:scale-[0.98] transition-colors"
             >
               Refresh
             </button>
@@ -67,30 +67,30 @@ export const LabQueuePanel: React.FC<LabQueuePanelProps> = ({
               <button
                 type="button"
                 onClick={fetchQueue}
-                className="mt-3 min-h-11 rounded-lg border border-action/30-strong bg-action-soft px-4 text-sm font-medium text-action hover:bg-action-soft"
+                className="mt-3 min-h-11 rounded-lg border border-action/30 bg-action-soft px-4 text-sm font-medium text-action hover:bg-action/15 active:scale-[0.98] transition-colors"
               >
                 Refresh
               </button>
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18.5rem),1fr))] gap-4">
                 {paginatedQueue.map((item) => (
                 <div
                   key={`${item.queue_type}-${item.arrival_id}`}
-                  className="bg-card p-5 rounded-2xl border border-border shadow-xs flex flex-col justify-between hover:border-primary transition-colors"
+                  className="bg-card p-5 rounded-2xl border border-border shadow-xs flex flex-col justify-between hover:border-primary transition-colors min-w-0"
                 >
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-start justify-between gap-2 min-w-0">
                       <span
-                        className={`text-xs font-semibold px-3 py-1 rounded-md ${
+                        className={`text-xs font-semibold px-3 py-1 rounded-md whitespace-nowrap ${
                           item.queue_type === 'MOT' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
                         }`}
                       >
                         {item.queue_type === 'MOT' ? 'Mobile Tester Milk' : 'HC Milk'}
                       </span>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1 tabular-nums">
-                        <Clock className="w-3.5 h-3.5" />
+                      <span className="text-xs text-muted-foreground inline-flex items-center gap-1 tabular-nums whitespace-nowrap shrink-0">
+                        <Clock className="w-3.5 h-3.5 shrink-0" />
                         {formatTime(item.arrival_timestamp)}
                       </span>
                     </div>

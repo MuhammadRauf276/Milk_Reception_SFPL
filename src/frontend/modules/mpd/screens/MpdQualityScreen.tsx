@@ -4,7 +4,6 @@ import React from 'react';
 import { FlaskConical, Filter } from 'lucide-react';
 import type { QualityFunnelTelemetry } from '../types';
 import { formatMetric } from '../format';
-import { InfoTip } from '@/components/ui/info-tip';
 
 interface MpdQualityScreenProps {
   qualityFunnel: QualityFunnelTelemetry;
@@ -45,9 +44,8 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
                 </span>
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-border text-xs text-secondary-foreground flex items-center gap-1">
-              Not tracked
-              <InfoTip text="Mobile Tester shop collections do not record rejected milk yet." />
+            <div className="mt-4 pt-3 border-t border-border text-xs text-secondary-foreground">
+              Not recorded at shop level
             </div>
           </div>
 
@@ -107,9 +105,6 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
               Failed Tests Today
             </h2>
           </div>
-          <span className="text-xs font-medium text-muted-foreground">
-            Failed tests today
-          </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

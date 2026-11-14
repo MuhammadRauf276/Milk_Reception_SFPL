@@ -2,14 +2,16 @@
 
 import React, { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { Search, Truck } from 'lucide-react';
+import { Truck } from 'lucide-react';
 
 import { formatDispatchQuantity } from '@/backend/modules/dispatch/quantity/dispatchQuantityService';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { Button } from '@/components/ui/button';
-import { EmptyState, ErrorState } from '@/components/ui/empty-state';
-import { SkeletonList } from '@/components/ui/loaders';
+import { DataFilters, type ActiveFilter } from '@/components/ui/data-filters';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { ErrorState } from '@/components/ui/empty-state';
+import { Pagination, useListPageSize } from '@/components/ui/pagination';
 import { formatDateTime, formatTime } from '@/lib/format';
 import { useDebouncedValue } from '@/frontend/modules/super-admin/shared/useDebouncedValue';
 
@@ -57,11 +59,11 @@ interface Visit {
 export default function SuperAdminOperationsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const pageSize = useListPageSize(25);
   const q = useDebouncedValue(searchQuery.trim(), 300);
 
   const query = useQuery({
-    queryKey: ['super-admin', 'operations', { q, page }],
+    queryKey: ['super-admin', 'operations', { q, page, pageSize }],
     queryFn: ({ signal }) =>
       fetchJson<{ visits?: Visit[]; pagination?: { totalRecords: number; totalPages: number; page: number } }>(
         `/api/super-admin/operations?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`,
@@ -77,143 +79,179 @@ export default function SuperAdminOperationsPage() {
   const currentPage = query.data?.pagination?.page ?? page;
   const goToPage = (pageNum: number) => setPage(pageNum);
 
-  return (
-    <div className="w-full min-w-0 space-y-6">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-        <p className="min-w-0 text-sm text-muted-foreground">Vehicle visits from gate to silo</p>
+  const activeFilters: ActiveFilter[] = searchQuery.trim()
+    ? [{ key: 'q', label: `Search: ${searchQuery.trim()}`, onClear: () => { setSearchQuery(''); setPage(1); } }]
+    : [];
 
-        {/* SEARCH FORM */}
-        <form onSubmit={(e) => e.preventDefault()} className="flex min-w-0 max-w-full flex-1 flex-wrap items-center gap-2 sm:max-w-md">
-          <div className="relative min-w-[min(100%,12rem)] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search vehicle or visit #"
-              aria-label="Search vehicle or visit number"
-              className="min-h-11 w-full rounded-lg border border-input bg-card pl-9 pr-3 text-sm focus:border-primary focus:outline-hidden"
-            />
+  const columns: DataColumn<Visit>[] = [
+    {
+      key: 'visit',
+      header: 'Visit & Vehicle',
+      label: 'Visit & Vehicle',
+      primary: true,
+      cell: (v) => (
+        <div className="min-w-0 space-y-0.5">
+          <div className="flex flex-wrap items-center gap-x-2">
+            <span className="font-mono font-semibold text-foreground">{v.vehicleNumber}</span>
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">#{v.visitNumber}</span>
           </div>
-          <Button type="submit">Search</Button>
-        </form>
-      </div>
+          <div className="text-xs text-muted-foreground">
+            Token: <span className="font-mono font-semibold tabular-nums">{v.tokenNumber || 'N/A'}</span> ·{' '}
+            <span className="tabular-nums">{formatDateTime(v.createdAt)}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cardAlways: true,
+      cell: (v) => (
+        <span className="inline-flex rounded border border-border bg-muted px-2.5 py-0.5 text-xs font-medium tabular-nums text-foreground">
+          {v.currentStatus}
+        </span>
+      ),
+    },
+    {
+      key: 'gate',
+      header: 'Gate security',
+      label: 'Gate security',
+      cell: (v) => (
+        <div className="space-y-0.5 text-xs text-secondary-foreground tabular-nums">
+          <div>In: {v.gateLog?.entryTimestamp ? formatTime(v.gateLog.entryTimestamp) : 'Pending'}</div>
+          <div>Out: {v.gateLog?.exitTimestamp ? formatTime(v.gateLog.exitTimestamp) : 'Pending'}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'weights',
+      header: 'Weights (kg)',
+      label: 'Weights (kg)',
+      cardAlways: true,
+      align: 'right',
+      cell: (v) => (
+        <div className="space-y-0.5 font-mono text-xs tabular-nums">
+          <div className="font-semibold text-foreground">
+            {v.weightTicket?.netWeightKg ? `${v.weightTicket.netWeightKg.toLocaleString()} kg net` : 'Net pending'}
+          </div>
+          <div className="text-muted-foreground">
+            G: {v.weightTicket?.grossWeightKg ? v.weightTicket.grossWeightKg.toLocaleString() : '—'} · T:{' '}
+            {v.weightTicket?.tareWeightKg ? v.weightTicket.tareWeightKg.toLocaleString() : '—'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'portions',
+      header: 'Portions',
+      label: 'Portions',
+      align: 'center',
+      cell: (v) => (
+        <span className="rounded-md bg-subtle px-2 py-0.5 text-xs font-semibold tabular-nums text-secondary-foreground">
+          {v.portions.length}
+        </span>
+      ),
+    },
+  ];
 
+  return (
+    <div className="w-full min-w-0 max-w-full space-y-4">
       {error && <ErrorState description={error} onRetry={() => void query.refetch()} />}
 
-      {/* VISITS LIST */}
-      <div className="space-y-4">
-        {loading ? (
-          <SkeletonList count={3} />
-        ) : visits.length === 0 ? (
-          <EmptyState title="No vehicle visits found" />
-        ) : (
-          visits.map((v) => (
-            <div key={v.id} className="min-w-0 space-y-4 rounded-2xl border border-border p-5 shadow-2xs bg-card">
-              <div className="flex min-w-0 flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <Truck className="h-5 w-5 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0">
-                    <h3 className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-foreground">
-                      <span className="break-all font-mono">{v.vehicleNumber}</span>
-                      <span className="break-all font-mono text-xs font-medium tabular-nums text-muted-foreground">({v.visitNumber})</span>
-                    </h3>
-                    <div className="text-xs text-muted-foreground">
-                      Token: <span className="break-all font-mono font-semibold tabular-nums">{v.tokenNumber || 'N/A'}</span> | Created:{' '}
-                      <span className="tabular-nums">{formatDateTime(v.createdAt)}</span>
-                    </div>
-                  </div>
-                </div>
+      <div className="w-full min-w-0 max-w-full rounded-2xl border border-border/80 bg-card shadow-2xs">
+        <div className="space-y-3 border-b border-border p-3 sm:px-4 sm:py-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <Truck className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+              <h2 className="text-sm font-semibold text-foreground">Vehicle visits</h2>
+              <span className="rounded-md border border-border bg-subtle px-2 py-0.5 text-xs tabular-nums text-secondary-foreground">
+                {totalRecords.toLocaleString()}
+              </span>
+              <span className="hidden text-xs text-muted-foreground sm:inline">Gate to silo timeline</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              loading={query.isFetching && !loading}
+              loadingText="Refreshing…"
+              onClick={() => void query.refetch()}
+            >
+              Refresh
+            </Button>
+          </div>
+          <DataFilters
+            search={searchQuery}
+            onSearchChange={(v) => {
+              setSearchQuery(v);
+              setPage(1);
+            }}
+            searchPlaceholder="Search vehicle or visit #"
+            active={activeFilters}
+          />
+        </div>
 
-                <span className="rounded border border-border bg-muted px-3 py-1 text-xs font-medium tabular-nums text-foreground">
-                  {v.currentStatus}
-                </span>
-              </div>
-
-              {/* TIMELINE MILESTONE SUMMARY */}
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-3 rounded-lg border border-border bg-card p-3 text-xs">
-                <div className="min-w-0">
-                  <span className="block text-xs font-medium text-muted-foreground">Gate security</span>
-                  <div className="mt-0.5 font-medium text-secondary-foreground">
-                    Entry: {v.gateLog?.entryTimestamp ? formatTime(v.gateLog.entryTimestamp) : 'Pending'}
-                  </div>
-                  <div className="font-medium text-secondary-foreground">
-                    Exit: {v.gateLog?.exitTimestamp ? formatTime(v.gateLog.exitTimestamp) : 'Pending'}
-                  </div>
-                </div>
-
-                <div className="min-w-0">
-                  <span className="block text-xs font-medium text-muted-foreground">Weighbridge tickets</span>
-                  <div className="mt-0.5 font-mono font-medium tabular-nums text-secondary-foreground">
-                    Gross: {v.weightTicket?.grossWeightKg ? `${v.weightTicket.grossWeightKg.toLocaleString()} kg` : 'Pending'}
-                  </div>
-                  <div className="font-mono font-medium tabular-nums text-secondary-foreground">
-                    Tare: {v.weightTicket?.tareWeightKg ? `${v.weightTicket.tareWeightKg.toLocaleString()} kg` : 'Pending'}
-                  </div>
-                </div>
-
-                <div className="min-w-0">
-                  <span className="block text-xs font-medium text-muted-foreground">Net reception volume</span>
-                  <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-foreground">
-                    {v.weightTicket?.netWeightKg ? `${v.weightTicket.netWeightKg.toLocaleString()} kg net` : 'Pending'}
-                  </div>
-                </div>
-              </div>
-
-              {/* PORTIONS BREAKDOWN */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-secondary-foreground">Milk portions ({v.portions.length})</h4>
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-2 text-xs">
-                  {v.portions.map((p) => (
-                    <div key={p.id} className="min-w-0 space-y-1 rounded-lg border border-border bg-card p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2 font-semibold text-foreground">
-                        <span className="min-w-0">Portion #{p.portionNumber} ({p.contractorName})</span>
-                        <span className={`rounded px-2 py-0.5 text-xs ${
-                          p.plantDecision === 'ACCEPTED'
-                            ? 'bg-emerald-100 text-emerald-900'
-                            : p.plantDecision === 'REJECTED'
-                            ? 'bg-rose-100 text-rose-900'
-                            : 'bg-amber-100 text-amber-900'
-                        }`}>
+        <div className="p-3 sm:p-4">
+          <DataTable
+            paginate={false}
+            columns={columns}
+            rows={visits}
+            getRowId={(v) => v.id}
+            loading={loading}
+            stale={query.isFetching && !loading}
+            emptyTitle="No vehicle visits found"
+            tableFrom="lg"
+            renderExpanded={(v) =>
+              v.portions.length === 0 ? null : (
+                <div className="space-y-1.5 text-xs">
+                  <div className="font-semibold text-secondary-foreground">Milk portions ({v.portions.length})</div>
+                  <div className="divide-y divide-border/70 rounded-lg border border-border/80 bg-card">
+                    {v.portions.map((p) => (
+                      <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                        <div className="min-w-0">
+                          <span className="font-semibold text-foreground">
+                            Portion #{p.portionNumber} ({p.contractorName})
+                          </span>
+                          <span className="ml-2 font-mono tabular-nums text-secondary-foreground">
+                            {formatDispatchQuantity(p.dispatchQuantityValue, p.dispatchQuantityUnit)}
+                          </span>
+                          {p.unloadingLog ? (
+                            <span className="ml-2 text-muted-foreground">
+                              · Silo <strong className="font-mono text-foreground">{p.unloadingLog.siloCode}</strong> ({p.unloadingLog.siloName})
+                            </span>
+                          ) : null}
+                        </div>
+                        <span
+                          className={`rounded px-2 py-0.5 text-xs font-medium ${
+                            p.plantDecision === 'ACCEPTED'
+                              ? 'bg-emerald-100 text-emerald-900'
+                              : p.plantDecision === 'REJECTED'
+                              ? 'bg-rose-100 text-rose-900'
+                              : 'bg-amber-100 text-amber-900'
+                          }`}
+                        >
                           {p.plantDecision || 'PENDING'}
                         </span>
                       </div>
-                      <div className="text-xs text-secondary-foreground">
-                        Dispatch qty: <strong className="font-mono tabular-nums">{formatDispatchQuantity(p.dispatchQuantityValue, p.dispatchQuantityUnit)}</strong>
-                      </div>
-                      {p.unloadingLog && (
-                        <div className="text-xs text-secondary-foreground">
-                          Silo: <strong className="font-mono">{p.unloadingLog.siloCode}</strong> ({p.unloadingLog.siloName})
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* PAGINATION CONTROLS */}
-      {totalPages > 1 && (
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-xs font-medium text-secondary-foreground">
-          <div className="min-w-0 tabular-nums">
-            Page {currentPage} of {totalPages} ({totalRecords.toLocaleString()} total visits)
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" disabled={currentPage <= 1 || query.isFetching} onClick={() => goToPage(Math.max(1, currentPage - 1))}>
-              Previous
-            </Button>
-            <Button variant="outline" disabled={currentPage >= totalPages || query.isFetching} onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}>
-              Next
-            </Button>
-          </div>
+              )
+            }
+          />
         </div>
-      )}
+
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalRecords={totalRecords}
+          pageSize={pageSize}
+          noun="visits"
+          disabled={query.isFetching}
+          onPageChange={goToPage}
+          className="border-t border-border bg-card"
+        />
+      </div>
     </div>
   );
 }

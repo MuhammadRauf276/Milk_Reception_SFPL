@@ -22,9 +22,12 @@ import { SerializedCorrectionRequest } from '@/backend/services/correctionGovern
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { RecordEditor } from './RecordEditor';
 import { InfoTip } from '@/components/ui/info-tip';
-import { formatDate, formatDateTime } from '@/lib/format';
+import { Pagination, usePagedRows } from '@/components/ui/pagination';
+import { formatDate, formatDateTime, formatLabel } from '@/lib/format';
+import { CORRECTION_MODULE_LABELS } from './MyCorrectionTickets';
 
 export const CentralCorrectionDesk: React.FC = () => {
   const router = useRouter();
@@ -91,7 +94,7 @@ export const CentralCorrectionDesk: React.FC = () => {
     setActionError(null);
     try {
       await fetchJson(`/api/corrections/${id}/apply`, { method: 'POST' });
-      setActionSuccessMsg(`Ticket #${id} done. The record now shows the corrected values.`);
+      setActionSuccessMsg('Correction applied. The record now shows the updated values.');
       setIsReviewDrawerOpen(false);
       setSelectedRequest(null);
       handleRefresh();
@@ -117,7 +120,7 @@ export const CentralCorrectionDesk: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: rejectionReason.trim() }),
       });
-      setActionSuccessMsg(`Correction request #${id} was rejected.`);
+      setActionSuccessMsg('Correction request was rejected.');
       setRejectionModalId(null);
       setIsReviewDrawerOpen(false);
       setSelectedRequest(null);
@@ -148,6 +151,8 @@ export const CentralCorrectionDesk: React.FC = () => {
       return true;
     });
   }, [requests, reqSearchQuery]);
+
+  const pagedRequests = usePagedRows(filteredRequests, (req) => req.id);
 
   const counts = useMemo(() => {
     const pending = requests.filter((r) => r.status === 'REQUESTED').length;
@@ -312,8 +317,9 @@ export const CentralCorrectionDesk: React.FC = () => {
               </p>
             </div>
           ) : (
+            <>
             <div className="grid grid-cols-1 gap-3">
-              {filteredRequests.map((req) => {
+              {pagedRequests.pageRows.map((req) => {
                 const isPending = req.status === 'REQUESTED';
                 const isApproved = req.status === 'APPROVED';
                 const isApplied = req.status === 'APPLIED';
@@ -341,7 +347,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                         </span>
                         <span className="text-muted-foreground">·</span>
                         <span className="font-semibold text-secondary-foreground">
-                          {req.module} #{req.recordId}
+                          {CORRECTION_MODULE_LABELS[req.module] ?? formatLabel(req.module)}
                         </span>
                       </div>
 
@@ -364,7 +370,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                         <div className="space-y-1">
                           {Object.entries(req.requestedChanges).map(([k, v]) => (
                             <div key={k} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card border border-border">
-                              <span className="font-semibold text-secondary-foreground">{req.fieldLabels?.[k] ?? k}:</span>
+                              <span className="font-semibold text-secondary-foreground">{req.fieldLabels?.[k] ?? formatLabel(k)}:</span>
                               <span className="tabular-nums">
                                 <span className="text-rose-700">{String(req.currentValues?.[k] ?? '—')}</span>
                                 {' → '}
@@ -377,7 +383,7 @@ export const CentralCorrectionDesk: React.FC = () => {
 
                       <div className="bg-card border-border p-3 rounded-xl border space-y-1.5">
                         <p className="font-semibold text-secondary-foreground text-xs">
-                          Requester Rationale
+                          Why correction is needed
                         </p>
                         <p className="bg-card border-border p-2 rounded-lg border text-foreground leading-relaxed font-medium">
                           &ldquo;{req.reason}&rdquo;
@@ -457,6 +463,17 @@ export const CentralCorrectionDesk: React.FC = () => {
                 );
               })}
             </div>
+            {pagedRequests.totalPages > 1 && (
+              <Pagination
+                page={pagedRequests.page}
+                totalPages={pagedRequests.totalPages}
+                totalRecords={pagedRequests.totalRecords}
+                pageSize={pagedRequests.pageSize}
+                noun="requests"
+                onPageChange={pagedRequests.setPage}
+              />
+            )}
+            </>
           )}
         </div>
       )}
@@ -506,13 +523,13 @@ export const CentralCorrectionDesk: React.FC = () => {
               </DrawerTitle>
             </div>
             <p className="text-xs text-muted-foreground">
-              Module: <strong>{selectedRequest?.module}</strong> · Target Record: <strong>#{selectedRequest?.recordId}</strong>
+              Section: <strong>{selectedRequest ? (CORRECTION_MODULE_LABELS[selectedRequest.module] ?? formatLabel(selectedRequest.module)) : '—'}</strong>
             </p>
           </div>
 
           <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
             {/* Requester Info Card */}
-            <div className="bg-card border-border p-4 rounded-2xl border grid grid-cols-[repeat(auto-fit,minmax(min(100%,7rem),1fr))] gap-2 text-secondary-foreground">
+            <div className="bg-card border-border p-4 rounded-2xl border grid grid-cols-2 gap-2 text-secondary-foreground">
               <div>
                 <span className="text-xs font-semibold text-muted-foreground">Requested By</span>
                 <p className="font-semibold text-foreground">{selectedRequest?.requestedBy.name}</p>
@@ -523,7 +540,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                 <p className="font-semibold text-foreground">
                   {selectedRequest?.requestedAt && formatDateTime(selectedRequest.requestedAt)}
                 </p>
-                <span className="inline-block px-2 py-0.2 rounded text-xs font-semibold bg-amber-100 text-amber-800 mt-1">
+                <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 mt-1">
                   {selectedRequest?.impact} Impact
                 </span>
               </div>
@@ -538,7 +555,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                 {selectedRequest &&
                   Object.entries(selectedRequest.requestedChanges).map(([k, v]) => (
                     <div key={k} className="bg-card border-border flex items-center justify-between gap-2 p-2 rounded-lg border">
-                      <span className="font-semibold text-secondary-foreground">{selectedRequest.fieldLabels?.[k] ?? k}</span>
+                      <span className="font-semibold text-secondary-foreground">{selectedRequest.fieldLabels?.[k] ?? formatLabel(k)}</span>
                       <span className="tabular-nums">
                         <span className="text-rose-700">{String(selectedRequest.currentValues?.[k] ?? '—')}</span>
                         {' → '}
@@ -552,7 +569,7 @@ export const CentralCorrectionDesk: React.FC = () => {
             {/* Requester Rationale */}
             <div className="bg-card border-border p-4 rounded-2xl border space-y-1">
               <p className="font-semibold text-foreground text-xs">
-                Requester Substantive Justification
+                Why correction is needed
               </p>
               <p className="bg-card border-border p-3 rounded-lg border text-foreground leading-relaxed font-medium">
                 &ldquo;{selectedRequest?.reason}&rdquo;
@@ -598,7 +615,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                   onClick={() => handleApplyRequest(selectedRequest.id)}
                   className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
                 >
-                  
+                  <CheckCircle2 className="w-4 h-4" />
                   <span>{processingId === selectedRequest.id ? 'Saving…' : selectedRequest.autoApply ? 'Approve and apply' : 'Mark done'}</span>
                 </Button>
               </>
@@ -609,8 +626,13 @@ export const CentralCorrectionDesk: React.FC = () => {
 
       {/* REJECTION PROMPT MODAL */}
       {rejectionModalId && (
-        <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-card border-border border rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-4 text-xs">
+        <Modal
+          onClose={() => processingId !== rejectionModalId && setRejectionModalId(null)}
+          preventClose={processingId === rejectionModalId}
+          title="Reject Correction Request"
+          showHeader={false}
+          className="max-w-md p-5 space-y-4 text-xs"
+        >
             <h3 className="font-semibold text-sm text-foreground">Reject Correction Request</h3>
             <textarea
               rows={3}
@@ -638,8 +660,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                 Confirm Rejection
               </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

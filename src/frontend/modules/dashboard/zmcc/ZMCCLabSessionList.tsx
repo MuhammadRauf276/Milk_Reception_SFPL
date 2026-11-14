@@ -55,7 +55,7 @@ const resultColumns: DataColumn<LabResultRow>[] = [
     key: 'rule',
     header: 'Applied SOP Rule',
     label: 'Applied SOP rule',
-    cell: (r) => <span className="font-sans text-secondary-foreground text-xs">{r.applied_rule_version ? `Rule v${r.applied_rule_version}` : 'Default SOP'}</span>,
+    cell: (r) => <span className="font-sans text-secondary-foreground text-xs">{r.applied_rule_version ? 'Custom SOP' : 'Standard'}</span>,
   },
 ];
 

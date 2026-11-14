@@ -23,6 +23,7 @@ import { ManagerJourneyMap } from '@/frontend/modules/mot/ManagerJourneyMap';
 import { LiveMap, type LiveMapVehicle } from '@/frontend/modules/shared/map/LiveMap';
 import { buildJourneyOverlays, type JourneyOverlayData } from '@/frontend/modules/shared/map/journeyOverlays';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { Modal } from '@/components/ui/modal';
 import { PageLoader } from '@/components/ui/spinner';
 import { StatCard } from '@/components/ui/stat-card';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
@@ -580,8 +581,14 @@ export function ZMCCOperationalJourneysScreen({
 
       {/* Interactive Manager Journey Map Modal */}
       {selectedJourneyIdForMap && (
-        <div className="fixed inset-0 z-50 bg-neutral-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-card w-full max-w-5xl rounded-2xl border border-border shadow-2xl p-5 my-auto max-h-[92vh] overflow-y-auto space-y-4">
+        <Modal
+          onClose={() => setSelectedJourneyIdForMap(null)}
+          closeOnOutsideClick
+          size="xl"
+          title="Interactive Route Map Replay"
+          showHeader={false}
+          className="max-w-5xl max-h-[92vh] overflow-y-auto p-5 space-y-4"
+        >
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
                 <span className="text-xs font-semibold text-muted-foreground">Journey Map & Field Trail</span>
@@ -603,8 +610,7 @@ export function ZMCCOperationalJourneysScreen({
               journeyId={selectedJourneyIdForMap}
               onClose={() => setSelectedJourneyIdForMap(null)}
             />
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Interactive Cancel Journey Sheet */}

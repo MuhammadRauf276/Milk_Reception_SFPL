@@ -239,7 +239,7 @@ export async function recordHcGateExit(
           sourceZmccId: session.zmcc_id,
           title: 'Vehicle left without full unloading',
           body: `${vehicleOf(session)} left (${EXIT_REASON_LABELS[reasonCode as ExitReasonCode] ?? reasonCode}).`,
-          deepLink: '/zmcc',
+          deepLink: '/mpd/zmcc-manager?tab=OVERVIEW',
           dedupeSuffix: `exit:${session.id}`,
         });
       }
@@ -313,7 +313,7 @@ export async function requestCloseWithoutUnloading(
         sourceZmccId: s.zmcc_id,
         title: 'Close without unloading: approval needed',
         body: `${vehicleOf(s)}: ${EXIT_REASON_LABELS[reason.code]}.`,
-        deepLink: '/zmcc',
+        deepLink: '/mpd/zmcc-manager?tab=APPROVALS',
         dedupeSuffix: `close:${sessionId}:${now.getTime()}`,
       });
       return { session_id: sessionId.toString(), close_requested_at: now.toISOString() };

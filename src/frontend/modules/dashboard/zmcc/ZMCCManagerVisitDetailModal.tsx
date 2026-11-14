@@ -13,6 +13,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
+import { TableWrapper } from '@/components/ui/table-wrapper';
 import { dispatchResultText } from '@/frontend/lib/dispatchResultText';
 
 interface ZMCCManagerVisitDetailModalProps {
@@ -69,7 +70,7 @@ function buildPortionTests(p: MilkProcessLog): PortionTestRow[] {
 }
 
 const portionLabel = (p: MilkProcessLog, idx: number) =>
-  `P-${String(p.portion_number || idx + 1).replace(/^P-/, '')}`;
+  String(p.portion_number || idx + 1).replace(/^P-/, '');
 
 const decisionClass = (d: string) =>
   d === 'ACCEPTED'
@@ -128,6 +129,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </h2>
               </div>
               <p className="text-xs text-secondary-foreground font-medium">
+                {log.token_number ? <><span className="font-mono font-semibold text-foreground">Token {log.token_number}</span> · </> : ''}
                 {assignedSourceName || log.zonal_contractor_name || 'Station'} · Business Date:{' '}
                 <span className={`font-semibold ${log.business_date ? 'text-foreground' : 'text-amber-700'}`}>
                   {log.business_date ? formatOperationalDate(log.business_date) : 'Pending plant completion'}
@@ -157,7 +159,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 tabular-nums">
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Vehicle Number
                 </span>
@@ -166,7 +168,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Station
                 </span>
@@ -175,7 +177,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Business Date
                 </span>
@@ -184,7 +186,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Dispatch Date
                 </span>
@@ -193,7 +195,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Dispatch Quantity (@13% TS)
                 </span>
@@ -208,7 +210,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Dispatch Time
                 </span>
@@ -217,7 +219,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Gate Entry Time
                 </span>
@@ -238,7 +240,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 tabular-nums">
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Gross Weight
                 </span>
@@ -249,7 +251,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Tare Weight
                 </span>
@@ -262,7 +264,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Net Milk Weight
                 </span>
@@ -273,7 +275,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Received Quantity (@13% TS)
                 </span>
@@ -288,7 +290,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   First Weight Time
                 </span>
@@ -297,7 +299,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Second Weight Time
                 </span>
@@ -355,7 +357,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 );
               })}
 
-              <div className="overflow-x-auto bg-card border-border p-4 rounded-2xl border">
+              <TableWrapper className="bg-card border-border p-4 rounded-2xl border">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-border text-xs font-semibold text-muted-foreground">
@@ -402,7 +404,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </TableWrapper>
             </div>
           </div>
 
@@ -418,7 +420,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 tabular-nums">
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Receipt Status
                 </span>
@@ -435,7 +437,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Destination Silo
                 </span>
@@ -444,7 +446,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Unloading Start
                 </span>
@@ -455,7 +457,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Unloading End
                 </span>
@@ -466,7 +468,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border p-3 rounded-lg border /60">
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
                   Final Receipt Time
                 </span>

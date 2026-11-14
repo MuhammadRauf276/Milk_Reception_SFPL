@@ -8,6 +8,7 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Pagination, useListPageSize } from '@/components/ui/pagination';
+import { FileUploadProgress } from '@/components/ui/progress';
 import { formatDate, formatTime } from '@/lib/format';
 import { toast } from '@/frontend/lib/appToast';
 import { getErrorMessage } from '@/lib/errors';
@@ -188,8 +189,14 @@ function EditForm({ section, onClose, onSaved }: { section: EditorSection; onClo
         <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
           Cancel
         </Button>
-        <Button type="submit" disabled={!canSave}>
-          {saving ? 'Saving…' : 'Save correction'}
+        <Button
+          type="submit"
+          variant="default"
+          loading={saving}
+          loadingText="Saving…"
+          disabled={!canSave}
+        >
+          Save correction
         </Button>
       </div>
     </form>
@@ -203,11 +210,15 @@ function PhotoForm({ photo, slot, onClose, onSaved }: { photo?: EditorPhoto; slo
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'processing' | 'complete' | 'error'>('idle');
 
   const choose = (f: File | null) => {
     if (preview) URL.revokeObjectURL(preview);
     setFile(f);
     setPreview(f ? URL.createObjectURL(f) : null);
+    setUploadProgress(0);
+    setUploadStatus('idle');
   };
 
   const save = async (e: React.FormEvent) => {
@@ -215,13 +226,18 @@ function PhotoForm({ photo, slot, onClose, onSaved }: { photo?: EditorPhoto; slo
     if (!file || reason.trim().length < MIN_REASON || saving) return;
     setSaving(true);
     setError(null);
+    setUploadStatus('uploading');
+    setUploadProgress(25);
     try {
       const size = await createImageBitmap(file);
+      setUploadProgress(50);
       const form = new FormData();
       form.set('file', file);
       form.set('reason', reason.trim());
       form.set('width', String(size.width));
       form.set('height', String(size.height));
+      setUploadStatus('processing');
+      setUploadProgress(75);
       if (photo) {
         await fetchJson(`/api/corrections/photos/${photo.captureId}`, { method: 'POST', body: form });
       } else if (slot) {
@@ -231,11 +247,15 @@ function PhotoForm({ photo, slot, onClose, onSaved }: { photo?: EditorPhoto; slo
         form.set('photoKind', slot.photoKind);
         await fetchJson('/api/corrections/photos', { method: 'POST', body: form });
       }
+      setUploadProgress(100);
+      setUploadStatus('complete');
       toast.success(photo ? 'Photo replaced.' : 'Photo added.');
-      onSaved();
+      setTimeout(() => {
+        onSaved();
+      }, 400);
     } catch (err) {
+      setUploadStatus('error');
       setError(getErrorMessage(err) || 'Could not save the photo. Nothing was changed.');
-    } finally {
       setSaving(false);
     }
   };
@@ -265,6 +285,15 @@ function PhotoForm({ photo, slot, onClose, onSaved }: { photo?: EditorPhoto; slo
         <FormField label="New photo (JPEG, up to 4 MB)" htmlFor="photo-file" required>
           <Input id="photo-file" type="file" accept="image/jpeg" onChange={(e) => choose(e.target.files?.[0] ?? null)} />
         </FormField>
+        {file && (
+          <FileUploadProgress
+            fileName={file.name}
+            fileSize={file.size}
+            progress={uploadProgress}
+            status={uploadStatus === 'idle' ? undefined : uploadStatus}
+            errorMessage={error ?? undefined}
+          />
+        )}
         <FormField label="Reason for this correction" htmlFor="photo-reason" required hint={photo ? 'The old picture is kept and the change is saved in the audit log.' : 'Saved in the audit log with your name.'}>
           <textarea id="photo-reason" value={reason} rows={3} onChange={(e) => setReason(e.target.value)} className="w-full rounded-md border border-border bg-card p-3 text-sm text-foreground" />
         </FormField>
@@ -278,8 +307,14 @@ function PhotoForm({ photo, slot, onClose, onSaved }: { photo?: EditorPhoto; slo
         <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
           Cancel
         </Button>
-        <Button type="submit" disabled={!file || reason.trim().length < MIN_REASON || saving}>
-          {saving ? 'Saving…' : photo ? 'Replace photo' : 'Add photo'}
+        <Button
+          type="submit"
+          variant="default"
+          loading={saving}
+          loadingText={photo ? 'Replacing photo…' : 'Adding photo…'}
+          disabled={!file || reason.trim().length < MIN_REASON}
+        >
+          {photo ? 'Replace photo' : 'Add photo'}
         </Button>
       </div>
     </form>

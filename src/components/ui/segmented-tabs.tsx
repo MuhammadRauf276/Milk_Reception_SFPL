@@ -62,7 +62,7 @@ export function SegmentedTabs<T extends string>({
       role="tablist"
       aria-label={label}
       className={cn(
-        'scrollbar-none max-w-full items-center gap-0.5 overflow-x-auto rounded-lg border bg-muted/60 p-0.5',
+        'scrollbar-thin pb-1 max-w-full items-center gap-0.5 overflow-x-auto rounded-lg border bg-muted/60 p-0.5',
         mobileOnly ? 'inline-flex lg:hidden' : 'inline-flex',
         fullWidth && 'w-full flex',
         className

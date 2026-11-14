@@ -20,12 +20,14 @@ export async function GET(req: Request) {
 
     const items = await getMySubmittedRequests(
       user.id,
-      user.procurement_source_id ? user.procurement_source_id : undefined
+      user.procurement_source_id ? user.procurement_source_id : undefined,
+      user.role
     );
 
     return NextResponse.json({ items });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('GET /api/approvals/my-requests error:', err);
-    return NextResponse.json({ error: err.message || 'Failed to load submitted requests.' }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Failed to load submitted requests.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

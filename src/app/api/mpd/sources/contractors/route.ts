@@ -17,8 +17,10 @@ export async function GET(req: Request) {
   }
 
   try {
-    const contractors = await listContractors();
-    return NextResponse.json({ contractors }, { headers: { 'Cache-Control': 'private, no-store' } });
+    const activeOnly = new URL(req.url).searchParams.get('activeOnly') === 'true';
+    const allContractors = await listContractors();
+    const contractors = activeOnly ? allContractors.filter((c) => c.is_active) : allContractors;
+    return NextResponse.json({ contractors, sources: contractors }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to list contractors.';
     return NextResponse.json({ error: message }, { status: 500 });

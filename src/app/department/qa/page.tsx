@@ -36,7 +36,7 @@ function QADepartmentContent() {
 
   const tabParam = searchParams?.get('tab')?.toUpperCase() || 'WAITING';
   const resolvedTab: QATab =
-    tabParam === 'IN_TESTING' || tabParam === 'ON_HOLD'
+    tabParam === 'IN_TESTING' || tabParam === 'ON_HOLD' || tabParam === 'REQUESTS'
       ? (tabParam as QATab)
       : 'WAITING';
 
@@ -47,7 +47,7 @@ function QADepartmentContent() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
       <Header
         currentUser={user}
         title="QA Laboratory"

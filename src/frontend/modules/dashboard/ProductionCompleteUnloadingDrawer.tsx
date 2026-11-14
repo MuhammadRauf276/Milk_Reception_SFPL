@@ -90,7 +90,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
                 )}
               </div>
               <p className="text-xs text-secondary-foreground font-semibold mt-0.5">
-                Vehicle: <strong className="tabular-nums text-foreground">{visit.vehicle_number}</strong> | Started by: <strong className="text-primary">{visit.started_by_name}</strong>
+                Vehicle: <strong className="tabular-nums text-foreground">{visit.vehicle_number}</strong> | Token: <strong className="tabular-nums text-primary">{visit.token_number || 'NO-TOKEN'}</strong> | Started by: <strong className="text-primary">{visit.started_by_name}</strong>
               </p>
             </div>
             <div className="flex items-center gap-2">

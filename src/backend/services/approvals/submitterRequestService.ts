@@ -11,7 +11,7 @@ import { reasonSentences, storedDecisionTests } from '@/lib/exceptionReasons';
 
 export interface SubmitterRequestItem {
   id: string;
-  requestType: 'LAB_PORTION_REVIEW' | 'LAB_SESSION_REVIEW' | 'MOT_EXCEPTION' | 'DISPATCH_CLEARANCE' | 'CORRECTION_REQUEST';
+  requestType: 'LAB_PORTION_REVIEW' | 'LAB_SESSION_REVIEW' | 'MOT_EXCEPTION' | 'DISPATCH_CLEARANCE';
   categoryLabel: string;
   referenceNumber: string;
   submittedAt: string;
@@ -25,12 +25,13 @@ export interface SubmitterRequestItem {
   summary: string;
   /** Why it was sent, one sentence each, from the reasons stored when it was sent. */
   reasons: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export async function getMySubmittedRequests(
   userId: bigint,
-  zmccId?: bigint
+  zmccId?: bigint,
+  userRole?: string
 ): Promise<SubmitterRequestItem[]> {
   const items: SubmitterRequestItem[] = [];
 
@@ -51,7 +52,13 @@ export async function getMySubmittedRequests(
       lab_session: {
         include: {
           local_supplier_arrival: { select: { zmcc_token: true, vehicle_number: true } },
-          mot_arrival: { select: { raw_milk_token_number: true, journey: { select: { journey_number: true } } } },
+          mot_arrival: {
+            select: {
+              raw_milk_token_number: true,
+              zmcc_token: true,
+              journey: { select: { journey_number: true, mot_vehicle: { select: { vehicle_number: true } } } },
+            },
+          },
         },
       },
       reviewer: { select: { full_name: true, role: true } },
@@ -61,8 +68,13 @@ export async function getMySubmittedRequests(
   for (const p of labPortions) {
     const token =
       p.lab_session?.local_supplier_arrival?.zmcc_token ||
+      p.lab_session?.mot_arrival?.zmcc_token ||
       p.lab_session?.mot_arrival?.raw_milk_token_number ||
       `Session #${p.lab_session_id}`;
+    const vehNum =
+      p.lab_session?.mot_arrival?.journey?.mot_vehicle?.vehicle_number ||
+      p.lab_session?.local_supplier_arrival?.vehicle_number ||
+      null;
 
     let status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING';
     let statusLabel = 'Pending Manager Review';
@@ -82,7 +94,7 @@ export async function getMySubmittedRequests(
       id: `portion-${p.id}`,
       requestType: 'LAB_PORTION_REVIEW',
       categoryLabel: 'Lab Quality Review',
-      referenceNumber: `Portion #${p.portion_number} (${token})`,
+      referenceNumber: `${vehNum ? `Vehicle ${vehNum} · ` : ''}Portion #${p.portion_number} (${token})`,
       submittedAt: p.decided_at ? p.decided_at.toISOString() : new Date().toISOString(),
       status,
       statusLabel,
@@ -92,8 +104,12 @@ export async function getMySubmittedRequests(
       reviewedAt: p.reviewed_at ? p.reviewed_at.toISOString() : null,
       reviewRemarks: p.review_remarks || p.decision_remarks || null,
       reasons: reasonSentences(p.exception_reasons, storedDecisionTests(p.decision_details)),
-      summary: `Portion #${p.portion_number}: LR ${p.lr ?? '—'}, Fat ${p.fat ?? '—'}%. System: ${p.system_outcome || 'FLAGGED'}`,
-      metadata: { portionNumber: p.portion_number, sessionId: p.lab_session_id.toString() },
+      summary: `Requested: ${p.person_decision === 'REJECT' ? 'Reject' : 'Accept'} · LR ${p.lr ?? '—'}, Fat ${p.fat ?? '—'}% · System: ${p.system_outcome || 'FLAGGED'}`,
+      metadata: {
+        portionNumber: p.portion_number,
+        sessionId: p.lab_session_id.toString(),
+        vehicleNumber: vehNum,
+      },
     });
   }
 
@@ -152,7 +168,7 @@ export async function getMySubmittedRequests(
       reviewRemarks: s.manager_review_reason || s.remarks || null,
       reasons: s.rejection_reason ? [s.rejection_reason] : [],
       summary: `${s.arrival_type} Intake (${token}): ${s.gross_liters ?? '—'} L. Outcome: ${s.system_quality_outcome || 'FLAGGED'}.`,
-      metadata: { sessionId: s.id.toString(), arrivalType: s.arrival_type },
+      metadata: { sessionId: s.id.toString(), arrivalType: s.arrival_type, vehicleNumber: vehNum || null },
     });
   }
 
@@ -228,6 +244,10 @@ export async function getMySubmittedRequests(
       status = 'APPROVED';
       statusLabel = 'Approved for Dispatch';
       statusTone = 'success';
+    } else if (v.approval_status === 'REJECTED') {
+      status = 'REJECTED';
+      statusLabel = 'Rejected';
+      statusTone = 'danger';
     } else if (v.approval_status === 'RETURNED') {
       status = 'RETURNED';
       statusLabel = 'Returned / Corrected';
@@ -253,57 +273,19 @@ export async function getMySubmittedRequests(
     });
   }
 
-  // 4. Data Correction Requests requested by this user
-  const corrections = await prisma.correctionRequest.findMany({
-    where: { requested_by_user_id: userId },
-    take: 20,
-    orderBy: { requested_at: 'desc' },
-    include: {
-      reviewer: { select: { full_name: true, role: true } },
-    },
-  });
-
-  for (const cr of corrections) {
-    let status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING';
-    let statusLabel = 'Requested';
-    let statusTone: 'warning' | 'success' | 'danger' = 'warning';
-
-    if (cr.status === 'APPROVED') {
-      status = 'APPROVED';
-      statusLabel = 'Correction Approved';
-      statusTone = 'success';
-    } else if (cr.status === 'REJECTED') {
-      status = 'REJECTED';
-      statusLabel = 'Correction Rejected';
-      statusTone = 'danger';
-    }
-
-    items.push({
-      id: `corr-${cr.id}`,
-      requestType: 'CORRECTION_REQUEST',
-      categoryLabel: 'Data Correction Governance',
-      referenceNumber: cr.correlation_id,
-      submittedAt: cr.requested_at.toISOString(),
-      status,
-      statusLabel,
-      statusTone,
-      reviewerRole: 'Governance / Manager',
-      reviewerName: cr.reviewer?.full_name || null,
-      reviewedAt: cr.reviewed_at ? cr.reviewed_at.toISOString() : null,
-      reviewRemarks: cr.review_reason || null,
-      reasons: [],
-      summary: `Module ${cr.module}: ${cr.reason}`,
-      metadata: { module: cr.module, impact: cr.impact },
-    });
-  }
-
-  // 5. Plant QA Portions escalated to AVP QA
+  // 4. Plant QA Portions escalated to AVP QA
   const plantPortions = await prisma.visitPortion.findMany({
     where: {
-      OR: [
-        { manager_review_requested_by_user_id: userId },
-        { manager_review_status: { not: 'NONE' }, visit: { created_by: userId } },
-      ],
+      manager_review_status: { not: 'NONE' },
+      ...(userRole === 'QA_LAB_ATTENDANT' || userRole === 'QA_HEAD' || userRole === 'SUPER_ADMIN'
+        ? {}
+        : {
+            OR: [
+              { manager_review_requested_by_user_id: userId },
+              { visit: { created_by: userId } },
+              { plant_results: { some: { tested_by: userId } } },
+            ],
+          }),
     },
     take: 30,
     orderBy: { updated_at: 'desc' },
@@ -332,7 +314,7 @@ export async function getMySubmittedRequests(
       id: `plant-portion-${vp.id}`,
       requestType: 'LAB_PORTION_REVIEW',
       categoryLabel: 'Plant QA Exception',
-      referenceNumber: `Vehicle ${vp.visit.vehicle_number} · Portion ${vp.portion_number}`,
+      referenceNumber: `${vp.visit.vehicle_number}${vp.visit.token_number ? ` · Token ${vp.visit.token_number}` : ''} · P${vp.portion_number}`,
       submittedAt: vp.manager_review_requested_at ? vp.manager_review_requested_at.toISOString() : vp.updated_at.toISOString(),
       status,
       statusLabel,
@@ -342,8 +324,13 @@ export async function getMySubmittedRequests(
       reviewedAt: vp.manager_reviewed_at ? vp.manager_reviewed_at.toISOString() : null,
       reviewRemarks: vp.manager_review_reason || null,
       reasons: reasonSentences(vp.exception_reasons),
-      summary: `Vehicle ${vp.visit.vehicle_number} (Portion ${vp.portion_number}): Quality Exception Escalation. Decision: ${vp.plant_decision || 'PENDING'}.`,
-      metadata: { portionId: vp.id.toString(), visitId: vp.visit_id.toString() },
+      summary: `Vehicle ${vp.visit.vehicle_number}${vp.visit.token_number ? ` (Token ${vp.visit.token_number})` : ''} (Portion ${vp.portion_number}): Requested ${vp.manager_requested_decision || 'ACCEPT'}. Final: ${vp.plant_decision || 'PENDING'}.`,
+      metadata: {
+        portionId: vp.id.toString(),
+        visitId: vp.visit_id.toString(),
+        vehicleNumber: vp.visit.vehicle_number,
+        tokenNumber: vp.visit.token_number,
+      },
     });
   }
 

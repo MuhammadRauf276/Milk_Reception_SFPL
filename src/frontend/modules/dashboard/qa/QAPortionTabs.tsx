@@ -65,19 +65,25 @@ export const QAPortionTabs: React.FC<QAPortionTabsProps> = ({
         const portionQty = null;
 
         return (
-          <div key={`portion-tab-${p.id}`} className="inline-flex items-center shrink-0">
+          <div
+            key={`portion-tab-${p.id}`}
+            className={cn(
+              'inline-flex items-center shrink-0 rounded-xl border min-h-11 shadow-2xs transition overflow-hidden',
+              isSelected
+                ? 'bg-blue-50 text-primary-hover border-primary-hover ring-2 ring-primary-hover/20'
+                : isAccepted
+                ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                : isRejected
+                ? 'bg-rose-50 text-rose-900 border-rose-300'
+                : 'bg-card text-secondary-foreground border-border-strong'
+            )}
+          >
             <button
               type="button"
               onClick={() => onSelectPortion(idx)}
               className={cn(
-                'px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center space-x-2 border min-h-11 cursor-pointer select-none shadow-2xs',
-                isSelected
-                  ? 'bg-blue-50 text-primary-hover border-primary-hover ring-2 ring-primary-hover/20 font-semibold'
-                  : isAccepted
-                  ? 'bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100'
-                  : isRejected
-                  ? 'bg-rose-50 text-rose-900 border-rose-300 hover:bg-rose-100'
-                  : 'bg-card text-secondary-foreground border-border-strong hover:bg-subtle'
+                'px-4 py-2 text-xs font-semibold flex items-center space-x-2 min-h-11 cursor-pointer select-none transition hover:bg-black/[0.03]',
+                isSelected && 'font-semibold'
               )}
             >
               <span>Portion {p.portion_number}</span>
@@ -101,22 +107,20 @@ export const QAPortionTabs: React.FC<QAPortionTabsProps> = ({
                   <span>Rejected</span>
                 </span>
               )}
-
-              {canRemove && onRemovePortion && (
-                <span
-                  role="button"
-                  tabIndex={0}
-                  title={`Remove Portion ${p.portion_number}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemovePortion(p.id, p.portion_number);
-                  }}
-                  className="ml-1 flex min-h-11 min-w-6 items-center justify-center rounded-md hover:bg-rose-100 text-muted-foreground hover:text-rose-700 transition"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </span>
-              )}
             </button>
+
+            {canRemove && onRemovePortion && (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                title={`Remove Portion ${p.portion_number}`}
+                aria-label={`Remove Portion ${p.portion_number}`}
+                onClick={() => onRemovePortion(p.id, p.portion_number)}
+                className="flex min-h-11 min-w-9 items-center justify-center border-l border-current/15 px-1.5 text-muted-foreground hover:bg-rose-100 hover:text-rose-700 transition disabled:opacity-50 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         );
       })}
