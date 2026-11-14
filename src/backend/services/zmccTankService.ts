@@ -450,7 +450,9 @@ export async function listZmccTanks(
   if (!auth) return { status: 401, error: 'Unauthorized.' };
 
   let targetZmccId: bigint;
-  if (auth.isSuperAdmin) {
+  // System-wide roles (Super Admin, Data Executive, MPD Head) have no ZMCC of their own:
+  // until they pick one, they see every ZMCC's tanks.
+  if (auth.isSuperAdmin || !auth.effectiveZmccId) {
     if (zmccIdParam) {
       try {
         targetZmccId = BigInt(String(zmccIdParam).trim());

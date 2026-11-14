@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { ZmccExitOutcomes, type ExitOutcomeRow } from './ZmccExitOutcomes';
@@ -19,9 +20,15 @@ const QUERY_KEY = ['zmcc-manager', 'overview-snapshot'];
 
 function useManagerOverview() {
   const queryClient = useQueryClient();
+  // A superior covering this station picks the ZMCC; it is in the address as zmccId.
+  const selectedZmccId = useSearchParams().get('zmccId');
   const { data: overview, error: queryError } = useQuery({
-    queryKey: QUERY_KEY,
-    queryFn: ({ signal }) => fetchJson<{ overview: Overview }>('/api/zmcc/manager/overview', { signal }).then((b) => b.overview),
+    queryKey: [...QUERY_KEY, selectedZmccId ?? 'own'],
+    queryFn: ({ signal }) =>
+      fetchJson<{ overview: Overview }>(
+        `/api/zmcc/manager/overview${selectedZmccId ? `?sourceId=${encodeURIComponent(selectedZmccId)}` : ''}`,
+        { signal }
+      ).then((b) => b.overview),
     refetchInterval: 30_000,
   });
   const [actionError, setActionError] = useState<string | null>(null);

@@ -283,7 +283,7 @@ export async function getMySubmittedRequests(
             OR: [
               { manager_review_requested_by_user_id: userId },
               { visit: { created_by: userId } },
-              { plant_results: { some: { tested_by: userId } } },
+              { plant_lab_results: { some: { tested_by: userId } } },
             ],
           }),
     },
