@@ -272,6 +272,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                   className="px-2 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden min-h-11"
                 >
                   <option value="REQUESTED">Open</option>
+                  <option value="MANAGER_PENDING">With manager</option>
                   <option value="APPROVED">Approved</option>
                   <option value="REJECTED">Rejected</option>
                   <option value="APPLIED">Done</option>
@@ -574,6 +575,18 @@ export const CentralCorrectionDesk: React.FC = () => {
               <p className="bg-card border-border p-3 rounded-lg border text-foreground leading-relaxed font-medium">
                 &ldquo;{selectedRequest?.reason}&rdquo;
               </p>
+              {selectedRequest?.managerApproval && (
+                <p className="pt-1 text-xs text-secondary-foreground break-words">
+                  Approved by {selectedRequest.managerApproval.name} ({formatLabel(selectedRequest.managerApproval.role)}) on{' '}
+                  {formatDateTime(selectedRequest.managerApproval.at)}
+                  {selectedRequest.managerApproval.note ? `: ${selectedRequest.managerApproval.note}` : ''}
+                </p>
+              )}
+              {selectedRequest?.status === 'MANAGER_PENDING' && (
+                <p className="pt-1 text-xs text-secondary-foreground">
+                  Waiting for {selectedRequest.managerRole ? formatLabel(selectedRequest.managerRole) : 'the manager'} to approve it first.
+                </p>
+              )}
             </div>
 
             {/* Audit Warning */}

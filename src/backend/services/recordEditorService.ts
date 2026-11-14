@@ -583,3 +583,20 @@ export async function searchRequestableGroups(
     .map((g) => ({ ...g, sections: g.sections.filter((s) => entities.includes(s.entity)) }))
     .filter((g) => g.sections.length > 0);
 }
+
+/** One record in full, for the Inspect drawer: only the person's own stages, only their own ZMCC or contractor. */
+export async function getRequestableGroup(key: string, entities: readonly EditorEntity[], sourceId?: bigint): Promise<EditorGroup | null> {
+  const m = /^(journey|hc|visit)-(\d+)$/.exec(key);
+  if (!m) return null;
+  const id = BigInt(m[2]);
+  const groups =
+    m[1] === 'journey'
+      ? await journeyGroups({ id, ...(sourceId ? { zmcc_id: sourceId } : {}) }, false, 1)
+      : m[1] === 'hc'
+        ? await supplierGroups({ id, ...(sourceId ? { zmcc_id: sourceId } : {}) }, false, 1)
+        : await visitGroups({ id, ...(sourceId ? { procurement_source_id: sourceId } : {}) }, false, 1);
+  const g = groups[0];
+  if (!g) return null;
+  const sections = g.sections.filter((s) => entities.includes(s.entity));
+  return sections.length ? { ...g, sections } : null;
+}

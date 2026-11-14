@@ -30,7 +30,7 @@ function pick(section: EditorSection): Picked | null {
 }
 
 /** Find a saved record of your own stage and ask the Data Executive to correct one value. */
-export function RequestCorrectionPanel() {
+export function RequestCorrectionPanel({ embedded = false }: { embedded?: boolean } = {}) {
   const [input, setInput] = useState('');
   const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<Picked | null>(null);
@@ -44,11 +44,13 @@ export function RequestCorrectionPanel() {
   const groups = query.data?.groups ?? [];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-secondary-foreground">Find the record, then say which value is wrong.</p>
-        <MyCorrectionTicketsButton />
-      </div>
+    <div className={embedded ? 'space-y-3' : 'mx-auto max-w-3xl space-y-4'}>
+      {!embedded && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-secondary-foreground">Find the record, then say which value is wrong.</p>
+          <MyCorrectionTicketsButton />
+        </div>
+      )}
 
       <form
         className="flex flex-wrap gap-2 rounded-2xl border border-border bg-card p-4"
@@ -121,7 +123,7 @@ export function RequestCorrectionPanel() {
           recordId={picked.recordId}
           recordIdentifierLabel={`${picked.section.stage} · ${picked.section.title}`}
           availableFields={picked.fields}
-          onSuccess={() => toast.success('Correction request sent. Follow it under My correction requests.')}
+          onSuccess={() => toast.success(embedded ? 'Correction request sent. It is listed under Correction requests.' : 'Correction request sent. Follow it under My correction requests.')}
         />
       )}
     </div>

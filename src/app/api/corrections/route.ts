@@ -18,12 +18,29 @@ export async function GET(req: Request) {
   const sourceIdStr = url.searchParams.get('sourceId');
   const sourceId = sourceIdStr && /^\d+$/.test(sourceIdStr) ? BigInt(sourceIdStr) : null;
 
+  // scope=approve: requests waiting for this person as the manager of whoever raised them.
+  if (url.searchParams.get('scope') === 'approve') {
+    try {
+      const items = await listCorrectionRequests({
+        awaitingManager: {
+          userId: BigInt(user.id),
+          role: user.role,
+          sourceId: user.procurement_source_id ? BigInt(user.procurement_source_id) : null,
+        },
+      });
+      return NextResponse.json({ items });
+    } catch (err) {
+      console.error('GET /api/corrections?scope=approve error:', err);
+      return NextResponse.json({ error: 'Failed to fetch correction requests.' }, { status: 500 });
+    }
+  }
+
   try {
     const items = await listCorrectionRequests({
       status,
       module: moduleName,
       sourceId: seesAll ? sourceId : null,
-      requestedByUserId: seesAll ? null : BigInt(user.id),
+      requestedByUserId: seesAll && url.searchParams.get('scope') !== 'mine' ? null : BigInt(user.id),
     });
     return NextResponse.json({ items });
   } catch (err) {

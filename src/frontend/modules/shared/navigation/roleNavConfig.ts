@@ -941,10 +941,19 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
   return [];
 }
 
-/** Roles that enter records get "Request correction" in the sidebar, above the Yard Board when there is one. */
+/** Roles that enter records get "My work" (previous work and requests) in the sidebar, above the Yard Board when there is one. */
 function withRequestCorrection(sections: RoleNavSection[], role: string): RoleNavSection[] {
   if (sections.length === 0 || requestableEntities(role).length === 0) return sections;
-  const item: RoleNavSection = { id: REQUEST_CORRECTION_NAV_ID, label: 'Request correction', icon: FilePenLine, href: '/request-correction' };
+  const item: RoleNavSection = {
+    id: REQUEST_CORRECTION_NAV_ID,
+    label: 'My work',
+    icon: History,
+    href: '/request-correction',
+    children: [
+      { id: 'my-work-previous', label: 'Previous work', href: '/request-correction?tab=work', icon: History },
+      { id: 'my-work-requests', label: 'Requests', href: '/request-correction?tab=requests', icon: FilePenLine },
+    ],
+  };
   const at = sections.findIndex((x) => x.id === 'tv-board');
   return at >= 0 ? [...sections.slice(0, at), item, ...sections.slice(at)] : [...sections, item];
 }

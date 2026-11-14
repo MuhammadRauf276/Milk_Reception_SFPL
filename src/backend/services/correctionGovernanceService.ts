@@ -2,6 +2,7 @@ import { clearHandledNotifications } from '@/backend/services/notificationServic
 import { prisma } from '@/backend/core/db';
 import { auditActorFromUser, writeAuditLog } from '@/backend/core/audit';
 import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
+import { canActAs, getDescendantRoles, getParentRole } from '@/backend/core/roles/hierarchy';
 import { User } from '@/backend/core/types';
 import { Prisma } from '@prisma/client';
 import { toJsonInput } from '@/lib/json';
@@ -15,8 +16,21 @@ import { correctMotArrival, correctLocalSupplierArrival } from '@/backend/servic
 
 /**
  * Ticket modules. Lower roles raise a ticket (record, wrong value, proposed value, reason);
- * only DATA_EXECUTIVE / SUPER_ADMIN resolve it. DB statuses: REQUESTED = Open, APPROVED, REJECTED, APPLIED = Done.
+ * only DATA_EXECUTIVE / SUPER_ADMIN resolve it. DB statuses: MANAGER_PENDING = With manager, REQUESTED = Open,
+ * APPROVED, REJECTED, APPLIED = Done.
+ *
+ * A ticket first goes to the role directly above the person who raised it (their manager). Once the manager
+ * approves, it is Open for the Data Executive and Super Admin, who make the change. When the role directly
+ * above is the Data Executive or Super Admin, there is no manager step.
  */
+export const MANAGER_PENDING_STATUS = 'MANAGER_PENDING';
+
+/** The role that must approve a ticket before the Data Executive sees it, or null when there is no manager step. */
+export function managerRoleFor(requesterRole: string | null | undefined): string | null {
+  if (!requesterRole) return null;
+  const parent = getParentRole(requesterRole);
+  return parent && !isCorrectionAuthority(parent) ? parent : null;
+}
 export const CORRECTION_TICKET_MODULES = [
   'ZMCC_LAB_SESSION',
   'MOT_SHOP_COLLECTION',
@@ -89,8 +103,12 @@ export function splitLabTicketChanges(changes: Record<string, unknown>) {
   return { portions, results };
 }
 
-export function correctionStatusLabel(status: string): 'Open' | 'Approved' | 'Rejected' | 'Done' {
+export type CorrectionStatusLabel = 'With manager' | 'Open' | 'Approved' | 'Rejected' | 'Done';
+
+export function correctionStatusLabel(status: string): CorrectionStatusLabel {
   switch (status) {
+    case MANAGER_PENDING_STATUS:
+      return 'With manager';
     case 'APPROVED':
       return 'Approved';
     case 'REJECTED':
@@ -126,7 +144,11 @@ export interface SerializedCorrectionRequest {
   sourceId: string | null;
   impact: string;
   status: string;
-  statusLabel: 'Open' | 'Approved' | 'Rejected' | 'Done';
+  statusLabel: CorrectionStatusLabel;
+  /** The role that approves first (the manager of the person who raised it), or null when there is no manager step. */
+  managerRole: string | null;
+  /** The manager approval, once given. */
+  managerApproval: { name: string; role: string; at: string; note: string | null } | null;
   reason: string;
   requestedChanges: Record<string, unknown>;
   currentValues: Record<string, unknown>;
@@ -151,6 +173,7 @@ export interface SerializedCorrectionRequest {
 export async function createCorrectionRequest(input: CreateCorrectionRequestInput) {
   const correlationId = `CORR-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
   const impact = input.impact || 'MEDIUM';
+  const managerRole = managerRoleFor(input.actorRole);
 
   const req = await prisma.correctionRequest.create({
     data: {
@@ -159,12 +182,14 @@ export async function createCorrectionRequest(input: CreateCorrectionRequestInpu
       record_id: input.recordId,
       source_id: input.sourceId ?? null,
       impact,
-      status: 'REQUESTED',
+      status: managerRole ? MANAGER_PENDING_STATUS : 'REQUESTED',
       reason: input.reason.trim(),
       requested_changes: {
         ...input.requestedChanges,
         ...(input.currentValues && Object.keys(input.currentValues).length > 0 ? { __current: input.currentValues } : {}),
         ...(input.fieldLabels && Object.keys(input.fieldLabels).length > 0 ? { __labels: input.fieldLabels } : {}),
+        ...(input.actorRole ? { __requesterRole: input.actorRole } : {}),
+        ...(managerRole ? { __managerRole: managerRole } : {}),
       } as Prisma.InputJsonValue,
       requested_by_user_id: input.userId,
     },
@@ -210,6 +235,8 @@ export async function listCorrectionRequests(filter: {
   sourceId?: bigint | null;
   /** Only tickets raised by this user (lower roles see their own tickets). */
   requestedByUserId?: bigint | null;
+  /** Tickets waiting for this manager: raised by a role below them, in their own ZMCC or contractor when they have one. */
+  awaitingManager?: { userId: bigint; role: string; sourceId?: bigint | null } | null;
   limit?: number;
 }) {
   const where: Prisma.CorrectionRequestWhereInput = {};
@@ -224,6 +251,12 @@ export async function listCorrectionRequests(filter: {
   }
   if (filter.requestedByUserId) {
     where.requested_by_user_id = filter.requestedByUserId;
+  }
+  if (filter.awaitingManager) {
+    where.status = MANAGER_PENDING_STATUS;
+    where.requested_by_user_id = { not: filter.awaitingManager.userId };
+    where.requester = { role: { in: getDescendantRoles(filter.awaitingManager.role) } };
+    if (filter.awaitingManager.sourceId) where.source_id = filter.awaitingManager.sourceId;
   }
 
   const items = await prisma.correctionRequest.findMany({
@@ -245,6 +278,9 @@ export async function listCorrectionRequests(filter: {
     impact: item.impact,
     status: item.status,
     statusLabel: correctionStatusLabel(item.status),
+    managerRole: ((item.requested_changes as Record<string, unknown> | null)?.__managerRole as string) || null,
+    managerApproval:
+      ((item.requested_changes as Record<string, unknown> | null)?.__manager as SerializedCorrectionRequest['managerApproval']) || null,
     reason: item.reason,
     requestedChanges: stripInternal((item.requested_changes as Record<string, unknown>) || {}),
     currentValues: ((item.requested_changes as Record<string, unknown> | null)?.__current as Record<string, unknown>) || {},
@@ -266,6 +302,61 @@ export async function listCorrectionRequests(filter: {
         }
       : null,
   }));
+}
+
+/**
+ * The manager step. Approve opens the ticket for the Data Executive and Super Admin; reject closes it.
+ * Allowed for any role above the person who raised it, within the same ZMCC or contractor when the manager has one.
+ */
+export async function managerDecideCorrectionRequest(
+  requestId: bigint,
+  manager: User,
+  decision: 'APPROVE' | 'REJECT',
+  note: string
+) {
+  const req = await prisma.correctionRequest.findUnique({ where: { id: requestId }, include: { requester: true } });
+  if (!req) throw new Error('Correction request not found.');
+  if (req.status !== MANAGER_PENDING_STATUS) throw new Error('This request is no longer waiting for a manager.');
+
+  const managerId = BigInt(manager.id);
+  if (req.requested_by_user_id === managerId) throw new Error('Forbidden. You cannot approve your own request.');
+  const requesterRole = req.requester.role;
+  if (manager.role === requesterRole || !canActAs(manager.role, requesterRole)) {
+    throw new Error('Forbidden. Only a manager above the person who raised this request can decide it.');
+  }
+  const managerSource = manager.procurement_source_id ? BigInt(manager.procurement_source_id) : null;
+  if (managerSource && req.source_id && managerSource !== req.source_id) {
+    throw new Error('Forbidden. This request belongs to another ZMCC or contractor.');
+  }
+
+  const now = new Date();
+  const cleanNote = note.trim();
+  const approve = decision === 'APPROVE';
+  const changes = (req.requested_changes as Record<string, unknown>) || {};
+  // Only a request still waiting is changed, so two managers deciding at once cannot both succeed.
+  const done = await prisma.correctionRequest.updateMany({
+    where: { id: requestId, status: MANAGER_PENDING_STATUS },
+    data: approve
+      ? {
+          status: 'REQUESTED',
+          requested_changes: {
+            ...changes,
+            __manager: { name: manager.name || manager.username, role: manager.role, at: now.toISOString(), note: cleanNote || null },
+          } as Prisma.InputJsonValue,
+        }
+      : { status: 'REJECTED', reviewed_by_user_id: managerId, reviewed_at: now, review_reason: cleanNote },
+  });
+  if (done.count === 0) throw new Error('This request is no longer waiting for a manager.');
+
+  await writeAuditLog(prisma, {
+    tableName: 'correction_request',
+    recordId: req.id,
+    action: approve ? 'CORRECTION_REQUEST_MANAGER_APPROVED' : 'CORRECTION_REQUEST_MANAGER_REJECTED',
+    oldValues: { status: req.status },
+    newValues: { status: approve ? 'REQUESTED' : 'REJECTED', note: cleanNote || null },
+    actor: auditActorFromUser(manager),
+  });
+  return { id: req.id, status: approve ? 'REQUESTED' : 'REJECTED' };
 }
 
 export async function rejectCorrectionRequest(

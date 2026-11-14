@@ -2,13 +2,13 @@
 
 import React from 'react';
 import { ManagementShell } from '@/frontend/modules/shared/ManagementShell';
-import { RequestCorrectionPanel } from '@/frontend/modules/governance/RequestCorrectionPanel';
+import { MyWorkWorkspace } from '@/frontend/modules/governance/MyWorkWorkspace';
 import { REQUESTING_ROLES } from '@/lib/recordEditor';
 
 export default function RequestCorrectionPage() {
   return (
-    <ManagementShell title="Request correction" allowedRoles={REQUESTING_ROLES}>
-      {() => <RequestCorrectionPanel />}
+    <ManagementShell title="My work" allowedRoles={REQUESTING_ROLES}>
+      {() => <MyWorkWorkspace />}
     </ManagementShell>
   );
 }

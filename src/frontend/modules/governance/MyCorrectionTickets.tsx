@@ -21,6 +21,7 @@ export const CORRECTION_MODULE_LABELS: Record<string, string> = {
 };
 
 const STATUS_STYLE: Record<string, string> = {
+  'With manager': 'bg-amber-50 text-amber-900',
   Open: 'bg-amber-100 text-amber-800',
   Approved: 'bg-blue-100 text-blue-800',
   Rejected: 'bg-rose-100 text-rose-800',
