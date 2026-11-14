@@ -515,7 +515,7 @@ export async function getApprovalInbox(
               destination: route.destination,
             },
           },
-          version: 1,
+          version: route.updated_at.getTime(),
           status: route.approval_status === 'ACTIVE' ? 'APPROVED' : route.approval_status === 'REJECTED' ? 'REJECTED' : 'PENDING',
           decision:
             route.approved_at && approverUser
@@ -599,7 +599,7 @@ export async function getApprovalInbox(
               areaName: shop.area?.name,
             },
           },
-          version: 1,
+          version: shop.updated_at.getTime(),
           status: shop.approval_status === 'ACTIVE' ? 'APPROVED' : shop.approval_status === 'REJECTED' ? 'REJECTED' : 'PENDING',
           decision:
             shop.approved_at && approverUser
@@ -1002,7 +1002,7 @@ export async function getApprovalInbox(
               cnic: hc.cnic,
             },
           },
-          version: 1,
+          version: hc.updated_at.getTime(),
           status: hc.approval_status === 'ACTIVE' ? 'APPROVED' : hc.approval_status === 'REJECTED' ? 'REJECTED' : 'PENDING',
           decision:
             hc.approved_at && hc.approver

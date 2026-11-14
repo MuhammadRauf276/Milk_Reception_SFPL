@@ -18,6 +18,8 @@ import {
   emitSelfApprovalReviewNotification,
 } from '@/backend/services/notificationService';
 
+const PENDING_MASTER_STATUSES = ['PENDING', 'PENDING_APPROVAL'];
+
 /** The bell items each approval type answers. */
 const EVENTS_BY_APPROVAL_TYPE: Partial<Record<ApprovalType, string[]>> = {
   STAGE_1_SHOP_EXCEPTION: ['MOT_SHOP_EXCEPTION_PENDING'],
@@ -112,6 +114,8 @@ export async function POST(
   let zmccId: bigint | null = null;
   let contractorId: bigint | null = null;
   let dbVersion: number = version;
+  // New route, shop and HC requests have no version column: their last-changed time is the version.
+  let alreadyDecided = false;
 
   if (approvalType === 'STAGE_1_SHOP_EXCEPTION') {
     const col = await prisma.motShopCollection.findUnique({
@@ -132,6 +136,8 @@ export async function POST(
     submitterUserId = route.created_by;
     submitterRole = route.creator?.role || route.created_as_role || 'MDO';
     zmccId = route.zmcc_id;
+    dbVersion = route.updated_at.getTime();
+    alreadyDecided = !PENDING_MASTER_STATUSES.includes(route.approval_status);
   } else if (approvalType === 'STAGE_1_NEW_SHOP') {
     const shop = await prisma.zmccShop.findUnique({
       where: { id: numericId },
@@ -141,6 +147,8 @@ export async function POST(
     submitterUserId = shop.created_by;
     submitterRole = shop.creator?.role || shop.created_as_role || 'MOT';
     zmccId = shop.zmcc_id;
+    dbVersion = shop.updated_at.getTime();
+    alreadyDecided = !PENDING_MASTER_STATUSES.includes(shop.approval_status);
   } else if (approvalType === 'STAGE_2_SESSION_EXCEPTION') {
     const session = await prisma.zmccLabSession.findUnique({
       where: { id: numericId },
@@ -170,6 +178,8 @@ export async function POST(
     submitterUserId = hc.created_by_user_id;
     submitterRole = hc.creator?.role || hc.created_as_role || 'PHE_OPERATOR';
     zmccId = hc.zmcc_id;
+    dbVersion = hc.updated_at.getTime();
+    alreadyDecided = !PENDING_MASTER_STATUSES.includes(hc.approval_status);
   } else if (
     approvalType === 'STAGE_3_ZMCC_DISPATCH_EXCEPTION' ||
     approvalType === 'STAGE_3_CONTRACTOR_DISPATCH_EXCEPTION'
@@ -223,17 +233,15 @@ export async function POST(
     );
   }
 
-  // Version Concurrency Check (skip if record type has no numerical version)
-  if (approvalType !== 'STAGE_1_NEW_ROUTE' && approvalType !== 'STAGE_1_NEW_SHOP' && approvalType !== 'STAGE_2_NEW_HC') {
-    if (dbVersion !== version) {
-      return NextResponse.json(
-        {
-          error: 'Concurrency conflict: this item was updated or already decided. Please refresh.',
-          code: 'VERSION_MISMATCH',
-        },
-        { status: 409 }
-      );
-    }
+  // Version check: a request someone else already decided, or that changed since it was opened, is refused.
+  if (alreadyDecided || dbVersion !== version) {
+    return NextResponse.json(
+      {
+        error: 'Concurrency conflict: this item was updated or already decided. Please refresh.',
+        code: 'VERSION_MISMATCH',
+      },
+      { status: 409 }
+    );
   }
 
   // -----------------------------------------------------------------------------------------------
