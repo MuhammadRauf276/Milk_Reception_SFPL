@@ -353,7 +353,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
         photos: Object.entries(ph).map(([labTestId, captureId]) => ({ labTestId, captureId })),
         personDecision,
         remarks: d.remarks,
-        deciderCanApprove: false,
+        deciderCanApprove: state.canDecideNow,
       }).decision;
     },
     [state, drafts, photos]
@@ -541,6 +541,8 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
   const vehicleReview = useMemo(() => {
     const incompleteLines: string[] = [];
     const approverLines: string[] = [];
+    // A superior decides their own exception here, so the reasons are listed but nothing is sent on.
+    let needsApprover = false;
     const multi = (state?.portions.length ?? 0) > 1;
 
     for (const p of pendingPortions) {
@@ -555,6 +557,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
       }
       const ev = evaluatePortion(p);
       if (ev.route === 'SEND_TO_APPROVER' || ev.exceptionReasons.length > 0) {
+        if (ev.route === 'SEND_TO_APPROVER') needsApprover = true;
         const prefix = multi ? `${label}: ` : '';
         if (ev.exceptionReasons.length > 0) {
           for (const r of ev.exceptionReasons) {
@@ -566,7 +569,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
       }
     }
 
-    const goesToApprover = approverLines.length > 0;
+    const goesToApprover = needsApprover;
     const allRejectedClear =
       !goesToApprover &&
       (state?.portions.length ?? 0) > 0 &&
@@ -1693,7 +1696,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                         </span>
                         {ev.exceptionReasons.length > 0 && (
                           <InfoTip
-                            label="Why it goes to manager"
+                            label={ev.route === 'SEND_TO_APPROVER' ? 'Why it goes to manager' : 'Exceptions on this portion'}
                             className="-my-2"
                             text={
                               <ul className="list-disc space-y-1 pl-4">

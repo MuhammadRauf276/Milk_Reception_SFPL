@@ -597,7 +597,7 @@ test('apiRouteIdempotencyIntegration: QA Complete canonical payload hashing, exa
       });
 
     try {
-      // Any exception becomes a request to AVP-QA, which needs remarks; the replay rules are the same either way.
+      // DECIDE_NOW is honoured only for roles that may decide at Plant QA, so complete as one.
       const deciderUser =
         (await prisma.user.findFirst({ where: { role: 'QA_HEAD', is_active: true } })) ??
         (await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } }));
@@ -615,7 +615,7 @@ test('apiRouteIdempotencyIntegration: QA Complete canonical payload hashing, exa
       const concPayload = {
         completionClientEventId: concOpId,
         decision: 'ACCEPTED',
-        exceptionReason: 'Concurrency test remarks',
+        action: 'DECIDE_NOW',
         sealNumber: 'SEAL-CONC-99',
         operationalTimestamp: new Date().toISOString(),
         results: concTestResults,

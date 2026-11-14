@@ -66,6 +66,8 @@ export async function POST(
   const requestedAsHeader = req.headers.get('x-acting-as')?.trim() || null;
   const effectiveRole = requestedAsHeader && canActAs(dbUser.role, requestedAsHeader) ? requestedAsHeader : dbUser.role;
   const isDelegated = effectiveRole !== dbUser.role && !['SUPER_ADMIN', 'DATA_EXECUTIVE'].includes(dbUser.role);
+  // Super Admin, Data Executive and AVP-QA or above decide on the spot, whatever station they work from.
+  const isSuperior = dbUser.role === 'SUPER_ADMIN' || canActAs(dbUser.role, 'QA_HEAD');
 
   const resolvedParams = await params;
   const visitIdStr = resolvedParams.visitId;
@@ -623,8 +625,9 @@ export async function POST(
       // 8. Determine Portion Decision & AVP-QA Review Escalation per Workflow 06 (§3 & §7)
       // True exceptions: Attendant Mismatch, Missing Photo, or Seal Mismatch
       const hasException = exceptionReasonsList.length > 0;
-      // Testing stations always escalate exceptions and rule contradictions to AVP-QA for approval.
-      const isDecideNow = false;
+      // Only the server-side role check grants the right to decide: a superior doing station work decides
+      // their own exception here, everyone else sends a request to AVP-QA.
+      const isDecideNow = isSuperior;
       const fullExceptionReasons = [...exceptionReasonsList, ...ruleFailReasons.filter((r) => !exceptionReasonsList.includes(r))];
 
       if (hasException && !isDecideNow) {

@@ -286,13 +286,14 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
 
       const mustRequestAvp = isServerSubmitted
         ? isPendingReview
-        : Boolean(pChoice && (live.decision.route === 'SEND_TO_APPROVER' || live.decision.exceptionReasons.length > 0));
+        : // A superior decides their own exception here (DECIDE_NOW), so nothing is sent to AVP QA.
+          Boolean(pChoice && live.decision.route === 'SEND_TO_APPROVER');
 
       let validationErr: string | null = null;
       if (!isServerSubmitted && isSaved) {
         if (!pChoice) validationErr = 'Choose Accept or Reject.';
         else if (pChoice === 'REJECT' && !hasAnyPerformedTest) validationErr = 'Record at least one test measurement before rejecting.';
-        else if ((pChoice === 'REJECT' || mustRequestAvp) && pRemarks.trim().length < 3) validationErr = 'Please write remarks (at least 3 letters).';
+        else if ((pChoice === 'REJECT' || mustRequestAvp || live.decision.remarksRequired) && pRemarks.trim().length < 3) validationErr = 'Please write remarks (at least 3 letters).';
       }
 
       return {

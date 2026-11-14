@@ -181,12 +181,9 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
     return { systemRejectReasons: Array.from(new Set(reasons)), ruleReasons: Array.from(new Set(rules)) };
   }, [liveDecision, displayableTests, photoStates]);
   const systemAccepts = liveDecision?.systemOutcome === 'PASS' && ruleReasons.length === 0;
-  // Testing stations always route exceptions and rule contradictions to AVP QA for review.
-  const mustRequestAvp = Boolean(
-    personDecision &&
-      liveDecision &&
-      (liveDecision.route === 'SEND_TO_APPROVER' || liveDecision.exceptionReasons.length > 0)
-  );
+  // A station user's exception goes to AVP QA; a superior decides their own here (DECIDE_NOW).
+  const mustRequestAvp = Boolean(personDecision && liveDecision && liveDecision.route === 'SEND_TO_APPROVER');
+  const remarksNeeded = personDecision === 'REJECT' || mustRequestAvp || Boolean(personDecision && liveDecision?.remarksRequired);
 
   // Check if executive user for information cloaking
   const isExecutiveUser = Boolean(
@@ -749,7 +746,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
 
                   <div className="space-y-1.5">
                     <label htmlFor="qa-decision-remarks" className="text-xs font-semibold text-muted-foreground block">
-                      Remarks {personDecision === 'REJECT' || mustRequestAvp ? '*' : '(Optional)'}
+                      Remarks {remarksNeeded ? '*' : '(Optional)'}
                     </label>
                     <input
                       id="qa-decision-remarks"
@@ -780,7 +777,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                     if (t.resultType === 'NUMERIC') return st.numericValue !== '' && Number.isFinite(Number(st.numericValue));
                     return Boolean(st.textValue && st.textValue.trim() !== '');
                   });
-                  const needsRemarks = personDecision === 'REJECT' || mustRequestAvp;
+                  const needsRemarks = remarksNeeded;
                   const remarksTooShort = needsRemarks && decisionRemarks.trim().length < 3;
 
                   if (onSavePortion) {

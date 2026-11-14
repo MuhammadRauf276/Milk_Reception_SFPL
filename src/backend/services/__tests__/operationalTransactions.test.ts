@@ -11,7 +11,6 @@ import { POST as qaPortionsHandler } from '@/app/api/qa/vehicle-visits/[visitId]
 import { POST as qaCompleteHandler } from '@/app/api/qa/vehicle-visits/[visitId]/portions/[portionId]/complete/route';
 import { POST as unloadingStartHandler } from '@/app/api/production/vehicle-visits/[visitId]/portions/[portionId]/start/route';
 import { POST as unloadingCompleteHandler } from '@/app/api/production/vehicle-visits/[visitId]/portions/[portionId]/complete/route';
-import { POST as approvalDecisionHandler } from '@/app/api/approvals/[id]/decision/route';
 import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
 import { writeAuditLog, auditActorFromUser } from '@/backend/core/audit';
 
@@ -207,19 +206,31 @@ test('operationalTransactions: Full plant vehicle reception lifecycle commits re
     });
 
     const completeOpId = `QA-COMP-${runId}`;
-    // The testing station never decides its own exception: it sends a request with remarks,
-    // and AVP-QA (or Super Admin) answers it from the approvals inbox.
+    // DECIDE_NOW is honoured only for roles that may decide at Plant QA, so complete as one.
+    const deciderUser =
+      (await prisma.user.findFirst({ where: { role: 'QA_HEAD', is_active: true } })) ??
+      (await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } }));
+    assert.ok(deciderUser, 'Active QA_HEAD or SUPER_ADMIN required to decide');
+    const deciderToken = await createSessionToken({
+      id: deciderUser.id.toString(),
+      username: deciderUser.username,
+      name: deciderUser.full_name || deciderUser.username,
+      role: deciderUser.role as Role,
+      department: 'QA',
+      scope_type: 'DEPARTMENT',
+    });
+
     const qaCompleteReq = new Request(`http://localhost:3000/api/qa/vehicle-visits/${visit.id}/portions/${portionId}/complete`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        authorization: `Bearer ${qaToken}`,
+        authorization: `Bearer ${deciderToken}`,
       },
       body: JSON.stringify({
         decision: 'ACCEPTED',
+        action: 'DECIDE_NOW',
         completionClientEventId: completeOpId,
         sealNumber: 'SEAL-OP-001',
-        exceptionReason: 'Lifecycle test: accept requested',
         operationalTimestamp: new Date(Date.now() - 3000000).toISOString(),
         results: testResults,
       }),
@@ -230,38 +241,6 @@ test('operationalTransactions: Full plant vehicle reception lifecycle commits re
     });
     const completeBody = await qaCompleteRes.json();
     assert.equal(qaCompleteRes.status, 200, `QA portion complete must succeed: ${JSON.stringify(completeBody)}`);
-
-    const requestedPortion = await prisma.visitPortion.findUnique({ where: { id: portionId } });
-    if (requestedPortion?.manager_review_status === 'PENDING') {
-      assert.equal(requestedPortion.plant_decision, 'PENDING', 'A portion waiting for AVP-QA is not decided yet');
-      const deciderUser =
-        (await prisma.user.findFirst({ where: { role: 'QA_HEAD', is_active: true } })) ??
-        (await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN', is_active: true } }));
-      assert.ok(deciderUser, 'Active QA_HEAD or SUPER_ADMIN required to decide');
-      const deciderToken = await createSessionToken({
-        id: deciderUser.id.toString(),
-        username: deciderUser.username,
-        name: deciderUser.full_name || deciderUser.username,
-        role: deciderUser.role as Role,
-        department: 'QA',
-        scope_type: 'DEPARTMENT',
-      });
-      const approveRes = await approvalDecisionHandler(
-        new Request(`http://localhost:3000/api/approvals/${portionId}/decision`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: `Bearer ${deciderToken}` },
-          body: JSON.stringify({
-            approvalType: 'STAGE_4_PORTION_EXCEPTION',
-            verdict: 'OKAY',
-            remarks: 'Lifecycle test approval',
-            version: Math.floor(requestedPortion.updated_at.getTime() / 1000),
-          }),
-        }),
-        { params: Promise.resolve({ id: portionId.toString() }) }
-      );
-      const approveBody = await approveRes.json();
-      assert.equal(approveRes.status, 200, `AVP-QA approval must succeed: ${JSON.stringify(approveBody)}`);
-    }
 
     // Verify portion decision accepted and transition to READY_FOR_GROSS
     const updatedPortion = await prisma.visitPortion.findUnique({ where: { id: portionId } });

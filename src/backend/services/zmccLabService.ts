@@ -3551,7 +3551,7 @@ async function buildPortionsState(auth: ZmccLabAuthContext, sessionId: bigint): 
       point,
       policy,
       portions,
-      canDecideNow: false,
+      canDecideNow: auth.deciderCanApprove,
       actorUserId: auth.actorUserId.toString(),
       rollUp: summarizePortions(portions),
       journeyClosed: !!session.journey_closed_at,
@@ -3990,7 +3990,7 @@ export async function submitPortionDecision(
     photos: savedPhotos,
     personDecision: personDecision as PersonDecision,
     remarks,
-    deciderCanApprove: false,
+    deciderCanApprove: auth.deciderCanApprove,
   });
   if (!decision.remarksOk) return { status: 400, error: 'Please write remarks (at least 3 letters).' };
 

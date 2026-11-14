@@ -37,8 +37,8 @@ export function computePortionLiveDecision(input: {
     activePhotos,
     personDecision,
     decisionRemarks,
+    isSuperior,
   } = input;
-  void input.isSuperior;
 
   const lrTest = pickRoleTest(displayableTests, 'LR') ?? undefined;
   const fatTest = pickRoleTest(displayableTests, 'FAT') ?? undefined;
@@ -160,7 +160,7 @@ export function computePortionLiveDecision(input: {
     extraReasons,
     personDecision: personDecision || 'ACCEPT',
     remarks: decisionRemarks,
-    deciderCanApprove: false,
+    deciderCanApprove: isSuperior,
   });
 
   const nameOf = (code: string) => displayableTests.find((t) => t.testCode === code)?.testName || code;
