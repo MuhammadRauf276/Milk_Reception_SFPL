@@ -81,7 +81,7 @@ export const LabReportPhotoCard: React.FC<LabReportPhotoCardProps> = ({
               <button
                 type="button"
                 onClick={() => setLabReportCamera(true)}
-                className="w-full min-h-[48px] px-4 py-2 rounded-xl border border-dashed border-action/30 hover:border-primary-hover bg-action-soft hover:bg-blue-50/50 text-xs font-semibold text-action flex items-center justify-center space-x-2 transition active:scale-[0.99] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action"
+                className="w-full min-h-12 px-4 py-2 rounded-xl border border-dashed border-action/30 hover:border-primary-hover bg-action-soft hover:bg-blue-50/50 text-xs font-semibold text-action flex items-center justify-center space-x-2 transition active:scale-[0.99] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action"
               >
                 <Camera className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
                 <span>Take Hand-written Lab Report Photo</span>

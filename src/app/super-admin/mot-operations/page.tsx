@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 function PageSkeleton() {
   return (
-    <div className="min-h-[50vh] space-y-3 p-4 sm:p-6" aria-busy="true" aria-label="Loading">
+    <div className="min-h-[50dvh] space-y-3 p-4 sm:p-6" aria-busy="true" aria-label="Loading">
       <Skeleton className="h-8 w-48" />
       <Skeleton className="h-24 w-full rounded-xl" />
       <Skeleton className="h-24 w-full rounded-xl" />
@@ -33,7 +33,7 @@ function Content() {
   }
 
   return (
-    <div className="min-h-screen bg-subtle p-4 sm:p-6">
+    <div className="min-h-dvh bg-subtle p-4 sm:p-6">
       <MotOperationsWorkspace
         currentUser={currentUser}
         activeTab={view}

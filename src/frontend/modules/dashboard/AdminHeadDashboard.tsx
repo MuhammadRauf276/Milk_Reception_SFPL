@@ -33,14 +33,14 @@ export function AdminHeadDashboard() {
 
   if (!data)
     return (
-      <main className="min-h-[100dvh] w-full max-w-full min-w-0 space-y-4 bg-background p-4 sm:p-6">
+      <main className="min-h-dvh w-full max-w-full min-w-0 space-y-4 bg-background p-4 sm:p-6">
         <SkeletonStats count={2} />
         <SkeletonTable />
       </main>
     );
 
   return (
-    <main className="min-h-[100dvh] w-full max-w-full min-w-0 bg-background p-4 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+    <main className="min-h-dvh w-full max-w-full min-w-0 bg-background p-4 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       <h1 className="text-xl font-semibold text-foreground">Plant presence</h1>
       <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-3 text-sm">
         <div className="min-w-0 rounded-2xl bg-card border border-border p-4">

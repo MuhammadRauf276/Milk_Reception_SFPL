@@ -55,7 +55,7 @@ export function TransferSheet({ vehicle, sources, onClose, onDone }: Props) {
         <div>
           <label className={sheetLabelClass}>Target ZMCC Center *</label>
           <Combobox
-            className="min-h-[44px]"
+            className="min-h-11"
             value={targetZmccId}
             onValueChange={setTargetZmccId}
             placeholder="Select destination ZMCC"

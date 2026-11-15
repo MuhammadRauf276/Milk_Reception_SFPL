@@ -198,7 +198,7 @@ export const ZmccExitWorkspace: React.FC = () => {
         <button
           type="button"
           onClick={() => void queryClient.invalidateQueries({ queryKey: ['zmcc', 'exit'] })}
-          className="h-11 min-w-[44px] rounded-lg border border-border-strong px-4 text-sm font-semibold text-foreground"
+          className="h-11 min-w-11 rounded-lg border border-border-strong px-4 text-sm font-semibold text-foreground"
         >
           Refresh
         </button>
@@ -281,7 +281,7 @@ export const ZmccExitWorkspace: React.FC = () => {
               {item.can_exit && (
                 <button
                   type="button"
-                  className={`${zmccPrimaryBtn} w-full justify-center text-xs min-h-[44px]`}
+                  className={`${zmccPrimaryBtn} w-full justify-center text-xs min-h-11`}
                   onClick={() => setDialog({ kind: 'exit', item })}
                 >
                   Record exit
@@ -290,7 +290,7 @@ export const ZmccExitWorkspace: React.FC = () => {
               {item.can_request_close && (
                 <button
                   type="button"
-                  className={`${zmccGhostBtn} w-full justify-center text-xs min-h-[44px]`}
+                  className={`${zmccGhostBtn} w-full justify-center text-xs min-h-11`}
                   onClick={() => setDialog({ kind: 'close', item })}
                 >
                   Close visit without unloading

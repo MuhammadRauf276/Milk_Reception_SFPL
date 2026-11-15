@@ -171,7 +171,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
           animate={ringKey > 0 ? { rotate: [0, -14, 11, -7, 4, 0] } : undefined}
           transition={{ duration: 0.6, ease: 'easeInOut' }}
         >
-          <Bell className="h-[18px] w-[18px]" />
+          <Bell className="h-4.5 w-4.5" />
         </motion.span>
         <AnimatePresence initial={false}>
           {visibleUnreadCount > 0 && (
@@ -212,7 +212,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ currentUser 
           )}
         </div>
 
-        <div className="scrollbar-thin overscroll-contain max-h-[360px] overflow-y-auto">
+        <div className="scrollbar-thin overscroll-contain max-h-90 overflow-y-auto">
           {visibleNotifications.length === 0 ? (
             <div className="px-6 py-10 text-center">
               <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">

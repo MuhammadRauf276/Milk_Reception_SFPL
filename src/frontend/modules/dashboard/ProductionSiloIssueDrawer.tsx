@@ -226,7 +226,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
               ) : issueHistory.length === 0 ? (
                 <div className="p-4 text-center text-xs text-muted-foreground font-semibold">No issues</div>
               ) : (
-                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-75 overflow-y-auto pr-1">
                   {issueHistory.map((h) => (
                     <div key={h.id} className="bg-card border-border p-3 rounded-xl border flex items-center justify-between text-xs">
                       <div>

@@ -285,25 +285,25 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
 
         <HorizontalScrollRow>
           <div className="flex items-stretch gap-3 min-w-max">
-            <div className="min-w-[132px] flex-1 bg-card border-border p-3 rounded-xl border">
+            <div className="min-w-33 flex-1 bg-card border-border p-3 rounded-xl border">
               <span className="text-xs font-semibold text-muted-foreground block">Stops Visited</span>
               <span className="text-sm font-semibold text-foreground tabular-nums">
                 {totals.visited_stops} / {totals.total_stops}
               </span>
             </div>
-            <div className="min-w-[132px] flex-1 bg-card border-border p-3 rounded-xl border">
+            <div className="min-w-33 flex-1 bg-card border-border p-3 rounded-xl border">
               <span className="text-xs font-semibold text-muted-foreground block">Pending Stops</span>
               <span className="text-sm font-semibold text-amber-600 tabular-nums">{totals.pending_stops}</span>
             </div>
-            <div className="min-w-[132px] flex-1 bg-card border-border p-3 rounded-xl border">
+            <div className="min-w-33 flex-1 bg-card border-border p-3 rounded-xl border">
               <span className="text-xs font-semibold text-muted-foreground block">Total Gross Ltr</span>
               <span className="text-sm font-semibold text-emerald-700 tabular-nums">{totals.total_gross_liters} L</span>
             </div>
-            <div className="min-w-[132px] flex-1 bg-card border-border p-3 rounded-xl border">
+            <div className="min-w-33 flex-1 bg-card border-border p-3 rounded-xl border">
               <span className="text-xs font-semibold text-muted-foreground block">@13 TS Liters</span>
               <span className="text-sm font-semibold text-emerald-700 tabular-nums">{totals.total_at_13ts_liters} L</span>
             </div>
-            <div className="min-w-[144px] flex-1 bg-card border-border p-3 rounded-xl border">
+            <div className="min-w-36 flex-1 bg-card border-border p-3 rounded-xl border">
               <span className="text-xs font-semibold text-muted-foreground block">GPS Points / Sync</span>
               <span className="text-xs font-semibold text-secondary-foreground tabular-nums">
                 {totals.gps_point_count} pts
@@ -323,7 +323,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
           routes={routes}
           markers={markers}
           playback
-          heightClass="h-[480px]"
+          heightClass="h-120"
           emptyMessage="No GPS trail or stop coordinates recorded for this journey yet."
           onPinSelect={(id) => setSelectedStop(id ? stops.find((s) => s.id === id) ?? null : null)}
         />

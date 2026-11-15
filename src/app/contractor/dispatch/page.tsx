@@ -60,7 +60,7 @@ function ContractorDispatchContent() {
 
   if (loading) {
     return (
-      <PageLoader label="Loading Contractor Dispatch Station…" className="min-h-screen" />
+      <PageLoader label="Loading Contractor Dispatch Station…" className="min-h-dvh" />
     );
   }
 
@@ -73,7 +73,7 @@ function ContractorDispatchContent() {
     'Contractor Source';
 
   return (
-    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-clip">
+    <div className="w-full max-w-full flex flex-col min-h-dvh bg-background text-foreground overflow-x-clip">
       <Header
         currentUser={currentUser}
         sourceName={assignedSourceName}
@@ -110,7 +110,7 @@ function ContractorDispatchContent() {
 
 export default function ContractorDispatchPage() {
   return (
-    <Suspense fallback={<PageLoader label="Loading Contractor Dispatch Station…" className="min-h-screen" />}>
+    <Suspense fallback={<PageLoader label="Loading Contractor Dispatch Station…" className="min-h-dvh" />}>
       <ContractorDispatchContent />
     </Suspense>
   );

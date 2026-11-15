@@ -28,7 +28,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                         value={formData.shop_name || ''}
                         onChange={(e) => setFormData({ ...formData, shop_name: e.target.value })}
                         placeholder="e.g. Al-Madina Milk Point"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div>
@@ -41,7 +41,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                         value={formData.owner_name || ''}
                         onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
                         placeholder="e.g. Owner Full Name"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                   </div>
@@ -55,7 +55,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                         value={formData.phone_number || ''}
                         onChange={(e) => setFormData({ ...formData, phone_number: typePakistaniMobile(e.target.value) })}
                         placeholder="0300-1234567"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div>
@@ -66,7 +66,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                         value={formData.cnic || ''}
                         onChange={(e) => setFormData({ ...formData, cnic: typePakistaniCnic(e.target.value) })}
                         placeholder="35201-1234567-1"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                   </div>
@@ -81,7 +81,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                         onValueChange={(v) => setFormData({ ...formData, route_id: v, area_id: '' })}
                         placeholder="Select route"
                         searchPlaceholder="Search route"
-                        className="min-h-[44px] w-full text-xs font-semibold"
+                        className="min-h-11 w-full text-xs font-semibold"
                       />
                     </div>
 
@@ -98,7 +98,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                         }}
                         placeholder="Select area"
                         searchPlaceholder="Search area"
-                        className="min-h-[44px] w-full text-xs font-semibold"
+                        className="min-h-11 w-full text-xs font-semibold"
                       />
                     </div>
                   </div>
@@ -112,7 +112,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                         onValueChange={(v) => setFormData({ ...formData, chiller_ownership_id: v })}
                         placeholder="Select chiller ownership"
                         searchPlaceholder="Search chiller ownership"
-                        className="min-h-[44px] w-full text-xs font-semibold"
+                        className="min-h-11 w-full text-xs font-semibold"
                       />
                     </div>
                   </div>
@@ -129,7 +129,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                         value={formData.latitude ?? ''}
                         onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
                         placeholder="31.2681"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div>
@@ -142,7 +142,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                         value={formData.longitude ?? ''}
                         onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
                         placeholder="72.3181"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                   </div>
@@ -161,7 +161,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                       value={formData.tank_code || ''}
                       onChange={(e) => setFormData({ ...formData, tank_code: e.target.value.toUpperCase() })}
                       placeholder="e.g. TANK-01"
-                      className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div>
@@ -172,7 +172,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                       value={formData.tank_name || ''}
                       onChange={(e) => setFormData({ ...formData, tank_name: e.target.value })}
                       placeholder="e.g. Raw Milk Tank 1"
-                      className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div>
@@ -185,7 +185,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                       value={formData.capacity_liters ?? ''}
                       onChange={(e) => setFormData({ ...formData, capacity_liters: e.target.value })}
                       placeholder="e.g. 5000"
-                      className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 </div>

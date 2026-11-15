@@ -48,12 +48,12 @@ function SecurityDepartmentContent() {
 
   if (loading || !hasAccess) {
     return (
-      <PageLoader label="Loading Gate Entry & Exit…" className="min-h-[100dvh]" />
+      <PageLoader label="Loading Gate Entry & Exit…" className="min-h-dvh" />
     );
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
+    <div className="min-h-dvh bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
       <Header
         currentUser={user}
         title="Gate Entry & Exit"
@@ -89,7 +89,7 @@ export default function SecurityDepartmentPage() {
   return (
     <Suspense
       fallback={
-        <PageLoader label="Loading Gate Entry & Exit…" className="min-h-[100dvh]" />
+        <PageLoader label="Loading Gate Entry & Exit…" className="min-h-dvh" />
       }
     >
       <SecurityDepartmentContent />

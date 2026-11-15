@@ -20,7 +20,7 @@ function Content() {
   const view = raw && VIEWS.includes(raw) ? raw : undefined;
 
   if (loadingUser || !currentUser) {
-    return <PageLoader label="Loading…" className="min-h-[50vh]" />;
+    return <PageLoader label="Loading…" className="min-h-[50dvh]" />;
   }
 
   return (
@@ -34,7 +34,7 @@ function Content() {
 
 export default function SuperAdminZmccMasterDataPage() {
   return (
-    <Suspense fallback={<PageLoader label="Loading…" className="min-h-[50vh]" />}>
+    <Suspense fallback={<PageLoader label="Loading…" className="min-h-[50dvh]" />}>
       <Content />
     </Suspense>
   );

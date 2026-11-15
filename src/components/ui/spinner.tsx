@@ -17,7 +17,7 @@ export function PageLoader({ label = 'Loading…', className }: { label?: string
       aria-live="polite"
       // Fade in after a short delay so fast loads never flash a skeleton.
       className={cn(
-        'flex min-h-[60vh] w-full min-w-0 flex-col gap-4 p-4 animate-in fade-in-0 fill-mode-backwards delay-150 duration-300 sm:p-6',
+        'flex min-h-[60dvh] w-full min-w-0 flex-col gap-4 p-4 animate-in fade-in-0 fill-mode-backwards delay-150 duration-300 sm:p-6',
         className
       )}
     >

@@ -339,7 +339,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       type="button"
                       disabled={submittingAction}
                       onClick={() => handleApprove('ROUTE', r.id)}
-                      className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
+                      className="px-4 min-h-11 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
                       
                       <span>Approve</span>
@@ -350,7 +350,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       onClick={() =>
                         setRejectingItem({ type: 'ROUTE', id: r.id, name: r.name })
                       }
-                      className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
+                      className="px-4 min-h-11 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
                       
                       <span>Reject</span>
@@ -452,7 +452,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       type="button"
                       disabled={submittingAction}
                       onClick={() => handleApprove('SHOP', s.id)}
-                      className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
+                      className="px-4 min-h-11 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
                       
                       <span>Approve</span>
@@ -463,7 +463,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       onClick={() =>
                         setRejectingItem({ type: 'SHOP', id: s.id, name: s.shop_name })
                       }
-                      className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
+                      className="px-4 min-h-11 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
                       
                       <span>Reject</span>
@@ -548,7 +548,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       type="button"
                       disabled={submittingAction}
                       onClick={() => handleApprove('HC', h.id)}
-                      className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
+                      className="px-4 min-h-11 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Approve</span>
@@ -557,7 +557,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       type="button"
                       disabled={submittingAction}
                       onClick={() => setRejectingItem({ type: 'HC', id: h.id, name: h.name })}
-                      className="px-4 min-h-[44px] rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
+                      className="px-4 min-h-11 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors disabled:opacity-50 inline-flex items-center space-x-1"
                     >
                       <XCircle className="w-4 h-4" />
                       <span>Reject</span>
@@ -617,7 +617,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Enter rejection reason…"
-                className="w-full text-xs font-medium border border-border rounded-xl p-3 bg-subtle text-foreground focus:ring-2 focus:ring-primary min-h-[90px]"
+                className="w-full text-xs font-medium border border-border rounded-xl p-3 bg-subtle text-foreground focus:ring-2 focus:ring-primary min-h-22.5"
                 required
               />
             </div>

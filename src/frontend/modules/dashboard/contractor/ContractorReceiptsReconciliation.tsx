@@ -355,7 +355,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search"
-            className="w-full pl-9 pr-4 py-2 min-h-[44px] text-xs tabular-nums font-semibold bg-muted border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+            className="w-full pl-9 pr-4 py-2 min-h-11 text-xs tabular-nums font-semibold bg-muted border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
           />
         </div>
 

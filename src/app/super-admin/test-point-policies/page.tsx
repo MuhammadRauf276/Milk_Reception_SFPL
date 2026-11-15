@@ -13,7 +13,7 @@ export default function SuperAdminTestPointPoliciesRedirectPage() {
   }, [router]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] p-6 text-center">
+    <div className="flex flex-col items-center justify-center min-h-[50dvh] p-6 text-center">
       <div className="bg-card border border-border rounded-2xl p-8 max-w-md shadow-2xs space-y-4">
         <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
           <Sliders className="w-6 h-6" />

@@ -28,13 +28,13 @@ export default function QAHeadDepartmentPage() {
   }, [loading, user, router]);
 
   if (loading) {
-    return <PageLoader label="Loading AVP-QA Workspace…" className="min-h-[100dvh]" />;
+    return <PageLoader label="Loading AVP-QA Workspace…" className="min-h-dvh" />;
   }
 
   if (!user) return null;
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
+    <div className="min-h-dvh bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
       <Header
         currentUser={user}
         title="QA Head"

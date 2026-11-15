@@ -118,7 +118,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
       size="lg"
       title="Send Daily Report to Executives"
       showHeader={false}
-      className="max-w-xl flex max-h-[92vh] flex-col overflow-hidden"
+      className="max-w-xl flex max-h-[92dvh] flex-col overflow-hidden"
     >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">

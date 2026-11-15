@@ -288,7 +288,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           </div>
 
           {/* Records List */}
-          <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-145 overflow-y-auto pr-1">
             {isLoading ? (
               <SkeletonList count={3} />
             ) : dbDispatches.length === 0 ? (

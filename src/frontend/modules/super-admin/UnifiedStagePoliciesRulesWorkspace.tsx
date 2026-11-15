@@ -321,7 +321,7 @@ function WorkspaceInner({
 
         {/* Master Catalog Table: Master Matrix (All 6 Stages Side-by-Side) */}
         <TableWrapper>
-            <table className="w-full min-w-[1330px] text-left text-xs">
+            <table className="w-full min-w-332.5 text-left text-xs">
               <thead className="border-b border-border bg-subtle text-secondary-foreground">
                 <tr>
                   <th className="w-10 p-3 text-center font-semibold">#</th>

@@ -66,12 +66,12 @@ function PlantContractorManagerContent() {
 
   if (loading) {
     return (
-      <PageLoader label="Loading Plant Contractor Manager Station…" className="min-h-[100dvh]" />
+      <PageLoader label="Loading Plant Contractor Manager Station…" className="min-h-dvh" />
     );
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
+    <div className="min-h-dvh bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
       <Header
         currentUser={user}
         title={subpageTitle}
@@ -117,7 +117,7 @@ export default function PlantContractorManagerPage() {
   return (
     <Suspense
       fallback={
-        <PageLoader label="Loading Plant Contractor Manager Station…" className="min-h-[100dvh]" />
+        <PageLoader label="Loading Plant Contractor Manager Station…" className="min-h-dvh" />
       }
     >
       <PlantContractorManagerContent />

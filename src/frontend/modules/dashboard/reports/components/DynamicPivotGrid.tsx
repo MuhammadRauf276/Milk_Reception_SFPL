@@ -289,7 +289,7 @@ export function DynamicPivotGrid({
       </div>
 
       {/* Cross-Tabulation Grid */}
-      <TableWrapper className="min-h-[300px]">
+      <TableWrapper className="min-h-75">
         {rowKeys.length === 0 ? (
           <div className="py-12 text-center text-muted-foreground text-xs">
             No records available to construct the pivot table with current filters.
@@ -299,19 +299,19 @@ export function DynamicPivotGrid({
             <thead>
               <tr className="border-b border-border bg-muted/60 text-muted-foreground font-semibold text-xs">
                 {/* Top Left Header */}
-                <th className="py-3 px-4 text-foreground bg-muted/80 sticky left-0 z-20 border-r border-border min-w-[160px]">
+                <th className="py-3 px-4 text-foreground bg-muted/80 sticky left-0 z-20 border-r border-border min-w-40">
                   {dimensionFields.find((f) => f.id === rowDimension)?.label || rowDimension} \ {dimensionFields.find((f) => f.id === colDimension)?.label || colDimension}
                 </th>
 
                 {/* Column Headers */}
                 {colKeys.map((cKey) => (
-                  <th key={cKey} className="py-3 px-3 text-right font-semibold text-foreground min-w-[110px]">
+                  <th key={cKey} className="py-3 px-3 text-right font-semibold text-foreground min-w-27.5">
                     {cKey}
                   </th>
                 ))}
 
                 {/* Row Total Header */}
-                <th className="py-3 px-4 text-right font-semibold text-foreground bg-muted/80 sticky right-0 z-10 border-l border-border min-w-[120px]">
+                <th className="py-3 px-4 text-right font-semibold text-foreground bg-muted/80 sticky right-0 z-10 border-l border-border min-w-30">
                   Total / Avg
                 </th>
               </tr>

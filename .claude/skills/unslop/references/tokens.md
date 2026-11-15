@@ -21,6 +21,13 @@ Starting values for each pass. When the project already has a good system, keep 
 - Stat cards in a row share one height, usually 3 or 4 compact cards per row on desktop, numbers only.
 - The main chart spans at least two thirds of the content width and is 280 to 360 tall. A second data block next to it is a list or table, narrower, not another chart.
 
+## CSS Unit & Responsive Sizing Rules
+
+- **Text (`rem`):** Use fluid `rem`-backed theme tokens (`text-xs` .. `text-3xl`). Never use `text-[Npx]`.
+- **Layout & Box Dimensions (`%` / `flex-1` / `1fr` + `rem`):** Use `w-full` (`100%`), `max-w-full`, `flex-1`, `min-w-0`, and `grid-cols-*` (`1fr`) for fluid widths. Use Tailwind v4 `rem` spacing tokens (`N = px / 4`: `min-h-11` = 44px, `min-h-12` = 48px, `min-w-40` = 160px, `max-h-90` = 360px) instead of arbitrary `[Npx]` dimensions (`w-[Npx]`, `min-w-[Npx]`, `max-w-[Npx]`, `h-[Npx]`, `min-h-[Npx]`, `max-h-[Npx]`, `left-[Npx]`, `right-[Npx]`).
+- **Full-Screen Sections (`w-full` + `dvh`, bounded `vw`):** Use `w-full` horizontally and `min-h-dvh`, `h-dvh`, `max-h-dvh`, or `[Ndvh]` (e.g. `min-h-[50dvh]`, `max-h-[90dvh]`) vertically. Never use `min-h-screen`, `h-screen`, `max-h-screen`, `min-h-[100dvh]`, or `[Nvh]`. Reserve `vw` strictly for clamped floating overlays (`w-[calc(100vw-3rem)]`, `max-w-[min(96vw,1400px)]`).
+- **Borders & Hairlines (`px`):** Keep borders, outlines, and dividers in `px` (`border`, `border-2`, `outline-2`).
+
 ## Neutral ramps
 
 For apps and dashboards use graphite, or a ramp just as grey, for every surface. For landing pages pick the ramp whose tint matches the world in the direction. Warm suits paper, wood, food, craft and anything human. Ink suits night, sky, water and anything technical. You can tint your own ramp the same way, keeping saturation very low, so a surface never reads as a color on its own.

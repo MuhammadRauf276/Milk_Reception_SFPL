@@ -305,7 +305,7 @@ export function CommandPalette({ isOpen, onClose, currentUser }: CommandPaletteP
         </div>
 
         {/* Results List */}
-        <div className="scrollbar-thin overscroll-contain max-h-[380px] overflow-y-auto p-2 space-y-1">
+        <div className="scrollbar-thin overscroll-contain max-h-95 overflow-y-auto p-2 space-y-1">
           {filteredItems.length === 0 ? (
             <div className="p-8 text-center text-xs text-muted-foreground space-y-1">
               <Command className="w-6 h-6 mx-auto text-muted-foreground/60 mb-2" />

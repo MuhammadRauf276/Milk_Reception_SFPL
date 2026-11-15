@@ -197,7 +197,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="min-h-11 min-w-11 inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="min-h-11 min-w-11 inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -218,7 +218,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
               }}
               disabled={busy}
               className={cn('min-h-11 min-w-11', 
-                'flex min-h-[38px] items-center justify-center gap-2 rounded-lg border text-xs font-semibold transition',
+                'flex min-h-9.5 items-center justify-center gap-2 rounded-lg border text-xs font-semibold transition',
                 i === step
                   ? 'border-primary bg-primary text-white shadow-2xs'
                   : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
@@ -277,7 +277,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                   </label>
                   <Combobox
                     id="mot-source"
-                    className="min-h-[48px]"
+                    className="min-h-12"
                     value={selectedSourceId}
                     onValueChange={onSourceChange}
                     placeholder="Select milk source…"
@@ -399,7 +399,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
               onClick={goBack}
               disabled={busy}
               aria-label="Back"
-              className="inline-flex min-h-[48px] min-w-[48px] shrink-0 items-center justify-center gap-1 rounded-xl border border-border-strong bg-secondary px-3 text-sm font-semibold text-secondary-foreground hover:bg-muted active:scale-[0.98] disabled:opacity-50"
+              className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center gap-1 rounded-xl border border-border-strong bg-secondary px-3 text-sm font-semibold text-secondary-foreground hover:bg-muted active:scale-[0.98] disabled:opacity-50"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Back</span>
@@ -409,7 +409,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
           {step === 0 ? (
             <button
               type="submit"
-              className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-2xs hover:bg-primary-hover transition"
+              className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-2xs hover:bg-primary-hover transition"
             >
               <span>Next: Quantity & Comments</span>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -419,7 +419,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
               type="button"
               onClick={handleOpenDecide}
               disabled={busy}
-              className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-2xs hover:bg-emerald-800 disabled:opacity-50"
+              className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-2xs hover:bg-emerald-800 disabled:opacity-50"
             >
               <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
               <span>Review & Decide</span>
@@ -445,7 +445,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
               onClick={() => setDecideOpen(false)}
               disabled={busy}
               aria-label="Close decision"
-              className="min-h-11 min-w-11 flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
+              className="min-h-11 min-w-11 flex min-h-10 min-w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
             >
               <X className="h-5 w-5" />
             </button>

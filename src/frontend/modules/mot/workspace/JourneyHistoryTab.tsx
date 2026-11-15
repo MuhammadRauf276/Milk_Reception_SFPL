@@ -116,7 +116,7 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
                 type="button"
                 onClick={() => onStatusFilterChange(v)}
                 aria-pressed={statusFilter === v}
-                className={`min-h-[44px] px-3 rounded-lg text-xs font-semibold transition-colors ${
+                className={`min-h-11 px-3 rounded-lg text-xs font-semibold transition-colors ${
                   statusFilter === v ? 'bg-primary text-white' : 'text-secondary-foreground hover:bg-muted'
                 }`}
               >

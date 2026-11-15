@@ -123,7 +123,7 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, lo
                                 {!locked && (<button
                                   type="button"
                                   onClick={() => onRecord(stop)}
-                                  className="min-h-[44px] px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-primary"
+                                  className="min-h-11 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-primary"
                                 >
                                   Record Collection
                                 </button>)}

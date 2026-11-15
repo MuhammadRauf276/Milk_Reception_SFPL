@@ -6,10 +6,10 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 
 /** Shared look for sheet form controls (44px minimum touch height). */
 export const sheetInputClass =
-  'w-full min-h-[44px] text-sm font-semibold border border-border rounded-xl px-3 py-2 bg-subtle text-foreground';
+  'w-full min-h-11 text-sm font-semibold border border-border rounded-xl px-3 py-2 bg-subtle text-foreground';
 export const sheetLabelClass = 'block text-xs font-semibold text-foreground mb-1';
 export const sheetPrimaryButtonClass =
-  'w-full min-h-[56px] rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50';
+  'w-full min-h-14 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50';
 
 interface MotSheetProps {
   title: string;
@@ -38,7 +38,7 @@ export function MotSheet({ title, subtitle, onClose, children }: MotSheetProps) 
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-border-strong text-secondary-foreground hover:bg-secondary"
+              className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-border-strong text-secondary-foreground hover:bg-secondary"
             >
               <X className="h-5 w-5" aria-hidden="true" />
             </button>

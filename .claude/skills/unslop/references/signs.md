@@ -21,6 +21,7 @@ Go through every group and note each sign you find with where it lives. Each lin
 - Numbers in mixed formats, like `$48,210` next to `$124,860.40`, or `07` → one format, tabular figures
 - Negative letter spacing on small text → zero or slightly positive
 - Italic used for emphasis → color or weight instead
+- Pixel font sizes like `text-[13px]` or `text-[11px]` → fluid `rem`-backed theme tokens (`text-xs` .. `text-3xl`)
 
 ## Icons
 
@@ -33,6 +34,8 @@ Go through every group and note each sign you find with where it lives. Each lin
 ## Spacing
 
 - Arbitrary values, like `mt-[13px]`, `ml-[7px]`, `h-[31px]` → steps on the 4px scale
+- Arbitrary `[Npx]` box/offset dimensions like `min-h-[44px]`, `min-w-[160px]`, `max-h-[360px]`, `left-[58px]` → Tailwind `rem` spacing tokens (`min-h-11`, `min-w-40`, `max-h-90`, `left-14.5`)
+- Legacy `min-h-screen`, `h-screen`, `max-h-screen`, `min-h-[100dvh]`, or `[Nvh]` heights → `min-h-dvh`, `h-dvh`, `max-h-dvh`, or `[Ndvh]` (reserve `vw` strictly for clamped floating overlays, use `w-full` for full-width sections)
 - Rows in one list with different heights or gaps → one height, one gap
 - Groups that sit closer to their neighbours than to their own items → smaller gaps inside groups, bigger between them
 - Uneven padding inside sibling cards → one padding

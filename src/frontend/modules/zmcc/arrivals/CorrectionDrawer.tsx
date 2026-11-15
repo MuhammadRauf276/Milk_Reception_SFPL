@@ -60,7 +60,7 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
                     onValueChange={c.setLocalSupplierId}
                     placeholder="Select supplier"
                     searchPlaceholder="Search supplier"
-                    className="min-h-[44px] w-full font-semibold"
+                    className="min-h-11 w-full font-semibold"
                   />
                 </div>
                 <div>

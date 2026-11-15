@@ -148,7 +148,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
             type="button"
             onClick={() => setTab(t)}
             className={cn('min-h-11 min-w-11', 
-              'min-h-[40px] rounded-xl border px-4 text-xs font-semibold transition',
+              'min-h-10 rounded-xl border px-4 text-xs font-semibold transition',
               tab === t
                 ? 'border-primary bg-primary text-primary-foreground shadow-2xs'
                 : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
@@ -258,7 +258,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                   <button
                     type="button"
                     onClick={() => setActiveModalItem(item)}
-                    className="min-h-11 min-w-11 flex min-h-[40px] w-full items-center justify-center gap-2 rounded-lg bg-neutral-800 px-3 text-xs font-semibold text-white shadow-2xs hover:bg-neutral-900"
+                    className="min-h-11 min-w-11 flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-neutral-800 px-3 text-xs font-semibold text-white shadow-2xs hover:bg-neutral-900"
                   >
                     <Gavel className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Review & Decide</span>
@@ -267,7 +267,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                   <button
                     type="button"
                     onClick={() => setActiveModalItem(item)}
-                    className="min-h-11 min-w-11 flex min-h-[40px] w-full items-center justify-center gap-2 rounded-lg border border-action/30 bg-action-soft px-3 text-xs font-semibold text-action hover:bg-action-soft"
+                    className="min-h-11 min-w-11 flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-action/30 bg-action-soft px-3 text-xs font-semibold text-action hover:bg-action-soft"
                   >
                     <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>View Inspection Details</span>
@@ -314,7 +314,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                   onClick={() => setActiveModalItem(null)}
                   disabled={Boolean(busyId)}
                   aria-label="Close"
-                  className="min-h-11 min-w-11 flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
+                  className="min-h-11 min-w-11 flex min-h-10 min-w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -438,7 +438,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                         type="button"
                         disabled={busyId === activeModalItem.id}
                         onClick={() => decide(activeModalItem, 'NO')}
-                        className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                        className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                       >
                         {busyId === activeModalItem.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                         <span>NO (Reject Shop)</span>
@@ -448,7 +448,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                         type="button"
                         disabled={busyId === activeModalItem.id}
                         onClick={() => decide(activeModalItem, 'OKAY')}
-                        className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-800 disabled:opacity-50"
+                        className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-800 disabled:opacity-50"
                       >
                         {busyId === activeModalItem.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                         <span>OKAY (Approve Shop)</span>

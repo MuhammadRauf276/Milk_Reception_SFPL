@@ -102,7 +102,7 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
             type="button"
             disabled={isSubmitting}
             onClick={() => onConfirm()}
-            className="w-full min-h-[44px] py-2 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-xs shadow-md transition flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full min-h-11 py-2 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-xs shadow-md transition flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <>
@@ -121,7 +121,7 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
             type="button"
             disabled={isSubmitting}
             onClick={onClose}
-            className="w-full min-h-[44px] py-2 px-4 rounded-xl border border-action/30 text-action hover:bg-action-soft text-xs font-semibold transition disabled:opacity-50"
+            className="w-full min-h-11 py-2 px-4 rounded-xl border border-action/30 text-action hover:bg-action-soft text-xs font-semibold transition disabled:opacity-50"
           >
             Cancel / Continue Collecting
           </button>

@@ -299,7 +299,7 @@ export function ApprovalInspectModal({
           className="max-w-2xl p-4"
         >
           <div className="space-y-3">
-            <div className="rounded-xl overflow-hidden bg-black flex items-center justify-center max-h-[75vh]">
+            <div className="rounded-xl overflow-hidden bg-black flex items-center justify-center max-h-[75dvh]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={previewPhotoUrl} alt="Evidence preview" className="max-w-full max-h-full object-contain" />
             </div>

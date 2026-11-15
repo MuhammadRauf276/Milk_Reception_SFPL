@@ -13,7 +13,7 @@ export default function FleetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-subtle p-4 sm:p-6">
+    <div className="min-h-dvh bg-subtle p-4 sm:p-6">
       <FleetWorkspace currentUser={currentUser} />
     </div>
   );

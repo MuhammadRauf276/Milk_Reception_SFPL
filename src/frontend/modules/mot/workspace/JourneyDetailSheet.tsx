@@ -182,7 +182,7 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                           type="button"
                           disabled={stopsPage === 1}
                           onClick={() => setStopsPage((p) => Math.max(1, p - 1))}
-                          className="min-h-[44px] px-3 text-xs font-semibold rounded-lg border border-border bg-card text-secondary-foreground hover:bg-muted disabled:opacity-40"
+                          className="min-h-11 px-3 text-xs font-semibold rounded-lg border border-border bg-card text-secondary-foreground hover:bg-muted disabled:opacity-40"
                         >
                           Previous
                         </button>
@@ -193,7 +193,7 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                           type="button"
                           disabled={stopsPage >= totalStopsPages}
                           onClick={() => setStopsPage((p) => Math.min(totalStopsPages, p + 1))}
-                          className="min-h-[44px] px-3 text-xs font-semibold rounded-lg border border-border bg-card text-secondary-foreground hover:bg-muted disabled:opacity-40"
+                          className="min-h-11 px-3 text-xs font-semibold rounded-lg border border-border bg-card text-secondary-foreground hover:bg-muted disabled:opacity-40"
                         >
                           Next
                         </button>

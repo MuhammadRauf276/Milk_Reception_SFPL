@@ -62,7 +62,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col justify-between bg-background text-foreground">
+    <div className="flex min-h-dvh w-full flex-col justify-between bg-background text-foreground">
       {/* Top Header */}
       <header className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
         <BrandMark size="lg" />
@@ -78,7 +78,7 @@ export const LoginPage: React.FC = () => {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-          className="w-full max-w-[420px] rounded-2xl border bg-card p-6 shadow-sm sm:p-8"
+          className="w-full max-w-105 rounded-2xl border bg-card p-6 shadow-sm sm:p-8"
           aria-labelledby="sign-in-heading"
         >
           <div>

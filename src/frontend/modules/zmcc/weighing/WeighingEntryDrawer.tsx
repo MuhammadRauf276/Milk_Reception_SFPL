@@ -179,7 +179,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
               aria-pressed={mode === m}
               disabled={busy}
               onClick={() => setMode(m)}
-              className={`min-h-[44px] rounded-xl border px-3 text-sm font-semibold transition-colors ${
+              className={`min-h-11 rounded-xl border px-3 text-sm font-semibold transition-colors ${
                 mode === m ? 'border-primary bg-primary text-white' : 'bg-card text-secondary-foreground hover:bg-subtle'
               }`}
             >
@@ -278,7 +278,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
                   onChange={(e) =>
                     setManual((prev) => prev.map((x, j) => (j === i ? { ...x, unit: e.target.value as Unit } : x)))
                   }
-                  className="min-h-[44px] w-28 rounded-xl border bg-card px-3 text-sm font-semibold"
+                  className="min-h-11 w-28 rounded-xl border bg-card px-3 text-sm font-semibold"
                 >
                   {units.map((u) => (
                     <option key={u} value={u}>

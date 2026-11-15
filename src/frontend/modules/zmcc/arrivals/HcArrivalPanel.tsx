@@ -40,7 +40,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={onAddSupplier}
-          className="flex items-center space-x-1 min-h-[44px] px-3 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer"
+          className="flex items-center space-x-1 min-h-11 px-3 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer"
         >
           <UserPlus className="w-3.5 h-3.5 text-emerald-700" />
           <span>Add supplier</span>
@@ -91,7 +91,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
                   form.setSuccessResult(null);
                   form.reset();
                 }}
-                className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer"
+                className="min-h-11 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] cursor-pointer"
               >
                 Record Another HC Supplier
               </button>
@@ -103,7 +103,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => form.setFormOpen(true)}
-            className="w-full min-h-[48px] py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold cursor-pointer"
+            className="w-full min-h-12 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold cursor-pointer"
           >
             Record HC Arrival
           </button>
@@ -127,7 +127,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={onAddSupplier}
-                    className="min-h-[44px] px-2 text-xs font-semibold text-emerald-700 hover:underline flex items-center space-x-1 cursor-pointer"
+                    className="min-h-11 px-2 text-xs font-semibold text-emerald-700 hover:underline flex items-center space-x-1 cursor-pointer"
                   >
                     <Plus className="w-3 h-3" />
                     <span>Quick Add Supplier</span>
@@ -146,7 +146,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
                   onValueChange={form.setSelectedLocalSupplierId}
                   placeholder="Select active supplier…"
                   searchPlaceholder="Search by code, name, phone…"
-                  className="min-h-[44px] w-full text-xs font-semibold"
+                  className="min-h-11 w-full text-xs font-semibold"
                 />
                 {localSuppliers.some((s) => s.id === selectedLocalSupplierId && s.approval_status === 'PENDING_APPROVAL') && (
                   <p className="text-xs text-amber-700 mt-1">
@@ -209,7 +209,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
               <button
                 type="submit"
                 disabled={form.submitting}
-                className="w-full min-h-[44px] py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 cursor-pointer"
+                className="w-full min-h-11 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 cursor-pointer"
               >
                 {form.submitting ? 'Recording Arrival…' : 'Record HC Arrival & Generate Token'}
               </button>

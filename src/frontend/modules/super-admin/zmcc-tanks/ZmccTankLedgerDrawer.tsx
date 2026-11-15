@@ -182,7 +182,7 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
         if (!o) onClose();
       }}
     >
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent className="max-h-[90dvh]">
         <div className="border-b border-border px-4 sm:px-5 py-3 flex items-center justify-between gap-2">
           <DrawerTitle className="flex items-center gap-2 text-sm sm:text-base min-w-0">
             <History className="h-5 w-5 text-muted-foreground shrink-0" />

@@ -74,6 +74,7 @@ If the product already has a real brand, like a logo file, a color or a typeface
 - Padding follows density. Compact panels and sidebars around 16, cards 20 to 24, page edges 24 to 32.
 - Navigation is the densest part of an app. Rows are 32 to 36 tall with 2 to 4 between them, icons in one column, labels on one line. A section label sits closer to its own items than to the section above it, like 24 above and 8 below. Measure the sidebar after the pass, it is where spacing breaks most often.
 - Remove one-off values that break the rhythm, like `mt-[13px]` or `py-[11px]`, and replace them with steps from the scale.
+- Use Tailwind v4 `rem`-backed spacing utilities (`min-h-11`, `min-h-12`, `min-w-40`, `max-h-90`, etc., where `N = px / 4`) for touch targets, column floors, offsets, and scroll caps instead of arbitrary `[Npx]` dimensions (`min-h-[44px]`, `min-w-[160px]`, `max-h-[360px]`). Keep borders, outlines, and hairlines in `px` (`border`, `border-2`, `outline-2`).
 
 ## 2. Color
 
@@ -125,6 +126,7 @@ If the product already has a real brand, like a logo file, a color or a typeface
 ## 6. Layout
 
 - Keep the sections and their order. Inside a section, alignment and proportions may change when that makes the screen clearer.
+- Fluid containers use `%` / `flex-1` / `1fr` (`w-full`, `max-w-full`, `min-w-0`), full-screen heights use `min-h-dvh`, `h-dvh`, `max-h-dvh`, or `[Ndvh]` (never `min-h-screen`, `h-screen`, `max-h-screen`, `min-h-[100dvh]`, or `[Nvh]`), and `vw` is reserved strictly for clamped floating overlays (`w-[calc(100vw-3rem)]`, `max-w-[min(96vw,1400px)]`). Use fluid `rem` tokens (`text-xs` .. `text-3xl`) for text and never `text-[Npx]`.
 - Apps and dashboards keep real app proportions. The shell fills the viewport, a sidebar of 240 to 280 and fluid content, usually capped around 1440 to 1600 wide, and the page is as long as its content, with more sections below the first screen. Never shrink an app into a narrow centered column. If the original was drawn as a small window on a backdrop, keep it visibly a window, with its frame and backdrop, and still give it desktop proportions inside.
 - The strongest landing hero is a scene. One generated image fills the hero from edge to edge, its subject sits on one side, and the headline sits on the calm empty part of the same image, with the product view rising from the bottom edge. Look at the hero in the references to see it.
 - Without a scene, use an asymmetric split, text on one side and the visual given at least half the width, or text over a large product view below it. Everything stacked and centered is the template default, keep it only for a short hero with no visual.

@@ -51,7 +51,7 @@ export interface DispatchPolicyTestsProps {
 }
 
 const INPUT_CLASS =
-  'w-full min-w-0 min-h-[48px] rounded-xl border bg-subtle p-3 text-base font-semibold focus:ring-2 focus:ring-primary focus:outline-none';
+  'w-full min-w-0 min-h-12 rounded-xl border bg-subtle p-3 text-base font-semibold focus:ring-2 focus:ring-primary focus:outline-none';
 
 /** SOP range text from policy rule, e.g. "26.0 – 32.0", "≥ 3.5". */
 export function sopRangeText(t: DispatchPolicyTest): string | null {
@@ -116,7 +116,7 @@ export function DispatchPolicyTests({
           <button
             type="button"
             onClick={() => setCameraFor(t)}
-            className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-border px-3 text-sm font-semibold text-secondary-foreground hover:bg-muted"
+            className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-border px-3 text-sm font-semibold text-secondary-foreground hover:bg-muted"
           >
             <Undo2 className="h-4 w-4" aria-hidden="true" />
             Again
@@ -125,7 +125,7 @@ export function DispatchPolicyTests({
             type="button"
             onClick={() => onPhotoRemoved(t.labTestId)}
             aria-label={`Remove ${t.testName} picture`}
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-rose-50 hover:text-rose-700"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-rose-50 hover:text-rose-700"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -137,7 +137,7 @@ export function DispatchPolicyTests({
         type="button"
         onClick={() => setCameraFor(t)}
         className={cn(
-          'mt-2 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition',
+          'mt-2 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition',
           required ? 'bg-primary text-white hover:bg-primary-hover' : 'border border-border bg-card text-secondary-foreground hover:bg-muted'
         )}
       >
@@ -248,7 +248,7 @@ export function DispatchPolicyTests({
                 onClick={() => onValueChange(t.labTestId, 'textValue', v.textValue === o ? '' : o)}
                 aria-pressed={v.textValue === o}
                 className={cn(
-                  'min-h-[44px] rounded-xl border-2 px-4 text-sm font-semibold transition',
+                  'min-h-11 rounded-xl border-2 px-4 text-sm font-semibold transition',
                   v.textValue === o
                     ? isOut
                       ? 'border-rose-600 bg-rose-600 text-white'
@@ -291,7 +291,7 @@ export function DispatchPolicyTests({
       {primary.map((t) => renderTest(t))}
       {more.length > 0 && (
         <details className="rounded-xl border border-dashed border-border-strong">
-          <summary className="flex min-h-[48px] cursor-pointer items-center justify-between px-3 text-sm font-semibold text-secondary-foreground">
+          <summary className="flex min-h-12 cursor-pointer items-center justify-between px-3 text-sm font-semibold text-secondary-foreground">
             More tests ({more.length})
           </summary>
           <div className="space-y-3 p-3 pt-0">{more.map((t) => renderTest(t))}</div>

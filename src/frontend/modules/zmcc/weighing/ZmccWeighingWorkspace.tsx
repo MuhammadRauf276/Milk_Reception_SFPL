@@ -160,7 +160,7 @@ function VehicleCard({ session, onOpen }: { session: WeighingSessionView; onOpen
     <button
       type="button"
       onClick={onOpen}
-      className="group block min-h-[44px] w-full rounded-2xl border border-action/30 bg-action-soft p-4 text-left shadow-2xs hover:shadow-md hover:border-action/50 focus:outline-hidden focus:ring-2 focus:ring-primary cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 flex flex-col justify-between hover:bg-action/10"
+      className="group block min-h-11 w-full rounded-2xl border border-action/30 bg-action-soft p-4 text-left shadow-2xs hover:shadow-md hover:border-action/50 focus:outline-hidden focus:ring-2 focus:ring-primary cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-150 flex flex-col justify-between hover:bg-action/10"
     >
       {body}
     </button>

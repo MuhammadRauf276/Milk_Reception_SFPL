@@ -38,7 +38,7 @@ export default function ZMCCManagerPage() {
 
   if (loading) {
     return (
-      <PageLoader label="Loading ZMCC Manager Station…" className="min-h-screen" />
+      <PageLoader label="Loading ZMCC Manager Station…" className="min-h-dvh" />
     );
   }
 
@@ -47,7 +47,7 @@ export default function ZMCCManagerPage() {
   }
 
   return (
-    <React.Suspense fallback={<PageLoader label="Loading ZMCC Manager Station…" className="min-h-screen" />}>
+    <React.Suspense fallback={<PageLoader label="Loading ZMCC Manager Station…" className="min-h-dvh" />}>
       <ZMCCManagerWorkspace currentUser={user} />
     </React.Suspense>
   );

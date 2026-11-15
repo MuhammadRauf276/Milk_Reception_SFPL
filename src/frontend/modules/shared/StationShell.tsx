@@ -24,7 +24,7 @@ export function StationShell({ currentUser, title, sourceName, mainClassName, ch
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
 
   return (
-    <div className="flex min-h-[100dvh] w-full max-w-full flex-col bg-background text-foreground overflow-x-clip">
+    <div className="flex min-h-dvh w-full max-w-full flex-col bg-background text-foreground overflow-x-clip">
       <Header
         currentUser={currentUser}
         title={title}

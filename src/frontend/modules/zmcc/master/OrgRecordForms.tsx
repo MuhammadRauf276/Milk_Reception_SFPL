@@ -30,7 +30,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                       value={formData.name || ''}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g. Haji Muhammad Sharif"
-                      className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
                     />
                   </div>
 
@@ -46,7 +46,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                         value={formData.phone || ''}
                         onChange={(e) => setFormData({ ...formData, phone: typePakistaniMobile(e.target.value) })}
                         placeholder="0300-1234567"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div>
@@ -60,7 +60,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                         value={formData.cnic || ''}
                         onChange={(e) => setFormData({ ...formData, cnic: typePakistaniCnic(e.target.value) })}
                         placeholder="35201-1234567-1"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                   </div>
@@ -79,7 +79,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                       value={formData.name || ''}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g. Jhang North Route"
-                      className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -91,7 +91,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                         value={formData.origin || ''}
                         onChange={(e) => setFormData({ ...formData, origin: e.target.value })}
                         placeholder="e.g. Jhang Center"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div>
@@ -102,7 +102,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                         value={formData.destination || ''}
                         onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
                         placeholder="e.g. Shakarganj Main Plant"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                   </div>
@@ -122,7 +122,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                           onValueChange={(v) => setFormData({ ...formData, route_id: v })}
                           placeholder="Select an active route"
                           searchPlaceholder="Search route"
-                          className="min-h-[44px] w-full text-xs font-semibold"
+                          className="min-h-11 w-full text-xs font-semibold"
                         />
                       </div>
                     </>
@@ -135,7 +135,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                       value={formData.name || ''}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g. Kot Lakhpat Sub-area"
-                      className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 </>
@@ -153,7 +153,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                         value={formData.erp_code || ''}
                         onChange={(e) => setFormData({ ...formData, erp_code: e.target.value.toUpperCase() })}
                         placeholder="e.g. SRC-ERP-901"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                   )}
@@ -165,7 +165,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                       value={formData.name || ''}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g. Direct Farmer Collective A"
-                      className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 </>
@@ -183,7 +183,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                         value={formData.ownership_code || ''}
                         onChange={(e) => setFormData({ ...formData, ownership_code: e.target.value.toUpperCase() })}
                         placeholder="e.g. CHL-BRAND-01"
-                        className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
+                        className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm tabular-nums font-semibold focus:ring-2 focus:ring-primary"
                       />
                     </div>
                   )}
@@ -195,7 +195,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                       value={formData.name || ''}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g. Shakarganj"
-                      className="w-full min-h-[44px] px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
+                      className="w-full min-h-11 px-3 py-2 border border-border rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 </>

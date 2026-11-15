@@ -791,7 +791,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               disabled={isModeAndAddLocked || Boolean(busy)}
               onClick={() => void handleModeSwitch('COMPOSITE')}
               className={cn(
-                'px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-[44px]',
+                'px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-11',
                 mode === 'COMPOSITE'
                   ? 'border-primary-hover bg-blue-50 text-primary-hover ring-2 ring-primary-hover/20'
                   : 'border-border text-secondary-foreground hover:bg-muted',
@@ -806,7 +806,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               disabled={isModeAndAddLocked || Boolean(busy)}
               onClick={() => void handleModeSwitch('PORTION_WISE')}
               className={cn(
-                'px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-[44px]',
+                'px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-11',
                 mode === 'PORTION_WISE'
                   ? 'border-primary-hover bg-blue-50 text-primary-hover ring-2 ring-primary-hover/20'
                   : 'border-border text-secondary-foreground hover:bg-muted',
@@ -904,7 +904,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                 type="button"
                 onClick={handleAddPortion}
                 disabled={Boolean(busy)}
-                className="flex items-center space-x-1.5 min-h-[48px] px-4 rounded-xl bg-primary-hover text-white text-sm font-semibold shadow-xs hover:bg-blue-800 transition disabled:opacity-50"
+                className="flex items-center space-x-1.5 min-h-12 px-4 rounded-xl bg-primary-hover text-white text-sm font-semibold shadow-xs hover:bg-blue-800 transition disabled:opacity-50"
                 title="Add another test portion"
               >
                 {busy === 'add-portion' ? (
@@ -953,7 +953,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                             setSubmitError(null);
                             setActivePortionModal(p);
                           }}
-                          className="flex flex-1 min-h-[56px] items-center justify-between rounded-xl border border-dashed border-action/40 bg-action-soft px-4 text-left text-sm font-semibold text-action hover:bg-action/10 transition"
+                          className="flex flex-1 min-h-14 items-center justify-between rounded-xl border border-dashed border-action/40 bg-action-soft px-4 text-left text-sm font-semibold text-action hover:bg-action/10 transition"
                         >
                           <span>{label}: enter tests and decision</span>
                           <Edit3 className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -965,7 +965,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                             disabled={Boolean(busy)}
                             aria-label={`Cancel ${label}`}
                             title={`Cancel ${label}`}
-                            className="min-h-[56px] min-w-[56px] shrink-0 inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition disabled:opacity-50"
+                            className="min-h-14 min-w-14 shrink-0 inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition disabled:opacity-50"
                           >
                             {busy === `discard-${p.portionNumber}` ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1140,7 +1140,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               loadingText="Submitting…"
               disabled={Boolean(busy)}
               onClick={handleOpenDecide}
-              className="min-h-14 h-auto min-w-0 flex-1 shrink whitespace-normal rounded-xl px-5 py-2.5 text-base font-semibold sm:flex-initial sm:min-w-[260px] sm:px-8"
+              className="min-h-14 h-auto min-w-0 flex-1 shrink whitespace-normal rounded-xl px-5 py-2.5 text-base font-semibold sm:flex-initial sm:min-w-65 sm:px-8"
             >
               {vehicleReview.goesToApprover ? (
                 <AlertTriangle className="h-4 w-4" />
@@ -1495,7 +1495,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                           type="button"
                           onClick={() => setDraft(modalPortion.id, { person: 'REJECT' })}
                           className={cn(
-                            'flex min-h-[48px] items-center justify-center rounded-xl border text-xs font-semibold transition',
+                            'flex min-h-12 items-center justify-center rounded-xl border text-xs font-semibold transition',
                             modalDraft.person === 'REJECT'
                               ? 'border-rose-600 bg-rose-600 text-white shadow-2xs'
                               : 'border-rose-300 bg-card text-rose-700 hover:bg-rose-50'
@@ -1507,7 +1507,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                           type="button"
                           onClick={() => setDraft(modalPortion.id, { person: 'ACCEPT' })}
                           className={cn(
-                            'flex min-h-[48px] items-center justify-center rounded-xl border text-xs font-semibold transition',
+                            'flex min-h-12 items-center justify-center rounded-xl border text-xs font-semibold transition',
                             modalDraft.person === 'ACCEPT'
                               ? 'border-emerald-600 bg-emerald-600 text-white shadow-2xs'
                               : 'border-emerald-300 bg-card text-emerald-700 hover:bg-emerald-50'

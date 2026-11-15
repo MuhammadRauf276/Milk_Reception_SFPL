@@ -148,7 +148,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
             <button
               type="button"
               onClick={onRefresh}
-              className="flex items-center gap-2 min-h-[44px] px-3 text-xs font-semibold text-secondary-foreground hover:text-foreground rounded-lg hover:bg-muted"
+              className="flex items-center gap-2 min-h-11 px-3 text-xs font-semibold text-secondary-foreground hover:text-foreground rounded-lg hover:bg-muted"
             >
               {loadingJourneys && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               Refresh

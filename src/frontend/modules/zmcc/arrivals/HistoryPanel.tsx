@@ -41,7 +41,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
     <button
       type="button"
       onClick={() => p.onTypeChange(value)}
-      className={`min-h-[44px] px-3 ${p.historyType === value ? activeCls : 'bg-white text-secondary-foreground'}`}
+      className={`min-h-11 px-3 ${p.historyType === value ? activeCls : 'bg-white text-secondary-foreground'}`}
     >
       {label}
     </button>
@@ -62,7 +62,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
       <button
         type="button"
         onClick={() => p.onCorrect(target)}
-        className={`min-h-[44px] px-3 text-xs font-semibold rounded-lg cursor-pointer ${correctCls}`}
+        className={`min-h-11 px-3 text-xs font-semibold rounded-lg cursor-pointer ${correctCls}`}
       >
         Correct
       </button>
@@ -70,7 +70,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
       <button
         type="button"
         onClick={() => p.onRequestCorrection(target.type, target.record)}
-        className="min-h-[44px] px-3 text-xs font-semibold text-amber-700 hover:bg-amber-50 rounded-lg border border-amber-200 cursor-pointer"
+        className="min-h-11 px-3 text-xs font-semibold text-amber-700 hover:bg-amber-50 rounded-lg border border-amber-200 cursor-pointer"
       >
         Request correction
       </button>
@@ -204,7 +204,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
             type="date"
             value={p.historyDate}
             onChange={(e) => p.onDateChange(e.target.value)}
-            className="min-h-[44px] text-xs font-semibold px-3 border rounded-xl bg-card"
+            className="min-h-11 text-xs font-semibold px-3 border rounded-xl bg-card"
           />
 
           <div className="relative">
@@ -214,7 +214,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
               value={p.historySearch}
               onChange={(e) => p.onSearchChange(e.target.value)}
               placeholder="Search tokens, vehicle…"
-              className="min-h-[44px] text-xs pl-8 pr-3 border rounded-xl bg-card w-48"
+              className="min-h-11 text-xs pl-8 pr-3 border rounded-xl bg-card w-48"
             />
           </div>
         </div>
@@ -224,7 +224,7 @@ export const HistoryPanel: React.FC<Props> = (p) => {
           <button
             type="button"
             onClick={p.onRefresh}
-            className="flex items-center space-x-1 min-h-[44px] px-4 bg-muted hover:bg-muted/80 active:scale-95 text-secondary-foreground rounded-xl text-xs font-semibold transition-colors"
+            className="flex items-center space-x-1 min-h-11 px-4 bg-muted hover:bg-muted/80 active:scale-95 text-secondary-foreground rounded-xl text-xs font-semibold transition-colors"
           >
             <span>Refresh</span>
           </button>

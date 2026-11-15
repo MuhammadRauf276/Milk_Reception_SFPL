@@ -52,12 +52,12 @@ function WeighbridgeDepartmentContent() {
 
   if (loading || !hasAccess) {
     return (
-      <PageLoader label="Loading Weighbridge Workstation…" className="min-h-[100dvh]" />
+      <PageLoader label="Loading Weighbridge Workstation…" className="min-h-dvh" />
     );
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
+    <div className="min-h-dvh bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
       <Header
         currentUser={user}
         title="Weighbridge"
@@ -93,7 +93,7 @@ export default function WeighbridgeDepartmentPage() {
   return (
     <Suspense
       fallback={
-        <PageLoader label="Loading Weighbridge Workstation…" className="min-h-[100dvh]" />
+        <PageLoader label="Loading Weighbridge Workstation…" className="min-h-dvh" />
       }
     >
       <WeighbridgeDepartmentContent />

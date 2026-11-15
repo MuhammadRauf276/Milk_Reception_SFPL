@@ -196,7 +196,7 @@ export function DynamicReportVisualizer({
                   {/* Bar Body */}
                   <div
                     style={{ height: `${heightPct}%` }}
-                    className={`w-full max-w-[48px] rounded-t-md transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-200 ${
+                    className={`w-full max-w-12 rounded-t-md transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-200 ${
                       isHovered
                         ? 'bg-primary shadow-md shadow-primary/20 scale-y-105 origin-bottom'
                         : 'bg-primary/75 hover:bg-primary'

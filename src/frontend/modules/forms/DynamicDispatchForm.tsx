@@ -1742,7 +1742,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               <button
                 type="button"
                 onClick={() => handleTestModeChange('COMPOSITE')}
-                className={`px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-[44px] ${
+                className={`px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-11 ${
                   testMode === 'COMPOSITE'
                     ? 'border-primary-hover bg-blue-50 text-primary-hover ring-2 ring-primary-hover/20'
                     : 'border-border text-secondary-foreground hover:bg-muted'
@@ -1754,7 +1754,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               <button
                 type="button"
                 onClick={() => handleTestModeChange('PORTION_WISE')}
-                className={`px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-[44px] ${
+                className={`px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-11 ${
                   testMode === 'PORTION_WISE'
                     ? 'border-primary-hover bg-blue-50 text-primary-hover ring-2 ring-primary-hover/20'
                     : 'border-border text-secondary-foreground hover:bg-muted'
@@ -1906,7 +1906,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               loadingText="Submitting…"
               disabled={isSubmitting}
               onClick={() => (formStep === 0 ? handleNextToPortions() : handleOpenDecide())}
-              className="min-h-14 h-auto min-w-0 flex-1 shrink whitespace-normal rounded-xl px-5 py-2.5 text-base font-semibold sm:flex-initial sm:min-w-[260px] sm:px-8"
+              className="min-h-14 h-auto min-w-0 flex-1 shrink whitespace-normal rounded-xl px-5 py-2.5 text-base font-semibold sm:flex-initial sm:min-w-65 sm:px-8"
             >
               {formStep === 0 ? (
                 'Next: Portions'

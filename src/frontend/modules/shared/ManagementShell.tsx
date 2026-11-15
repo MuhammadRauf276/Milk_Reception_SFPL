@@ -41,11 +41,11 @@ export function ManagementShell({ title, allowedRoles, children }: ManagementShe
     setTimeout(() => hamburgerButtonRef.current?.focus(), 0);
   }, []);
 
-  if (loadingUser) return <PageLoader label="Verifying Authorization…" className="min-h-[100dvh]" />;
+  if (loadingUser) return <PageLoader label="Verifying Authorization…" className="min-h-dvh" />;
   if (!currentUser || !isAuthorized) return null;
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
+    <div className="min-h-dvh bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
       <Header
         currentUser={currentUser}
         title={title}

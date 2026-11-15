@@ -60,7 +60,7 @@ function ZmccLabContent() {
 
   if (loading) {
     return (
-      <PageLoader label="Loading ZMCC Laboratory Station…" className="min-h-screen" />
+      <PageLoader label="Loading ZMCC Laboratory Station…" className="min-h-dvh" />
     );
   }
 
@@ -69,7 +69,7 @@ function ZmccLabContent() {
   }
 
   return (
-    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-clip">
+    <div className="w-full max-w-full flex flex-col min-h-dvh bg-background text-foreground overflow-x-clip">
       {/* Header */}
       <Header
         currentUser={currentUser}
@@ -102,7 +102,7 @@ function ZmccLabContent() {
 
 export default function ZmccLabPage() {
   return (
-    <Suspense fallback={<PageLoader label="Loading ZMCC Laboratory Station…" className="min-h-screen" />}>
+    <Suspense fallback={<PageLoader label="Loading ZMCC Laboratory Station…" className="min-h-dvh" />}>
       <ZmccLabContent />
     </Suspense>
   );

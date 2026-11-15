@@ -125,7 +125,7 @@ function PheContent() {
 
   if (loading) {
     return (
-      <PageLoader label="Loading PHE Station…" className="min-h-screen" />
+      <PageLoader label="Loading PHE Station…" className="min-h-dvh" />
     );
   }
 
@@ -134,7 +134,7 @@ function PheContent() {
   }
 
   return (
-    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-clip">
+    <div className="w-full max-w-full flex flex-col min-h-dvh bg-background text-foreground overflow-x-clip">
       {/* Header with Accessible Hamburger Trigger */}
       <Header
         currentUser={currentUser}
@@ -239,7 +239,7 @@ function PheContent() {
 
 export default function PhePage() {
   return (
-    <Suspense fallback={<PageLoader label="Loading PHE Station…" className="min-h-screen" />}>
+    <Suspense fallback={<PageLoader label="Loading PHE Station…" className="min-h-dvh" />}>
       <PheContent />
     </Suspense>
   );

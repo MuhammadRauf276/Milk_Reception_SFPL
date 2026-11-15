@@ -147,7 +147,7 @@ export const McSuccessCard: React.FC<{
               <button
                 type="button"
                 onClick={onReset}
-                className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform]"
+                className="min-h-11 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform]"
               >
                 Record Another Arrival
               </button>

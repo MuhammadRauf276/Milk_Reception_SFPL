@@ -35,7 +35,7 @@ export const ZmccDrawer: React.FC<ZmccDrawerProps> = ({ open, onClose, title, su
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-secondary-foreground cursor-pointer"
+          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-secondary-foreground cursor-pointer"
         >
           <X className="h-5 w-5" />
         </button>
@@ -46,12 +46,12 @@ export const ZmccDrawer: React.FC<ZmccDrawerProps> = ({ open, onClose, title, su
 );
 
 export const zmccInputClass =
-  'w-full min-h-[44px] px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-primary outline-hidden';
+  'w-full min-h-11 px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-primary outline-hidden';
 export const zmccLabelClass = 'block text-xs font-semibold text-secondary-foreground mb-1';
 export const zmccPrimaryBtn =
-  'min-h-[44px] px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-hover disabled:opacity-50 cursor-pointer';
+  'min-h-11 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-hover disabled:opacity-50 cursor-pointer';
 export const zmccGhostBtn =
-  'min-h-[44px] px-4 py-2 border rounded-xl text-sm text-secondary-foreground font-semibold hover:bg-subtle cursor-pointer';
+  'min-h-11 px-4 py-2 border rounded-xl text-sm text-secondary-foreground font-semibold hover:bg-subtle cursor-pointer';
 
 /** A drawer's problem, shown as a popup. */
 export const ZmccErrorBanner: React.FC<{ message: string | null }> = ({ message }) => <ErrorPopup message={message} />;
@@ -66,7 +66,7 @@ export const ZmccPager: React.FC<{
 }> = ({ page, totalPages, onPage, disabled, summary }) => {
   if (totalPages <= 1) return null;
   const btn =
-    'min-h-[44px] px-4 bg-card border border-border-strong rounded-xl text-xs font-semibold hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer';
+    'min-h-11 px-4 bg-card border border-border-strong rounded-xl text-xs font-semibold hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer';
   return (
     <div className="flex items-center justify-between gap-2 p-3 border-t border-border bg-subtle text-xs font-semibold text-secondary-foreground">
       <div>

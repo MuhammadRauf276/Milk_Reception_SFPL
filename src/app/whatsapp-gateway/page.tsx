@@ -129,7 +129,7 @@ export default function WhatsAppGatewayPage() {
   const isOffline = gateway?.status === 'OFFLINE' || gateway?.status === 'DISCONNECTED';
 
   return (
-    <div className="min-h-screen bg-subtle text-foreground flex flex-col">
+    <div className="min-h-dvh bg-subtle text-foreground flex flex-col">
       <header className="bg-card border-b border-border shadow-2xs sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">

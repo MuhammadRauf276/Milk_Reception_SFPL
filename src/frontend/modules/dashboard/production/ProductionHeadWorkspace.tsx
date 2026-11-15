@@ -92,7 +92,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
 
   if (loading && !data) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[40vh]">
+      <div className="flex flex-col items-center justify-center min-h-[40dvh]">
         <PageLoader label="Loading Production Hub…" />
       </div>
     );

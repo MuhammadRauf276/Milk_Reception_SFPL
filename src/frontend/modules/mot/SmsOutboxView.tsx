@@ -223,7 +223,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
                 type="button"
                 aria-pressed={statusFilter === v}
                 onClick={() => setStatusFilter(v)}
-                className={`min-h-[44px] px-3 rounded-lg text-xs font-semibold ${
+                className={`min-h-11 px-3 rounded-lg text-xs font-semibold ${
                   statusFilter === v ? 'bg-primary text-white' : 'text-secondary-foreground'
                 }`}
               >

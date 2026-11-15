@@ -525,7 +525,7 @@ export const CentralCorrectionDesk: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+          <div className="p-5 space-y-4 max-h-[75dvh] overflow-y-auto text-xs">
             {/* Requester Info Card */}
             <div className="bg-card border-border p-4 rounded-2xl border grid grid-cols-2 gap-2 text-secondary-foreground">
               <div>

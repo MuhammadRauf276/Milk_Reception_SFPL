@@ -53,7 +53,7 @@ export const DelegationBanner: React.FC<DelegationBannerProps> = ({
       aria-label="Delegation Status Banner"
       className="w-full bg-card text-secondary-foreground border-b border-border shrink-0 z-20"
     >
-      <div className="mx-auto flex min-h-[40px] sm:min-h-[48px] w-full max-w-full flex-wrap sm:flex-nowrap items-center justify-between gap-2 px-3 py-2 sm:px-6">
+      <div className="mx-auto flex min-h-10 sm:min-h-12 w-full max-w-full flex-wrap sm:flex-nowrap items-center justify-between gap-2 px-3 py-2 sm:px-6">
         {/* Left Side: Static Indicator + Attribution Text */}
         <div className="flex min-w-0 items-center gap-2">
           <span
@@ -75,7 +75,7 @@ export const DelegationBanner: React.FC<DelegationBannerProps> = ({
                 className="group inline-flex min-w-0 items-center gap-1 font-medium text-secondary-foreground hover:text-foreground underline decoration-neutral-400 underline-offset-2 transition-colors cursor-pointer"
                 title="Change source location"
               >
-                <span className="max-w-[140px] sm:max-w-none truncate">{resolvedSourceName}</span>
+                <span className="max-w-35 sm:max-w-none truncate">{resolvedSourceName}</span>
                 <span className="hidden sm:inline text-xs text-muted-foreground group-hover:text-secondary-foreground">
                   (change)
                 </span>

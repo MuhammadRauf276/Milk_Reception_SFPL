@@ -171,7 +171,7 @@ export function DynamicReportTable({
   return (
     <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden flex flex-col">
       {/* Table Container */}
-      <TableWrapper className="min-h-[300px] relative border-0 rounded-none">
+      <TableWrapper className="min-h-75 relative border-0 rounded-none">
         {isLoading && (
           <div className="absolute inset-0 bg-background/60 backdrop-blur-2xs z-20 flex items-center justify-center">
             <div className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-xl shadow-lg">

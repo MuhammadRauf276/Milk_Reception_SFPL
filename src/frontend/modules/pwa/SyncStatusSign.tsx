@@ -266,7 +266,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
             {records.map((r) => {
               const st = stateWord(r);
               return (
-                <li key={r.clientUuid} className="flex min-h-[36px] items-center justify-between gap-2 border-b py-1 text-xs last:border-b-0">
+                <li key={r.clientUuid} className="flex min-h-9 items-center justify-between gap-2 border-b py-1 text-xs last:border-b-0">
                   <span className="min-w-0 break-words">
                     <span className="block font-medium break-words">{KIND_LABELS[r.item.kind] ?? formatLabel(r.item.kind)}</span>
                     <span className="block text-xs text-muted-foreground">{timeLabel(r.item.capturedAt)}</span>

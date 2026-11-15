@@ -227,14 +227,14 @@ export default function MotPage() {
 
   if (loadingUser) {
     return (
-      <PageLoader label="Loading Mobile Tester…" className="min-h-screen" />
+      <PageLoader label="Loading Mobile Tester…" className="min-h-dvh" />
     );
   }
 
   if (!currentUser) return null;
 
   return (
-    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-clip">
+    <div className="w-full max-w-full flex flex-col min-h-dvh bg-background text-foreground overflow-x-clip">
       <Header
         currentUser={currentUser}
         title="Mobile Tester"

@@ -69,7 +69,7 @@ export function VehicleSheet({ editing, defaultZmccId, isCentralRole, sources = 
           <div>
             <label className={sheetLabelClass}>Select ZMCC *</label>
             <Combobox
-              className="min-h-[44px]"
+              className="min-h-11"
               value={form.zmcc_id}
               onValueChange={(v) => setForm({ ...form, zmcc_id: v })}
               placeholder="Select ZMCC"

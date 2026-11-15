@@ -139,7 +139,7 @@ export function DispatchTab({
                     <button
                       type="button"
                       onClick={() => onRequestRoute()}
-                      className="inline-flex items-center min-h-[44px] text-xs font-semibold text-primary hover:underline shrink-0 ml-1"
+                      className="inline-flex items-center min-h-11 text-xs font-semibold text-primary hover:underline shrink-0 ml-1"
                     >
                       <Plus className="w-3.5 h-3.5 mr-0.5" />
                       {routeNeedsZonalApproval ? 'Request route' : 'New route'}
@@ -147,7 +147,7 @@ export function DispatchTab({
                   )}
                 </div>
                 <Combobox
-                  className="min-h-[44px]"
+                  className="min-h-11"
                   value={dispatchRouteId}
                   onValueChange={setDispatchRouteId}
                   placeholder="Select collection route"
@@ -171,7 +171,7 @@ export function DispatchTab({
                   Mobile Tester <span className="text-rose-600">*</span>
                 </label>
                 <Combobox
-                  className="min-h-[44px]"
+                  className="min-h-11"
                   value={dispatchProfileId}
                   onValueChange={(v) => {
                     const prof = profiles.find((p) => p.id === v);
@@ -210,7 +210,7 @@ export function DispatchTab({
                   Collection Vehicle <span className="text-rose-600">*</span>
                 </label>
                 <Combobox
-                  className="min-h-[44px]"
+                  className="min-h-11"
                   value={dispatchVehicleId}
                   onValueChange={(v) => {
                     const veh = vehicles.find((x) => x.id === v);
@@ -267,7 +267,7 @@ export function DispatchTab({
             <button
               type="submit"
               disabled={!canAssignAndDispatch || actionLoading || originSet === false || !dispatchRouteId || !dispatchProfileId || !dispatchVehicleId}
-              className="w-full min-h-[56px] flex items-center justify-center space-x-2 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full min-h-14 flex items-center justify-center space-x-2 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="w-3.5 h-3.5" />
               <span>{actionLoading ? 'Dispatching…' : 'Assign & dispatch'}</span>

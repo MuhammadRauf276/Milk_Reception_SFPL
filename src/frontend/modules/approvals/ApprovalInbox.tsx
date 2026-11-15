@@ -182,7 +182,7 @@ export function ApprovalInbox({
     );
 
   return (
-    <div className={cn('flex flex-col w-full h-full min-h-[620px] bg-card rounded-2xl border border-border shadow-xs overflow-hidden', className)}>
+    <div className={cn('flex flex-col w-full h-full min-h-155 bg-card rounded-2xl border border-border shadow-xs overflow-hidden', className)}>
       {/* Top Master Control Bar */}
       <header className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-4 bg-card border-b border-border">
         <div className="flex items-center gap-3">

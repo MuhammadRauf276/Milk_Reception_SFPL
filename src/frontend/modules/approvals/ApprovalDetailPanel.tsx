@@ -112,7 +112,7 @@ export function ApprovalDetailPanel({
                   disabled={!item.canDecide}
                   className={cn(
                     'flex-1 sm:flex-initial flex items-center justify-center rounded-lg font-semibold transition min-h-11',
-                    'min-h-[52px] sm:min-h-11 px-5 sm:px-6 text-sm sm:text-xs',
+                    'min-h-13 sm:min-h-11 px-5 sm:px-6 text-sm sm:text-xs',
                     'border-2 border-rose-600 text-rose-700 hover:bg-rose-50 active:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed'
                   )}
                 >
@@ -125,7 +125,7 @@ export function ApprovalDetailPanel({
                   disabled={!item.canDecide}
                   className={cn(
                     'flex-1 sm:flex-initial flex items-center justify-center rounded-lg font-semibold transition text-white min-h-11',
-                    'min-h-[52px] sm:min-h-11 px-6 sm:px-7 text-sm sm:text-xs',
+                    'min-h-13 sm:min-h-11 px-6 sm:px-7 text-sm sm:text-xs',
                     'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed'
                   )}
                 >

@@ -40,7 +40,7 @@ export function CoveringBanner({ role, isOnline, coverJourneyId, coverJourneys, 
                   </label>
                   <Combobox
                     id="cover-journey"
-                    className="min-h-[56px]"
+                    className="min-h-14"
                     value={coverJourneyId ?? ''}
                     onValueChange={onSelectJourney}
                     placeholder="Choose…"

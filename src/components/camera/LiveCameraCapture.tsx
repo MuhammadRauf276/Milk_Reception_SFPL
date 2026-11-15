@@ -116,7 +116,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
                     type="button"
                     onClick={handleCaptureClick}
                     disabled={processing}
-                    className="inline-flex min-h-[44px] items-center gap-1 rounded-xl border border-action/30 px-3 text-sm font-semibold text-action hover:bg-action-soft disabled:opacity-50"
+                    className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-action/30 px-3 text-sm font-semibold text-action hover:bg-action-soft disabled:opacity-50"
                   >
                     {processing && <Loader2 className="h-4 w-4 animate-spin" />}
                     Again
@@ -126,7 +126,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
                       type="button"
                       onClick={onPhotoCleared}
                       aria-label={`Remove ${label} picture`}
-                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-rose-50 hover:text-rose-700"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-rose-50 hover:text-rose-700"
                     >
                       <X className="h-4 w-4" aria-hidden="true" />
                     </button>
@@ -146,7 +146,7 @@ export const LiveCameraCapture: React.FC<LiveCameraCaptureProps> = ({
               type="button"
               onClick={handleCaptureClick}
               disabled={disabled || processing}
-              className={`inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition disabled:opacity-50 ${
+              className={`inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition disabled:opacity-50 ${
                 isRequired ? 'bg-primary text-white hover:bg-primary-hover' : 'border border-border bg-card text-secondary-foreground hover:bg-muted'
               }`}
             >

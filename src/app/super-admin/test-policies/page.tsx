@@ -9,7 +9,7 @@ export default function SuperAdminTestPoliciesPage() {
   const { currentUser, loadingUser } = useCurrentUser();
 
   if (loadingUser || !currentUser) {
-    return <PageLoader label="Loading Test Policies…" className="min-h-[50vh]" />;
+    return <PageLoader label="Loading Test Policies…" className="min-h-[50dvh]" />;
   }
 
   return (

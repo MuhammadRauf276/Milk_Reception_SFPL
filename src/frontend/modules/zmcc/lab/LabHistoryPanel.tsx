@@ -219,7 +219,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
         canDirectCorrect ? (
           <button
             onClick={() => openCorrection(item)}
-            className="inline-flex items-center gap-1 min-h-[44px] px-3 text-xs font-semibold text-primary bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1 min-h-11 px-3 text-xs font-semibold text-primary bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
           >
             <Edit3 className="w-3 h-3" />
             Correct
@@ -227,7 +227,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
         ) : canRequestCorrection ? (
           <button
             onClick={() => openRequestCorrection(item)}
-            className="inline-flex items-center gap-1 min-h-[44px] px-3 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1 min-h-11 px-3 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition-colors cursor-pointer"
           >
             Request correction
           </button>
@@ -273,7 +273,7 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
               <button
                 onClick={fetchHistory}
                 disabled={loadingHistory}
-                className="flex items-center gap-2 min-h-[44px] px-4 py-2 bg-muted hover:bg-muted/80 active:scale-95 text-secondary-foreground text-xs font-semibold rounded-xl transition-colors"
+                className="flex items-center gap-2 min-h-11 px-4 py-2 bg-muted hover:bg-muted/80 active:scale-95 text-secondary-foreground text-xs font-semibold rounded-xl transition-colors"
               >
                 Filter
               </button>

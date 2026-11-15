@@ -81,7 +81,7 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
           <button
             type="button"
             onClick={() => setShowDone((v) => !v)}
-            className="px-4 min-h-[44px] rounded-lg text-sm font-semibold border border-border bg-card text-foreground hover:bg-muted"
+            className="px-4 min-h-11 rounded-lg text-sm font-semibold border border-border bg-card text-foreground hover:bg-muted"
           >
             {showDone ? 'Show only waiting' : 'Show done too'}
           </button>
@@ -131,13 +131,13 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
                     value={drafts[item.entity_id] || ''}
                     onChange={(e) => setDrafts((d) => ({ ...d, [item.entity_id]: e.target.value }))}
                     placeholder="Remarks"
-                    className="w-full text-sm font-medium border border-border rounded-lg p-3 bg-subtle text-foreground focus:ring-2 focus:ring-primary min-h-[90px] min-h-11"
+                    className="w-full text-sm font-medium border border-border rounded-lg p-3 bg-subtle text-foreground focus:ring-2 focus:ring-primary min-h-22.5"
                   />
                   <button
                     type="button"
                     disabled={savingId === item.entity_id || !(drafts[item.entity_id] || '').trim()}
                     onClick={() => save(item)}
-                    className="w-full sm:w-auto px-6 min-h-[56px] rounded-lg text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 inline-flex items-center justify-center gap-2 min-h-11"
+                    className="w-full sm:w-auto px-6 min-h-14 rounded-lg text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 inline-flex items-center justify-center gap-2"
                   >
                     {savingId === item.entity_id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                     <span>Save remarks</span>

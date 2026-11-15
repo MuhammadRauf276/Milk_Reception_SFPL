@@ -56,7 +56,7 @@ export const MyCorrectionTicketsButton: React.FC<{ className?: string }> = ({ cl
         onClick={() => setOpen(true)}
         className={
           className ??
-          'flex items-center space-x-1 min-h-[44px] px-4 bg-muted hover:bg-muted/80 active:scale-95 text-secondary-foreground rounded-xl text-xs font-semibold cursor-pointer transition-colors'
+          'flex items-center space-x-1 min-h-11 px-4 bg-muted hover:bg-muted/80 active:scale-95 text-secondary-foreground rounded-xl text-xs font-semibold cursor-pointer transition-colors'
         }
       >
         <ClipboardList className="w-3.5 h-3.5" />

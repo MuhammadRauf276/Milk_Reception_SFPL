@@ -566,7 +566,7 @@ export function ZMCCOperationalJourneysScreen({
           size="xl"
           title="Interactive Route Map Replay"
           showHeader={false}
-          className="max-w-5xl max-h-[92vh] overflow-y-auto p-5 space-y-4"
+          className="max-w-5xl max-h-[92dvh] overflow-y-auto p-5 space-y-4"
         >
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>

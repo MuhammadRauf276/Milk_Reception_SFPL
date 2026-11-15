@@ -136,7 +136,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
           <button
             type="button"
             onClick={onAddPortionClick}
-            className="flex items-center space-x-1.5 min-h-[48px] px-4 rounded-xl bg-primary-hover text-white text-sm font-semibold shadow-xs hover:bg-blue-800 transition"
+            className="flex items-center space-x-1.5 min-h-12 px-4 rounded-xl bg-primary-hover text-white text-sm font-semibold shadow-xs hover:bg-blue-800 transition"
           >
             <PlusCircle className="w-4 h-4" />
             <span>+ Add Portion</span>
@@ -281,7 +281,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                     onChange={(e) => onSealChange(index, e.target.value)}
                     placeholder="Optional seal number"
                     autoComplete="off"
-                    className={`w-full min-h-[48px] px-4 text-base font-semibold rounded-xl border bg-card text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition ${
+                    className={`w-full min-h-12 px-4 text-base font-semibold rounded-xl border bg-card text-foreground focus:ring-2 focus:ring-primary-hover outline-hidden transition ${
                       sealError ? 'border-rose-500 bg-rose-50/20 ring-1 ring-rose-500' : 'border-border-strong'
                     }`}
                   />
@@ -394,7 +394,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                   <button
                     type="button"
                     onClick={() => onSavePortion(index)}
-                    className="min-h-[56px] px-6 rounded-xl bg-emerald-700 text-white text-base font-semibold shadow-xs hover:bg-emerald-800 transition"
+                    className="min-h-14 px-6 rounded-xl bg-emerald-700 text-white text-base font-semibold shadow-xs hover:bg-emerald-800 transition"
                   >
                     Save Portion
                   </button>
@@ -412,7 +412,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => onEditPortion(index)}
-                  className="flex flex-1 min-h-[56px] items-center justify-between rounded-xl border border-dashed border-action/40 bg-action-soft px-4 text-left text-sm font-semibold text-action hover:bg-action/10 transition"
+                  className="flex flex-1 min-h-14 items-center justify-between rounded-xl border border-dashed border-action/40 bg-action-soft px-4 text-left text-sm font-semibold text-action hover:bg-action/10 transition"
                 >
                   <span>Portion {portion.portionNumber}: enter quantity and tests</span>
                   <Edit3 className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -423,7 +423,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                     onClick={() => onRemovePortion(index)}
                     aria-label={`Cancel Portion ${portion.portionNumber}`}
                     title={`Cancel Portion ${portion.portionNumber}`}
-                    className="min-h-[56px] min-w-[56px] shrink-0 inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition"
+                    className="min-h-14 min-w-14 shrink-0 inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition"
                   >
                     <X className="h-5 w-5" />
                   </button>

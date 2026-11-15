@@ -32,8 +32,8 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
   lifecycle,
   compact = false,
 }) => {
-  const stepWidth = compact ? 'w-[116px]' : 'w-[136px]';
-  const railInset = compact ? 'left-[58px] right-[58px]' : 'left-[68px] right-[68px]';
+  const stepWidth = compact ? 'w-29' : 'w-34';
+  const railInset = compact ? 'left-14.5 right-14.5' : 'left-17 right-17';
 
   return (
     <HorizontalScrollRow role="region" aria-label="Vehicle Lifecycle Progression">

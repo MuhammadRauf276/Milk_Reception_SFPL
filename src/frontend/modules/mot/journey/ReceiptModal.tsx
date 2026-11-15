@@ -52,7 +52,7 @@ export function ReceiptModal({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => onClose()}
-            className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md transition min-h-[44px]"
+            className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md transition min-h-11"
           >
             <MessageSquare className="w-4 h-4" />
             <span>Send WhatsApp Receipt ({completedReceiptModal.phone})</span>
@@ -66,7 +66,7 @@ export function ReceiptModal({
                   onClose();
                   onReturnToPhe();
                 }}
-                className="w-full py-2 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-semibold shadow-2xs transition flex items-center justify-center space-x-1.5 min-h-[44px]"
+                className="w-full py-2 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-semibold shadow-2xs transition flex items-center justify-center space-x-1.5 min-h-11"
               >
                 <Truck className="w-4 h-4" />
                 <span>Return to PHE (All Shops Visited)</span>
@@ -74,7 +74,7 @@ export function ReceiptModal({
               <button
                 type="button"
                 onClick={() => onClose()}
-                className="w-full py-2 px-4 rounded-xl border border-border text-secondary-foreground hover:bg-subtle text-xs font-semibold transition min-h-[44px]"
+                className="w-full py-2 px-4 rounded-xl border border-border text-secondary-foreground hover:bg-subtle text-xs font-semibold transition min-h-11"
               >
                 Close & View Journey
               </button>
@@ -84,7 +84,7 @@ export function ReceiptModal({
               <button
                 type="button"
                 onClick={() => onClose()}
-                className="w-full py-2 px-4 rounded-xl border border-border text-secondary-foreground hover:bg-subtle text-xs font-semibold transition min-h-[44px]"
+                className="w-full py-2 px-4 rounded-xl border border-border text-secondary-foreground hover:bg-subtle text-xs font-semibold transition min-h-11"
               >
                 Done / Proceed to Next Shop
               </button>

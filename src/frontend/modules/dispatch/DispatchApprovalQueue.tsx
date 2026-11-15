@@ -233,7 +233,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
             type="button"
             onClick={() => setTab(t)}
             className={cn(
-              'min-h-[44px] flex-1 sm:flex-none rounded-xl border px-4 text-xs font-semibold transition cursor-pointer',
+              'min-h-11 flex-1 sm:flex-none rounded-xl border px-4 text-xs font-semibold transition cursor-pointer',
               tab === t
                 ? 'border-primary bg-primary text-white shadow-2xs'
                 : 'border-border bg-card text-secondary-foreground hover:bg-subtle'
@@ -373,14 +373,14 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-secondary-foreground cursor-pointer"
+                className="min-h-11 min-w-11 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-secondary-foreground cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 max-h-[calc(85vh-8rem)]">
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 max-h-[calc(85dvh-8rem)]">
               <ErrorPopup message={actionError} />
 
               {/* Quality Totals Header */}
@@ -517,7 +517,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                       type="button"
                       disabled={busy}
                       onClick={() => decide(selectedItem, 'NO')}
-                      className="min-h-[48px] py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition disabled:opacity-50 cursor-pointer"
+                      className="min-h-12 py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition disabled:opacity-50 cursor-pointer"
                     >
                       {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                       <span>Reject & Return (NO)</span>
@@ -527,7 +527,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                       type="button"
                       disabled={busy}
                       onClick={() => decide(selectedItem, 'OKAY')}
-                      className="min-h-[48px] py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition disabled:opacity-50 cursor-pointer"
+                      className="min-h-12 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition disabled:opacity-50 cursor-pointer"
                     >
                       {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                       <span>Approve Dispatch (OKAY)</span>

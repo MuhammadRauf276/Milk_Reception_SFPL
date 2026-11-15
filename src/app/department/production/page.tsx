@@ -42,7 +42,7 @@ function ProductionDepartmentContent() {
 
   if (loading) {
     return (
-      <PageLoader label="Loading Production Silo Station…" className="min-h-[100dvh]" />
+      <PageLoader label="Loading Production Silo Station…" className="min-h-dvh" />
     );
   }
 
@@ -51,7 +51,7 @@ function ProductionDepartmentContent() {
   const isSupervisor = canActAs(user.role, 'PRODUCTION_HEAD');
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
+    <div className="min-h-dvh bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
       <Header
         currentUser={user}
         title="Silo Unloading"
@@ -105,7 +105,7 @@ export default function ProductionDepartmentPage() {
   return (
     <Suspense
       fallback={
-        <PageLoader label="Loading Production Silo Station…" className="min-h-[100dvh]" />
+        <PageLoader label="Loading Production Silo Station…" className="min-h-dvh" />
       }
     >
       <ProductionDepartmentContent />

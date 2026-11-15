@@ -115,7 +115,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
     : 'In Progress';
 
   return (
-    <Modal onClose={onClose} title="Dispatch visit details" closeOnOutsideClick className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <Modal onClose={onClose} title="Dispatch visit details" closeOnOutsideClick className="max-w-4xl max-h-[90dvh] overflow-hidden flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-subtle">
           <div className="flex items-center space-x-3">
@@ -140,7 +140,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
           <button
             onClick={onClose}
-            className="p-2 min-h-[44px] min-w-[44px] rounded-xl text-secondary-foreground hover:text-secondary-foreground hover:bg-secondary transition-[color,background-color,border-color,box-shadow,opacity,transform] flex items-center justify-center"
+            className="p-2 min-h-11 min-w-11 rounded-xl text-secondary-foreground hover:text-secondary-foreground hover:bg-secondary transition-[color,background-color,border-color,box-shadow,opacity,transform] flex items-center justify-center"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
@@ -491,7 +491,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
           <button
             onClick={onClose}
-            className="min-h-[44px] min-w-[80px] px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-[color,background-color,border-color,box-shadow,opacity,transform] shadow-2xs flex items-center justify-center focus:outline-hidden focus:ring-2 focus:ring-primary"
+            className="min-h-11 min-w-20 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-[color,background-color,border-color,box-shadow,opacity,transform] shadow-2xs flex items-center justify-center focus:outline-hidden focus:ring-2 focus:ring-primary"
           >
             Close
           </button>

@@ -252,7 +252,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             type="button"
             onClick={() => void handleTake()}
             disabled={phase === 'working' || !identityReady}
-            className="inline-flex h-14 min-w-[220px] items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 text-lg font-semibold text-white shadow-lg disabled:opacity-60 hover:bg-emerald-600 transition-colors"
+            className="inline-flex h-14 min-w-55 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 text-lg font-semibold text-white shadow-lg disabled:opacity-60 hover:bg-emerald-600 transition-colors"
           >
             {phase === 'working' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
             {phase === 'working' ? 'Please wait' : identityReady ? 'Take photo' : 'Loading your details…'}

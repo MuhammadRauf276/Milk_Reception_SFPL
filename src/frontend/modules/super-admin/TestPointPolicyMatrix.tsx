@@ -165,7 +165,7 @@ export function TestPointPolicyMatrix() {
             <Save /> Save changes ({changedCells.length})
           </Button>
         ) : (
-          <span className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-muted px-4 text-sm font-medium text-secondary-foreground">
+          <span className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-muted px-4 text-sm font-medium text-secondary-foreground">
             <Lock className="h-4 w-4" /> View only
           </span>
         )}
@@ -182,9 +182,9 @@ export function TestPointPolicyMatrix() {
         <table className="min-w-full border-collapse text-left text-xs">
           <thead>
             <tr className="bg-subtle">
-              <th className="sticky left-0 z-10 min-w-[160px] bg-subtle p-3 text-sm font-semibold text-foreground">Test</th>
+              <th className="sticky left-0 z-10 min-w-40 bg-subtle p-3 text-sm font-semibold text-foreground">Test</th>
               {points.map((p) => (
-                <th key={p} className="min-w-[210px] p-3 text-sm font-semibold text-foreground">
+                <th key={p} className="min-w-52.5 p-3 text-sm font-semibold text-foreground">
                   {TEST_POINT_LABELS[p]}
                 </th>
               ))}
@@ -219,7 +219,7 @@ export function TestPointPolicyMatrix() {
                                     aria-checked={active}
                                     disabled={!canEdit}
                                     onClick={() => setField(c, f, o.value)}
-                                    className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 border-l border-border-strong px-1 text-xs font-medium first:border-l-0 ${
+                                    className={`flex min-h-11 flex-1 items-center justify-center gap-1 border-l border-border-strong px-1 text-xs font-medium first:border-l-0 ${
                                       active ? TONE_ACTIVE[o.tone] : 'bg-card text-secondary-foreground'
                                     } ${canEdit ? '' : 'cursor-default'}`}
                                   >
@@ -267,7 +267,7 @@ export function TestPointPolicyMatrix() {
               className="w-full rounded-lg border border-border-strong p-3 text-sm"
             />
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowReason(false)} className="min-h-[44px] flex-1 rounded-lg border border-border-strong text-sm font-semibold text-secondary-foreground">
+              <button type="button" onClick={() => setShowReason(false)} className="min-h-11 flex-1 rounded-lg border border-border-strong text-sm font-semibold text-secondary-foreground">
                 Cancel
               </button>
               <Button className="flex-1" disabled={saving || reason.trim().length < 5} onClick={() => void save()}>

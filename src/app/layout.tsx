@@ -46,7 +46,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-[100dvh] bg-background font-sans text-foreground antialiased" suppressHydrationWarning>
+      <body className="min-h-dvh bg-background font-sans text-foreground antialiased" suppressHydrationWarning>
         <MotionProvider>
           <TooltipProvider delayDuration={250}>
             <ToastProvider>

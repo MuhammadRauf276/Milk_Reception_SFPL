@@ -60,7 +60,7 @@ export const AddSupplierDrawer: React.FC<{ s: ReturnType<typeof useAddHcSupplier
         <button
           type="submit"
           disabled={s.submitting}
-          className="min-h-[44px] px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 cursor-pointer"
+          className="min-h-11 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform] disabled:opacity-50 cursor-pointer"
         >
           {s.submitting ? 'Saving…' : 'Save & Select Supplier'}
         </button>

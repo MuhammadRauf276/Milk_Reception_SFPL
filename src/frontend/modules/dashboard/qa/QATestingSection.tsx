@@ -524,7 +524,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               disabled={isModeAndAddLocked || isSwitchingMode || isSubmitting || isAddingPortion || isRemovingPortion}
               onClick={() => void onModeSwitch?.('COMPOSITE')}
               className={cn(
-                'px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-[44px]',
+                'px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-11',
                 testMode === 'COMPOSITE'
                   ? 'border-primary-hover bg-blue-50 text-primary-hover ring-2 ring-primary-hover/20'
                   : 'border-border text-secondary-foreground hover:bg-muted',
@@ -539,7 +539,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               disabled={isModeAndAddLocked || isSwitchingMode || isSubmitting || isAddingPortion || isRemovingPortion}
               onClick={() => void onModeSwitch?.('PORTION_WISE')}
               className={cn(
-                'px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-[44px]',
+                'px-3 py-2 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center transition min-h-11',
                 testMode === 'PORTION_WISE'
                   ? 'border-primary-hover bg-blue-50 text-primary-hover ring-2 ring-primary-hover/20'
                   : 'border-border text-secondary-foreground hover:bg-muted',
@@ -677,7 +677,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               type="button"
               disabled={isAddingPortion || isSubmitting}
               onClick={onAddPortion}
-              className="flex items-center space-x-1.5 min-h-[48px] px-4 rounded-xl bg-primary-hover text-white text-sm font-semibold shadow-xs hover:bg-blue-800 transition disabled:opacity-50"
+              className="flex items-center space-x-1.5 min-h-12 px-4 rounded-xl bg-primary-hover text-white text-sm font-semibold shadow-xs hover:bg-blue-800 transition disabled:opacity-50"
             >
               {isAddingPortion ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -721,7 +721,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                         onSelectPortion(item.realIdx);
                         setIsDrawerOpen(true);
                       }}
-                      className="flex flex-1 min-h-[56px] items-center justify-between rounded-xl border border-dashed border-action/40 bg-action-soft px-4 text-left text-sm font-semibold text-action hover:bg-action/10 transition"
+                      className="flex flex-1 min-h-14 items-center justify-between rounded-xl border border-dashed border-action/40 bg-action-soft px-4 text-left text-sm font-semibold text-action hover:bg-action/10 transition"
                     >
                       <span>{label}: enter seal, tests and decision</span>
                       <Edit3 className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -733,7 +733,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                         onClick={() => onRemovePortion(p.id, p.portion_number)}
                         aria-label={`Cancel ${label}`}
                         title={`Cancel ${label}`}
-                        className="min-h-[56px] min-w-[56px] shrink-0 inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition disabled:opacity-50"
+                        className="min-h-14 min-w-14 shrink-0 inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition disabled:opacity-50"
                       >
                         {isRemovingPortion ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -842,19 +842,19 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                 {/* Quality Summary Strip (LR, Fat %, SNF %, TS %) */}
                 <HorizontalScrollRow className="pt-2 border-t border-border">
                   <div className="flex items-stretch gap-2 min-w-max text-xs tabular-nums font-semibold text-secondary-foreground">
-                    <div className="min-w-[82px] flex-1 bg-card border-border p-2.5 rounded-xl border">
+                    <div className="min-w-20.5 flex-1 bg-card border-border p-2.5 rounded-xl border">
                       <span className="text-xs font-sans text-muted-foreground block">LR</span>
                       <span className="text-foreground">{item.lrVal !== null ? item.lrVal.toFixed(1) : '—'}</span>
                     </div>
-                    <div className="min-w-[82px] flex-1 bg-card border-border p-2.5 rounded-xl border">
+                    <div className="min-w-20.5 flex-1 bg-card border-border p-2.5 rounded-xl border">
                       <span className="text-xs font-sans text-muted-foreground block">Fat %</span>
                       <span className="text-foreground">{item.fatVal !== null ? `${item.fatVal.toFixed(2)}%` : '—'}</span>
                     </div>
-                    <div className="min-w-[82px] flex-1 bg-card border-border p-2.5 rounded-xl border">
+                    <div className="min-w-20.5 flex-1 bg-card border-border p-2.5 rounded-xl border">
                       <span className="text-xs font-sans text-muted-foreground block">SNF %</span>
                       <span className="text-foreground">{item.snf !== null ? `${item.snf.toFixed(2)}%` : '—'}</span>
                     </div>
-                    <div className="min-w-[82px] flex-1 bg-card border-border p-2.5 rounded-xl border">
+                    <div className="min-w-20.5 flex-1 bg-card border-border p-2.5 rounded-xl border">
                       <span className="text-xs font-sans text-muted-foreground block">TS %</span>
                       <span className="text-emerald-900 font-semibold">{item.ts !== null ? `${item.ts.toFixed(2)}%` : '—'}</span>
                     </div>
@@ -908,7 +908,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               loadingText="Submitting…"
               disabled={isSubmitting || isAddingPortion || isRemovingPortion || isSwitchingMode}
               onClick={handleOpenVehicleReview}
-              className="min-h-14 h-auto min-w-0 flex-1 shrink whitespace-normal rounded-xl px-5 py-2.5 text-base font-semibold sm:flex-initial sm:min-w-[260px] sm:px-8"
+              className="min-h-14 h-auto min-w-0 flex-1 shrink whitespace-normal rounded-xl px-5 py-2.5 text-base font-semibold sm:flex-initial sm:min-w-65 sm:px-8"
             >
               {vehicleReview.goesToAvp ? (
                 <AlertTriangle className="h-4 w-4" />
@@ -941,7 +941,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               loadingText="Sending to gate exit…"
               disabled={isRoutingVehicle}
               onClick={() => onRouteVehicle('GATE_EXIT')}
-              className="min-h-14 h-auto min-w-0 flex-1 shrink whitespace-normal rounded-xl px-5 py-2.5 text-base font-semibold sm:flex-initial sm:min-w-[260px] sm:px-8"
+              className="min-h-14 h-auto min-w-0 flex-1 shrink whitespace-normal rounded-xl px-5 py-2.5 text-base font-semibold sm:flex-initial sm:min-w-65 sm:px-8"
             >
               <LogOut className="h-5 w-5" />
               <span>Send to Gate Exit</span>
@@ -955,7 +955,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               loadingText="Proceeding to weighbridge…"
               disabled={isRoutingVehicle}
               onClick={() => onRouteVehicle('WEIGHBRIDGE')}
-              className="min-h-14 h-auto min-w-0 flex-1 shrink whitespace-normal rounded-xl bg-emerald-700 px-5 py-2.5 text-base font-semibold text-white hover:bg-emerald-800 sm:flex-initial sm:min-w-[260px] sm:px-8"
+              className="min-h-14 h-auto min-w-0 flex-1 shrink whitespace-normal rounded-xl bg-emerald-700 px-5 py-2.5 text-base font-semibold text-white hover:bg-emerald-800 sm:flex-initial sm:min-w-65 sm:px-8"
             >
               <Scale className="h-5 w-5" />
               <span>Proceed to Weighbridge</span>

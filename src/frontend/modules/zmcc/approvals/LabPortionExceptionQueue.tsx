@@ -142,7 +142,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
             type="button"
             onClick={() => setTab(t)}
             className={cn(
-              'min-h-[44px] flex-1 rounded-xl border px-4 text-base font-semibold sm:flex-none',
+              'min-h-11 flex-1 rounded-xl border px-4 text-base font-semibold sm:flex-none',
               tab === t ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-secondary-foreground'
             )}
           >

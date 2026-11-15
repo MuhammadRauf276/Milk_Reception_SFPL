@@ -42,12 +42,12 @@ function QADepartmentContent() {
 
   if (loading) {
     return (
-      <PageLoader label="Loading QA Laboratory…" className="min-h-[100dvh]" />
+      <PageLoader label="Loading QA Laboratory…" className="min-h-dvh" />
     );
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
+    <div className="min-h-dvh bg-background text-foreground flex flex-col w-full max-w-full overflow-x-clip">
       <Header
         currentUser={user}
         title="QA Laboratory"
@@ -83,7 +83,7 @@ export default function QADepartmentPage() {
   return (
     <Suspense
       fallback={
-        <PageLoader label="Loading QA Laboratory…" className="min-h-[100dvh]" />
+        <PageLoader label="Loading QA Laboratory…" className="min-h-dvh" />
       }
     >
       <QADepartmentContent />

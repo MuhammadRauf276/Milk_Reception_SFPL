@@ -60,7 +60,7 @@ function ZmccDispatchContent() {
 
   if (loading) {
     return (
-      <PageLoader label="Loading ZMCC Dispatch Station…" className="min-h-screen" />
+      <PageLoader label="Loading ZMCC Dispatch Station…" className="min-h-dvh" />
     );
   }
 
@@ -73,7 +73,7 @@ function ZmccDispatchContent() {
     'Assigned ZMCC Source';
 
   return (
-    <div className="w-full max-w-full flex flex-col min-h-[100dvh] bg-background text-foreground overflow-x-clip">
+    <div className="w-full max-w-full flex flex-col min-h-dvh bg-background text-foreground overflow-x-clip">
       <Header
         currentUser={currentUser}
         sourceName={assignedSourceName}
@@ -109,7 +109,7 @@ function ZmccDispatchContent() {
 
 export default function ZmccDispatchPage() {
   return (
-    <Suspense fallback={<PageLoader label="Loading ZMCC Dispatch Station…" className="min-h-screen" />}>
+    <Suspense fallback={<PageLoader label="Loading ZMCC Dispatch Station…" className="min-h-dvh" />}>
       <ZmccDispatchContent />
     </Suspense>
   );

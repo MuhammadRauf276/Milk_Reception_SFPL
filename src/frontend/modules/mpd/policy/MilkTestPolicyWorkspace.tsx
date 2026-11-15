@@ -738,7 +738,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
       </div>
 
       <AnimatePresence>{isAddModalOpen && (
-        <Modal key="modal-0" onClose={() => setIsAddModalOpen(false)} title="Assign milk test" className="max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <Modal key="modal-0" onClose={() => setIsAddModalOpen(false)} title="Assign milk test" className="max-w-lg p-6 space-y-4 max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2">
                 <FlaskConical className="w-5 h-5 text-muted-foreground" />

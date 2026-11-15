@@ -272,7 +272,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                 onValueChange={handleZmccChange}
                 placeholder="Select ZMCC"
                 searchPlaceholder="Search ZMCC"
-                className="min-h-[44px] w-56 bg-transparent text-xs font-semibold"
+                className="min-h-11 w-56 bg-transparent text-xs font-semibold"
               />
             </div>
           ) : (
@@ -318,21 +318,21 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
             <>
               <div className="bg-card p-4 rounded-2xl border border-border flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
                 <div className="flex flex-wrap items-center gap-2 flex-1">
-                  <div className="relative flex-1 w-full sm:w-auto sm:min-w-[200px] max-w-sm">
+                  <div className="relative flex-1 w-full sm:w-auto sm:min-w-50 max-w-sm">
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <input
                       type="text"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       placeholder="Search code or name…"
-                      className="w-full pl-9 pr-3 py-2 min-h-[44px] bg-subtle border border-border rounded-xl text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                      className="w-full pl-9 pr-3 py-2 min-h-11 bg-subtle border border-border rounded-xl text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     />
                   </div>
 
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as 'all' | 'true' | 'false')}
-                    className="px-3 py-2 min-h-[44px] bg-subtle border border-border rounded-xl text-xs font-semibold text-secondary-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
+                    className="px-3 py-2 min-h-11 bg-subtle border border-border rounded-xl text-xs font-semibold text-secondary-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                     aria-label="Filter by Status"
                   >
                     <option value="all">All statuses</option>
@@ -351,7 +351,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                         }}
                         placeholder="All routes"
                         searchPlaceholder="Search route"
-                        className="min-h-[44px] w-48 text-xs font-semibold"
+                        className="min-h-11 w-48 text-xs font-semibold"
                       />
                       <Combobox
                         options={[{ value: '', label: 'All areas' }, ...helperAreas.filter((a) => !routeFilter || a.route_id === routeFilter).map((a) => ({ value: a.id, label: `${a.name} · ${a.area_code}`, keywords: a.area_code }))]}
@@ -359,7 +359,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                         onValueChange={setAreaFilter}
                         placeholder="All areas"
                         searchPlaceholder="Search area"
-                        className="min-h-[44px] w-48 text-xs font-semibold"
+                        className="min-h-11 w-48 text-xs font-semibold"
                       />
                     </>
                   )}
@@ -371,7 +371,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                       onValueChange={setRouteFilter}
                       placeholder="All routes"
                       searchPlaceholder="Search route"
-                      className="min-h-[44px] w-48 text-xs font-semibold"
+                      className="min-h-11 w-48 text-xs font-semibold"
                     />
                   )}
                 </div>

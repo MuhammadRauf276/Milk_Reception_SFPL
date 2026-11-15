@@ -89,7 +89,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search"
-            className="w-full pl-9 pr-4 py-2 min-h-[44px] text-xs tabular-nums font-semibold bg-subtle border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
+            className="w-full pl-9 pr-4 py-2 min-h-11 text-xs tabular-nums font-semibold bg-subtle border border-border-strong rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-900"
           />
         </div>
 
@@ -240,7 +240,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
               <HorizontalScrollRow className="pt-1">
                 <div className="flex items-stretch gap-2 min-w-max text-center text-xs">
                   <div
-                    className={`w-[136px] shrink-0 p-3 rounded-xl border ${
+                    className={`w-34 shrink-0 p-3 rounded-xl border ${
                       v.gateEntryTimestamp
                         ? 'bg-card border-border text-emerald-800'
                         : 'bg-card border-border text-muted-foreground'
@@ -254,7 +254,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                   </div>
 
                   <div
-                    className={`w-[144px] shrink-0 p-3 rounded-xl border ${
+                    className={`w-36 shrink-0 p-3 rounded-xl border ${
                       v.qaSummary.totalPortions > 0 && v.qaSummary.badgeType !== 'ALL_PENDING'
                         ? 'bg-card border-border text-emerald-800'
                         : v.journeyStage === 'PLANT_QA'
@@ -270,7 +270,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                   </div>
 
                   <div
-                    className={`w-[136px] shrink-0 p-3 rounded-xl border ${
+                    className={`w-34 shrink-0 p-3 rounded-xl border ${
                       v.firstWeightTimestamp
                         ? 'bg-card border-border text-emerald-800'
                         : 'bg-card border-border text-muted-foreground'
@@ -284,7 +284,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                   </div>
 
                   <div
-                    className={`w-[136px] shrink-0 p-3 rounded-xl border ${
+                    className={`w-34 shrink-0 p-3 rounded-xl border ${
                       v.unloadingEndTimestamp
                         ? 'bg-card border-border text-emerald-800'
                         : v.journeyStage === 'UNLOADING'
@@ -300,7 +300,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
                   </div>
 
                   <div
-                    className={`w-[144px] shrink-0 p-3 rounded-xl border ${
+                    className={`w-36 shrink-0 p-3 rounded-xl border ${
                       v.finalReceiptExists
                         ? 'bg-card border-border text-emerald-800'
                         : v.journeyStage === 'RECEIPT_PENDING'

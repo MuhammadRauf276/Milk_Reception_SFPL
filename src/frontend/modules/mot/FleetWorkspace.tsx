@@ -274,7 +274,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
           >
             <div className="min-w-[min(100%,14rem)] flex-1 sm:max-w-60">
               <Combobox
-                className="min-h-[44px]"
+                className="min-h-11"
                 value={zmccFilter}
                 onValueChange={setZmccFilter}
                 placeholder="All ZMCCs"
@@ -287,7 +287,7 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
             </div>
             <div className="min-w-[min(100%,12rem)] flex-1 sm:max-w-52">
               <Combobox
-                className="min-h-[44px]"
+                className="min-h-11"
                 value={statusFilter}
                 onValueChange={setStatusFilter}
                 placeholder="Any status"

@@ -49,7 +49,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
   if (loading) {
     return (
-      <PageLoader label="Verifying access…" className="min-h-[100dvh]" />
+      <PageLoader label="Verifying access…" className="min-h-dvh" />
     );
   }
 
@@ -58,7 +58,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="flex min-h-[100dvh] w-full max-w-full flex-col bg-background text-foreground overflow-x-clip">
+    <div className="flex min-h-dvh w-full max-w-full flex-col bg-background text-foreground overflow-x-clip">
       <SuperAdminHeader
         currentUser={currentUser}
         isOpen={isDrawerOpen}

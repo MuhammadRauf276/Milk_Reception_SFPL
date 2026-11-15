@@ -261,7 +261,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
             </label>
             <Combobox
               id="zmcc-select"
-              className="min-h-[44px] w-full sm:w-64 max-w-full"
+              className="min-h-11 w-full sm:w-64 max-w-full"
               value={selectedZmccId}
               onValueChange={setSelectedZmccId}
               placeholder="Select ZMCC"
@@ -284,7 +284,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
             type="button"
             onClick={() => setSuccessMessage(null)}
             aria-label="Dismiss message"
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center text-emerald-600 hover:text-emerald-900"
+            className="flex min-h-11 min-w-11 items-center justify-center text-emerald-600 hover:text-emerald-900"
           >
             <X className="w-4 h-4" />
           </button>
@@ -349,7 +349,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
                   Select Journey:
                 </label>
                 <Combobox
-                  className="min-h-[44px] w-full sm:w-72 max-w-full"
+                  className="min-h-11 w-full sm:w-72 max-w-full"
                   value={selectedMapJourneyId || ''}
                   onValueChange={setSelectedMapJourneyId}
                   placeholder="Choose journey"
@@ -364,7 +364,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={refreshData}
-                className="flex min-h-[44px] items-center space-x-1 px-3 rounded-xl border border-action/30 text-xs font-semibold text-action hover:bg-action-soft"
+                className="flex min-h-11 items-center space-x-1 px-3 rounded-xl border border-action/30 text-xs font-semibold text-action hover:bg-action-soft"
               >
                 <span>Refresh Journeys</span>
               </button>

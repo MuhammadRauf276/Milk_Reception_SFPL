@@ -118,7 +118,7 @@ export const QAQueuePanel: React.FC<QAQueuePanelProps> = ({
         />
       </div>
 
-      <div key={activeTab} className="space-y-3 max-h-[560px] overflow-y-auto pr-1 stagger-children scrollbar-thin">
+      <div key={activeTab} className="space-y-3 max-h-140 overflow-y-auto pr-1 stagger-children scrollbar-thin">
         {isLoadingQueues ? (
           <SkeletonList count={3} />
         ) : activeTab === 'WAITING' ? (

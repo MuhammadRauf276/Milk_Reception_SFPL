@@ -95,7 +95,7 @@ export function JourneyCard({
               onClick={onReturnToPhe}
               disabled={isSubmittingReturn}
               title="Conclude shop collection and return to ZMCC PHE"
-              className="inline-flex items-center gap-2 min-h-[44px] px-3 py-2 border border-action/30 hover:border-action/50 bg-action-soft hover:bg-action/15 active:scale-[0.98] text-action rounded-xl text-xs font-semibold transition shrink-0"
+              className="inline-flex items-center gap-2 min-h-11 px-3 py-2 border border-action/30 hover:border-action/50 bg-action-soft hover:bg-action/15 active:scale-[0.98] text-action rounded-xl text-xs font-semibold transition shrink-0"
             >
               <Truck className="w-3.5 h-3.5 text-secondary-foreground" />
               <span>Return to PHE</span>
@@ -106,19 +106,19 @@ export function JourneyCard({
 
       <HorizontalScrollRow>
         <div className="flex items-stretch gap-2 sm:gap-3 min-w-max text-center">
-          <div className="min-w-[92px] flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
+          <div className="min-w-23 flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
             <span className="text-xs font-semibold text-muted-foreground block">Active shops</span>
             <span className="font-semibold text-xs sm:text-sm text-foreground tabular-nums">
               {journey.stops.length}
             </span>
           </div>
-          <div className="min-w-[92px] flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
+          <div className="min-w-23 flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
             <span className="text-xs font-semibold text-emerald-800 block">Collected</span>
             <span className="font-semibold text-xs sm:text-sm text-emerald-950 tabular-nums">
               {visitedStops.length}
             </span>
           </div>
-          <div className="min-w-[96px] flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
+          <div className="min-w-24 flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
             <span className="text-xs font-semibold text-rose-800 block">
               {skippedStops.length > 0 ? 'Skipped / Rejected' : 'Rejected'}
             </span>
@@ -128,13 +128,13 @@ export function JourneyCard({
                 : rejectedStops.length}
             </span>
           </div>
-          <div className="min-w-[96px] flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
+          <div className="min-w-24 flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
             <span className="text-xs font-semibold text-blue-800 block">Milk (L)</span>
             <span className="font-semibold text-xs sm:text-sm text-blue-950 tabular-nums">
               {totalGross.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
             </span>
           </div>
-          <div className="min-w-[96px] flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
+          <div className="min-w-24 flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
             <span className="text-xs font-semibold text-emerald-800 block">@13TS (L)</span>
             <span className="font-semibold text-xs sm:text-sm text-emerald-950 tabular-nums">
               {totalAt13ts.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
@@ -184,7 +184,7 @@ export function JourneyCard({
               type="button"
               onClick={onResumeCollection}
               disabled={isSubmittingReturn}
-              className="min-h-[44px] px-4 py-2 bg-accent border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-semibold shrink-0 transition"
+              className="min-h-11 px-4 py-2 bg-accent border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-semibold shrink-0 transition"
             >
               Resume Collection
             </button>
@@ -210,7 +210,7 @@ export function JourneyCard({
               type="button"
               onClick={onReturnToPhe}
               disabled={isSubmittingReturn}
-              className="min-h-[44px] w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-xs shadow-2xs transition flex items-center justify-center space-x-1.5 shrink-0"
+              className="min-h-11 w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-xs shadow-2xs transition flex items-center justify-center space-x-1.5 shrink-0"
             >
               <Truck className="w-4 h-4" />
               <span>Return to PHE</span>
@@ -237,7 +237,7 @@ export function JourneyCard({
             <button
               type="button"
               onClick={() => onRecord(nextPendingStop)}
-              className="min-h-[44px] w-full sm:w-auto px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl font-semibold text-xs shadow-2xs transition flex items-center justify-center space-x-1.5 focus:outline-hidden focus:ring-2 focus:ring-primary"
+              className="min-h-11 w-full sm:w-auto px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl font-semibold text-xs shadow-2xs transition flex items-center justify-center space-x-1.5 focus:outline-hidden focus:ring-2 focus:ring-primary"
             >
               <span>Record Collection</span>
             </button>

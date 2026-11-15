@@ -333,7 +333,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
               />
             </div>
 
-            <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-130 overflow-y-auto pr-1">
               {isLoading ? (
                 <SkeletonList count={3} />
               ) : dispatchedVisits.length === 0 ? (
@@ -516,7 +516,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
               />
             </div>
 
-            <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+            <div className="space-y-2.5 max-h-130 overflow-y-auto pr-1">
               {readyExitVisits.length === 0 ? (
                 <EmptyAction message="No vehicles" onRefresh={() => queryClient.invalidateQueries()} />
               ) : (

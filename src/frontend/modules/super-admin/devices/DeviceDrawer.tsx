@@ -316,7 +316,7 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
           diary.length === 0 && !queryError ? (
             <p className="text-muted-foreground">{diaryQuery.isPending ? 'Loading…' : 'Nothing recorded yet.'}</p>
           ) : (
-            <ol className="max-h-[60vh] space-y-2 overflow-y-auto">
+            <ol className="max-h-[60dvh] space-y-2 overflow-y-auto">
               {diary.map((e) => (
                 <li key={e.id} className="rounded-md border p-2">
                   <div className="font-medium">{EVENT_WORDS[e.eventType] ?? roleWords(e.eventType)}</div>

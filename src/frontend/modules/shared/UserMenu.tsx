@@ -51,7 +51,7 @@ export function UserMenu({ currentUser }: { currentUser: User | null }) {
         <Avatar className="h-7 w-7">
           <AvatarFallback>{initials(displayName)}</AvatarFallback>
         </Avatar>
-        <span className="hidden max-w-[160px] truncate text-sm font-medium text-foreground md:block">{displayName}</span>
+        <span className="hidden max-w-40 truncate text-sm font-medium text-foreground md:block">{displayName}</span>
         <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground md:block" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">

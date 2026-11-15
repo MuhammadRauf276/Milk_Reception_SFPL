@@ -332,7 +332,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                   <div className="pt-3 border-t border-border/80 bg-subtle/40 -mx-5 -mb-3.5 p-3 rounded-b-xl space-y-2.5 text-xs tabular-nums">
                     <HorizontalScrollRow>
                       <div className="flex items-start gap-4 min-w-max pr-1">
-                        <div className="min-w-[100px] shrink-0">
+                        <div className="min-w-25 shrink-0">
                           <span className="text-xs text-muted-foreground block">Dispatch (@13 TS):</span>
                           <span className="font-semibold text-foreground">
                             {group.totalDispatch13TsLiters != null
@@ -341,7 +341,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                           </span>
                         </div>
 
-                        <div className="min-w-[88px] shrink-0">
+                        <div className="min-w-22 shrink-0">
                           <span className="text-xs text-muted-foreground block">Dispatch (gross):</span>
                           <span className="font-semibold text-foreground">
                             {group.totalDispatchGrossLiters != null
@@ -350,14 +350,14 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                           </span>
                         </div>
 
-                        <div className="min-w-[84px] shrink-0">
+                        <div className="min-w-21 shrink-0">
                           <span className="text-xs text-muted-foreground block">First Weight:</span>
                           <span className="font-semibold text-foreground">
                             {group.firstWeightKg != null ? `${group.firstWeightKg.toLocaleString()} KG` : '—'}
                           </span>
                         </div>
 
-                        <div className="min-w-[84px] shrink-0">
+                        <div className="min-w-21 shrink-0">
                           <span className="text-xs text-muted-foreground block">Second Weight:</span>
                           <span className="font-semibold text-foreground">
                             {group.secondWeightKg != null ? `${group.secondWeightKg.toLocaleString()} KG` : '—'}

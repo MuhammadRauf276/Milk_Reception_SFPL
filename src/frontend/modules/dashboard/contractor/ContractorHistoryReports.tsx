@@ -257,7 +257,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
       <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-4">
         <form onSubmit={handleApplyFilter} className="flex flex-wrap items-end gap-3">
           {/* From Date */}
-          <div className="flex-1 min-w-[160px]">
+          <div className="flex-1 min-w-40">
             <label className="block text-xs font-semibold text-secondary-foreground mb-1">
               From Date (YYYY-MM-DD)
             </label>
@@ -270,7 +270,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
           </div>
 
           {/* To Date */}
-          <div className="flex-1 min-w-[160px]">
+          <div className="flex-1 min-w-40">
             <label className="block text-xs font-semibold text-secondary-foreground mb-1">
               To Date (YYYY-MM-DD)
             </label>
@@ -283,7 +283,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
           </div>
 
           {/* Search Box */}
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-50">
             <label className="block text-xs font-semibold text-secondary-foreground mb-1">
               Search Vehicle / Token
             </label>

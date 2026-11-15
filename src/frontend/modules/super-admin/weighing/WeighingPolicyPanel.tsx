@@ -84,7 +84,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
           <SkeletonList count={2} />
         ) : (
           <>
-            <label className="flex min-h-[44px] cursor-pointer items-start gap-3">
+            <label className="flex min-h-11 cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
                 className="mt-1 h-5 w-5"
@@ -109,7 +109,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
                 value={units}
                 disabled={!canEdit || !enabled || save.isPending}
                 onChange={(e) => setUnits(e.target.value as Units)}
-                className="min-h-[44px] w-full rounded-xl border bg-card px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-hidden disabled:opacity-60"
+                className="min-h-11 w-full rounded-xl border bg-card px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-hidden disabled:opacity-60"
               >
                 {UNIT_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -128,7 +128,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
                 value={motUnits}
                 disabled={!canEdit || save.isPending}
                 onChange={(e) => setMotUnits(e.target.value as Units)}
-                className="min-h-[44px] w-full rounded-xl border bg-card px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
+                className="min-h-11 w-full rounded-xl border bg-card px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
               >
                 {UNIT_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -148,7 +148,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
                   setActionError(null);
                   save.mutate();
                 }}
-                className="min-h-[44px] rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
+                className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
               >
                 {save.isPending ? 'Saving…' : 'Save setting'}
               </button>

@@ -235,7 +235,7 @@ export function DynamicFilterBar({
                 <select
                   value={filter.fieldId}
                   onChange={(e) => updateFilter(filter.id, { fieldId: e.target.value })}
-                  className="bg-background border border-border rounded-md px-3 py-1 text-xs font-semibold text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer min-w-[150px]"
+                  className="bg-background border border-border rounded-md px-3 py-1 text-xs font-semibold text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer min-w-37.5"
                 >
                   {filterableFields.map((f) => (
                     <option key={f.id} value={f.id}>
@@ -248,7 +248,7 @@ export function DynamicFilterBar({
                 <select
                   value={filter.operator}
                   onChange={(e) => updateFilter(filter.id, { operator: e.target.value as FilterOperator })}
-                  className="bg-background border border-border rounded-md px-2 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer min-w-[120px]"
+                  className="bg-background border border-border rounded-md px-2 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer min-w-30"
                 >
                   {currentFieldDef?.dataType === 'number' ? (
                     <>
@@ -278,7 +278,7 @@ export function DynamicFilterBar({
                   <select
                     value={filter.value || ''}
                     onChange={(e) => updateFilter(filter.id, { value: e.target.value })}
-                    className="bg-background border border-border rounded-md px-3 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary min-w-[140px]"
+                    className="bg-background border border-border rounded-md px-3 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary min-w-35"
                   >
                     <option value="">Select option…</option>
                     {currentFieldDef.enumValues.map((val) => (
@@ -309,7 +309,7 @@ export function DynamicFilterBar({
                     value={filter.value || ''}
                     onChange={(e) => updateFilter(filter.id, { value: e.target.value })}
                     placeholder="Type search text…"
-                    className="bg-background border border-border rounded-md px-3 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary flex-1 min-w-[140px]"
+                    className="bg-background border border-border rounded-md px-3 py-1 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary flex-1 min-w-35"
                   />
                 )}
 

@@ -210,7 +210,7 @@ export const LiveMapCanvas: React.FC<LiveMapProps> = ({
   markers = [],
   highlightGroup = null,
   playback = false,
-  heightClass = 'h-[480px]',
+  heightClass = 'h-120',
   emptyMessage = 'No GPS points to show on the map yet.',
   onVehicleSelect,
   onPinSelect,
@@ -616,7 +616,7 @@ export const LiveMapCanvas: React.FC<LiveMapProps> = ({
     <div ref={wrapRef} className="flex flex-col gap-2 bg-background">
       <style>{`@keyframes livemap-pulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.55)}70%{box-shadow:0 0 0 14px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}`}</style>
       <div
-        className={`relative w-full overflow-hidden rounded-xl border border-border ${fullscreen ? 'h-[calc(100vh-64px)]' : heightClass}`}
+        className={`relative w-full overflow-hidden rounded-xl border border-border ${fullscreen ? 'h-[calc(100dvh-4rem)]' : heightClass}`}
       >
         <div ref={mapElRef} className="absolute inset-0 h-full w-full" />
 

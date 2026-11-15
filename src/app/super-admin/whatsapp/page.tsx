@@ -478,7 +478,7 @@ export default function SuperAdminWhatsAppPage() {
 
           <p className="text-xs text-muted-foreground flex items-center">Sent to your number<InfoTip text="All active Hasilpur demonstration shops are set to this number." /></p>
 
-          <div className="max-h-[360px] min-w-0 flex-1 overflow-y-auto divide-y divide-border border border-border rounded-xl">
+          <div className="max-h-90 min-w-0 flex-1 overflow-y-auto divide-y divide-border border border-border rounded-xl">
             {loadingShops ? (
               <SkeletonList count={3} className="p-2" />
             ) : shops.length === 0 ? (

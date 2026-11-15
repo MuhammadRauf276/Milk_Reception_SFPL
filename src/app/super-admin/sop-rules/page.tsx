@@ -9,7 +9,7 @@ export default function SuperAdminSopRulesPage() {
   const { currentUser, loadingUser } = useCurrentUser();
 
   if (loadingUser || !currentUser) {
-    return <PageLoader label="Loading SOP Rules…" className="min-h-[50vh]" />;
+    return <PageLoader label="Loading SOP Rules…" className="min-h-[50dvh]" />;
   }
 
   return (

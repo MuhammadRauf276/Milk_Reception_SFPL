@@ -14,7 +14,7 @@ export function SectionError({ error, retry }: { error: Error & { digest?: strin
   }, [error]);
 
   return (
-    <div role="alert" className="flex min-h-[60vh] w-full items-center justify-center p-4">
+    <div role="alert" className="flex min-h-[60dvh] w-full items-center justify-center p-4">
       <div className="w-full max-w-md rounded-2xl border bg-card p-6 text-center shadow-2xs">
         <h1 className="text-base font-semibold text-foreground">This page did not load</h1>
         <p className="mt-1 text-sm text-muted-foreground">Your saved records are safe. Unsent work stays on this device.</p>

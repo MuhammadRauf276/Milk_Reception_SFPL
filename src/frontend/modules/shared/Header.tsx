@@ -106,7 +106,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Bound Scope Tag (for non-regional or already bound stations) */}
           {!delegation.isRegional && resolvedSourceName && resolvedSourceName !== title && (
-            <span className="hidden max-w-[220px] truncate rounded-md border bg-subtle px-2 py-0.5 text-xs font-medium text-muted-foreground md:inline-block">
+            <span className="hidden max-w-55 truncate rounded-md border bg-subtle px-2 py-0.5 text-xs font-medium text-muted-foreground md:inline-block">
               {resolvedSourceName}
             </span>
           )}
