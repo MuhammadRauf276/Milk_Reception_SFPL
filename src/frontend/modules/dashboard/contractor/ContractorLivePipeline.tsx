@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { ErrorState } from '@/components/ui/empty-state';
 import { MilkProcessLog } from '@backend/core/types';
 import { buildContractorVehicleVisits } from './contractorManagerHelpers';
 import {
@@ -12,7 +13,6 @@ import {
   FlaskConical,
   Building2,
   Receipt,
-  AlertCircle,
 } from 'lucide-react';
 import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { HorizontalScrollRow } from '@/components/ui/horizontal-scroll-row';
@@ -71,11 +71,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
 
   if (error) {
     return (
-      <div className="bg-card border-border p-6 rounded-2xl border text-center space-y-2">
-        <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
-        <h4 className="text-sm font-semibold text-rose-900">Failed to load pipeline</h4>
-        <p className="text-xs text-rose-700">{error}</p>
-      </div>
+      <ErrorState description={error} />
     );
   }
 

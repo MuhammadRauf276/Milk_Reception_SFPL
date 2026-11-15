@@ -15,6 +15,7 @@ import {
   Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ErrorPopup } from '@/components/ui/error-popup';
 import { StatCard } from '@/components/ui/stat-card';
 import { TableWrapper } from '@/components/ui/table-wrapper';
 import { Pagination, usePagedRows } from '@/components/ui/pagination';
@@ -139,6 +140,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
 
   return (
     <div className="space-y-5 animate-panel-in">
+      <ErrorPopup message={query.isError ? 'Could not load dispatches.' : null} onRetry={() => void query.refetch()} />
       {/* Top Description Banner */}
       <div className="bg-card border border-border p-4 rounded-2xl shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -256,7 +258,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
               {filteredRows.length === 0 && (
                 <tr>
                   <td colSpan={14} className="py-8 px-3 text-center text-muted-foreground">
-                    {query.isLoading ? 'Loading dispatches…' : query.isError ? 'Could not load dispatches.' : 'No dispatches found.'}
+                    {query.isLoading ? 'Loading dispatches…' : query.isError ? 'Not loaded' : 'No dispatches found.'}
                   </td>
                 </tr>
               )}

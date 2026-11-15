@@ -1,11 +1,13 @@
 'use client';
 
-import { SkeletonList } from '@/components/ui/loaders';
+import { Button } from '@/components/ui/button';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { ZmccDrawer } from '@/frontend/modules/zmcc/shared/ZmccDrawer';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { User } from '@core/types';
-import { ChevronLeft, ChevronRight, Truck } from 'lucide-react';
+import { Eye, Truck } from 'lucide-react';
 import { DynamicDispatchForm } from '@modules/forms/DynamicDispatchForm';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { Pagination, useListPageSize } from '@/components/ui/pagination';
@@ -52,6 +54,12 @@ interface PaginationMeta {
   totalPages: number;
 }
 
+function quantityOf(log: DispatchRecord): string {
+  return log.vehicle_dispatch_quantity_value != null && log.vehicle_dispatch_quantity_unit
+    ? `${Number(log.vehicle_dispatch_quantity_value).toLocaleString()} ${log.vehicle_dispatch_quantity_unit}`
+    : '—';
+}
+
 interface MPDFieldWorkspaceProps {
   currentUser: User | null;
   onRefresh?: () => void;
@@ -92,6 +100,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
   const [customDateError, setCustomDateError] = useState<string | null>(null);
   const [appliedCustomDates, setAppliedCustomDates] = useState({ from: '', to: '' });
   const [page, setPage] = useState(1);
+  const [openLog, setOpenLog] = useState<DispatchRecord | null>(null);
   const pageSize = useListPageSize(25);
 
   let queryUrl = `/api/dispatches?range=${dateRange}&page=${page}&pageSize=${pageSize}`;
@@ -160,6 +169,30 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
     setPage(1);
     void queryClient.invalidateQueries({ queryKey: ['dispatches'] });
   };
+
+  const columns = useMemo<DataColumn<DispatchRecord>[]>(
+    () => [
+      { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', primary: true, cell: (l) => <span className="font-semibold tabular-nums">{l.vehicle_number}</span> },
+      { key: 'date', header: 'Date', label: 'Date', cardAlways: true, cell: (l) => <span className="tabular-nums whitespace-nowrap">{l.dispatch_date || '—'}</span> },
+      { key: 'qty', header: 'Quantity', label: 'Quantity', align: 'right', cell: (l) => <span className="tabular-nums whitespace-nowrap">{quantityOf(l)}</span> },
+      { key: 'note', header: 'Note', label: 'Note', cell: (l) => l.raw_milk_dispatch_note_number || '—' },
+      { key: 'contractor', header: 'Contractor', label: 'Contractor', cell: (l) => l.zonal_contractor_name },
+      {
+        key: 'actions',
+        header: '',
+        label: 'Inspect',
+        actions: true,
+        align: 'right',
+        cell: (l) => (
+          <Button type="button" variant="outline" size="sm" className="min-h-11 gap-1.5 text-xs font-semibold" onClick={() => setOpenLog(l)}>
+            <Eye aria-hidden />
+            Inspect
+          </Button>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 w-full overflow-x-clip">
@@ -288,94 +321,81 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
           </div>
 
           {/* Records List */}
-          <div className="space-y-3 max-h-145 overflow-y-auto pr-1">
-            {isLoading ? (
-              <SkeletonList count={3} />
-            ) : dbDispatches.length === 0 ? (
-              <div className="bg-card border-border p-10 text-center border border-dashed rounded-xl text-sm text-muted-foreground">
-                No dispatches found for this period.
-              </div>
-            ) : (
-              dbDispatches.map((log) => (
-                <div
-                  key={`mpd-dispatch-${String(log.id)}`}
-                  className="bg-card border-border p-4 sm:p-5 rounded-2xl border text-foreground shadow-xs space-y-3 transition"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2.5">
-                      <div className="p-2 rounded-xl bg-muted text-primary-hover">
-                        <Truck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <span className="font-semibold tabular-nums text-base text-foreground">
-                          {log.vehicle_number}
-                        </span>
-                        <div className="flex items-center space-x-1.5 mt-0.5">
-                          <span className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-muted border border-border-strong tabular-nums">
-                            {log.portion_count} Portion{log.portion_count > 1 ? 's' : ''}
-                          </span>
-                          {log.raw_milk_dispatch_note_number && (
-                            <span className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-blue-50 border border-blue-200 text-blue-800 tabular-nums">
-                              Note: {log.raw_milk_dispatch_note_number}
-                            </span>
-                          )}
-                          <span className="text-xs font-medium text-secondary-foreground">
-                            {log.zonal_contractor_name}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <span className="px-3 py-1 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 tabular-nums">
-                      Dispatched
-                    </span>
-                  </div>
-
-                  <div className="bg-card border-border grid grid-cols-2 gap-2 p-3 rounded-xl border text-xs tabular-nums font-semibold">
-                    <div>
-                      <span className="text-muted-foreground font-sans block text-xs font-semibold">Vehicle Quantity</span>
-                      <span className="text-foreground font-semibold text-sm">
-                        {log.vehicle_dispatch_quantity_value != null && log.vehicle_dispatch_quantity_unit
-                          ? `${Number(log.vehicle_dispatch_quantity_value).toLocaleString()} ${log.vehicle_dispatch_quantity_unit}`
-                          : '—'}
-                      </span>
-                      {log.vehicle_dispatch_quantity_unit === 'KG' && log.vehicle_dispatch_gross_liters != null && (
-                        <span className="text-xs text-blue-700 block tabular-nums font-semibold">
-                          {Number(log.vehicle_dispatch_gross_liters).toLocaleString()} Gross L
-                        </span>
-                      )}
-                      {log.vehicle_dispatch_at_13ts_liters != null && (
-                        <span className="text-xs text-emerald-700 block tabular-nums font-semibold">
-                          {Number(log.vehicle_dispatch_at_13ts_liters).toLocaleString()} L @13% TS
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground font-sans block text-xs font-semibold">Dispatch Date</span>
-                      <span className="text-foreground font-semibold text-sm">
-                        {log.dispatch_date || '—'}
-                      </span>
-                    </div>
-                  </div>
+          <DataTable
+            columns={columns}
+            rows={dbDispatches}
+            getRowId={(log) => String(log.id)}
+            loading={isLoading}
+            paginate={false}
+            noun="dispatches"
+            emptyTitle="No dispatches"
+            emptyDescription="Nothing dispatched in this period."
+            footer={
+              pagination.totalRecords > 0 ? (
+                <div className="bg-card border-border rounded-2xl border shadow-2xs overflow-hidden">
+                  <Pagination
+                    page={pagination.page}
+                    totalPages={pagination.totalPages}
+                    totalRecords={pagination.totalRecords}
+                    pageSize={pagination.pageSize}
+                    noun="dispatches"
+                    disabled={isLoading}
+                    onPageChange={handlePageChange}
+                  />
                 </div>
-              ))
-            )}
-          </div>
+              ) : undefined
+            }
+          />
 
-          {/* Server-side Pagination Footer */}
-          {pagination.totalRecords > 0 && (
-            <div className="bg-card border-border rounded-2xl border shadow-2xs overflow-hidden">
-              <Pagination
-                page={pagination.page}
-                totalPages={pagination.totalPages}
-                totalRecords={pagination.totalRecords}
-                pageSize={pagination.pageSize}
-                noun="dispatches"
-                disabled={isLoading}
-                onPageChange={handlePageChange}
-              />
-            </div>
-          )}
+          <ZmccDrawer
+            open={!!openLog}
+            onClose={() => setOpenLog(null)}
+            title={openLog?.vehicle_number ?? 'Dispatch'}
+            subtitle={openLog ? openLog.zonal_contractor_name : undefined}
+            icon={<Truck className="mt-0.5 h-5 w-5 shrink-0 text-secondary-foreground" />}
+          >
+            {openLog && (
+              <div className="space-y-3 text-sm">
+                <span className="inline-flex rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-900">Dispatched</span>
+                <dl className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-x-4 gap-y-2">
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Dispatch date</dt>
+                    <dd className="font-medium tabular-nums">{openLog.dispatch_date || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Quantity</dt>
+                    <dd className="font-medium tabular-nums">{quantityOf(openLog)}</dd>
+                  </div>
+                  {openLog.vehicle_dispatch_quantity_unit === 'KG' && openLog.vehicle_dispatch_gross_liters != null && (
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Gross litres</dt>
+                      <dd className="font-medium tabular-nums">{Number(openLog.vehicle_dispatch_gross_liters).toLocaleString()} L</dd>
+                    </div>
+                  )}
+                  {openLog.vehicle_dispatch_at_13ts_liters != null && (
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Litres at 13% TS</dt>
+                      <dd className="font-medium tabular-nums">{Number(openLog.vehicle_dispatch_at_13ts_liters).toLocaleString()} L</dd>
+                    </div>
+                  )}
+                  {openLog.raw_milk_dispatch_note_number && (
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Note</dt>
+                      <dd className="font-medium tabular-nums">{openLog.raw_milk_dispatch_note_number}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Portions</dt>
+                    <dd className="font-medium tabular-nums">{openLog.portion_count}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Contractor</dt>
+                    <dd className="font-medium break-words">{openLog.zonal_contractor_name}</dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+          </ZmccDrawer>
         </div>
       </div>
     </div>

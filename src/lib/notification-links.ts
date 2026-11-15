@@ -96,6 +96,15 @@ function defaultLinkForEvent(eventKey?: string | null, role?: string | null): st
     case 'CORRECTION_ESCALATED':
     case 'REJECTED_MILK_REMARKS_PENDING':
       return '/approvals';
+    case 'CORRECTION_OPEN':
+      return '/super-admin/corrections?tab=requests';
+    case 'CORRECTION_WITH_ZMCC_MANAGER':
+    case 'CORRECTION_WITH_CONTRACTOR_MANAGER':
+    case 'CORRECTION_WITH_ADMIN_HEAD':
+    case 'CORRECTION_WITH_PRODUCTION_HEAD':
+    case 'CORRECTION_WITH_QA_HEAD':
+    case 'CORRECTION_WITH_HEAD_OF_MPD':
+      return '/request-correction?tab=requests';
     case 'FINANCE_TARGET_CHANGED':
       return '/super-admin/reports';
     case 'SELF_APPROVAL_REVIEW':

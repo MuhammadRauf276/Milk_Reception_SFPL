@@ -17,6 +17,7 @@ import {
   ArrowRight,
   AlertCircle,
   Building2,
+  Eye,
 } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { formatOperationalDatetime, toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
@@ -28,6 +29,9 @@ import { Pager, pageCount, paginate } from './components/Pager';
 import { EmptyAction } from './components/EmptyAction';
 import { InfoTip } from '@/components/ui/info-tip';
 import { SkeletonList } from '@/components/ui/loaders';
+import { Button } from '@/components/ui/button';
+import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { ErrorPopup } from '@/components/ui/error-popup';
 import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import {
   UnifiedWeighbridgeVisit,
@@ -90,6 +94,61 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
       ? atSiloVisits
       : completedVisits;
 
+  const completedColumns: DataColumn<UnifiedWeighbridgeVisit>[] = [
+    {
+      key: 'vehicle',
+      header: 'Tanker',
+      label: 'Tanker',
+      primary: true,
+      cell: (v) => (
+        <span className="font-mono tabular-nums font-semibold">
+          {v.vehicle_number}
+          {v.token_number ? <span className="font-normal text-muted-foreground"> · {v.token_number}</span> : null}
+        </span>
+      ),
+    },
+    { key: 'date', header: 'Date', label: 'Date', cardAlways: true, cell: (v) => <span className="tabular-nums whitespace-nowrap">{v.operational_date}</span> },
+    {
+      key: 'status',
+      header: 'Status',
+      label: 'Status',
+      cardAlways: true,
+      cell: (v) =>
+        v.accepted_portion_count === 0 || v.active_scale_status === 'REJECTED_EXIT' ? (
+          <span className="inline-flex rounded-md border border-destructive/20 bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">Rejected, exit</span>
+        ) : (
+          <span className="inline-flex rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-900">Completed</span>
+        ),
+    },
+    {
+      key: 'portions',
+      header: 'Portions',
+      label: 'Portions',
+      cell: (v) => <span className="tabular-nums">{v.accepted_portion_count}/{v.portion_count}</span>,
+    },
+    {
+      key: 'steps',
+      header: 'Steps',
+      label: 'Steps',
+      cell: (v) => <span className="tabular-nums">{v.steps.filter((s) => s.status === 'COMPLETED').length}/{v.total_weighments}</span>,
+    },
+    { key: 'last', header: 'Last action', label: 'Last action', cell: (v) => v.current_action_label },
+    {
+      key: 'actions',
+      header: '',
+      label: 'Inspect',
+      actions: true,
+      align: 'right',
+      cell: (v) => (
+        <Button type="button" variant="outline" size="sm" className="min-h-11 gap-1.5 text-xs font-semibold" onClick={() => setSelectedId(v.id)}>
+          <Eye aria-hidden />
+          Inspect
+        </Button>
+      ),
+    },
+  ];
+  const showCompletedTable = filter === 'COMPLETED_TODAY';
+
   const totalPages = pageCount(filteredVisits.length);
   const currentPage = Math.min(page, totalPages);
   const selectedVisit = allVisits.find((v) => v.id === selectedId) || null;
@@ -132,7 +191,18 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
         />
       </div>
 
-      {/* Cards Grid */}
+      <ErrorPopup message={queueQuery.isError ? getErrorMessage(queueQuery.error) || 'Could not load the scale queue.' : null} onRetry={() => void queueQuery.refetch()} />
+
+      {showCompletedTable ? (
+        <DataTable
+          columns={completedColumns}
+          rows={filteredVisits}
+          getRowId={(v) => v.id}
+          loading={queueQuery.isPending}
+          noun="tickets"
+          emptyTitle="No completed tickets"
+        />
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {queueQuery.isPending ? (
           <SkeletonList count={3} className="md:col-span-2 lg:col-span-3" />
@@ -261,8 +331,9 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
           })
         )}
       </div>
+      )}
 
-      <Pager page={currentPage} totalPages={totalPages} total={filteredVisits.length} onPageChange={setPage} />
+      {!showCompletedTable && <Pager page={currentPage} totalPages={totalPages} total={filteredVisits.length} onPageChange={setPage} />}
 
       {/* Progressive Stepper Drawer */}
       {selectedVisit && (

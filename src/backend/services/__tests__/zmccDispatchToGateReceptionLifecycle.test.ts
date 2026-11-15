@@ -23,6 +23,7 @@ const APPROVED_DB_NAMES = new Set([
   'milk_reception_test',
   'milk_reception_test_db',
   'milk_reception_dev',
+  'milk_reception_db',
   'sfpl_milk_test',
 ]);
 
@@ -193,9 +194,8 @@ test('ZMCC Dispatch to Plant Gate Reception & Resource Release Complete Lifecycl
 
   const startRes = await startDispatchHandler(startReq);
   const startBody = await startRes.json();
-  assert.equal(startRes.status, 201, `Dispatch start failed: ${JSON.stringify(startBody)}`);
-  assert.ok(startBody.visitId, 'visitId must be returned from start');
-  const visitId = BigInt(startBody.visitId);
+  assert.equal(startRes.status, 200, `Dispatch start failed: ${JSON.stringify(startBody)}`);
+  assert.equal(startBody.visitId, null, 'opening the form creates no visit; the submit creates it');
 
   // 4. STEP B: Submit Dispatch Request to Approver
   const dispatchTimestamp = new Date().toISOString();
@@ -206,7 +206,6 @@ test('ZMCC Dispatch to Plant Gate Reception & Resource Release Complete Lifecycl
       authorization: `Bearer ${zmccToken}`,
     },
     body: JSON.stringify({
-      visitId: visitId.toString(),
       vehicleNumber: selectedVehicle.vehicle_number,
       motVehicleId: selectedVehicle.id,
       motProfileId: selectedMot.id,
@@ -242,6 +241,8 @@ test('ZMCC Dispatch to Plant Gate Reception & Resource Release Complete Lifecycl
   const submitRes = await submitDispatchHandler(submitReq);
   const submitBody = await submitRes.json();
   assert.equal(submitRes.status, 201, `Dispatch submit failed: ${JSON.stringify(submitBody)}`);
+  assert.ok(submitBody.visitId, 'visitId must be returned from submit');
+  const visitId = BigInt(submitBody.visitId);
 
   // 5. STEP C: ZMCC Manager Approves the Dispatch
   const visitForApproval = await prisma.vehicleVisit.findUnique({

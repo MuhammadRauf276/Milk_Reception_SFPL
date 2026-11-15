@@ -69,6 +69,21 @@ test('resolveNotificationDeepLink rejects external URLs and unknown routes safel
   );
 });
 
+test('correction request notifications link to the ticket pages', () => {
+  assert.equal(
+    resolveNotificationDeepLink('/request-correction?tab=requests', { eventKey: 'CORRECTION_WITH_ZMCC_MANAGER', role: 'ZMCC_MANAGER' }),
+    '/request-correction?tab=requests'
+  );
+  assert.equal(
+    resolveNotificationDeepLink(null, { eventKey: 'CORRECTION_WITH_HEAD_OF_MPD', role: 'HEAD_OF_MPD' }),
+    '/request-correction?tab=requests'
+  );
+  assert.equal(
+    resolveNotificationDeepLink('/super-admin/corrections?tab=requests', { eventKey: 'CORRECTION_OPEN', role: 'DATA_EXECUTIVE' }),
+    '/super-admin/corrections?tab=requests'
+  );
+});
+
 test('resolveNotificationDeepLink preserves valid routes and query parameters', () => {
   assert.equal(
     resolveNotificationDeepLink('/mpd/zmcc-manager?tab=APPROVALS&view=LAB_EXCEPTIONS', {

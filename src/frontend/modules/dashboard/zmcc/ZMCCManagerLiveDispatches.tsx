@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import { ErrorState } from '@/components/ui/empty-state';
 
 interface ZMCCManagerLiveDispatchesProps {
   logs: MilkProcessLog[];
@@ -119,25 +120,9 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
     return filteredActiveGroups.slice(startIdx, startIdx + defaultCardsPerPage);
   }, [filteredActiveGroups, validCurrentPage, serverPaging, defaultCardsPerPage]);
 
-  // Error State
+  // Could not load: a quiet placeholder with Try again, and the problem itself as a popup.
   if (error) {
-    return (
-      <div className="bg-card border-border p-8 rounded-2xl border text-center space-y-3" role="alert">
-        <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
-          <AlertTriangle className="w-6 h-6" />
-        </div>
-        <h4 className="text-base font-semibold text-rose-800">Unable to load dispatches</h4>
-        <p className="text-xs text-rose-700 max-w-md mx-auto">{error}</p>
-        {onRetry && (
-          <button
-            onClick={onRetry}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-rose-700 text-white text-xs font-semibold hover:bg-rose-800 transition min-h-11"
-          >
-            <span>Retry Loading</span>
-          </button>
-        )}
-      </div>
-    );
+    return <ErrorState title="Dispatches did not load" description={error} onRetry={onRetry} />;
   }
 
   // Loading State

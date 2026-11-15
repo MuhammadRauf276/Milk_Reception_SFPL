@@ -179,11 +179,7 @@ function EditForm({ section, onClose, onSaved }: { section: EditorSection; onClo
           </div>
         )}
 
-        {error && (
-          <p role="alert" className="text-sm text-rose-700">
-            {error}
-          </p>
-        )}
+        <ErrorPopup message={error} onClear={() => setError(null)} />
       </div>
 
       <div className="flex items-center justify-end gap-2 border-t border-border bg-subtle p-4">

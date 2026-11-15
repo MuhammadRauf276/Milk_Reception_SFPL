@@ -18,9 +18,18 @@ export type NotificationEventKey =
   | 'NEW_HC_PENDING'
   | 'MOT_SHOP_WARNING_LOGGED'
   | 'ZMCC_LAB_WARNING_LOGGED'
-  | 'PLANT_QA_WARNING_LOGGED';
+  | 'PLANT_QA_WARNING_LOGGED'
+  | 'CORRECTION_OPEN'
+  | 'CORRECTION_WITH_ZMCC_MANAGER'
+  | 'CORRECTION_WITH_CONTRACTOR_MANAGER'
+  | 'CORRECTION_WITH_ADMIN_HEAD'
+  | 'CORRECTION_WITH_PRODUCTION_HEAD'
+  | 'CORRECTION_WITH_QA_HEAD'
+  | 'CORRECTION_WITH_HEAD_OF_MPD';
 
 export type NotificationRecipientRole =
+  | 'ADMIN_HEAD'
+  | 'PRODUCTION_HEAD'
   | 'PHE_OPERATOR'
   | 'ZMCC_MANAGER'
   | 'CONTRACTOR_MANAGER'
@@ -58,4 +67,12 @@ export const notificationEventCatalog: Record<NotificationEventKey, Notification
   MOT_SHOP_WARNING_LOGGED: { recipients: ['ZMCC_MANAGER', 'HEAD_OF_MPD'], priority: 'NORMAL', sourceType: 'MOT_SHOP_COLLECTION' },
   ZMCC_LAB_WARNING_LOGGED: { recipients: ['ZMCC_MANAGER', 'HEAD_OF_MPD'], priority: 'NORMAL', sourceType: 'ZMCC_LAB_SESSION' },
   PLANT_QA_WARNING_LOGGED: { recipients: ['QA_HEAD'], priority: 'NORMAL', sourceType: 'PLANT_QA_PORTION' },
+  // A correction request is waiting for the manager of the person who raised it (one key per manager role).
+  CORRECTION_OPEN: { recipients: ['DATA_EXECUTIVE', 'SUPER_ADMIN'], priority: 'HIGH', sourceType: 'CORRECTION_REQUEST' },
+  CORRECTION_WITH_ZMCC_MANAGER: { recipients: ['ZMCC_MANAGER'], priority: 'HIGH', sourceType: 'CORRECTION_REQUEST' },
+  CORRECTION_WITH_CONTRACTOR_MANAGER: { recipients: ['CONTRACTOR_MANAGER'], priority: 'HIGH', sourceType: 'CORRECTION_REQUEST' },
+  CORRECTION_WITH_ADMIN_HEAD: { recipients: ['ADMIN_HEAD'], priority: 'HIGH', sourceType: 'CORRECTION_REQUEST' },
+  CORRECTION_WITH_PRODUCTION_HEAD: { recipients: ['PRODUCTION_HEAD'], priority: 'HIGH', sourceType: 'CORRECTION_REQUEST' },
+  CORRECTION_WITH_QA_HEAD: { recipients: ['QA_HEAD'], priority: 'HIGH', sourceType: 'CORRECTION_REQUEST' },
+  CORRECTION_WITH_HEAD_OF_MPD: { recipients: ['HEAD_OF_MPD'], priority: 'HIGH', sourceType: 'CORRECTION_REQUEST' },
 };

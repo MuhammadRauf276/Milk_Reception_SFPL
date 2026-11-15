@@ -24,7 +24,7 @@ test('loss reconciliation: hand-checked detail rows after the narrower visit sel
   const src = await prisma.procurementSource.create({ data: { code: tag, name: 'Scale test ZMCC', source_type: 'ZMCC' } });
   try {
     const v1 = await prisma.vehicleVisit.create({
-      data: { visit_number: `${tag}-A`, vehicle_number: 'SCALE-A', operational_date: new Date('2031-03-10T00:00:00Z'), procurement_source_id: src.id, vehicle_dispatch_gross_liters: 10000, vehicle_dispatch_at_13ts_liters: 9800, created_at: new Date('2031-03-10T06:00:00Z') },
+      data: { visit_number: `${tag}-A`, vehicle_number: 'SCALE-A', operational_date: new Date('2031-03-10T00:00:00Z'), procurement_source_id: src.id, vehicle_dispatch_gross_liters: 10000, vehicle_dispatch_at_13ts_liters: 9800, business_date_set_at: new Date('2031-03-10T06:00:00Z'), created_at: new Date('2031-03-10T06:00:00Z') },
     });
     const v2 = await prisma.vehicleVisit.create({
       data: {
@@ -32,7 +32,7 @@ test('loss reconciliation: hand-checked detail rows after the narrower visit sel
         vehicle_dispatch_gross_liters: 8000, vehicle_dispatch_at_13ts_liters: 7900, vehicle_dispatch_lr: 28, vehicle_dispatch_fat: 4, created_at: new Date('2031-03-10T09:00:00Z'),
       },
     });
-    await prisma.weightTicket.create({ data: { visit_id: v2.id, ticket_number: `${tag}-W`, net_weight_kg: 8200 } });
+    await prisma.weightTicket.create({ data: { visit_id: v2.id, ticket_number: `${tag}-W`, net_weight_kg: 8200, gross_timestamp: new Date('2031-03-10T09:00:00Z') } });
     const tx = await prisma.siloInventoryTransaction.create({
       data: { silo_id: silo.id, transaction_type: 'RECEIPT', quantity_liters: 7920, operational_timestamp: new Date('2031-03-10T12:00:00Z'), visit_id: v2.id },
     });
@@ -58,8 +58,8 @@ test('loss reconciliation: hand-checked detail rows after the narrower visit sel
     assert.equal(first.date, '2031-03-10');
     assert.equal(second.vehicleNumber, 'SCALE-A');
     assert.equal(second.referenceNumber, `${tag}-A`);
-    assert.equal(second.plantAcceptedLiters, 10000); // no reconciliation yet: falls back to dispatched litres
-    assert.equal(second.transitLossLiters, 0);
+    assert.equal(second.plantAcceptedLiters, undefined); // not reconciled yet: no plant figure is invented
+    assert.equal(second.transitLossLiters, undefined); // and no loss either
     assert.equal(second.plantNetKg, 0);
   } finally {
     await cleanup(src.id);
@@ -76,7 +76,7 @@ test('daily report: the warning-escalation check runs once per source, not once 
   };
   try {
     const visit = await prisma.vehicleVisit.create({
-      data: { visit_number: `${tag}-D1`, vehicle_number: 'SCALE-D', operational_date: new Date('2031-03-11T00:00:00Z'), procurement_source_id: src.id, vehicle_dispatch_gross_liters: 6000 },
+      data: { visit_number: `${tag}-D1`, vehicle_number: 'SCALE-D', operational_date: new Date('2031-03-11T00:00:00Z'), procurement_source_id: src.id, vehicle_dispatch_gross_liters: 6000, business_date_set_at: new Date('2031-03-11T06:00:00Z') },
     });
     for (const n of [1, 2, 3]) {
       await prisma.visitPortion.create({ data: { visit_id: visit.id, portion_number: n, plant_decision: 'ACCEPTED', dispatch_quantity_value: 2000, plant_decided_at: new Date('2031-03-11T08:00:00Z') } });

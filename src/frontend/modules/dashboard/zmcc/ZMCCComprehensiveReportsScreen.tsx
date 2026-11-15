@@ -8,6 +8,7 @@ import { User } from '@backend/core/types';
 import type { RouteLedgerRow, HcSupplierLedgerRow, TankStorageRow } from './zmccReportTypes';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { PageLoader } from '@/components/ui/spinner';
+import { ErrorState } from '@/components/ui/empty-state';
 import { Pagination, useListPageSize } from '@/components/ui/pagination';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
 import { getErrorMessage } from '@/lib/errors';
@@ -371,9 +372,7 @@ export function ZMCCComprehensiveReportsScreen({
           {routeLedgerQuery.isPending ? (
             <PageLoader label="Loading route collection ledger…" className="py-16" />
           ) : routeLedgerQuery.isError ? (
-            <div className="p-8 text-center text-xs text-rose-600">
-              {getErrorMessage(routeLedgerQuery.error)}
-            </div>
+            <ErrorState description={getErrorMessage(routeLedgerQuery.error)} onRetry={() => void routeLedgerQuery.refetch()} className="m-4" />
           ) : (routeLedgerQuery.data?.rows.length || 0) === 0 ? (
             <div className="p-12 text-center text-xs font-semibold text-muted-foreground">
               No route collections found for the selected date range.
@@ -395,9 +394,7 @@ export function ZMCCComprehensiveReportsScreen({
           {hcLedgerQuery.isPending ? (
             <PageLoader label="Loading HC supplier ledger…" className="py-16" />
           ) : hcLedgerQuery.isError ? (
-            <div className="p-8 text-center text-xs text-rose-600">
-              {getErrorMessage(hcLedgerQuery.error)}
-            </div>
+            <ErrorState description={getErrorMessage(hcLedgerQuery.error)} onRetry={() => void hcLedgerQuery.refetch()} className="m-4" />
           ) : (hcLedgerQuery.data?.rows.length || 0) === 0 ? (
             <div className="p-12 text-center text-xs font-semibold text-muted-foreground">
               No supplier arrival records found for the selected date range.
@@ -419,9 +416,7 @@ export function ZMCCComprehensiveReportsScreen({
           {tankStorageQuery.isPending ? (
             <PageLoader label="Loading tank storage and chilling summary…" className="py-16" />
           ) : tankStorageQuery.isError ? (
-            <div className="p-8 text-center text-xs text-rose-600">
-              {getErrorMessage(tankStorageQuery.error)}
-            </div>
+            <ErrorState description={getErrorMessage(tankStorageQuery.error)} onRetry={() => void tankStorageQuery.refetch()} className="m-4" />
           ) : (tankStorageQuery.data?.rows.length || 0) === 0 ? (
             <div className="p-12 text-center text-xs font-semibold text-muted-foreground">
               No tanks registered at this facility.

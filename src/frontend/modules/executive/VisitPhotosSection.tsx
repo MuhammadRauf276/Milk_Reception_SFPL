@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { ErrorState } from '@/components/ui/empty-state';
 import { Camera, ImageOff } from 'lucide-react';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { formatOperationalDatetime } from '@/lib/datetime-utils';
@@ -89,9 +90,7 @@ export function VisitPhotosSection({ visitId }: { visitId: number }) {
       {query.isPending ? (
         <p className="text-xs text-muted-foreground">Loading photos…</p>
       ) : query.isError ? (
-        <p className="text-xs font-semibold text-rose-800" role="alert">
-          Could not load the photos.
-        </p>
+        <ErrorState description="Could not load the photos." onRetry={() => void query.refetch()} />
       ) : photos.length === 0 ? (
         <p className="text-xs text-muted-foreground">No photos attached to this visit.</p>
       ) : (

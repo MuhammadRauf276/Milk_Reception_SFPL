@@ -2,7 +2,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Ban, CheckCircle2, Clock, KeyRound, Plus, ScrollText, Smartphone, Undo2, UserPlus, Users } from 'lucide-react';
+import { ErrorPopup } from '@/components/ui/error-popup';
+import { Ban, CheckCircle2, Clock, KeyRound, Plus, ScrollText, Smartphone, Undo2, UserPlus, Users } from 'lucide-react';
 import { InfoTip } from '@/components/ui/info-tip';
 import { Button } from '@/components/ui/button';
 import { DataFilters, FilterToggle, type ActiveFilter } from '@/components/ui/data-filters';
@@ -162,11 +163,7 @@ export function DevicesWorkspace() {
 
   return (
     <div className="w-full min-w-0 max-w-full space-y-4">
-      {error ? (
-        <div role="alert" className="flex items-center gap-2 rounded-2xl border border-border bg-card p-3 text-sm text-rose-900">
-          <AlertTriangle className="size-4 shrink-0" aria-hidden /> {error}
-        </div>
-      ) : null}
+      <ErrorPopup message={error} onRetry={() => void query.refetch()} />
 
       <div className="w-full min-w-0 max-w-full rounded-2xl border border-border/80 bg-card shadow-2xs">
         <div className="space-y-3 border-b border-border p-3 sm:px-4 sm:py-3">

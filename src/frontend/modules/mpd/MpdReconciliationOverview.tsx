@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { ErrorState } from '@/components/ui/empty-state';
 import { InfoTip } from '@/components/ui/info-tip';
 import { Pagination, useListPageSize } from '@/components/ui/pagination';
 import { SupplyChainLossCard } from '@/frontend/modules/dashboard/components/SupplyChainLossCard';
@@ -42,9 +43,7 @@ export function MpdReconciliationOverview() {
       <SupplyChainLossCard />
 
       {error ? (
-        <section className="bg-card border-border rounded-2xl border p-4 text-sm text-amber-900">
-          MPD overview unavailable: {error}
-        </section>
+        <ErrorState description={error} onRetry={() => { void reconQuery.refetch(); void stageQuery.refetch(); }} />
       ) : !report || !vehicles ? (
         <section className="bg-card border-border rounded-2xl border p-4 text-sm text-muted-foreground">
           Loading MPD operational exceptions…

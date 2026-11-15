@@ -7,6 +7,7 @@ import { AlertTriangle, Calculator, CheckCircle2, Eye, Lock, ShieldCheck, XCircl
 import { mapScopeCheckboxes } from '@/lib/validations/labTest';
 import { TEST_POINT_LABELS, stagesWithPhotoCheckbox, type StagePhotoState, type TestPointCode } from '@/types/test-point-policy';
 import { Button } from '@/components/ui/button';
+import { ErrorState } from '@/components/ui/empty-state';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import { DrawerActions, FormDrawer, fieldInputClass, fieldLabelClass } from '../shared/FormDrawer';
@@ -937,7 +938,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
               {photoStagesQuery.isPending ? (
                 <p className="text-xs text-muted-foreground">Loading stages…</p>
               ) : photoStagesQuery.isError ? (
-                <p role="alert" className="text-xs font-semibold text-rose-800">{getErrorMessage(photoStagesQuery.error) || 'Could not load the photo rules.'}</p>
+                <ErrorState description={getErrorMessage(photoStagesQuery.error) || 'Could not load the photo rules.'} onRetry={() => void photoStagesQuery.refetch()} />
               ) : photoStagesQuery.data.calculated ? (
                 <p className="text-xs text-muted-foreground">Calculated automatically, no photo</p>
               ) : photoStages.length === 0 ? (

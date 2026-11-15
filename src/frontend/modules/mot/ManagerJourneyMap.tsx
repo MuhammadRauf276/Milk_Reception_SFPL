@@ -3,6 +3,7 @@
 import { SkeletonList } from '@/components/ui/loaders';
 import { formatTime } from '@/lib/format';
 import React, { useState, useEffect, useCallback } from 'react';
+import { ErrorState } from '@/components/ui/empty-state';
 import { User } from '@core/types';
 import {
   MapPin,
@@ -195,20 +196,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
 
   if (error || !mapData) {
     return (
-      <div className="bg-card border-border p-6 border rounded-2xl text-rose-800 space-y-3">
-        <div className="flex items-center space-x-2">
-          <AlertTriangle className="w-5 h-5 text-rose-600" />
-          <h3 className="text-sm font-semibold">Failed to load journey map</h3>
-        </div>
-        <p className="text-xs">{error || 'No map data available.'}</p>
-        <button
-          type="button"
-          onClick={() => fetchMapData(journeyId)}
-          className="min-h-11 min-w-11 px-3 py-2 bg-rose-600 text-white rounded-lg text-xs font-semibold hover:bg-rose-700"
-        >
-          Retry
-        </button>
-      </div>
+      <ErrorState description={error || 'No map data available.'} onRetry={() => fetchMapData(journeyId)} />
     );
   }
 

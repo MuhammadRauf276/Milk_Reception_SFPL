@@ -6,6 +6,7 @@ import { History, Plus, Truck } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { User } from '@core/types';
 import { Button } from '@/components/ui/button';
+import { ErrorPopup } from '@/components/ui/error-popup';
 import { Combobox } from '@/components/ui/combobox';
 import { DataFilters, type ActiveFilter } from '@/components/ui/data-filters';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
@@ -234,19 +235,13 @@ export function FleetWorkspace({ currentUser }: { currentUser: User | null }) {
   ];
   return (
     <div className="w-full min-w-0 max-w-full space-y-4">
-      {error ? (
-        <div className="bg-card border-border rounded-2xl border p-3 text-xs font-semibold text-rose-800">{error}</div>
-      ) : null}
+      <ErrorPopup message={error} onClear={() => setError(null)} />
       {message ? (
         <div className="bg-card border-border rounded-2xl border p-3 text-xs font-semibold text-emerald-800">
           {message}
         </div>
       ) : null}
-      {fleetQuery.error ? (
-        <div className="bg-card border-border rounded-2xl border p-3 text-xs font-semibold text-rose-800">
-          {getErrorMessage(fleetQuery.error)}
-        </div>
-      ) : null}
+      <ErrorPopup message={fleetQuery.error ? getErrorMessage(fleetQuery.error) : null} onRetry={() => void fleetQuery.refetch()} />
 
       <div className="w-full min-w-0 max-w-full rounded-2xl border border-border/80 bg-card shadow-2xs">
         <div className="space-y-3 border-b border-border p-3 sm:px-4 sm:py-3">

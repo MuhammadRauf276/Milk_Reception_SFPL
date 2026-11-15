@@ -1060,6 +1060,19 @@ export async function startOrResumeSession(
       });
 
       if (existing) {
+        // A session from before portions existed has none: pressing Resume gives it Portion 1.
+        if (existing.status === 'IN_PROGRESS' && (await tx.zmccLabPortion.count({ where: { lab_session_id: existing.id } })) === 0) {
+          await tx.zmccLabPortion.create({
+            data: {
+              lab_session_id: existing.id,
+              portion_number: 1,
+              status: 'TESTING',
+              final_decision: 'PENDING',
+              created_by_user_id: auth.actorUserId,
+              ...primaryActorFields(auth.acting),
+            },
+          });
+        }
         return existing;
       }
 
@@ -3503,7 +3516,7 @@ const labPortionsSessionInclude = {
 } as const;
 
 async function buildPortionsState(auth: ZmccLabAuthContext, sessionId: bigint): Promise<ServiceResult<LabPortionsState>> {
-  let session = await prisma.zmccLabSession.findUnique({
+  const session = await prisma.zmccLabSession.findUnique({
     where: { id: sessionId },
     include: labPortionsSessionInclude,
   });
@@ -3512,24 +3525,8 @@ async function buildPortionsState(auth: ZmccLabAuthContext, sessionId: bigint): 
     return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
   }
 
-  // Ensure Portion 1 exists for any in-progress session
-  if (session.portions.length === 0 && session.status === 'IN_PROGRESS') {
-    await prisma.zmccLabPortion.create({
-      data: {
-        lab_session_id: session.id,
-        portion_number: 1,
-        status: 'TESTING',
-        final_decision: 'PENDING',
-        created_by_user_id: auth.actorUserId,
-        ...primaryActorFields(auth.acting),
-      },
-    });
-    session = await prisma.zmccLabSession.findUnique({
-      where: { id: sessionId },
-      include: labPortionsSessionInclude,
-    });
-    if (!session) return { status: 404, error: 'ZMCC Lab session not found.' };
-  }
+  // Reading the portions never saves anything. Portion 1 is created when testing is started or resumed
+  // (startOrResumeSession), which is a deliberate press, not when this screen is opened.
   const point = labPointForArrival(session.arrival_type);
   const policy = await loadLabPolicy(point);
   const photos = await loadPortionPhotos(prisma, session.portions.map((p) => p.id));

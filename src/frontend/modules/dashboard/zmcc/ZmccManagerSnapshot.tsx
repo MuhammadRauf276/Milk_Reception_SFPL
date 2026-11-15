@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { ZmccExitOutcomes, type ExitOutcomeRow } from './ZmccExitOutcomes';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { ErrorState } from '@/components/ui/empty-state';
 
 type Overview = {
   source: { name: string };
@@ -23,7 +24,7 @@ function useManagerOverview() {
   const queryClient = useQueryClient();
   // A superior covering this station picks the ZMCC; it is in the address as zmccId.
   const selectedZmccId = useSearchParams().get('zmccId');
-  const { data: overview, error: queryError } = useQuery({
+  const { data: overview, error: queryError, refetch } = useQuery({
     queryKey: [...QUERY_KEY, selectedZmccId ?? 'own'],
     queryFn: ({ signal }) =>
       fetchJson<{ overview: Overview }>(
@@ -52,7 +53,7 @@ function useManagerOverview() {
     onError: (e: Error) => setActionError(e.message),
   });
 
-  return { overview, queryError, decide, actionError, queryClient };
+  return { overview, queryError, decide, actionError, queryClient, refetch };
 }
 
 export function ZmccManagerExitPanel() {
@@ -71,8 +72,8 @@ export function ZmccManagerExitPanel() {
 }
 
 export function ZmccManagerSnapshot() {
-  const { overview, queryError, decide, actionError } = useManagerOverview();
-  if (queryError) return <div className="bg-card border-border rounded-xl border p-3 text-xs text-amber-900">Manager snapshot unavailable: {queryError.message || 'Unable to load manager snapshot.'}</div>;
+  const { overview, queryError, decide, actionError, refetch } = useManagerOverview();
+  if (queryError) return <ErrorState description={queryError.message || 'Unable to load manager snapshot.'} onRetry={() => void refetch()} />;
   if (!overview) return <div className="bg-card border-border rounded-2xl border p-4 text-xs text-muted-foreground">Loading assigned ZMCC snapshot…</div>;
   const cards = [
     ['Expected', overview.pipeline.expected], ['Arrived', overview.pipeline.arrived], ['Testing', overview.pipeline.testing], ['Accepted', overview.pipeline.accepted], ['Rejected', overview.pipeline.rejected], ['Dispatched', overview.pipeline.dispatched],

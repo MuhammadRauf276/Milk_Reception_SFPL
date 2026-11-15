@@ -1,4 +1,5 @@
-import { clearHandledNotifications } from '@/backend/services/notificationService';
+import { clearHandledNotifications, createNotificationsForEvent } from '@/backend/services/notificationService';
+import type { NotificationEventKey } from '@/backend/modules/notifications/eventCatalog';
 import { prisma } from '@/backend/core/db';
 import { auditActorFromUser, writeAuditLog } from '@/backend/core/audit';
 import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
@@ -31,6 +32,62 @@ export function managerRoleFor(requesterRole: string | null | undefined): string
   const parent = getParentRole(requesterRole);
   return parent && !isCorrectionAuthority(parent) ? parent : null;
 }
+const MANAGER_WAIT_EVENTS: Record<string, NotificationEventKey> = {
+  ZMCC_MANAGER: 'CORRECTION_WITH_ZMCC_MANAGER',
+  CONTRACTOR_MANAGER: 'CORRECTION_WITH_CONTRACTOR_MANAGER',
+  ADMIN_HEAD: 'CORRECTION_WITH_ADMIN_HEAD',
+  PRODUCTION_HEAD: 'CORRECTION_WITH_PRODUCTION_HEAD',
+  QA_HEAD: 'CORRECTION_WITH_QA_HEAD',
+  HEAD_OF_MPD: 'CORRECTION_WITH_HEAD_OF_MPD',
+};
+const MANAGER_WAIT_EVENT_KEYS = Object.values(MANAGER_WAIT_EVENTS);
+
+const MODULE_LABELS: Record<string, string> = {
+  ZMCC_LAB_SESSION: 'lab test',
+  MOT_SHOP_COLLECTION: 'shop collection',
+  ZMCC_MC_ARRIVAL: 'MC arrival',
+  ZMCC_HC_ARRIVAL: 'HC arrival',
+  ZMCC_WEIGHING: 'weighing',
+  ZMCC_EXIT: 'exit',
+  VEHICLE_VISIT: 'vehicle visit',
+  PLANT_QA_MEASUREMENT: 'plant QA test',
+};
+
+/** A failed bell notification must never fail the ticket action. */
+async function safeNotify(action: () => Promise<unknown>) {
+  try {
+    await action();
+  } catch (err) {
+    console.error('Correction request notification failed:', err);
+  }
+}
+
+async function notifyManagerWaiting(req: { id: bigint; module: string; source_id: bigint | null }, managerRole: string, requesterName: string) {
+  const eventKey = MANAGER_WAIT_EVENTS[managerRole];
+  if (!eventKey) return;
+  await createNotificationsForEvent(prisma, {
+    eventKey,
+    sourceId: req.id.toString(),
+    // Only ZMCC and contractor managers are bound to one source; the other manager roles are global.
+    sourceZmccId: managerRole === 'ZMCC_MANAGER' || managerRole === 'CONTRACTOR_MANAGER' ? req.source_id : null,
+    title: 'Correction request waiting',
+    body: `${requesterName} sent a correction request for a ${MODULE_LABELS[req.module] ?? 'record'}.`,
+    deepLink: '/request-correction?tab=requests',
+    dedupeSuffix: req.id.toString(),
+  });
+}
+
+async function notifyCorrectionOpen(req: { id: bigint; module: string }, requesterName: string) {
+  await createNotificationsForEvent(prisma, {
+    eventKey: 'CORRECTION_OPEN',
+    sourceId: req.id.toString(),
+    title: 'Correction request open',
+    body: `${requesterName} sent a correction request for a ${MODULE_LABELS[req.module] ?? 'record'}.`,
+    deepLink: '/super-admin/corrections?tab=requests',
+    dedupeSuffix: req.id.toString(),
+  });
+}
+
 export const CORRECTION_TICKET_MODULES = [
   'ZMCC_LAB_SESSION',
   'MOT_SHOP_COLLECTION',
@@ -218,6 +275,9 @@ export async function createCorrectionRequest(input: CreateCorrectionRequestInpu
     console.error('AuditLog creation failed for correction request:', err);
   }
 
+  const requesterName = req.requester.full_name || req.requester.username;
+  await safeNotify(() => (managerRole ? notifyManagerWaiting(req, managerRole, requesterName) : notifyCorrectionOpen(req, requesterName)));
+
   return req;
 }
 
@@ -356,6 +416,11 @@ export async function managerDecideCorrectionRequest(
     newValues: { status: approve ? 'REQUESTED' : 'REJECTED', note: cleanNote || null },
     actor: auditActorFromUser(manager),
   });
+
+  await safeNotify(() => clearHandledNotifications(prisma, MANAGER_WAIT_EVENT_KEYS, req.id));
+  if (approve) {
+    await safeNotify(() => notifyCorrectionOpen(req, req.requester.full_name || req.requester.username));
+  }
   return { id: req.id, status: approve ? 'REQUESTED' : 'REJECTED' };
 }
 
@@ -380,7 +445,7 @@ export async function rejectCorrectionRequest(
   }
 
   const reviewerId = BigInt(reviewerUser.id);
-  await clearHandledNotifications(prisma, ['CORRECTION_ESCALATED'], requestId);
+  await safeNotify(() => clearHandledNotifications(prisma, ['CORRECTION_ESCALATED', 'CORRECTION_OPEN'], requestId));
   const updated = await prisma.correctionRequest.update({
     where: { id: requestId },
     data: {
@@ -419,7 +484,7 @@ export async function approveCorrectionRequest(
   if (!req) throw new Error('Correction request not found.');
   if (req.status !== 'REQUESTED') throw new Error(`Cannot approve correction request in status: ${req.status}`);
 
-  await clearHandledNotifications(prisma, ['CORRECTION_ESCALATED'], requestId);
+  await safeNotify(() => clearHandledNotifications(prisma, ['CORRECTION_ESCALATED', 'CORRECTION_OPEN'], requestId));
   const updated = await prisma.correctionRequest.update({
     where: { id: requestId },
     data: {
@@ -589,6 +654,8 @@ export async function applyCorrectionRequest(
     newValues: { status: 'APPLIED', application_result: applicationResult ? 'SUCCESS' : 'MANUAL_APPLY' },
     actor: auditActorFromUser(reviewerUser),
   });
+
+  await safeNotify(() => clearHandledNotifications(prisma, ['CORRECTION_ESCALATED', 'CORRECTION_OPEN'], requestId));
 
   return { request: updated, result: applicationResult };
 }

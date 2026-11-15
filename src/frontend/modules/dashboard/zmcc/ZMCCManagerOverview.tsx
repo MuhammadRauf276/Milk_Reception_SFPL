@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { ZmccManagerExitPanel } from './ZmccManagerSnapshot';
+import { ErrorState } from '@/components/ui/empty-state';
 import { formatDate } from '@/lib/format';
 import { MilkProcessLog } from '@backend/core/types';
 import {
@@ -94,23 +95,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
 
   // Error State Render: Never show KPI numbers or zeros on error
   if (error) {
-    return (
-      <div className="bg-card border-border p-8 rounded-2xl border text-center space-y-3" role="alert">
-        <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
-          <AlertTriangle className="w-6 h-6" />
-        </div>
-        <h4 className="text-base font-semibold text-rose-800">Unable to Load Manager Overview Data</h4>
-        <p className="text-xs text-rose-700 max-w-md mx-auto">{error}</p>
-        {onRetry && (
-          <button
-            onClick={onRetry}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-rose-700 text-white text-xs font-semibold hover:bg-rose-800 transition min-h-11"
-          >
-            <span>Retry Loading</span>
-          </button>
-        )}
-      </div>
-    );
+    return <ErrorState description={error} onRetry={onRetry} />;
   }
 
   // Loading State: Render skeletons rather than authoritative business zeros

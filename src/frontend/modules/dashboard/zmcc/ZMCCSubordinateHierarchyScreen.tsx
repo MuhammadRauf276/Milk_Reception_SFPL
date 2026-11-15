@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { ErrorState } from '@/components/ui/empty-state';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
@@ -20,7 +21,6 @@ import {
   Download,
   MapPin,
   CheckCircle2,
-  AlertTriangle,
   Store,
   Phone,
   Milk,
@@ -249,18 +249,7 @@ export function ZMCCSubordinateHierarchyScreen({
 
   if (hierarchyQuery.isError) {
     return (
-      <div className="p-8 text-center bg-card rounded-2xl border border-rose-200 space-y-3">
-        <AlertTriangle className="w-8 h-8 text-rose-600 mx-auto" />
-        <h3 className="text-sm font-semibold text-rose-800">Failed to load hierarchy</h3>
-        <p className="text-xs text-rose-600 max-w-md mx-auto">{getErrorMessage(hierarchyQuery.error)}</p>
-        <button
-          type="button"
-          onClick={() => hierarchyQuery.refetch()}
-          className="min-h-11 px-4 py-2 bg-rose-600 text-white rounded-lg text-xs font-semibold hover:bg-rose-700"
-        >
-          Retry
-        </button>
-      </div>
+      <ErrorState description={getErrorMessage(hierarchyQuery.error)} onRetry={() => void hierarchyQuery.refetch()} />
     );
   }
 
