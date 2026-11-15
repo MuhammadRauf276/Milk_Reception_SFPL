@@ -9,6 +9,7 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import { formatLabel } from '@/lib/format';
 import { CORRECTION_MODULE_LABELS } from './MyCorrectionTickets';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export interface EditableFieldOption {
   field: string;
@@ -161,15 +162,10 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
             <div className="bg-card border-border p-3 rounded-xl border text-blue-900 text-xs leading-relaxed">
-              <strong>How it works:</strong> saved entries are locked. Tell us what is wrong and what it should be. The <strong>Data Executive</strong> reviews your request and fixes the record. You can follow it under <em>My correction requests</em>: Open, Approved, Rejected or Done.
+              <strong>How it works:</strong> saved entries are locked. Tell us what is wrong and what it should be. Your manager approves it first, then the <strong>Data Executive</strong> or <strong>Super Admin</strong> fixes the record. You can follow it in the <em>Requests</em> tab.
             </div>
 
-            {error && (
-              <div className="bg-card border-border p-3 rounded-xl border text-rose-800 flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                <span>{error}</span>
-              </div>
-            )}
+            <ErrorPopup message={error} />
 
             {/* Field Selector */}
             <div>

@@ -3,6 +3,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface ZmccDrawerProps {
   open: boolean;
@@ -52,12 +53,8 @@ export const zmccPrimaryBtn =
 export const zmccGhostBtn =
   'min-h-[44px] px-4 py-2 border rounded-xl text-sm text-secondary-foreground font-semibold hover:bg-subtle cursor-pointer';
 
-export const ZmccErrorBanner: React.FC<{ message: string | null }> = ({ message }) =>
-  message ? (
-    <div role="alert" className="bg-card border-border p-3 border text-rose-800 text-xs rounded-xl">
-      {message}
-    </div>
-  ) : null;
+/** A drawer's problem, shown as a popup. */
+export const ZmccErrorBanner: React.FC<{ message: string | null }> = ({ message }) => <ErrorPopup message={message} />;
 
 /** Simple Previous / Next pager. */
 export const ZmccPager: React.FC<{

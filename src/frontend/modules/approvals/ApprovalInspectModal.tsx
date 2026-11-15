@@ -19,6 +19,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { STAGE_LABELS, cleanEntityTitle, formatWaitingLabel } from './approvalInboxShared';
 import { ApprovalDetailBody } from './ApprovalDetailBody';
 import { formatLabel } from '@/lib/format';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export interface ApprovalInspectModalProps {
   item: UnifiedApprovalItem | null;
@@ -217,12 +218,7 @@ export function ApprovalInspectModal({
                         />
                       </div>
 
-                      {decisionError && (
-                        <div className="bg-card border-border p-3 rounded-lg border text-rose-700 text-xs font-semibold flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 shrink-0" />
-                          <span>{decisionError}</span>
-                        </div>
-                      )}
+                      <ErrorPopup message={decisionError} />
 
                       <div className="flex items-center justify-end gap-2">
                         <button

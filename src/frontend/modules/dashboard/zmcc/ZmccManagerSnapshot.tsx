@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { ZmccExitOutcomes, type ExitOutcomeRow } from './ZmccExitOutcomes';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 type Overview = {
   source: { name: string };
@@ -58,7 +59,7 @@ export function ZmccManagerExitPanel() {
   const { overview, queryError, decide, actionError } = useManagerOverview();
   if (queryError || !overview) return null;
   return <section className="space-y-3" aria-label="ZMCC exit outcomes">
-    {actionError ? <div role="alert" className="bg-card border-border rounded-xl border p-3 text-xs text-red-800">{actionError}</div> : null}
+    <ErrorPopup message={actionError} />
     <ZmccExitOutcomes
       left={overview.exits.leftWithoutFullUnloading}
       pending={overview.exits.pendingCloseRequests}
@@ -79,7 +80,7 @@ export function ZmccManagerSnapshot() {
   return <section className="space-y-3" aria-label="Assigned ZMCC operational snapshot">
     <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-2">{cards.map(([label, value]) => <div key={String(label)} className="bg-card border-border rounded-xl border p-3"><p className="text-xs font-semibold text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold text-foreground tabular-nums">{value}</p></div>)}</div>
     <div className="grid gap-3 lg:grid-cols-2"><div className="bg-card border-border rounded-2xl border p-4 text-xs"><p className="font-semibold text-foreground">Tank and dispatch</p><p className="mt-2">Tank: <strong>{overview.tank.grossLiters.toLocaleString()} L</strong> · On the way: <strong>{overview.dispatch.ready}</strong></p><p className="mt-1">At plant: <strong>{overview.dispatch.activeAtPlant}</strong> · To review: <strong>{overview.exceptions.pendingManagerReview}</strong></p></div><div className="bg-card border-border rounded-2xl border p-4 text-xs"><p className="font-semibold text-foreground">Active Mobile Tester work</p>{overview.activeStations.length ? overview.activeStations.map((item) => <p key={item.id} className="mt-2">{item.label} · {item.station} · {item.waitingMinutes}m</p>) : <p className="mt-2 text-muted-foreground">None</p>}</div></div>
-    {actionError ? <div role="alert" className="bg-card border-border rounded-xl border p-3 text-xs text-red-800">{actionError}</div> : null}
+    <ErrorPopup message={actionError} />
     <ZmccExitOutcomes
       left={overview.exits.leftWithoutFullUnloading}
       pending={overview.exits.pendingCloseRequests}

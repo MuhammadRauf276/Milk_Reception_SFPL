@@ -430,9 +430,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                         rows={2}
                         className="min-h-11 w-full resize-none rounded-lg border border-border-strong p-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       />
-                      {itemError[activeModalItem.id] && (
-                        <p className="mt-1 text-xs font-semibold text-rose-700">{itemError[activeModalItem.id]}</p>
-                      )}
+                      <ErrorPopup message={itemError[activeModalItem.id]} />
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">

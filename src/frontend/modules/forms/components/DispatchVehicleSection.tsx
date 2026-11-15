@@ -7,6 +7,7 @@ import {
   QuantityUnit,
   MeasurementBasis,
 } from '@/backend/modules/dispatch/quantity-policy/types';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export type QuantityUnitType = QuantityUnit;
 export type MeasurementBasisType = MeasurementBasis;
@@ -242,11 +243,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                 required
               />
             )}
-            {vehicleNumberError && (
-              <p className="text-xs font-semibold text-rose-600 mt-1 break-words" id="vehicle-number-error">
-                {vehicleNumberError}
-              </p>
-            )}
+            <ErrorPopup message={vehicleNumberError} />
           </div>
 
           {/* 2. Escort / Driver Person (Combobox for ZMCC MOT with manual fallback, text input for Contractor driver) */}
@@ -311,11 +308,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
                 required
               />
             )}
-            {(motError || driverError) && (
-              <p className="text-xs font-semibold text-rose-600 mt-1 break-words">
-                {motError || driverError}
-              </p>
-            )}
+            <ErrorPopup message={motError || driverError} />
           </div>
 
           {/* 3. Dispatch Note Number */}
@@ -359,11 +352,7 @@ export const DispatchVehicleSection: React.FC<DispatchVehicleSectionProps> = ({
       <input type="hidden" id="vehicle-basis-select" value="MEASURED" />
       <input type="hidden" id="vehicle-lr-input" value={vehicleLr || ''} />
       <input type="hidden" id="vehicle-fat-input" value={vehicleFat || ''} />
-      {vehicleQuantityError && (
-        <p className="text-xs font-semibold text-rose-600 mt-1 break-words" id="vehicle-quantity-error">
-          {vehicleQuantityError}
-        </p>
-      )}
+      <ErrorPopup message={vehicleQuantityError} />
     </div>
   );
 };

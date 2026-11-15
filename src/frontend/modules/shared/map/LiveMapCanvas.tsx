@@ -21,6 +21,7 @@ import {
   type LiveMapRoute,
   type LiveMapVehicle,
 } from './mapTypes';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export interface LiveMapProps {
   vehicles?: LiveMapVehicle[];
@@ -619,11 +620,7 @@ export const LiveMapCanvas: React.FC<LiveMapProps> = ({
       >
         <div ref={mapElRef} className="absolute inset-0 h-full w-full" />
 
-        {mapError && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-subtle p-6 text-center text-xs text-rose-700">
-            The map could not be shown on this device: {mapError}
-          </div>
-        )}
+        <ErrorPopup message={mapError} />
 
         {isEmpty && !mapError && (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">

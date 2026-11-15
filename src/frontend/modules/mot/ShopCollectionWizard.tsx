@@ -22,6 +22,7 @@ import {
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import type { CachedAvailableSource } from '@/frontend/modules/mot/offlineStore';
 import type { CanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export type CollectionGpsStatus = 'ACQUIRING' | 'CAPTURED' | 'APPROXIMATE' | 'UNAVAILABLE';
 
@@ -239,16 +240,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
         }}
       >
         <div ref={bodyRef} className="min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain p-4">
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              role="alert"
-              className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs font-semibold text-rose-800"
-            >
-              {error}
-            </motion.div>
-          )}
+          <ErrorPopup message={error} />
 
           <AnimatePresence mode="wait">
             {step === 0 && (

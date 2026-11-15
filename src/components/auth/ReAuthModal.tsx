@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/frontend/context/ToastContext';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export function ReAuthModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -105,15 +106,7 @@ export function ReAuthModal() {
           </div>
         </div>
 
-        {errorMsg && (
-          <div
-            className="flex items-start gap-2 p-3 text-xs rounded-lg bg-destructive/10 text-destructive border border-destructive/20"
-            role="alert"
-          >
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
+        <ErrorPopup message={errorMsg} />
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           <div className="space-y-1.5">

@@ -494,11 +494,7 @@ function TicketDrawer({
                 Note (needed to reject)
               </label>
               <Textarea id="manager-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="text-base sm:text-sm" />
-              {error && (
-                <p role="alert" className="text-xs font-semibold text-rose-700">
-                  {error}
-                </p>
-              )}
+              <ErrorPopup message={error} />
               <div className="flex flex-wrap gap-2">
                 <Button type="button" className="min-h-12 flex-1 gap-1.5" loading={busy === 'APPROVE'} disabled={!!busy} onClick={() => void decide('APPROVE')}>
                   <Check aria-hidden />

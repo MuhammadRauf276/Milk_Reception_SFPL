@@ -8,6 +8,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { ZmccDrawer, zmccInputClass, zmccLabelClass } from '../shared/ZmccDrawer';
 import type { useHcArrivalForm } from './useHcArrivalForm';
 import type { HcSupplierRow } from './arrivalTypes';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface Props {
   form: ReturnType<typeof useHcArrivalForm>;
@@ -116,12 +117,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
         icon={<Users className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />}
       >
         <form onSubmit={form.submit} className="space-y-4">
-              {form.error && (
-                <div className="bg-card border-border p-3 border text-rose-800 text-xs rounded-xl flex items-center space-x-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{form.error}</span>
-                </div>
-              )}
+              <ErrorPopup message={form.error} />
 
               <div>
                 <div className="flex items-center justify-between mb-1">

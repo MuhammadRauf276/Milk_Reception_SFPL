@@ -16,6 +16,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { DrawerActions, FormDrawer, fieldInputClass, fieldLabelClass } from '../shared/FormDrawer';
 import type { UserItem, UserSource } from './types';
 import { useSmartValidation } from '@/components/ui/form-field';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 const ROLE_OPTIONS = CREATABLE_ROLES.map((r) => ({
   value: r,
@@ -198,7 +199,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               placeholder="e.g. john.doe"
               disabled={busy}
             />
-            {validation.errorFor('username') ? <p role="alert" className="mt-1 text-xs text-destructive">{validation.errorFor('username')}</p> : null}
+            <ErrorPopup message={validation.errorFor('username')} />
           </div>
           <div>
             <label htmlFor={`${p}-email`} className={fieldLabelClass}>
@@ -223,7 +224,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               placeholder={isEdit ? user!.email || 'e.g. user@example.com' : 'e.g. john.doe@example.com'}
               disabled={busy}
             />
-            {validation.errorFor('email') ? <p role="alert" className="mt-1 text-xs text-destructive">{validation.errorFor('email')}</p> : null}
+            <ErrorPopup message={validation.errorFor('email')} />
           </div>
           <div>
             <label htmlFor={`${p}-name`} className={fieldLabelClass}>
@@ -255,7 +256,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               placeholder="e.g. 0300-1234567"
               disabled={busy}
             />
-            {validation.errorFor('phone') ? <p role="alert" className="mt-1 text-xs text-destructive">{validation.errorFor('phone')}</p> : null}
+            <ErrorPopup message={validation.errorFor('phone')} />
           </div>
           <div>
             <label htmlFor={`${p}-cnic`} className={fieldLabelClass}>
@@ -273,7 +274,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
               placeholder="e.g. 35201-1234567-1"
               disabled={busy}
             />
-            {validation.errorFor('cnic') ? <p role="alert" className="mt-1 text-xs text-destructive">{validation.errorFor('cnic')}</p> : null}
+            <ErrorPopup message={validation.errorFor('cnic')} />
           </div>
           {!isEdit && (
             <div>
@@ -291,7 +292,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
                 placeholder="At least 8 characters"
                 disabled={busy}
               />
-              {validation.errorFor('password') ? <p role="alert" className="mt-1 text-xs text-destructive">{validation.errorFor('password')}</p> : null}
+              <ErrorPopup message={validation.errorFor('password')} />
             </div>
           )}
         </div>

@@ -298,11 +298,7 @@ function PhotoForm({ photo, slot, onClose, onSaved }: { photo?: EditorPhoto; slo
         <FormField label="Reason for this correction" htmlFor="photo-reason" required hint={photo ? 'The old picture is kept and the change is saved in the audit log.' : 'Saved in the audit log with your name.'}>
           <textarea id="photo-reason" value={reason} rows={3} onChange={(e) => setReason(e.target.value)} className="w-full rounded-md border border-border bg-card p-3 text-sm text-foreground" />
         </FormField>
-        {error && (
-          <p role="alert" className="text-sm text-rose-700">
-            {error}
-          </p>
-        )}
+        <ErrorPopup message={error} />
       </div>
       <div className="flex items-center justify-end gap-2 border-t border-border bg-subtle p-4">
         <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>

@@ -9,6 +9,7 @@ import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 /** Bottom sheet that confirms an approve / reject verdict with supervisor remarks. */
 export function ApprovalDecisionDrawer({
@@ -123,11 +124,7 @@ export function ApprovalDecisionDrawer({
             </div>
           )}
 
-          {decisionError && (
-            <div className="bg-card border-border p-3 rounded-lg border text-rose-800 text-xs font-semibold">
-              {decisionError}
-            </div>
-          )}
+          <ErrorPopup message={decisionError} />
 
           <form onSubmit={handleConfirmDecision} className="space-y-3 pt-2">
             <div className="space-y-2">

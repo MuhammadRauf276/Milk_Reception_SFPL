@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export interface ResultOption {
   value: string;
@@ -86,11 +87,7 @@ export const QualitativeResultRadioGroup: React.FC<QualitativeResultRadioGroupPr
         })}
       </div>
 
-      {error && (
-        <p className="text-xs font-semibold text-rose-600 mt-0.5" id={errorId}>
-          {error}
-        </p>
-      )}
+      <ErrorPopup message={error} />
     </div>
   );
 };

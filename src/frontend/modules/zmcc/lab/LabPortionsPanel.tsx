@@ -1564,9 +1564,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                       />
                     </div>
 
-                    {itemError[modalPortion.id] && (
-                      <p className="text-xs font-semibold text-rose-700">{itemError[modalPortion.id]}</p>
-                    )}
+                    <ErrorPopup message={itemError[modalPortion.id]} />
 
                     {/* Save Portion Footer (matches Dispatch to Plant) */}
                     <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border pt-3">
@@ -1732,11 +1730,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
               })}
             </div>
 
-            {submitError && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">
-                {submitError}
-              </div>
-            )}
+            <ErrorPopup message={submitError} />
 
             <div className="pt-2">
               <Button

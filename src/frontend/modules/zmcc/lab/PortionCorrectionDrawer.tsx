@@ -5,6 +5,7 @@ import { ShieldAlert } from 'lucide-react';
 import { ZmccDrawer } from '@/frontend/modules/zmcc/shared/ZmccDrawer';
 import { correctedPortionFigures } from '@/backend/services/zmcc/labPortionCorrectionCalc';
 import { formatNumber } from '@/lib/format';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 type PortionRow = {
   id: string;
@@ -180,7 +181,7 @@ export function PortionCorrectionDrawer({ open, sessionId, subtitleLabel, onClos
         </>
       ) : null}
 
-      {error ? <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs text-red-800">{error}</p> : null}
+      <ErrorPopup message={error} />
 
       <div className="flex items-center justify-end gap-3 pt-2">
         <button type="button" onClick={onClose} disabled={saving} className="min-h-11 min-w-11 rounded-lg border border-border-strong px-4 py-2 text-xs font-semibold text-secondary-foreground hover:bg-muted active:scale-[0.98]">

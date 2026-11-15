@@ -12,6 +12,7 @@ import { Pagination, useListPageSize } from '@/components/ui/pagination';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/fetch-json';
 import { useUrlSearchParam } from '@/frontend/hooks/useUrlSearchParam';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface DispatchRecord {
   id: string;
@@ -283,11 +284,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
               </div>
             )}
 
-            {dateError && (
-              <p className="bg-card border-border text-xs font-semibold text-rose-700 p-3 rounded-xl border">
-                {dateError}
-              </p>
-            )}
+            <ErrorPopup message={dateError} />
           </div>
 
           {/* Records List */}

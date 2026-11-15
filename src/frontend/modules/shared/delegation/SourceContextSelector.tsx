@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { resolveDelegationContext } from './stations';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export interface ProcurementSourceItem {
   id: string;
@@ -192,12 +193,7 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
             </div>
 
             {/* Error Message */}
-            {error && (
-              <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-xs text-destructive">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+            <ErrorPopup message={error} />
 
             {/* List */}
             <div className="max-h-64 overflow-y-auto divide-y rounded-md border scrollbar-thin">

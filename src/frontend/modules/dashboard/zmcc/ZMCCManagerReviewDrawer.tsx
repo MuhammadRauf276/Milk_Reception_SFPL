@@ -8,6 +8,7 @@ import { formatOperationalDatetime } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import type { ZmccLabSessionItem } from './zmccQualityTypes';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 /** Bottom sheet where the ZMCC manager records an accept / reject decision on a lab session. */
 export const ZMCCManagerReviewDrawer: React.FC<{
@@ -93,12 +94,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
           </div>
 
           <form onSubmit={handleSubmitReview} className="p-5 space-y-4">
-            {reviewError && (
-              <div className="bg-card border-border p-3 border text-rose-800 text-xs font-semibold rounded-lg flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{reviewError}</span>
-              </div>
-            )}
+            <ErrorPopup message={reviewError} />
 
             {/* Physical Reality Warning */}
             {hasExited ? (

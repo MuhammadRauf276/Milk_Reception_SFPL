@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { CircleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ErrorPopup } from './error-popup';
 
 interface FormFieldProps {
   label: React.ReactNode;
@@ -25,10 +25,12 @@ export function FormField({ label, htmlFor, required, hint, error, className, ch
       </label>
       {children}
       {error ? (
-        <p id={messageId} role="alert" className="flex items-start gap-1 text-xs text-destructive">
-          <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <span className="min-w-0">{error}</span>
-        </p>
+        <>
+          <ErrorPopup message={`${typeof label === 'string' ? `${label}: ` : ''}${error}`} />
+          <p id={messageId} className="sr-only">
+            {error}
+          </p>
+        </>
       ) : hint ? (
         <p id={messageId} className="text-xs text-muted-foreground">
           {hint}

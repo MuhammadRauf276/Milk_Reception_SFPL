@@ -65,6 +65,7 @@ import type { DecisionResult, PersonDecision } from '@/types/stage1-decision';
 import { getErrorMessage } from '@/lib/errors';
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import { stampEmployeeCode, stampRoleLabel } from '@/lib/photo/stampIdentity';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export type { QuantityUnitType, MeasurementBasisType, QuantityState, LabTestDef, TestResultState, PortionFormState };
 
@@ -1780,19 +1781,9 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             />
           </div>
 
-          {submitError && (
-            <div className="bg-card border-border p-4 rounded-2xl border text-rose-800 text-xs flex items-start space-x-2">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <span>{submitError}</span>
-            </div>
-          )}
+          <ErrorPopup message={submitError} />
 
-          {sealServerError && (
-            <div className="bg-card border-border p-4 rounded-2xl border text-amber-900 text-xs flex items-start space-x-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <span>{sealServerError}</span>
-            </div>
-          )}
+          <ErrorPopup message={sealServerError} />
 
           {reopenedNote && (
             <div className="bg-card border-border p-4 rounded-2xl border text-amber-900 text-xs flex items-start space-x-2">
@@ -1801,12 +1792,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             </div>
           )}
 
-          {policyError && (
-            <div className="bg-card border-border p-4 rounded-2xl border text-amber-900 text-xs flex items-start space-x-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <span>{policyError}</span>
-            </div>
-          )}
+          <ErrorPopup message={policyError} />
 
           {/* Decision Rule Panel */}
           <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border-strong shadow-xs space-y-3.5">

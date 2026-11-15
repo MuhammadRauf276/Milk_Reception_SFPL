@@ -4,6 +4,7 @@ import React from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface FormDrawerProps {
   open: boolean;
@@ -29,12 +30,7 @@ export function FormDrawer({ open, onClose, title, busy, error, children }: Form
           <DrawerTitle>{title}</DrawerTitle>
         </div>
         <div className="scrollbar-thin overscroll-contain flex-1 min-h-0 space-y-3 overflow-y-auto px-5 py-4 text-xs">
-          {error && (
-            <div role="alert" className="flex items-center gap-2 rounded-xl border border-border bg-card p-3 font-semibold text-rose-800">
-              <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
-              <span>{error}</span>
-            </div>
-          )}
+          <ErrorPopup message={error} />
           {children}
         </div>
       </DrawerContent>

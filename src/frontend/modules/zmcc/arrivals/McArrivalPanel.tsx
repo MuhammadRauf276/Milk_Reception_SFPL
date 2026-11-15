@@ -9,6 +9,7 @@ import { ZmccDrawer, zmccInputClass, zmccLabelClass } from '../shared/ZmccDrawer
 import { McSuccessCard } from './McSuccessCard';
 import type { useMcArrivalForm } from './useMcArrivalForm';
 import type { ArrivingJourney, PolicyMode } from './arrivalTypes';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface Props {
   form: ReturnType<typeof useMcArrivalForm>;
@@ -196,12 +197,7 @@ export const McArrivalPanel: React.FC<Props> = ({ form, journeys, loadingJourney
       >
         {selectedJourney && (
           <form onSubmit={form.submit} className="space-y-4">
-            {form.error && (
-              <div className="bg-card border-border p-3 border text-rose-800 text-xs rounded-xl flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{form.error}</span>
-              </div>
-            )}
+            <ErrorPopup message={form.error} />
 
             <div className="bg-card border-border p-3 rounded-xl border text-xs space-y-3">
               <div className="flex items-center justify-between">

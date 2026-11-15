@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
 import type { TankItem } from '@/frontend/modules/zmcc/master/masterTypes';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface Props {
   tank: TankItem | null;
@@ -223,12 +224,7 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
             </div>
           </div>
 
-          {error && (
-            <div role="alert" className="flex items-center gap-2 rounded-xl border border-border bg-card p-3 font-semibold text-rose-800">
-              <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
-              <span>{error}</span>
-            </div>
-          )}
+          <ErrorPopup message={error} />
 
           <DataTable
             columns={columns}

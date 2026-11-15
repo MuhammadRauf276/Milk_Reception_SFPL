@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { BrandMark } from '@/frontend/modules/shared/navigation/NavPanel';
 import { resolveRoleHome } from '@/lib/role-routing';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -87,20 +88,7 @@ export const LoginPage: React.FC = () => {
           </div>
 
           <AnimatePresence initial={false}>
-            {errorMsg && (
-              <motion.div
-                role="alert"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="mt-5 flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
-                  <span>{errorMsg}</span>
-                </div>
-              </motion.div>
-            )}
+            <ErrorPopup message={errorMsg} />
           </AnimatePresence>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
