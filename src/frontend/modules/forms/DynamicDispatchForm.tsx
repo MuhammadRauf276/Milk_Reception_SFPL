@@ -145,7 +145,8 @@ function computeAutoVehicleQuality(
 }
 
 interface StartedDispatchWorkItem {
-  visitId: string;
+  /** Null for a new form: nothing is saved in the visit table until the form is submitted. */
+  visitId: string | null;
   assignedTests?: LabTestDef[];
   quantityPolicy?: DispatchQuantityPolicySnapshotDTO | null;
 }
@@ -202,6 +203,36 @@ async function startDispatchWorkItem(
     throw new Error(data.error || 'Failed to start dispatch work item');
   }
   return data as StartedDispatchWorkItem;
+}
+
+/**
+ * One id for one form. It survives a page reload, so if the connection drops after the server has saved the
+ * dispatch, sending again returns that same dispatch instead of creating a second vehicle. A new one is made
+ * once the form has been sent or cleared.
+ */
+function submissionIdFor(scopedKey: string | null): string {
+  const make = () =>
+    typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `sub-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  if (!scopedKey || typeof window === 'undefined') return make();
+  const key = `${scopedKey}:submission`;
+  try {
+    const saved = sessionStorage.getItem(key);
+    if (saved) return saved;
+    const fresh = make();
+    sessionStorage.setItem(key, fresh);
+    return fresh;
+  } catch {
+    return make();
+  }
+}
+
+function forgetSubmissionId(scopedKey: string | null): void {
+  if (!scopedKey || typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(`${scopedKey}:submission`);
+  } catch {
+    // storage is not available: a new id is made next time anyway
+  }
 }
 
 interface DispatchTotals {
@@ -692,8 +723,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   const draftFormType: DraftFormType = isContractorSource ? 'CONTRACTOR_DISPATCH' : effectiveSource?.source_type === 'ZMCC' ? 'ZMCC_DISPATCH' : 'DISPATCH';
   const serverDraft = useServerDraft({
     formType: draftFormType,
-    scopeId: result ? null : draftVisitId,
-    portionKey: 'form',
+    // A new form has no visit: its values are kept for this person and this source until it is sent.
+    // Paused while the form restarts, so the next form begins with a clean draft state.
+    scopeId: result || restartingWorkItem ? null : draftVisitId ?? effectiveSourceId ?? null,
+    portionKey: draftVisitId ? 'form' : 'new',
     content: dispatchDraftFromForm(portions, { vehicleNumber, rawMilkDispatchNoteNumber, remarks: dispatchTestingRemarks }),
     onRemote: (content, reason) => {
       setPortions((prev) => applyDraftToPortions(prev, content, reason, createFreshPortion));
@@ -1239,7 +1272,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       action === 'SEND_REQUEST' || needsRequest || preview.decision?.route === 'SEND_TO_APPROVER'
         ? 'SEND_REQUEST'
         : 'SUBMIT';
-    if (!effectiveSource?.id || !draftVisitId || !policy || !policyPoint) {
+    if (!effectiveSource?.id || !policy || !policyPoint) {
       toast.showError('The form is still loading. Please wait a moment.', 'Please wait');
       return;
     }
@@ -1272,7 +1305,8 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          visitId: draftVisitId,
+          visitId: draftVisitId ?? undefined,
+          clientSubmissionId: submissionIdFor(getScopedDraftKey(currentUser?.id, effectiveSourceId)),
           vehicleNumber: vehicleNumber.trim().toUpperCase(),
           operationalDate: effectiveDispatchDate,
           procurementSourceId: effectiveSource.id,
@@ -1393,6 +1427,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
       const scopedKey = getScopedDraftKey(currentUser?.id, effectiveSourceId);
       if (scopedKey && typeof window !== 'undefined') sessionStorage.removeItem(scopedKey);
+      forgetSubmissionId(scopedKey);
       onSuccess?.();
       void runUploads(queue);
     } catch (err) {
@@ -1448,6 +1483,14 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     const scopedKey = getScopedDraftKey(currentUser?.id, effectiveSourceId);
     if (scopedKey && typeof window !== 'undefined') {
       sessionStorage.removeItem(scopedKey);
+    }
+    forgetSubmissionId(scopedKey);
+    // The typed values kept for this form go too, on this device and on the server: Clear means start from nothing.
+    serverDraft.discard();
+    const draftScope = draftVisitId ?? effectiveSourceId;
+    if (draftScope) {
+      const qs = new URLSearchParams({ formType: draftFormType, scopeId: String(draftScope), portionKey: draftVisitId ? 'form' : 'new' });
+      void fetch(`/api/drafts?${qs.toString()}`, { method: 'DELETE', credentials: 'same-origin' }).catch(() => undefined);
     }
     toast.showInfo('Draft cleared. Starting a fresh dispatch…');
     startNextDispatch();
@@ -1587,7 +1630,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         </div>
 
         <div className="flex items-center space-x-2 self-start sm:self-auto">
-          {draftVisitId && (
+          {!result && (
             <button
               type="button"
               onClick={handleClearDraft}

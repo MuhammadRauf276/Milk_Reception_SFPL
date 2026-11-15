@@ -1,4 +1,6 @@
 import { isDraftVisitNumber, nextVisitNumber } from '@/backend/services/dispatch/visitNumber';
+import { createVisitForSubmit, discardUnsentVisit, NEW_DISPATCH_DRAFT_KEY } from '@/backend/services/dispatch/unsentVisit';
+import { findOperationRecord, recordOperation } from '@/backend/services/operationIdempotencyService';
 import { NextResponse } from 'next/server';
 import { ACTING_AS_HEADER, requireRoles, scopeFailureResponse } from '@core/route-guards';
 import { asRoleFields } from '@core/acting-context';
@@ -339,7 +341,97 @@ export async function GET(req: Request) {
   }
 }
 
+/** Submits that are being handled right now, by submission id, so a double press joins the first one. */
+const submitsInFlight = new Map<string, Promise<Response>>();
+
+/**
+ * Submit a dispatch.
+ *
+ * A new form has no visit: nothing was saved when it was opened. The visit row is created here, the submit
+ * runs on it, and if the submit is refused the row is removed again. So the visit table only ever holds
+ * dispatches that were really sent.
+ *
+ * `clientSubmissionId` (made once per form by the browser) lets a repeated send be recognised: when the
+ * connection drops after the server has already saved the dispatch, the retry gets the first answer back
+ * instead of creating a second vehicle.
+ */
 export async function POST(req: Request) {
+  const raw = (await req.clone().json().catch(() => null)) as Record<string, unknown> | null;
+  // A form that already has a visit (a returned dispatch, or a draft from the older form) goes straight through.
+  if (!raw || typeof raw !== 'object' || raw.visitId) return submitToVisit(req);
+
+  const guard = await requireRoles(req, DISPATCH_WRITE_ROLES);
+  if ('response' in guard) return guard.response;
+  const userId = guard.acting.userId;
+
+  const submissionId = typeof raw.clientSubmissionId === 'string' && /^[A-Za-z0-9-]{8,80}$/.test(raw.clientSubmissionId) ? raw.clientSubmissionId : null;
+  const replayKey = submissionId ? `dispatch-submit:${userId}:${submissionId}` : null;
+
+  if (replayKey) {
+    const saved = await findOperationRecord(replayKey);
+    if (saved) return NextResponse.json(saved.response_payload, { status: saved.status_code });
+    const running = submitsInFlight.get(replayKey);
+    if (running) return (await running).clone();
+  }
+
+  const run = (async (): Promise<Response> => {
+    // The source is checked exactly as the submit itself checks it.
+    const rawSourceId = raw.procurementSourceId;
+    const requestedSourceId = typeof rawSourceId === 'string' ? rawSourceId : typeof rawSourceId === 'number' ? String(rawSourceId) : null;
+    const sourceToLoad = dispatchSourceIdToLoad(guard.acting.scope, requestedSourceId);
+    if (!sourceToLoad.ok) return dispatchSourceFailureResponse(sourceToLoad.code);
+    const sourceRecord = await prisma.procurementSource.findUnique({ where: { id: sourceToLoad.sourceId } });
+    const actingResult = resolveDispatchActing(guard.user, req.headers.get(ACTING_AS_HEADER), sourceRecord?.source_type);
+    if (!actingResult.ok) {
+      return actingResult.code === 'FORBIDDEN' ? NextResponse.json({ error: 'Forbidden.' }, { status: 403 }) : scopeFailureResponse(actingResult.code);
+    }
+    const sourceCheck = checkDispatchSource(actingResult.ctx, requestedSourceId, sourceRecord);
+    if (!sourceCheck.ok) return dispatchSourceFailureResponse(sourceCheck.code);
+    const sourceId = sourceCheck.sourceId;
+
+    const visitId = await createVisitForSubmit(userId, sourceId);
+    let response: Response;
+    try {
+      const { clientSubmissionId: _unused, ...rest } = raw;
+      void _unused;
+      response = await submitToVisit(
+        new Request(req.url, { method: 'POST', headers: req.headers, body: JSON.stringify({ ...rest, visitId: visitId.toString() }) })
+      );
+    } catch (err) {
+      await discardUnsentVisit(visitId).catch(() => undefined);
+      throw err;
+    }
+
+    if (response.status >= 400) {
+      // Refused: nothing of this attempt stays in the visit table.
+      await discardUnsentVisit(visitId).catch((err) => console.error('Could not remove a refused dispatch row:', err));
+      return response;
+    }
+
+    // Sent. The typed values kept for this form are no longer needed.
+    await prisma.formDraft
+      .deleteMany({ where: { form_type: { in: [...DISPATCH_DRAFT_TYPES] }, scope_id: sourceId, portion_key: NEW_DISPATCH_DRAFT_KEY, user_id: userId } })
+      .catch(() => undefined);
+    if (replayKey) {
+      const payload = await response.clone().json().catch(() => null);
+      if (payload) {
+        await recordOperation({ key: replayKey, operationType: 'DISPATCH_SUBMIT', entityType: 'vehicle_visit', entityId: visitId, responsePayload: payload, statusCode: response.status })
+          .catch((err) => console.error('Could not save the dispatch replay record:', err));
+      }
+    }
+    return response;
+  })();
+
+  if (!replayKey) return run;
+  submitsInFlight.set(replayKey, run);
+  try {
+    return (await run).clone();
+  } finally {
+    submitsInFlight.delete(replayKey);
+  }
+}
+
+async function submitToVisit(req: Request): Promise<Response> {
   // 1. Authenticated, active dispatch role (ZMCC Lab Attendant / Contractor Operator, or a superior
   // doing their work). Source binding is checked against the acting scope below.
   const guard = await requireRoles(req, DISPATCH_WRITE_ROLES);

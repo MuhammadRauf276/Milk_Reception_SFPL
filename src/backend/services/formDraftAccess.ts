@@ -4,6 +4,7 @@ import { getCurrentUser } from '@core/auth';
 import { requireRoles } from '@core/route-guards';
 import { canActAs } from '@/backend/core/roles/hierarchy';
 import { DISPATCH_WRITE_ROLES } from '@/backend/services/dispatchScope';
+import { NEW_DISPATCH_DRAFT_KEY } from '@/backend/services/dispatch/unsentVisit';
 import { resolveZmccLabAuth } from '@/backend/services/zmccLabService';
 import { labPointForArrival } from '@/backend/services/zmcc/labPortionReviewService';
 import { alreadyDecidedMessage, type DraftFormType } from '@/backend/services/formDraftService';
@@ -114,6 +115,16 @@ export async function authorizeDraftAccess(
   // Dispatch forms: the draft belongs to the operator who opened the draft work item.
   const guard = await deps.requireRoles(req, DISPATCH_WRITE_ROLES);
   if ('response' in guard) return fail(guard.response.status, 'Not allowed to work on dispatch.');
+
+  // A form that has not been sent has no visit. Its values are kept per person and per source:
+  // here the scope is the source, and the person may only use their own source (or any, when system-wide).
+  if (portionKey === NEW_DISPATCH_DRAFT_KEY) {
+    const source = await db.procurementSource.findUnique({ where: { id: scopeId }, select: { id: true, is_active: true } });
+    if (!source || !source.is_active) return fail(404, 'Source not found.');
+    const own = guard.user.procurement_source_id ? String(guard.user.procurement_source_id) : null;
+    if (own && own !== scopeId.toString()) return fail(403, 'Unauthorized. This is not your source.');
+    return { ok: true, userId: BigInt(guard.user.id), closedMessage: null };
+  }
   const visit = await db.vehicleVisit.findUnique({ where: { id: scopeId }, select: { created_by: true, current_status: true } });
   if (!visit) return fail(404, 'Dispatch work item not found.');
   if (visit.created_by?.toString() !== String(guard.user.id)) return fail(403, 'Unauthorized. This dispatch belongs to another operator.');

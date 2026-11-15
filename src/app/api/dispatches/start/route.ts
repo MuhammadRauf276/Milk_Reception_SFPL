@@ -1,4 +1,5 @@
-import { isDraftVisitNumber, newDraftVisitNumber } from '@/backend/services/dispatch/visitNumber';
+import { isDraftVisitNumber } from '@/backend/services/dispatch/visitNumber';
+import { previewNewDispatch } from '@/backend/services/dispatch/unsentVisit';
 import { NextResponse } from 'next/server';
 import { prisma } from '@core/db';
 import { ACTING_AS_HEADER, requireRoles, scopeFailureResponse } from '@core/route-guards';
@@ -31,9 +32,6 @@ function actingFailureResponse(result: Extract<ActingContextResult, { ok: false 
 }
 
 
-
-/** An opened dispatch form that nobody came back to is closed after this many days. */
-const ABANDONED_DRAFT_DAYS = 7;
 
 const startDispatchSchema = z.object({
   visitId: z.string().optional(),
@@ -149,104 +147,38 @@ export async function POST(req: Request) {
     if (!sourceCheck.ok) return dispatchSourceFailureResponse(sourceCheck.code);
     const resolvedSourceId: bigint = sourceCheck.sourceId;
 
-    // A form that was opened and left is closed once it is 7 days old: by then its saved draft values have expired
-    // too, so nothing can be continued from it. This also covers forms that were opened with a vehicle already chosen.
-    const staleBefore = new Date(Date.now() - ABANDONED_DRAFT_DAYS * 24 * 60 * 60 * 1000);
-    const stale = await prisma.vehicleVisit.findMany({
-      where: { created_by: userId, current_status: 'DRAFT_DISPATCH', created_at: { lt: staleBefore } },
+    // Opening the form saves nothing in the visit table. What is typed is kept in the draft store and the visit
+    // is created when the form is submitted, so an opened or half-filled form is never a record.
+    //
+    // Rows left by the older version of this form (it used to create one each time it was opened) are closed
+    // here, unless they still hold saved values someone may want to continue.
+    const leftovers = await prisma.vehicleVisit.findMany({
+      where: { created_by: userId, current_status: 'DRAFT_DISPATCH', procurement_source_id: resolvedSourceId },
       select: { id: true },
     });
-    if (stale.length > 0) {
-      // A form someone is still filling in keeps saved values; those are never closed.
+    if (leftovers.length > 0) {
       const stillInUse = await prisma.formDraft.findMany({
-        where: { scope_id: { in: stale.map((v) => v.id) }, form_type: { contains: 'DISPATCH', mode: 'insensitive' } },
+        where: { scope_id: { in: leftovers.map((v) => v.id) }, form_type: { contains: 'DISPATCH', mode: 'insensitive' } },
         select: { scope_id: true },
       });
       const keepIds = new Set(stillInUse.map((d) => d.scope_id.toString()));
       await prisma.vehicleVisit.updateMany({
-        where: { id: { in: stale.map((v) => v.id).filter((id) => !keepIds.has(id.toString())) }, current_status: 'DRAFT_DISPATCH' },
+        where: { id: { in: leftovers.map((v) => v.id).filter((id) => !keepIds.has(id.toString())) }, current_status: 'DRAFT_DISPATCH' },
         // Marked the same way as the other closed empty forms, so every list already leaves them out.
         data: { current_status: 'CANCELLED', vehicle_number: 'DRAFT' },
       });
     }
 
-    // The form needs a visit to hold its tests and photos, but opening it again must not make another one: an operator
-    // keeps one empty draft per source per day, and older empty ones are closed.
-    if (!validated.vehicleNumber && !validated.motVehicleId) {
-      const dayStart = new Date(`${getPakistanCalendarDate(new Date())}T00:00:00+05:00`);
-      const ownDrafts = await prisma.vehicleVisit.findMany({
-        where: {
-          created_by: userId,
-          current_status: 'DRAFT_DISPATCH',
-          procurement_source_id: resolvedSourceId,
-          vehicle_number: 'DRAFT',
-        },
-        orderBy: { id: 'desc' },
-        select: { id: true, created_at: true },
-      });
-      const reusable = ownDrafts.find((d) => d.created_at >= dayStart) ?? null;
-      const extras = ownDrafts.filter((d) => d.id !== reusable?.id).map((d) => d.id);
-      if (extras.length > 0) {
-        const withWork = await prisma.formDraft.findMany({
-          where: { scope_id: { in: extras }, form_type: { contains: 'DISPATCH', mode: 'insensitive' } },
-          select: { scope_id: true },
-        });
-        const keep = new Set(withWork.map((d) => d.scope_id.toString()));
-        await prisma.vehicleVisit.updateMany({
-          where: { id: { in: extras.filter((id) => !keep.has(id.toString())) }, current_status: 'DRAFT_DISPATCH' },
-          data: { current_status: 'CANCELLED' },
-        });
-      }
-      if (reusable) {
-        const visit = await prisma.vehicleVisit.findUniqueOrThrow({ where: { id: reusable.id } });
-        const assigned = await getOrAssignDispatchTests(prisma, visit.id);
-        const quantityPolicy = await getOrFreezeDispatchQuantityPolicy(prisma, visit.id, resolvedSourceId);
-        return NextResponse.json({
-          success: true,
-          visitId: visit.id.toString(),
-          visitNumber: isDraftVisitNumber(visit.visit_number) ? null : visit.visit_number,
-          assignedTests: assigned.map(serializeAssignment),
-          quantityPolicy: quantityPolicy,
-        });
-      }
-    }
-
-    // 3. Create persistent DRAFT_DISPATCH work item with frozen assignment and quantity policy
-    const result = await prisma.$transaction(async (tx) => {
-      // The real visit number is given at submit, so a form that is never sent uses up nothing.
-      const visit = await tx.vehicleVisit.create({
-        data: {
-          visit_number: newDraftVisitNumber(),
-          vehicle_number: (validated.vehicleNumber || 'DRAFT').toUpperCase().trim(),
-          operational_date: null,
-          current_status: 'DRAFT_DISPATCH',
-          creator: { connect: { id: userId } },
-          procurement_source: resolvedSourceId ? { connect: { id: resolvedSourceId } } : undefined,
-          mot_vehicle: validated.motVehicleId ? { connect: { id: BigInt(validated.motVehicleId) } } : undefined,
-          mot_profile: validated.motProfileId ? { connect: { id: BigInt(validated.motProfileId) } } : undefined,
-          driver_name: validated.driverName?.trim() || null,
-        },
-      });
-
-      // Atomically snapshot active DISPATCH/BOTH tests
-      const assigned = await getOrAssignDispatchTests(tx, visit.id);
-
-      // Atomically freeze resolved Dispatch Quantity Policy snapshot
-      const quantityPolicy = await getOrFreezeDispatchQuantityPolicy(tx, visit.id, resolvedSourceId!);
-
-      return { visit, assigned, quantityPolicy };
+    const preview = await previewNewDispatch(resolvedSourceId);
+    return NextResponse.json({
+      success: true,
+      // No visit yet: the form sends its values without one and the submit creates it.
+      visitId: null,
+      visitNumber: null,
+      sourceId: resolvedSourceId.toString(),
+      assignedTests: preview.assignedTests,
+      quantityPolicy: preview.quantityPolicy,
     });
-
-    return NextResponse.json(
-      {
-        success: true,
-        visitId: result.visit.id.toString(),
-        visitNumber: null,
-        assignedTests: result.assigned.map(serializeAssignment),
-        quantityPolicy: result.quantityPolicy,
-      },
-      { status: 201 }
-    );
   } catch (error) {
     if (getErrorCode(error) === 'DISPATCH_QUANTITY_POLICY_INVALID') {
       return NextResponse.json(
