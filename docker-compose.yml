@@ -43,6 +43,7 @@ services:
       WHATSAPP_GATEWAY_SECRET: ${WHATSAPP_GATEWAY_SECRET:-}
       ENABLE_WHATSAPP_GATEWAY: ${ENABLE_WHATSAPP_GATEWAY:-true}
       CRON_SECRET: ${CRON_SECRET:-}
+      MAP_ROUTING_URL: ${MAP_ROUTING_URL:-}
       RUN_SEED: ${RUN_SEED:-false}
     volumes:
       - whatsapp_data:/app/data
@@ -56,6 +57,29 @@ services:
     networks:
       - milk_network
 
+  # HTTPS in front of the app (see Caddyfile). Off by default: start it with
+  #   docker compose --profile https up -d
+  caddy:
+    image: caddy:2-alpine
+    container_name: milk_reception_caddy
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      APP_TLS: ${APP_TLS:-internal}
+      APP_UPSTREAM: app:3000
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - milk_network
+
 volumes:
   postgres_data:
     name: milk_reception_postgres_data
@@ -63,6 +87,10 @@ volumes:
     name: milk_reception_whatsapp_data
   storage_data:
     name: milk_reception_storage_data
+  caddy_data:
+    name: milk_reception_caddy_data
+  caddy_config:
+    name: milk_reception_caddy_config
 
 networks:
   milk_network:
