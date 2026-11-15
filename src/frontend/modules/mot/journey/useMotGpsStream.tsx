@@ -74,12 +74,17 @@ export function useMotGpsStream(opts: {
           longitude: status.longitude,
           accuracy: status.accuracy ?? 10,
           timestamp: status.lastFixTimestamp || Date.now(),
+          // A new reading (its GPS time changed) is received now; the same reading keeps its first receive time.
+          receivedAt:
+            latestFixRef.current && latestFixRef.current.timestamp === status.lastFixTimestamp
+              ? latestFixRef.current.receivedAt ?? Date.now()
+              : Date.now(),
           speed: status.speed,
           heading: status.heading,
         };
         latestFixRef.current = point;
         setDeviceGps({ latitude: point.latitude, longitude: point.longitude });
-        setLastFixAt(point.timestamp);
+        setLastFixAt(point.receivedAt ?? Date.now());
       }
     };
 
@@ -110,13 +115,14 @@ export function useMotGpsStream(opts: {
         longitude: pos.coords.longitude,
         accuracy: pos.coords.accuracy,
         timestamp: pos.timestamp,
+        receivedAt: Date.now(),
         speed: pos.coords.speed,
         heading: pos.coords.heading,
       };
       latestFixRef.current = point;
       setGpsProblem(null);
       setDeviceGps({ latitude: point.latitude, longitude: point.longitude });
-      setLastFixAt(pos.timestamp);
+      setLastFixAt(Date.now());
 
       if (!recordRoute || !journeyId) return;
 

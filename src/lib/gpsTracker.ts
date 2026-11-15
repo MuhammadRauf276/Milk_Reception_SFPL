@@ -10,6 +10,11 @@ export interface TrackedPoint {
   accuracy: number;
   /** Fix time in ms (GeolocationPosition.timestamp), NOT the time we saved it. */
   timestamp: number;
+  /**
+   * When this phone received the reading, by the phone's own clock. Age is always measured from this,
+   * never from `timestamp`: the GPS time and the phone clock can disagree when the phone clock is wrong.
+   */
+  receivedAt?: number;
   speed?: number | null;
   heading?: number | null;
 }
@@ -56,7 +61,7 @@ export function shouldRecordPoint(
   if (!Number.isFinite(next.accuracy) || next.accuracy > cfg.maxAccuracyM) {
     return { record: false, reason: 'low-accuracy' };
   }
-  if (now - next.timestamp > cfg.maxFixAgeMs) {
+  if (now - (next.receivedAt ?? next.timestamp) > cfg.maxFixAgeMs) {
     return { record: false, reason: 'stale' };
   }
   if (!prev) {

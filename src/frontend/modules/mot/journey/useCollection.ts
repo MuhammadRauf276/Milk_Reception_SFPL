@@ -254,7 +254,7 @@ export function useCollection({
     setCollectionGps({ latitude: null, longitude: null, accuracy: null, status: 'ACQUIRING' });
     try {
       const fix = latestFixRef.current;
-      if (fix && Date.now() - fix.timestamp <= RECENT_FIX_MS) {
+      if (fix && Date.now() - (fix.receivedAt ?? fix.timestamp) <= RECENT_FIX_MS) {
         setCollectionGps({ latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy, status: 'CAPTURED' });
       } else {
         const res = await acquireRobustGps({
@@ -284,7 +284,7 @@ export function useCollection({
     if (!waitingForGps) return;
     const timer = window.setInterval(() => {
       const fix = latestFixRef.current;
-      if (fix && Date.now() - fix.timestamp <= RECENT_FIX_MS) {
+      if (fix && Date.now() - (fix.receivedAt ?? fix.timestamp) <= RECENT_FIX_MS) {
         setCollectionGps({ latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy, status: 'CAPTURED' });
       }
     }, 2000);

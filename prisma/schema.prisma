@@ -115,7 +115,6 @@ model User {
   blocked_devices                  Device[]                  @relation("DeviceBlockedBy")
   assigned_devices                 Device[]                  @relation("DeviceAssignedUser")
   device_activity_events           DeviceActivityEvent[]     @relation("DeviceActivityUser")
-  station_pins                     StationPin[]              @relation("StationPinUser")
   captured_photos                  CapturedPhoto[]           @relation("PhotoCapturedBy")
   test_point_policy_changes        TestPointPolicy[]         @relation("TestPointPolicyChangedBy")
   config_changes                   ConfigChangeLog[]         @relation("ConfigChangeChangedBy")
@@ -682,7 +681,6 @@ model Device {
   registrar          User                  @relation("DeviceRegisteredBy", fields: [registered_by], references: [id], onDelete: Restrict)
   blocker            User?                 @relation("DeviceBlockedBy", fields: [blocked_by], references: [id], onDelete: SetNull)
   activity_events    DeviceActivityEvent[] @relation("DeviceActivityDevice")
-  station_pins       StationPin[]          @relation("StationPinDevice")
   captured_photos    CapturedPhoto[]       @relation("PhotoDevice")
   audit_logs         AuditLog[]            @relation("AuditDevice")
 
@@ -716,25 +714,6 @@ model DeviceActivityEvent {
   @@index([entity_type, entity_id])
   @@index([event_type, server_received_at])
   @@map("device_activity_event")
-}
-
-model StationPin {
-  id              BigInt    @id @default(autoincrement())
-  user_id         BigInt    @map("user_id")
-  device_id       BigInt    @map("device_id")
-  pin_hash        String    @map("pin_hash") @db.VarChar(255)
-  failed_attempts Int       @default(0) @map("failed_attempts")
-  locked_until    DateTime? @map("locked_until") @db.Timestamp(6)
-  created_at      DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at      DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
-
-  // Relations
-  user   User   @relation("StationPinUser", fields: [user_id], references: [id], onDelete: Cascade)
-  device Device @relation("StationPinDevice", fields: [device_id], references: [id], onDelete: Cascade)
-
-  @@unique([user_id, device_id])
-  @@index([device_id])
-  @@map("station_pin")
 }
 
 model ConfigChangeLog {

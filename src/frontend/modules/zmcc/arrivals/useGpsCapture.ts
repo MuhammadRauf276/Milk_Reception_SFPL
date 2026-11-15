@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { acquireRobustGps, DEFAULT_FALLBACK_COORDINATE, saveStoredLastKnownGps } from '@/lib/gps';
+import { acquireRobustGps, DEFAULT_FALLBACK_COORDINATE, isGpsGrade, saveStoredLastKnownGps } from '@/lib/gps';
 import { EMPTY_GPS, type GpsState } from './arrivalTypes';
 
 /** LIVE: this phone's GPS. APPROXIMATE: last saved or ZMCC position, labelled on screen. NONE: nothing to save. */
@@ -51,8 +51,11 @@ export function useAutoGps(open: boolean, setGps: (g: GpsState) => void, facilit
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         if (cancelled) return;
-        live = true;
         const accuracy = pos.coords.accuracy ?? null;
+        // A computer with no GPS chip answers from Wi-Fi or its internet address. That is not GPS:
+        // the station's own position (set above) stays.
+        if (!isGpsGrade(accuracy)) return;
+        live = true;
         setGps(toGpsState(pos.coords.latitude, pos.coords.longitude, accuracy));
         setStatus('LIVE');
         saveStoredLastKnownGps({

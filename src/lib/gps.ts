@@ -43,6 +43,16 @@ export const DEFAULT_FALLBACK_COORDINATE: GpsCoordinate = {
   label: 'ZMCC Hasilpur (Default Center)',
 };
 
+/**
+ * A reading this precise comes from the GPS chip. A computer without one answers from Wi-Fi or its internet
+ * address, typically hundreds of metres to kilometres off: that is the network's guess, not GPS, and is not used.
+ */
+export const GPS_GRADE_ACCURACY_M = 100;
+
+export function isGpsGrade(accuracyM: number | null | undefined): boolean {
+  return typeof accuracyM === 'number' && Number.isFinite(accuracyM) && accuracyM > 0 && accuracyM <= GPS_GRADE_ACCURACY_M;
+}
+
 export function getStoredLastKnownGps(): GpsCoordinate | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -88,9 +98,6 @@ export function isBrowserGpsAllowed(): { allowed: boolean; reason?: string } {
  * Resolves a fallback coordinate based on facility code or saved location.
  */
 export function getFacilityOrStoredFallback(facilityCode?: string | null): GpsCoordinate | null {
-  const stored = getStoredLastKnownGps();
-  if (stored) return stored;
-
   if (facilityCode) {
     const upper = facilityCode.toUpperCase();
     for (const [key, val] of Object.entries(KNOWN_FACILITY_COORDINATES)) {
@@ -106,8 +113,10 @@ export function getFacilityOrStoredFallback(facilityCode?: string | null): GpsCo
       }
     }
   }
-  // No match: there is no honest position to give. (It used to answer with one ZMCC's coordinates for everyone.)
-  return null;
+  // No registered station: the last real GPS reading saved on this device, if it has one.
+  // (This used to answer with one ZMCC's coordinates for everyone.)
+  const stored = getStoredLastKnownGps();
+  return stored && isGpsGrade(stored.accuracy) ? stored : null;
 }
 
 /**
@@ -134,9 +143,14 @@ export async function acquireRobustGps(options?: {
   const maxCacheAge = options?.maxCacheAgeMs;
   const fallbackCoord = getFacilityOrStoredFallback(options?.facilityCode);
 
+  // Only a GPS-grade reading counts. A network guess is treated the same as no reading.
   const tryPosition = (posOptions: PositionOptions): Promise<GeolocationPosition> => {
     return new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, posOptions);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => (isGpsGrade(pos.coords.accuracy) ? resolve(pos) : reject(new Error('NOT_GPS'))),
+        reject,
+        posOptions
+      );
     });
   };
 
