@@ -2,7 +2,7 @@
  * Production-ready offline-first GPS strategy for SFPL Milk Reception.
  * Handles:
  * 1. Modern browser restriction: Geolocation is disabled on insecure contexts (HTTP LAN IPs like 10.168.254.155:3000).
- * 2. Offline / Weak GPS environments: Progressive multi-stage acquisition (Instant Cache -> High Accuracy Satellite -> Coarse Low Power).
+ * 2. Offline / weak GPS: the GPS chip only (a recent GPS reading, then a fresh one). The mobile network is never used for position.
  * 3. Offline storage & Persistence: Stores last known valid coordinates across page reloads & PWA sessions in localStorage.
  * 4. Fallback defaults: Provides known facility coordinates (Hasilpur, Jhang, Kabirwala) so operators in rural dead-zones or on laptops without GPS chips can never be blocked from dispatching or collecting milk.
  */
@@ -110,12 +110,12 @@ export function getFacilityOrStoredFallback(facilityCode?: string | null): GpsCo
 }
 
 /**
- * Robust progressive GPS acquisition:
- * Stage 1: Quick device cache check (maximumAge: maxCacheAgeMs or 30 s, timeout: 2.5s)
- * Stage 2: High accuracy satellite request (timeout: 10s)
- * Stage 3: Coarse low-power fallback (timeout: 12s, maximumAge: maxCacheAgeMs or 60 s)
- * Stage 4: LocalStorage cached position from previous session
- * Stage 5: Facility default coordinates
+ * GPS acquisition. Every request asks for the GPS chip (enableHighAccuracy), never the low-power
+ * mobile-network or Wi-Fi position: the GPS chip works with no signal and no internet.
+ * Stage 1: A GPS reading the phone already has (maximumAge: maxCacheAgeMs or 30 s, timeout: 2.5s)
+ * Stage 2: A fresh GPS reading (timeout: 10s)
+ * Stage 3: Position saved on this device from an earlier reading (only when the caller allows a fallback)
+ * Stage 4: Facility coordinates (only when the caller allows a fallback)
  */
 export async function acquireRobustGps(options?: {
   facilityCode?: string | null;
@@ -155,7 +155,7 @@ export async function acquireRobustGps(options?: {
   // Stage 1: Try device cache (instant offline-compatible)
   try {
     const cachedPos = await tryPosition({
-      enableHighAccuracy: false,
+      enableHighAccuracy: true,
       maximumAge: maxCacheAge ?? 30 * 1000,
       timeout: 2500,
     });
@@ -208,28 +208,7 @@ export async function acquireRobustGps(options?: {
     }
   }
 
-  // Stage 3: Coarse low-power fallback (indoors / offline)
-  try {
-    const coarsePos = await tryPosition({
-      enableHighAccuracy: false,
-      maximumAge: maxCacheAge ?? 60 * 1000,
-      timeout: 12000,
-    });
-    const result: GpsCoordinate = {
-      latitude: Number(coarsePos.coords.latitude.toFixed(7)),
-      longitude: Number(coarsePos.coords.longitude.toFixed(7)),
-      accuracy: coarsePos.coords.accuracy ? Number(coarsePos.coords.accuracy.toFixed(1)) : null,
-      timestamp: coarsePos.timestamp || Date.now(),
-      source: 'LIVE_COARSE',
-      label: 'Coarse GPS Fix',
-    };
-    saveStoredLastKnownGps(result);
-    return { location: result, status: 'SUCCESS', errorMsg: null, isInsecureContext: isInsecure, isOffline };
-  } catch {
-    // Both live attempts failed
-  }
-
-  // Stage 4 & 5: Return fallback (Stored or Facility)
+  // Stage 3 & 4: Return fallback (Stored or Facility)
   if (options?.allowFacilityFallback) {
     const isStored = fallbackCoord.source === 'OFFLINE_PERSISTED' || fallbackCoord.source === 'DEVICE_CACHE';
     return {

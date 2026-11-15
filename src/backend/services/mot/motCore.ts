@@ -2902,17 +2902,8 @@ function matchesCollectionIdempotency(
   const isSameUnit = existingCollection.quantity_unit === params.quantityUnit;
   const isSameLr = Math.abs(Number(existingCollection.lr) - params.lr) < 0.001;
   const isSameFat = Math.abs(Number(existingCollection.fat) - params.fat) < 0.001;
-  const isSameLat = Math.abs(Number(existingCollection.collection_latitude) - params.lat) < 0.0001;
-  const isSameLng = Math.abs(Number(existingCollection.collection_longitude) - params.lng) < 0.0001;
-  const existingAcc =
-    existingCollection.collection_gps_accuracy != null ? Number(existingCollection.collection_gps_accuracy) : null;
-  const isSameAcc =
-    (params.accuracy == null && existingAcc == null) ||
-    (params.accuracy != null && existingAcc != null && Math.abs(existingAcc - params.accuracy) < 0.01);
-  const isSameTimestamp =
-    params.hasExplicitTimestamp === false
-      ? true
-      : Math.abs(new Date(existingCollection.device_collected_at).getTime() - params.deviceCollectedAt.getTime()) < 1000;
+  // GPS position, GPS accuracy and the phone's time are NOT compared. On a weak connection the phone
+  // re-sends the same collection with a newer GPS reading or clock time; the first saved record stands.
   const isSameNotes =
     (existingCollection.collection_notes || '').trim() === (params.notes || '').trim() ||
     (params.notes ? (existingCollection.collection_notes || '').startsWith(params.notes.trim()) : (existingCollection.collection_notes || '').startsWith('Exception:'));
@@ -2924,10 +2915,6 @@ function matchesCollectionIdempotency(
     isSameUnit &&
     isSameLr &&
     isSameFat &&
-    isSameLat &&
-    isSameLng &&
-    isSameAcc &&
-    isSameTimestamp &&
     isSameNotes &&
     isSameShopRmr
   );
@@ -2972,7 +2959,7 @@ function resolveCollectionIdempotencyMatch(
   if (!matchesCollectionIdempotency(existingCollection, params)) {
     return {
       status: 409,
-      error: 'The provided client event ID is already in use with different collection parameters.',
+      error: 'This collection was already saved with a different quantity, LR, Fat or RMR number.',
     };
   }
 
@@ -3265,8 +3252,7 @@ export async function submitShopCollection(
   });
 
   if (phoneClockCorrected) {
-    const flagged = decisionDetails as unknown as { warnings?: string[]; deviceClockAt?: string };
-    flagged.warnings = [...(flagged.warnings ?? []), 'Phone clock was wrong. Saved with the corrected time.'];
+    const flagged = decisionDetails as unknown as { deviceClockAt?: string };
     flagged.deviceClockAt = phoneCollectedAt.toISOString();
   }
 
@@ -3795,23 +3781,17 @@ export async function recordGpsBatch(
     });
 
     if (existing) {
+      // A re-sent point is the same point: the first saved reading stands.
       const isSameJourney = existing.journey_id === journey.id;
-      const isSameLat = Math.abs(Number(existing.latitude) - lat) < 0.0001;
-      const isSameLng = Math.abs(Number(existing.longitude) - lng) < 0.0001;
-      const isSameTime = Math.abs(new Date(existing.device_recorded_at).getTime() - recDate.getTime()) < 1000;
-      const existingAcc = existing.gps_accuracy != null ? Number(existing.gps_accuracy) : null;
-      const isSameAcc =
-        (accuracy == null && existingAcc == null) ||
-        (accuracy != null && existingAcc != null && Math.abs(existingAcc - accuracy) < 0.01);
 
-      if (isSameJourney && isSameLat && isSameLng && isSameTime && isSameAcc) {
+      if (isSameJourney) {
         results.push({ client_location_id: locId, status: 'ALREADY_PROCESSED' });
         acceptedCount++;
       } else {
         results.push({
           client_location_id: locId,
           status: 'CONFLICT',
-          reason: 'Reused client_location_id with changed journey, coordinates, timestamp, or accuracy',
+          reason: 'This point id belongs to another journey',
         });
       }
       continue;
@@ -3882,22 +3862,15 @@ export async function recordGpsBatch(
         });
         if (existingAfterCollision) {
           const isSameJourney = existingAfterCollision.journey_id === journey.id;
-          const isSameLat = Math.abs(Number(existingAfterCollision.latitude) - lat) < 0.0001;
-          const isSameLng = Math.abs(Number(existingAfterCollision.longitude) - lng) < 0.0001;
-          const isSameTime = Math.abs(new Date(existingAfterCollision.device_recorded_at).getTime() - recDate.getTime()) < 1000;
-          const existingAcc = existingAfterCollision.gps_accuracy != null ? Number(existingAfterCollision.gps_accuracy) : null;
-          const isSameAcc =
-            (accuracy == null && existingAcc == null) ||
-            (accuracy != null && existingAcc != null && Math.abs(existingAcc - accuracy) < 0.01);
 
-          if (isSameJourney && isSameLat && isSameLng && isSameTime && isSameAcc) {
+          if (isSameJourney) {
             results.push({ client_location_id: locId, status: 'ALREADY_PROCESSED' });
             acceptedCount++;
           } else {
             results.push({
               client_location_id: locId,
               status: 'CONFLICT',
-              reason: 'Concurrent insert with conflicting attributes',
+              reason: 'This point id belongs to another journey',
             });
           }
         } else {

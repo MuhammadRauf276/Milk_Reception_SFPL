@@ -154,7 +154,6 @@ export function buildMotShopDecision(
 
   const extraReasons: ExceptionReason[] = [];
   if (i.geofence.status === 'OUTSIDE') extraReasons.push('AWAY_FROM_SHOP');
-  if (i.geofence.status === 'WEAK_GPS') warnings.push('GPS was weak at the shop.');
   if (i.geofence.status === 'NO_SHOP_GPS') warnings.push('This shop has no saved GPS location.');
 
   const decision = evaluateDecision({

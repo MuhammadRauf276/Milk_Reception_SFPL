@@ -198,7 +198,7 @@ export function useMotGpsStream(opts: {
     };
     const recheck = canAsk
       ? setInterval(() => {
-          navigator.geolocation.getCurrentPosition(onPosition, onGpsError, { maximumAge: 0, timeout: 20000 });
+          navigator.geolocation.getCurrentPosition(onPosition, onGpsError, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
         }, 30_000)
       : null;
     document.addEventListener('visibilitychange', onReturn);
