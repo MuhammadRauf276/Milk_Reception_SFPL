@@ -146,11 +146,6 @@ export function DevicesWorkspace() {
           <Button variant="secondary" size="sm" disabled={d.status === 'BLOCKED'} onClick={() => setDialog({ kind: 'key', device: d })}>
             <KeyRound aria-hidden /> Show key
           </Button>
-          {d.isSharedStation ? (
-            <Button variant="secondary" size="sm" disabled={d.status !== 'ACTIVE'} onClick={() => setDialog({ kind: 'station', device: d })}>
-              <Users aria-hidden /> Station users
-            </Button>
-          ) : null}
           <Button variant="secondary" size="sm" onClick={() => setDialog({ kind: 'diary', device: d })}>
             <ScrollText aria-hidden /> Diary
           </Button>

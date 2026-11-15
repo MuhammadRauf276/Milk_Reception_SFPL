@@ -19,7 +19,7 @@ let appOpenLogged = false;
 
 function isPublicPath(pathname: string): boolean {
   return pathname === '/login' || pathname === '/workspace-unavailable'
-    || pathname === '/station-login' || pathname === '/device-setup';
+    || pathname === '/device-setup';
 }
 
 function fromBase64Url(value: string): Uint8Array<ArrayBuffer> {

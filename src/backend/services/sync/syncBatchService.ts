@@ -609,7 +609,7 @@ function optionalString(value: unknown, max: number): string | null {
 }
 
 /**
- * Diary event types the server writes itself (login routes, deviceService, stationPinService,
+ * Diary event types the server writes itself (login routes, deviceService,
  * this service's own ledger rows). A client-sent DEVICE_EVENT never uses them as is.
  */
 export const SERVER_ONLY_EVENT_TYPES: readonly string[] = [

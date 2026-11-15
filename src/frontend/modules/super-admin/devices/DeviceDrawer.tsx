@@ -37,12 +37,6 @@ interface SourceOption {
   name: string;
   sourceType: string;
 }
-interface StationUserItem {
-  userId: string;
-  name: string;
-  role: string;
-  locked: boolean;
-}
 interface DiaryItem {
   id: string;
   eventType: string;
@@ -58,7 +52,6 @@ export type DeviceDialog =
   | { kind: 'block'; device: DeviceItem }
   | { kind: 'key'; device: DeviceItem }
   | { kind: 'diary'; device: DeviceItem }
-  | { kind: 'station'; device: DeviceItem }
   | { kind: 'shown-key'; deviceUid: string; syncKey: string };
 
 const DIALOG_TITLES: Record<DeviceDialog['kind'], string> = {
@@ -68,7 +61,6 @@ const DIALOG_TITLES: Record<DeviceDialog['kind'], string> = {
   block: 'Block phone',
   key: 'Make a new key',
   diary: 'Phone diary',
-  station: 'Station users',
   'shown-key': 'Phone key',
 };
 
@@ -147,9 +139,8 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
   const [formSource, setFormSource] = useState('');
   const [formUser, setFormUser] = useState('');
   const [formReason, setFormReason] = useState('');
-  const [formPin, setFormPin] = useState('');
 
-  const needsOptions = dialog.kind === 'register' || dialog.kind === 'assign' || dialog.kind === 'station';
+  const needsOptions = dialog.kind === 'register' || dialog.kind === 'assign';
   const optionsQuery = useQuery({
     queryKey: ['super-admin', 'devices', 'options'],
     queryFn: ({ signal }) =>
@@ -167,12 +158,6 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
   );
 
   const deviceId = 'device' in dialog ? dialog.device.id : null;
-  const stationKey = ['super-admin', 'devices', deviceId, 'station-users'];
-  const stationQuery = useQuery({
-    queryKey: stationKey,
-    queryFn: ({ signal }) => fetchJson<{ users: StationUserItem[] }>(`/api/devices/${deviceId}/station-users`, { signal }),
-    enabled: dialog.kind === 'station',
-  });
   const diaryQuery = useQuery({
     queryKey: ['super-admin', 'devices', deviceId, 'diary'],
     queryFn: ({ signal }) => fetchJson<{ entries: DiaryItem[] }>(`/api/devices/${deviceId}/diary?limit=100`, { signal }),
@@ -189,22 +174,7 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
     onError: (err) => setError(getErrorMessage(err)),
   });
 
-  const stationChange = useMutation({
-    mutationFn: ({ method, body }: { method: 'PUT' | 'DELETE'; body: Record<string, string> }) =>
-      fetchJson<{ users: StationUserItem[] }>(`/api/devices/${deviceId}/station-users`, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }),
-    onSuccess: (d) => {
-      queryClient.setQueryData(stationKey, d);
-      setFormUser('');
-      setFormPin('');
-    },
-    onError: (err) => setError(getErrorMessage(err)),
-  });
-
-  const busy = run.isPending || stationChange.isPending;
+  const busy = run.isPending;
   const exec = (request: () => Promise<{ syncKey?: string }>, deviceUid?: string) => {
     setError(null);
     run.mutate({ request, deviceUid });
@@ -216,9 +186,7 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
       body: JSON.stringify(body),
     });
 
-  const queryError =
-    (stationQuery.error && getErrorMessage(stationQuery.error)) || (diaryQuery.error && getErrorMessage(diaryQuery.error)) || null;
-  const stationUsers = stationQuery.data?.users ?? [];
+  const queryError = (diaryQuery.error && getErrorMessage(diaryQuery.error)) || null;
   const diary = diaryQuery.data?.entries ?? [];
 
   const userPicker = (
@@ -343,68 +311,6 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
         ) : null}
 
         {dialog.kind === 'shown-key' ? <KeyQr deviceUid={dialog.deviceUid} syncKey={dialog.syncKey} /> : null}
-
-        {dialog.kind === 'station' ? (
-          <>
-            <p className="flex items-center text-muted-foreground">
-              Station users
-              <InfoTip text="These people log in on this computer with a name card and a 4-digit PIN. After 5 wrong tries the PIN locks; set a new PIN to unlock it." />
-            </p>
-            {stationUsers.length === 0 && !queryError ? (
-              <p className="text-muted-foreground">{stationQuery.isPending ? 'Loading…' : 'No users yet.'}</p>
-            ) : (
-              <ul className="space-y-2">
-                {stationUsers.map((u) => (
-                  <li key={u.userId} className="flex items-center justify-between gap-2 rounded-md border p-2">
-                    <div className="min-w-0">
-                      <div className="break-words font-medium">{u.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {roleWords(u.role)}
-                        {u.locked ? ' - PIN blocked' : ''}
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className={BTN}
-                      disabled={busy}
-                      aria-label={`Remove ${u.name}`}
-                      onClick={() => {
-                        setError(null);
-                        stationChange.mutate({ method: 'DELETE', body: { userId: u.userId } });
-                      }}
-                    >
-                      <Trash2 aria-hidden /> Remove
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="space-y-3 border-t pt-3">
-              {userPicker}
-              <label className="block space-y-1 font-medium">
-                4-digit PIN
-                <input
-                  className={FIELD}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  maxLength={4}
-                  value={formPin}
-                  onChange={(e) => setFormPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                />
-              </label>
-              <Button
-                className={BTN}
-                disabled={busy || !formUser || formPin.length !== 4}
-                onClick={() => {
-                  setError(null);
-                  stationChange.mutate({ method: 'PUT', body: { userId: formUser, pin: formPin } });
-                }}
-              >
-                Save PIN
-              </Button>
-            </div>
-          </>
-        ) : null}
 
         {dialog.kind === 'diary' ? (
           diary.length === 0 && !queryError ? (
