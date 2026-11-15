@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   try {
     const visits = await prisma.vehicleVisit.findMany({
       where: {
-        current_status: { notIn: ['DISPATCHED', 'COMPLETED', 'CANCELLED'] },
+        current_status: { notIn: ['DISPATCHED', 'COMPLETED', 'CANCELLED', 'DRAFT_DISPATCH'] },
         ...(query
           ? {
               OR: [

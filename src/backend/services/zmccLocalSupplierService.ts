@@ -1,3 +1,4 @@
+import { nextSeriesNumber } from '@/backend/services/numbering/seriesNumber';
 import { prisma } from '@core/db';
 import { writeAuditLog } from '@/backend/core/audit';
 import { Prisma } from '@prisma/client';
@@ -384,20 +385,8 @@ export async function createHcSupplier(
   // Race-safe sequence allocation and atomic creation inside transaction
   try {
     const createdSupplier = await prisma.$transaction(async (tx) => {
-      let localSupplierCode: string;
-      try {
-        const seqResult = await tx.$queryRaw<{ nextval: bigint }[]>`
-          SELECT nextval('zmcc_local_supplier_code_seq') as nextval
-        `;
-        if (seqResult && seqResult.length > 0 && seqResult[0].nextval !== undefined && seqResult[0].nextval !== null) {
-          localSupplierCode = `ZLS-${String(Number(seqResult[0].nextval)).padStart(6, '0')}`;
-        } else {
-          throw new Error('FALLBACK');
-        }
-      } catch {
-        const count = await tx.zmccLocalSupplier.count();
-        localSupplierCode = `ZLS-${String(count + 1).padStart(6, '0')}`;
-      }
+      // The next HC code, given at the real save: a failed create uses up nothing.
+      const localSupplierCode = await nextSeriesNumber(tx, 'HC_SUPPLIER_CODE', 'ZLS-', 6);
 
       const supplier = await tx.zmccLocalSupplier.create({
         data: {

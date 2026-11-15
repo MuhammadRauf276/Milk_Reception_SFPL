@@ -1,3 +1,4 @@
+import { nextSeriesNumber } from '@/backend/services/numbering/seriesNumber';
 import { clearHandledNotifications, createNotificationsForEvent } from '@/backend/services/notificationService';
 import { prisma } from '@core/db';
 import { writeAuditLog } from '@/backend/core/audit';
@@ -479,16 +480,13 @@ export async function createRoute(
     return { status: 409, error: 'Cannot create route under an inactive ZMCC.' };
   }
 
-  let finalRouteCode = route_code;
-  if (!finalRouteCode) {
-    const count = await prisma.zmccRoute.count({ where: { zmcc_id: zmccId } });
-    finalRouteCode = `RT-${zmcc.code || 'ZMCC'}-${String(count + 1).padStart(3, '0')}`;
-  }
-
-  // Check unique constraints
-  const existingCode = await prisma.zmccRoute.findUnique({ where: { route_code: finalRouteCode } });
-  if (existingCode) {
-    return { status: 409, error: `Route code "${finalRouteCode}" already exists.` };
+  // A code typed by the person is checked here. With none typed, the next code of this ZMCC is given
+  // inside the save below, so two people adding a route together cannot get the same code.
+  if (route_code) {
+    const existingCode = await prisma.zmccRoute.findUnique({ where: { route_code } });
+    if (existingCode) {
+      return { status: 409, error: `Route code "${route_code}" already exists.` };
+    }
   }
 
   const existingName = await prisma.zmccRoute.findUnique({
@@ -508,6 +506,7 @@ export async function createRoute(
   };
 
   return await prisma.$transaction(async (tx) => {
+    const finalRouteCode = route_code || (await nextSeriesNumber(tx, 'ROUTE_CODE', `RT-${zmcc.code || 'ZMCC'}-`, 3));
     const created = await tx.zmccRoute.create({
       data: {
         route_code: finalRouteCode,
@@ -1979,16 +1978,12 @@ export async function createShop(
     return { status: 409, error: 'Cannot create shop: selected chiller ownership is inactive.' };
   }
 
-  let finalShopCode = shop_code;
-  if (!finalShopCode) {
-    const count = await prisma.zmccShop.count();
-    finalShopCode = `SHP-${String(count + 1).padStart(6, '0')}`;
-  }
-
-  // Unique checks
-  const existingCode = await prisma.zmccShop.findUnique({ where: { shop_code: finalShopCode } });
-  if (existingCode) {
-    return { status: 409, error: `Shop code "${finalShopCode}" already exists.` };
+  // A code typed by the person is checked here. With none typed, the next shop code is given inside the save below.
+  if (shop_code) {
+    const existingCode = await prisma.zmccShop.findUnique({ where: { shop_code } });
+    if (existingCode) {
+      return { status: 409, error: `Shop code "${shop_code}" already exists.` };
+    }
   }
 
   const existingName = await prisma.zmccShop.findUnique({
@@ -1999,6 +1994,7 @@ export async function createShop(
   }
 
   return await prisma.$transaction(async (tx) => {
+    const finalShopCode = shop_code || (await nextSeriesNumber(tx, 'SHOP_CODE', 'SHP-', 6));
     const created = await tx.zmccShop.create({
       data: {
         shop_code: finalShopCode,
@@ -2513,22 +2509,8 @@ export async function approveShop(auth: ZmccAuthContext, shopId: bigint): Promis
   }
 
   return await prisma.$transaction(async (tx) => {
-    // Allocate sequential shop_code (SHP-000001 format)
-    const latestShop = await tx.zmccShop.findFirst({
-      where: { shop_code: { startsWith: 'SHP-' } },
-      orderBy: { shop_code: 'desc' },
-      select: { shop_code: true },
-    });
-    let nextNum = 1;
-    if (latestShop && /^SHP-(\d+)$/.test(latestShop.shop_code)) {
-      const match = latestShop.shop_code.match(/^SHP-(\d+)$/);
-      if (match) nextNum = parseInt(match[1], 10) + 1;
-    }
-    let allocatedCode = `SHP-${String(nextNum).padStart(6, '0')}`;
-    while (await tx.zmccShop.findUnique({ where: { shop_code: allocatedCode } })) {
-      nextNum++;
-      allocatedCode = `SHP-${String(nextNum).padStart(6, '0')}`;
-    }
+    // The real shop code (SHP-000001 format), given now that the shop is approved.
+    const allocatedCode = await nextSeriesNumber(tx, 'SHOP_CODE', 'SHP-', 6);
 
     const updated = await tx.zmccShop.update({
       where: { id: shopId },

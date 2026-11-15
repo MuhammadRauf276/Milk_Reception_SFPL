@@ -32,6 +32,9 @@ function actingFailureResponse(result: Extract<ActingContextResult, { ok: false 
 
 
 
+/** An opened dispatch form that nobody came back to is closed after this many days. */
+const ABANDONED_DRAFT_DAYS = 7;
+
 const startDispatchSchema = z.object({
   visitId: z.string().optional(),
   vehicleNumber: z.string().optional(),
@@ -145,6 +148,27 @@ export async function POST(req: Request) {
     const sourceCheck = checkDispatchSource(actingResult.ctx, validated.procurementSourceId, sourceRecord);
     if (!sourceCheck.ok) return dispatchSourceFailureResponse(sourceCheck.code);
     const resolvedSourceId: bigint = sourceCheck.sourceId;
+
+    // A form that was opened and left is closed once it is 7 days old: by then its saved draft values have expired
+    // too, so nothing can be continued from it. This also covers forms that were opened with a vehicle already chosen.
+    const staleBefore = new Date(Date.now() - ABANDONED_DRAFT_DAYS * 24 * 60 * 60 * 1000);
+    const stale = await prisma.vehicleVisit.findMany({
+      where: { created_by: userId, current_status: 'DRAFT_DISPATCH', created_at: { lt: staleBefore } },
+      select: { id: true },
+    });
+    if (stale.length > 0) {
+      // A form someone is still filling in keeps saved values; those are never closed.
+      const stillInUse = await prisma.formDraft.findMany({
+        where: { scope_id: { in: stale.map((v) => v.id) }, form_type: { contains: 'DISPATCH', mode: 'insensitive' } },
+        select: { scope_id: true },
+      });
+      const keepIds = new Set(stillInUse.map((d) => d.scope_id.toString()));
+      await prisma.vehicleVisit.updateMany({
+        where: { id: { in: stale.map((v) => v.id).filter((id) => !keepIds.has(id.toString())) }, current_status: 'DRAFT_DISPATCH' },
+        // Marked the same way as the other closed empty forms, so every list already leaves them out.
+        data: { current_status: 'CANCELLED', vehicle_number: 'DRAFT' },
+      });
+    }
 
     // The form needs a visit to hold its tests and photos, but opening it again must not make another one: an operator
     // keeps one empty draft per source per day, and older empty ones are closed.

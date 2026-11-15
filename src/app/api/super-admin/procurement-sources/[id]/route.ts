@@ -173,7 +173,7 @@ export async function PATCH(
         const incompleteVisitsCount = await tx.vehicleVisit.count({
           where: {
             procurement_source_id: sourceId,
-            current_status: { not: 'COMPLETED' },
+            current_status: { notIn: ['COMPLETED', 'CANCELLED', 'DRAFT_DISPATCH'] },
           },
         });
 

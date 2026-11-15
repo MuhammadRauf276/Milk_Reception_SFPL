@@ -21,7 +21,10 @@ export async function GET(req: Request) {
     const pageSize = Math.min(100, Math.max(1, Number(searchParams.get('pageSize')) || 20));
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.VehicleVisitWhereInput = {};
+    // A dispatch form that was opened but never sent is not a vehicle: it is left out of the list and the count.
+    const where: Prisma.VehicleVisitWhereInput = {
+      NOT: [{ current_status: 'DRAFT_DISPATCH' }, { current_status: 'CANCELLED', vehicle_number: 'DRAFT' }],
+    };
     if (query) {
       where.OR = [
         { vehicle_number: { contains: query, mode: 'insensitive' } },

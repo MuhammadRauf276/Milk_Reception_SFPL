@@ -1025,7 +1025,8 @@ export async function getApprovalInbox(
     (!isQaScoped) &&
     (stageFilter === 'ALL' || stageFilter === 'STAGE_3')
   ) {
-    const dispatchWhere: Prisma.VehicleVisitWhereInput = {};
+    // An unsent dispatch form never has a request, so it is never listed here.
+    const dispatchWhere: Prisma.VehicleVisitWhereInput = { current_status: { not: 'DRAFT_DISPATCH' } };
     if (statusFilter === 'PENDING') {
       dispatchWhere.OR = [
         { approval_status: 'PENDING' },

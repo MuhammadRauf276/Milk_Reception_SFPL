@@ -14,7 +14,7 @@ export async function getCurrentVehicleStages(scope: ManagementScope, filters: M
   const vehicleFilter = filters.vehicleNumber?.trim()
     ? { contains: filters.vehicleNumber.trim(), mode: 'insensitive' as const }
     : undefined;
-  const where = { ...sourceFilter, ...(createdAt ? { created_at: createdAt } : {}), ...(vehicleFilter ? { vehicle_number: vehicleFilter } : {}), current_status: { notIn: ['COMPLETED', 'CANCELLED'] }, ...(filters.exceptionOnly ? { portions: { some: { manager_review_status: 'PENDING' } } } : {}) };
+  const where = { ...sourceFilter, ...(createdAt ? { created_at: createdAt } : {}), ...(vehicleFilter ? { vehicle_number: vehicleFilter } : {}), current_status: { notIn: ['COMPLETED', 'CANCELLED', 'DRAFT_DISPATCH'] }, ...(filters.exceptionOnly ? { portions: { some: { manager_review_status: 'PENDING' } } } : {}) };
   const { page, pageSize } = normalizeManagementPage(filters);
   const [visits, total] = await Promise.all([prisma.vehicleVisit.findMany({
     where,

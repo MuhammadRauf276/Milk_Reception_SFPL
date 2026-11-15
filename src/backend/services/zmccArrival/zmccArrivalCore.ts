@@ -1,3 +1,4 @@
+import { nextSeriesNumber } from '@/backend/services/numbering/seriesNumber';
 import { clearHandledNotifications } from '@/backend/services/notificationService';
 import { writeAuditLog } from '@/backend/core/audit';
 import { isCorrectionAuthority } from '@/backend/core/roles/capabilities';
@@ -865,12 +866,8 @@ export async function submitMotArrival(
         throw new Error('JOURNEY_ALREADY_COMPLETED');
       }
 
-      const seqResult = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('zmcc_token_seq') as nextval`;
-      if (!seqResult || seqResult.length === 0 || seqResult[0].nextval === undefined || seqResult[0].nextval === null) {
-        throw new Error('FAILED_TO_ALLOCATE_ZMCC_TOKEN_SEQUENCE');
-      }
-      const seqNum = Number(seqResult[0].nextval);
-      const zmccToken = `ZT-MOT-${dateCode}-${String(seqNum).padStart(4, '0')}`;
+      // Mobile Tester arrivals have their own token series for the day (no longer shared with HC arrivals).
+      const zmccToken = await nextSeriesNumber(tx, 'ZMCC_MOT_TOKEN', `ZT-MOT-${dateCode}-`, 4);
 
       const latestDeviceLoc = await tx.motJourneyLocation.findFirst({
         where: {
@@ -1762,12 +1759,8 @@ export async function submitLocalSupplierArrival(
 
   try {
     const createdArrival = await prisma.$transaction(async (tx) => {
-      const seqResult = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('zmcc_token_seq') as nextval`;
-      if (!seqResult || seqResult.length === 0 || seqResult[0].nextval === undefined || seqResult[0].nextval === null) {
-        throw new Error('FAILED_TO_ALLOCATE_ZMCC_TOKEN_SEQUENCE');
-      }
-      const seqNum = Number(seqResult[0].nextval);
-      const zmccToken = `ZT-LS-${dateCode}-${String(seqNum).padStart(4, '0')}`;
+      // HC arrivals have their own token series for the day.
+      const zmccToken = await nextSeriesNumber(tx, 'ZMCC_HC_TOKEN', `ZT-LS-${dateCode}-`, 4);
 
       // Concurrency safety: acquire advisory lock and re-verify RAW_MILK_TOKEN within transaction
       cleanRawMilkToken = await PaperReferenceService.validateAndVerify(

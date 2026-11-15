@@ -1,3 +1,4 @@
+import { nextSeriesNumber } from '@/backend/services/numbering/seriesNumber';
 import { toPosition } from '@/lib/coordinates';
 import { resolveCollectionTime } from '@/backend/services/mot/collectionTime';
 import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
@@ -1697,14 +1698,9 @@ export async function assignAndDispatchJourney(
   const dateCode = todayPktStr.replace(/-/g, '');
 
   try {
-    // Ensure sequence exists in database
-    await prisma.$executeRawUnsafe('CREATE SEQUENCE IF NOT EXISTS "mot_journey_number_seq" START WITH 1 INCREMENT BY 1;');
-
     const result = await prisma.$transaction(async (tx) => {
-      // Atomic sequence generation
-      const seqResult = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('mot_journey_number_seq') as nextval`;
-      const seqNum = seqResult[0]?.nextval ? Number(seqResult[0].nextval) : Math.floor(Math.random() * 9000) + 1000;
-      const journeyNumber = `MJ-${dateCode}-${String(seqNum).padStart(4, '0')}`;
+      // The next journey number of the day. Given here, at the real save, so a failed assign uses up nothing.
+      const journeyNumber = await nextSeriesNumber(tx, 'MOT_JOURNEY', `MJ-${dateCode}-`, 4);
 
       // Create MotJourney
       const journey = await tx.motJourney.create({
@@ -3321,10 +3317,8 @@ export async function submitShopCollection(
         throw new Error('STOP_ALREADY_VISITED');
       }
 
-      // Atomic collection number generation
-      const seqResult = await tx.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('mot_collection_number_seq') as nextval`;
-      const seqNum = seqResult[0]?.nextval ? Number(seqResult[0].nextval) : Math.floor(Math.random() * 9000) + 1000;
-      const collectionNumber = `MC-${dateCode}-${String(seqNum).padStart(4, '0')}`;
+      // The next collection number of the day. A collection that fails a later check gives its number back.
+      const collectionNumber = await nextSeriesNumber(tx, 'MOT_COLLECTION', `MC-${dateCode}-`, 4);
 
       // Re-verify shop_rmr_number under transaction lock
       if (validatedShopRmr) {
