@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { SkeletonList } from '@/components/ui/loaders';
 import { formatLabel } from '@/lib/format';
 import { exceptionReasonText } from '@/lib/exceptionReasons';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 type Tab = 'PENDING' | 'DECIDED';
 type Outcome = 'PASS' | 'FAIL' | 'WARN' | 'NOT_TESTED';
@@ -247,19 +248,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
         <SkeletonList count={3} />
       )}
 
-      {approvalsQuery.isError && (
-        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card p-4 text-xs text-rose-800">
-          <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
-          <span>{getErrorMessage(approvalsQuery.error) || 'Failed to load dispatch queue.'}</span>
-          <button
-            type="button"
-            onClick={() => approvalsQuery.refetch()}
-            className="ml-auto font-semibold underline text-rose-700 hover:text-rose-900"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+      <ErrorPopup message={approvalsQuery.isError ? getErrorMessage(approvalsQuery.error) || 'Failed to load dispatch queue.' : null} onRetry={() => void approvalsQuery.refetch()} />
 
       {!approvalsQuery.isPending && !approvalsQuery.isError && items.length === 0 && (
         <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-xs text-muted-foreground">
@@ -392,12 +381,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
             </div>
 
             <div className="p-4 sm:p-6 overflow-y-auto space-y-4 max-h-[calc(85vh-8rem)]">
-              {actionError && (
-                <div className="p-3 bg-card border border-border text-rose-800 text-xs rounded-xl flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
-                  <span>{actionError}</span>
-                </div>
-              )}
+              <ErrorPopup message={actionError} />
 
               {/* Quality Totals Header */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-card p-3 rounded-xl border border-border text-center">

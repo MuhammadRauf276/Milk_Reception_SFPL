@@ -49,6 +49,7 @@ import { buildSopChipText } from '@/lib/sop-chip';
 import { useServerDraft } from '@/frontend/hooks/useServerDraft';
 import { exceptionReasonShort, exceptionReasonText } from '@/lib/exceptionReasons';
 import { stampEmployeeCode, stampRoleLabel } from '@/lib/photo/stampIdentity';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export interface LabPortionsPanelProps {
   sessionId: string;
@@ -778,15 +779,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
 
       </div>
 
-      {error && (
-        <div className="bg-card border-border flex items-center gap-2 rounded-xl border p-3 text-xs text-rose-800">
-          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <span>{error}</span>
-          <button type="button" onClick={load} className="min-h-11 min-w-11 ml-auto font-semibold underline">
-            Try again
-          </button>
-        </div>
-      )}
+      <ErrorPopup message={error} onRetry={() => void load()} />
 
       {/* Test Mode Selector: Composite vs Portion-wise (matches Dispatch to Plant) */}
       {!finished && state && (

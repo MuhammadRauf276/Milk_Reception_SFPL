@@ -37,6 +37,7 @@ import { canAssignJourney, canCreateRoute, routeNeedsApproval } from '@/frontend
 import type { MotProfileItem, MotVehicleItem, RouteOption, JourneyItem } from '@/frontend/modules/mot/workspace/types';
 import { formatTime } from '@/lib/format';
 import { formatLabel } from '@/lib/format';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface ZMCCOperationalJourneysScreenProps {
   currentUser: User | null;
@@ -414,30 +415,8 @@ export function ZMCCOperationalJourneysScreen({
               Select a ZMCC at the top of the page to load its routes, testers and vehicles.
             </div>
           )}
-          {dispatchDataQuery.isError && (
-            <div className="max-w-4xl mx-auto rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs font-semibold text-rose-800 flex items-center justify-between gap-2" role="alert">
-              <span>Could not load routes, testers and vehicles: {dispatchDataQuery.error.message}</span>
-              <button
-                type="button"
-                onClick={() => void dispatchDataQuery.refetch()}
-                className="shrink-0 min-h-9 px-3 rounded-lg border border-rose-300 text-rose-800 hover:bg-rose-100"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-          {dispatchError && (
-            <div className="max-w-4xl mx-auto rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs font-semibold text-rose-800 flex items-center justify-between">
-              <span>{dispatchError}</span>
-              <button
-                type="button"
-                onClick={() => setDispatchError(null)}
-                className="text-rose-600 hover:text-rose-900 ml-2"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+          <ErrorPopup message={dispatchDataQuery.isError ? `Could not load routes, testers and vehicles: ${dispatchDataQuery.error.message}` : null} onRetry={() => void dispatchDataQuery.refetch()} />
+          <ErrorPopup message={dispatchError} onClear={() => setDispatchError(null)} />
           <DispatchTab
             form={dispatchForm}
             gps={dispatchGps}

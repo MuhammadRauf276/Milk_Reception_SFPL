@@ -31,6 +31,7 @@ import { DataFilters, FilterToggle } from '@/components/ui/data-filters';
 import { SkeletonTable } from '@/components/ui/loaders';
 import { TableWrapper } from '@/components/ui/table-wrapper';
 import { type TestPointCode, TEST_POINT_LABELS, normalizeTestMode } from '@/types/test-point-policy';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 const ROW_PAGE_SIZE = 35;
 const LAB_TESTS_API = '/api/super-admin/lab-tests';
@@ -242,12 +243,7 @@ function WorkspaceInner({
   return (
     <div className="w-full max-w-full space-y-4 overflow-x-clip">
       {/* Error & Success Alerts */}
-      {displayError && (
-        <div role="alert" className="flex items-center gap-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-rose-800">
-          <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
-          <span>{displayError}</span>
-        </div>
-      )}
+      <ErrorPopup message={displayError} />
       <AnimatePresence initial={false}>
         {successMsg && (
           <motion.div

@@ -20,6 +20,7 @@ import {
 } from '@/backend/services/management/vehiclePortionReport';
 import { ZMCCManagerVisitDetailModal } from '@/frontend/modules/dashboard/zmcc/ZMCCManagerVisitDetailModal';
 import { VisitPhotosSection } from './VisitPhotosSection';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 const EMPTY = '—';
 const SEARCH_DELAY_MS = 400;
@@ -196,17 +197,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
         )}
       </div>
 
-      {reportQuery.isError && !rangeProblem && (
-        <div className="bg-card border-border p-6 rounded-2xl border text-center space-y-3" role="alert">
-          <p className="text-xs font-semibold text-rose-800">{reportQuery.error.message || 'Failed to load the report.'}</p>
-          <button
-            onClick={() => void reportQuery.refetch()}
-            className="px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition min-h-11"
-          >
-            Retry Loading
-          </button>
-        </div>
-      )}
+      <ErrorPopup message={reportQuery.isError && !rangeProblem ? reportQuery.error.message || 'Failed to load the report.' : null} onRetry={() => void reportQuery.refetch()} />
 
       <TableWrapper className={`rounded-xl bg-card border border-border/80 shadow-2xs transition-opacity ${reportQuery.isFetching ? 'opacity-70' : ''}`}>
         <table className="w-full text-left text-xs tabular-nums">

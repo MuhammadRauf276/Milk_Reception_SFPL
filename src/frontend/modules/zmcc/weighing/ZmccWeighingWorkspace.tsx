@@ -21,6 +21,7 @@ import type { WeighingQueueData, WeighingSessionView } from '@/backend/services/
 import { ZmccPager } from '@/frontend/modules/zmcc/shared/ZmccDrawer';
 import { Pagination, useListPageSize, usePagedRows } from '@/components/ui/pagination';
 import { WeighingEntryDrawer, type WeighingPolicyView } from './WeighingEntryDrawer';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 const DEFAULT_POLICY: WeighingPolicyView = { manual_entry_enabled: false, allowed_units: 'BOTH' };
 
@@ -289,11 +290,7 @@ export const ZmccWeighingWorkspace: React.FC = () => {
           <CheckCircle2 className="h-4 w-4" /> {notice}
         </p>
       )}
-      {error && (
-        <p role="alert" className="rounded-lg border border-border bg-card p-3 text-sm font-semibold text-rose-800">
-          Problem: {error}
-        </p>
-      )}
+      <ErrorPopup message={error} />
       {queueQuery.isFetching && (
         <p className="flex items-center gap-2 text-sm text-secondary-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…

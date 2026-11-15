@@ -11,6 +11,7 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import { ticketModuleFor, ticketTarget, type EditorGroup, type EditorSection, type TicketModule } from '@/lib/recordEditor';
 import { MyCorrectionTicketsButton } from './MyCorrectionTickets';
 import { RequestCorrectionModal, type EditableFieldOption } from './RequestCorrectionModal';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface Picked {
   section: EditorSection;
@@ -74,11 +75,7 @@ export function RequestCorrectionPanel({ embedded = false }: { embedded?: boolea
       </form>
 
       {search.length >= 2 && query.isPending && <p className="text-sm text-muted-foreground">Searching…</p>}
-      {query.isError && (
-        <p role="alert" className="text-sm text-rose-700">
-          {getErrorMessage(query.error) || 'Could not search records.'}
-        </p>
-      )}
+      <ErrorPopup message={query.isError ? getErrorMessage(query.error) || 'Could not search records.' : null} onRetry={() => void query.refetch()} />
       {search.length >= 2 && query.isSuccess && groups.length === 0 && (
         <p className="text-sm text-muted-foreground">No record of yours matches “{search}”.</p>
       )}

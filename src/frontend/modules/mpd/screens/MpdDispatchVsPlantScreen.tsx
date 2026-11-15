@@ -9,6 +9,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { formatMetric, NO_DATA } from '../format';
 import type { MpdTabId } from '../types';
 import type { DispatchVsPlantReport } from '@/backend/services/management/dispatchVsPlantReport';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface Props {
   zmccId?: string;
@@ -130,9 +131,7 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId }) => {
         <p className="text-xs text-muted-foreground pb-2">ZMCC tankers sent to the plant, and what the plant received.</p>
       </div>
 
-      {query.error && (
-        <div className="bg-card border border-border rounded-2xl p-4 text-xs font-semibold text-rose-800">{getErrorMessage(query.error)}</div>
-      )}
+      <ErrorPopup message={query.error ? getErrorMessage(query.error) : null} onRetry={() => void query.refetch()} />
       {query.isPending && <div className="bg-card border border-border rounded-2xl p-8 text-center text-xs text-muted-foreground">Loading report…</div>}
 
       {report && t && (

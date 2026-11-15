@@ -26,6 +26,7 @@ import { User } from '@core/types';
 import { getErrorMessage } from '@/lib/errors';
 import { canApproveRoute, canApproveShop, canCreateRoute } from '@/frontend/modules/zmcc/stage1Capabilities';
 import { DecisionStatusBadge } from '@/frontend/modules/shared/decision/DecisionStatusBadge';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export interface PendingRouteItem {
   id: string;
@@ -278,22 +279,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
         </div>
       )}
 
-      {error && (
-        <div className="bg-card border-border p-3 border text-rose-800 text-xs font-semibold rounded-xl flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{error}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            aria-label="Dismiss"
-            className="min-h-11 min-w-11 ml-2 text-rose-700 hover:text-rose-900"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+      <ErrorPopup message={error} onClear={() => setError(null)} />
 
       {showRoutes && canSeeRoutes && (
         <div className="bg-card border border-border rounded-xl shadow-2xs overflow-hidden">

@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { formatLabel } from '@/lib/format';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface SmsOutboxViewProps {
   currentUser: User | null;
@@ -264,12 +265,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
         </div>
       )}
 
-      {error && (
-        <div className="bg-card border-border p-4 border rounded-2xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
-          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+      <ErrorPopup message={error} />
 
       <DataTable
         columns={columns}

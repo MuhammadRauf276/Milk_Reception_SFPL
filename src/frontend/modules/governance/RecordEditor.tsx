@@ -14,6 +14,7 @@ import { toast } from '@/frontend/lib/appToast';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { buildEditorSave, changedFields, type EditorField, type EditorGroup, type EditorPhoto, type EditorPhotoSlot, type EditorSection } from '@/lib/recordEditor';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 const MIN_REASON = 5;
 
@@ -396,11 +397,7 @@ export function RecordEditor() {
       </div>
 
       {query.isPending && <p className="text-sm text-muted-foreground">Loading transactions…</p>}
-      {query.isError && (
-        <p role="alert" className="text-sm text-rose-700">
-          {getErrorMessage(query.error) || 'Could not load records.'}
-        </p>
-      )}
+      <ErrorPopup message={query.isError ? getErrorMessage(query.error) || 'Could not load records.' : null} onRetry={() => void query.refetch()} />
       {query.isSuccess && groups.length === 0 && <p className="text-sm text-muted-foreground">No transaction matches these filters.</p>}
 
       <div className="space-y-2">

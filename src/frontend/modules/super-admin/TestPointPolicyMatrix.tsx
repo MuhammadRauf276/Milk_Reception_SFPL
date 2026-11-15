@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Camera, CheckCircle2, CircleSlash, Lock, MinusCircle, Save, ShieldCheck, X } from 'lucide-react';
 import { TEST_POINT_LABELS } from '@/types/test-point-policy';
 import type { TestPointCode, TestPointPolicyCell } from '@/types/test-point-policy';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 type Field = 'testMode' | 'ruleMode' | 'photoMode';
 type Tone = 'good' | 'warn' | 'off';
@@ -170,11 +171,7 @@ export function TestPointPolicyMatrix() {
         )}
       </div>
 
-      {error && (
-        <div role="alert" className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm font-semibold text-rose-800">
-          <AlertTriangle className="h-4 w-4" /> {error}
-        </div>
-      )}
+      <ErrorPopup message={error} />
       {notice && (
         <div role="status" className="flex items-center gap-2 rounded-lg border border-border bg-card p-3 text-sm font-semibold text-emerald-800">
           <CheckCircle2 className="h-4 w-4" /> {notice}

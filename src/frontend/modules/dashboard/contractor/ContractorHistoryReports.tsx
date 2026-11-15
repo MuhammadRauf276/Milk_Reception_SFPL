@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errors';
 import { useListPageSize } from '@/components/ui/pagination';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface ContractorHistoryReportsProps {
   initialLogs: MilkProcessLog[];
@@ -320,12 +321,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
           </div>
         </form>
 
-        {error && (
-          <div className="bg-card border-border p-3 rounded-xl border text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-panel-in">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+        <ErrorPopup message={error} />
       </div>
 
       {/* Bounded Page Notice */}

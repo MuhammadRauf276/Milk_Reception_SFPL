@@ -28,6 +28,7 @@ import { InfoTip } from '@/components/ui/info-tip';
 import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { formatDate, formatDateTime, formatLabel } from '@/lib/format';
 import { CORRECTION_MODULE_LABELS } from './MyCorrectionTickets';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export const CentralCorrectionDesk: React.FC = () => {
   const router = useRouter();
@@ -240,12 +241,7 @@ export const CentralCorrectionDesk: React.FC = () => {
         </div>
       )}
 
-      {actionError && (
-        <div className="bg-card border-border p-4 border rounded-2xl text-rose-800 text-xs font-semibold flex items-center space-x-2 animate-in fade-in">
-          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-          <span>{actionError}</span>
-        </div>
-      )}
+      <ErrorPopup message={actionError} />
 
       {/* TAB 1: CORRECTION REQUESTS QUEUE */}
       {activeTab === 'REQUESTS' && (

@@ -17,6 +17,7 @@ import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import type { MotShopExceptionItem } from '@/backend/services/mot/motShopReviewService';
 import { exceptionReasonShort } from '@/lib/exceptionReasons';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 type Tab = 'PENDING' | 'DECIDED';
 
@@ -165,15 +166,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
 
       {loading && <SkeletonList count={3} />}
 
-      {error && (
-        <div className="bg-card border-border flex items-center gap-2 rounded-xl border p-3 text-xs text-rose-800">
-          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <span>{error}</span>
-          <button type="button" onClick={load} className="min-h-11 min-w-11 ml-auto font-semibold underline">
-            Try again
-          </button>
-        </div>
-      )}
+      <ErrorPopup message={error} onRetry={() => void load()} />
 
       {!loading && !error && items.length === 0 && (
         <div className="rounded-2xl border border-border bg-card p-8 text-center text-xs text-muted-foreground">

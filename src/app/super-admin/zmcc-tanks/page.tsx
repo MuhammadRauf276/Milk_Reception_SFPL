@@ -28,6 +28,7 @@ import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 import { ZmccTankLedgerDrawer } from '@/frontend/modules/super-admin/zmcc-tanks/ZmccTankLedgerDrawer';
 import { FormDrawer, DrawerActions, fieldInputClass, fieldLabelClass } from '@/frontend/modules/super-admin/shared/FormDrawer';
 import type { TankItem, ZmccSource } from '@/frontend/modules/zmcc/master/masterTypes';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 const L2 = { minimumFractionDigits: 2 } as const;
 
@@ -373,12 +374,7 @@ export default function SuperAdminZmccTanksPage() {
       </div>
 
       {/* Notifications */}
-      {error && (
-        <div className="flex items-center space-x-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
-          <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
-          <span>{error}</span>
-        </div>
-      )}
+      <ErrorPopup message={error} />
 
       <AnimatePresence initial={false}>
         {successMsg && (

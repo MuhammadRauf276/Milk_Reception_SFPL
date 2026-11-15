@@ -31,6 +31,7 @@ import { ZMCCLabSessionList } from './ZMCCLabSessionList';
 import { ZMCCPlantQAList } from './ZMCCPlantQAList';
 import { ZMCCManagerReviewDrawer } from './ZMCCManagerReviewDrawer';
 import { SkeletonTable } from '@/components/ui/loaders';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 
 interface ZMCCManagerQualityRejectionsProps {
@@ -351,17 +352,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
       </div>
 
       {/* 3. Errors */}
-      {(labError || error) && (
-        <div className="bg-card border-border p-4 rounded-2xl border text-rose-800 text-xs font-semibold flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{labError || error}</span>
-          </div>
-          <button onClick={viewMode === 'ZMCC_LAB' ? fetchLabSessions : onRetry} className="underline hover:text-rose-950 min-h-11 min-w-11">
-            Retry
-          </button>
-        </div>
-      )}
+      <ErrorPopup message={labError || error} onRetry={() => { if (viewMode === 'ZMCC_LAB') void fetchLabSessions(); else onRetry?.(); }} />
 
       {/* 4. Loading */}
       {(labLoading || isLoading) && (

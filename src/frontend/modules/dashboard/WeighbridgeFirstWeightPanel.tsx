@@ -15,6 +15,7 @@ import { SkeletonList } from '@/components/ui/loaders';
 import { formatTime } from '@/lib/format';
 import { Pager, pageCount, paginate } from './components/Pager';
 import { formatDuration, type FirstWeightVisit } from './weighbridgeTypes';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 /** First (loaded) weight: queue of QA-approved vehicles plus a bottom-sheet to record the weighment. */
 export const WeighbridgeFirstWeightPanel: React.FC = () => {
@@ -60,21 +61,7 @@ export const WeighbridgeFirstWeightPanel: React.FC = () => {
         />
       </div>
 
-      {firstQuery.isError && (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-900"
-        >
-          <span>Could not load first weight queue.</span>
-          <button
-            type="button"
-            onClick={() => void firstQuery.refetch()}
-            className="min-h-11 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition-colors cursor-pointer"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+      <ErrorPopup message={firstQuery.isError ? 'Could not load the first weight queue.' : null} onRetry={() => void firstQuery.refetch()} />
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18.5rem),1fr))] gap-3">
         {firstQuery.isPending ? (

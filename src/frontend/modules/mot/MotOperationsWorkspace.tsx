@@ -60,6 +60,7 @@ import {
   type RouteOption,
   type ZmccSource,
 } from './workspace/types';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export type { MotWorkspaceTab } from './workspace/types';
 
@@ -271,22 +272,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
         )}
       </div>
 
-      {error && (
-        <div className="bg-card border-border flex items-center justify-between p-4 border rounded-2xl text-rose-800 text-xs font-semibold animate-panel-in">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span>{error}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            aria-label="Dismiss error"
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center text-rose-600 hover:text-rose-900"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      <ErrorPopup message={error} onClear={() => setError(null)} />
 
       {successMessage && (
         <div className="bg-card border-border flex items-center justify-between p-4 border rounded-2xl text-emerald-800 text-xs font-semibold">

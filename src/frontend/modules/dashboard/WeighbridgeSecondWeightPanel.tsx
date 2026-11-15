@@ -16,6 +16,7 @@ import { formatTime } from '@/lib/format';
 import { Pager, pageCount, paginate } from './components/Pager';
 import { apiClient } from '@/frontend/lib/apiClient';
 import type { SecondWeightVisit } from './weighbridgeTypes';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 /** Second (empty) weight: queue of unloaded vehicles plus a bottom-sheet to record the weighment. */
 export const WeighbridgeSecondWeightPanel: React.FC = () => {
@@ -60,21 +61,7 @@ export const WeighbridgeSecondWeightPanel: React.FC = () => {
         />
       </div>
 
-      {secondQuery.isError && (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-900"
-        >
-          <span>Could not load second weight queue.</span>
-          <button
-            type="button"
-            onClick={() => void secondQuery.refetch()}
-            className="min-h-11 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition-colors cursor-pointer"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+      <ErrorPopup message={secondQuery.isError ? 'Could not load the second weight queue.' : null} onRetry={() => void secondQuery.refetch()} />
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,18.5rem),1fr))] gap-3">
         {secondQuery.isPending ? (

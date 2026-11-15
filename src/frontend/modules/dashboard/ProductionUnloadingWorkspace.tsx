@@ -15,6 +15,7 @@ import { ProductionQueueList } from './ProductionQueueList';
 import { ProductionStartUnloadingDrawer } from './ProductionStartUnloadingDrawer';
 import { ProductionCompleteUnloadingDrawer } from './ProductionCompleteUnloadingDrawer';
 import { ProductionSiloIssueDrawer } from './ProductionSiloIssueDrawer';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export type { ProductionTab };
 
@@ -131,21 +132,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
       </div>
 
 
-      {((activeTab === 'READY' && readyQuery.isError) || (activeTab === 'UNLOADING' && unloadingQuery.isError)) && (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-900"
-        >
-          <span>Could not load unloading queue. Please check your connection and try again.</span>
-          <button
-            type="button"
-            onClick={() => void (activeTab === 'READY' ? readyQuery.refetch() : unloadingQuery.refetch())}
-            className="min-h-11 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition-colors cursor-pointer"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+      <ErrorPopup message={(activeTab === 'READY' && readyQuery.isError) || (activeTab === 'UNLOADING' && unloadingQuery.isError) ? 'Could not load the unloading queue. Check your connection.' : null} onRetry={() => void (activeTab === 'READY' ? readyQuery.refetch() : unloadingQuery.refetch())} />
 
       {activeTab === 'SILO_ISSUE' ? (
         <div className="space-y-3">

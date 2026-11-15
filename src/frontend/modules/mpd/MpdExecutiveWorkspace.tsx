@@ -42,6 +42,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { fadeSlide } from '@/components/motion/presets';
 import { canSeeTestPolicies } from '@/lib/test-policy-access';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface MpdExecutiveWorkspaceProps {
   currentUser?: User | null;
@@ -248,12 +249,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
       )}
 
       {/* Error state */}
-      {error && (
-        <div className="bg-card border-border p-4 rounded-2xl border text-rose-800 text-xs font-semibold flex items-center gap-2 animate-panel-in">
-          <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+      <ErrorPopup message={error} />
 
       {/* Tab Screen Content */}
       <AnimatePresence mode="wait" initial={false}>

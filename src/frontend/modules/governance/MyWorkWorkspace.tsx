@@ -22,6 +22,7 @@ import { CORRECTION_MODULE_LABELS, CorrectionStatusBadge } from './MyCorrectionT
 import { RequestCorrectionModal, type EditableFieldOption } from './RequestCorrectionModal';
 import { RequestCorrectionPanel } from './RequestCorrectionPanel';
 import { MySubmittedRequestsPanel } from '@/frontend/modules/approvals/MySubmittedRequestsPanel';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 type WorkTab = 'work' | 'requests';
 
@@ -237,11 +238,7 @@ function InspectDrawer({ row, onClose }: { row: MyWorkRow | null; onClose: () =>
         icon={<ClipboardList className="mt-0.5 h-5 w-5 shrink-0 text-secondary-foreground" />}
       >
         {query.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {query.isError && (
-          <p role="alert" className="text-sm text-rose-700">
-            {getErrorMessage(query.error) || 'Could not load the record.'}
-          </p>
-        )}
+        <ErrorPopup message={query.isError ? getErrorMessage(query.error) || 'Could not load the record.' : null} onRetry={() => void query.refetch()} />
         {group && (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground break-words">{group.subtitle}</p>

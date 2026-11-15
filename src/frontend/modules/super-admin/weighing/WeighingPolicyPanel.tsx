@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Loader2, ShieldAlert } from 'lucide-react';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 type Units = 'KG' | 'LITER' | 'BOTH';
 interface Policy {
@@ -70,12 +71,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
 
   return (
     <div className="w-full max-w-xl space-y-4">
-      {error && (
-        <div role="alert" className="flex items-center gap-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-rose-800">
-          <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
-          <span>{error}</span>
-        </div>
-      )}
+      <ErrorPopup message={error} />
       {notice && (
         <div role="status" className="flex items-center gap-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-emerald-800">
           <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />

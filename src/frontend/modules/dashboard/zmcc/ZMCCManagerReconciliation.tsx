@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Warehouse,
 } from 'lucide-react';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export type ReconciliationFilter =
   | 'ALL'
@@ -445,15 +446,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
       </div>
 
       {/* 3. Error Alert */}
-      {error && (
-        <div className="bg-card border-border p-6 rounded-2xl border text-center space-y-2 animate-panel-in" role="alert">
-          <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-          <h4 className="text-sm font-semibold text-rose-800">Reconciliation did not load</h4>
-          <p className="text-xs text-rose-700 max-w-md mx-auto">{error}</p>
-        </div>
-      )}
+      <ErrorPopup message={error} />
 
       {/* 4. Loading Skeleton */}
       {isLoading && enrichedItems.length === 0 && (

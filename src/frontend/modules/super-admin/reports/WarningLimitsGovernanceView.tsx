@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { Modal } from '@/components/ui/modal';
 import { formatDateTime } from '@/lib/format';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface WarningItem {
   id: string;
@@ -145,12 +146,7 @@ export function WarningLimitsGovernanceView() {
       </div>
 
       {/* Error Alert */}
-      {error && (
-        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800">
-          <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
-          <span>{getErrorMessage(error) || 'Failed to load warning limit governance data'}</span>
-        </div>
-      )}
+      <ErrorPopup message={error ? getErrorMessage(error) || 'Failed to load warning limit governance data' : null} />
 
       {/* Monthly Summary Per Procurement Source */}
       <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs space-y-3">

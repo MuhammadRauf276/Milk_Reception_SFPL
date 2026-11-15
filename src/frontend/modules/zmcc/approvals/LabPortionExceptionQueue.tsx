@@ -16,6 +16,7 @@ import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import type { LabPortionExceptionItem } from '@/backend/services/zmcc/labPortionReviewService';
 import { exceptionReasonShort } from '@/lib/exceptionReasons';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 type Tab = 'PENDING' | 'DECIDED';
 
@@ -151,12 +152,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
       </div>
 
       {loading && <SkeletonList count={3} />}
-      {error && (
-        <div className="bg-card border-border flex items-center gap-2 rounded-xl border p-3 text-rose-800">
-          <AlertTriangle className="h-5 w-5" aria-hidden="true" /> {error}
-          <button type="button" onClick={load} className="ml-auto min-h-[44px] px-3 font-semibold underline">Try again</button>
-        </div>
-      )}
+      <ErrorPopup message={error} onRetry={() => void load()} />
       {!loading && !error && items.length === 0 && (
         <div className="rounded-2xl border border-border bg-card p-6 text-center text-secondary-foreground">
           {tab === 'PENDING' ? 'No lab portion is waiting for you.' : 'No decided lab exceptions yet.'}

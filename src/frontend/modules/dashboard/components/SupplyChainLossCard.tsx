@@ -16,6 +16,7 @@ import {
 import { toast } from '@/frontend/lib/appToast';
 import { fetchJson } from '@/lib/fetch-json';
 import type { SupplyChainLossSummary } from '@/backend/services/lossCalculationService';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 export interface SupplyChainLossCardProps {
   zmccId?: string;
@@ -177,12 +178,7 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
       </div>
 
       {/* Error View */}
-      {error && (
-        <div className="bg-card border-border p-4 m-4 rounded-lg border flex items-center space-x-2 text-xs text-rose-800 animate-panel-in">
-          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+      <ErrorPopup message={error} />
 
       {/* Loading Skeleton */}
       {isLoading && !summary && (

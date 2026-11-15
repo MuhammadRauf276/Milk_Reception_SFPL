@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { SkeletonTable } from '@/components/ui/loaders';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 interface ZMCCManagerHistoryReportsProps {
   logs: MilkProcessLog[];
@@ -365,19 +366,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
       </div>
 
       {/* 3. Error Banner */}
-      {error && (
-        <div className="bg-card border-border p-4 rounded-2xl border text-rose-800 text-xs font-semibold flex items-center justify-between animate-panel-in">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-600" />
-            <span>{error}</span>
-          </div>
-          {onRetry && (
-            <button onClick={onRetry} className="underline hover:text-rose-950 min-h-11 min-w-11">
-              Retry
-            </button>
-          )}
-        </div>
-      )}
+      <ErrorPopup message={error} onRetry={onRetry} />
 
       {/* 4. Loading State */}
       {isLoading && (

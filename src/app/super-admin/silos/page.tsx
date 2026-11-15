@@ -12,6 +12,7 @@ import { fadeSlide } from '@/components/motion/presets';
 import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { SiloDeactivateDrawer, SiloFormDrawer, type Silo } from '@/frontend/modules/super-admin/silos/SiloDrawers';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 type Dialog = { kind: 'create' } | { kind: 'edit'; silo: Silo } | { kind: 'deactivate'; silo: Silo } | null;
 
@@ -163,12 +164,7 @@ export default function SuperAdminSilosPage() {
         </Button>
       </div>
 
-      {error && (
-        <div className="flex items-center space-x-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
-          <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
-          <span>{error}</span>
-        </div>
-      )}
+      <ErrorPopup message={error} />
 
       <AnimatePresence initial={false}>
         {successMsg && (

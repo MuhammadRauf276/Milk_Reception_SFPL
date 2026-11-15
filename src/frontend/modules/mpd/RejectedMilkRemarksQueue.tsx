@@ -9,6 +9,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { fetchJson } from '@/lib/query/fetchJson';
 import type { RejectedMilkQueueItem } from '@/backend/services/rejectedMilkDispositionService';
 import { formatDate } from '@/lib/format';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 type QueueItem = RejectedMilkQueueItem;
 
@@ -87,12 +88,7 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
         </div>
       </div>
 
-      {error && (
-        <div className="bg-card border-border m-4 p-3 border text-rose-800 text-sm font-semibold rounded-xl flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+      <ErrorPopup message={error} />
 
       {items.length === 0 && !loading ? (
         <div className="p-6 text-center text-sm font-medium text-muted-foreground">No pending remarks</div>

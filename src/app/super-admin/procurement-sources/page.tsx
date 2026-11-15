@@ -22,6 +22,7 @@ import {
   SourceStatusDrawer,
   type Source,
 } from '@/frontend/modules/super-admin/sources/SourceDrawers';
+import { ErrorPopup } from '@/components/ui/error-popup';
 
 const TYPE_OPTIONS = [
   { value: '', label: 'All types' },
@@ -145,12 +146,7 @@ function ProcurementSourcesContent() {
 
   return (
     <div className="w-full min-w-0 max-w-full space-y-4">
-      {error && (
-        <div className="flex items-center space-x-2 rounded-2xl border border-border bg-card p-4 text-xs font-semibold text-rose-800 animate-panel-in">
-          <ShieldAlert className="h-4 w-4 shrink-0 text-rose-600" />
-          <span>{error}</span>
-        </div>
-      )}
+      <ErrorPopup message={error} />
 
       <AnimatePresence initial={false}>
         {successMsg && (
