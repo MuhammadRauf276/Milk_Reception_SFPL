@@ -119,9 +119,13 @@ export function DispatchTab({
             <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <p className="font-semibold text-amber-950">All registered Mobile Testers are currently on active journeys</p>
-                <p className="text-amber-800">
-                  A tester can run one journey at a time. Finish or cancel the active journey, or add a new tester.
+                <p className="inline-flex items-center font-semibold text-amber-950">
+                  All testers are busy
+                  <InfoTip
+                    label="What to do"
+                    className="-my-3"
+                    text="A tester can run one journey at a time. Finish or cancel the active journey, or add a new tester."
+                  />
                 </p>
               </div>
             </div>

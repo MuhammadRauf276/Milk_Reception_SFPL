@@ -173,7 +173,7 @@ export const SourceContextSelector: React.FC<SourceContextSelectorProps> = ({
           showHeader
           onClose={() => setModalOverride(false)}
           title={`Select ${entityName} Station Location`}
-          description={`Select which ${entityName} facility you are operating or covering as ${delegation.subordinateRoleLabel}.`}
+          description={`Covering: ${delegation.subordinateRoleLabel}`}
         >
           <div className="space-y-4 pt-1">
             {/* Search Input */}

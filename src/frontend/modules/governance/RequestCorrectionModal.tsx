@@ -10,6 +10,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { formatLabel } from '@/lib/format';
 import { CORRECTION_MODULE_LABELS } from './MyCorrectionTickets';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { InfoTip } from '@/components/ui/info-tip';
 
 export interface EditableFieldOption {
   field: string;
@@ -136,7 +137,14 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
               <ShieldAlert className="w-4 h-4" />
             </div>
             <div>
-              <DrawerTitle className="font-semibold text-sm text-foreground">Request a correction</DrawerTitle>
+              <DrawerTitle className="inline-flex items-center font-semibold text-sm text-foreground">
+                Request a correction
+                <InfoTip
+                  label="How it works"
+                  className="-my-3"
+                  text="Saved entries are locked. Say what is wrong and what it should be. Your manager approves it first, then the Data Executive or Super Admin fixes the record. Follow it in the Requests tab."
+                />
+              </DrawerTitle>
               <p className="text-muted-foreground text-xs">
                 {recordIdentifierLabel || (CORRECTION_MODULE_LABELS[module] ?? formatLabel(module))}
               </p>
@@ -161,10 +169,6 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            <div className="bg-card border-border p-3 rounded-xl border text-blue-900 text-xs leading-relaxed">
-              <strong>How it works:</strong> saved entries are locked. Tell us what is wrong and what it should be. Your manager approves it first, then the <strong>Data Executive</strong> or <strong>Super Admin</strong> fixes the record. You can follow it in the <em>Requests</em> tab.
-            </div>
-
             <ErrorPopup message={error} />
 
             {/* Field Selector */}

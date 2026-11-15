@@ -203,7 +203,7 @@ function PreviousWork() {
         error={query.isError ? getErrorMessage(query.error) || 'Could not load your work.' : null}
         onRetry={() => void query.refetch()}
         emptyTitle="No work in this period"
-        emptyDescription="Only the last 15 days are listed here. For an older record, use the Requests tab."
+        emptyDescription="Last 15 days only."
         columnPickerId="my-work"
         paginate={false}
         noun="records"
@@ -388,7 +388,7 @@ function Requests({ toApprove }: { toApprove: SerializedCorrectionRequest[] }) {
           onRetry={() => void mine.refetch()}
           noun="requests"
           emptyTitle="No correction requests yet"
-          emptyDescription="Open a record in Previous work and choose Request correction."
+          emptyDescription="Start from Previous work."
         />
       </div>
 

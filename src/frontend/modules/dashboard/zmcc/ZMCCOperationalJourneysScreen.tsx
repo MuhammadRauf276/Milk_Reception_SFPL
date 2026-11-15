@@ -412,7 +412,7 @@ export function ZMCCOperationalJourneysScreen({
         <div className="space-y-4">
           {!facilityId && (
             <div className="max-w-4xl mx-auto rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-800" role="status">
-              Select a ZMCC at the top of the page to load its routes, testers and vehicles.
+              Select a ZMCC first.
             </div>
           )}
           <ErrorPopup message={dispatchDataQuery.isError ? `Could not load routes, testers and vehicles: ${dispatchDataQuery.error.message}` : null} onRetry={() => void dispatchDataQuery.refetch()} />
