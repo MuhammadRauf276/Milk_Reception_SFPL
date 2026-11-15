@@ -1,7 +1,7 @@
 /**
  * Production-ready offline-first GPS strategy for SFPL Milk Reception.
  * Handles:
- * 1. Modern browser restriction: Geolocation is disabled on insecure contexts (HTTP LAN IPs like 10.168.254.155:3000).
+ * 1. Modern browser restriction: Geolocation is disabled on insecure contexts (plain HTTP addresses on the local network).
  * 2. Offline / weak GPS: the GPS chip only (a recent GPS reading, then a fresh one). The mobile network is never used for position.
  * 3. Offline storage & Persistence: Stores last known valid coordinates across page reloads & PWA sessions in localStorage.
  * 4. Fallback defaults: Provides known facility coordinates (Hasilpur, Jhang, Kabirwala) so operators in rural dead-zones or on laptops without GPS chips can never be blocked from dispatching or collecting milk.
@@ -78,7 +78,7 @@ export function isBrowserGpsAllowed(): { allowed: boolean; reason?: string } {
   if (window.isSecureContext === false) {
     return {
       allowed: false,
-      reason: 'Browser blocks live GPS over HTTP (e.g. 10.168.254.155:3000). HTTPS or localhost is required.',
+      reason: 'The browser blocks GPS on a plain HTTP address. HTTPS is required.',
     };
   }
   return { allowed: true };
@@ -87,7 +87,7 @@ export function isBrowserGpsAllowed(): { allowed: boolean; reason?: string } {
 /**
  * Resolves a fallback coordinate based on facility code or saved location.
  */
-export function getFacilityOrStoredFallback(facilityCode?: string | null): GpsCoordinate {
+export function getFacilityOrStoredFallback(facilityCode?: string | null): GpsCoordinate | null {
   const stored = getStoredLastKnownGps();
   if (stored) return stored;
 
@@ -106,7 +106,8 @@ export function getFacilityOrStoredFallback(facilityCode?: string | null): GpsCo
       }
     }
   }
-  return DEFAULT_FALLBACK_COORDINATE;
+  // No match: there is no honest position to give. (It used to answer with one ZMCC's coordinates for everyone.)
+  return null;
 }
 
 /**
@@ -149,7 +150,7 @@ export async function acquireRobustGps(options?: {
     };
   }
 
-  // If running in an insecure context (e.g. http://10.168.254.155:3000),
+  // If running in an insecure context (a plain HTTP address),
   // mobile browsers immediately block navigator.geolocation.
   // We still try in case flags/permissions allow it, but catch gracefully.
   // Stage 1: Try device cache (instant offline-compatible)
@@ -196,7 +197,7 @@ export async function acquireRobustGps(options?: {
       // Permission denied or blocked by insecure HTTP origin
       let errorMsg = 'Location is blocked.';
       if (isInsecure) {
-        errorMsg = 'Browser restricts live GPS on HTTP (http://10.168.254.155). You can use offline fallback coordinates.';
+        errorMsg = 'The browser blocks GPS on a plain HTTP address.';
       }
       return {
         location: options?.allowFacilityFallback ? fallbackCoord : null,
@@ -210,7 +211,10 @@ export async function acquireRobustGps(options?: {
 
   // Stage 3 & 4: Return fallback (Stored or Facility)
   if (options?.allowFacilityFallback) {
-    const isStored = fallbackCoord.source === 'OFFLINE_PERSISTED' || fallbackCoord.source === 'DEVICE_CACHE';
+    if (!fallbackCoord) {
+      return { location: null, status: 'ERROR', errorMsg: 'GPS signal could not be acquired. Move outdoors and try again.', isInsecureContext: isInsecure, isOffline };
+    }
+    const isStored = fallbackCoord.source !== 'FACILITY_DEFAULT';
     return {
       location: fallbackCoord,
       status: 'FALLBACK',
@@ -228,7 +232,7 @@ export async function acquireRobustGps(options?: {
     location: null,
     status: 'ERROR',
     errorMsg: isInsecure
-      ? 'Live GPS blocked on HTTP (http://10.168.254.155). Enable offline fallback or use HTTPS.'
+      ? 'The browser blocks GPS on a plain HTTP address. HTTPS is required.'
       : 'GPS signal could not be acquired (timeout/offline). Move outdoors or use facility fallback.',
     isInsecureContext: isInsecure,
     isOffline,

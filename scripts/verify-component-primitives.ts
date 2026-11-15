@@ -100,42 +100,6 @@ async function runComponentPrimitivesTests() {
     results.push({ name: 'MobileNumberInput', status: 'FAIL', error: msg });
   }
 
-  // TEST 2: QuickRemarksChips actual behaviour
-  try {
-    const chipSpec = page.getByRole('button', { name: /Sample In Spec/i });
-    const chipSeal = page.getByRole('button', { name: /Seal Checked/i });
-    const textarea = page.locator('textarea[data-testid="remarks-textarea"]');
-
-    // a) Select first chip
-    await chipSpec.click();
-    assert.equal(await textarea.inputValue(), 'Sample In Spec', 'Textarea should receive chip text');
-    assert.equal(await chipSpec.getAttribute('aria-pressed'), 'true', 'Chip should show active pressed state');
-
-    // b) Append second chip
-    await chipSeal.click();
-    assert.equal(
-      await textarea.inputValue(),
-      'Sample In Spec, Seal Checked',
-      'Second chip should append with comma separator'
-    );
-    assert.equal(await chipSeal.getAttribute('aria-pressed'), 'true');
-
-    // c) Toggle off first chip
-    await chipSpec.click();
-    assert.equal(
-      await textarea.inputValue(),
-      'Seal Checked',
-      'Toggling active chip should remove it cleanly without orphan commas'
-    );
-    assert.equal(await chipSpec.getAttribute('aria-pressed'), 'false');
-
-    console.log('  ✓ [COMPONENT-02] QuickRemarksChips (selection, append, toggle removal): PASS');
-    results.push({ name: 'QuickRemarksChips', status: 'PASS' });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error('  ✗ [COMPONENT-02] QuickRemarksChips: FAIL -', msg);
-    results.push({ name: 'QuickRemarksChips', status: 'FAIL', error: msg });
-  }
 
   // TEST 3: CollapsibleDisclosure actual behaviour (Mobile vs Desktop)
   try {

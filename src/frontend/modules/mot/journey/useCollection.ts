@@ -30,6 +30,9 @@ import type { GeofenceResult, MotShopPolicySnapshot, MotShopPolicyTest, PersonDe
 import type { LiveCameraResult } from '@/types/captured-photo';
 import { COVER_HEADERS, type CurrentJourney, type StopDetail } from './types';
 
+/** A GPS reading from the live stream this recent is the tester's position at the shop. */
+const RECENT_FIX_MS = 2 * 60 * 1000;
+
 export interface CompletedReceipt {
   shopName: string;
   phone: string;
@@ -246,27 +249,19 @@ export function useCollection({
     }
     setActiveStop(stop);
 
-    // Acquire GPS for collection event with offline fallback
+    // The tester's position is a real GPS reading or nothing: never a saved or facility position.
+    // Only a manager covering this work from an office computer (no GPS chip) keeps the fallback.
     setCollectionGps({ latitude: null, longitude: null, accuracy: null, status: 'ACQUIRING' });
     try {
       const fix = latestFixRef.current;
-      if (fix && Date.now() - fix.timestamp <= 30_000 && fix.accuracy <= 100) {
-        setCollectionGps({
-          latitude: fix.latitude,
-          longitude: fix.longitude,
-          accuracy: fix.accuracy,
-          status: 'CAPTURED',
-        });
+      if (fix && Date.now() - fix.timestamp <= RECENT_FIX_MS) {
+        setCollectionGps({ latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy, status: 'CAPTURED' });
       } else {
         const res = await acquireRobustGps({
           facilityCode: currentUser?.procurement_source?.code,
-          allowFacilityFallback: true,
+          allowFacilityFallback: isCovering,
           maxCacheAgeMs: 30_000,
         });
-
-        // Fallback (saved or facility position) is not a real fix: keep the coordinates
-        // (the server requires them, otherwise the collection can never sync) but label
-        // them APPROXIMATE so nobody mistakes them for a fresh GPS fix.
         if (res.location) {
           setCollectionGps({
             latitude: res.location.latitude,
@@ -281,8 +276,20 @@ export function useCollection({
     } catch {
       setCollectionGps({ latitude: null, longitude: null, accuracy: null, status: 'UNAVAILABLE' });
     }
-
   };
+
+  // While the form is open and no real reading has arrived yet, take the next one from the live GPS stream.
+  const waitingForGps = Boolean(activeStop) && collectionGps.status !== 'CAPTURED';
+  useEffect(() => {
+    if (!waitingForGps) return;
+    const timer = window.setInterval(() => {
+      const fix = latestFixRef.current;
+      if (fix && Date.now() - fix.timestamp <= RECENT_FIX_MS) {
+        setCollectionGps({ latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy, status: 'CAPTURED' });
+      }
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [waitingForGps, latestFixRef]);
 
   // Shop geofence preview (the server checks again with the saved shop location).
   const geofencePreview = React.useMemo((): (GeofenceResult & { accuracyM: number | null; approximate: boolean }) | null => {
@@ -458,6 +465,10 @@ export function useCollection({
     }
     if (isCovering && !navigator.onLine) {
       setFormError('You must be online to cover MC work.');
+      return;
+    }
+    if (collectionGps.latitude == null || collectionGps.longitude == null) {
+      setFormError('Waiting for GPS. Stand in the open for a moment, then save again.');
       return;
     }
 
