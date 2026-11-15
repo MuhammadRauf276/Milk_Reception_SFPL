@@ -111,7 +111,7 @@ export function ZMCCOperationalJourneysScreen({
   const dispatchGps = useDispatchGps({
     sources: [],
     effectiveZmccId: facilityId || null,
-    fallbackFacilityCode: currentUser?.procurement_source?.code as string | undefined,
+    fallbackStation: currentUser?.procurement_source,
     dispatchTabActive: activeTab === 'DISPATCH',
   });
 

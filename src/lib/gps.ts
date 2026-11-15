@@ -1,3 +1,5 @@
+import { isValidPosition } from '@/lib/coordinates';
+
 /**
  * Production-ready offline-first GPS strategy for SFPL Milk Reception.
  * Handles:
@@ -24,24 +26,15 @@ export interface GpsAcquisitionResult {
   isOffline: boolean;
 }
 
-export const KNOWN_FACILITY_COORDINATES: Record<
-  string,
-  { code: string; name: string; latitude: number; longitude: number }
-> = {
-  'ZMCC-HASILPUR': { code: 'ZMCC-HASILPUR', name: 'ZMCC Hasilpur', latitude: 29.6974, longitude: 72.5539 },
-  'ZMCC-JHANG': { code: 'ZMCC-JHANG', name: 'ZMCC Jhang', latitude: 31.2698, longitude: 72.3169 },
-  'ZMCC-KABIRWALA': { code: 'ZMCC-KABIRWALA', name: 'ZMCC Kabirwala', latitude: 30.4042, longitude: 71.8647 },
-};
-
-// Default fallback if no specific facility is matched (Hasilpur base)
-export const DEFAULT_FALLBACK_COORDINATE: GpsCoordinate = {
-  latitude: 29.6974,
-  longitude: 72.5539,
-  accuracy: 15,
-  timestamp: Date.now(),
-  source: 'FACILITY_DEFAULT',
-  label: 'ZMCC Hasilpur (Default Center)',
-};
+/**
+ * A station's registered position, as the Super Admin saved it on the source (ZMCC or contractor).
+ * Nothing about any place is written in this file: the database is the only list of stations.
+ */
+export interface StationPosition {
+  name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
 
 /**
  * A reading this precise comes from the GPS chip. A computer without one answers from Wi-Fi or its internet
@@ -95,26 +88,20 @@ export function isBrowserGpsAllowed(): { allowed: boolean; reason?: string } {
 }
 
 /**
- * Resolves a fallback coordinate based on facility code or saved location.
+ * The position to record when the device has no GPS reading: the station's own registered position,
+ * else the last real GPS reading saved on this device. Null when there is neither: no position is made up.
  */
-export function getFacilityOrStoredFallback(facilityCode?: string | null): GpsCoordinate | null {
-  if (facilityCode) {
-    const upper = facilityCode.toUpperCase();
-    for (const [key, val] of Object.entries(KNOWN_FACILITY_COORDINATES)) {
-      if (key === upper || upper.includes(key.replace('ZMCC-', ''))) {
-        return {
-          latitude: val.latitude,
-          longitude: val.longitude,
-          accuracy: 25,
-          timestamp: Date.now(),
-          source: 'FACILITY_DEFAULT',
-          label: `${val.name} Coordinates`,
-        };
-      }
-    }
+export function getFacilityOrStoredFallback(station?: StationPosition | null): GpsCoordinate | null {
+  if (station && isValidPosition(station.latitude, station.longitude)) {
+    return {
+      latitude: station.latitude as number,
+      longitude: station.longitude as number,
+      accuracy: null,
+      timestamp: Date.now(),
+      source: 'FACILITY_DEFAULT',
+      label: station.name ? `${station.name} (registered position)` : 'Registered station position',
+    };
   }
-  // No registered station: the last real GPS reading saved on this device, if it has one.
-  // (This used to answer with one ZMCC's coordinates for everyone.)
   const stored = getStoredLastKnownGps();
   return stored && isGpsGrade(stored.accuracy) ? stored : null;
 }
@@ -128,7 +115,8 @@ export function getFacilityOrStoredFallback(facilityCode?: string | null): GpsCo
  * Stage 4: Facility coordinates (only when the caller allows a fallback)
  */
 export async function acquireRobustGps(options?: {
-  facilityCode?: string | null;
+  /** The station this device belongs to. Its registered position is the fallback when there is no GPS reading. */
+  station?: StationPosition | null;
   allowFacilityFallback?: boolean;
   /**
    * Max age of a cached device position, in ms. Applies to stage 1 and stage 3
@@ -141,7 +129,7 @@ export async function acquireRobustGps(options?: {
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
   const maxCacheAge = options?.maxCacheAgeMs;
-  const fallbackCoord = getFacilityOrStoredFallback(options?.facilityCode);
+  const fallbackCoord = getFacilityOrStoredFallback(options?.station);
 
   // Only a GPS-grade reading counts. A network guess is treated the same as no reading.
   const tryPosition = (posOptions: PositionOptions): Promise<GeolocationPosition> => {
@@ -235,8 +223,8 @@ export async function acquireRobustGps(options?: {
       errorMsg: isStored
         ? `Live GPS unavailable offline. Using last saved position (${new Date(fallbackCoord.timestamp).toLocaleTimeString()}).`
         : isInsecure
-        ? 'Live GPS blocked on HTTP. Using facility coordinates fallback.'
-        : 'Hardware GPS unavailable. Using ZMCC center coordinates.',
+        ? 'The browser blocks GPS on a plain HTTP address. Using the registered station position.'
+        : 'No GPS on this device. Using the registered station position.',
       isInsecureContext: isInsecure,
       isOffline,
     };

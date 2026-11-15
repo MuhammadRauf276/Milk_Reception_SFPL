@@ -1,3 +1,4 @@
+import { toPosition } from '@/lib/coordinates';
 import { resolveCollectionTime } from '@/backend/services/mot/collectionTime';
 import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
 import { prisma } from '@core/db';
@@ -1427,16 +1428,11 @@ export async function assignAndDispatchJourney(
   }
   const idempotencyKey = rawKey.trim();
 
-  // 3. Validate GPS coordinates
-  const lat = Number(payload.latitude);
-  const lng = Number(payload.longitude);
-  if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180) {
-    return {
-      status: 400,
-      error: 'Valid GPS coordinates (latitude between -90 and 90, longitude between -180 and 180) are required for dispatch.',
-    };
-  }
-  const accuracy = payload.accuracy != null && !isNaN(Number(payload.accuracy)) ? Number(payload.accuracy) : null;
+  // 3. Where the person assigning the journey was standing. Optional, kept only as a record:
+  //    the journey itself always starts from the ZMCC (see the origin below).
+  const assignerPosition = toPosition(payload.latitude, payload.longitude);
+  const assignerAccuracy =
+    assignerPosition && payload.accuracy != null && !isNaN(Number(payload.accuracy)) ? Number(payload.accuracy) : null;
 
   // 4. Validate ZMCC scope
   let targetZmccId: bigint;
@@ -1468,6 +1464,21 @@ export async function assignAndDispatchJourney(
   if (!zmcc || !zmcc.is_active || zmcc.source_type !== 'ZMCC') {
     return { status: 400, error: 'Selected ZMCC does not exist or is inactive.' };
   }
+
+  // The journey's origin is the ZMCC itself: it starts there and comes back there. Never the place
+  // where the person assigning it happened to be.
+  const origin = toPosition(zmcc.latitude, zmcc.longitude);
+  if (!origin) {
+    return {
+      status: 400,
+      error: `${zmcc.name} has no location yet. Ask the Super Admin to add it under Procurement Sources.`,
+    };
+  }
+  const lat = origin.latitude;
+  const lng = origin.longitude;
+  const assignLat = assignerPosition?.latitude ?? origin.latitude;
+  const assignLng = assignerPosition?.longitude ?? origin.longitude;
+  const accuracy = assignerAccuracy;
 
   // 5. Validate Operational Date (must be today in Pakistan Standard Time calendar date)
   const todayPktStr = getPakistanCalendarDate(new Date());
@@ -1708,8 +1719,8 @@ export async function assignAndDispatchJourney(
           assigned_by: auth.actorUserId,
           ...asRoleFields(auth.acting, 'assigned'),
           assigned_at: now,
-          assignment_latitude: lat,
-          assignment_longitude: lng,
+          assignment_latitude: assignLat,
+          assignment_longitude: assignLng,
           assignment_gps_accuracy: accuracy,
           started_at: now,
           start_latitude: lat,
@@ -1769,8 +1780,8 @@ export async function assignAndDispatchJourney(
           status: 'COLLECTING',
           assigned_by: auth.actorUserId.toString(),
           assigned_at: now.toISOString(),
-          assignment_latitude: lat,
-          assignment_longitude: lng,
+          assignment_latitude: assignLat,
+          assignment_longitude: assignLng,
           assignment_gps_accuracy: accuracy,
           started_at: now.toISOString(),
           start_latitude: lat,
@@ -3918,7 +3929,7 @@ export async function getJourneyMapData(
   const journey = await prisma.motJourney.findUnique({
     where: { id: journeyId },
     include: {
-      zmcc: { select: { id: true, code: true, name: true } },
+      zmcc: { select: { id: true, code: true, name: true, latitude: true, longitude: true } },
       route: { select: { id: true, route_code: true, name: true } },
       mot_profile: { select: { id: true, mot_code: true, name: true, phone_number: true } },
       mot_vehicle: { select: { id: true, vehicle_number: true } },
@@ -3988,11 +3999,18 @@ export async function getJourneyMapData(
         assigned_at: journey.assigned_at.toISOString(),
         started_at: journey.started_at.toISOString(),
         ended_at: journey.ended_at ? journey.ended_at.toISOString() : null,
-        start_point: {
-          latitude: Number(journey.assignment_latitude),
-          longitude: Number(journey.assignment_longitude),
-          gps_accuracy: journey.assignment_gps_accuracy != null ? Number(journey.assignment_gps_accuracy) : null,
-        },
+        // The origin is the ZMCC. Journeys saved before ZMCCs had a position fall back to their saved start.
+        start_point: (() => {
+          const zmccAt = toPosition(journey.zmcc?.latitude, journey.zmcc?.longitude);
+          return zmccAt
+            ? { latitude: zmccAt.latitude, longitude: zmccAt.longitude, gps_accuracy: null, source: 'ZMCC' as const }
+            : {
+                latitude: Number(journey.start_latitude),
+                longitude: Number(journey.start_longitude),
+                gps_accuracy: null,
+                source: 'SAVED_START' as const,
+              };
+        })(),
         first_mot_gps: journey.first_mot_gps_at ? {
           timestamp: journey.first_mot_gps_at.toISOString(),
           latitude: journey.first_mot_latitude != null ? Number(journey.first_mot_latitude) : null,

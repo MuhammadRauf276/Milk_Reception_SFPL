@@ -455,6 +455,9 @@ model ProcurementSource {
   source_type              String   @map("source_type") @db.VarChar(50) // ZMCC or CONTRACTOR
   erp_code                 String?  @map("erp_code") @db.VarChar(50)
   dispatch_quantity_policy Json?    @map("dispatch_quantity_policy")
+  /// Where this ZMCC or contractor is on the map. Journeys start here; stations without GPS record this.
+  latitude                 Decimal? @db.Decimal(10, 7)
+  longitude                Decimal? @db.Decimal(10, 7)
   is_active                Boolean  @default(true) @map("is_active")
   created_at               DateTime @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at               DateTime @updatedAt @map("updated_at") @db.Timestamp(6)

@@ -60,6 +60,9 @@ export interface User {
     name: string;
     source_type: string;
     is_active?: boolean;
+    /** Where this ZMCC or contractor is on the map, when the Super Admin has set it. */
+    latitude?: number | null;
+    longitude?: number | null;
   } | null;
   is_active?: boolean;
   last_login_at?: string | null;

@@ -3,6 +3,7 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { getErrorMessage } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
+import { readPositionInput } from '@/lib/coordinates';
 
 class DeactivationConflictError extends Error {
   statusCode = 409;
@@ -28,7 +29,7 @@ class NotFoundError extends Error {
   }
 }
 
-const ALLOWED_PATCH_FIELDS = new Set(['name', 'isActive', 'code', 'sourceType', 'erpCode']);
+const ALLOWED_PATCH_FIELDS = new Set(['name', 'isActive', 'code', 'sourceType', 'erpCode', 'latitude', 'longitude']);
 
 export async function PATCH(
   req: Request,
@@ -105,6 +106,10 @@ export async function PATCH(
       }
       erpCodeInput = body.erpCode.trim().slice(0, 50);
     }
+
+    // Location: both parts together. null clears it; leaving both out keeps what is saved.
+    const location = readPositionInput(body.latitude, body.longitude);
+    if (!location.ok) return NextResponse.json({ error: location.error }, { status: 400 });
 
     // Validated above; narrowed for use in the transaction.
     const isActiveInput = typeof body.isActive === 'boolean' ? body.isActive : undefined;
@@ -191,6 +196,9 @@ export async function PATCH(
           name: newName,
           is_active: newIsActive,
           ...(erpCodeInput !== undefined ? { erp_code: erpCodeInput } : {}),
+          ...(location.value !== undefined
+            ? { latitude: location.value?.latitude ?? null, longitude: location.value?.longitude ?? null }
+            : {}),
         },
       });
 
@@ -199,8 +207,20 @@ export async function PATCH(
         tableName: 'procurement_source',
         recordId: sourceId,
         action: actionName,
-        oldValues: { name: targetSource.name, is_active: targetSource.is_active, erp_code: targetSource.erp_code },
-        newValues: { name: source.name, is_active: source.is_active, erp_code: source.erp_code },
+        oldValues: {
+          name: targetSource.name,
+          is_active: targetSource.is_active,
+          erp_code: targetSource.erp_code,
+          latitude: targetSource.latitude != null ? Number(targetSource.latitude) : null,
+          longitude: targetSource.longitude != null ? Number(targetSource.longitude) : null,
+        },
+        newValues: {
+          name: source.name,
+          is_active: source.is_active,
+          erp_code: source.erp_code,
+          latitude: source.latitude != null ? Number(source.latitude) : null,
+          longitude: source.longitude != null ? Number(source.longitude) : null,
+        },
         actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
       });
 

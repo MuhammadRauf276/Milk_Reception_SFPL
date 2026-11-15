@@ -19,7 +19,7 @@ export async function GET(req: Request) {
       const zmccs = await prisma.procurementSource.findMany({
         where: { source_type: 'ZMCC', is_active: true },
         orderBy: { name: 'asc' },
-        select: { id: true, code: true, name: true, is_active: true },
+        select: { id: true, code: true, name: true, is_active: true, latitude: true, longitude: true },
       });
       return NextResponse.json({
         zmccs: zmccs.map((z) => ({
@@ -27,12 +27,14 @@ export async function GET(req: Request) {
           code: z.code,
           name: z.name,
           is_active: z.is_active,
+          latitude: z.latitude != null ? Number(z.latitude) : null,
+          longitude: z.longitude != null ? Number(z.longitude) : null,
         })),
       });
     } else {
       const zmcc = await prisma.procurementSource.findUnique({
         where: { id: auth!.effectiveZmccId! },
-        select: { id: true, code: true, name: true, is_active: true },
+        select: { id: true, code: true, name: true, is_active: true, latitude: true, longitude: true },
       });
       return NextResponse.json({
         zmccs: zmcc
@@ -42,6 +44,8 @@ export async function GET(req: Request) {
                 code: zmcc.code,
                 name: zmcc.name,
                 is_active: zmcc.is_active,
+                latitude: zmcc.latitude != null ? Number(zmcc.latitude) : null,
+                longitude: zmcc.longitude != null ? Number(zmcc.longitude) : null,
               },
             ]
           : [],

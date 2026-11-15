@@ -174,7 +174,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
   const dispatchGps = useDispatchGps({
     sources,
     effectiveZmccId,
-    fallbackFacilityCode: currentUser?.procurement_source?.code as string | undefined,
+    fallbackStation: currentUser?.procurement_source,
     dispatchTabActive: activeTab === 'DISPATCH',
   });
 

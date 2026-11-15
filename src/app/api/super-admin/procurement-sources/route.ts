@@ -3,6 +3,7 @@ import { getCurrentUser } from '@core/auth';
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
+import { readPositionInput } from '@/lib/coordinates';
 
 const NO_STORE_HEADERS = {
   'Cache-Control': 'private, no-store, max-age=0',
@@ -43,7 +44,7 @@ export async function GET(req: Request) {
         where,
         orderBy: { created_at: 'asc' },
         ...(paged ? { skip: (page - 1) * pageSize, take: pageSize } : {}),
-        select: { id: true, code: true, name: true, erp_code: true, source_type: true, is_active: true, created_at: true },
+        select: { id: true, code: true, name: true, erp_code: true, source_type: true, is_active: true, created_at: true, latitude: true, longitude: true },
       }),
     ]);
 
@@ -55,6 +56,8 @@ export async function GET(req: Request) {
       sourceType: s.source_type,
       isActive: s.is_active,
       createdAt: s.created_at.toISOString(),
+      latitude: s.latitude != null ? Number(s.latitude) : null,
+      longitude: s.longitude != null ? Number(s.longitude) : null,
     }));
 
     return NextResponse.json(
@@ -123,6 +126,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'ERP code cannot exceed 50 characters.' }, { status: 400 });
     }
 
+    const location = readPositionInput(body.latitude, body.longitude);
+    if (!location.ok) return NextResponse.json({ error: location.error }, { status: 400 });
+
     const existing = await prisma.procurementSource.findUnique({ where: { code } });
     if (existing) {
       return NextResponse.json({ error: `Procurement Source Code "${code}" already exists.` }, { status: 400 });
@@ -138,6 +144,8 @@ export async function POST(req: Request) {
           source_type: sourceType,
           erp_code: sourceType === 'CONTRACTOR' ? erpCodeRaw : null,
           is_active: true,
+          latitude: location.value?.latitude ?? null,
+          longitude: location.value?.longitude ?? null,
         },
       });
 
@@ -145,7 +153,14 @@ export async function POST(req: Request) {
         tableName: 'procurement_source',
         recordId: createdSource.id,
         action: 'PROCUREMENT_SOURCE_CREATED',
-        newValues: { code, name, source_type: sourceType, erp_code: sourceType === 'CONTRACTOR' ? erpCodeRaw : null },
+        newValues: {
+          code,
+          name,
+          source_type: sourceType,
+          erp_code: sourceType === 'CONTRACTOR' ? erpCodeRaw : null,
+          latitude: location.value?.latitude ?? null,
+          longitude: location.value?.longitude ?? null,
+        },
         actor: { ...auditActorFromUser(authUser), userId: adminUser?.id ?? null },
       });
 

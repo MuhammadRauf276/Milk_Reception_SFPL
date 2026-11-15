@@ -15,14 +15,14 @@ test('only a GPS-grade reading counts: a computer answering from Wi-Fi or its in
   assert.equal(isGpsGrade(Number.NaN), false);
 });
 
-test('a station falls back to its own registered position, and an unknown place gets none', () => {
-  const hasilpur = getFacilityOrStoredFallback('ZMCC-HASILPUR');
+test('a station falls back to the position saved for it, and a place with none gets no made-up position', () => {
+  const hasilpur = getFacilityOrStoredFallback({ name: 'ZMCC Hasilpur', latitude: 29.6974, longitude: 72.5539 });
   assert.equal(hasilpur?.source, 'FACILITY_DEFAULT');
   assert.equal(hasilpur?.latitude, 29.6974);
-  const jhang = getFacilityOrStoredFallback('ZMCC-JHANG');
-  assert.equal(jhang?.latitude, 31.2698);
-  // Nothing registered and nothing saved on this device: no made-up position.
-  assert.equal(getFacilityOrStoredFallback('CONT-ALKHAIR'), null);
+  assert.equal(hasilpur?.longitude, 72.5539);
+  // No position saved for the source, and nothing saved on this device.
+  assert.equal(getFacilityOrStoredFallback({ name: 'New ZMCC', latitude: null, longitude: null }), null);
+  assert.equal(getFacilityOrStoredFallback({ name: 'Bad', latitude: 0, longitude: 0 }), null);
   assert.equal(getFacilityOrStoredFallback(null), null);
 });
 

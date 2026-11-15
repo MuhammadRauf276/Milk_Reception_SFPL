@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { acquireRobustGps, DEFAULT_FALLBACK_COORDINATE, isGpsGrade, saveStoredLastKnownGps } from '@/lib/gps';
+import { acquireRobustGps, isGpsGrade, saveStoredLastKnownGps, type StationPosition } from '@/lib/gps';
 import { EMPTY_GPS, type GpsState } from './arrivalTypes';
 
 /** LIVE: this phone's GPS. APPROXIMATE: last saved or ZMCC position, labelled on screen. NONE: nothing to save. */
@@ -17,9 +17,13 @@ const toGpsState = (latitude: number, longitude: number, accuracy: number | null
  * Saves the location into the form by itself while the form is open, with no button. Phone GPS needs no internet, so
  * this works offline, and the location goes with the arrival when it is queued. A live fix always replaces an estimate.
  */
-export function useAutoGps(open: boolean, setGps: (g: GpsState) => void, facilityCode?: string) {
+export function useAutoGps(open: boolean, setGps: (g: GpsState) => void, station?: StationPosition | null) {
   const [status, setStatus] = useState<AutoGpsStatus>('ACQUIRING');
   const [attempt, setAttempt] = useState(0);
+  // Primitive parts, so the effect does not restart when the parent passes a new object with the same values.
+  const stationName = station?.name ?? null;
+  const stationLat = station?.latitude ?? null;
+  const stationLng = station?.longitude ?? null;
 
   useEffect(() => {
     if (!open) return;
@@ -27,11 +31,10 @@ export function useAutoGps(open: boolean, setGps: (g: GpsState) => void, facilit
     let live = false;
     setStatus('ACQUIRING');
 
-    void acquireRobustGps({ facilityCode, allowFacilityFallback: true, maxCacheAgeMs: 30_000 })
+    void acquireRobustGps({ station: { name: stationName, latitude: stationLat, longitude: stationLng }, allowFacilityFallback: true, maxCacheAgeMs: 30_000 })
       .then((res) => {
         if (cancelled || live) return;
-        // The general default is one ZMCC's position: wrong anywhere else, so it is never saved.
-        if (!res.location || res.location === DEFAULT_FALLBACK_COORDINATE) {
+        if (!res.location) {
           setGps(EMPTY_GPS);
           setStatus('NONE');
           return;
@@ -76,7 +79,7 @@ export function useAutoGps(open: boolean, setGps: (g: GpsState) => void, facilit
       cancelled = true;
       navigator.geolocation.clearWatch(watchId);
     };
-  }, [open, facilityCode, setGps, attempt]);
+  }, [open, stationName, stationLat, stationLng, setGps, attempt]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
   return { status, retry };

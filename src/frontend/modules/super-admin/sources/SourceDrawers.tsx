@@ -7,6 +7,7 @@ import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
+import { formatPosition, parsePositionText } from '@/lib/coordinates';
 import { DrawerActions, FormDrawer, fieldInputClass, fieldLabelClass } from '../shared/FormDrawer';
 
 export interface Source {
@@ -17,6 +18,8 @@ export interface Source {
   sourceType: string;
   isActive: boolean;
   createdAt: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
@@ -26,9 +29,10 @@ export function SourceCreateDrawer({ onClose, onSaved }: { onClose: () => void; 
   const [name, setName] = useState('');
   const [sourceType, setSourceType] = useState('ZMCC');
   const [erpCode, setErpCode] = useState('');
+  const [locationText, setLocationText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const mutation = useMutation({
-    mutationFn: (body: Record<string, string>) =>
+    mutationFn: (body: Record<string, string | number>) =>
       fetchJson('/api/super-admin/procurement-sources', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) }),
   });
   const busy = mutation.isPending;
@@ -43,8 +47,17 @@ export function SourceCreateDrawer({ onClose, onSaved }: { onClose: () => void; 
     if (!trimmedName) return setError('Source name is required.');
     const trimmedErp = erpCode.trim();
     if (sourceType === 'CONTRACTOR' && !trimmedErp) return setError('ERP code is required for a contractor.');
+    const position = parsePositionText(locationText);
+    if (locationText.trim() && !position) return setError('Location must be two numbers: latitude, longitude.');
+    if (sourceType === 'ZMCC' && !position) return setError('Add the ZMCC location: latitude, longitude.');
     mutation.mutate(
-      { code: normalizedCode, name: trimmedName, sourceType, ...(sourceType === 'CONTRACTOR' ? { erpCode: trimmedErp } : {}) },
+      {
+        code: normalizedCode,
+        name: trimmedName,
+        sourceType,
+        ...(sourceType === 'CONTRACTOR' ? { erpCode: trimmedErp } : {}),
+        ...(position ? { latitude: position.latitude, longitude: position.longitude } : {}),
+      },
       {
         onSuccess: () => onSaved(`Procurement source "${trimmedName}" (${normalizedCode}) created successfully.`),
         onError: (err) => setError(getErrorMessage(err) || 'Failed to create procurement source'),
@@ -121,6 +134,26 @@ export function SourceCreateDrawer({ onClose, onSaved }: { onClose: () => void; 
             <InfoTip text="Required for contractors. Only the MPD Head, Data Executive and Super Admin can change it later." />
           </div>
         )}
+        <div>
+          <label htmlFor="src-location" className={`${fieldLabelClass} inline-flex items-center`}>
+            Location
+            <InfoTip
+              label="About location"
+              className="-my-3"
+              text="Where this place is on the map, as latitude, longitude. In Google Maps, press and hold the place, then copy the two numbers. Mobile Tester journeys start and end here."
+            />
+          </label>
+          <input
+            id="src-location"
+            type="text"
+            inputMode="decimal"
+            value={locationText}
+            onChange={(e) => setLocationText(e.target.value)}
+            disabled={busy}
+            className={`${fieldInputClass} tabular-nums`}
+            placeholder="29.6974, 72.5539"
+          />
+        </div>
         <DrawerActions busy={busy} onCancel={onClose} submitLabel="Save Source" busyLabel="Saving…" />
       </form>
     </FormDrawer>
@@ -131,14 +164,22 @@ export function SourceEditDrawer({ source, onClose, onSaved }: { source: Source;
   const [name, setName] = useState(source.name);
   const [erpCode, setErpCode] = useState(source.erpCode ?? '');
   const isContractor = source.sourceType === 'CONTRACTOR';
+  const [locationText, setLocationText] = useState(formatPosition(source));
   const [error, setError] = useState<string | null>(null);
   const mutation = useMutation({
-    mutationFn: (n: string) =>
-      fetchJson(`/api/super-admin/procurement-sources/${source.id}`, {
+    mutationFn: (n: string) => {
+      const position = parsePositionText(locationText);
+      return fetchJson(`/api/super-admin/procurement-sources/${source.id}`, {
         method: 'PATCH',
         headers: JSON_HEADERS,
-        body: JSON.stringify({ name: n, ...(isContractor ? { erpCode: erpCode.trim() } : {}) }),
-      }),
+        body: JSON.stringify({
+          name: n,
+          ...(isContractor ? { erpCode: erpCode.trim() } : {}),
+          latitude: position ? position.latitude : null,
+          longitude: position ? position.longitude : null,
+        }),
+      });
+    },
   });
   const busy = mutation.isPending;
 
@@ -149,6 +190,8 @@ export function SourceEditDrawer({ source, onClose, onSaved }: { source: Source;
     const trimmed = name.trim();
     if (!trimmed) return setError('Source name cannot be empty.');
     if (isContractor && !erpCode.trim()) return setError('ERP code is required for a contractor.');
+    if (locationText.trim() && !parsePositionText(locationText)) return setError('Location must be two numbers: latitude, longitude.');
+    if (!isContractor && !parsePositionText(locationText)) return setError('Add the ZMCC location: latitude, longitude.');
     mutation.mutate(trimmed, {
       onSuccess: () => onSaved(`Procurement source "${trimmed}" updated successfully.`),
       onError: (err) => setError(getErrorMessage(err) || 'Failed to update procurement source'),
@@ -198,6 +241,26 @@ export function SourceEditDrawer({ source, onClose, onSaved }: { source: Source;
             />
           </div>
         )}
+        <div>
+          <label htmlFor="src-edit-location" className={`${fieldLabelClass} inline-flex items-center`}>
+            Location
+            <InfoTip
+              label="About location"
+              className="-my-3"
+              text="Where this place is on the map, as latitude, longitude. In Google Maps, press and hold the place, then copy the two numbers. Mobile Tester journeys start and end here."
+            />
+          </label>
+          <input
+            id="src-edit-location"
+            type="text"
+            inputMode="decimal"
+            value={locationText}
+            onChange={(e) => setLocationText(e.target.value)}
+            disabled={busy}
+            className={`${fieldInputClass} tabular-nums`}
+            placeholder="29.6974, 72.5539"
+          />
+        </div>
         <DrawerActions busy={busy} onCancel={onClose} submitLabel="Save Changes" busyLabel="Saving…" />
       </form>
     </FormDrawer>

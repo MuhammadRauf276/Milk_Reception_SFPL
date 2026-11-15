@@ -258,7 +258,7 @@ export function useCollection({
         setCollectionGps({ latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy, status: 'CAPTURED' });
       } else {
         const res = await acquireRobustGps({
-          facilityCode: currentUser?.procurement_source?.code,
+          station: currentUser?.procurement_source,
           allowFacilityFallback: isCovering,
           maxCacheAgeMs: 30_000,
         });

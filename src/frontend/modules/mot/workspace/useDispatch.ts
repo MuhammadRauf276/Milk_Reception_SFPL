@@ -1,17 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { acquireRobustGps } from '@/lib/gps';
+import { useState } from 'react';
+import type { StationPosition } from '@/lib/gps';
+import { isValidPosition } from '@/lib/coordinates';
 import type { ZmccSource } from './types';
-
-export interface GpsLocation {
-  latitude: number;
-  longitude: number;
-  accuracy: number | null;
-  source?: string;
-}
-
-type GpsStatus = 'IDLE' | 'ACQUIRING' | 'SUCCESS' | 'FALLBACK' | 'ERROR';
 
 /** Dispatch form fields. Lives in the workspace so values survive tab switches. */
 export function useDispatchForm() {
@@ -30,69 +22,23 @@ export function useDispatchForm() {
 }
 export type DispatchForm = ReturnType<typeof useDispatchForm>;
 
-/** GPS acquisition with progressive offline fallback; starts automatically while the Dispatch tab is open. */
+/**
+ * Where a new journey starts from: always the ZMCC it belongs to. The person assigning it is not asked for
+ * their own location any more. Null when this screen does not know the ZMCC (the server still checks).
+ */
 export function useDispatchGps(opts: {
   sources: ZmccSource[];
   effectiveZmccId: string | null;
-  fallbackFacilityCode?: string;
+  /** The signed-in person's own ZMCC, used when none is picked. */
+  fallbackStation?: StationPosition | null;
   dispatchTabActive: boolean;
 }) {
-  const { sources, effectiveZmccId, fallbackFacilityCode, dispatchTabActive } = opts;
-  const [gpsLocation, setGpsLocation] = useState<GpsLocation | null>(null);
-  const [gpsStatus, setGpsStatus] = useState<GpsStatus>('IDLE');
-  const [gpsErrorMsg, setGpsErrorMsg] = useState('');
-
-  const requestGpsPosition = useCallback(
-    async (allowFallback = false) => {
-      setGpsStatus('ACQUIRING');
-      setGpsErrorMsg('');
-
-      const selectedSource = sources.find((s) => s.id === effectiveZmccId);
-      const facilityCode = selectedSource?.code || fallbackFacilityCode;
-
-      const res = await acquireRobustGps({
-        facilityCode,
-        allowFacilityFallback: allowFallback || (typeof window !== 'undefined' && window.isSecureContext === false),
-        maxCacheAgeMs: 30_000,
-      });
-
-      if (res.location) {
-        setGpsLocation({
-          latitude: res.location.latitude,
-          longitude: res.location.longitude,
-          accuracy: res.location.accuracy,
-          source: res.location.source,
-        });
-        setGpsStatus(res.status === 'FALLBACK' ? 'FALLBACK' : 'SUCCESS');
-        if (res.errorMsg) {
-          setGpsErrorMsg(res.errorMsg);
-        }
-      } else {
-        setGpsStatus('ERROR');
-        setGpsErrorMsg(res.errorMsg || 'Failed to obtain GPS coordinates.');
-      }
-    },
-    [sources, effectiveZmccId, fallbackFacilityCode]
-  );
-
-  // Opening the Dispatch tab starts acquisition automatically, so it counts as acquiring.
-  const autoAcquiringGps = dispatchTabActive && gpsStatus === 'IDLE';
-  const displayedGpsStatus: GpsStatus = autoAcquiringGps ? 'ACQUIRING' : gpsStatus;
-
-  useEffect(() => {
-    if (autoAcquiringGps) {
-      requestGpsPosition(true);
-    }
-  }, [autoAcquiringGps, requestGpsPosition]);
-
+  const { sources, effectiveZmccId, fallbackStation } = opts;
+  const picked = sources.find((s) => s.id === effectiveZmccId) ?? null;
+  const station: StationPosition | null = picked ?? fallbackStation ?? null;
   return {
-    gpsLocation,
-    displayedGpsStatus,
-    displayedGpsErrorMsg: gpsErrorMsg,
-    acquireGps: () => {
-      requestGpsPosition(false);
-    },
-    requestGpsPosition,
+    origin: station,
+    originSet: station ? isValidPosition(station.latitude, station.longitude) : null,
   };
 }
 export type DispatchGps = ReturnType<typeof useDispatchGps>;

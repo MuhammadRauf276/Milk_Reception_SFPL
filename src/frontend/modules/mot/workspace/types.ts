@@ -13,6 +13,9 @@ export interface ZmccSource {
   code: string;
   name: string;
   is_active: boolean;
+  /** Where the ZMCC is on the map, when the Super Admin has set it. */
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface MotProfileItem {

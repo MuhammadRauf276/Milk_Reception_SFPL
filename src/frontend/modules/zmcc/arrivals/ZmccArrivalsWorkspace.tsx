@@ -128,9 +128,9 @@ export const ZmccArrivalsWorkspace: React.FC<ZmccArrivalsWorkspaceProps> = ({
     void data.fetchInsideVehicles();
     void data.fetchHistory();
   });
-  const facilityCode = currentUser?.procurement_source?.code;
-  const mcGps = useAutoGps(mcForm.formOpen && !!mcForm.selectedJourney, mcForm.setGps, facilityCode);
-  const hcGps = useAutoGps(hcForm.formOpen, hcForm.setGps, facilityCode);
+  const station = currentUser?.procurement_source;
+  const mcGps = useAutoGps(mcForm.formOpen && !!mcForm.selectedJourney, mcForm.setGps, station);
+  const hcGps = useAutoGps(hcForm.formOpen, hcForm.setGps, station);
   const addSupplier = useAddHcSupplier((supplier) => {
     hcForm.setSupplierSearchTerm('');
     data.addLocalSupplierToCache(supplier);

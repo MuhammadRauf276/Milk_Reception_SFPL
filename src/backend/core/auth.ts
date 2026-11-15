@@ -130,6 +130,8 @@ export async function getCurrentUser(req?: Request): Promise<User | null> {
             name: true,
             source_type: true,
             is_active: true,
+            latitude: true,
+            longitude: true,
           },
         },
       },
@@ -162,6 +164,8 @@ export async function getCurrentUser(req?: Request): Promise<User | null> {
             name: dbUser.procurement_source.name,
             source_type: dbUser.procurement_source.source_type,
             is_active: dbUser.procurement_source.is_active,
+            latitude: dbUser.procurement_source.latitude != null ? Number(dbUser.procurement_source.latitude) : null,
+            longitude: dbUser.procurement_source.longitude != null ? Number(dbUser.procurement_source.longitude) : null,
           }
         : null,
       last_login_at: dbUser.last_login_at ? dbUser.last_login_at.toISOString() : null,

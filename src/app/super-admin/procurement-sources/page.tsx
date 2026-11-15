@@ -23,6 +23,7 @@ import {
   type Source,
 } from '@/frontend/modules/super-admin/sources/SourceDrawers';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { formatPosition } from '@/lib/coordinates';
 
 const TYPE_OPTIONS = [
   { value: '', label: 'All types' },
@@ -98,6 +99,17 @@ function ProcurementSourcesContent() {
   const columns: DataColumn<Source>[] = [
     { key: 'code', header: 'Code', label: 'Code', cell: (s) => <span className="whitespace-nowrap font-mono font-semibold tabular-nums text-foreground">{s.code}</span> },
     { key: 'name', header: 'Name', label: 'Name', primary: true, cell: (s) => <span className="font-semibold text-foreground">{s.name}</span> },
+    {
+      key: 'location',
+      header: 'Location',
+      label: 'Location',
+      cell: (s) =>
+        formatPosition(s) ? (
+          <span className="whitespace-nowrap font-mono tabular-nums text-secondary-foreground">{formatPosition(s)}</span>
+        ) : (
+          <span className="text-muted-foreground">Not set</span>
+        ),
+    },
     {
       key: 'type',
       header: 'Source type',
