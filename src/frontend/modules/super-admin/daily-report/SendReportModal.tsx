@@ -31,19 +31,22 @@ export const SendReportModal: React.FC<SendReportModalProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   const kpis = reportData.kpis;
+  const lossPct = (f: { at13ts: { percent: number | null } } | null | undefined) => (f ? formatLossGainPercent(f.at13ts.percent) || 'No data' : 'No data');
   // ui-text-ignore
   const summaryText = `*SHAKARGANJ DAILY OPERATIONS & QUALITY REPORT (${reportData.date})*
 
 📊 *Intake Volumes & Yields:* // ui-text-ignore
-• MOT Village Intake: // ui-text-ignore ${kpis.mot.totalLiters.toLocaleString()} L (${kpis.mot.totalCollections} collections · ${kpis.mot.passedCount} passed · ${kpis.mot.warningCount} warnings · ${kpis.mot.rejectedCount} rejected)
-• ZMCC Lab Intake: // ui-text-ignore ${kpis.zmcc.totalLiters.toLocaleString()} L (${kpis.zmcc.totalPortions} portions · ${kpis.zmcc.warningCount} warnings)
-• Plant QA Reception: // ui-text-ignore ${kpis.plantQa.totalLiters.toLocaleString()} L (${kpis.plantQa.totalTankers} tankers · ${kpis.plantQa.acceptedCount} accepted · ${kpis.plantQa.mtdWarningEscalations} MTD warning escalations)
+• MOT Village Intake: // ui-text-ignore ${kpis.mot.totalAt13tsLiters.toLocaleString()} L @13 TS, gross ${kpis.mot.totalLiters.toLocaleString()} L${kpis.mot.missing13tsCount ? `, ${kpis.mot.missing13tsCount} without tests` : ''} (${kpis.mot.totalCollections} collections · ${kpis.mot.passedCount} passed · ${kpis.mot.warningCount} warnings · ${kpis.mot.rejectedCount} rejected)
+• ZMCC Lab Intake: // ui-text-ignore ${kpis.zmcc.totalAt13tsLiters.toLocaleString()} L @13 TS, gross ${kpis.zmcc.totalLiters.toLocaleString()} L${kpis.zmcc.missing13tsCount ? `, ${kpis.zmcc.missing13tsCount} without tests` : ''} (${kpis.zmcc.totalPortions} portions · ${kpis.zmcc.warningCount} warnings)
+• Plant QA Reception: // ui-text-ignore ${kpis.plantQa.totalAt13tsLiters.toLocaleString()} L @13 TS, gross ${kpis.plantQa.totalLiters.toLocaleString()} L${kpis.plantQa.missing13tsCount ? `, ${kpis.plantQa.missing13tsCount} without tests` : ''} (${kpis.plantQa.totalTankers} tankers · ${kpis.plantQa.acceptedCount} accepted · ${kpis.plantQa.mtdWarningEscalations} MTD warning escalations)
 
 ⚖️ *Exceptions & Loss Performance:* // ui-text-ignore
 • Exceptions Handled: // ui-text-ignore ${kpis.exceptions.totalHandled} (${kpis.exceptions.approvedCount} approved · ${kpis.exceptions.rejectedCount} rejected)
-• Tier 1 (MOT Route, @13% TS): // ui-text-ignore ${formatLossGainPercent(kpis.losses.tier1SignedAt13tsPercent)}
-• Tier 2 (ZMCC Chilling, @13% TS): // ui-text-ignore ${formatLossGainPercent(kpis.losses.tier2SignedAt13tsPercent)}
-• Tier 3 (Road Transit, @13% TS): // ui-text-ignore ${formatLossGainPercent(kpis.losses.tier3SignedAt13tsPercent)}
+• MOT Loss / Gain (@13% TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.mot)}
+• Area Loss / Gain (@13% TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.area)}
+• Transit Loss / Gain (@13% TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.transitNet)}
+• Whole Loss / Gain (@13% TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.whole)}
+• Contractor Transit Loss / Gain (@13% TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.contractorTransit)}
 ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-ignore
 🔗 View & Export Complete Excel at: // ui-text-ignore /super-admin/daily-report?date=${reportData.date}`;
 

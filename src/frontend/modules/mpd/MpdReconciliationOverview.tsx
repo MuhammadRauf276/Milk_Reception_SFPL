@@ -7,7 +7,7 @@ import { ErrorState } from '@/components/ui/empty-state';
 import { InfoTip } from '@/components/ui/info-tip';
 import { Pagination, useListPageSize } from '@/components/ui/pagination';
 import { formatLossGain, formatLossGainPercent, lossGainClass } from '@/lib/lossGain';
-import { SupplyChainLossCard } from '@/frontend/modules/dashboard/components/SupplyChainLossCard';
+import { WholeLossCard } from '@/frontend/modules/dashboard/components/WholeLossCard';
 
 type Reconciliation = { total: number; totalPages: number; summary: { finalizedJourneys: number; unresolvedJourneys: number; grossLossLiters: number; grossGainLiters: number; at13tsLossLiters: number; at13tsGainLiters: number; grossNetLiters: number; at13tsNetLiters: number; grossNetPercent: number | null; at13tsNetPercent: number | null; unresolvedOriginAt13tsLiters: number }; items: Array<{ journeyId: string; journeyNumber: string; source: { code: string; name: string }; route: { code: string }; vehicleNumber: string; isResolved: boolean }> };
 type VehicleStages = { total: number; items: Array<{ visitId: string; vehicleNumber: string; source: { code: string }; route: { name: string } | null; stage: string; exception: { kind: string } | null }> };
@@ -40,8 +40,8 @@ export function MpdReconciliationOverview() {
 
   return (
     <div className="space-y-6">
-      {/* 3-Tier Supply Chain Loss Hierarchy Card */}
-      <SupplyChainLossCard />
+      {/* Whole Loss / Gain card */}
+      <WholeLossCard />
 
       {error ? (
         <ErrorState description={error} onRetry={() => { void reconQuery.refetch(); void stageQuery.refetch(); }} />

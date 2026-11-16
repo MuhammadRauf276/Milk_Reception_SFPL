@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     default: 'Milk Reception · SFPL',
     template: '%s · SFPL Milk Reception',
   },
-  description: 'Milk reception, quality and supply-chain operations for Shakarganj Food Products Ltd.',
+  description: 'Milk reception, quality and supply operations for Shakarganj Food Products Ltd.',
   manifest: '/manifest.webmanifest',
   icons: {
     icon: [

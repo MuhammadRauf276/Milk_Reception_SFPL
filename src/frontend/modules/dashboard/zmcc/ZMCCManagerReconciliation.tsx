@@ -8,7 +8,7 @@ import {
   deriveVehicleReconciliationItems,
 } from './zmccManagerHelpers';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
-import { SupplyChainLossCard } from '@/frontend/modules/dashboard/components/SupplyChainLossCard';
+import { WholeLossCard } from '@/frontend/modules/dashboard/components/WholeLossCard';
 import {
   ArrowRightLeft,
   Search,
@@ -325,8 +325,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
 
   return (
     <div className="space-y-6" role="region" aria-label="ZMCC Manager Reconciliation">
-      {/* 3-Tier Supply Chain Loss Hierarchy Card */}
-      <SupplyChainLossCard />
+      {/* Whole Loss / Gain card */}
+      <WholeLossCard />
 
       {/* 1. Header & Summary Banner */}
       <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">

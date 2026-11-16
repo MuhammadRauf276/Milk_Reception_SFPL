@@ -354,12 +354,18 @@ export function DailyReportDashboard() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="font-mono text-xl font-semibold tabular-nums text-foreground">
-              {kpis ? `${formatNumber(kpis.mot.totalLiters)} L` : '—'}
+              {kpis ? `${formatNumber(kpis.mot.totalAt13tsLiters)} L` : '—'}
             </span>
             <span className="text-xs text-muted-foreground">
               ({kpis ? kpis.mot.totalCollections : '—'} shops)
             </span>
           </div>
+          {kpis ? (
+            <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+              @13 TS · Gross {formatNumber(kpis.mot.totalLiters)} L
+              {kpis.mot.missing13tsCount > 0 ? <span className="text-amber-700"> · {kpis.mot.missing13tsCount} without tests</span> : null}
+            </p>
+          ) : null}
           <div className="mt-2 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               <CheckCircle2 className="h-3 w-3" />
@@ -393,12 +399,18 @@ export function DailyReportDashboard() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="font-mono text-xl font-semibold tabular-nums text-foreground">
-              {kpis ? `${formatNumber(kpis.zmcc.totalLiters)} L` : '—'}
+              {kpis ? `${formatNumber(kpis.zmcc.totalAt13tsLiters)} L` : '—'}
             </span>
             <span className="text-xs text-muted-foreground">
               ({kpis ? kpis.zmcc.totalPortions : '—'} portions)
             </span>
           </div>
+          {kpis ? (
+            <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+              @13 TS · Gross {formatNumber(kpis.zmcc.totalLiters)} L
+              {kpis.zmcc.missing13tsCount > 0 ? <span className="text-amber-700"> · {kpis.zmcc.missing13tsCount} without tests</span> : null}
+            </p>
+          ) : null}
           <div className="mt-2 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               <CheckCircle2 className="h-3 w-3" />
@@ -430,12 +442,18 @@ export function DailyReportDashboard() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="font-mono text-xl font-semibold tabular-nums text-foreground">
-              {kpis ? `${formatNumber(kpis.plantQa.totalLiters)} L` : '—'}
+              {kpis ? `${formatNumber(kpis.plantQa.totalAt13tsLiters)} L` : '—'}
             </span>
             <span className="text-xs text-muted-foreground">
               ({kpis ? kpis.plantQa.totalTankers : '—'} tankers)
             </span>
           </div>
+          {kpis ? (
+            <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+              @13 TS · Gross {formatNumber(kpis.plantQa.totalLiters)} L
+              {kpis.plantQa.missing13tsCount > 0 ? <span className="text-amber-700"> · {kpis.plantQa.missing13tsCount} without tests</span> : null}
+            </p>
+          ) : null}
           <div className="mt-2 flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
               <CheckCircle2 className="h-3 w-3" />
@@ -482,11 +500,10 @@ export function DailyReportDashboard() {
             </span>
           </div>
           <p className="mt-2 text-xs font-medium text-muted-foreground">
-            Loss / Gain:{' '}
-            {([['T1', kpis?.losses.tier1SignedAt13tsPercent], ['T2', kpis?.losses.tier2SignedAt13tsPercent], ['T3', kpis?.losses.tier3SignedAt13tsPercent]] as const).map(([name, pct], i) => (
+            {([['MOT', kpis?.losses.levels?.mot], ['Area', kpis?.losses.levels?.area], ['Transit', kpis?.losses.levels?.transitNet], ['Whole', kpis?.losses.levels?.whole], ['Contractor', kpis?.losses.levels?.contractorTransit]] as const).map(([name, fig], i) => (
               <span key={name}>
                 {i > 0 ? ' · ' : ''}
-                {name} <span className={lossGainClass(pct)}>{pct == null ? '—' : formatLossGainPercent(pct)}</span>
+                {name} <span className={lossGainClass(fig?.at13ts.percent)}>{fig?.at13ts.percent == null ? '—' : formatLossGainPercent(fig.at13ts.percent)}</span>
               </span>
             ))}
           </p>

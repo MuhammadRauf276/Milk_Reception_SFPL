@@ -37,6 +37,7 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
               <div className="text-2xl font-semibold tabular-nums text-foreground">
                 {formatMetric(qualityFunnel.villageShopRejectedLiters, ' L')}
               </div>
+              <div className="text-xs text-muted-foreground">Gross, no test at shop level</div>
               <div className="mt-1 flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Rejection Rate:</span>
                 <span className="tabular-nums font-semibold text-secondary-foreground">
@@ -58,7 +59,11 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
             </div>
             <div className="mt-4">
               <div className="text-2xl font-semibold tabular-nums text-foreground">
-                {qualityFunnel.zmccGateRejectedLiters.toLocaleString()} L
+                {qualityFunnel.zmccGateRejectedAt13tsLiters.toLocaleString()} L
+              </div>
+              <div className="text-xs text-muted-foreground tabular-nums">
+                Gross {qualityFunnel.zmccGateRejectedLiters.toLocaleString()} L
+                {qualityFunnel.zmccGateRejectedMissing13tsCount > 0 ? ` · ${qualityFunnel.zmccGateRejectedMissing13tsCount} without tests` : ''}
               </div>
               <div className="mt-1 flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Rejection Rate:</span>
@@ -81,7 +86,11 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
             </div>
             <div className="mt-4">
               <div className="text-2xl font-semibold tabular-nums text-foreground">
-                {qualityFunnel.plantGateRejectedLiters.toLocaleString()} L
+                {qualityFunnel.plantGateRejectedAt13tsLiters.toLocaleString()} L
+              </div>
+              <div className="text-xs text-muted-foreground tabular-nums">
+                Gross {qualityFunnel.plantGateRejectedLiters.toLocaleString()} L
+                {qualityFunnel.plantGateRejectedMissing13tsCount > 0 ? ` · ${qualityFunnel.plantGateRejectedMissing13tsCount} without tests` : ''}
               </div>
               <div className="mt-1 flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Plant Rejection:</span>

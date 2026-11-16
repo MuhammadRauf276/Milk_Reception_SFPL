@@ -171,7 +171,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
     },
     {
       id: 'LOSS_DIAGNOSTICS',
-      label: 'Supply Chain Loss / Gain',
+      label: 'Whole Loss / Gain',
       icon: <Layers className="w-4 h-4" />,
     },
     {
@@ -272,7 +272,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
             {activeTab === 'QUALITY_FUNNEL' && (
               <MpdQualityScreen qualityFunnel={telemetry.qualityFunnel} />
             )}
-            {activeTab === 'LOSS_DIAGNOSTICS' && <MpdLossScreen lossTiers={telemetry.lossTiers} />}
+            {activeTab === 'LOSS_DIAGNOSTICS' && <MpdLossScreen role={currentUser?.role} />}
             {activeTab === 'GOVERNANCE' && (
               <MpdGovernanceScreen
                 overrides={telemetry.governanceOverrides}

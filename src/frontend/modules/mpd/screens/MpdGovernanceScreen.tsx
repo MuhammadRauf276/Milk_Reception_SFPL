@@ -182,7 +182,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
                 <div className="tabular-nums text-secondary-foreground">
                   {z.leftWithoutFullUnloadingCount} left · {z.pendingCloseRequestCount} pending request(s)
                 </div>
-                <div className="tabular-nums text-muted-foreground">{z.acceptedNotReceivedLiters.toLocaleString()} L accepted, not received</div>
+                <div className="tabular-nums text-muted-foreground">{z.acceptedNotReceivedAt13tsLiters.toLocaleString()} L @13 TS accepted, not received (gross {z.acceptedNotReceivedLiters.toLocaleString()} L){z.acceptedNotReceivedMissing13tsCount > 0 ? ` · ${z.acceptedNotReceivedMissing13tsCount} without tests` : ''}</div>
               </div>
             ))}
           </div>

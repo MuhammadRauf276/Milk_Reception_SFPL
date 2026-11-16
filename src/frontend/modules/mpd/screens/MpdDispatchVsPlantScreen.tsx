@@ -117,8 +117,8 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId }) => {
     { key: 'sentL', header: 'Sent (L)', label: 'Sent (L)', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.dispatch.grossLiters)}</span> },
     { key: 'plantL', header: 'Plant (L)', label: 'Plant (L)', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.plant.grossLiters)}</span> },
     { key: 'plantKg', header: 'Plant (kg)', label: 'Plant (kg)', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.plant.netKg)}</span> },
-    { key: 'ts13sent', header: '13 TS sent', label: '13 TS sent', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.dispatch.at13tsLiters)}</span> },
-    { key: 'ts13plant', header: '13 TS plant', label: '13 TS plant', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.plant.at13tsLiters)}</span> },
+    { key: 'ts13sent', header: '@13 TS sent', label: '@13 TS sent', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.dispatch.at13tsLiters)}</span> },
+    { key: 'ts13plant', header: '@13 TS plant', label: '@13 TS plant', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.plant.at13tsLiters)}</span> },
     { key: 'lossTs', header: 'Loss / Gain @13 TS', label: 'Loss / Gain @13 TS', align: R, cell: (r) => <span className={`tabular-nums font-semibold ${lossGainClass(r.variance.at13tsLiters)}`}>{r.variance.at13tsLiters == null ? NO_DATA : formatLossGain(r.variance.at13tsLiters)}</span> },
     { key: 'loss', header: 'Loss / Gain (L)', label: 'Loss / Gain (L)', align: R, cell: (r) => <span className={`tabular-nums font-semibold ${lossGainClass(r.variance.grossLiters)}`}>{r.variance.grossLiters == null ? NO_DATA : formatLossGain(r.variance.grossLiters)}</span> },
   ];
@@ -145,7 +145,7 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Stat
               icon={<Truck className="w-4 h-4" />}
-              label={`Volume (${t.received} of ${t.vehicles} tankers received)`}
+              label={`Gross litres (${t.received} of ${t.vehicles} tankers received)`}
               dispatch={formatMetric(t.dispatchGrossLiters, ' L')}
               plant={formatMetric(t.plantGrossLiters, ' L')}
               variance={t.grossVarianceLiters}
@@ -154,7 +154,7 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId }) => {
             />
             <Stat
               icon={<FlaskConical className="w-4 h-4" />}
-              label="13 TS litres (main)"
+              label="@13 TS litres"
               dispatch={formatMetric(t.dispatchAt13tsLiters, ' L')}
               plant={formatMetric(t.plantAt13tsLiters, ' L')}
               variance={t.at13tsVarianceLiters}

@@ -30,8 +30,19 @@ const intakeColumns: DataColumn<IntakeRow>[] = [
     ),
   },
   { key: 'netKg', header: 'Net kg', label: 'Net kg', align: 'right', cell: (r) => <span className="tabular-nums">{r.netKg.toLocaleString()}</span> },
-  { key: 'grossL', header: 'Gross L', label: 'Gross L', align: 'right', cell: (r) => <span className="tabular-nums">{r.grossLiters.toLocaleString()}</span> },
-  { key: 'ts13', header: '@13TS L', label: '@13TS L', align: 'right', cell: (r) => <span className="tabular-nums">{r.at13tsLiters.toLocaleString()}</span> },
+  {
+    key: 'ts13',
+    header: '@13 TS L',
+    label: '@13 TS L',
+    align: 'right',
+    cell: (r) => (
+      <div>
+        <span className="tabular-nums font-semibold">{r.at13tsLiters.toLocaleString()}</span>
+        {r.missing13tsCount > 0 ? <div className="text-xs text-amber-700">{r.missing13tsCount} without tests</div> : null}
+      </div>
+    ),
+  },
+  { key: 'grossL', header: 'Gross L', label: 'Gross L', align: 'right', cell: (r) => <span className="tabular-nums text-muted-foreground">{r.grossLiters.toLocaleString()}</span> },
   {
     key: 'quality',
     header: 'Quality',
@@ -187,9 +198,11 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                   <div className="bg-card border-border mt-3 grid grid-cols-2 gap-2 p-3 rounded-lg border">
                     <div>
                       <div className="text-xs text-muted-foreground font-medium">Received today</div>
-                      <div className="tabular-nums font-semibold text-foreground text-xs">
-                        {z.intakeLiters.toLocaleString()} L
+                      <div className="tabular-nums font-semibold text-foreground text-sm">
+                        {z.intakeAt13tsLiters.toLocaleString()} L
                       </div>
+                      <div className="tabular-nums text-xs text-muted-foreground">Gross {z.intakeLiters.toLocaleString()} L</div>
+                      {z.intakeMissing13tsCount > 0 ? <div className="text-xs text-amber-700">{z.intakeMissing13tsCount} without tests</div> : null}
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground font-medium">Dispatch Fat / LR</div>
@@ -229,8 +242,12 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
 
                 <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-secondary-foreground">
                   <span>Dispatched Today:</span>
-                  <span className="tabular-nums font-semibold text-primary">
-                    {z.dispatchedLiters.toLocaleString()} L ({z.dispatchedTankerCount} tankers)
+                  <span className="text-right tabular-nums font-semibold text-primary">
+                    {z.dispatchedAt13tsLiters.toLocaleString()} L @13 TS ({z.dispatchedTankerCount} tankers)
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      Gross {z.dispatchedLiters.toLocaleString()} L
+                      {z.dispatchedMissing13tsCount > 0 ? ` · ${z.dispatchedMissing13tsCount} without tests` : ''}
+                    </span>
                   </span>
                 </div>
                 <div className="mt-2 flex items-center justify-between text-xs text-secondary-foreground">
