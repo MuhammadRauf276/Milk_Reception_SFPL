@@ -2255,6 +2255,8 @@ model ZmccWeighingPolicy {
   manual_entry_enabled Boolean  @default(false) @map("manual_entry_enabled")
   allowed_units        String   @default("BOTH") @map("allowed_units") @db.VarChar(10)
   mot_allowed_units    String   @default("LITER") @map("mot_allowed_units") @db.VarChar(10) // KG | LITER | BOTH
+  /// Testing allowance for the ZMCC tank check on @13 TS, as a percent of the dispatch @13 TS litres.
+  tank_variance_percent Decimal @default(0.5) @map("tank_variance_percent") @db.Decimal(5, 2)
   version              Int      @default(1) @map("version")
   updated_by           BigInt?  @map("updated_by")
   created_at           DateTime @default(now()) @map("created_at") @db.Timestamp(6)

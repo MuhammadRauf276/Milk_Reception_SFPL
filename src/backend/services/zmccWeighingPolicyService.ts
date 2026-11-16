@@ -10,12 +10,17 @@ export interface WeighingPolicyView {
   allowed_units: WeighingAllowedUnits;
   /** What the Mobile Tester may enter milk in at the shop. */
   mot_allowed_units: WeighingAllowedUnits;
+  /** Testing allowance for the ZMCC tank check on @13 TS: percent of the dispatch's @13 TS litres. */
+  tank_variance_percent: number;
   version: number;
 }
 
+/** Highest testing allowance Super Admin may set. */
+export const MAX_TANK_VARIANCE_PERCENT = 5;
+
 type Db = Prisma.TransactionClient | typeof prisma;
 
-const DEFAULT_POLICY: WeighingPolicyView = { manual_entry_enabled: false, allowed_units: 'BOTH', mot_allowed_units: 'LITER', version: 0 };
+const DEFAULT_POLICY: WeighingPolicyView = { manual_entry_enabled: false, allowed_units: 'BOTH', mot_allowed_units: 'LITER', tank_variance_percent: 0.5, version: 0 };
 
 function normalizeUnits(value: string | null | undefined): WeighingAllowedUnits {
   return value === 'KG' || value === 'LITER' ? value : 'BOTH';
@@ -29,8 +34,14 @@ export async function getWeighingPolicyDb(db: Db): Promise<WeighingPolicyView> {
     manual_entry_enabled: row.manual_entry_enabled,
     allowed_units: normalizeUnits(row.allowed_units),
     mot_allowed_units: normalizeUnits(row.mot_allowed_units),
+    tank_variance_percent: Number(row.tank_variance_percent),
     version: row.version,
   };
+}
+
+/** The ZMCC tank testing allowance in percent (0.5 when nobody has saved the policy). */
+export async function getTankVariancePercent(db: Db): Promise<number> {
+  return (await getWeighingPolicyDb(db)).tank_variance_percent;
 }
 
 /** The units the Mobile Tester's form offers, litres first. */
@@ -58,7 +69,7 @@ export async function getWeighingPolicyForOperators(): Promise<{
 
 export async function updateWeighingPolicy(
   acting: ActingContext,
-  payload: { manual_entry_enabled?: unknown; allowed_units?: unknown; mot_allowed_units?: unknown }
+  payload: { manual_entry_enabled?: unknown; allowed_units?: unknown; mot_allowed_units?: unknown; tank_variance_percent?: unknown }
 ): Promise<{ status: number; data?: WeighingPolicyView; error?: string }> {
   if (typeof payload?.manual_entry_enabled !== 'boolean') {
     return { status: 400, error: 'manual_entry_enabled must be true or false.' };
@@ -71,6 +82,14 @@ export async function updateWeighingPolicy(
   if (motUnits !== undefined && motUnits !== 'KG' && motUnits !== 'LITER' && motUnits !== 'BOTH') {
     return { status: 400, error: 'mot_allowed_units must be KG, LITER or BOTH.' };
   }
+  const variance = payload.tank_variance_percent;
+  if (
+    variance !== undefined &&
+    (typeof variance !== 'number' || !Number.isFinite(variance) || variance < 0 || variance > MAX_TANK_VARIANCE_PERCENT)
+  ) {
+    return { status: 400, error: `Tank variance must be a number from 0 to ${MAX_TANK_VARIANCE_PERCENT}%.` };
+  }
+  const varianceData = variance !== undefined ? { tank_variance_percent: new Prisma.Decimal(Number(variance).toFixed(2)) } : {};
   const enabled = payload.manual_entry_enabled;
   try {
     const saved = await prisma.$transaction(async (tx) => {
@@ -82,6 +101,7 @@ export async function updateWeighingPolicy(
               manual_entry_enabled: enabled,
               allowed_units: units,
               ...(motUnits ? { mot_allowed_units: motUnits } : {}),
+              ...varianceData,
               version: { increment: 1 },
               updated_by: acting.userId,
             },
@@ -91,6 +111,7 @@ export async function updateWeighingPolicy(
               manual_entry_enabled: enabled,
               allowed_units: units,
               ...(motUnits ? { mot_allowed_units: motUnits } : {}),
+              ...varianceData,
               updated_by: acting.userId,
             },
           });
@@ -103,12 +124,14 @@ export async function updateWeighingPolicy(
               manual_entry_enabled: existing.manual_entry_enabled,
               allowed_units: existing.allowed_units,
               mot_allowed_units: existing.mot_allowed_units,
+              tank_variance_percent: Number(existing.tank_variance_percent),
             }
           : null,
         newValues: {
           manual_entry_enabled: row.manual_entry_enabled,
           allowed_units: row.allowed_units,
           mot_allowed_units: row.mot_allowed_units,
+          tank_variance_percent: Number(row.tank_variance_percent),
         },
         actor: acting,
       });
@@ -120,6 +143,7 @@ export async function updateWeighingPolicy(
         manual_entry_enabled: saved.manual_entry_enabled,
         allowed_units: normalizeUnits(saved.allowed_units),
         mot_allowed_units: normalizeUnits(saved.mot_allowed_units),
+        tank_variance_percent: Number(saved.tank_variance_percent),
         version: saved.version,
       },
     };

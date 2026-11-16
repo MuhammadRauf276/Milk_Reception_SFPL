@@ -10,7 +10,8 @@ import { isLr, isFat } from '@/lib/lab-test-roles';
 import { calculatedValuesForPortion } from '@/lib/portion-calculated-values';
 import { resolveStageCells, relaxContractorDefaults, getEffectivePolicy, LAB_REPORT_TEST_CODE, LAB_REPORT_TEST_NAME, type PolicyDb } from '@/backend/services/testPointPolicyService';
 import { QualityRuleService } from '@/backend/services/qualityRuleService';
-import { getTankPhysicalStock } from '@/backend/services/zmccTankService';
+import { getTankCommercialStock } from '@/backend/services/zmccTankService';
+import { getTankVariancePercent } from '@/backend/services/zmccWeighingPolicyService';
 import { calculateDensity, calculateGrossLiters, computeCanonicalMilkMetrics } from '@/backend/utils/milkFormulas';
 import {
   canDecideDispatch,
@@ -500,17 +501,35 @@ async function activeTankId(db: Db, zmccId: bigint): Promise<bigint> {
   return activeTanks[0].id;
 }
 
-/** Physical litres left in the ZMCC's active tank, or null when it cannot be read. */
+/** @13 TS litres left in the ZMCC's active tank (the book), or null when it cannot be read. */
 export async function zmccTankRemainingLiters(zmccId: bigint, tx?: Tx): Promise<number | null> {
   try {
     const tankId = await activeTankId(tx ?? prisma, zmccId);
-    return round(await getTankPhysicalStock(tankId, tx), 2);
+    return round(await getTankAt13tsBook(tankId, tx), 2);
   } catch {
     return null;
   }
 }
 
-/** Idempotent ISSUE from the ZMCC tank for a dispatched vehicle (gross + @13TS litres). Returns litres left. */
+/** Audit action of a dispatch the tank check refused (read by the tank variance watch). */
+export const TANK_DISPATCH_BLOCKED_ACTION = 'ZMCC_TANK_DISPATCH_BLOCKED';
+
+/**
+ * Whether a dispatch fits the tank at @13 TS: up to the book stock plus the testing allowance, a percent of the
+ * dispatch's own @13 TS litres. Pure, so the rule is tested on its own.
+ */
+export function tankDispatchAllowance(bookAt13ts: number, dispatchAt13ts: number, variancePercent: number): { ok: boolean; limit: number } {
+  const limit = bookAt13ts + (dispatchAt13ts * Math.max(0, variancePercent)) / 100;
+  return { ok: dispatchAt13ts <= limit + 1e-9, limit };
+}
+
+/** @13 TS litres in the tank by the book: every receipt and adjustment in, minus every issue and adjustment out. */
+async function getTankAt13tsBook(tankId: bigint, tx?: Tx): Promise<number> {
+  const book = await getTankCommercialStock(tankId, tx);
+  return book.stockAt13Ts ?? book.partialStockAt13Ts ?? 0;
+}
+
+/** Idempotent ISSUE from the ZMCC tank for a dispatched vehicle (gross + @13TS litres). Returns @13 TS litres left. */
 export async function issueDispatchFromZmccTankTx(
   tx: Tx,
   i: { zmccId: bigint; visitId: bigint; visitNumber: string; vehicleNumber: string; grossLiters: number; at13tsLiters: number; at: Date; userId: bigint }
@@ -530,14 +549,34 @@ export async function issueDispatchFromZmccTankTx(
 
   const idempotencyKey = `ZMCC_TANK_ISSUE:DISPATCH:${i.visitId}`;
   const existing = await tx.zmccTankInventoryTransaction.findUnique({ where: { idempotency_key: idempotencyKey } });
-  const stock = await getTankPhysicalStock(tankId, tx);
+  // The check is on @13 TS (milk solids). Flush water raises gross litres in the real tank but not in the book, so
+  // gross never blocks a dispatch. A small testing allowance covers the normal spread of Fat and LR tests.
+  const stock13 = await getTankAt13tsBook(tankId, tx);
   if (!existing) {
-    if (i.grossLiters > stock) {
+    const variancePercent = await getTankVariancePercent(tx);
+    const allowed = tankDispatchAllowance(stock13, i.at13tsLiters, variancePercent);
+    if (!allowed.ok) {
       const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      // Kept on its own connection, so the record survives the refused dispatch being rolled back.
+      void writeAuditLog(prisma, {
+        tableName: 'zmcc_tank',
+        recordId: tankId,
+        action: TANK_DISPATCH_BLOCKED_ACTION,
+        newValues: {
+          zmcc_id: i.zmccId.toString(),
+          vehicle_number: i.vehicleNumber,
+          dispatch_at_13ts_liters: round(i.at13tsLiters, 2),
+          dispatch_gross_liters: round(i.grossLiters, 2),
+          book_at_13ts_liters: round(stock13, 2),
+          variance_percent: variancePercent,
+          limit_at_13ts_liters: round(allowed.limit, 2),
+        },
+        actor: { userId: i.userId, actorRole: 'ZMCC_DISPATCH', performedAsRole: 'ZMCC_DISPATCH', isDelegated: false },
+      }).catch((err: unknown) => console.error('Could not log a blocked tank dispatch:', err));
       throw new DispatchFlowError(
         400,
         'INSUFFICIENT_TANK_STOCK',
-        `Not enough milk in the tank (${fmt(stock)} L available, ${fmt(i.grossLiters)} L needed).`
+        `Not enough milk in the tank at @13 TS (${fmt(stock13)} L in the tank, ${fmt(i.at13tsLiters)} L in this dispatch, ${variancePercent}% testing allowance).`
       );
     }
     await tx.zmccTankInventoryTransaction.create({
@@ -556,9 +595,9 @@ export async function issueDispatchFromZmccTankTx(
         notes: `Whole-vehicle dispatch issue for visit ${i.visitNumber} (${i.vehicleNumber})`,
       },
     });
-    return round(stock - i.grossLiters, 2);
+    return round(stock13 - i.at13tsLiters, 2);
   }
-  return round(stock, 2);
+  return round(stock13, 2);
 }
 
 // ---------------------------------------------------------------------------------------------

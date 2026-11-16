@@ -1576,7 +1576,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
           {result.tankRemainingLiters !== null && (
             <div className="bg-card border-border p-3 rounded-xl border text-left flex items-center justify-between text-xs">
-              <span className="font-semibold text-blue-900">Tank left:</span>
+              <span className="font-semibold text-blue-900">Tank left @13 TS:</span>
               <span className="font-semibold text-blue-950 tabular-nums">{fmtL(result.tankRemainingLiters)}</span>
             </div>
           )}
