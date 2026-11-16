@@ -81,7 +81,6 @@ export function MyWorkWorkspace() {
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <SegmentedTabs<WorkTab>
         label="My work"
-        mobileOnly={false}
         fullWidth
         value={tab}
         onValueChange={(next) => router.replace(`${pathname}?tab=${next}`)}
