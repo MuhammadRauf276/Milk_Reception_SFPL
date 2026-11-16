@@ -7,9 +7,9 @@ import {
   parseSourceFilter,
   type VehiclePortionReportDb,
 } from '@/backend/services/management/vehiclePortionReport';
-import { buildVehicleReportExcel, exportOncePerUser, parseExportGroups } from '@/backend/services/management/vehicleReportExport';
+import { buildVehicleReportExcel, exportOncePerUser, parseExportOptions } from '@/backend/services/management/vehicleReportExport';
 
-/** The vehicle report as an Excel file, for the same dates, source choice and column searches as the screen. */
+/** The vehicle report as an Excel file: the screen's dates, source choice and searches, with the sheets and columns the person chose. */
 export async function GET(req: Request) {
   const guard = await requireRoles(req, ['EXECUTIVE_MANAGEMENT', 'QA_HEAD'], { delegation: 'none' });
   if ('response' in guard) return guard.response;
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   try {
     const file = await exportOncePerUser(String(guard.user.id), () =>
       buildVehicleReportExcel(
-        { from, to, filters: parseColumnFilters(params), source: parseSourceFilter(params), groups: parseExportGroups(params) },
+        { from, to, filters: parseColumnFilters(params), source: parseSourceFilter(params), ...parseExportOptions(params) },
         prisma as unknown as VehiclePortionReportDb
       )
     );

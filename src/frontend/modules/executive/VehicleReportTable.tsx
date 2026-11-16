@@ -16,10 +16,9 @@ import {
   dateRangeProblem,
   type SourceTypeFilter,
   type ReportColumnFilters,
-  type ReportColumnKey,
-  type VehiclePortionReport,
-  type VehiclePortionRow,
 } from '@/backend/services/management/vehiclePortionReport';
+import type { VehicleVisitReport, VehicleVisitRow } from '@/backend/services/management/vehicleVisitReport';
+import { formatOperationalDatetime } from '@/lib/datetime-utils';
 import { ZMCCManagerVisitDetailModal } from '@/frontend/modules/dashboard/zmcc/ZMCCManagerVisitDetailModal';
 import { VisitPhotosSection } from './VisitPhotosSection';
 import { ErrorPopup } from '@/components/ui/error-popup';
@@ -48,60 +47,77 @@ const decisionClass = (d: string) =>
     ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
     : d === 'REJECTED'
     ? 'bg-rose-50 text-rose-800 border-rose-200'
-    : d === 'HOLD'
+    : d === 'PARTLY ACCEPTED'
     ? 'bg-amber-50 text-amber-800 border-amber-200'
     : 'bg-muted text-secondary-foreground border-border';
 
-interface Column {
-  key: ReportColumnKey;
-  label: string;
-  numeric?: boolean;
-  render: (r: VehiclePortionRow) => React.ReactNode;
+/** Dispatch and plant in one cell, the difference under them, so one measure takes one column. */
+function Compare({ dispatch, plant, decimals = 2, suffix = '' }: { dispatch: number | null; plant: number | null; decimals?: number; suffix?: string }) {
+  const show = (v: number | null) => (v == null ? EMPTY : `${v.toLocaleString(undefined, { maximumFractionDigits: decimals })}${suffix}`);
+  const diff = dispatch != null && plant != null ? Math.round((plant - dispatch) * 10 ** decimals) / 10 ** decimals : null;
+  return (
+    <div className="text-right leading-tight">
+      <div className="whitespace-nowrap">
+        <span className="text-secondary-foreground">{show(dispatch)}</span>
+        <span className="text-muted-foreground px-1">to</span>
+        <span className="font-semibold text-foreground">{show(plant)}</span>
+      </div>
+      {diff != null && (
+        <div className={`text-xs ${diff === 0 ? 'text-muted-foreground' : diff < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+          {diff > 0 ? '+' : ''}
+          {diff.toLocaleString(undefined, { maximumFractionDigits: decimals })}
+          {suffix}
+        </div>
+      )}
+    </div>
+  );
 }
 
-const num = (key: ReportColumnKey, label: string, pick: (r: VehiclePortionRow) => number | null, suffix = ''): Column => ({
-  key,
-  label,
-  numeric: true,
-  render: (r) => showNumber(pick(r), suffix),
-});
+type SearchKey = 'vehicle' | 'token' | 'source' | 'date' | 'stage' | 'decision';
+
+interface Column {
+  id: string;
+  label: string;
+  /** Text columns get a search box. */
+  search?: SearchKey;
+  numeric?: boolean;
+  render: (r: VehicleVisitRow) => React.ReactNode;
+}
 
 const COLUMNS: Column[] = [
-  { key: 'vehicle', label: 'Vehicle', render: (r) => <span className="font-semibold text-foreground">{r.vehicle}</span> },
-  { key: 'token', label: 'Token', render: (r) => r.token || EMPTY },
-  { key: 'source', label: 'Source', render: (r) => r.source },
-  { key: 'date', label: 'Dispatched', render: (r) => r.date },
-  { key: 'stage', label: 'Stage', render: (r) => r.stage },
-  { key: 'portion', label: 'Portion', render: (r) => <span className="font-semibold">{r.portion}</span> },
+  { id: 'vehicle', label: 'Vehicle', search: 'vehicle', render: (r) => <span className="font-semibold text-foreground">{r.vehicle}</span> },
+  { id: 'token', label: 'Token', search: 'token', render: (r) => r.token || EMPTY },
+  { id: 'source', label: 'Source', search: 'source', render: (r) => r.source },
+  { id: 'date', label: 'Dispatched', search: 'date', render: (r) => r.date },
+  { id: 'stage', label: 'Stage', search: 'stage', render: (r) => r.stage },
   {
-    key: 'decision',
+    id: 'decision',
     label: 'Decision',
+    search: 'decision',
+    render: (r) => <span className={`px-2 py-0.5 rounded border text-xs font-semibold whitespace-nowrap ${decisionClass(r.decision)}`}>{r.decision}</span>,
+  },
+  {
+    id: 'portions',
+    label: 'Compartments',
+    numeric: true,
     render: (r) => (
-      <span className={`px-2 py-0.5 rounded border text-xs font-semibold ${decisionClass(r.decision)}`}>{r.decision}</span>
+      <span title={r.plantAddedPortions > 0 ? `${r.plantAddedPortions} added at the plant` : undefined}>
+        {r.portions}
+        {r.plantAddedPortions > 0 && <span className="text-muted-foreground"> ({r.plantAddedPortions} plant)</span>}
+      </span>
     ),
   },
-  {
-    key: 'quantity',
-    label: 'Quantity',
-    numeric: true,
-    render: (r) => (r.quantity == null ? EMPTY : `${r.quantity.toLocaleString()} ${r.quantityUnit ?? ''}`),
-  },
-  num('dispatchFat', 'Fat Dispatch', (r) => r.dispatchFat),
-  num('plantFat', 'Fat Plant', (r) => r.plantFat),
-  num('dispatchLr', 'LR Dispatch', (r) => r.dispatchLr),
-  num('plantLr', 'LR Plant', (r) => r.plantLr),
-  num('dispatchSnf', 'SNF Dispatch', (r) => r.dispatchSnf),
-  num('plantSnf', 'SNF Plant', (r) => r.plantSnf),
-  num('dispatchTs', 'TS Dispatch', (r) => r.dispatchTs),
-  num('plantTs', 'TS Plant', (r) => r.plantTs),
-  num('dispatch13Ts', 'Dispatch @13 TS', (r) => (r.isFirstPortion ? r.dispatch13Ts : null), ' L'),
-  num('firstWeight', 'First Weight', (r) => (r.isFirstPortion ? r.firstWeight : null), ' kg'),
-  num('secondWeight', 'Second Weight', (r) => (r.isFirstPortion ? r.secondWeight : null), ' kg'),
-  num('netWeight', 'Net Weight', (r) => (r.isFirstPortion ? r.netWeight : null), ' kg'),
-  num('received13Ts', 'Received @13 TS', (r) => (r.isFirstPortion ? r.received13Ts : null), ' L'),
+  { id: 'fat', label: 'Fat', numeric: true, render: (r) => <Compare dispatch={r.dispatchFat} plant={r.plantFat} /> },
+  { id: 'lr', label: 'LR', numeric: true, render: (r) => <Compare dispatch={r.dispatchLr} plant={r.plantLr} /> },
+  { id: 'snf', label: 'SNF', numeric: true, render: (r) => <Compare dispatch={r.dispatchSnf} plant={r.plantSnf} decimals={3} /> },
+  { id: 'ts', label: 'TS', numeric: true, render: (r) => <Compare dispatch={r.dispatchTs} plant={r.plantTs} decimals={3} /> },
+  { id: 'gross', label: 'Gross L', numeric: true, render: (r) => <Compare dispatch={r.dispatchGrossLiters} plant={r.receivedGrossLiters} /> },
+  { id: 'at13', label: '@13 TS L', numeric: true, render: (r) => <Compare dispatch={r.dispatch13Ts} plant={r.received13Ts} /> },
+  { id: 'net', label: 'Net kg', numeric: true, render: (r) => showNumber(r.netWeight) },
+  { id: 'gateOut', label: 'Gate Exit', render: (r) => (r.gateOutAt ? formatOperationalDatetime(r.gateOutAt) : EMPTY) },
 ];
 
-/** The vehicle report for a chosen date range: one row per portion, dispatch beside plant, a search on every column. */
+/** The vehicle report for a chosen date range: one row per vehicle, dispatch to plant in one cell per measure. */
 export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
   const [to, setTo] = useState(() => getPakistanCalendarDate(new Date()));
   const [from, setFrom] = useState(() => daysBefore(getPakistanCalendarDate(new Date()), 6));
@@ -165,7 +181,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
   // No background refresh: a report only asks the database when the person changes something.
   const reportQuery = useQuery({
     queryKey: ['executive', 'vehicle-report', params],
-    queryFn: ({ signal }) => fetchJson<VehiclePortionReport>(`/api/executive/vehicles/report?${params}`, { signal }),
+    queryFn: ({ signal }) => fetchJson<VehicleVisitReport>(`/api/executive/vehicles/report?${params}`, { signal }),
     enabled: !rangeProblem,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
@@ -277,9 +293,11 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
           </div>
           <div className="col-span-2 lg:col-span-1 lg:ml-auto flex items-center justify-between lg:justify-end gap-2">
             <span className="px-3 py-1 rounded-md text-xs tabular-nums font-semibold bg-blue-50 text-primary-hover border border-blue-200">
-              {totalRows.toLocaleString()} portions
+              {totalRows.toLocaleString()} {totalRows === 1 ? 'vehicle' : 'vehicles'}
             </span>
-            <InfoTip text={`Up to ${REPORT_MAX_RANGE_DAYS} days at a time. Type in a column's search box to narrow the rows. Excel uses the same filters.`} />
+            <InfoTip
+              text={`One row per vehicle. Each cell shows dispatch to plant, with the difference under it. A vehicle can have several compartments; Inspect shows each one. Up to ${REPORT_MAX_RANGE_DAYS} days at a time. Excel uses the same filters.`}
+            />
             <VehicleExcelButton getParams={() => rangeProblem ?? new URLSearchParams(filterParams)} />
           </div>
         </div>
@@ -297,7 +315,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
           <thead>
             <tr className="border-b border-border text-muted-foreground">
               {COLUMNS.map((c) => (
-                <th key={c.key} className={`px-2 py-2 font-semibold whitespace-nowrap ${c.numeric ? 'text-right' : ''}`}>
+                <th key={c.id} className={`px-2 py-2 font-semibold whitespace-nowrap ${c.numeric ? 'text-right' : ''}`}>
                   {c.label}
                 </th>
               ))}
@@ -306,26 +324,31 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
               </th>
             </tr>
             <tr className="border-b border-border">
-              {COLUMNS.map((c) => (
-                <th key={c.key} className="px-1 py-1 font-normal">
-                  <input
-                    type="search"
-                    value={typedFilters[c.key] ?? ''}
-                    onChange={(e) => setTypedFilters((prev) => ({ ...prev, [c.key]: e.target.value }))}
-                    placeholder="Search"
-                    aria-label={`Search ${c.label}`}
-                    className="w-full min-w-20 px-2 py-1 text-xs rounded border border-border/80 bg-subtle text-foreground focus:ring-2 focus:ring-primary outline-hidden min-h-9"
-                  />
-                </th>
-              ))}
+              {COLUMNS.map((c) => {
+                const key = c.search;
+                return (
+                  <th key={c.id} className="px-1 py-1 font-normal">
+                    {key && (
+                      <input
+                        type="search"
+                        value={typedFilters[key] ?? ''}
+                        onChange={(e) => setTypedFilters((prev) => ({ ...prev, [key]: e.target.value }))}
+                        placeholder="Search"
+                        aria-label={`Search ${c.label}`}
+                        className="w-full min-w-20 px-2 py-1 text-xs rounded border border-border/80 bg-subtle text-foreground focus:ring-2 focus:ring-primary outline-hidden min-h-9"
+                      />
+                    )}
+                  </th>
+                );
+              })}
               <th />
             </tr>
           </thead>
           <tbody className="divide-y divide-border/40">
             {rows.map((r) => (
-              <tr key={r.key} className="hover:bg-subtle/60">
+              <tr key={r.visitId} className="hover:bg-subtle/60">
                 {COLUMNS.map((c) => (
-                  <td key={c.key} className={`px-2 py-2 whitespace-nowrap ${c.numeric ? 'text-right' : ''}`}>
+                  <td key={c.id} className={`px-2 py-2 whitespace-nowrap align-top ${c.numeric ? 'text-right' : ''}`}>
                     {c.render(r)}
                   </td>
                 ))}
@@ -359,7 +382,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
             totalPages={totalPages}
             totalRecords={totalRows}
             pageSize={pageSize}
-            noun="portions"
+            noun="vehicles"
             onPageChange={setPage}
           />
         </div>

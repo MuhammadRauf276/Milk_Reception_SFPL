@@ -1,22 +1,22 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@core/db';
 import { requireRoles } from '@/backend/core/route-guards';
+import { getVehicleVisitReport } from '@/backend/services/management/vehicleVisitReport';
 import {
   ReportInputError,
-  getVehiclePortionReport,
   parseColumnFilters,
   parseSourceFilter,
   type VehiclePortionReportDb,
 } from '@/backend/services/management/vehiclePortionReport';
 
-/** One page of the vehicle report for a chosen date range, with a search on every column. */
+/** One page of the vehicle report (one row per vehicle) for a chosen date range, source choice and column searches. */
 export async function GET(req: Request) {
   const guard = await requireRoles(req, ['EXECUTIVE_MANAGEMENT', 'QA_HEAD'], { delegation: 'none' });
   if ('response' in guard) return guard.response;
 
   const params = new URL(req.url).searchParams;
   try {
-    const report = await getVehiclePortionReport(
+    const report = await getVehicleVisitReport(
       {
         from: params.get('from'),
         to: params.get('to'),

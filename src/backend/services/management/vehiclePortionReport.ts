@@ -108,6 +108,8 @@ export interface ReportWhereInput {
   to?: string | null;
   filters?: ReportColumnFilters;
   source?: Partial<ReportSourceFilter>;
+  /** Only these column searches are used (a view that lacks the other columns). */
+  allowedColumns?: readonly ReportColumnKey[];
 }
 
 /**
@@ -136,7 +138,7 @@ export function buildReportWhere(input: ReportWhereInput): { where: string; args
     where += ` AND source_id = ANY($${args.length}::bigint[])`;
   }
 
-  const search = buildColumnSearch(input.filters ?? {}, args.length + 1);
+  const search = buildColumnSearch(input.filters ?? {}, args.length + 1, input.allowedColumns);
   return { where: where + search.sql, args: [...args, ...search.args] };
 }
 
@@ -159,10 +161,15 @@ export function dateRangeProblem(from: string | null | undefined, to: string | n
 const escapeLike = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 /** Column searches as parameterised SQL. Unknown columns and empty searches are dropped. */
-export function buildColumnSearch(filters: ReportColumnFilters, firstParam: number): { sql: string; args: string[] } {
+export function buildColumnSearch(
+  filters: ReportColumnFilters,
+  firstParam: number,
+  allowed?: readonly ReportColumnKey[]
+): { sql: string; args: string[] } {
   const clauses: string[] = [];
   const args: string[] = [];
   for (const key of Object.keys(COLUMN_SQL) as ReportColumnKey[]) {
+    if (allowed && !allowed.includes(key)) continue;
     const column: { sql: string; numeric?: boolean } = COLUMN_SQL[key];
     const raw = filters[key]?.trim().slice(0, MAX_SEARCH_LENGTH);
     // Numbers are shown with thousands separators but stored without them.
