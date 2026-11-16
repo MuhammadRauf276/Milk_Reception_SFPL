@@ -8,10 +8,8 @@ import type {
 import {
   Columns,
   Search,
-  Check,
   ChevronDown,
   X,
-  RotateCcw,
   Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

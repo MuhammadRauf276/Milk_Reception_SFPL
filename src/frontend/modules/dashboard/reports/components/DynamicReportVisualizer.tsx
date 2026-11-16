@@ -3,19 +3,20 @@
 import React, { useState, useMemo } from 'react';
 import type {
   ReportFieldDefinition,
+  ReportRow,
   GroupedSubtotal,
+  LossGainTone,
 } from '../dynamicReportTypes';
+import { formatLossGainText, lossGainToneOf, lossGainUnit } from '../dynamicReportTypes';
 import {
   BarChart3,
   TrendingUp,
   ScatterChart,
-  Layers,
 } from 'lucide-react';
 
 interface DynamicReportVisualizerProps {
   fields: ReportFieldDefinition[];
-  rows: Record<string, any>[];
-  groupByFieldId?: string;
+  rows: ReportRow[];
   groupedSubtotals?: GroupedSubtotal[];
 }
 
@@ -24,7 +25,6 @@ type ChartMode = 'BAR' | 'TREND' | 'SCATTER';
 export function DynamicReportVisualizer({
   fields,
   rows,
-  groupByFieldId,
   groupedSubtotals,
 }: DynamicReportVisualizerProps) {
   const [chartMode, setChartMode] = useState<ChartMode>('BAR');
@@ -35,7 +35,7 @@ export function DynamicReportVisualizer({
     return fields.filter(
       (f) =>
         f.dataType === 'number' &&
-        (f.format === 'liters' || f.format === 'percent' || f.id.includes('liters') || f.id.includes('loss'))
+        (f.format === 'liters' || f.format === 'percent' || f.id.includes('liters') || f.id.includes('loss') || !!f.lossGain)
     );
   }, [fields]);
 
@@ -82,6 +82,12 @@ export function DynamicReportVisualizer({
       }));
   }, [rows]);
 
+  const lossGainKind = selectedMetricDef?.lossGain;
+  const unitOfMetric = selectedMetricDef ? (lossGainKind ? lossGainUnit(selectedMetricDef) : selectedMetricDef.unit || '') : '';
+  /** Text of one value: "Loss 120 L" for a loss or gain field, a plain number otherwise. */
+  const valueText = (v: number) => (lossGainKind ? formatLossGainText(v, unitOfMetric, lossGainKind) : `${v.toLocaleString()} ${unitOfMetric}`.trim());
+  const toneOf = (v: number): LossGainTone | null => (lossGainKind ? lossGainToneOf(v, lossGainKind) : null);
+
   if (rows.length === 0) {
     return (
       <div className="bg-card border border-border p-12 text-center rounded-xl text-muted-foreground text-xs">
@@ -90,7 +96,13 @@ export function DynamicReportVisualizer({
     );
   }
 
-  const maxBarValue = Math.max(...barData.map((d) => d.value), 1);
+  // Loss and gain bars grow up (gain) or down (loss) from a zero line.
+  const hasNegative = barData.some((d) => d.value < 0);
+  const hi = Math.max(...barData.map((d) => d.value), hasNegative ? 0 : 1);
+  const lo = Math.min(...barData.map((d) => d.value), 0);
+  const span = hi - lo || 1;
+  const yOf = (v: number) => 20 + (1 - (v - lo) / span) * 160;
+  const zeroPct = (hi / span) * 100;
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5 space-y-5 shadow-xs animate-panel-in">
@@ -169,39 +181,54 @@ export function DynamicReportVisualizer({
       {/* 1. BAR CHART */}
       {chartMode === 'BAR' && (
         <div className="space-y-3">
-          <div className="h-64 flex items-end gap-2 pt-6 pb-2 px-2 border-b border-border">
+          <div className="h-64 flex items-stretch gap-2 pt-6 pb-2 px-2 border-b border-border">
             {barData.map((d, i) => {
-              const heightPct = Math.max(8, (d.value / maxBarValue) * 100);
               const isHovered = hoveredIndex === i;
+              const tone = toneOf(d.value);
+              const toneBar =
+                tone === 'loss' ? 'bg-rose-500' : tone === 'gain' ? 'bg-emerald-500' : tone === 'even' ? 'bg-muted-foreground/40' : isHovered ? 'bg-primary' : 'bg-primary/75';
+              const toneText =
+                tone === 'loss' ? 'text-rose-600' : tone === 'gain' ? 'text-emerald-600' : 'text-muted-foreground';
+              const sizePct = Math.max(hasNegative ? 1 : 8, (Math.abs(d.value) / span) * 100);
+              const badge = tone
+                ? formatLossGainText(d.value, unitOfMetric, lossGainKind)
+                : d.value >= 1000
+                ? `${(d.value / 1000).toFixed(1)}k`
+                : d.value.toFixed(0);
 
               return (
                 <div
                   key={i}
-                  className="flex-1 flex flex-col items-center justify-end h-full group relative"
+                  className="flex-1 relative h-full group"
                   onMouseEnter={() => setHoveredIndex(i)}
                   onMouseLeave={() => setHoveredIndex(null)}
                 >
                   {/* Floating Tooltip */}
                   {isHovered && (
-                    <div className="absolute -top-12 z-20 bg-neutral-900 text-white text-xs font-medium py-1 px-3 rounded-lg shadow-xl whitespace-nowrap pointer-events-none">
-                      <span className="font-semibold">{d.label}</span>: {d.value.toLocaleString()} {selectedMetricDef?.unit || ''}
+                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 bg-neutral-900 text-white text-xs font-medium py-1 px-3 rounded-lg shadow-xl whitespace-nowrap pointer-events-none">
+                      <span className="font-semibold">{d.label}</span>: {valueText(d.value)}
                     </div>
                   )}
 
-                  {/* Value badge */}
-                  <span className="text-xs tabular-nums font-mono text-muted-foreground mb-1 group-hover:text-primary transition-colors">
-                    {d.value >= 1000 ? `${(d.value / 1000).toFixed(1)}k` : d.value.toFixed(0)}
-                  </span>
-
-                  {/* Bar Body */}
+                  {/* Bar Body: from the zero line, up for a gain and down for a loss */}
                   <div
-                    style={{ height: `${heightPct}%` }}
-                    className={`w-full max-w-12 rounded-t-md transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-200 ${
-                      isHovered
-                        ? 'bg-primary shadow-md shadow-primary/20 scale-y-105 origin-bottom'
-                        : 'bg-primary/75 hover:bg-primary'
-                    }`}
+                    style={
+                      d.value >= 0
+                        ? { bottom: `${hasNegative ? 100 - zeroPct : 0}%`, height: `${(sizePct * (hasNegative ? 1 : 0.85)).toFixed(2)}%` }
+                        : { top: `${zeroPct}%`, height: `${sizePct}%` }
+                    }
+                    className={`absolute left-1/2 -translate-x-1/2 w-full max-w-12 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-200 ${
+                      d.value >= 0 ? 'rounded-t-md' : 'rounded-b-md'
+                    } ${toneBar} ${isHovered ? 'shadow-md' : ''}`}
                   />
+
+                  {/* Value badge */}
+                  <span
+                    style={d.value >= 0 ? { bottom: `calc(${hasNegative ? 100 - zeroPct : 0}% + ${(sizePct * (hasNegative ? 1 : 0.85)).toFixed(2)}%)` } : { top: `calc(${zeroPct}% + ${sizePct}%)` }}
+                    className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-xs tabular-nums font-mono transition-colors ${toneText}`}
+                  >
+                    {badge}
+                  </span>
                 </div>
               );
             })}
@@ -234,6 +261,8 @@ export function DynamicReportVisualizer({
             <line x1="0" y1="100" x2="600" y2="100" stroke="currentColor" className="text-border" strokeDasharray="3 3" />
             <line x1="0" y1="150" x2="600" y2="150" stroke="currentColor" className="text-border" strokeDasharray="3 3" />
 
+            {hasNegative && <line x1="0" y1={yOf(0)} x2="600" y2={yOf(0)} stroke="currentColor" className="text-muted-foreground" />}
+
             {/* Area Path */}
             {barData.length > 1 && (
               <>
@@ -243,7 +272,7 @@ export function DynamicReportVisualizer({
                     ${barData
                       .map((d, i) => {
                         const x = (i / (barData.length - 1)) * 600;
-                        const y = 200 - (d.value / maxBarValue) * 160 - 20;
+                        const y = yOf(d.value);
                         return `L ${x},${y}`;
                       })
                       .join(' ')}
@@ -253,11 +282,11 @@ export function DynamicReportVisualizer({
                 />
                 <path
                   d={`
-                    M 0,${200 - (barData[0].value / maxBarValue) * 160 - 20}
+                    M 0,${yOf(barData[0].value)}
                     ${barData
                       .map((d, i) => {
                         const x = (i / (barData.length - 1)) * 600;
-                        const y = 200 - (d.value / maxBarValue) * 160 - 20;
+                        const y = yOf(d.value);
                         return `L ${x},${y}`;
                       })
                       .join(' ')}
@@ -273,7 +302,7 @@ export function DynamicReportVisualizer({
             {/* Points */}
             {barData.map((d, i) => {
               const x = barData.length === 1 ? 300 : (i / (barData.length - 1)) * 600;
-              const y = 200 - (d.value / maxBarValue) * 160 - 20;
+              const y = yOf(d.value);
               return (
                 <circle
                   key={i}

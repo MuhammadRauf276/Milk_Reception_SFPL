@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import type { User } from '@core/types';
@@ -13,9 +13,9 @@ import type {
   PivotRequest,
   TimeBucket,
 } from './dynamicReportTypes';
+import { filtersForTemplate, pickDateFieldId, lossGainUnit } from './dynamicReportTypes';
+import { getPakistanCalendarDate } from '@/backend/core/business-day';
 import {
-  Download,
-  Filter,
   Layers,
   BarChart3,
   Table as TableIcon,
@@ -24,8 +24,6 @@ import {
   FileSpreadsheet,
   FileText,
   Printer,
-  ChevronDown,
-  Building2,
   Database,
   Loader2,
 } from 'lucide-react';
@@ -41,6 +39,7 @@ import { DynamicPivotGrid, defaultPivotConfig } from './components/DynamicPivotG
 import { DynamicReportVisualizer } from './components/DynamicReportVisualizer';
 import { SavedTemplateManager } from './components/SavedTemplateManager';
 import { PlantQaComparisonView } from './components/PlantQaComparisonView';
+import { LossGainValue } from './components/LossGainValue';
 
 interface DynamicReportGeneratorScreenProps {
   currentUser: User | null;
@@ -65,14 +64,12 @@ export function DynamicReportGeneratorScreen({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const listPageSize = useListPageSize(25);
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(listPageSize);
+  // The rows-per-page the user picked on this screen; until then the app-wide setting applies.
+  const [pickedPageSize, setPageSize] = useState<number | null>(null);
+  const pageSize = pickedPageSize ?? listPageSize;
   const [viewMode, setViewMode] = useState<ViewMode>('GRID');
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isRefreshingViews, setIsRefreshingViews] = useState<boolean>(false);
-
-  useEffect(() => {
-    setPageSize(listPageSize);
-  }, [listPageSize]);
 
   const queryClient = useQueryClient();
   const isHeadOfMpd = currentUser?.role === 'HEAD_OF_MPD' || currentUser?.role === 'SUPER_ADMIN';
@@ -109,20 +106,19 @@ export function DynamicReportGeneratorScreen({
   const allFields = metaQuery.data?.fieldMap?.[domain] || [];
   const systemTemplates = metaQuery.data?.defaultTemplates || [];
 
-  // Initialize default fields when domain changes or metadata loads
-  useEffect(() => {
-    if (allFields.length > 0) {
-      const defaultIds = allFields.filter((f) => f.defaultSelected).map((f) => f.id);
-      setSelectedFieldIds(defaultIds.length > 0 ? defaultIds : allFields.slice(0, 8).map((f) => f.id));
-      setFilters([]);
-      setGroupByFieldId(undefined);
-      setTimeBucket('DAY');
-      setPivotConfig(defaultPivotConfig(allFields));
-      setPage(1);
-    }
-    // allFields changes only with the domain or the loaded field list.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [domain, allFields.length]);
+  // Start from the default columns when the report type changes or its field list arrives.
+  const fieldsKey = `${domain}:${allFields.length}`;
+  const [initializedKey, setInitializedKey] = useState('');
+  if (allFields.length > 0 && initializedKey !== fieldsKey) {
+    const defaultIds = allFields.filter((f) => f.defaultSelected).map((f) => f.id);
+    setInitializedKey(fieldsKey);
+    setSelectedFieldIds(defaultIds.length > 0 ? defaultIds : allFields.slice(0, 8).map((f) => f.id));
+    setFilters([]);
+    setGroupByFieldId(undefined);
+    setTimeBucket('DAY');
+    setPivotConfig(defaultPivotConfig(allFields));
+    setPage(1);
+  }
 
   // After a domain switch the old selection lingers for one render: wait until it fits the new fields.
   const fieldsFit =
@@ -222,17 +218,24 @@ export function DynamicReportGeneratorScreen({
     }
   };
 
-  // Template apply handler
+  const dateFieldId = pickDateFieldId(allFields);
+
+  // Template apply handler: restores columns, filters, date range, grouping, bucket, sort and pivot.
+  // Settings an older template does not have fall back to the defaults.
   const handleApplyTemplate = (template: SavedReportTemplate) => {
     if (template.domain !== domain) {
       setDomain(template.domain);
     }
-    setSelectedFieldIds(template.selectedFieldIds);
-    setFilters(template.filters || []);
+    const defaultIds = allFields.filter((f) => f.defaultSelected).map((f) => f.id);
+    setSelectedFieldIds(template.selectedFieldIds.length > 0 ? template.selectedFieldIds : defaultIds);
+    setFilters(filtersForTemplate(template, dateFieldId, getPakistanCalendarDate(new Date())));
     setGroupByFieldId(template.groupByFieldId);
     setTimeBucket(template.timeBucket ?? 'DAY');
-    if (template.sortFieldId) setSortFieldId(template.sortFieldId);
-    if (template.sortDirection) setSortDirection(template.sortDirection);
+    setSortFieldId(template.sortFieldId);
+    setSortDirection(template.sortDirection ?? 'desc');
+    const pivot = template.pivot;
+    const pivotFits = !!pivot && allFields.some((f) => f.id === pivot.rowFieldId) && allFields.some((f) => f.id === pivot.colFieldId);
+    setPivotConfig(pivotFits && pivot ? pivot : defaultPivotConfig(allFields));
     setPage(1);
   };
 
@@ -248,6 +251,7 @@ export function DynamicReportGeneratorScreen({
           selectedFieldIds,
           filters,
           groupByFieldId,
+          timeBucket,
           sortFieldId,
           sortDirection,
           zmccId: effectiveFacilityId,
@@ -299,6 +303,11 @@ export function DynamicReportGeneratorScreen({
             activeSelectedFieldIds={selectedFieldIds}
             activeFilters={filters}
             activeGroupByFieldId={groupByFieldId}
+            activeTimeBucket={timeBucket}
+            activePivot={pivotConfig}
+            activeSortFieldId={sortFieldId}
+            activeSortDirection={sortDirection}
+            dateFieldId={dateFieldId}
             onApplyTemplate={handleApplyTemplate}
           />
         </div>
@@ -373,10 +382,14 @@ export function DynamicReportGeneratorScreen({
               key={kpi.id}
               label={kpi.label}
               value={
-                <span>
-                  {typeof kpi.value === 'number' ? kpi.value.toLocaleString() : kpi.value}
-                  {kpi.unit ? <span className="text-xs font-normal text-muted-foreground ml-1">{kpi.unit}</span> : null}
-                </span>
+                kpi.lossGain && typeof kpi.value === 'number' ? (
+                  <LossGainValue value={kpi.value} unit={lossGainUnit(kpi)} kind={kpi.lossGain} />
+                ) : (
+                  <span>
+                    {typeof kpi.value === 'number' ? kpi.value.toLocaleString() : kpi.value}
+                    {kpi.unit ? <span className="text-xs font-normal text-muted-foreground ml-1">{kpi.unit}</span> : null}
+                  </span>
+                )
               }
               hint="Filtered dataset"
             />
@@ -551,7 +564,6 @@ export function DynamicReportGeneratorScreen({
         <DynamicReportVisualizer
           fields={queryData?.fields || allFields.filter((f) => selectedFieldIds.includes(f.id))}
           rows={queryData?.rows || []}
-          groupByFieldId={groupByFieldId}
           groupedSubtotals={queryData?.groupedSubtotals}
         />
       )}

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   TrendingDown,
+  TrendingUp,
   Download,
   AlertTriangle,
   Layers,
@@ -17,12 +18,55 @@ import { toast } from '@/frontend/lib/appToast';
 import { fetchJson } from '@/lib/fetch-json';
 import type { SupplyChainLossSummary } from '@/backend/services/lossCalculationService';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { formatLossGain, formatLossGainPercent, lossGainClass, lossGainKind } from '@/lib/lossGain';
+import type { LossMetricResult } from '@/backend/services/lossCalculationService';
 
 export interface SupplyChainLossCardProps {
   zmccId?: string;
   initialPeriod?: 'today' | 'wtd' | 'mtd';
   showExportButton?: boolean;
 }
+
+/** One tier: the @13% TS figure is the main one, gross litres sit beside it. */
+const TierFigures: React.FC<{ tier: LossMetricResult; tone?: 'plain' | 'blue' }> = ({ tier, tone = 'plain' }) => {
+  const label = tone === 'blue' ? 'text-xs text-blue-800' : 'text-xs text-muted-foreground';
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between">
+        <span className={label}>@13% TS:</span>
+        <span className={`text-base font-semibold ${lossGainClass(tier.signedVarianceAt13tsLiters)}`}>
+          {formatLossGain(tier.signedVarianceAt13tsLiters)}
+        </span>
+      </div>
+      <div className="flex items-baseline justify-between">
+        <span className={label}>Gross:</span>
+        <span className={`text-xs font-semibold ${lossGainClass(tier.signedVarianceLiters)}`}>
+          {formatLossGain(tier.signedVarianceLiters)}
+        </span>
+      </div>
+      {tier.grossLossLiters != null && tier.grossGainLiters != null && (
+        <div className="flex items-baseline justify-between">
+          <span className={label}>Each record:</span>
+          <span className="text-xs tabular-nums text-muted-foreground">
+            <span className="text-rose-700">Loss {tier.grossLossLiters.toLocaleString()} L</span> · <span className="text-emerald-700">Gain {tier.grossGainLiters.toLocaleString()} L</span>
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/** Percent badge: red for loss, green for gain, grey for even. */
+const TierBadge: React.FC<{ signedPercent: number; signed: number }> = ({ signedPercent, signed }) => {
+  const kind = lossGainKind(signed);
+  const Icon = kind === 'loss' ? TrendingDown : kind === 'gain' ? TrendingUp : CheckCircle2;
+  return (
+    <span className={`flex items-center text-xs font-semibold ${lossGainClass(signed)}`}>
+      <Icon className="w-3 h-3 mr-0.5" />
+      {formatLossGainPercent(signedPercent)}
+    </span>
+  );
+};
 
 export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
   zmccId,
@@ -99,9 +143,9 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
             <Layers className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Supply Chain Loss Hierarchy</h3>
+            <h3 className="text-sm font-semibold text-foreground">Supply Chain Loss / Gain</h3>
             <p className="text-xs text-muted-foreground">
-              {summary ? `${summary.startDate} to ${summary.endDate}` : 'End-to-end 3-tier loss metrics'}
+              {summary ? `${summary.startDate} to ${summary.endDate}` : 'End-to-end 3-tier loss / gain'}
             </p>
           </div>
         </div>
@@ -197,35 +241,12 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/60">
                 <div className="flex items-center space-x-1.5 text-xs font-semibold text-secondary-foreground">
                   <Route className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span>Tier 1: Mobile Tester Route Loss</span>
+                  <span>Tier 1: Route Loss / Gain</span>
                 </div>
-                {summary.tier1RouteLoss.lossLiters > 0 ? (
-                  <span className="flex items-center text-xs font-semibold text-amber-700">
-                    <TrendingDown className="w-3 h-3 mr-0.5" />
-                    {summary.tier1RouteLoss.lossPercent.toFixed(2)}%
-                  </span>
-                ) : (
-                  <span className="flex items-center text-xs font-semibold text-emerald-700">
-                    <CheckCircle2 className="w-3 h-3 mr-0.5" />
-                    Balanced
-                  </span>
-                )}
+                <TierBadge signedPercent={summary.tier1RouteLoss.signedVarianceAt13tsPercent} signed={summary.tier1RouteLoss.signedVarianceAt13tsLiters} />
               </div>
 
-              <div className="space-y-1">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-muted-foreground">Loss Volume:</span>
-                  <span className="text-base font-semibold text-foreground">
-                    {summary.tier1RouteLoss.lossLiters.toLocaleString()} L
-                  </span>
-                </div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-muted-foreground">Loss @13% TS:</span>
-                  <span className="text-xs font-semibold text-secondary-foreground">
-                    {summary.tier1RouteLoss.at13tsLossLiters.toLocaleString()} L
-                  </span>
-                </div>
-              </div>
+              <TierFigures tier={summary.tier1RouteLoss} />
             </div>
 
             <div className="pt-2 mt-2 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
@@ -239,35 +260,12 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/60">
                 <div className="flex items-center space-x-1.5 text-xs font-semibold text-secondary-foreground">
                   <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span>Tier 2: ZMCC Process Loss</span>
+                  <span>Tier 2: ZMCC Loss / Gain</span>
                 </div>
-                {summary.tier2ZmccLoss.lossLiters > 0 ? (
-                  <span className="flex items-center text-xs font-semibold text-amber-700">
-                    <TrendingDown className="w-3 h-3 mr-0.5" />
-                    {summary.tier2ZmccLoss.lossPercent.toFixed(2)}%
-                  </span>
-                ) : (
-                  <span className="flex items-center text-xs font-semibold text-emerald-700">
-                    <CheckCircle2 className="w-3 h-3 mr-0.5" />
-                    Balanced
-                  </span>
-                )}
+                <TierBadge signedPercent={summary.tier2ZmccLoss.signedVarianceAt13tsPercent} signed={summary.tier2ZmccLoss.signedVarianceAt13tsLiters} />
               </div>
 
-              <div className="space-y-1">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-muted-foreground">Loss Volume:</span>
-                  <span className="text-base font-semibold text-foreground">
-                    {summary.tier2ZmccLoss.lossLiters.toLocaleString()} L
-                  </span>
-                </div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-muted-foreground">Loss @13% TS:</span>
-                  <span className="text-xs font-semibold text-secondary-foreground">
-                    {summary.tier2ZmccLoss.at13tsLossLiters.toLocaleString()} L
-                  </span>
-                </div>
-              </div>
+              <TierFigures tier={summary.tier2ZmccLoss} />
             </div>
 
             <div className="pt-2 mt-2 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
@@ -281,44 +279,19 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/60">
                 <div className="flex items-center space-x-1.5 text-xs font-semibold text-secondary-foreground">
                   <Truck className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Tier 3: Road Transit Loss</span>
+                  <span>Tier 3: Transit Loss / Gain</span>
                 </div>
                 {summary.tier3TransitLoss.isHighLoss ? (
                   <span className="flex items-center px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-xs font-semibold">
                     <AlertTriangle className="w-3 h-3 mr-0.5" />
                     &gt; 1.0% Loss
                   </span>
-                ) : summary.tier3TransitLoss.lossLiters > 0 ? (
-                  <span className="flex items-center text-xs font-semibold text-secondary-foreground">
-                    <TrendingDown className="w-3 h-3 mr-0.5" />
-                    {summary.tier3TransitLoss.lossPercent.toFixed(2)}%
-                  </span>
                 ) : (
-                  <span className="flex items-center text-xs font-semibold text-emerald-700">
-                    <CheckCircle2 className="w-3 h-3 mr-0.5" />
-                    Normal
-                  </span>
+                  <TierBadge signedPercent={summary.tier3TransitLoss.signedVarianceAt13tsPercent} signed={summary.tier3TransitLoss.signedVarianceAt13tsLiters} />
                 )}
               </div>
 
-              <div className="space-y-1">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-muted-foreground">Loss Volume:</span>
-                  <span
-                    className={`text-base font-semibold ${
-                      summary.tier3TransitLoss.isHighLoss ? 'text-rose-700' : 'text-foreground'
-                    }`}
-                  >
-                    {summary.tier3TransitLoss.lossLiters.toLocaleString()} L
-                  </span>
-                </div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-muted-foreground">Loss @13% TS:</span>
-                  <span className="text-xs font-semibold text-secondary-foreground">
-                    {summary.tier3TransitLoss.at13tsLossLiters.toLocaleString()} L
-                  </span>
-                </div>
-              </div>
+              <TierFigures tier={summary.tier3TransitLoss} />
             </div>
 
             <div className="pt-2 mt-2 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
@@ -332,27 +305,14 @@ export const SupplyChainLossCard: React.FC<SupplyChainLossCardProps> = ({
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-blue-200/60">
                 <div className="flex items-center space-x-1.5 text-xs font-semibold text-blue-900">
                   <Layers className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span>Total MPD Supply Chain Loss</span>
+                  <span>Total Loss / Gain (net)</span>
                 </div>
-                <span className="flex items-center text-xs font-semibold text-blue-950">
-                  {summary.tier4TotalLoss.lossPercent.toFixed(2)}%
+                <span className={`flex items-center text-xs font-semibold ${lossGainClass(summary.tier4TotalLoss.signedVarianceAt13tsLiters)}`}>
+                  {formatLossGainPercent(summary.tier4TotalLoss.signedVarianceAt13tsPercent)}
                 </span>
               </div>
 
-              <div className="space-y-1">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-blue-800">Total Loss:</span>
-                  <span className="text-base font-semibold text-blue-950">
-                    {summary.tier4TotalLoss.lossLiters.toLocaleString()} L
-                  </span>
-                </div>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-xs text-blue-800">Total @13% TS:</span>
-                  <span className="text-xs font-semibold text-blue-900">
-                    {summary.tier4TotalLoss.at13tsLossLiters.toLocaleString()} L
-                  </span>
-                </div>
-              </div>
+              <TierFigures tier={summary.tier4TotalLoss} tone="blue" />
             </div>
 
             <div className="pt-2 mt-2 border-t border-blue-200/60 flex items-center justify-between text-xs text-blue-800">

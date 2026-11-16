@@ -13,6 +13,7 @@ import { InfoTip } from '@/components/ui/info-tip';
 import { Button } from '@/components/ui/button';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { formatNumber } from '@/lib/format';
+import { formatLossGainPercent, lossGainClass } from '@/lib/lossGain';
 import { useSearchParams } from 'next/navigation';
 
 type MotRow = DailyReportData['motCollections'][number];
@@ -481,7 +482,13 @@ export function DailyReportDashboard() {
             </span>
           </div>
           <p className="mt-2 text-xs font-medium text-muted-foreground">
-            Loss: T1 {kpis ? kpis.losses.tier1LossPercent.toFixed(2) : '—'}% · T2 {kpis ? kpis.losses.tier2LossPercent.toFixed(2) : '—'}% · T3 {kpis ? kpis.losses.tier3LossPercent.toFixed(2) : '—'}%
+            Loss / Gain:{' '}
+            {([['T1', kpis?.losses.tier1SignedAt13tsPercent], ['T2', kpis?.losses.tier2SignedAt13tsPercent], ['T3', kpis?.losses.tier3SignedAt13tsPercent]] as const).map(([name, pct], i) => (
+              <span key={name}>
+                {i > 0 ? ' · ' : ''}
+                {name} <span className={lossGainClass(pct)}>{pct == null ? '—' : formatLossGainPercent(pct)}</span>
+              </span>
+            ))}
           </p>
         </div>
       </div>

@@ -15,6 +15,8 @@ export interface ReconciliationVariance {
   loss: number;
   gain: number;
   lossPercent: number | null;
+  /** Signed variance / origin x 100: negative is a loss, positive a gain. */
+  signedPercent: number | null;
 }
 
 /** Physical disposition is deliberately separate from measured variance. */
@@ -57,5 +59,14 @@ export interface ZmccReconciliationSummary {
   grossGainLiters: number;
   at13tsLossLiters: number;
   at13tsGainLiters: number;
+  /** Net of the signed differences (gain minus loss), received minus sent. */
+  grossNetLiters: number;
+  at13tsNetLiters: number;
+  /** Total sent over the finalized journeys, the base for the net percents. */
+  grossOriginLiters: number;
+  at13tsOriginLiters: number;
+  /** Net / total sent x 100. Null when nothing was sent. */
+  grossNetPercent: number | null;
+  at13tsNetPercent: number | null;
   unresolvedOriginAt13tsLiters: number;
 }

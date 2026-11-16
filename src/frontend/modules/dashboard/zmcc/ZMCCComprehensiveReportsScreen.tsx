@@ -28,6 +28,7 @@ import {
 import { toast } from '@/frontend/lib/appToast';
 import { formatTime } from '@/lib/format';
 import { formatLabel } from '@/lib/format';
+import { formatLossGain, formatLossGainPercent, lossGainClass } from '@/lib/lossGain';
 
 type ReportView = 'ROUTE_COLLECTIONS' | 'HC_SUPPLIERS' | 'TANK_STORAGE';
 
@@ -46,21 +47,6 @@ const routeColumns: DataColumn<RouteLedgerRow>[] = [
   { key: 'shops', header: 'Shops', label: 'Shops', cell: (row) => <span className="tabular-nums text-secondary-foreground">{row.visitedStops} / {row.plannedStops}</span> },
   { key: 'shopL', header: 'Shop Liters', label: 'Shop liters', cell: (row) => <span className="tabular-nums font-semibold text-foreground">{row.shopLitersCollected.toLocaleString()} L</span> },
   { key: 'arrival', header: 'ZMCC Arrival', label: 'ZMCC arrival', cell: (row) => <span className="tabular-nums font-semibold text-foreground">{row.zmccArrivalLiters != null ? `${row.zmccArrivalLiters.toLocaleString()} L` : '—'}</span> },
-  { key: 'loss', header: 'Route Loss', label: 'Route loss', cell: (row) => <span className="tabular-nums font-semibold text-amber-700">{row.routeLossLiters != null ? `${row.routeLossLiters.toLocaleString()} L` : '—'}</span> },
-  {
-    key: 'lossPct',
-    header: 'Loss %',
-    label: 'Loss %',
-    cell: (row) => (
-      <span
-        className={`tabular-nums px-2 py-0.5 rounded-md text-xs font-semibold ${
-          row.routeLossPct > 1.0 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
-        }`}
-      >
-        {row.routeLossPct != null ? `${row.routeLossPct}%` : '—'}
-      </span>
-    ),
-  },
   { key: 'shop13', header: 'Shop @13% TS', label: 'Shop @13% TS', cell: (row) => <span className="tabular-nums text-secondary-foreground">{row.at13TsLiters.toLocaleString()} L</span> },
   {
     key: 'zmcc13',
@@ -70,9 +56,24 @@ const routeColumns: DataColumn<RouteLedgerRow>[] = [
   },
   {
     key: 'loss13',
-    header: 'Loss @13% TS',
-    label: 'Loss @13% TS',
-    cell: (row) => <span className="tabular-nums font-semibold text-amber-700">{row.routeLossAt13TsLiters !== null ? `${row.routeLossAt13TsLiters.toLocaleString()} L` : '—'}</span>,
+    header: 'Loss / Gain @13% TS',
+    label: 'Loss / Gain @13% TS',
+    cell: (row) => <span className={`tabular-nums font-semibold ${lossGainClass(row.routeDiffAt13TsLiters)}`}>{row.routeDiffAt13TsLiters !== null ? formatLossGain(row.routeDiffAt13TsLiters) : '—'}</span>,
+  },
+  { key: 'loss', header: 'Loss / Gain (L)', label: 'Loss / Gain (L)', cell: (row) => <span className={`tabular-nums font-semibold ${lossGainClass(row.routeDiffLiters)}`}>{row.routeDiffLiters != null ? formatLossGain(row.routeDiffLiters) : '—'}</span> },
+  {
+    key: 'lossPct',
+    header: 'Loss / Gain %',
+    label: 'Loss / Gain %',
+    cell: (row) => (
+      <span
+        className={`tabular-nums px-2 py-0.5 rounded-md text-xs font-semibold ${
+          row.routeDiffPct != null && row.routeDiffPct < -1.0 ? 'bg-rose-100 ' : ''
+        }${lossGainClass(row.routeDiffPct)}`}
+      >
+        {row.routeDiffPct != null ? formatLossGainPercent(row.routeDiffPct) : '—'}
+      </span>
+    ),
   },
   { key: 'fat', header: 'Fat %', label: 'Fat %', cell: (row) => <span className="tabular-nums font-medium text-secondary-foreground">{row.avgFat != null ? `${row.avgFat}%` : '—'}</span> },
   { key: 'lr', header: 'LR', label: 'LR', cell: (row) => <span className="tabular-nums font-medium text-secondary-foreground">{row.avgLr ?? '—'}</span> },

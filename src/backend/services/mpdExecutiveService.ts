@@ -15,11 +15,19 @@ import { jsonRecord, jsonString } from '@/lib/json';
  * nothing recorded for it (today, or at all); the dashboard shows it as "—".
  */
 
+/** received minus sent: negative is a loss, positive a gain. The @13 TS figure is the commercial one. */
 export interface LossTierTelemetry {
   lossLiters: number;
   lossPercent: number;
   /** Milk gained in this tier; a tier shows either a loss or a gain. */
   gainLiters: number;
+  signedLiters: number;
+  signedPercent: number;
+  at13tsSignedLiters: number;
+  at13tsSignedPercent: number;
+  /** Each record's own loss and gain added up (set for the route and transit tiers). */
+  grossLossLiters: number | null;
+  grossGainLiters: number | null;
 }
 
 export interface MpdExecutiveTelemetry {
@@ -33,8 +41,11 @@ export interface MpdExecutiveTelemetry {
     standardized13TsLiters: number | null;
     inTransitLiters: number;
     inTransitTankerCount: number;
-    supplyChainLossPercent: number | null;
-    supplyChainLossLiters: number | null;
+    /** Net result of the whole chain (gain minus loss), @13 TS main and gross beside it. */
+    supplyChainSignedAt13tsLiters: number | null;
+    supplyChainSignedAt13tsPercent: number | null;
+    supplyChainSignedLiters: number | null;
+    supplyChainSignedPercent: number | null;
     activeZmccCount: number;
     activeContractorCount: number;
   };
@@ -738,10 +749,26 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
   });
 
   const loss = lossData?.summary ?? null;
-  const tier = (t: { lossLiters: number; lossPercent: number; gainLiters: number }) => ({
+  const tier = (t: {
+    lossLiters: number;
+    lossPercent: number;
+    gainLiters: number;
+    signedVarianceLiters: number;
+    signedVariancePercent: number;
+    signedVarianceAt13tsLiters: number;
+    signedVarianceAt13tsPercent: number;
+    grossLossLiters?: number;
+    grossGainLiters?: number;
+  }) => ({
     lossLiters: round(t.lossLiters),
     lossPercent: round(t.lossPercent),
     gainLiters: round(t.gainLiters),
+    signedLiters: round(t.signedVarianceLiters),
+    signedPercent: round(t.signedVariancePercent),
+    at13tsSignedLiters: round(t.signedVarianceAt13tsLiters),
+    at13tsSignedPercent: round(t.signedVarianceAt13tsPercent),
+    grossLossLiters: t.grossLossLiters != null ? round(t.grossLossLiters) : null,
+    grossGainLiters: t.grossGainLiters != null ? round(t.grossGainLiters) : null,
   });
 
   return {
@@ -755,8 +782,10 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
       standardized13TsLiters: at13tsKnown ? round(intakeRows.reduce((sum, r) => sum + (r.at13ts ?? 0), 0)) : null,
       inTransitLiters: round(inTransitTankers.reduce((sum, t) => sum + t.grossLiters, 0)),
       inTransitTankerCount: inTransitTankers.length,
-      supplyChainLossPercent: loss ? round(loss.tier4TotalLoss.lossPercent) : null,
-      supplyChainLossLiters: loss ? round(loss.tier4TotalLoss.lossLiters) : null,
+      supplyChainSignedAt13tsLiters: loss ? round(loss.tier4TotalLoss.signedVarianceAt13tsLiters) : null,
+      supplyChainSignedAt13tsPercent: loss ? round(loss.tier4TotalLoss.signedVarianceAt13tsPercent) : null,
+      supplyChainSignedLiters: loss ? round(loss.tier4TotalLoss.signedVarianceLiters) : null,
+      supplyChainSignedPercent: loss ? round(loss.tier4TotalLoss.signedVariancePercent) : null,
       activeZmccCount: zmccCenters.length,
       activeContractorCount: plantContractors.length,
     },

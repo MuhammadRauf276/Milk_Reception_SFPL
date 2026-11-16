@@ -184,7 +184,7 @@ const ALL_COMMAND_ITEMS: CommandItem[] = [
   },
   {
     id: 'rep-transit',
-    title: 'Transit Loss Reconciliation',
+    title: 'Transit Loss / Gain Reconciliation',
     category: 'Reports',
     href: '/mpd/zmcc-manager?tab=PLANT_TRANSIT&view=RECONCILIATION',
     icon: FileSpreadsheet,

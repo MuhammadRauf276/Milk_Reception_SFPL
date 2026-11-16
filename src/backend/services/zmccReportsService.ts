@@ -5,6 +5,7 @@ import { computeWeightedMilkMetrics } from '@/backend/utils/milkFormulas';
 import { getSupplyChainLossHierarchy } from '@/backend/services/lossCalculationService';
 import { getBatchTankPhysicalStock, getBatchTankCommercialStock, getBatchTankTodayMovements } from '@/backend/services/zmccTankService';
 import { isTemperatureTest } from '@/lib/lab-test-roles';
+import { LOSS_GAIN_EXPORT_HEADER, LOSS_GAIN_EXPORT_PERCENT_HEADER } from '@/lib/lossGain';
 import { loadSystemRoles, type PolicyDb } from '@/backend/services/testPointPolicyService';
 
 // ==========================================
@@ -58,8 +59,8 @@ export interface ZmccRouteHierarchyNode {
   todayAvgFat: number | null;
   todayAvgLr: number | null;
   todayShopCount: number;
-  routeLossLiters: number | null;
-  routeLossPct: number | null;
+  routeDiffLiters: number | null;
+  routeDiffPct: number | null;
   assignedMot: {
     motCode: string;
     name: string;
@@ -144,9 +145,9 @@ export interface RoutePerformanceRanking {
   avgSnf: number;
   shopCount: number;
   completionRatePct: number | null;
-  /** Non-rejected shop litres minus litres received, for received journeys. Negative is a gain; null when none received. */
-  routeLossLiters: number | null;
-  routeLossPct: number | null;
+  /** Litres received minus non-rejected shop litres, net over received journeys. Negative is a loss, positive a gain; null when none received. */
+  routeDiffLiters: number | null;
+  routeDiffPct: number | null;
 }
 
 export interface HourlyThroughputPoint {
@@ -170,10 +171,10 @@ export interface ZmccBIAnalyticsData {
     weightedSnfPct: number;
     weightedLr: number;
     avgTemperatureC: number | null;
-    tier1RouteLossLiters: number | null;
-    tier1RouteLossPct: number | null;
-    tier2StorageLossLiters: number | null;
-    tier2StorageLossPct: number | null;
+    tier1RouteDiffLiters: number | null;
+    tier1RouteDiffPct: number | null;
+    tier2StorageDiffLiters: number | null;
+    tier2StorageDiffPct: number | null;
     shopCollectionRatePct: number | null;
     onTimeArrivalRatePct: number | null;
   };
@@ -211,14 +212,14 @@ export interface RouteLedgerRow {
   shopLitersCollected: number;
   /** Null until the journey is received at the ZMCC, like the loss figures. */
   zmccArrivalLiters: number | null;
-  routeLossLiters: number | null;
-  routeLossPct: number | null;
+  routeDiffLiters: number | null;
+  routeDiffPct: number | null;
   avgFat: number | null;
   avgLr: number | null;
   avgSnf: number | null;
   at13TsLiters: number;
   zmccArrivalAt13TsLiters: number | null;
-  routeLossAt13TsLiters: number | null;
+  routeDiffAt13TsLiters: number | null;
 }
 
 export interface HcSupplierLedgerRow {
@@ -445,8 +446,8 @@ export async function getZmccHierarchyReport(
         todayAvgFat: routeLiters > 0 ? Number((routeFatSum / routeLiters).toFixed(2)) : null,
         todayAvgLr: routeLiters > 0 ? Number((routeLrSum / routeLiters).toFixed(2)) : null,
         todayShopCount: routeActiveShops,
-        routeLossLiters: lossLit,
-        routeLossPct: lossPct,
+        routeDiffLiters: lossLit,
+        routeDiffPct: lossPct,
         assignedMot,
         areas: areaNodes,
       };
@@ -784,10 +785,11 @@ export async function getZmccBIAnalytics(
   }
   const completionPct = (stats: { planned: number; visited: number }) =>
     stats.planned > 0 ? Number(((stats.visited / stats.planned) * 100).toFixed(1)) : null;
+  // Net signed difference (received minus sent): negative is a loss, positive a gain. Percent is net over total sent.
   const lossLiters = (stats: { shopLiters: number; receivedLiters: number }) =>
-    stats.shopLiters > 0 ? Number((stats.shopLiters - stats.receivedLiters).toFixed(2)) : null;
+    stats.shopLiters > 0 ? Number((stats.receivedLiters - stats.shopLiters).toFixed(2)) : null;
   const lossPct = (stats: { shopLiters: number; receivedLiters: number }) =>
-    stats.shopLiters > 0 ? Number((((stats.shopLiters - stats.receivedLiters) / stats.shopLiters) * 100).toFixed(2)) : null;
+    stats.shopLiters > 0 ? Number((((stats.receivedLiters - stats.shopLiters) / stats.shopLiters) * 100).toFixed(2)) : null;
 
   // Build route performance array
   const routeRankings: RoutePerformanceRanking[] = Array.from(routeMap.entries()).map(([rId, r]) => {
@@ -803,8 +805,8 @@ export async function getZmccBIAnalytics(
       avgSnf: r.liters > 0 ? Number((r.snfSum / r.liters).toFixed(2)) : 0,
       shopCount: r.shopIds.size,
       completionRatePct: completionPct(stats),
-      routeLossLiters: lossLiters(stats),
-      routeLossPct: lossPct(stats),
+      routeDiffLiters: lossLiters(stats),
+      routeDiffPct: lossPct(stats),
     };
   }).sort((a, b) => b.totalLiters - a.totalLiters);
 
@@ -829,10 +831,10 @@ export async function getZmccBIAnalytics(
       weightedLr: weightedLr,
       // No sensor feeds tank temperature and no arrival schedule is stored, so nothing is shown rather than a made-up figure.
       avgTemperatureC: null,
-      tier1RouteLossLiters: lossLiters(allJourneyStats),
-      tier1RouteLossPct: lossPct(allJourneyStats),
-      tier2StorageLossLiters: tier2Loss ? tier2Loss.lossLiters : null,
-      tier2StorageLossPct: tier2Loss ? tier2Loss.lossPercent : null,
+      tier1RouteDiffLiters: lossLiters(allJourneyStats),
+      tier1RouteDiffPct: lossPct(allJourneyStats),
+      tier2StorageDiffLiters: tier2Loss ? tier2Loss.signedVarianceLiters : null,
+      tier2StorageDiffPct: tier2Loss ? tier2Loss.signedVariancePercent : null,
       shopCollectionRatePct: completionPct(allJourneyStats),
       onTimeArrivalRatePct: null,
     },
@@ -905,7 +907,8 @@ export async function getZmccRouteLedgerReport(
 
     // Not received yet: arrival litres and loss are unknown, not zero.
     const arrivalLiters = j.area_received_liters != null ? Number(j.area_received_liters) : null;
-    const lossLit = arrivalLiters !== null ? Number((shopLiters - arrivalLiters).toFixed(2)) : null;
+    // Received minus sent: negative is a loss, positive a gain.
+    const lossLit = arrivalLiters !== null ? Number((arrivalLiters - shopLiters).toFixed(2)) : null;
     const lossPct = lossLit !== null && shopLiters > 0 ? Number(((lossLit / shopLiters) * 100).toFixed(2)) : null;
 
     const plannedStops = j._count.stops;
@@ -928,16 +931,16 @@ export async function getZmccRouteLedgerReport(
       skippedStops,
       shopLitersCollected: Number(shopLiters.toFixed(2)),
       zmccArrivalLiters: arrivalLiters !== null ? Number(arrivalLiters.toFixed(2)) : null,
-      routeLossLiters: lossLit,
-      routeLossPct: lossPct,
+      routeDiffLiters: lossLit,
+      routeDiffPct: lossPct,
       avgFat: quality.weightedFat,
       avgLr: quality.weightedLr,
       avgSnf: quality.weightedSnf,
       at13TsLiters: Number(at13Ts.toFixed(2)),
       zmccArrivalAt13TsLiters: j.area_received_at_13ts_liters != null ? Number(j.area_received_at_13ts_liters) : null,
-      routeLossAt13TsLiters:
+      routeDiffAt13TsLiters:
         j.area_received_at_13ts_liters != null
-          ? Number((at13Ts - Number(j.area_received_at_13ts_liters)).toFixed(2))
+          ? Number((Number(j.area_received_at_13ts_liters) - at13Ts).toFixed(2))
           : null,
     };
   });
@@ -1246,8 +1249,8 @@ export async function generateZmccExcelReport(
       { header: 'Avg Fat %', key: 'fat', width: 12 },
       { header: 'Avg SNF %', key: 'snf', width: 12 },
       { header: 'Shop Count', key: 'shops', width: 12 },
-      { header: 'Route Loss (L)', key: 'lossLit', width: 14 },
-      { header: 'Route Loss %', key: 'lossPct', width: 14 },
+      { header: LOSS_GAIN_EXPORT_HEADER, key: 'lossLit', width: 22 },
+      { header: LOSS_GAIN_EXPORT_PERCENT_HEADER, key: 'lossPct', width: 22 },
     ];
     wsRoutes.getRow(1).eachCell((cell) => {
       cell.fill = brandFill;
@@ -1262,10 +1265,16 @@ export async function generateZmccExcelReport(
         fat: r.avgFat,
         snf: r.avgSnf,
         shops: r.shopCount,
-        lossLit: r.routeLossLiters ?? '—',
-        lossPct: r.routeLossPct ?? '—',
+        lossLit: r.routeDiffLiters ?? '—',
+        lossPct: r.routeDiffPct ?? '—',
       });
     }
+    // Net of the rows above (gains offset losses). The percent is on the summary, not an average of row percents.
+    wsRoutes.addRow({
+      code: 'Net total',
+      lossLit: Number(bi.routeRankings.reduce((t, r) => t + (r.routeDiffLiters ?? 0), 0).toFixed(2)),
+      lossPct: bi.summaryKpis.tier1RouteDiffPct ?? '—',
+    });
   } else if (reportType === 'ROUTE_LEDGER') {
     const { rows } = await getZmccRouteLedgerReport(zmccId, fromDateStr, toDateStr, undefined, 1, 500);
     const ws = wb.addWorksheet('Route Ledger');
@@ -1283,9 +1292,9 @@ export async function generateZmccExcelReport(
       { header: 'Gate Liters', key: 'gateLit', width: 14 },
       { header: 'Shop @13% TS', key: 'shop13', width: 14 },
       { header: 'ZMCC @13% TS', key: 'gate13', width: 14 },
-      { header: 'Loss @13% TS', key: 'loss13', width: 14 },
-      { header: 'Loss Liters', key: 'lossLit', width: 14 },
-      { header: 'Loss %', key: 'lossPct', width: 12 },
+      { header: 'Gain (+) / Loss (-) @13% TS L', key: 'loss13', width: 22 },
+      { header: LOSS_GAIN_EXPORT_HEADER, key: 'lossLit', width: 22 },
+      { header: LOSS_GAIN_EXPORT_PERCENT_HEADER, key: 'lossPct', width: 22 },
       { header: 'Avg Fat %', key: 'fat', width: 12 },
       { header: 'Avg LR', key: 'lr', width: 12 },
     ];
@@ -1307,13 +1316,23 @@ export async function generateZmccExcelReport(
         gateLit: r.zmccArrivalLiters ?? '—',
         shop13: r.at13TsLiters,
         gate13: r.zmccArrivalAt13TsLiters ?? '—',
-        loss13: r.routeLossAt13TsLiters ?? '—',
-        lossLit: r.routeLossLiters ?? '—',
-        lossPct: r.routeLossPct ?? '—',
+        loss13: r.routeDiffAt13TsLiters ?? '—',
+        lossLit: r.routeDiffLiters ?? '—',
+        lossPct: r.routeDiffPct ?? '—',
         fat: r.avgFat ?? '—',
         lr: r.avgLr ?? '—',
       });
     }
+    // Net of the rows above: gains offset losses. Percent is net over the total sent, not an average.
+    const received = rows.filter((r) => r.routeDiffLiters != null);
+    const netLiters = received.reduce((t, r) => t + (r.routeDiffLiters ?? 0), 0);
+    const sentLiters = received.reduce((t, r) => t + r.shopLitersCollected, 0);
+    ws.addRow({
+      jNum: 'Net total',
+      loss13: Number(received.reduce((t, r) => t + (r.routeDiffAt13TsLiters ?? 0), 0).toFixed(2)),
+      lossLit: Number(netLiters.toFixed(2)),
+      lossPct: sentLiters > 0 ? Number(((netLiters / sentLiters) * 100).toFixed(2)) : '—',
+    });
   } else if (reportType === 'HC_LEDGER') {
     const { rows } = await getZmccHcSupplierLedgerReport(zmccId, fromDateStr, toDateStr, 1, 500);
     const ws = wb.addWorksheet('HC Supplier Ledger');

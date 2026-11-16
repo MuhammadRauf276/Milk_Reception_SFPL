@@ -171,7 +171,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
     },
     {
       id: 'LOSS_DIAGNOSTICS',
-      label: 'Supply Chain Loss',
+      label: 'Supply Chain Loss / Gain',
       icon: <Layers className="w-4 h-4" />,
     },
     {

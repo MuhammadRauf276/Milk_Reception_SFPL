@@ -48,8 +48,8 @@ test('loss reconciliation: hand-checked detail rows after the narrower visit sel
     assert.equal(first.dispatchedGrossLiters, 8000);
     assert.equal(first.plantNetKg, 8200);
     assert.equal(first.plantAcceptedLiters, 7920);
-    assert.equal(first.transitLossLiters, 80);
-    assert.equal(first.transitLossPercent, 1);
+    assert.equal(first.transitSignedLiters, -80); // received minus sent: negative is a loss
+    assert.equal(first.transitSignedPercent, -1);
     assert.equal(first.isHighTransitLoss, false); // 1.00% is not above 1.0
     assert.equal(first.dispatchLr, 28);
     assert.equal(first.dispatchFat, 4);
@@ -59,7 +59,7 @@ test('loss reconciliation: hand-checked detail rows after the narrower visit sel
     assert.equal(second.vehicleNumber, 'SCALE-A');
     assert.equal(second.referenceNumber, `${tag}-A`);
     assert.equal(second.plantAcceptedLiters, undefined); // not reconciled yet: no plant figure is invented
-    assert.equal(second.transitLossLiters, undefined); // and no loss either
+    assert.equal(second.transitSignedLiters, undefined); // and no loss either
     assert.equal(second.plantNetKg, 0);
   } finally {
     await cleanup(src.id);

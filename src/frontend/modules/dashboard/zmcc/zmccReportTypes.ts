@@ -45,8 +45,8 @@ export interface ZmccRouteHierarchyNode {
   todayAvgFat: number | null;
   todayAvgLr: number | null;
   todayShopCount: number;
-  routeLossLiters: number | null;
-  routeLossPct: number | null;
+  routeDiffLiters: number | null;
+  routeDiffPct: number | null;
   assignedMot: {
     motCode: string;
     name: string;
@@ -127,8 +127,8 @@ export interface RoutePerformanceRanking {
   avgSnf: number;
   shopCount: number;
   completionRatePct: number;
-  routeLossLiters: number;
-  routeLossPct: number;
+  routeDiffLiters: number;
+  routeDiffPct: number;
 }
 
 export interface HourlyThroughputPoint {
@@ -152,10 +152,10 @@ export interface ZmccBIAnalyticsData {
     weightedSnfPct: number;
     weightedLr: number;
     avgTemperatureC: number;
-    tier1RouteLossLiters: number;
-    tier1RouteLossPct: number;
-    tier2StorageLossLiters: number;
-    tier2StorageLossPct: number;
+    tier1RouteDiffLiters: number;
+    tier1RouteDiffPct: number;
+    tier2StorageDiffLiters: number;
+    tier2StorageDiffPct: number;
     shopCollectionRatePct: number;
     onTimeArrivalRatePct: number;
   };
@@ -187,14 +187,14 @@ export interface RouteLedgerRow {
   skippedStops: number;
   shopLitersCollected: number;
   zmccArrivalLiters: number;
-  routeLossLiters: number;
-  routeLossPct: number;
+  routeDiffLiters: number;
+  routeDiffPct: number;
   avgFat: number;
   avgLr: number;
   avgSnf: number;
   at13TsLiters: number;
   zmccArrivalAt13TsLiters: number | null;
-  routeLossAt13TsLiters: number | null;
+  routeDiffAt13TsLiters: number | null;
 }
 
 export interface HcSupplierLedgerRow {

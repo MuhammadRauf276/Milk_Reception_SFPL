@@ -2,10 +2,11 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
+import { formatLossGain, formatLossGainPercent, lossGainClass } from '@/lib/lossGain';
 
 type Report = {
-  summary: { finalizedJourneys: number; unresolvedJourneys: number; grossLossLiters: number; grossGainLiters: number; at13tsLossLiters: number; at13tsGainLiters: number; unresolvedOriginAt13tsLiters: number };
-  items: Array<{ journeyId: string; journeyNumber: string; route: { code: string; name: string }; vehicleNumber: string; isResolved: boolean; at13ts: { loss: number; gain: number; lossPercent: number | null } | null }>;
+  summary: { finalizedJourneys: number; unresolvedJourneys: number; grossLossLiters: number; grossGainLiters: number; at13tsLossLiters: number; at13tsGainLiters: number; grossNetLiters: number; at13tsNetLiters: number; grossNetPercent: number | null; at13tsNetPercent: number | null; unresolvedOriginAt13tsLiters: number };
+  items: Array<{ journeyId: string; journeyNumber: string; route: { code: string; name: string }; vehicleNumber: string; isResolved: boolean; at13ts: { signedVariance: number; loss: number; gain: number; signedPercent: number | null } | null }>;
 };
 
 const format = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -20,8 +21,8 @@ export function ZmccReconciliationSnapshot() {
   if (!report) return <section className="bg-card border-border rounded-2xl border p-4 text-xs text-muted-foreground">Loading Mobile Tester-to-ZMCC reconciliation…</section>;
   const s = report.summary;
   return <section className="bg-card border-border rounded-2xl border p-4 text-xs" aria-label="Mobile Tester to ZMCC reconciliation">
-    <div className="flex items-baseline justify-between gap-3"><div><p className="font-semibold text-foreground">Mobile Tester to ZMCC reconciliation</p><p className="mt-1 text-muted-foreground">Finalized 13TS loss and gain exclude unresolved journeys.</p></div><span className="font-semibold text-secondary-foreground">{s.finalizedJourneys} finalized / {s.unresolvedJourneys} unresolved</span></div>
-    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4"><div><p className="text-muted-foreground">13TS loss</p><strong>{format(s.at13tsLossLiters)} L</strong></div><div><p className="text-muted-foreground">13TS gain</p><strong>{format(s.at13tsGainLiters)} L</strong></div><div><p className="text-muted-foreground">Gross loss</p><strong>{format(s.grossLossLiters)} L</strong></div><div><p className="text-muted-foreground">Unresolved 13TS</p><strong>{format(s.unresolvedOriginAt13tsLiters)} L</strong></div></div>
-    {report.items.length > 0 && <div className="mt-3 border-t pt-2"><p className="font-semibold text-secondary-foreground">Latest journeys</p>{report.items.map((row) => <p key={row.journeyId} className="mt-1 text-secondary-foreground">{row.journeyNumber} · {row.route.code} · {row.vehicleNumber} · {row.isResolved ? `${format(row.at13ts?.loss || 0)} L loss` : 'Awaiting final ZMCC decision'}</p>)}</div>}
+    <div className="flex items-baseline justify-between gap-3"><div><p className="font-semibold text-foreground">Mobile Tester to ZMCC reconciliation</p><p className="mt-1 text-muted-foreground">Finalized journeys only. Net of loss and gain.</p></div><span className="font-semibold text-secondary-foreground">{s.finalizedJourneys} finalized / {s.unresolvedJourneys} unresolved</span></div>
+    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4"><div><p className="text-muted-foreground">Loss / Gain @13% TS</p><strong className={lossGainClass(s.at13tsNetLiters)}>{formatLossGain(s.at13tsNetLiters)}</strong>{s.at13tsNetPercent != null && <span className="block text-muted-foreground">{formatLossGainPercent(s.at13tsNetPercent)}</span>}</div><div><p className="text-muted-foreground">Loss / Gain gross</p><strong className={lossGainClass(s.grossNetLiters)}>{formatLossGain(s.grossNetLiters)}</strong>{s.grossNetPercent != null && <span className="block text-muted-foreground">{formatLossGainPercent(s.grossNetPercent)}</span>}</div><div><p className="text-muted-foreground">Loss, each journey</p><strong className="text-rose-700">{format(s.at13tsLossLiters)} L</strong></div><div><p className="text-muted-foreground">Gain, each journey</p><strong className="text-emerald-700">{format(s.at13tsGainLiters)} L</strong></div></div>
+    {report.items.length > 0 && <div className="mt-3 border-t pt-2"><p className="font-semibold text-secondary-foreground">Latest journeys</p>{report.items.map((row) => <p key={row.journeyId} className="mt-1 text-secondary-foreground">{row.journeyNumber} · {row.route.code} · {row.vehicleNumber} · {row.isResolved && row.at13ts ? <span className={lossGainClass(row.at13ts.signedVariance)}>{formatLossGain(row.at13ts.signedVariance)}</span> : 'Awaiting final ZMCC decision'}</p>)}</div>}
   </section>;
 }

@@ -35,12 +35,12 @@ export async function POST(req: Request) {
 
     const result = await executeDynamicReportQuery(body, user);
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof ReportRequestError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     return NextResponse.json(
-      { error: error?.message || 'Failed to execute dynamic report query' },
+      { error: error instanceof Error && error.message ? error.message : 'Failed to execute dynamic report query' },
       { status: 500 }
     );
   }

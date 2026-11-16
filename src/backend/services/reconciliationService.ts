@@ -22,13 +22,16 @@ export interface ZmccMeasuredDestinationSnapshot {
 
 /** Destination minus origin: negative is loss, positive is gain. */
 export function calculateLossGain(origin: number | null, destination: number | null) {
-  if (origin == null || destination == null || origin <= 0) return { signedVariance: null, loss: null, gain: null, lossPercent: null };
+  if (origin == null || destination == null || origin <= 0) return { signedVariance: null, loss: null, gain: null, lossPercent: null, signedPercent: null };
   const signedVariance = Number((destination - origin).toFixed(2));
   return {
     signedVariance,
     loss: signedVariance < 0 ? Number(Math.abs(signedVariance).toFixed(2)) : 0,
     gain: signedVariance > 0 ? signedVariance : 0,
+    /** Loss as a positive percent (negative when it is a gain). Prefer signedPercent. */
     lossPercent: Number((((origin - destination) / origin) * 100).toFixed(4)),
+    /** Signed variance / origin x 100: negative is a loss, positive a gain. */
+    signedPercent: Number(((signedVariance / origin) * 100).toFixed(4)),
   };
 }
 
@@ -65,11 +68,17 @@ export function calculateMtdStockBridge(input: MtdStockBridgeInput) {
   return { ...input, expectedClosing: Number(expectedClosing.toFixed(2)), stockHandlingVariance: Number((input.closingStock - expectedClosing).toFixed(2)) };
 }
 
+/** Gross loss and gross gain are each record's own; net is gross gain minus gross loss (gains offset losses). */
 export function summarizeLossGain(rows: Array<{ gross: ReturnType<typeof calculateLossGain>; at13ts: ReturnType<typeof calculateLossGain> }>) {
-  return rows.reduce((total, row) => ({
-    grossLoss: total.grossLoss + (row.gross.loss || 0), grossGain: total.grossGain + (row.gross.gain || 0),
-    at13tsLoss: total.at13tsLoss + (row.at13ts.loss || 0), at13tsGain: total.at13tsGain + (row.at13ts.gain || 0),
+  const total = rows.reduce((sum, row) => ({
+    grossLoss: sum.grossLoss + (row.gross.loss || 0), grossGain: sum.grossGain + (row.gross.gain || 0),
+    at13tsLoss: sum.at13tsLoss + (row.at13ts.loss || 0), at13tsGain: sum.at13tsGain + (row.at13ts.gain || 0),
   }), { grossLoss: 0, grossGain: 0, at13tsLoss: 0, at13tsGain: 0 });
+  return {
+    ...total,
+    grossNet: Number((total.grossGain - total.grossLoss).toFixed(2)),
+    at13tsNet: Number((total.at13tsGain - total.at13tsLoss).toFixed(2)),
+  };
 }
 
 export interface MtdReconciliationBuckets {

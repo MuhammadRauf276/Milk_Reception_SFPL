@@ -10,6 +10,7 @@ import { formatMetric, NO_DATA } from '../format';
 import type { MpdTabId } from '../types';
 import type { DispatchVsPlantReport } from '@/backend/services/management/dispatchVsPlantReport';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { formatLossGain, formatLossGainPercent, lossGainClass, signedPercent } from '@/lib/lossGain';
 
 interface Props {
   zmccId?: string;
@@ -19,7 +20,7 @@ interface Props {
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
-const Stat: React.FC<{ icon: React.ReactNode; label: string; dispatch: string; plant: string; variance: string; note?: string }> = ({ icon, label, dispatch, plant, variance, note }) => (
+const Stat: React.FC<{ icon: React.ReactNode; label: string; dispatch: string; plant: string; variance: number | null; variancePercent: number | null; note?: string }> = ({ icon, label, dispatch, plant, variance, variancePercent, note }) => (
   <div className="bg-card border border-border rounded-2xl p-4 shadow-xs space-y-2">
     <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
       {icon}
@@ -36,7 +37,11 @@ const Stat: React.FC<{ icon: React.ReactNode; label: string; dispatch: string; p
       </div>
     </div>
     <p className="text-xs text-secondary-foreground">
-      Difference: <span className="font-semibold tabular-nums">{variance}</span>
+      Loss / Gain:{' '}
+      <span className={`font-semibold tabular-nums ${lossGainClass(variance)}`}>
+        {variance === null ? NO_DATA : formatLossGain(variance)}
+        {variancePercent !== null ? ` · ${formatLossGainPercent(variancePercent)}` : ''}
+      </span>
     </p>
     {note && <p className="text-xs text-muted-foreground">{note}</p>}
   </div>
@@ -114,7 +119,8 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId }) => {
     { key: 'plantKg', header: 'Plant (kg)', label: 'Plant (kg)', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.plant.netKg)}</span> },
     { key: 'ts13sent', header: '13 TS sent', label: '13 TS sent', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.dispatch.at13tsLiters)}</span> },
     { key: 'ts13plant', header: '13 TS plant', label: '13 TS plant', align: R, cell: (r) => <span className="tabular-nums">{formatMetric(r.plant.at13tsLiters)}</span> },
-    { key: 'loss', header: 'Variance %', label: 'Variance %', align: R, cell: (r) => <span className="tabular-nums font-semibold">{signed(r.variance.grossPercent, '%')}</span> },
+    { key: 'lossTs', header: 'Loss / Gain @13 TS', label: 'Loss / Gain @13 TS', align: R, cell: (r) => <span className={`tabular-nums font-semibold ${lossGainClass(r.variance.at13tsLiters)}`}>{r.variance.at13tsLiters == null ? NO_DATA : formatLossGain(r.variance.at13tsLiters)}</span> },
+    { key: 'loss', header: 'Loss / Gain (L)', label: 'Loss / Gain (L)', align: R, cell: (r) => <span className={`tabular-nums font-semibold ${lossGainClass(r.variance.grossLiters)}`}>{r.variance.grossLiters == null ? NO_DATA : formatLossGain(r.variance.grossLiters)}</span> },
   ];
 
   return (
@@ -142,15 +148,17 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId }) => {
               label={`Volume (${t.received} of ${t.vehicles} tankers received)`}
               dispatch={formatMetric(t.dispatchGrossLiters, ' L')}
               plant={formatMetric(t.plantGrossLiters, ' L')}
-              variance={signed(t.grossVarianceLiters, ' L')}
+              variance={t.grossVarianceLiters}
+              variancePercent={signedPercent(t.grossVarianceLiters, t.dispatchGrossLiters)}
               note={t.notReceivedGrossLiters > 0 ? `${formatMetric(t.notReceivedGrossLiters, ' L')} sent but not received yet (not counted above)` : undefined}
             />
             <Stat
               icon={<FlaskConical className="w-4 h-4" />}
-              label="13 TS litres"
+              label="13 TS litres (main)"
               dispatch={formatMetric(t.dispatchAt13tsLiters, ' L')}
               plant={formatMetric(t.plantAt13tsLiters, ' L')}
-              variance={signed(t.at13tsVarianceLiters, ' L')}
+              variance={t.at13tsVarianceLiters}
+              variancePercent={signedPercent(t.at13tsVarianceLiters, t.dispatchAt13tsLiters)}
             />
             <div className="bg-card border border-border rounded-2xl p-4 shadow-xs space-y-2">
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">

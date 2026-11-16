@@ -6,9 +6,10 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import { ErrorState } from '@/components/ui/empty-state';
 import { InfoTip } from '@/components/ui/info-tip';
 import { Pagination, useListPageSize } from '@/components/ui/pagination';
+import { formatLossGain, formatLossGainPercent, lossGainClass } from '@/lib/lossGain';
 import { SupplyChainLossCard } from '@/frontend/modules/dashboard/components/SupplyChainLossCard';
 
-type Reconciliation = { total: number; totalPages: number; summary: { finalizedJourneys: number; unresolvedJourneys: number; grossLossLiters: number; grossGainLiters: number; at13tsLossLiters: number; at13tsGainLiters: number; unresolvedOriginAt13tsLiters: number }; items: Array<{ journeyId: string; journeyNumber: string; source: { code: string; name: string }; route: { code: string }; vehicleNumber: string; isResolved: boolean }> };
+type Reconciliation = { total: number; totalPages: number; summary: { finalizedJourneys: number; unresolvedJourneys: number; grossLossLiters: number; grossGainLiters: number; at13tsLossLiters: number; at13tsGainLiters: number; grossNetLiters: number; at13tsNetLiters: number; grossNetPercent: number | null; at13tsNetPercent: number | null; unresolvedOriginAt13tsLiters: number }; items: Array<{ journeyId: string; journeyNumber: string; source: { code: string; name: string }; route: { code: string }; vehicleNumber: string; isResolved: boolean }> };
 type VehicleStages = { total: number; items: Array<{ visitId: string; vehicleNumber: string; source: { code: string }; route: { name: string } | null; stage: string; exception: { kind: string } | null }> };
 
 const number = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -55,15 +56,23 @@ export function MpdReconciliationOverview() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="bg-card border-border rounded-2xl border p-4">
-              <p className="text-xs font-semibold text-muted-foreground">13TS loss / gain</p>
-              <p className="mt-1 text-lg font-semibold">
-                {number(report.summary.at13tsLossLiters)} / {number(report.summary.at13tsGainLiters)} L
+              <p className="text-xs font-semibold text-muted-foreground">Loss / Gain @13% TS</p>
+              <p className={`mt-1 text-lg font-semibold ${lossGainClass(report.summary.at13tsNetLiters)}`}>
+                {formatLossGain(report.summary.at13tsNetLiters)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {report.summary.at13tsNetPercent != null ? `${formatLossGainPercent(report.summary.at13tsNetPercent)} · ` : ''}
+                Loss {number(report.summary.at13tsLossLiters)} L · Gain {number(report.summary.at13tsGainLiters)} L
               </p>
             </div>
             <div className="bg-card border-border rounded-2xl border p-4">
-              <p className="text-xs font-semibold text-muted-foreground">Gross loss / gain</p>
-              <p className="mt-1 text-lg font-semibold">
-                {number(report.summary.grossLossLiters)} / {number(report.summary.grossGainLiters)} L
+              <p className="text-xs font-semibold text-muted-foreground">Loss / Gain gross</p>
+              <p className={`mt-1 text-lg font-semibold ${lossGainClass(report.summary.grossNetLiters)}`}>
+                {formatLossGain(report.summary.grossNetLiters)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {report.summary.grossNetPercent != null ? `${formatLossGainPercent(report.summary.grossNetPercent)} · ` : ''}
+                Loss {number(report.summary.grossLossLiters)} L · Gain {number(report.summary.grossGainLiters)} L
               </p>
             </div>
             <div className="bg-card border-border rounded-2xl border p-4">

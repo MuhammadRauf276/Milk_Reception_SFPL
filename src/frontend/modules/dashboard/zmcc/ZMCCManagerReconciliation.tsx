@@ -176,8 +176,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
     },
     {
       key: 'grossDelta',
-      header: 'Gross Delta',
-      label: 'Gross delta',
+      header: 'Loss / Gain (L)',
+      label: 'Loss / Gain (L)',
       align: 'right',
       cell: (item) => (
         <span className="tabular-nums font-semibold">
@@ -191,8 +191,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
     },
     {
       key: 'grossDeltaPct',
-      header: 'Gross Delta %',
-      label: 'Gross delta %',
+      header: 'Loss / Gain %',
+      label: 'Loss / Gain %',
       align: 'right',
       cell: (item) => (
         <span className="tabular-nums font-semibold">
@@ -232,8 +232,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
     },
     {
       key: 'delta13',
-      header: '@13TS Delta',
-      label: '@13TS delta',
+      header: 'Loss / Gain @13TS',
+      label: 'Loss / Gain @13TS',
       align: 'right',
       cell: (item) => (
         <span className="tabular-nums font-semibold">
@@ -247,8 +247,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
     },
     {
       key: 'delta13Pct',
-      header: '@13TS Delta %',
-      label: '@13TS delta %',
+      header: 'Loss / Gain @13TS %',
+      label: 'Loss / Gain @13TS %',
       align: 'right',
       cell: (item) => (
         <span className="tabular-nums font-semibold">

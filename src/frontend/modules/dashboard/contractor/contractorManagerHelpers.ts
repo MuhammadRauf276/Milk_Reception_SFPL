@@ -1,4 +1,5 @@
 import { MilkProcessLog } from '@backend/core/types';
+import { formatLossGain, formatLossGainPercent } from '@/lib/lossGain';
 import {
   ContractorOverviewMetrics,
   ContractorQualityMetrics,
@@ -177,42 +178,18 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
     const grossVariancePercent =
       first.gross_variance_percent != null ? Number(first.gross_variance_percent) : null;
 
-    let grossVarianceText = '—';
-    if (grossVarianceLiters != null) {
-      if (grossVarianceLiters === 0) grossVarianceText = '0.00 L';
-      else if (grossVarianceLiters > 0)
-        grossVarianceText = `+${grossVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
-      else
-        grossVarianceText = `${grossVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
-    }
+    const grossVarianceText = grossVarianceLiters != null ? formatLossGain(grossVarianceLiters) : '—';
 
-    let grossVariancePercentText = '—';
-    if (grossVariancePercent != null) {
-      if (grossVariancePercent === 0) grossVariancePercentText = '0.00%';
-      else if (grossVariancePercent > 0) grossVariancePercentText = `+${grossVariancePercent.toFixed(2)}%`;
-      else grossVariancePercentText = `${grossVariancePercent.toFixed(2)}%`;
-    }
+    const grossVariancePercentText = grossVariancePercent != null ? formatLossGainPercent(grossVariancePercent) : '—';
 
     const at13TsVarianceLiters =
       first.at_13ts_variance_liters != null ? Number(first.at_13ts_variance_liters) : null;
     const at13TsVariancePercent =
       first.at_13ts_variance_percent != null ? Number(first.at_13ts_variance_percent) : null;
 
-    let at13TsVarianceText = '—';
-    if (at13TsVarianceLiters != null) {
-      if (at13TsVarianceLiters === 0) at13TsVarianceText = '0.00 L';
-      else if (at13TsVarianceLiters > 0)
-        at13TsVarianceText = `+${at13TsVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
-      else
-        at13TsVarianceText = `${at13TsVarianceLiters.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
-    }
+    const at13TsVarianceText = at13TsVarianceLiters != null ? formatLossGain(at13TsVarianceLiters) : '—';
 
-    let at13TsVariancePercentText = '—';
-    if (at13TsVariancePercent != null) {
-      if (at13TsVariancePercent === 0) at13TsVariancePercentText = '0.00%';
-      else if (at13TsVariancePercent > 0) at13TsVariancePercentText = `+${at13TsVariancePercent.toFixed(2)}%`;
-      else at13TsVariancePercentText = `${at13TsVariancePercent.toFixed(2)}%`;
-    }
+    const at13TsVariancePercentText = at13TsVariancePercent != null ? formatLossGainPercent(at13TsVariancePercent) : '—';
 
     const litersVariance = grossVarianceLiters;
 

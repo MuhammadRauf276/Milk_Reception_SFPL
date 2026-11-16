@@ -1,22 +1,24 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useSyncExternalStore } from 'react';
 import type {
   ReportDomain,
   SavedReportTemplate,
   DynamicFilterClause,
+  PivotRequest,
+  TimeBucket,
 } from '../dynamicReportTypes';
+import { normalizeSavedTemplate, dateSettingsForTemplate, readDateRange, DATE_PRESET_LABELS, TIME_BUCKET_LABELS } from '../dynamicReportTypes';
 import {
   Bookmark,
   Plus,
   Trash2,
-  ChevronDown,
   X,
-  Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { toast } from '@/frontend/lib/appToast';
+import { getPakistanCalendarDate } from '@/backend/core/business-day';
 
 interface SavedTemplateManagerProps {
   domain: ReportDomain;
@@ -24,10 +26,50 @@ interface SavedTemplateManagerProps {
   activeSelectedFieldIds: string[];
   activeFilters: DynamicFilterClause[];
   activeGroupByFieldId?: string;
+  activeTimeBucket?: TimeBucket;
+  activePivot?: PivotRequest | null;
+  activeSortFieldId?: string;
+  activeSortDirection?: 'asc' | 'desc';
+  /** The date field the date range filters. Absent for report types without one. */
+  dateFieldId?: string;
   onApplyTemplate: (template: SavedReportTemplate) => void;
 }
 
 const LOCAL_STORAGE_KEY = 'mra_dynamic_saved_report_templates_v1';
+const STORAGE_CHANGED_EVENT = 'mra-report-templates-changed';
+
+// Saved templates live in the browser. useSyncExternalStore reads them without an effect and follows other tabs.
+const subscribeToTemplates = (onChange: () => void) => {
+  window.addEventListener('storage', onChange);
+  window.addEventListener(STORAGE_CHANGED_EVENT, onChange);
+  return () => {
+    window.removeEventListener('storage', onChange);
+    window.removeEventListener(STORAGE_CHANGED_EVENT, onChange);
+  };
+};
+const readStoredText = (): string => {
+  try {
+    return localStorage.getItem(LOCAL_STORAGE_KEY) ?? '';
+  } catch {
+    return '';
+  }
+};
+const readNoTemplates = (): string => '';
+
+/** Every stored entry as it was saved (also entries this version does not understand, so saving never drops them). */
+const parseRawList = (text: string): unknown[] => {
+  if (!text) return [];
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+const writeStored = (list: unknown[]) => {
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
+  window.dispatchEvent(new Event(STORAGE_CHANGED_EVENT));
+};
 
 export function SavedTemplateManager({
   domain,
@@ -35,26 +77,25 @@ export function SavedTemplateManager({
   activeSelectedFieldIds,
   activeFilters,
   activeGroupByFieldId,
+  activeTimeBucket,
+  activePivot,
+  activeSortFieldId,
+  activeSortDirection,
+  dateFieldId,
   onApplyTemplate,
 }: SavedTemplateManagerProps) {
-  const [customTemplates, setCustomTemplates] = useState<SavedReportTemplate[]>([]);
+  const storedText = useSyncExternalStore(subscribeToTemplates, readStoredText, readNoTemplates);
+  const customTemplates = useMemo(
+    () =>
+      parseRawList(storedText)
+        .map(normalizeSavedTemplate)
+        .filter((t): t is SavedReportTemplate => t !== null && t.domain === domain),
+    [storedText, domain]
+  );
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplateDesc, setNewTemplateDesc] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
-
-  // Load custom templates from localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (stored) {
-        const parsed: SavedReportTemplate[] = JSON.parse(stored);
-        setCustomTemplates(parsed.filter((t) => t.domain === domain));
-      }
-    } catch {
-      // ignore parsing errors
-    }
-  }, [domain]);
 
   const handleSaveCustomTemplate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,25 +104,29 @@ export function SavedTemplateManager({
       return;
     }
 
+    // The date range is saved on its own: a quick range by name (so it moves with today), or the two days.
+    const dates = dateSettingsForTemplate(activeFilters, dateFieldId, getPakistanCalendarDate(new Date()));
     const newTemplate: SavedReportTemplate = {
       id: `custom-template-${Date.now()}`,
       name: newTemplateName.trim(),
       description: newTemplateDesc.trim() || 'Custom user-saved report configuration.',
       domain,
       selectedFieldIds: [...activeSelectedFieldIds],
-      filters: [...activeFilters],
+      filters: dates.filters.map((f) => ({ ...f })),
       groupByFieldId: activeGroupByFieldId,
+      sortFieldId: activeSortFieldId,
+      sortDirection: activeSortDirection,
+      timeBucket: activeTimeBucket,
+      pivot: activePivot ? { ...activePivot } : undefined,
+      datePreset: dates.datePreset,
+      dateFrom: dates.dateFrom,
+      dateTo: dates.dateTo,
       isSystemDefault: false,
       createdAt: new Date().toISOString(),
     };
 
     try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-      const all: SavedReportTemplate[] = stored ? JSON.parse(stored) : [];
-      const updated = [newTemplate, ...all.filter((t) => t.id !== newTemplate.id)];
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-
-      setCustomTemplates((prev) => [newTemplate, ...prev]);
+      writeStored([newTemplate, ...parseRawList(readStoredText())]);
       setSelectedTemplateId(newTemplate.id);
       setIsSaveModalOpen(false);
       setNewTemplateName('');
@@ -94,13 +139,7 @@ export function SavedTemplateManager({
 
   const handleDeleteCustomTemplate = (templateId: string, name: string) => {
     try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (stored) {
-        const all: SavedReportTemplate[] = JSON.parse(stored);
-        const updated = all.filter((t) => t.id !== templateId);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-      }
-      setCustomTemplates((prev) => prev.filter((t) => t.id !== templateId));
+      writeStored(parseRawList(readStoredText()).filter((t) => !(typeof t === 'object' && t !== null && 'id' in t && t.id === templateId)));
       if (selectedTemplateId === templateId) setSelectedTemplateId('');
       toast.success(`Removed template "${name}"`);
     } catch {
@@ -109,6 +148,8 @@ export function SavedTemplateManager({
   };
 
   const domainSystemTemplates = systemTemplates.filter((t) => t.domain === domain);
+  const dateRange = readDateRange(activeFilters, dateFieldId);
+  const datePreset = dateSettingsForTemplate(activeFilters, dateFieldId, getPakistanCalendarDate(new Date())).datePreset;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -228,7 +269,14 @@ export function SavedTemplateManager({
               <div className="p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground space-y-1">
                 <div>Active Columns: <strong>{activeSelectedFieldIds.length} fields</strong></div>
                 <div>Filter Clauses: <strong>{activeFilters.length} rules</strong></div>
-                {activeGroupByFieldId && <div>Grouped By: <strong>{activeGroupByFieldId}</strong></div>}
+                {activeGroupByFieldId && (
+                  <div>
+                    Grouped By: <strong>{activeGroupByFieldId}</strong>
+                    {activeTimeBucket ? <> · <strong>{TIME_BUCKET_LABELS[activeTimeBucket]}</strong></> : null}
+                  </div>
+                )}
+                {activePivot && <div>Pivot: <strong>{activePivot.rowFieldId} by {activePivot.colFieldId}</strong></div>}
+                {dateRange && <div>Dates: <strong>{datePreset ? DATE_PRESET_LABELS[datePreset] : `${dateRange.from} to ${dateRange.to}`}</strong></div>}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">

@@ -6,6 +6,7 @@ import { Modal } from '@/components/ui/modal';
 import { toast } from '@/frontend/lib/appToast';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { getErrorMessage } from '@/lib/errors';
+import { formatLossGainPercent } from '@/lib/lossGain';
 import type { DailyReportData } from '@/backend/services/superAdminDailyReportService';
 
 interface SendReportModalProps {
@@ -40,9 +41,9 @@ export const SendReportModal: React.FC<SendReportModalProps> = ({ isOpen, onClos
 
 ⚖️ *Exceptions & Loss Performance:* // ui-text-ignore
 • Exceptions Handled: // ui-text-ignore ${kpis.exceptions.totalHandled} (${kpis.exceptions.approvedCount} approved · ${kpis.exceptions.rejectedCount} rejected)
-• Tier 1 (MOT Route Loss): // ui-text-ignore ${kpis.losses.tier1LossPercent.toFixed(2)}%
-• Tier 2 (ZMCC Chilling Loss): // ui-text-ignore ${kpis.losses.tier2LossPercent.toFixed(2)}%
-• Tier 3 (Road Transit Loss): // ui-text-ignore ${kpis.losses.tier3LossPercent.toFixed(2)}%
+• Tier 1 (MOT Route, @13% TS): // ui-text-ignore ${formatLossGainPercent(kpis.losses.tier1SignedAt13tsPercent)}
+• Tier 2 (ZMCC Chilling, @13% TS): // ui-text-ignore ${formatLossGainPercent(kpis.losses.tier2SignedAt13tsPercent)}
+• Tier 3 (Road Transit, @13% TS): // ui-text-ignore ${formatLossGainPercent(kpis.losses.tier3SignedAt13tsPercent)}
 ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-ignore
 🔗 View & Export Complete Excel at: // ui-text-ignore /super-admin/daily-report?date=${reportData.date}`;
 

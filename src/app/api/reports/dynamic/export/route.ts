@@ -64,12 +64,12 @@ export async function POST(req: Request) {
         'Content-Disposition': `attachment; filename="${safeDomain}-report-${dateStr}.xlsx"`,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof ReportRequestError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     return NextResponse.json(
-      { error: error?.message || 'Failed to generate dynamic export' },
+      { error: error instanceof Error && error.message ? error.message : 'Failed to generate dynamic export' },
       { status: 500 }
     );
   }

@@ -5,7 +5,8 @@ import { Droplet, Truck, ShieldAlert, Layers, Building2 } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { MpdSummary } from '../types';
-import { formatMetric } from '../format';
+import { formatMetric, NO_DATA } from '../format';
+import { formatLossGain, formatLossGainPercent, lossGainClass } from '@/lib/lossGain';
 
 interface MpdExecutiveKpiRibbonProps {
   summary: MpdSummary;
@@ -47,13 +48,26 @@ export const MpdExecutiveKpiRibbon: React.FC<MpdExecutiveKpiRibbonProps> = ({ su
         }
       />
       <StatCard
-        label="Supply chain loss"
+        label="Supply chain loss / gain"
         icon={ShieldAlert}
         tone="warning"
-        value={isLoading ? loadingValue : formatMetric(summary.supplyChainLossPercent, '%')}
+        value={
+          isLoading ? loadingValue : (
+            <span className={lossGainClass(summary.supplyChainSignedAt13tsPercent)}>
+              {summary.supplyChainSignedAt13tsPercent == null ? NO_DATA : formatLossGainPercent(summary.supplyChainSignedAt13tsPercent)}
+            </span>
+          )
+        }
         hint={
           <span>
-            Net <span className="tabular-nums">{formatMetric(summary.supplyChainLossLiters, ' L')}</span> across 4 tiers
+            Net @13% TS{' '}
+            <span className={`tabular-nums ${lossGainClass(summary.supplyChainSignedAt13tsLiters)}`}>
+              {summary.supplyChainSignedAt13tsLiters == null ? NO_DATA : formatLossGain(summary.supplyChainSignedAt13tsLiters)}
+            </span>
+            {' · '}Gross{' '}
+            <span className={`tabular-nums ${lossGainClass(summary.supplyChainSignedLiters)}`}>
+              {summary.supplyChainSignedLiters == null ? NO_DATA : formatLossGain(summary.supplyChainSignedLiters)}
+            </span>
           </span>
         }
       />

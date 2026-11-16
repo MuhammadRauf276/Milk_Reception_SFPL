@@ -42,9 +42,9 @@ export async function GET(req: Request) {
       fieldMap: DOMAIN_FIELD_MAP,
       defaultTemplates: SYSTEM_DEFAULT_TEMPLATES,
     });
-  } catch (error: any) {
+  } catch (error) {
     return NextResponse.json(
-      { error: error?.message || 'Failed to fetch dynamic report metadata' },
+      { error: error instanceof Error && error.message ? error.message : 'Failed to fetch dynamic report metadata' },
       { status: 500 }
     );
   }

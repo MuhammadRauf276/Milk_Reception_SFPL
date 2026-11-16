@@ -30,6 +30,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { toast } from '@/frontend/lib/appToast';
+import { formatLossGain, formatLossGainPercent, lossGainClass } from '@/lib/lossGain';
 
 type HorizonPreset = 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_14' | 'LAST_30' | 'MTD' | 'CUSTOM';
 
@@ -48,19 +49,19 @@ const routeColumns: DataColumn<RouteRankingRow>[] = [
   { key: 'fat', header: 'Avg Fat %', label: 'Avg fat %', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.avgFat != null ? `${r.avgFat}%` : '—'}</span> },
   { key: 'snf', header: 'Avg SNF %', label: 'Avg SNF %', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.avgSnf != null ? `${r.avgSnf}%` : '—'}</span> },
   { key: 'shops', header: 'Shops', label: 'Shops', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.shopCount} shops</span> },
-  { key: 'loss', header: 'Route Loss', label: 'Route loss', cell: (r) => <span className="tabular-nums text-secondary-foreground">{r.routeLossLiters != null ? `${r.routeLossLiters.toLocaleString()} L` : '—'}</span> },
+  { key: 'loss', header: 'Loss / Gain (L)', label: 'Loss / Gain (L)', cell: (r) => <span className={`tabular-nums font-semibold ${lossGainClass(r.routeDiffLiters)}`}>{r.routeDiffLiters != null ? formatLossGain(r.routeDiffLiters) : '—'}</span> },
   {
     key: 'lossPct',
-    header: 'Loss %',
-    label: 'Loss %',
+    header: 'Loss / Gain %',
+    label: 'Loss / Gain %',
     align: 'right',
     cell: (r) => (
       <span
         className={`tabular-nums font-semibold px-2 py-0.5 rounded-md text-xs ${
-          r.routeLossPct > 1.0 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
-        }`}
+          r.routeDiffPct != null && r.routeDiffPct < -1.0 ? 'bg-rose-100 ' : ''
+        }${lossGainClass(r.routeDiffPct)}`}
       >
-        {r.routeLossPct != null ? `${r.routeLossPct}%` : '—'}
+        {r.routeDiffPct != null ? formatLossGainPercent(r.routeDiffPct) : '—'}
       </span>
     ),
   },
@@ -290,16 +291,16 @@ export function ZMCCDynamicBIAnalyticsScreen({
           tone="default"
         />
         <StatCard
-          label="Tier 1 Route Loss"
-          value={summaryKpis.tier1RouteLossPct != null ? `${summaryKpis.tier1RouteLossPct}%` : '—'}
-          hint={summaryKpis.tier1RouteLossLiters != null ? `${summaryKpis.tier1RouteLossLiters.toLocaleString()} L variance` : 'No received journeys yet'}
+          label="Tier 1 Route Loss / Gain"
+          value={summaryKpis.tier1RouteDiffPct != null ? formatLossGainPercent(summaryKpis.tier1RouteDiffPct) : '—'}
+          hint={summaryKpis.tier1RouteDiffLiters != null ? `Net ${formatLossGain(summaryKpis.tier1RouteDiffLiters)}` : 'No received journeys yet'}
           icon={Layers}
-          tone={summaryKpis.tier1RouteLossPct != null && summaryKpis.tier1RouteLossPct > 1.0 ? 'danger' : 'default'}
+          tone={summaryKpis.tier1RouteDiffPct != null && summaryKpis.tier1RouteDiffPct < -1.0 ? 'danger' : 'default'}
         />
         <StatCard
-          label="Tier 2 Storage Loss"
-          value={summaryKpis.tier2StorageLossPct != null ? `${summaryKpis.tier2StorageLossPct}%` : '—'}
-          hint={summaryKpis.tier2StorageLossLiters != null ? `${summaryKpis.tier2StorageLossLiters.toLocaleString()} L tank difference` : 'Not enough data yet'}
+          label="Tier 2 Storage Loss / Gain"
+          value={summaryKpis.tier2StorageDiffPct != null ? formatLossGainPercent(summaryKpis.tier2StorageDiffPct) : '—'}
+          hint={summaryKpis.tier2StorageDiffLiters != null ? `Net ${formatLossGain(summaryKpis.tier2StorageDiffLiters)}` : 'Not enough data yet'}
           icon={Layers}
           tone="default"
         />
@@ -367,7 +368,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
         {/* Route Loss & Variance Diagnostics */}
         <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-4">
           <div className="border-b border-border pb-3">
-            <h2 className="text-sm font-semibold text-foreground">Route Intake Volume & Tier 1 Loss</h2>
+            <h2 className="text-sm font-semibold text-foreground">Route Intake Volume & Tier 1 Loss / Gain</h2>
             <p className="text-xs text-muted-foreground">Volume contribution alongside shop-to-gate variance percentage</p>
           </div>
 

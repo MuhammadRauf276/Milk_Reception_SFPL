@@ -8,6 +8,7 @@ import type {
   HourlyThroughputPoint,
 } from '../zmccReportTypes';
 import { InfoTip } from '@/components/ui/info-tip';
+import { formatLossGainPercent } from '@/lib/lossGain';
 
 // ==========================================
 // 1. INTAKE TREND & SHIFT CHART (SVG)
@@ -406,12 +407,18 @@ export function RouteLossBarChart({ rankings }: { rankings: RoutePerformanceRank
     <div className="space-y-3">
       {rankings.slice(0, 6).map((r) => {
         const barPct = Math.round((r.totalLiters / maxLiters) * 100);
+        // Alert colours are for loss only; a gain is green and even is grey.
+        const lossPct = r.routeDiffPct == null ? 0 : -r.routeDiffPct;
         const lossTone =
-          r.routeLossPct > 1.2
+          r.routeDiffPct == null
+            ? 'bg-muted text-muted-foreground border-border'
+            : lossPct > 1.2
             ? 'bg-rose-100 text-rose-800 border-rose-200'
-            : r.routeLossPct > 0.8
+            : lossPct > 0.8
             ? 'bg-amber-100 text-amber-800 border-amber-200'
-            : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+            : r.routeDiffPct > 0
+            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+            : 'bg-muted text-muted-foreground border-border';
 
         return (
           <div key={r.routeId} className="space-y-1">
@@ -424,7 +431,7 @@ export function RouteLossBarChart({ rankings }: { rankings: RoutePerformanceRank
                   {r.totalLiters.toLocaleString()} L
                 </span>
                 <span className={`text-xs tabular-nums font-semibold px-2 py-0.5 rounded-md border ${lossTone}`}>
-                  {r.routeLossPct != null ? `${r.routeLossPct}% loss` : 'Loss not known yet'}
+                  {r.routeDiffPct != null ? formatLossGainPercent(r.routeDiffPct) : 'Not known yet'}
                 </span>
               </div>
             </div>

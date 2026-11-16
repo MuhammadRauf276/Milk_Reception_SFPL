@@ -143,15 +143,15 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
     },
     {
       key: 'grossDelta',
-      header: 'Gross Delta',
-      label: 'Gross Delta',
+      header: 'Loss / Gain (L)',
+      label: 'Loss / Gain (L)',
       align: 'right',
       cell: (v) => <span className="tabular-nums font-semibold">{deltaCell(v.grossVarianceLiters, v.grossVarianceText)}</span>,
     },
     {
       key: 'grossDeltaPct',
-      header: 'Gross Delta %',
-      label: 'Gross Delta %',
+      header: 'Loss / Gain %',
+      label: 'Loss / Gain %',
       align: 'right',
       cell: (v) => (
         <span className="tabular-nums font-semibold">{deltaCell(v.grossVariancePercent, v.grossVariancePercentText)}</span>
@@ -191,15 +191,15 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
     },
     {
       key: 'delta13',
-      header: '@13TS Delta',
-      label: '@13TS Delta',
+      header: 'Loss / Gain @13TS',
+      label: 'Loss / Gain @13TS',
       align: 'right',
       cell: (v) => <span className="tabular-nums font-semibold">{deltaCell(v.at13TsVarianceLiters, v.at13TsVarianceText)}</span>,
     },
     {
       key: 'delta13Pct',
-      header: '@13TS Delta %',
-      label: '@13TS Delta %',
+      header: 'Loss / Gain @13TS %',
+      label: 'Loss / Gain @13TS %',
       align: 'right',
       cell: (v) => (
         <span className="tabular-nums font-semibold">{deltaCell(v.at13TsVariancePercent, v.at13TsVariancePercentText)}</span>

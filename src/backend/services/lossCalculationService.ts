@@ -6,18 +6,31 @@ import { createNotificationsForEvent } from '@/backend/services/notificationServ
 import { writeAuditLog } from '@/backend/core/audit';
 import type { ActingContext } from '@/types/acting';
 import { calculateAt13TSLiters, calculateDensity } from '@/backend/utils/milkFormulas';
+import { signedPercent, lossGainKind, lossGainExportValue, LOSS_GAIN_EXPORT_HEADER, LOSS_GAIN_EXPORT_PERCENT_HEADER } from '@/lib/lossGain';
 import { getPakistanCalendarDate, getPakistanDayWindow, plantVisitDateWhere, type DateBasis } from '@core/business-day';
 
+/**
+ * Every figure is received minus sent. signedVariance* is the headline (negative = loss, positive = gain).
+ * lossLiters / gainLiters are that same net split by sign, so one of them is always 0; they are never summed on their own.
+ * The grossLoss / grossGain fields add up each record's own loss or gain (set where a tier covers many records).
+ */
 export interface LossMetricResult {
   lossLiters: number;
   lossPercent: number;
   gainLiters: number;
   signedVarianceLiters: number;
+  /** Net signed variance / total sent x 100 (negative = loss). */
+  signedVariancePercent: number;
   at13tsLossLiters: number;
   at13tsLossPercent: number;
   at13tsGainLiters: number;
   signedVarianceAt13tsLiters: number;
+  signedVarianceAt13tsPercent: number;
   isLoss: boolean;
+  grossLossLiters?: number;
+  grossGainLiters?: number;
+  at13tsGrossLossLiters?: number;
+  at13tsGrossGainLiters?: number;
 }
 
 export interface Tier1RouteLossResult extends LossMetricResult {
@@ -80,26 +93,28 @@ export interface LossReconciliationDetailRow {
   vehicleNumber: string;
   driverName?: string;
   referenceNumber?: string;
-  // Tier 1
+  // Tier 1. Signed fields are received minus sent: negative = loss, positive = gain.
   shopLiters?: number;
   zmccLiters?: number;
-  routeLossLiters?: number;
-  routeLossPercent?: number;
+  shopAt13tsLiters?: number;
+  zmccAt13tsLiters?: number;
+  routeSignedLiters?: number;
+  routeSignedPercent?: number;
+  routeSignedAt13tsLiters?: number;
+  routeSignedAt13tsPercent?: number;
   /** Accepted by lab but never unloaded into the tank (not counted in loss). */
   acceptedNotReceivedLiters?: number;
-  // Tier 2
-  motInwardLiters?: number;
-  localInwardLiters?: number;
-  dispatchedLiters?: number;
-  deltaStockLiters?: number;
-  zmccLossLiters?: number;
-  zmccLossPercent?: number;
   // Tier 3
   dispatchedGrossLiters?: number;
+  dispatchedAt13tsLiters?: number;
   plantNetKg?: number;
   plantAcceptedLiters?: number;
-  transitLossLiters?: number;
-  transitLossPercent?: number;
+  plantAcceptedAt13tsLiters?: number;
+  transitSignedLiters?: number;
+  transitSignedPercent?: number;
+  transitSignedAt13tsLiters?: number;
+  transitSignedAt13tsPercent?: number;
+  /** Alert only: true when the transit LOSS is over 1% (a gain never alerts). */
   isHighTransitLoss?: boolean;
   // Quality
   dispatchLr?: number;
@@ -108,6 +123,7 @@ export interface LossReconciliationDetailRow {
   plantFat?: number;
   lrDelta?: number;
   fatDelta?: number;
+  /** Signed: negative is a loss in rupees, positive a gain. */
   financialImpactEstimatedRs?: number;
 }
 
@@ -149,10 +165,12 @@ export function calculateTier1RouteLoss(params: {
     lossPercent,
     gainLiters,
     signedVarianceLiters: signedGrossVar,
+    signedVariancePercent: signedPercent(signedGrossVar, shopGross) ?? 0,
     at13tsLossLiters: loss13ts,
     at13tsLossPercent: loss13tsPercent,
     at13tsGainLiters: gain13ts,
     signedVarianceAt13tsLiters: signed13tsVar,
+    signedVarianceAt13tsPercent: signedPercent(signed13tsVar, shop13ts) ?? 0,
     isLoss: lossLiters > 0,
   };
 }
@@ -343,10 +361,12 @@ export function calculateTier2ZmccLoss(params: {
     lossPercent,
     gainLiters,
     signedVarianceLiters: signedGrossVar,
+    signedVariancePercent: signedPercent(signedGrossVar, totalInward) ?? 0,
     at13tsLossLiters: loss13ts,
     at13tsLossPercent: loss13tsPercent,
     at13tsGainLiters: gain13ts,
     signedVarianceAt13tsLiters: signed13tsVar,
+    signedVarianceAt13tsPercent: signedPercent(signed13tsVar, totalInward13ts) ?? 0,
     isLoss: lossLiters > 0,
   };
 }
@@ -391,40 +411,43 @@ export function calculateTier3TransitLoss(params: {
     lossPercent,
     gainLiters,
     signedVarianceLiters: signedGrossVar,
+    signedVariancePercent: signedPercent(signedGrossVar, dispatched) ?? 0,
     at13tsLossLiters: loss13ts,
     at13tsLossPercent: loss13tsPercent,
     at13tsGainLiters: gain13ts,
     signedVarianceAt13tsLiters: signed13tsVar,
+    signedVarianceAt13tsPercent: signedPercent(signed13tsVar, dispatched13ts) ?? 0,
     isHighLoss,
     isLoss: lossLiters > 0,
   };
 }
 
 /**
- * Calculates Tier 4 (Total MPD Supply Chain Loss):
- * Cumulative loss across village route collection, ZMCC processing, and road transit.
+ * Calculates Tier 4 (Total MPD Supply Chain Result):
+ * the NET of the three tiers' signed variances, so a gain in one tier offsets a loss in another.
+ * Percent is the net signed variance over the total intake.
  */
 export function calculateTier4TotalLoss(
   tier1: Tier1RouteLossResult,
   tier2: Tier2ZmccLossResult,
   tier3: Tier3TransitLossResult
 ): Tier4TotalLossResult {
-  const totalLossLiters = Number((tier1.lossLiters + tier2.lossLiters + tier3.lossLiters).toFixed(2));
-  const totalGainLiters = Number((tier1.gainLiters + tier2.gainLiters + tier3.gainLiters).toFixed(2));
-  const signedGrossVar = Number((totalGainLiters - totalLossLiters).toFixed(2));
+  const signedGrossVar = Number((tier1.signedVarianceLiters + tier2.signedVarianceLiters + tier3.signedVarianceLiters).toFixed(2));
+  const totalLossLiters = signedGrossVar < 0 ? Math.abs(signedGrossVar) : 0;
+  const totalGainLiters = signedGrossVar > 0 ? signedGrossVar : 0;
 
   const adminGross = Math.max(0, Number((tier2.adminAdjustmentGrossLiters ?? 0).toFixed(2)));
   const totalIntakeLiters = Number((tier1.shopGrossLiters + tier2.localInwardGrossLiters + adminGross).toFixed(2));
   const totalPlantLiters = tier3.plantAcceptedGrossLiters;
 
-  const lossPercent = totalIntakeLiters > 0 ? Number(((totalLossLiters / totalIntakeLiters) * 100).toFixed(4)) : 0;
-
-  const totalLoss13ts = Number((tier1.at13tsLossLiters + tier2.at13tsLossLiters + tier3.at13tsLossLiters).toFixed(2));
-  const totalGain13ts = Number((tier1.at13tsGainLiters + tier2.at13tsGainLiters + tier3.at13tsGainLiters).toFixed(2));
-  const signed13tsVar = Number((totalGain13ts - totalLoss13ts).toFixed(2));
+  const signed13tsVar = Number((tier1.signedVarianceAt13tsLiters + tier2.signedVarianceAt13tsLiters + tier3.signedVarianceAt13tsLiters).toFixed(2));
+  const totalLoss13ts = signed13tsVar < 0 ? Math.abs(signed13tsVar) : 0;
+  const totalGain13ts = signed13tsVar > 0 ? signed13tsVar : 0;
   const nonMot13ts = Math.max(0, Number((tier2.totalInwardAt13tsLiters - (tier1.shopGrossLiters > 0 ? tier1.zmccArrivalAt13tsLiters : 0)).toFixed(2)));
   const totalIntake13ts = Number((tier1.shopAt13tsLiters + (tier1.shopGrossLiters > 0 ? nonMot13ts : tier2.totalInwardAt13tsLiters)).toFixed(2));
-  const loss13tsPercent = totalIntake13ts > 0 ? Number(((totalLoss13ts / totalIntake13ts) * 100).toFixed(4)) : 0;
+
+  const signedPct = signedPercent(signedGrossVar, totalIntakeLiters) ?? 0;
+  const signed13tsPct = signedPercent(signed13tsVar, totalIntake13ts) ?? 0;
 
   return {
     totalInitialIntakeLiters: totalIntakeLiters,
@@ -432,13 +455,15 @@ export function calculateTier4TotalLoss(
     totalInitialIntakeAt13tsLiters: totalIntake13ts,
     totalFinalPlantAt13tsLiters: tier3.plantAcceptedAt13tsLiters,
     lossLiters: totalLossLiters,
-    lossPercent,
+    lossPercent: signedGrossVar < 0 ? Math.abs(signedPct) : 0,
     gainLiters: totalGainLiters,
     signedVarianceLiters: signedGrossVar,
+    signedVariancePercent: signedPct,
     at13tsLossLiters: totalLoss13ts,
-    at13tsLossPercent: loss13tsPercent,
+    at13tsLossPercent: signed13tsVar < 0 ? Math.abs(signed13tsPct) : 0,
     at13tsGainLiters: totalGain13ts,
     signedVarianceAt13tsLiters: signed13tsVar,
+    signedVarianceAt13tsPercent: signed13tsPct,
     isLoss: totalLossLiters > 0,
   };
 }
@@ -558,6 +583,11 @@ export async function getSupplyChainLossHierarchy(filters: {
   let totalZmccArrivalGrossLiters = 0;
   let totalZmccArrivalAt13tsLiters = 0;
   let totalAcceptedNotReceivedLiters = 0;
+  // Each journey's own loss or gain, added up separately from the net.
+  let routeGrossLoss = 0;
+  let routeGrossGain = 0;
+  let routeGrossLoss13ts = 0;
+  let routeGrossGain13ts = 0;
 
   const detailRows: LossReconciliationDetailRow[] = [];
 
@@ -593,8 +623,11 @@ export async function getSupplyChainLossHierarchy(filters: {
     totalZmccArrivalGrossLiters += zmccGross;
     totalZmccArrivalAt13tsLiters += zmcc13ts;
 
-    const routeLossL = shopGross > zmccGross ? Number((shopGross - zmccGross).toFixed(2)) : 0;
-    const routeLossPct = shopGross > 0 ? Number(((routeLossL / shopGross) * 100).toFixed(2)) : 0;
+    // Received minus sent: negative is a loss, positive a gain. Never clamped.
+    const routeSigned = Number((zmccGross - shopGross).toFixed(2));
+    const routeSigned13ts = Number((zmcc13ts - shop13ts).toFixed(2));
+    if (routeSigned < 0) routeGrossLoss -= routeSigned; else routeGrossGain += routeSigned;
+    if (routeSigned13ts < 0) routeGrossLoss13ts -= routeSigned13ts; else routeGrossGain13ts += routeSigned13ts;
 
     detailRows.push({
       date: j.operational_date.toISOString().split('T')[0],
@@ -606,18 +639,29 @@ export async function getSupplyChainLossHierarchy(filters: {
       referenceNumber: j.journey_number,
       shopLiters: shopGross,
       zmccLiters: zmccGross,
-      routeLossLiters: routeLossL,
-      routeLossPercent: routeLossPct,
+      shopAt13tsLiters: shop13ts,
+      zmccAt13tsLiters: zmcc13ts,
+      routeSignedLiters: routeSigned,
+      routeSignedPercent: signedPercent(routeSigned, shopGross) ?? 0,
+      routeSignedAt13tsLiters: routeSigned13ts,
+      routeSignedAt13tsPercent: signedPercent(routeSigned13ts, shop13ts) ?? 0,
       acceptedNotReceivedLiters: acceptedNotReceived,
     });
   }
 
-  const tier1Calc = calculateTier1RouteLoss({
+  const tier1Base = calculateTier1RouteLoss({
     shopGrossLiters: totalShopGrossLiters,
     zmccArrivalGrossLiters: totalZmccArrivalGrossLiters,
     shopAt13tsLiters: totalShopAt13tsLiters,
     zmccArrivalAt13tsLiters: totalZmccArrivalAt13tsLiters,
   });
+  const tier1Calc: Tier1RouteLossResult = {
+    ...tier1Base,
+    grossLossLiters: Number(routeGrossLoss.toFixed(2)),
+    grossGainLiters: Number(routeGrossGain.toFixed(2)),
+    at13tsGrossLossLiters: Number(routeGrossLoss13ts.toFixed(2)),
+    at13tsGrossGainLiters: Number(routeGrossGain13ts.toFixed(2)),
+  };
 
   // 2. Query Tier 2 (ZMCC Inward vs Outward Dispatches vs Stock Delta)
   const [localSupplierSessions, hcNotReceivedPortions, dispatchedVisits, adminAdjustmentTransactions] = await Promise.all([
@@ -726,6 +770,10 @@ export async function getSupplyChainLossHierarchy(filters: {
   let totalPlantAcceptedAt13tsLiters = 0;
   let totalPlantNetKg = 0;
   let highLossCount = 0;
+  let transitGrossLoss = 0;
+  let transitGrossGain = 0;
+  let transitGrossLoss13ts = 0;
+  let transitGrossGain13ts = 0;
 
   for (const v of dispatchedVisits) {
     const dispGross = v.vehicle_dispatch_gross_liters ? Number(v.vehicle_dispatch_gross_liters) : 0;
@@ -751,6 +799,7 @@ export async function getSupplyChainLossHierarchy(filters: {
         vehicleNumber: v.vehicle_number,
         referenceNumber: v.raw_milk_dispatch_note_number || v.visit_number,
         dispatchedGrossLiters: dispGross,
+        dispatchedAt13tsLiters: v.vehicle_dispatch_at_13ts_liters != null ? disp13ts : undefined,
         plantNetKg: netKg,
         dispatchLr: dispLr,
         dispatchFat: dispFat,
@@ -768,9 +817,18 @@ export async function getSupplyChainLossHierarchy(filters: {
     }
     totalPlantNetKg += netKg;
 
-    const transitLossL = dispGross > plantGross ? Number((dispGross - plantGross).toFixed(2)) : 0;
-    const transitLossPct = dispGross > 0 ? Number(((transitLossL / dispGross) * 100).toFixed(2)) : 0;
-    const isHigh = transitLossPct > 1.0;
+    // Received minus sent: negative is a loss, positive a gain. Never clamped.
+    const transitSigned = Number((plantGross - dispGross).toFixed(2));
+    const transitSignedPct = signedPercent(transitSigned, dispGross) ?? 0;
+    const has13ts = v.vehicle_dispatch_at_13ts_liters != null;
+    const plant13ts = has13ts ? Number(dual.received_at_13ts_liters) : undefined;
+    const transitSigned13ts = plant13ts !== undefined ? Number((plant13ts - disp13ts).toFixed(2)) : undefined;
+    if (transitSigned < 0) transitGrossLoss -= transitSigned; else transitGrossGain += transitSigned;
+    if (transitSigned13ts !== undefined) {
+      if (transitSigned13ts < 0) transitGrossLoss13ts -= transitSigned13ts; else transitGrossGain13ts += transitSigned13ts;
+    }
+    // The alert is for loss only.
+    const isHigh = transitSignedPct < -1.0;
     if (isHigh) highLossCount++;
 
     detailRows.push({
@@ -780,16 +838,18 @@ export async function getSupplyChainLossHierarchy(filters: {
       vehicleNumber: v.vehicle_number,
       referenceNumber: v.raw_milk_dispatch_note_number || v.visit_number,
       dispatchedGrossLiters: dispGross,
+      dispatchedAt13tsLiters: has13ts ? disp13ts : undefined,
       plantNetKg: netKg,
       plantAcceptedLiters: plantGross,
-      zmccLossLiters: transitLossL,
-      zmccLossPercent: transitLossPct,
-      transitLossLiters: transitLossL,
-      transitLossPercent: transitLossPct,
+      plantAcceptedAt13tsLiters: plant13ts,
+      transitSignedLiters: transitSigned,
+      transitSignedPercent: transitSignedPct,
+      transitSignedAt13tsLiters: transitSigned13ts,
+      transitSignedAt13tsPercent: transitSigned13ts !== undefined ? signedPercent(transitSigned13ts, disp13ts) ?? 0 : undefined,
       isHighTransitLoss: isHigh,
       dispatchLr: dispLr,
       dispatchFat: dispFat,
-      financialImpactEstimatedRs: Number((transitLossL * 180).toFixed(2)), // Standard estimated raw milk cost ~Rs. 180/L
+      financialImpactEstimatedRs: Number((transitSigned * 180).toFixed(2)), // Standard estimated raw milk cost ~Rs. 180/L
     });
   }
 
@@ -829,13 +889,20 @@ export async function getSupplyChainLossHierarchy(filters: {
   });
 
   // 3. Query Tier 3 (Road Transit Loss)
-  const tier3Calc = calculateTier3TransitLoss({
+  const tier3Base = calculateTier3TransitLoss({
     dispatchedGrossLiters: reconciledDispatchedGrossLiters,
     plantAcceptedGrossLiters: totalPlantAcceptedGrossLiters,
     plantAcceptedNetKg: totalPlantNetKg,
     dispatchedAt13tsLiters: reconciledDispatchedAt13tsLiters,
     plantAcceptedAt13tsLiters: totalPlantAcceptedAt13tsLiters,
   });
+  const tier3Calc: Tier3TransitLossResult = {
+    ...tier3Base,
+    grossLossLiters: Number(transitGrossLoss.toFixed(2)),
+    grossGainLiters: Number(transitGrossGain.toFixed(2)),
+    at13tsGrossLossLiters: Number(transitGrossLoss13ts.toFixed(2)),
+    at13tsGrossGainLiters: Number(transitGrossGain13ts.toFixed(2)),
+  };
 
   // 4. Tier 4 (Total Cumulative Loss)
   const tier4Calc = calculateTier4TotalLoss(tier1Calc, tier2Calc, tier3Calc);
@@ -847,8 +914,8 @@ export async function getSupplyChainLossHierarchy(filters: {
       endDate: endDate.toISOString().split('T')[0],
       tier1RouteLoss: { ...tier1Calc, label: 'Area Loss / Gain (MOT vs ZMCC)' },
       tier2ZmccLoss: { ...tier2Calc, label: 'ZMCC Tank & Processing Loss / Gain' },
-      tier3TransitLoss: { ...tier3Calc, label: 'ZMCC Loss / Gain (Dispatch vs Plant Received)', highLossCount },
-      tier4TotalLoss: { ...tier4Calc, label: 'Transit Loss / Gain (Total Purchased vs Plant Received)' },
+      tier3TransitLoss: { ...tier3Calc, label: 'Transit Loss / Gain (Dispatch vs Plant Received)', highLossCount },
+      tier4TotalLoss: { ...tier4Calc, label: 'Total Loss / Gain (Purchased vs Plant Received)' },
       acceptedNotReceivedLiters: totalAcceptedNotReceivedLiters,
     },
     details: detailRows,
@@ -927,13 +994,17 @@ export async function generateLossReconciliationExcel(data: {
     views: [{ showGridLines: true }],
   });
 
+  // Every difference is received minus sent: a loss is negative, a gain positive, so a column adds up to its net.
   summarySheet.columns = [
-    { header: 'Loss Tier / Hierarchy Level', key: 'tier', width: 36 },
+    { header: 'Loss / Gain Tier / Hierarchy Level', key: 'tier', width: 36 },
     { header: 'Initial Volume (L)', key: 'initial', width: 20 },
     { header: 'Final Volume (L)', key: 'final', width: 20 },
-    { header: 'Loss Volume (L)', key: 'lossL', width: 18 },
-    { header: 'Loss %', key: 'lossPct', width: 14 },
-    { header: 'Loss @13% TS (L)', key: 'lossTs', width: 20 },
+    { header: 'Gain (+) / Loss (-) @13% TS L', key: 'signedTs', width: 26 },
+    { header: 'Gain (+) / Loss (-) @13% TS %', key: 'signedTsPct', width: 26 },
+    { header: LOSS_GAIN_EXPORT_HEADER, key: 'signedL', width: 22 },
+    { header: LOSS_GAIN_EXPORT_PERCENT_HEADER, key: 'signedPct', width: 22 },
+    { header: 'Gross Loss (L)', key: 'grossLoss', width: 16 },
+    { header: 'Gross Gain (L)', key: 'grossGain', width: 16 },
     { header: 'Status / Flag', key: 'status', width: 20 },
   ];
 
@@ -942,49 +1013,65 @@ export async function generateLossReconciliationExcel(data: {
   s1HeaderRow.eachCell((cell) => {
     cell.fill = headerFill;
     cell.font = headerFont;
-    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
   });
 
   const { tier1RouteLoss, tier2ZmccLoss, tier3TransitLoss, tier4TotalLoss } = data.summary;
+  const statusOf = (signed: number) => {
+    const kind = lossGainKind(signed);
+    return kind === 'loss' ? 'Loss' : kind === 'gain' ? 'Gain' : 'Even';
+  };
 
   summarySheet.addRow({
-    tier: 'Tier 1: MOT Route / Area Loss',
+    tier: 'Tier 1: MOT Route / Area',
     initial: tier1RouteLoss.shopGrossLiters,
     final: tier1RouteLoss.zmccArrivalGrossLiters,
-    lossL: tier1RouteLoss.lossLiters,
-    lossPct: tier1RouteLoss.lossPercent / 100,
-    lossTs: tier1RouteLoss.at13tsLossLiters,
-    status: tier1RouteLoss.lossLiters > 0 ? 'Normal Variance' : 'Zero Loss',
+    signedTs: lossGainExportValue(tier1RouteLoss.signedVarianceAt13tsLiters),
+    signedTsPct: tier1RouteLoss.signedVarianceAt13tsPercent / 100,
+    signedL: lossGainExportValue(tier1RouteLoss.signedVarianceLiters),
+    signedPct: tier1RouteLoss.signedVariancePercent / 100,
+    grossLoss: tier1RouteLoss.grossLossLiters ?? null,
+    grossGain: tier1RouteLoss.grossGainLiters ?? null,
+    status: statusOf(tier1RouteLoss.signedVarianceAt13tsLiters),
   });
 
   summarySheet.addRow({
-    tier: 'Tier 2: ZMCC Process & Chilling Loss',
+    tier: 'Tier 2: ZMCC Process & Chilling',
     initial: tier2ZmccLoss.totalInwardGrossLiters,
     final: tier2ZmccLoss.dispatchedGrossLiters + (tier2ZmccLoss.adminAdjustmentOutGrossLiters ?? 0) + tier2ZmccLoss.deltaTankStockLiters,
-    lossL: tier2ZmccLoss.lossLiters,
-    lossPct: tier2ZmccLoss.lossPercent / 100,
-    lossTs: tier2ZmccLoss.at13tsLossLiters,
-    status: tier2ZmccLoss.lossLiters > 0 ? 'Process Loss' : 'Balanced',
+    signedTs: lossGainExportValue(tier2ZmccLoss.signedVarianceAt13tsLiters),
+    signedTsPct: tier2ZmccLoss.signedVarianceAt13tsPercent / 100,
+    signedL: lossGainExportValue(tier2ZmccLoss.signedVarianceLiters),
+    signedPct: tier2ZmccLoss.signedVariancePercent / 100,
+    grossLoss: null,
+    grossGain: null,
+    status: statusOf(tier2ZmccLoss.signedVarianceAt13tsLiters),
   });
 
   summarySheet.addRow({
-    tier: 'Tier 3: Road Transit Loss',
+    tier: 'Tier 3: Road Transit',
     initial: tier3TransitLoss.dispatchedGrossLiters,
     final: tier3TransitLoss.plantAcceptedGrossLiters,
-    lossL: tier3TransitLoss.lossLiters,
-    lossPct: tier3TransitLoss.lossPercent / 100,
-    lossTs: tier3TransitLoss.at13tsLossLiters,
-    status: tier3TransitLoss.isHighLoss ? 'HIGH LOSS (>1.0%)' : 'Normal',
+    signedTs: lossGainExportValue(tier3TransitLoss.signedVarianceAt13tsLiters),
+    signedTsPct: tier3TransitLoss.signedVarianceAt13tsPercent / 100,
+    signedL: lossGainExportValue(tier3TransitLoss.signedVarianceLiters),
+    signedPct: tier3TransitLoss.signedVariancePercent / 100,
+    grossLoss: tier3TransitLoss.grossLossLiters ?? null,
+    grossGain: tier3TransitLoss.grossGainLiters ?? null,
+    status: tier3TransitLoss.isHighLoss ? 'HIGH LOSS (>1.0%)' : statusOf(tier3TransitLoss.signedVarianceAt13tsLiters),
   });
 
   const totalRow = summarySheet.addRow({
-    tier: 'Tier 4: Total Supply Chain Loss',
+    tier: 'Tier 4: Total Supply Chain (net)',
     initial: tier4TotalLoss.totalInitialIntakeLiters,
     final: tier4TotalLoss.totalFinalPlantLiters,
-    lossL: tier4TotalLoss.lossLiters,
-    lossPct: tier4TotalLoss.lossPercent / 100,
-    lossTs: tier4TotalLoss.at13tsLossLiters,
-    status: 'Cumulative Total',
+    signedTs: lossGainExportValue(tier4TotalLoss.signedVarianceAt13tsLiters),
+    signedTsPct: tier4TotalLoss.signedVarianceAt13tsPercent / 100,
+    signedL: lossGainExportValue(tier4TotalLoss.signedVarianceLiters),
+    signedPct: tier4TotalLoss.signedVariancePercent / 100,
+    grossLoss: null,
+    grossGain: null,
+    status: 'Net Total',
   });
 
   totalRow.eachCell((cell) => {
@@ -998,9 +1085,12 @@ export async function generateLossReconciliationExcel(data: {
     row.height = 22;
     row.getCell('initial').numFmt = '#,##0.00';
     row.getCell('final').numFmt = '#,##0.00';
-    row.getCell('lossL').numFmt = '#,##0.00';
-    row.getCell('lossPct').numFmt = '0.00%';
-    row.getCell('lossTs').numFmt = '#,##0.00';
+    row.getCell('signedTs').numFmt = '#,##0.00;[Red]-#,##0.00';
+    row.getCell('signedTsPct').numFmt = '0.00%;[Red]-0.00%';
+    row.getCell('signedL').numFmt = '#,##0.00;[Red]-#,##0.00';
+    row.getCell('signedPct').numFmt = '0.00%;[Red]-0.00%';
+    row.getCell('grossLoss').numFmt = '#,##0.00';
+    row.getCell('grossGain').numFmt = '#,##0.00';
   }
 
   // ---------------------------------------------------------
@@ -1018,17 +1108,17 @@ export async function generateLossReconciliationExcel(data: {
     { header: 'Ref / Note No.', key: 'referenceNumber', width: 20 },
     { header: 'Shop Qty (L)', key: 'shopLiters', width: 16 },
     { header: 'ZMCC Intake (L)', key: 'zmccLiters', width: 16 },
-    { header: 'Route Loss (L)', key: 'routeLossLiters', width: 16 },
-    { header: 'Route Loss %', key: 'routeLossPercent', width: 14 },
+    { header: 'Route ' + LOSS_GAIN_EXPORT_HEADER, key: 'routeSigned', width: 22 },
+    { header: 'Route Gain (+) / Loss (-) %', key: 'routeSignedPct', width: 18 },
+    { header: 'Route Gain (+) / Loss (-) @13% TS L', key: 'routeSigned13', width: 24 },
     { header: 'Dispatched (L)', key: 'dispatchedGrossLiters', width: 16 },
     { header: 'Plant Net (Kg)', key: 'plantNetKg', width: 16 },
     { header: 'Plant Net (L)', key: 'plantAcceptedLiters', width: 16 },
-    { header: 'ZMCC Loss (L)', key: 'zmccLossLiters', width: 16 },
-    { header: 'ZMCC Loss %', key: 'zmccLossPercent', width: 14 },
-    { header: 'Transit Loss (L)', key: 'transitLossLiters', width: 16 },
-    { header: 'Transit Loss %', key: 'transitLossPercent', width: 14 },
+    { header: 'Transit ' + LOSS_GAIN_EXPORT_HEADER, key: 'transitSigned', width: 22 },
+    { header: 'Transit Gain (+) / Loss (-) %', key: 'transitSignedPct', width: 18 },
+    { header: 'Transit Gain (+) / Loss (-) @13% TS L', key: 'transitSigned13', width: 24 },
     { header: 'High Loss Alert', key: 'isHighTransitLoss', width: 16 },
-    { header: 'Financial Impact (PKR)', key: 'financialImpactEstimatedRs', width: 22 },
+    { header: 'Gain (+) / Loss (-) (PKR)', key: 'financialImpactEstimatedRs', width: 22 },
   ];
 
   const s2HeaderRow = detailSheet.getRow(1);
@@ -1036,8 +1126,22 @@ export async function generateLossReconciliationExcel(data: {
   s2HeaderRow.eachCell((cell) => {
     cell.fill = headerFill;
     cell.font = headerFont;
-    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
   });
+
+  // The totals row is the NET of the signed columns above it (gains offset losses).
+  const sumOf = (pick: (d: LossReconciliationDetailRow) => number | undefined) => {
+    let any = false;
+    let total = 0;
+    for (const d of data.details) {
+      const v = pick(d);
+      if (v !== undefined) {
+        any = true;
+        total += v;
+      }
+    }
+    return any ? Number(total.toFixed(2)) : null;
+  };
 
   data.details.forEach((d) => {
     const row = detailSheet.addRow({
@@ -1048,37 +1152,63 @@ export async function generateLossReconciliationExcel(data: {
       referenceNumber: d.referenceNumber || '-',
       shopLiters: d.shopLiters ?? null,
       zmccLiters: d.zmccLiters ?? null,
-      routeLossLiters: d.routeLossLiters ?? null,
-      routeLossPercent: d.routeLossPercent !== undefined ? d.routeLossPercent / 100 : null,
+      routeSigned: lossGainExportValue(d.routeSignedLiters),
+      routeSignedPct: d.routeSignedPercent !== undefined ? d.routeSignedPercent / 100 : null,
+      routeSigned13: lossGainExportValue(d.routeSignedAt13tsLiters),
       dispatchedGrossLiters: d.dispatchedGrossLiters ?? null,
       plantNetKg: d.plantNetKg ?? null,
       plantAcceptedLiters: d.plantAcceptedLiters ?? null,
-      zmccLossLiters: d.zmccLossLiters ?? null,
-      zmccLossPercent: d.zmccLossPercent !== undefined ? d.zmccLossPercent / 100 : null,
-      transitLossLiters: d.transitLossLiters ?? null,
-      transitLossPercent: d.transitLossPercent !== undefined ? d.transitLossPercent / 100 : null,
-      isHighTransitLoss: d.transitLossLiters === undefined ? 'NOT RECONCILED' : d.isHighTransitLoss ? 'HIGH LOSS (>1%)' : 'NORMAL',
+      transitSigned: lossGainExportValue(d.transitSignedLiters),
+      transitSignedPct: d.transitSignedPercent !== undefined ? d.transitSignedPercent / 100 : null,
+      transitSigned13: lossGainExportValue(d.transitSignedAt13tsLiters),
+      isHighTransitLoss: d.transitSignedLiters === undefined ? 'NOT RECONCILED' : d.isHighTransitLoss ? 'HIGH LOSS (>1%)' : 'NORMAL',
       financialImpactEstimatedRs: d.financialImpactEstimatedRs ?? null,
     });
 
     row.height = 20;
     row.getCell('shopLiters').numFmt = '#,##0.00';
     row.getCell('zmccLiters').numFmt = '#,##0.00';
-    row.getCell('routeLossLiters').numFmt = '#,##0.00';
-    row.getCell('routeLossPercent').numFmt = '0.00%';
+    row.getCell('routeSigned').numFmt = '#,##0.00;[Red]-#,##0.00';
+    row.getCell('routeSignedPct').numFmt = '0.00%;[Red]-0.00%';
+    row.getCell('routeSigned13').numFmt = '#,##0.00;[Red]-#,##0.00';
     row.getCell('dispatchedGrossLiters').numFmt = '#,##0.00';
     row.getCell('plantNetKg').numFmt = '#,##0.00';
     row.getCell('plantAcceptedLiters').numFmt = '#,##0.00';
-    row.getCell('zmccLossLiters').numFmt = '#,##0.00';
-    row.getCell('zmccLossPercent').numFmt = '0.00%';
-    row.getCell('transitLossLiters').numFmt = '#,##0.00';
-    row.getCell('transitLossPercent').numFmt = '0.00%';
-    row.getCell('financialImpactEstimatedRs').numFmt = 'Rs. #,##0.00';
+    row.getCell('transitSigned').numFmt = '#,##0.00;[Red]-#,##0.00';
+    row.getCell('transitSignedPct').numFmt = '0.00%;[Red]-0.00%';
+    row.getCell('transitSigned13').numFmt = '#,##0.00;[Red]-#,##0.00';
+    row.getCell('financialImpactEstimatedRs').numFmt = 'Rs. #,##0.00;[Red]-Rs. #,##0.00';
 
     if (d.isHighTransitLoss) {
       row.getCell('isHighTransitLoss').font = { name: 'Segoe UI', bold: true, color: { argb: 'FFDC2626' } };
     }
   });
+
+  const sumShop = sumOf((d) => d.shopLiters);
+  const sumRouteSigned = sumOf((d) => d.routeSignedLiters);
+  const sumDisp = sumOf((d) => (d.transitSignedLiters !== undefined ? d.dispatchedGrossLiters : undefined));
+  const sumTransitSigned = sumOf((d) => d.transitSignedLiters);
+  const detailTotal = detailSheet.addRow({
+    date: 'Net total',
+    routeSigned: sumRouteSigned,
+    routeSignedPct: sumShop && sumRouteSigned !== null ? sumRouteSigned / sumShop : null,
+    routeSigned13: sumOf((d) => d.routeSignedAt13tsLiters),
+    transitSigned: sumTransitSigned,
+    transitSignedPct: sumDisp && sumTransitSigned !== null ? sumTransitSigned / sumDisp : null,
+    transitSigned13: sumOf((d) => d.transitSignedAt13tsLiters),
+    financialImpactEstimatedRs: sumOf((d) => d.financialImpactEstimatedRs),
+  });
+  detailTotal.eachCell({ includeEmpty: true }, (cell) => {
+    cell.font = { name: 'Segoe UI', bold: true, size: 11 };
+    cell.fill = subHeaderFill;
+  });
+  detailTotal.getCell('routeSigned').numFmt = '#,##0.00;[Red]-#,##0.00';
+  detailTotal.getCell('routeSignedPct').numFmt = '0.00%;[Red]-0.00%';
+  detailTotal.getCell('routeSigned13').numFmt = '#,##0.00;[Red]-#,##0.00';
+  detailTotal.getCell('transitSigned').numFmt = '#,##0.00;[Red]-#,##0.00';
+  detailTotal.getCell('transitSignedPct').numFmt = '0.00%;[Red]-0.00%';
+  detailTotal.getCell('transitSigned13').numFmt = '#,##0.00;[Red]-#,##0.00';
+  detailTotal.getCell('financialImpactEstimatedRs').numFmt = 'Rs. #,##0.00;[Red]-Rs. #,##0.00';
 
   const rawBuffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(rawBuffer);

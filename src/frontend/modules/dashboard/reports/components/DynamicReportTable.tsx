@@ -3,17 +3,19 @@
 import React, { useState, useMemo } from 'react';
 import type {
   ReportFieldDefinition,
+  ReportCellValue,
+  ReportRow,
   GroupedSubtotal,
   TimeBucket,
 } from '../dynamicReportTypes';
-import { reportGroupKey } from '../dynamicReportTypes';
+import { reportGroupKey, lossGainUnit } from '../dynamicReportTypes';
+import { LossGainValue } from './LossGainValue';
 import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   ChevronLeft,
   ChevronRight,
-  Layers,
   ChevronDown,
   ChevronRight as ChevronExpand,
   Loader2,
@@ -24,7 +26,7 @@ import { InfoTip } from '@/components/ui/info-tip';
 
 interface DynamicReportTableProps {
   fields: ReportFieldDefinition[];
-  rows: Record<string, any>[];
+  rows: ReportRow[];
   totalRecords: number;
   currentPage: number;
   totalPages: number;
@@ -77,7 +79,7 @@ export function DynamicReportTable({
   // Group rows if groupByFieldId is set
   const groupedData = useMemo(() => {
     if (!groupByFieldId) return null;
-    const map = new Map<string, Record<string, any>[]>();
+    const map = new Map<string, ReportRow[]>();
     for (const r of rows) {
       const key = reportGroupKey(r[groupByFieldId], groupField?.dataType ?? 'string', timeBucket);
       const list = map.get(key) || [];
@@ -106,9 +108,13 @@ export function DynamicReportTable({
     return totals;
   }, [fields, rows, serverTotals]);
 
-  const renderCellValue = (value: any, field: ReportFieldDefinition) => {
+  const renderCellValue = (value: ReportCellValue | undefined, field: ReportFieldDefinition) => {
     if (value === null || value === undefined || value === '') {
       return <span className="text-muted-foreground font-mono">—</span>;
+    }
+
+    if (field.lossGain) {
+      return <LossGainValue value={Number(value)} unit={lossGainUnit(field)} kind={field.lossGain} />;
     }
 
     if (field.format === 'status_pill') {
@@ -166,7 +172,7 @@ export function DynamicReportTable({
 
     if (field.format === 'datetime') {
       try {
-        const d = new Date(value);
+        const d = new Date(String(value));
         // Pakistan time, the same as the Excel and CSV exports.
         const parts = new Intl.DateTimeFormat('en-CA', {
           timeZone: 'Asia/Karachi',

@@ -6,20 +6,17 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import {
   Truck,
   FlaskConical,
-  Scale,
-  Thermometer,
   AlertTriangle,
   CheckCircle2,
-  Download,
-  Calendar,
   Search,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { ErrorPopup } from '@/components/ui/error-popup';
 import { StatCard } from '@/components/ui/stat-card';
 import { TableWrapper } from '@/components/ui/table-wrapper';
 import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { formatTime } from '@/lib/format';
+import { LossGainValue } from './LossGainValue';
+import { formatLossGainText } from '../dynamicReportTypes';
 
 interface PlantQaComparisonRow {
   id: string;
@@ -39,6 +36,26 @@ interface PlantQaComparisonRow {
   plantLr: number | null;
   fatDelta: number | null;
   status: 'ACCEPTED' | 'FLAGGED_LOSS' | 'FLAGGED_QA' | 'IN_TRANSIT';
+}
+
+/** One dispatch as the plant transit view returns it. */
+interface PlantTransitApiRow {
+  visit_id: string | number;
+  visit_number: string | null;
+  vehicle_number: string | null;
+  zmcc_name: string | null;
+  operational_date: string | null;
+  reconciled_at: string | null;
+  current_status: string | null;
+  dispatch_gross_liters: unknown;
+  sent_gross_liters: unknown;
+  received_gross_liters: unknown;
+  gross_variance_liters: unknown;
+  gross_variance_percent: unknown;
+  dispatch_fat: unknown;
+  plant_fat: unknown;
+  dispatch_lr: unknown;
+  plant_lr: unknown;
 }
 
 const numOrNull = (v: unknown): number | null => {
@@ -70,13 +87,13 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
       const url = targetZmccId
         ? `/api/management/reports/views?type=plant-transit&zmccId=${targetZmccId}&pageSize=50`
         : `/api/management/reports/views?type=plant-transit&pageSize=50`;
-      const res = await fetchJson<{ items: any[] }>(url);
+      const res = await fetchJson<{ items: PlantTransitApiRow[] }>(url);
       return res.items || [];
     },
   });
 
   const activeData: PlantQaComparisonRow[] = useMemo(() => {
-    return (query.data ?? []).map((r: any) => {
+    return (query.data ?? []).map((r): PlantQaComparisonRow => {
       const dispatched = numOrNull(r.dispatch_gross_liters) ?? numOrNull(r.sent_gross_liters);
       const received = numOrNull(r.received_gross_liters);
       const varianceLiters = numOrNull(r.gross_variance_liters);
@@ -97,7 +114,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
       }
 
       return {
-        id: r.visit_id,
+        id: String(r.visit_id),
         dispatchNote: r.visit_number || '—',
         vehicleNumber: r.vehicle_number || '—',
         sourceZmcc: r.zmcc_name || '—',
@@ -166,9 +183,9 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
           hint="Weighbridge net weight truth"
         />
         <StatCard
-          label="Transit Volume Variance"
-          value={totalVariance != null ? <span>{fmtSigned(totalVariance, 0)} <span className="text-xs font-normal text-muted-foreground">L</span></span> : '—'}
-          hint={avgVariancePct != null ? `${fmtSigned(avgVariancePct, 2)}% of dispatched, arrived tankers only` : 'Arrived tankers only'}
+          label="Net Loss / Gain"
+          value={<LossGainValue value={totalVariance} unit="L" />}
+          hint={avgVariancePct != null ? `${formatLossGainText(avgVariancePct, '%')} of dispatched, arrived tankers only` : 'Arrived tankers only'}
           tone={avgVariancePct != null && avgVariancePct < -LOSS_FLAG_PCT ? 'danger' : 'default'}
         />
         <StatCard
@@ -247,8 +264,8 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
                 <th className="py-2 px-3 text-right border-r border-border bg-emerald-50/20">LR</th>
 
                 {/* Delta & Status */}
-                <th className="py-2 px-3 text-right bg-amber-50/20">Variance (L)</th>
-                <th className="py-2 px-3 text-right bg-amber-50/20">Variance %</th>
+                <th className="py-2 px-3 text-right bg-amber-50/20">Loss / Gain (L)</th>
+                <th className="py-2 px-3 text-right bg-amber-50/20">Loss / Gain %</th>
                 <th className="py-2 px-3 text-right bg-amber-50/20">Fat Delta</th>
                 <th className="py-2 px-3 text-center">Audit Status</th>
               </tr>
@@ -290,13 +307,11 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
                   </td>
 
                   {/* Deltas & Loss */}
-                  <td className="py-2 px-3 text-right tabular-nums font-mono font-semibold text-foreground">
-                    {row.status === 'IN_TRANSIT' ? '—' : fmtSigned(row.varianceLiters, 0, ' L')}
+                  <td className="py-2 px-3 text-right">
+                    {row.status === 'IN_TRANSIT' ? '—' : <LossGainValue value={row.varianceLiters} unit="L" />}
                   </td>
-                  <td className={`py-2 px-3 text-right tabular-nums font-mono font-semibold ${
-                    row.variancePct != null && row.variancePct < -LOSS_FLAG_PCT ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'
-                  }`}>
-                    {row.status === 'IN_TRANSIT' ? '—' : fmtSigned(row.variancePct, 2, '%')}
+                  <td className="py-2 px-3 text-right">
+                    {row.status === 'IN_TRANSIT' ? '—' : <LossGainValue value={row.variancePct} unit="%" />}
                   </td>
                   <td className={`py-2 px-3 text-right tabular-nums font-mono ${
                     row.fatDelta != null && Math.abs(row.fatDelta) > 0.15 ? 'text-rose-600 font-semibold' : 'text-muted-foreground'

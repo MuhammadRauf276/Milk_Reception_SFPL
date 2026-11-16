@@ -1,13 +1,27 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import type {
   ReportFieldDefinition,
   DynamicFilterClause,
   FilterOperator,
   TimeBucket,
+  DatePreset,
 } from '../dynamicReportTypes';
-import { TIME_BUCKET_LABELS, isTimeField } from '../dynamicReportTypes';
+import {
+  TIME_BUCKET_LABELS,
+  DATE_PRESETS,
+  DATE_PRESET_LABELS,
+  MAX_DATE_RANGE_DAYS,
+  isTimeField,
+  pickDateFieldId,
+  readDateRange,
+  withDateRange,
+  resolveDatePreset,
+  detectDatePreset,
+  checkDateRange,
+  daysInRange,
+} from '../dynamicReportTypes';
 import {
   Filter,
   Plus,
@@ -17,6 +31,8 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ErrorPopup } from '@/components/ui/error-popup';
+import { InfoTip } from '@/components/ui/info-tip';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
 
 interface DynamicFilterBarProps {
@@ -29,18 +45,18 @@ interface DynamicFilterBarProps {
   onChangeTimeBucket?: (bucket: TimeBucket) => void;
 }
 
-const OPERATOR_LABELS: Record<FilterOperator, string> = {
-  EQUALS: 'equals (=)',
-  NOT_EQUALS: 'does not equal (!=)',
-  CONTAINS: 'contains',
-  STARTS_WITH: 'starts with',
-  GREATER_THAN: 'greater than (>)',
-  LESS_THAN: 'less than (<)',
-  GREATER_EQUAL: 'greater or equal (>=)',
-  LESS_EQUAL: 'less or equal (<=)',
-  BETWEEN: 'between',
-  IN_LIST: 'is any of',
-};
+// Ids are made here, outside the component, so rendering stays free of random values.
+const ID_PREFIX = `flt-${Date.now().toString(36)}`;
+let idCounter = 0;
+const newFilterId = () => `${ID_PREFIX}-${++idCounter}`;
+
+const presetButtonClass = (active: boolean) =>
+  `px-3 py-1 min-h-11 rounded-md text-xs font-medium transition-colors ${
+    active ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+  }`;
+
+const dateInputClass =
+  'bg-background border border-border rounded-md px-3 py-1 min-h-11 text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary';
 
 export function DynamicFilterBar({
   fields,
@@ -57,6 +73,17 @@ export function DynamicFilterBar({
   );
   const groupField = fields.find((f) => f.id === groupByFieldId);
 
+  // The date range filters the first calendar-day field of the report type (tanks have none).
+  const dateFieldId = pickDateFieldId(fields);
+  const today = getPakistanCalendarDate(new Date());
+  const activeRange = readDateRange(filters, dateFieldId);
+  const activePreset = activeRange ? detectDatePreset(activeRange, today) : null;
+  // Dates typed but not yet complete or valid; the active range shows until both are good.
+  const [draft, setDraft] = useState<{ from: string; to: string } | null>(null);
+  const [rangeError, setRangeError] = useState<string | null>(null);
+  const fromValue = draft?.from ?? activeRange?.from ?? '';
+  const toValue = draft?.to ?? activeRange?.to ?? '';
+
   const addFilter = () => {
     const firstField = filterableFields[0];
     if (!firstField) return;
@@ -69,7 +96,7 @@ export function DynamicFilterBar({
         : 'CONTAINS';
 
     const newClause: DynamicFilterClause = {
-      id: `flt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: newFilterId(),
       fieldId: firstField.id,
       operator: defaultOp,
       value: firstField.dataType === 'number' ? 0 : '',
@@ -106,60 +133,33 @@ export function DynamicFilterBar({
     );
   };
 
-  const applyHorizonPreset = (preset: 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_30' | 'MTD') => {
-    const today = getPakistanCalendarDate(new Date());
-    const dateField = fields.find((f) => f.dataType === 'date' || f.id.includes('date'));
-    if (!dateField) return;
+  const applyHorizonPreset = (preset: DatePreset) => {
+    if (!dateFieldId) return;
+    setDraft(null);
+    setRangeError(null);
+    // Replaces any existing date filter with this range
+    onChangeFilters(withDateRange(filters, dateFieldId, resolveDatePreset(preset, getPakistanCalendarDate(new Date()))));
+  };
 
-    let clause: DynamicFilterClause;
-
-    if (preset === 'TODAY') {
-      clause = {
-        id: `flt-preset-${Date.now()}`,
-        fieldId: dateField.id,
-        operator: 'EQUALS',
-        value: today,
-      };
-    } else if (preset === 'YESTERDAY') {
-      const y = getPakistanCalendarDate(new Date(Date.now() - 86400000));
-      clause = {
-        id: `flt-preset-${Date.now()}`,
-        fieldId: dateField.id,
-        operator: 'EQUALS',
-        value: y,
-      };
-    } else if (preset === 'LAST_7') {
-      const from = getPakistanCalendarDate(new Date(Date.now() - 6 * 86400000));
-      clause = {
-        id: `flt-preset-${Date.now()}`,
-        fieldId: dateField.id,
-        operator: 'BETWEEN',
-        value: from,
-        valueSecondary: today,
-      };
-    } else if (preset === 'LAST_30') {
-      const from = getPakistanCalendarDate(new Date(Date.now() - 29 * 86400000));
-      clause = {
-        id: `flt-preset-${Date.now()}`,
-        fieldId: dateField.id,
-        operator: 'BETWEEN',
-        value: from,
-        valueSecondary: today,
-      };
-    } else {
-      const from = `${today.slice(0, 7)}-01`;
-      clause = {
-        id: `flt-preset-${Date.now()}`,
-        fieldId: dateField.id,
-        operator: 'BETWEEN',
-        value: from,
-        valueSecondary: today,
-      };
+  const changeCustomRange = (next: { from: string; to: string }) => {
+    if (!dateFieldId) return;
+    setDraft(next);
+    if (!next.from || !next.to) return;
+    const problem = checkDateRange(next.from, next.to);
+    if (problem) {
+      setRangeError(problem);
+      return;
     }
+    setRangeError(null);
+    setDraft(null);
+    onChangeFilters(withDateRange(filters, dateFieldId, next));
+  };
 
-    // Replace any existing date filter with this preset
-    const nonDateFilters = filters.filter((f) => f.fieldId !== dateField.id);
-    onChangeFilters([...nonDateFilters, clause]);
+  const clearDateRange = () => {
+    if (!dateFieldId) return;
+    setDraft(null);
+    setRangeError(null);
+    onChangeFilters(withDateRange(filters, dateFieldId, null));
   };
 
   const clearAllFilters = () => {
@@ -181,44 +181,16 @@ export function DynamicFilterBar({
             )}
           </div>
 
-          <div className="flex items-center gap-1 ml-2">
-            <span className="text-xs text-muted-foreground mr-1">Horizon:</span>
-            <button
-              type="button"
-              onClick={() => applyHorizonPreset('TODAY')}
-              className="px-2 py-1 rounded-md text-xs font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => applyHorizonPreset('YESTERDAY')}
-              className="px-2 py-1 rounded-md text-xs font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Yesterday
-            </button>
-            <button
-              type="button"
-              onClick={() => applyHorizonPreset('LAST_7')}
-              className="px-2 py-1 rounded-md text-xs font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Last 7 Days
-            </button>
-            <button
-              type="button"
-              onClick={() => applyHorizonPreset('LAST_30')}
-              className="px-2 py-1 rounded-md text-xs font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Last 30 Days
-            </button>
-            <button
-              type="button"
-              onClick={() => applyHorizonPreset('MTD')}
-              className="px-2 py-1 rounded-md text-xs font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              MTD
-            </button>
-          </div>
+          {dateFieldId && (
+            <div className="flex flex-wrap items-center gap-1 ml-2">
+              <span className="text-xs text-muted-foreground mr-1">Horizon:</span>
+              {DATE_PRESETS.map((p) => (
+                <button key={p} type="button" onClick={() => applyHorizonPreset(p)} className={presetButtonClass(activePreset === p)}>
+                  {DATE_PRESET_LABELS[p]}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Group By Selector */}
@@ -255,6 +227,49 @@ export function DynamicFilterBar({
           </div>
         )}
       </div>
+
+      {/* Custom date range (Pakistan days): drives the report's date field like the presets above */}
+      {dateFieldId && (
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+          <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            From
+            <input
+              type="date"
+              value={fromValue}
+              onChange={(e) => changeCustomRange({ from: e.target.value, to: toValue })}
+              className={dateInputClass}
+            />
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            To
+            <input
+              type="date"
+              value={toValue}
+              onChange={(e) => changeCustomRange({ from: fromValue, to: e.target.value })}
+              className={dateInputClass}
+            />
+          </label>
+          <span className="px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-semibold tabular-nums">
+            {activeRange
+              ? `${activeRange.from === activeRange.to ? activeRange.from : `${activeRange.from} to ${activeRange.to}`} · ${daysInRange(activeRange.from, activeRange.to)} d`
+              : 'Last 30 days'}
+          </span>
+          {activeRange && (
+            <button
+              type="button"
+              onClick={clearDateRange}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              aria-label="Clear dates"
+              title="Clear dates"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <InfoTip text={`Pakistan dates, at most ${MAX_DATE_RANGE_DAYS} days. Vehicle reports show the last 30 days when no dates are set.`} />
+          <ErrorPopup message={rangeError} onClear={() => setRangeError(null)} />
+        </div>
+      )}
 
       {/* Filter Rows */}
       {filters.length > 0 && (

@@ -71,7 +71,7 @@ const MPD_VIEW_LINKS: RoleNavLeaf[] = [
   { id: 'mpd-v-rep-tanks', label: 'Tank storage', href: '/command?view=REPORTS&report=TANK_STORAGE', icon: Building2 },
   { id: 'mpd-v-sources', label: 'Sources & Silos', href: '/command?view=SOURCES', icon: Building2 },
   { id: 'mpd-v-quality', label: 'Quality Screening', href: '/command?view=QUALITY_FUNNEL', icon: FlaskConical },
-  { id: 'mpd-v-loss', label: 'Supply Chain Loss', href: '/command?view=LOSS_DIAGNOSTICS', icon: ArrowRightLeft },
+  { id: 'mpd-v-loss', label: 'Supply Chain Loss / Gain', href: '/command?view=LOSS_DIAGNOSTICS', icon: ArrowRightLeft },
   { id: 'mpd-v-exceptions', label: 'Exception Desk', href: '/command?view=GOVERNANCE', icon: ShieldAlert },
   { id: 'mpd-v-policies', label: 'Testing Policies', href: '/command?view=POLICIES', icon: FileCheck2 },
 ];

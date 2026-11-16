@@ -2,6 +2,7 @@ import { getRoleLabel } from '@core/roles/labels';
 import { prisma } from '@core/db';
 import ExcelJS from 'exceljs';
 import { getSupplyChainLossHierarchy } from '@/backend/services/lossCalculationService';
+import { formatLossGainPercent, LOSS_GAIN_EXPORT_HEADER, LOSS_GAIN_EXPORT_PERCENT_HEADER } from '@/lib/lossGain';
 import { QaWarningEscalationService } from '@/backend/services/qaWarningEscalationService';
 import { writeAuditLog } from '@/backend/core/audit';
 import { calculateGrossLiters } from '@/backend/utils/milkFormulas';
@@ -134,13 +135,20 @@ export interface DailyReportData {
       pendingCount: number;
       byRole: Record<string, number>;
     };
+    /** Received minus sent: negative is a loss, positive a gain. @13 TS is the main figure, gross beside it. */
     losses: {
-      tier1LossLiters: number;
-      tier1LossPercent: number;
-      tier2LossLiters: number;
-      tier2LossPercent: number;
-      tier3LossLiters: number;
-      tier3LossPercent: number;
+      tier1SignedAt13tsLiters: number;
+      tier1SignedAt13tsPercent: number;
+      tier1SignedLiters: number;
+      tier1SignedPercent: number;
+      tier2SignedAt13tsLiters: number;
+      tier2SignedAt13tsPercent: number;
+      tier2SignedLiters: number;
+      tier2SignedPercent: number;
+      tier3SignedAt13tsLiters: number;
+      tier3SignedAt13tsPercent: number;
+      tier3SignedLiters: number;
+      tier3SignedPercent: number;
     };
   };
   motCollections: MotCollectionReportItem[];
@@ -523,13 +531,19 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
   }
 
   // 5. Supply Chain Losses
-  let lossSummary = {
-    tier1LossLiters: 0,
-    tier1LossPercent: 0,
-    tier2LossLiters: 0,
-    tier2LossPercent: 0,
-    tier3LossLiters: 0,
-    tier3LossPercent: 0,
+  let lossSummary: DailyReportData['kpis']['losses'] = {
+    tier1SignedAt13tsLiters: 0,
+    tier1SignedAt13tsPercent: 0,
+    tier1SignedLiters: 0,
+    tier1SignedPercent: 0,
+    tier2SignedAt13tsLiters: 0,
+    tier2SignedAt13tsPercent: 0,
+    tier2SignedLiters: 0,
+    tier2SignedPercent: 0,
+    tier3SignedAt13tsLiters: 0,
+    tier3SignedAt13tsPercent: 0,
+    tier3SignedLiters: 0,
+    tier3SignedPercent: 0,
   };
 
   try {
@@ -540,13 +554,20 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       to: targetDateStr,
     });
     if (losses?.summary) {
+      const s = losses.summary;
       lossSummary = {
-        tier1LossLiters: losses.summary.tier1RouteLoss.lossLiters,
-        tier1LossPercent: losses.summary.tier1RouteLoss.lossPercent,
-        tier2LossLiters: losses.summary.tier2ZmccLoss.lossLiters,
-        tier2LossPercent: losses.summary.tier2ZmccLoss.lossPercent,
-        tier3LossLiters: losses.summary.tier3TransitLoss.lossLiters,
-        tier3LossPercent: losses.summary.tier3TransitLoss.lossPercent,
+        tier1SignedAt13tsLiters: s.tier1RouteLoss.signedVarianceAt13tsLiters,
+        tier1SignedAt13tsPercent: s.tier1RouteLoss.signedVarianceAt13tsPercent,
+        tier1SignedLiters: s.tier1RouteLoss.signedVarianceLiters,
+        tier1SignedPercent: s.tier1RouteLoss.signedVariancePercent,
+        tier2SignedAt13tsLiters: s.tier2ZmccLoss.signedVarianceAt13tsLiters,
+        tier2SignedAt13tsPercent: s.tier2ZmccLoss.signedVarianceAt13tsPercent,
+        tier2SignedLiters: s.tier2ZmccLoss.signedVarianceLiters,
+        tier2SignedPercent: s.tier2ZmccLoss.signedVariancePercent,
+        tier3SignedAt13tsLiters: s.tier3TransitLoss.signedVarianceAt13tsLiters,
+        tier3SignedAt13tsPercent: s.tier3TransitLoss.signedVarianceAt13tsPercent,
+        tier3SignedLiters: s.tier3TransitLoss.signedVarianceLiters,
+        tier3SignedPercent: s.tier3TransitLoss.signedVariancePercent,
       };
     }
   } catch (err) {
@@ -748,35 +769,38 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
   for (let c = 1; c <= 5; c++) exRow.getCell(c).border = thinBorder;
 
   // Summary Table: Supply Chain Losses
-  s1.getCell('A18').value = '3. Supply Chain 3-Tier Losses';
+  s1.getCell('A18').value = '3. Supply Chain 3-Tier Loss / Gain';
   s1.getCell('A18').font = { bold: true, size: 11, color: { argb: 'FF0F172A' } };
 
-  s1.getRow(19).values = ['Tier Level', 'Description', 'Loss (Liters)', 'Loss (%)', 'Alert Threshold', 'Status'];
+  s1.getRow(19).values = ['Tier Level', 'Description', 'Gain (+) / Loss (-) @13% TS L', 'Gain (+) / Loss (-) @13% TS %', LOSS_GAIN_EXPORT_HEADER, LOSS_GAIN_EXPORT_PERCENT_HEADER, 'Loss Alert At', 'Status'];
   s1.getRow(19).font = headerFont;
-  for (let c = 1; c <= 6; c++) {
+  for (let c = 1; c <= 8; c++) {
     const cell = s1.getRow(19).getCell(c);
     cell.fill = tableHeaderFill;
     cell.border = thinBorder;
   }
 
+  // Signed numbers (negative = loss) so a column adds up. The alert looks at loss only: a gain is never HIGH.
+  const L = data.kpis.losses;
   const lossRows = [
-    ['Tier 1', 'MOT Route / Area Loss (Shop vs ZMCC Gate)', data.kpis.losses.tier1LossLiters, `${data.kpis.losses.tier1LossPercent.toFixed(2)}%`, '0.50%', data.kpis.losses.tier1LossPercent > 0.5 ? 'HIGH' : 'NORMAL'],
-    ['Tier 2', 'ZMCC Process & Chilling Loss', data.kpis.losses.tier2LossLiters, `${data.kpis.losses.tier2LossPercent.toFixed(2)}%`, '0.75%', data.kpis.losses.tier2LossPercent > 0.75 ? 'HIGH' : 'NORMAL'],
-    ['Tier 3', 'Road Transit Loss (ZMCC to Plant)', data.kpis.losses.tier3LossLiters, `${data.kpis.losses.tier3LossPercent.toFixed(2)}%`, '1.00%', data.kpis.losses.tier3LossPercent > 1.0 ? 'HIGH' : 'NORMAL'],
+    ['Tier 1', 'MOT Route / Area (Shop vs ZMCC Gate)', L.tier1SignedAt13tsLiters, L.tier1SignedAt13tsPercent / 100, L.tier1SignedLiters, L.tier1SignedPercent / 100, '0.50%', -L.tier1SignedPercent > 0.5 ? 'HIGH LOSS' : 'NORMAL'],
+    ['Tier 2', 'ZMCC Process & Chilling', L.tier2SignedAt13tsLiters, L.tier2SignedAt13tsPercent / 100, L.tier2SignedLiters, L.tier2SignedPercent / 100, '0.75%', -L.tier2SignedPercent > 0.75 ? 'HIGH LOSS' : 'NORMAL'],
+    ['Tier 3', 'Road Transit (ZMCC to Plant)', L.tier3SignedAt13tsLiters, L.tier3SignedAt13tsPercent / 100, L.tier3SignedLiters, L.tier3SignedPercent / 100, '1.00%', -L.tier3SignedPercent > 1.0 ? 'HIGH LOSS' : 'NORMAL'],
   ];
 
   lossRows.forEach((r, idx) => {
     const row = s1.getRow(20 + idx);
     row.values = r;
     row.font = regularFont;
-    for (let c = 1; c <= 6; c++) {
+    for (let c = 1; c <= 8; c++) {
       const cell = row.getCell(c);
       cell.border = thinBorder;
-      if (c === 3) cell.numFmt = '#,##0.00';
+      if (c === 3 || c === 5) cell.numFmt = '#,##0.00;[Red]-#,##0.00';
+      if (c === 4 || c === 6) cell.numFmt = '0.00%;[Red]-0.00%';
     }
   });
 
-  s1.columns = [{ width: 28 }, { width: 34 }, { width: 16 }, { width: 16 }, { width: 18 }, { width: 18 }, { width: 16 }];
+  s1.columns = [{ width: 28 }, { width: 34 }, { width: 16 }, { width: 16 }, { width: 18 }, { width: 18 }, { width: 16 }, { width: 16 }];
 
   // SHEET 2: MOT SHOP COLLECTIONS
   const s2 = workbook.addWorksheet('MOT Collections');
@@ -1069,7 +1093,7 @@ export async function sendSuperAdminDailyReportEmail(input: {
 • ZMCC Lab Intake: ${kpis.zmcc.totalLiters.toLocaleString()} L (${kpis.zmcc.totalPortions} portions, ${kpis.zmcc.warningCount} warnings)
 • Plant QA Intake: ${kpis.plantQa.totalLiters.toLocaleString()} L (${kpis.plantQa.totalTankers} tankers, ${kpis.plantQa.mtdWarningEscalations} MTD escalations)
 • Exceptions Handled: ${kpis.exceptions.totalHandled} (${kpis.exceptions.approvedCount} approved, ${kpis.exceptions.rejectedCount} rejected)
-• Supply Chain Losses: Tier 1: ${kpis.losses.tier1LossPercent.toFixed(2)}% | Tier 2: ${kpis.losses.tier2LossPercent.toFixed(2)}% | Tier 3: ${kpis.losses.tier3LossPercent.toFixed(2)}%
+• Supply Chain Loss / Gain @13% TS: Tier 1: ${formatLossGainPercent(kpis.losses.tier1SignedAt13tsPercent)} | Tier 2: ${formatLossGainPercent(kpis.losses.tier2SignedAt13tsPercent)} | Tier 3: ${formatLossGainPercent(kpis.losses.tier3SignedAt13tsPercent)}
 ${note ? `Note: ${note}` : ''}`;
 
   await writeAuditLog(prisma, {

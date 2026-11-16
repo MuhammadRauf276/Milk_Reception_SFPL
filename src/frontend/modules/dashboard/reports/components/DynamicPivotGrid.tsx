@@ -8,7 +8,8 @@ import type {
   ReportFieldDefinition,
   TimeBucket,
 } from '../dynamicReportTypes';
-import { TIME_BUCKET_LABELS, isTimeField } from '../dynamicReportTypes';
+import { TIME_BUCKET_LABELS, isTimeField, lossGainUnit } from '../dynamicReportTypes';
+import { LossGainValue } from './LossGainValue';
 import { ArrowRightLeft, Loader2 } from 'lucide-react';
 import { TableWrapper } from '@/components/ui/table-wrapper';
 import { InfoTip } from '@/components/ui/info-tip';
@@ -111,6 +112,7 @@ export function DynamicPivotGrid({ fields, config, onChangeConfig, result, isLoa
   const formatValue = (val: number | null | undefined) => {
     if (val === null || val === undefined) return <span className="text-muted-foreground font-mono">—</span>;
     if (isCount) return val.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    if (metricDef?.lossGain) return <LossGainValue value={val} unit={lossGainUnit(metricDef)} kind={metricDef.lossGain} />;
     if (metricDef?.format === 'liters') return `${val.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} L`;
     if (metricDef?.format === 'percent') return `${val.toFixed(2)}%`;
     if (metricDef?.format === 'temperature') return `${val.toFixed(1)}°C`;

@@ -35,7 +35,7 @@ async function main() {
   console.log(`     • ZMCC Portions: ${data.kpis.zmcc.totalPortions} (${data.kpis.zmcc.totalLiters} L)`);
   console.log(`     • Plant QA Tankers: ${data.kpis.plantQa.totalTankers} (${data.kpis.plantQa.totalLiters} L)`);
   console.log(`     • Exceptions Handled: ${data.kpis.exceptions.totalHandled}`);
-  console.log(`     • Supply Chain Losses: T1=${data.kpis.losses.tier1LossPercent}%, T2=${data.kpis.losses.tier2LossPercent}%, T3=${data.kpis.losses.tier3LossPercent}%`);
+  console.log(`     • Supply Chain Loss (-) / Gain (+) @13 TS: T1=${data.kpis.losses.tier1SignedAt13tsPercent}%, T2=${data.kpis.losses.tier2SignedAt13tsPercent}%, T3=${data.kpis.losses.tier3SignedAt13tsPercent}%`);
 
   // 3. Test Excel generation with exceljs
   console.log('\n3. Testing generateDailyReportExcel...');

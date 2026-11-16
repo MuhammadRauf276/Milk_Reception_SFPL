@@ -1,6 +1,7 @@
 import { prisma } from '@/backend/core/db';
 import type { ManagementFilters, ManagementScope, Page, ReconciliationVariance, ZmccAreaReconciliationRow, ZmccReconciliationSummary } from '@/backend/modules/management-reporting';
 import { assertManagementFiltersWithinScope, normalizeManagementPage } from '@/backend/modules/management-reporting';
+import { signedPercent } from '@/lib/lossGain';
 import { calculateAreaDualVariance, serializeMotJourneyOrigin, serializeZmccMeasuredDestination, splitFinalizedAndUnresolved } from './reconciliationService';
 
 function toVariance(origin: number, destination: number | null): ReconciliationVariance | null {
@@ -13,6 +14,7 @@ function toVariance(origin: number, destination: number | null): ReconciliationV
     loss: signedVariance < 0 ? Math.abs(signedVariance) : 0,
     gain: signedVariance > 0 ? signedVariance : 0,
     lossPercent: Number((((origin - destination) / origin) * 100).toFixed(4)),
+    signedPercent: Number(((signedVariance / origin) * 100).toFixed(4)),
   };
 }
 
@@ -59,7 +61,13 @@ export async function getZmccAreaReconciliation(scope: ManagementScope, filters:
     ...total, finalizedJourneys: total.finalizedJourneys + 1,
     grossLossLiters: total.grossLossLiters + (row.gross?.loss ?? 0), grossGainLiters: total.grossGainLiters + (row.gross?.gain ?? 0),
     at13tsLossLiters: total.at13tsLossLiters + (row.at13ts?.loss ?? 0), at13tsGainLiters: total.at13tsGainLiters + (row.at13ts?.gain ?? 0),
-  }), { finalizedJourneys: 0, unresolvedJourneys: groups.unresolved.length, grossLossLiters: 0, grossGainLiters: 0, at13tsLossLiters: 0, at13tsGainLiters: 0, unresolvedOriginAt13tsLiters: groups.unresolved.reduce((sum, row) => sum + row.originAt13tsLiters, 0) });
+    grossOriginLiters: total.grossOriginLiters + (row.gross ? row.gross.origin : 0), at13tsOriginLiters: total.at13tsOriginLiters + (row.at13ts ? row.at13ts.origin : 0),
+  }), { finalizedJourneys: 0, unresolvedJourneys: groups.unresolved.length, grossLossLiters: 0, grossGainLiters: 0, at13tsLossLiters: 0, at13tsGainLiters: 0, grossNetLiters: 0, at13tsNetLiters: 0, grossOriginLiters: 0, at13tsOriginLiters: 0, grossNetPercent: null, at13tsNetPercent: null, unresolvedOriginAt13tsLiters: groups.unresolved.reduce((sum, row) => sum + row.originAt13tsLiters, 0) });
+  // Totals are the NET of the signed differences: gains offset losses. Percent is net over the total sent.
+  summary.grossNetLiters = Number((summary.grossGainLiters - summary.grossLossLiters).toFixed(2));
+  summary.at13tsNetLiters = Number((summary.at13tsGainLiters - summary.at13tsLossLiters).toFixed(2));
+  summary.grossNetPercent = signedPercent(summary.grossNetLiters, summary.grossOriginLiters);
+  summary.at13tsNetPercent = signedPercent(summary.at13tsNetLiters, summary.at13tsOriginLiters);
   const total = visible.length;
   return { items: visible.slice((page - 1) * pageSize, page * pageSize), page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)), summary };
 }

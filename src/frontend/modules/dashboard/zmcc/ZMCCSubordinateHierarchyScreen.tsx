@@ -33,6 +33,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { PageLoader } from '@/components/ui/spinner';
 import { getErrorMessage } from '@/lib/errors';
 import { toast } from '@/frontend/lib/appToast';
+import { formatLossGainPercent, lossGainClass } from '@/lib/lossGain';
 
 interface ZMCCSubordinateHierarchyScreenProps {
   currentUser: User | null;
@@ -396,10 +397,10 @@ export function ZMCCSubordinateHierarchyScreen({
                           {route.todayAvgFat ? `${route.todayAvgFat}%` : '—'}
                         </span>
                       </div>
-                      {route.routeLossPct !== null && (
+                      {route.routeDiffPct !== null && (
                         <div>
-                          <span className="text-xs text-muted-foreground block">Loss</span>
-                          <span className="font-semibold text-amber-700">{route.routeLossPct}%</span>
+                          <span className="text-xs text-muted-foreground block">Loss / Gain</span>
+                          <span className={`font-semibold ${lossGainClass(route.routeDiffPct)}`}>{formatLossGainPercent(route.routeDiffPct)}</span>
                         </div>
                       )}
                     </div>

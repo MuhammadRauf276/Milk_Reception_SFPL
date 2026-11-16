@@ -2,6 +2,7 @@ import { LIVE_PLANT_TRANSIT_SQL } from './liveReportSql';
 import { getBatchTankPhysicalStock, getBatchTankTodayMovements } from '@/backend/services/zmccTankService';
 import { prisma } from '@core/db';
 import type { User } from '@core/types';
+import type { Prisma } from '@prisma/client';
 import { getPakistanCalendarDate, getPakistanDayWindow } from '@core/business-day';
 import ExcelJS from 'exceljs';
 import { isTemperatureTest } from '@/lib/lab-test-roles';
@@ -20,8 +21,15 @@ import type {
   PivotRequest,
   PivotResult,
   TimeBucket,
+  ReportRow,
 } from '@/frontend/modules/dashboard/reports/dynamicReportTypes';
-import { reportGroupKey } from '@/frontend/modules/dashboard/reports/dynamicReportTypes';
+import {
+  reportGroupKey,
+  canonicalFieldId,
+  MAX_DATE_RANGE_DAYS,
+  pickDateFieldId,
+  buildDateClause,
+} from '@/frontend/modules/dashboard/reports/dynamicReportTypes';
 
 // ============================================================================
 // 1. FIELD CATALOGS BY DOMAIN
@@ -82,8 +90,11 @@ export const JOURNEY_RECONCILIATION_FIELDS: ReportFieldDefinition[] = [
   { id: 'completion_rate', label: 'Completion %', category: 'OPERATIONAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['AVG'], ratioOf: { numerator: 'visited_stops', denominator: 'planned_stops' } },
   { id: 'shop_liters', label: 'Shop Collected (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'] },
   { id: 'gate_liters', label: 'Gate Received (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
-  { id: 'loss_liters', label: 'Route Loss (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'] },
-  { id: 'loss_pct', label: 'Route Loss %', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['AVG'], ratioOf: { numerator: 'loss_liters', denominator: 'shop_liters' } },
+  // Signed difference = received at the gate minus collected at the shops: negative is a loss, positive a gain.
+  { id: 'route_diff_liters', label: 'Loss / Gain (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'], lossGain: 'net' },
+  { id: 'route_diff_pct', label: 'Loss / Gain %', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['AVG'], ratioOf: { numerator: 'route_diff_liters', denominator: 'shop_liters' }, lossGain: 'net' },
+  { id: 'route_loss_only_liters', label: 'Loss only (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: false, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'], lossGain: 'loss_only' },
+  { id: 'route_gain_only_liters', label: 'Gain only (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: false, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'], lossGain: 'gain_only' },
   { id: 'dispatched_at', label: 'Dispatched At', category: 'TIMING', dataType: 'datetime', format: 'datetime', defaultSelected: false, sortable: true, filterable: true },
   { id: 'returned_at', label: 'Returned At', category: 'TIMING', dataType: 'datetime', format: 'datetime', defaultSelected: false, sortable: true, filterable: true },
 ];
@@ -107,8 +118,13 @@ export const PLANT_TRANSIT_FIELDS: ReportFieldDefinition[] = [
   { id: 'dispatched_liters', label: 'Dispatched Gross (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
   { id: 'dispatched_13ts_liters', label: 'Dispatched 13% TS (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
   { id: 'plant_received_liters', label: 'Plant Received (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
-  { id: 'transit_loss_liters', label: 'Transit Loss (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
-  { id: 'transit_loss_pct', label: 'Transit Loss %', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG'], ratioOf: { numerator: 'transit_loss_liters', denominator: 'dispatched_liters' } },
+  // Signed difference = plant received minus dispatched: negative is a loss, positive a gain.
+  { id: 'transit_diff_liters', label: 'Loss / Gain (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'], lossGain: 'net' },
+  { id: 'transit_diff_pct', label: 'Loss / Gain %', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG'], ratioOf: { numerator: 'transit_diff_liters', denominator: 'dispatched_liters' }, lossGain: 'net' },
+  { id: 'transit_diff_13ts_liters', label: 'Loss / Gain @13 TS (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: false, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'], lossGain: 'net' },
+  { id: 'transit_diff_13ts_pct', label: 'Loss / Gain @13 TS %', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: false, sortable: true, filterable: true, aggregations: ['AVG'], ratioOf: { numerator: 'transit_diff_13ts_liters', denominator: 'dispatched_13ts_liters' }, lossGain: 'net' },
+  { id: 'transit_loss_only_liters', label: 'Loss only (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: false, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'], lossGain: 'loss_only' },
+  { id: 'transit_gain_only_liters', label: 'Gain only (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: false, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'], lossGain: 'gain_only' },
   { id: 'status', label: 'Status', category: 'OPERATIONAL', dataType: 'enum', format: 'status_pill', defaultSelected: true, sortable: true, filterable: true, enumValues: ['IN_TRANSIT', 'RECEIVED_AT_PLANT', 'RECONCILED', 'FLAGGED'] },
 ];
 
@@ -191,17 +207,24 @@ export const VEHICLE_DISPATCH_FIELDS: ReportFieldDefinition[] = [
   vehicleField('dispatch_ts', 'Dispatch TS %', 'QUALITY', 'number', 'percent', { aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'dispatch_gross_liters' }),
   vehicleField('plant_ts', 'Plant TS %', 'QUALITY', 'number', 'percent', { aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'received_gross_liters' }),
   vehicleField('ts_diff', 'TS Diff (plant - dispatch)', 'QUALITY', 'number', 'number', { aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'received_gross_liters' }),
-  vehicleField('gross_variance_liters', 'Variance (L)', 'LOSS_FINANCIAL', 'number', 'liters', { defaultSelected: true, aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
-  vehicleField('gross_variance_percent', 'Variance %', 'LOSS_FINANCIAL', 'number', 'percent', {
+  // Signed difference = plant received minus dispatched: negative is a loss, positive a gain.
+  vehicleField('gross_variance_liters', 'Loss / Gain (L)', 'LOSS_FINANCIAL', 'number', 'liters', { defaultSelected: true, aggregations: ['SUM', 'AVG', 'MIN', 'MAX'], lossGain: 'net' }),
+  vehicleField('gross_variance_percent', 'Loss / Gain %', 'LOSS_FINANCIAL', 'number', 'percent', {
     defaultSelected: true,
     aggregations: ['AVG', 'MIN', 'MAX'],
     ratioOf: { numerator: 'gross_variance_liters', denominator: 'dispatch_gross_liters' },
+    lossGain: 'net',
   }),
-  vehicleField('at_13ts_variance_liters', '13% TS Variance (L)', 'LOSS_FINANCIAL', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
-  vehicleField('at_13ts_variance_percent', '13% TS Variance %', 'LOSS_FINANCIAL', 'number', 'percent', {
+  vehicleField('at_13ts_variance_liters', 'Loss / Gain @13 TS (L)', 'LOSS_FINANCIAL', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'], lossGain: 'net' }),
+  vehicleField('at_13ts_variance_percent', 'Loss / Gain @13 TS %', 'LOSS_FINANCIAL', 'number', 'percent', {
     aggregations: ['AVG', 'MIN', 'MAX'],
     ratioOf: { numerator: 'at_13ts_variance_liters', denominator: 'dispatch_at_13ts_liters' },
+    lossGain: 'net',
   }),
+  vehicleField('gross_loss_only_liters', 'Loss only (L)', 'LOSS_FINANCIAL', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'], lossGain: 'loss_only' }),
+  vehicleField('gross_gain_only_liters', 'Gain only (L)', 'LOSS_FINANCIAL', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'], lossGain: 'gain_only' }),
+  vehicleField('at_13ts_loss_only_liters', 'Loss only @13 TS (L)', 'LOSS_FINANCIAL', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'], lossGain: 'loss_only' }),
+  vehicleField('at_13ts_gain_only_liters', 'Gain only @13 TS (L)', 'LOSS_FINANCIAL', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'], lossGain: 'gain_only' }),
   vehicleField('gate_in_at', 'Gate In', 'TIMING', 'datetime', 'datetime'),
   vehicleField('first_weight_at', 'First Weight', 'TIMING', 'datetime', 'datetime'),
   vehicleField('second_weight_at', 'Second Weight', 'TIMING', 'datetime', 'datetime'),
@@ -226,7 +249,7 @@ export const DOMAIN_FIELD_MAP: Record<ReportDomain, ReportFieldDefinition[]> = {
 export const SYSTEM_DEFAULT_TEMPLATES: SavedReportTemplate[] = [
   {
     id: 'sys-preset-route-quality',
-    name: 'Daily Route Milk Quality & Tier-1 Loss',
+    name: 'Daily Route Milk Quality',
     description: 'Comprehensive route collections with shop-level Fat, LR, SNF, and At 13% TS volumes.',
     domain: 'MOT_COLLECTIONS',
     selectedFieldIds: ['collection_number', 'operational_date', 'route_name', 'shop_name', 'gross_liters', 'at_13ts_liters', 'fat', 'lr', 'snf', 'final_decision'],
@@ -251,9 +274,9 @@ export const SYSTEM_DEFAULT_TEMPLATES: SavedReportTemplate[] = [
   {
     id: 'sys-preset-journey-reconciliation',
     name: 'MOT Journey Reconciliation & Stop Adherence',
-    description: 'Journey run audits: planned vs visited shops, gate reception volumes, and Tier-1 route losses.',
+    description: 'Journey run audits: planned vs visited shops, gate reception volumes, and route loss or gain.',
     domain: 'JOURNEY_RECONCILIATION',
-    selectedFieldIds: ['journey_number', 'operational_date', 'route_name', 'mot_name', 'planned_stops', 'visited_stops', 'completion_rate', 'shop_liters', 'gate_liters', 'loss_liters', 'loss_pct', 'status'],
+    selectedFieldIds: ['journey_number', 'operational_date', 'route_name', 'mot_name', 'planned_stops', 'visited_stops', 'completion_rate', 'shop_liters', 'gate_liters', 'route_diff_liters', 'route_diff_pct', 'status'],
     filters: [],
     groupByFieldId: 'route_name',
     sortFieldId: 'operational_date',
@@ -287,10 +310,10 @@ export const SYSTEM_DEFAULT_TEMPLATES: SavedReportTemplate[] = [
   },
   {
     id: 'sys-preset-plant-transit',
-    name: 'Plant Tanker Transit Discrepancy & Loss',
-    description: 'Dispatch slips to Plant, comparing dispatched liters against received liters and transit losses.',
+    name: 'Plant Tanker Transit Loss / Gain',
+    description: 'Dispatch slips to Plant, comparing dispatched liters against received liters: loss or gain in transit.',
     domain: 'PLANT_TRANSIT',
-    selectedFieldIds: ['dispatch_note_number', 'dispatch_date', 'vehicle_number', 'contractor_name', 'dispatched_liters', 'plant_received_liters', 'transit_loss_liters', 'transit_loss_pct', 'status'],
+    selectedFieldIds: ['dispatch_note_number', 'dispatch_date', 'vehicle_number', 'contractor_name', 'dispatched_liters', 'plant_received_liters', 'transit_diff_liters', 'transit_diff_pct', 'status'],
     filters: [],
     sortFieldId: 'dispatch_date',
     sortDirection: 'desc',
@@ -347,15 +370,30 @@ export async function executeDynamicReportQuery(
   currentUser: User | null,
   opts: DynamicQueryOptions = {}
 ): Promise<DynamicQueryResponse> {
-  const { domain, selectedFieldIds, groupByFieldId, sortFieldId, sortDirection, zmccId } = req;
+  const { domain, sortDirection, zmccId } = req;
+  // Old field ids (a loss-only field became a signed Loss / Gain field) keep working.
+  const canon = (id: string) => canonicalFieldId(domain, id);
+  const canonOptional = (id: string | undefined) => (id ? canon(id) : undefined);
+  const selectedFieldIds = req.selectedFieldIds.map(canon);
+  const groupByFieldId = canonOptional(req.groupByFieldId);
+  const sortFieldId = canonOptional(req.sortFieldId);
   const timeBucket = req.timeBucket && TIME_BUCKETS.includes(req.timeBucket) ? req.timeBucket : undefined;
-  const filters = Array.isArray(req.filters) ? req.filters : [];
+  const filters = (Array.isArray(req.filters) ? req.filters : []).map((f) => ({ ...f, fieldId: canon(f.fieldId) }));
   const page = Math.max(1, Math.floor(Number(req.page)) || 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(Number(req.pageSize)) || 20));
   const light = opts.light === true;
 
   const allDomainFields = DOMAIN_FIELD_MAP[domain];
   if (!allDomainFields) throw new ReportRequestError('Unknown report type.');
+
+  // Every report type with a date field reads at most 366 days; with no date given it reads the last 30 days.
+  // Vehicles do the same in their own branch below. This covers rows, groups, pivot and export alike.
+  const dateFieldId = pickDateFieldId(allDomainFields);
+  if (dateFieldId && domain !== 'VEHICLE_DISPATCH') {
+    const dateIds = domain === 'QUALITY_SCREENING' ? ['test_date', 'tested_at'] : [dateFieldId];
+    const range = resolveVehicleDateRange(filters, dateIds);
+    if (range.defaulted) filters.push(buildDateClause(dateFieldId, range));
+  }
 
   const isSystemScope =
     currentUser?.role === 'HEAD_OF_MPD' ||
@@ -378,12 +416,23 @@ export async function executeDynamicReportQuery(
   const activeFields = allDomainFields.filter((f) => selectedFieldIds.includes(f.id));
   const groupField = groupByFieldId ? allDomainFields.find((f) => f.id === groupByFieldId) : undefined;
   if (groupByFieldId && !groupField) throw new ReportRequestError('This field cannot be grouped.');
-  const pivotPlan = req.pivot && !light ? resolvePivot(req.pivot, allDomainFields) : undefined;
+  const pivotPlan =
+    req.pivot && !light
+      ? resolvePivot(
+          {
+            ...req.pivot,
+            rowFieldId: canon(req.pivot.rowFieldId),
+            colFieldId: canon(req.pivot.colFieldId),
+            metricFieldId: canonOptional(req.pivot.metricFieldId),
+          },
+          allDomainFields
+        )
+      : undefined;
   // Set by the two raw SQL domains: lets groups, totals and the pivot be computed by the database over the whole filter.
   let sqlCtx: SqlContext | undefined;
   let dateRange: DynamicQueryResponse['dateRange'];
 
-  let rawRows: Record<string, any>[] = [];
+  let rawRows: ReportRow[] = [];
   let totalCount = 0;
   // KPI figures across the whole filter, never just the current page.
   let kpiTotals: DomainKpiTotals = {};
@@ -393,11 +442,11 @@ export async function executeDynamicReportQuery(
   // DOMAIN 1: MOT_COLLECTIONS
   // --------------------------------------------------------------------------
   if (domain === 'MOT_COLLECTIONS') {
-    const and: any[] = [];
+    const and: WhereNode[] = [];
     applyFilters(and, filters, MOT_SPECS);
-    const where: any = {};
+    const where: Prisma.MotShopCollectionWhereInput = {};
     if (effectiveZmccId) where.zmcc_id = effectiveZmccId;
-    if (and.length > 0) where.AND = and;
+    if (and.length > 0) where.AND = and as Prisma.MotShopCollectionWhereInput[];
 
     const [count, totals, records] = await Promise.all([
       prisma.motShopCollection.count({ where }),
@@ -406,7 +455,7 @@ export async function executeDynamicReportQuery(
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: buildOrderBy(domain, MOT_SPECS, sortFieldId, sortDirection, 'device_collected_at'),
+        orderBy: buildOrderBy<Prisma.MotShopCollectionOrderByWithRelationInput>(domain, MOT_SPECS, sortFieldId, sortDirection, 'device_collected_at'),
         select: {
           id: true,
           collection_number: true,
@@ -464,11 +513,11 @@ export async function executeDynamicReportQuery(
   // --------------------------------------------------------------------------
   else if (domain === 'HC_SUPPLIERS') {
     const roles = await loadSystemRoles(prisma as unknown as PolicyDb);
-    const and: any[] = [];
+    const and: WhereNode[] = [];
     applyFilters(and, filters, HC_SPECS, hcCustomFilters(roles));
-    const where: any = {};
+    const where: Prisma.ZmccLocalSupplierArrivalWhereInput = {};
     if (effectiveZmccId) where.zmcc_id = effectiveZmccId;
-    if (and.length > 0) where.AND = and;
+    if (and.length > 0) where.AND = and as Prisma.ZmccLocalSupplierArrivalWhereInput[];
 
     const [count, records] = await Promise.all([
       prisma.zmccLocalSupplierArrival.count({ where }),
@@ -476,7 +525,7 @@ export async function executeDynamicReportQuery(
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: buildOrderBy(domain, HC_SPECS, sortFieldId, sortDirection, 'arrival_timestamp'),
+        orderBy: buildOrderBy<Prisma.ZmccLocalSupplierArrivalOrderByWithRelationInput>(domain, HC_SPECS, sortFieldId, sortDirection, 'arrival_timestamp'),
         select: {
           id: true,
           zmcc_token: true,
@@ -589,11 +638,11 @@ export async function executeDynamicReportQuery(
   // DOMAIN 3: JOURNEY_RECONCILIATION
   // --------------------------------------------------------------------------
   else if (domain === 'JOURNEY_RECONCILIATION') {
-    const and: any[] = [];
+    const and: WhereNode[] = [];
     applyFilters(and, filters, JOURNEY_SPECS);
-    const where: any = {};
+    const where: Prisma.MotJourneyWhereInput = {};
     if (effectiveZmccId) where.zmcc_id = effectiveZmccId;
-    if (and.length > 0) where.AND = and;
+    if (and.length > 0) where.AND = and as Prisma.MotJourneyWhereInput[];
 
     const [count, totals, records] = await Promise.all([
       prisma.motJourney.count({ where }),
@@ -602,7 +651,7 @@ export async function executeDynamicReportQuery(
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: buildOrderBy(domain, JOURNEY_SPECS, sortFieldId, sortDirection, 'assigned_at'),
+        orderBy: buildOrderBy<Prisma.MotJourneyOrderByWithRelationInput>(domain, JOURNEY_SPECS, sortFieldId, sortDirection, 'assigned_at'),
         select: {
           id: true,
           journey_number: true,
@@ -627,10 +676,11 @@ export async function executeDynamicReportQuery(
       const shopLiters = j.collections
         .filter((c) => c.final_decision !== 'REJECTED')
         .reduce((sum, c) => sum + Number(c.gross_liters), 0);
-      // Not received yet: gate litres and loss are unknown, not zero.
+      // Not received yet: gate litres and the difference are unknown, not zero.
       const gateLiters = j.area_received_liters != null ? Number(j.area_received_liters) : null;
-      const lossLit = gateLiters !== null ? Number((shopLiters - gateLiters).toFixed(2)) : null;
-      const lossPct = lossLit !== null && shopLiters > 0 ? Number(((lossLit / shopLiters) * 100).toFixed(2)) : null;
+      // Signed difference = received minus collected: negative is a loss, positive a gain.
+      const diffLit = gateLiters !== null ? Number((gateLiters - shopLiters).toFixed(2)) : null;
+      const diffPct = diffLit !== null && shopLiters > 0 ? Number(((diffLit / shopLiters) * 100).toFixed(2)) : null;
 
       const planned = j._count.stops;
       const visited = j._count.collections;
@@ -650,8 +700,10 @@ export async function executeDynamicReportQuery(
         completion_rate: completionRate,
         shop_liters: Number(shopLiters.toFixed(2)),
         gate_liters: gateLiters !== null ? Number(gateLiters.toFixed(2)) : null,
-        loss_liters: lossLit,
-        loss_pct: lossPct,
+        route_diff_liters: diffLit,
+        route_diff_pct: diffPct,
+        route_loss_only_liters: diffLit !== null && diffLit < 0 ? -diffLit : null,
+        route_gain_only_liters: diffLit !== null && diffLit > 0 ? diffLit : null,
         dispatched_at: j.assigned_at.toISOString(),
         returned_at: j.mot_arrival?.arrival_timestamp?.toISOString() || null,
       };
@@ -663,7 +715,7 @@ export async function executeDynamicReportQuery(
   // A source has only a handful of tanks, so stock is computed for all of them and filtered, sorted and paged here.
   // --------------------------------------------------------------------------
   else if (domain === 'TANK_STORAGE') {
-    const where: any = {};
+    const where: Prisma.ZmccTankWhereInput = {};
     if (effectiveZmccId) where.zmcc_id = effectiveZmccId;
     // Active tanks only, unless the user filters on the state itself.
     if (!filters.some((f) => f.fieldId === 'is_active' && hasValue(f.value))) where.is_active = true;
@@ -681,7 +733,7 @@ export async function executeDynamicReportQuery(
       getBatchTankTodayMovements(tankIds, getPakistanDayWindow().start),
     ]);
 
-    let tankRows: Record<string, any>[] = tanks.map((t) => {
+    let tankRows: ReportRow[] = tanks.map((t) => {
       const cap = Number(t.capacity_liters);
       const today = todayMovements.get(t.id.toString());
       const stock = Number((physicalStocks.get(t.id.toString()) ?? 0).toFixed(2));
@@ -727,7 +779,7 @@ export async function executeDynamicReportQuery(
   else if (domain === 'PLANT_TRANSIT') {
     // A failed query throws to the caller: it must show as an error, never as made-up rows.
     const conditions = ['1=1'];
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (effectiveZmccId) {
       params.push(effectiveZmccId);
@@ -756,13 +808,13 @@ export async function executeDynamicReportQuery(
     const records = (await prisma.$queryRawUnsafe(
       `SELECT * FROM ${LIVE_PLANT_TRANSIT_SQL} WHERE ${whereSql} ORDER BY ${orderSql} LIMIT ${pageSize} OFFSET ${offset}`,
       ...params
-    )) as any[];
+    )) as TransitRecord[];
 
     const optionalNumber = (value: unknown) => (value != null ? Number(value) : null);
     rawRows = records.map((r) => {
-      // The stored variance is received minus sent, so a negative value is a loss and a gain is no loss.
+      // The stored difference is received minus sent: negative is a loss, positive a gain. It is shown as it is.
       const variance = optionalNumber(r.gross_variance_liters);
-      const variancePct = optionalNumber(r.gross_variance_percent);
+      const variance13 = optionalNumber(r.at_13ts_variance_liters);
 
       return {
         id: r.visit_id.toString(),
@@ -773,8 +825,12 @@ export async function executeDynamicReportQuery(
         dispatched_liters: optionalNumber(r.dispatch_gross_liters ?? r.sent_gross_liters),
         dispatched_13ts_liters: optionalNumber(r.dispatch_at_13ts_liters ?? r.sent_at_13ts_liters),
         plant_received_liters: optionalNumber(r.received_gross_liters),
-        transit_loss_liters: variance !== null ? Math.max(0, -variance) : null,
-        transit_loss_pct: variancePct !== null ? Math.max(0, -variancePct) : null,
+        transit_diff_liters: variance,
+        transit_diff_pct: optionalNumber(r.gross_variance_percent),
+        transit_diff_13ts_liters: variance13,
+        transit_diff_13ts_pct: optionalNumber(r.at_13ts_variance_percent),
+        transit_loss_only_liters: variance !== null && variance < 0 ? -variance : null,
+        transit_gain_only_liters: variance !== null && variance > 0 ? variance : null,
         status: r.current_status === 'COMPLETED' ? 'RECONCILED' : (r.current_status || 'IN_TRANSIT'),
       };
     });
@@ -786,7 +842,7 @@ export async function executeDynamicReportQuery(
   else if (domain === 'VEHICLE_DISPATCH') {
     dateRange = resolveVehicleDateRange(filters);
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: SqlParam[] = [];
     // The dispatch time range always comes first: it is the indexed condition.
     params.push(`${dateRange.from}T00:00:00.000+05:00`, `${addDays(dateRange.to, 1)}T00:00:00.000+05:00`);
     conditions.push("dispatched_at >= ($1::timestamptz AT TIME ZONE 'UTC')", "dispatched_at < ($2::timestamptz AT TIME ZONE 'UTC')");
@@ -819,10 +875,10 @@ export async function executeDynamicReportQuery(
     const records = (await prisma.$queryRawUnsafe(
       `SELECT visit_id, ${selectSql} FROM ${VEHICLE_VIEW_SQL} WHERE ${whereSql} ORDER BY ${orderSql} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
       ...params
-    )) as Record<string, any>[];
+    )) as Record<string, unknown>[];
 
     rawRows = records.map((r) => {
-      const row: Record<string, any> = { id: String(r.visit_id) };
+      const row: ReportRow = { id: String(r.visit_id) };
       for (const f of VEHICLE_DISPATCH_FIELDS) {
         const v = r[f.id];
         if (v === null || v === undefined) row[f.id] = null;
@@ -838,11 +894,11 @@ export async function executeDynamicReportQuery(
   // DOMAIN 6: QUALITY_SCREENING
   // --------------------------------------------------------------------------
   else {
-    const and: any[] = [];
+    const and: WhereNode[] = [];
     applyFilters(and, filters, QUALITY_SPECS, QUALITY_CUSTOM_FILTERS);
-    const where: any = { final_decision: { in: ['ACCEPTED', 'REJECTED'] } };
+    const where: Prisma.ZmccLabPortionWhereInput = { final_decision: { in: ['ACCEPTED', 'REJECTED'] } };
     if (effectiveZmccId) where.lab_session = { zmcc_id: effectiveZmccId };
-    if (and.length > 0) where.AND = and;
+    if (and.length > 0) where.AND = and as Prisma.ZmccLabPortionWhereInput[];
 
     const labResultSelect = { test_id: true, test_code_snapshot: true, test_name_snapshot: true, numeric_value: true } as const;
     const [count, totals, records] = await Promise.all([
@@ -852,7 +908,7 @@ export async function executeDynamicReportQuery(
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: buildOrderBy(domain, QUALITY_SPECS, sortFieldId, sortDirection, 'decided_at'),
+        orderBy: buildOrderBy<Prisma.ZmccLabPortionOrderByWithRelationInput>(domain, QUALITY_SPECS, sortFieldId, sortDirection, 'decided_at'),
         select: {
           id: true,
           decided_at: true,
@@ -977,7 +1033,10 @@ interface FilterSpec {
   path: string;
 }
 
-type CustomFilters = Record<string, (flt: DynamicFilterClause) => any>;
+/** A Prisma filter fragment built from a fixed field list. */
+type WhereNode = Record<string, unknown>;
+
+type CustomFilters = Record<string, (flt: DynamicFilterClause) => WhereNode>;
 
 const MOT_SPECS: Record<string, FilterSpec> = {
   collection_number: { kind: 'string', path: 'collection_number' },
@@ -1054,7 +1113,7 @@ const needSecond = (flt: DynamicFilterClause) => {
 };
 
 /** Prisma condition for one filter on one column. negate means the condition must be wrapped in NOT. */
-function scalarCondition(kind: FilterKind, flt: DynamicFilterClause): { cond: any; negate: boolean } {
+function scalarCondition(kind: FilterKind, flt: DynamicFilterClause): { cond: WhereNode; negate: boolean } {
   const op = flt.operator;
   const unsupported = () => new ReportRequestError('This filter does not fit the field.');
 
@@ -1109,25 +1168,25 @@ function scalarCondition(kind: FilterKind, flt: DynamicFilterClause): { cond: an
 }
 
 /** Wraps a column condition in the relations leading to it: ('route.name', c) gives { route: { name: c } }. */
-function nestPath(path: string, inner: any): any {
-  return path.split('.').reduceRight((acc, key) => ({ [key]: acc }), inner);
+function nestPath(path: string, inner: unknown): WhereNode {
+  return path.split('.').reduceRight<unknown>((acc, key) => ({ [key]: acc }), inner) as WhereNode;
 }
 
-function specNode(spec: FilterSpec, flt: DynamicFilterClause): any {
+function specNode(spec: FilterSpec, flt: DynamicFilterClause): WhereNode {
   const { cond, negate } = scalarCondition(spec.kind, flt);
   const node = nestPath(spec.path, cond);
   return negate ? { NOT: node } : node;
 }
 
 /** One text filter that may match any of several columns. */
-function anyOfNode(paths: string[], flt: DynamicFilterClause): any {
+function anyOfNode(paths: string[], flt: DynamicFilterClause): WhereNode {
   const { cond, negate } = scalarCondition('string', flt);
   const node = { OR: paths.map((p) => nestPath(p, cond)) };
   return negate ? { NOT: node } : node;
 }
 
 /** Every filter is its own AND member, so two filters on one field (a range) never overwrite each other. */
-function applyFilters(and: any[], filters: DynamicFilterClause[], specs: Record<string, FilterSpec>, custom: CustomFilters = {}) {
+function applyFilters(and: WhereNode[], filters: DynamicFilterClause[], specs: Record<string, FilterSpec>, custom: CustomFilters = {}) {
   for (const flt of filters) {
     if (!hasValue(flt.value)) continue;
     const handler = custom[flt.fieldId];
@@ -1142,17 +1201,17 @@ function applyFilters(and: any[], filters: DynamicFilterClause[], specs: Record<
 }
 
 /** Sort by the chosen column when the field is sortable and stored; id keeps the paging order stable. */
-function buildOrderBy(
+function buildOrderBy<T>(
   domain: ReportDomain,
   specs: Record<string, FilterSpec>,
   sortFieldId: string | undefined,
   sortDirection: 'asc' | 'desc' | undefined,
   defaultPath: string
-): any[] {
+): T[] {
   const dir = sortDirection === 'asc' ? 'asc' : 'desc';
   const def = DOMAIN_FIELD_MAP[domain].find((f) => f.id === sortFieldId && f.sortable !== false);
   const path = def && specs[def.id] ? specs[def.id].path : defaultPath;
-  return [nestPath(path, dir), { id: 'asc' }];
+  return [nestPath(path, dir), { id: 'asc' }] as unknown as T[];
 }
 
 // --- HC suppliers: lab result values live in result rows, the rest on the arrival -----------------
@@ -1161,7 +1220,7 @@ function hcCustomFilters(roles: Map<string, string>): CustomFilters {
   const idsFor = (role: string) => [...roles.entries()].filter(([, r]) => r === role).map(([id]) => BigInt(id));
   const ci = (v: string) => ({ contains: v, mode: 'insensitive' as const });
 
-  const resultNode = (match: any, flt: DynamicFilterClause) => {
+  const resultNode = (match: WhereNode, flt: DynamicFilterClause) => {
     const { cond, negate } = scalarCondition('number', flt);
     const node = { lab_session: { results: { some: { AND: [match, { numeric_value: cond }] } } } };
     return negate ? { NOT: node } : node;
@@ -1186,7 +1245,7 @@ function hcCustomFilters(roles: Map<string, string>): CustomFilters {
     rmr_number: (flt) => anyOfNode(['rmr_number', 'rmr_issuance.receipt_number'], flt),
     rmr_status: (flt) => {
       const v = String(flt.value);
-      const byStatus: Record<string, any> = {
+      const byStatus: Record<string, WhereNode> = {
         CANCELLED: { rmr_issuance: { is: { cancelled_at: { not: null } } } },
         ISSUED: { rmr_issuance: { is: { cancelled_at: null } } },
         RECORDED: { rmr_issuance: { is: null }, rmr_number: { not: null } },
@@ -1211,7 +1270,7 @@ const QUALITY_CUSTOM_FILTERS: CustomFilters = {
     const v = String(flt.value).trim();
     const lower = v.toLowerCase();
     const ci = { contains: v, mode: 'insensitive' as const };
-    const or: any[] = [
+    const or: WhereNode[] = [
       { lab_session: { local_supplier_arrival: { local_supplier: { local_supplier_code: ci } } } },
       { lab_session: { mot_arrival: { journey: { route: { route_code: ci } } } } },
     ];
@@ -1236,8 +1295,30 @@ interface SqlColumn {
 interface SqlContext {
   from: string;
   whereSql: string;
-  params: any[];
+  params: SqlParam[];
   columns: Record<string, SqlColumn>;
+}
+
+/** A value bound to a raw SQL parameter. */
+type SqlParam = string | number | bigint | string[] | number[];
+
+/** One row of the live plant transit view (numbers arrive as decimals, so they stay unknown until read). */
+interface TransitRecord {
+  visit_id: bigint | number;
+  visit_number: string | null;
+  vehicle_number: string | null;
+  zmcc_name: string | null;
+  operational_date: Date | string | null;
+  current_status: string | null;
+  dispatch_gross_liters: unknown;
+  sent_gross_liters: unknown;
+  dispatch_at_13ts_liters: unknown;
+  sent_at_13ts_liters: unknown;
+  received_gross_liters: unknown;
+  gross_variance_liters: unknown;
+  gross_variance_percent: unknown;
+  at_13ts_variance_liters: unknown;
+  at_13ts_variance_percent: unknown;
 }
 
 /** A timestamp stored as UTC (no zone) shown as Pakistan local time. */
@@ -1251,8 +1332,13 @@ const TRANSIT_SPECS: Record<string, SqlColumn> = {
   dispatched_liters: { kind: 'number', expr: 'COALESCE(dispatch_gross_liters, sent_gross_liters)' },
   dispatched_13ts_liters: { kind: 'number', expr: 'COALESCE(dispatch_at_13ts_liters, sent_at_13ts_liters)' },
   plant_received_liters: { kind: 'number', expr: 'received_gross_liters' },
-  transit_loss_liters: { kind: 'number', expr: 'GREATEST(0, -gross_variance_liters)' },
-  transit_loss_pct: { kind: 'number', expr: 'GREATEST(0, -gross_variance_percent)' },
+  // Signed: received minus dispatched, kept as stored so a gain is never turned into zero.
+  transit_diff_liters: { kind: 'number', expr: 'gross_variance_liters' },
+  transit_diff_pct: { kind: 'number', expr: 'gross_variance_percent' },
+  transit_diff_13ts_liters: { kind: 'number', expr: 'at_13ts_variance_liters' },
+  transit_diff_13ts_pct: { kind: 'number', expr: 'at_13ts_variance_percent' },
+  transit_loss_only_liters: { kind: 'number', expr: '(CASE WHEN gross_variance_liters < 0 THEN -gross_variance_liters END)' },
+  transit_gain_only_liters: { kind: 'number', expr: '(CASE WHEN gross_variance_liters > 0 THEN gross_variance_liters END)' },
   status: { kind: 'enum', expr: TRANSIT_STATUS_SQL },
 };
 
@@ -1314,6 +1400,10 @@ const VEHICLE_SPECS: Record<string, SqlColumn> = {
   gross_variance_percent: vehicleNumber('gross_variance_percent'),
   at_13ts_variance_liters: vehicleNumber('at_13ts_variance_liters'),
   at_13ts_variance_percent: vehicleNumber('at_13ts_variance_percent'),
+  gross_loss_only_liters: { kind: 'number', expr: '(CASE WHEN gross_variance_liters < 0 THEN -gross_variance_liters END)' },
+  gross_gain_only_liters: { kind: 'number', expr: '(CASE WHEN gross_variance_liters > 0 THEN gross_variance_liters END)' },
+  at_13ts_loss_only_liters: { kind: 'number', expr: '(CASE WHEN at_13ts_variance_liters < 0 THEN -at_13ts_variance_liters END)' },
+  at_13ts_gain_only_liters: { kind: 'number', expr: '(CASE WHEN at_13ts_variance_liters > 0 THEN at_13ts_variance_liters END)' },
   gate_in_at: vehicleTime('gate_in_at'),
   first_weight_at: vehicleTime('first_weight_at'),
   second_weight_at: vehicleTime('second_weight_at'),
@@ -1321,7 +1411,7 @@ const VEHICLE_SPECS: Record<string, SqlColumn> = {
   reconciled_at: vehicleTime('reconciled_at'),
 };
 
-const MAX_VEHICLE_RANGE_DAYS = 366;
+const MAX_VEHICLE_RANGE_DAYS = MAX_DATE_RANGE_DAYS;
 
 /** The calendar day n days after (or before) a YYYY-MM-DD day. */
 function addDays(day: string, n: number): string {
@@ -1334,7 +1424,7 @@ function addDays(day: string, n: number): string {
  * The Pakistan days a vehicle report covers, taken from the filters on the dispatch date.
  * With no date filter it is the last 30 days. More than 366 days is refused.
  */
-function resolveVehicleDateRange(filters: DynamicFilterClause[]): { from: string; to: string; defaulted: boolean } {
+function resolveVehicleDateRange(filters: DynamicFilterClause[], dateFieldIds: string[] = ['dispatch_date', 'dispatched_at']): { from: string; to: string; defaulted: boolean } {
   const today = getPakistanCalendarDate();
   const bound: { lo: string | null; hi: string | null } = { lo: null, hi: null };
   const lower = (d: string) => {
@@ -1344,7 +1434,7 @@ function resolveVehicleDateRange(filters: DynamicFilterClause[]): { from: string
     if (bound.hi === null || d < bound.hi) bound.hi = d;
   };
   for (const flt of filters) {
-    if ((flt.fieldId !== 'dispatch_date' && flt.fieldId !== 'dispatched_at') || !hasValue(flt.value)) continue;
+    if (!dateFieldIds.includes(flt.fieldId) || !hasValue(flt.value)) continue;
     const day = dayOf(flt.value);
     if (flt.operator === 'EQUALS') {
       lower(day);
@@ -1378,17 +1468,17 @@ function resolveVehicleDateRange(filters: DynamicFilterClause[]): { from: string
   if (from > to) throw new ReportRequestError('The start date is after the end date.');
   const days = Math.round((new Date(`${to}T00:00:00.000Z`).getTime() - new Date(`${from}T00:00:00.000Z`).getTime()) / 86400000) + 1;
   if (days > MAX_VEHICLE_RANGE_DAYS) {
-    throw new ReportRequestError(`Pick at most ${MAX_VEHICLE_RANGE_DAYS} days of dispatches. You picked ${days}.`);
+    throw new ReportRequestError(`Pick at most ${MAX_VEHICLE_RANGE_DAYS} days of dates. You picked ${days}.`);
   }
   return { from, to, defaulted };
 }
 
 /** SQL condition for one filter on a raw SQL domain; the values go in as bound parameters. */
-function sqlFilterClause(specs: Record<string, SqlColumn>, flt: DynamicFilterClause, params: any[]): string | null {
+function sqlFilterClause(specs: Record<string, SqlColumn>, flt: DynamicFilterClause, params: SqlParam[]): string | null {
   if (!hasValue(flt.value)) return null;
   const spec = Object.prototype.hasOwnProperty.call(specs, flt.fieldId) ? specs[flt.fieldId] : undefined;
   if (!spec) throw new ReportRequestError('This field cannot be filtered.');
-  const bind = (v: unknown) => {
+  const bind = (v: SqlParam) => {
     params.push(v);
     return `$${params.length}`;
   };
@@ -1473,7 +1563,11 @@ interface DomainKpiTotals {
   avgFat?: number | null;
   avgLr?: number | null;
   avgSnf?: number | null;
-  routeLossLiters?: number | null;
+  /** Route loss and gain over journeys already received: received minus collected, so a gain offsets a loss. */
+  routeNet?: number | null;
+  routeNetPct?: number | null;
+  routeGrossLoss?: number | null;
+  routeGrossGain?: number | null;
   /** Ready-made cards (the SQL domains add their own). */
   extra?: DynamicSummaryKpi[];
 }
@@ -1491,13 +1585,13 @@ function weightedAverage(pairs: Array<[number | null, number]>): number | null {
 }
 
 /** Litres grouped by each distinct reading (a bounded set), turned into a volume-weighted average. */
-function weightedFromGroups(groups: any[], field: string): number | null {
+function weightedFromGroups<K extends string>(groups: Array<Record<K, unknown> & { _sum: { gross_liters: unknown } }>, field: K): number | null {
   return weightedAverage(
     groups.map((g): [number | null, number] => [g[field] != null ? Number(g[field]) : null, Number(g._sum.gross_liters ?? 0)])
   );
 }
 
-async function getCollectionKpiTotals(where: any): Promise<DomainKpiTotals> {
+async function getCollectionKpiTotals(where: Prisma.MotShopCollectionWhereInput): Promise<DomainKpiTotals> {
   const [sums, byFat, byLr, bySnf] = await Promise.all([
     prisma.motShopCollection.aggregate({ where, _sum: { gross_liters: true, at_13ts_liters: true } }),
     prisma.motShopCollection.groupBy({ by: ['fat'], where, _sum: { gross_liters: true } }),
@@ -1513,7 +1607,7 @@ async function getCollectionKpiTotals(where: any): Promise<DomainKpiTotals> {
   };
 }
 
-async function getQualityKpiTotals(where: any): Promise<DomainKpiTotals> {
+async function getQualityKpiTotals(where: Prisma.ZmccLabPortionWhereInput): Promise<DomainKpiTotals> {
   const [sums, byFat, byLr, bySnf] = await Promise.all([
     prisma.zmccLabPortion.aggregate({ where, _sum: { gross_liters: true } }),
     prisma.zmccLabPortion.groupBy({ by: ['fat'], where, _sum: { gross_liters: true } }),
@@ -1528,18 +1622,45 @@ async function getQualityKpiTotals(where: any): Promise<DomainKpiTotals> {
   };
 }
 
-/** Route loss across journeys already received at the ZMCC: non-rejected shop litres minus received litres. */
-async function getJourneyKpiTotals(where: any): Promise<DomainKpiTotals> {
-  const received = { ...where, area_received_liters: { not: null } };
-  const [shop, gate] = await Promise.all([
-    prisma.motShopCollection.aggregate({
-      where: { journey: received, final_decision: { not: 'REJECTED' } },
-      _sum: { gross_liters: true },
-    }),
+/**
+ * Route loss and gain across journeys already received at the ZMCC: received litres minus non-rejected shop litres.
+ * The net adds gains and losses together; the gross figures need each journey, so they are skipped for a huge filter.
+ */
+async function getJourneyKpiTotals(where: Prisma.MotJourneyWhereInput): Promise<DomainKpiTotals> {
+  const received: Prisma.MotJourneyWhereInput = { ...where, area_received_liters: { not: null } };
+  const shopWhere: Prisma.MotShopCollectionWhereInput = { journey: received, final_decision: { not: 'REJECTED' } };
+  const [shop, gate, journeys] = await Promise.all([
+    prisma.motShopCollection.aggregate({ where: shopWhere, _sum: { gross_liters: true } }),
     prisma.motJourney.aggregate({ where: received, _sum: { area_received_liters: true } }),
+    prisma.motJourney.findMany({ where: received, select: { id: true, area_received_liters: true }, take: MAX_REPORT_ROWS + 1 }),
   ]);
-  if (gate._sum.area_received_liters == null) return { routeLossLiters: null };
-  return { routeLossLiters: Number(shop._sum.gross_liters ?? 0) - Number(gate._sum.area_received_liters) };
+  if (gate._sum.area_received_liters == null) return { routeNet: null };
+  const shopTotal = Number(shop._sum.gross_liters ?? 0);
+  const net = Number(gate._sum.area_received_liters) - shopTotal;
+  if (journeys.length > MAX_REPORT_ROWS) return { routeNet: net, routeNetPct: shopTotal > 0 ? (net / shopTotal) * 100 : null };
+
+  const perJourney = await prisma.motShopCollection.groupBy({ by: ['journey_id'], where: shopWhere, _sum: { gross_liters: true } });
+  const shopById = new Map(perJourney.map((g) => [g.journey_id.toString(), Number(g._sum.gross_liters ?? 0)]));
+  let loss = 0;
+  let gain = 0;
+  let sentWithDiff = 0;
+  let netWithDiff = 0;
+  for (const j of journeys) {
+    const sent = shopById.get(j.id.toString()) ?? 0;
+    const diff = Number(j.area_received_liters) - sent;
+    if (diff < 0) loss += -diff;
+    else if (diff > 0) gain += diff;
+    if (sent > 0) {
+      sentWithDiff += sent;
+      netWithDiff += diff;
+    }
+  }
+  return {
+    routeNet: net,
+    routeNetPct: sentWithDiff > 0 ? (netWithDiff / sentWithDiff) * 100 : null,
+    routeGrossLoss: loss,
+    routeGrossGain: gain,
+  };
 }
 
 function computeDynamicSummaryKpis(totalCount: number, totals: DomainKpiTotals): DynamicSummaryKpi[] {
@@ -1604,15 +1725,18 @@ function computeDynamicSummaryKpis(totalCount: number, totals: DomainKpiTotals):
     });
   }
 
-  // Loss
-  if (totals.routeLossLiters != null) {
-    kpis.push({
-      id: 'kpi-loss',
-      label: 'Total Route Loss',
-      value: Number(totals.routeLossLiters.toFixed(2)),
-      unit: 'L',
-      format: 'liters',
-    });
+  // Loss and gain: the net of both, then each side on its own
+  if (totals.routeNet != null) {
+    kpis.push({ id: 'kpi-loss-gain', label: 'Net Loss / Gain', value: Number(totals.routeNet.toFixed(2)), unit: 'L', format: 'liters', lossGain: 'net' });
+  }
+  if (totals.routeNetPct != null) {
+    kpis.push({ id: 'kpi-loss-gain-pct', label: 'Loss / Gain %', value: Number(totals.routeNetPct.toFixed(2)), unit: '%', format: 'percent', lossGain: 'net' });
+  }
+  if (totals.routeGrossLoss != null) {
+    kpis.push({ id: 'kpi-gross-loss', label: 'Gross Loss', value: Number(totals.routeGrossLoss.toFixed(2)), unit: 'L', format: 'liters', lossGain: 'loss_only' });
+  }
+  if (totals.routeGrossGain != null) {
+    kpis.push({ id: 'kpi-gross-gain', label: 'Gross Gain', value: Number(totals.routeGrossGain.toFixed(2)), unit: 'L', format: 'liters', lossGain: 'gain_only' });
   }
 
   if (totals.extra) kpis.push(...totals.extra);
@@ -1657,7 +1781,7 @@ function defaultAggregation(f: ReportFieldDefinition): AggregationType | null {
  * One figure over a set of rows. Missing values are skipped, never counted as zero.
  * An average of a ratio field is sum(numerator) / sum(denominator); an average of a weighted field is weighted by litres.
  */
-function aggregateValues(rows: Record<string, any>[], f: ReportFieldDefinition, agg: AggregationType): number | null {
+function aggregateValues(rows: ReportRow[], f: ReportFieldDefinition, agg: AggregationType): number | null {
   const values: number[] = [];
   for (const r of rows) {
     const n = finiteNumber(r[f.id]);
@@ -1690,13 +1814,13 @@ function aggregateValues(rows: Record<string, any>[], f: ReportFieldDefinition, 
 }
 
 /** One total for a column: a sum, or an average where a sum means nothing. Null when there is nothing to total. */
-function aggregateColumn(rows: Record<string, any>[], f: ReportFieldDefinition): number | null {
+function aggregateColumn(rows: ReportRow[], f: ReportFieldDefinition): number | null {
   const agg = defaultAggregation(f);
   return agg ? aggregateValues(rows, f, agg) : null;
 }
 
 /** One total per numeric selected field. */
-function computeColumnTotals(rows: Record<string, any>[], fields: ReportFieldDefinition[]): Record<string, number> {
+export function computeColumnTotals(rows: ReportRow[], fields: ReportFieldDefinition[]): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const f of fields) {
     const total = aggregateColumn(rows, f);
@@ -1706,13 +1830,13 @@ function computeColumnTotals(rows: Record<string, any>[], fields: ReportFieldDef
 }
 
 /** Groups the rows by one field (days, weeks or months for date fields) and totals each numeric selected field. */
-function computeGroupedSubtotals(
-  rows: Record<string, any>[],
+export function computeGroupedSubtotals(
+  rows: ReportRow[],
   groupField: ReportFieldDefinition,
   bucket: TimeBucket | undefined,
   fields: ReportFieldDefinition[]
 ): GroupedSubtotal[] {
-  const groups = new Map<string, Record<string, any>[]>();
+  const groups = new Map<string, ReportRow[]>();
   for (const r of rows) {
     const key = reportGroupKey(r[groupField.id], groupField.dataType, bucket);
     const list = groups.get(key);
@@ -1769,17 +1893,17 @@ function resolvePivot(pivot: PivotRequest, fields: ReportFieldDefinition[]): Piv
 }
 
 /** The figure of one pivot cell, row, column or the whole result. */
-function pivotValue(rows: Record<string, any>[], plan: PivotPlan): number | null {
+function pivotValue(rows: ReportRow[], plan: PivotPlan): number | null {
   if (!plan.metricField) return rows.length;
   return aggregateValues(rows, plan.metricField, plan.aggregation);
 }
 
 /** Pivot from rows already in memory (the Prisma domains). Columns beyond the top 49 become one "Other" column. */
-function computePivotFromRows(rows: Record<string, any>[], plan: PivotPlan): PivotResult {
-  const keyOf = (r: Record<string, any>, f: ReportFieldDefinition, bucket?: TimeBucket) => reportGroupKey(r[f.id], f.dataType, bucket);
+function computePivotFromRows(rows: ReportRow[], plan: PivotPlan): PivotResult {
+  const keyOf = (r: ReportRow, f: ReportFieldDefinition, bucket?: TimeBucket) => reportGroupKey(r[f.id], f.dataType, bucket);
 
-  const byRow = new Map<string, Record<string, any>[]>();
-  const byCol = new Map<string, Record<string, any>[]>();
+  const byRow = new Map<string, ReportRow[]>();
+  const byCol = new Map<string, ReportRow[]>();
   for (const r of rows) {
     const rk = keyOf(r, plan.rowField, plan.rowBucket);
     const ck = keyOf(r, plan.colField, plan.colBucket);
@@ -1798,7 +1922,7 @@ function computePivotFromRows(rows: Record<string, any>[], plan: PivotPlan): Piv
       .sort((a, b) => (b[1] ?? -Infinity) - (a[1] ?? -Infinity) || (a[0] < b[0] ? -1 : 1));
     keptCols = new Set(ranked.slice(0, MAX_PIVOT_COLUMNS - 1).map(([k]) => k));
   }
-  const colOf = (r: Record<string, any>) => {
+  const colOf = (r: ReportRow) => {
     const k = keyOf(r, plan.colField, plan.colBucket);
     return keptCols.has(k) ? k : 'Other';
   };
@@ -1809,11 +1933,11 @@ function computePivotFromRows(rows: Record<string, any>[], plan: PivotPlan): Piv
 
   const cells: Record<string, Record<string, number | null>> = {};
   const rowTotals: Record<string, number | null> = {};
-  const colRows = new Map<string, Record<string, any>[]>();
+  const colRows = new Map<string, ReportRow[]>();
   for (const rk of rowKeys) {
     const list = byRow.get(rk)!;
     rowTotals[rk] = pivotValue(list, plan);
-    const perCol = new Map<string, Record<string, any>[]>();
+    const perCol = new Map<string, ReportRow[]>();
     for (const r of list) {
       const ck = colOf(r);
       (perCol.get(ck) ?? perCol.set(ck, []).get(ck)!).push(r);
@@ -1902,7 +2026,7 @@ async function sqlGroupSubtotals(
   const rows = (await prisma.$queryRawUnsafe(
     `SELECT ${select} FROM ${ctx.from} WHERE ${ctx.whereSql} GROUP BY 1 ORDER BY 1 LIMIT ${MAX_GROUPS + 1}`,
     ...ctx.params
-  )) as Record<string, any>[];
+  )) as Record<string, unknown>[];
   if (rows.length > MAX_GROUPS) throw new ReportRequestError(tooManyGroupsMessage());
 
   return rows.map((r) => {
@@ -1920,7 +2044,7 @@ async function sqlColumnTotals(ctx: SqlContext, fields: ReportFieldDefinition[])
   const aggs = sqlFieldAggregates(ctx, fields);
   if (aggs.length === 0) return {};
   const select = aggs.map((a) => `${a.sql} AS ${a.alias}`).join(', ');
-  const rows = (await prisma.$queryRawUnsafe(`SELECT ${select} FROM ${ctx.from} WHERE ${ctx.whereSql}`, ...ctx.params)) as Record<string, any>[];
+  const rows = (await prisma.$queryRawUnsafe(`SELECT ${select} FROM ${ctx.from} WHERE ${ctx.whereSql}`, ...ctx.params)) as Record<string, unknown>[];
   const totals: Record<string, number> = {};
   for (const a of aggs) {
     const v = sqlNumber(rows[0]?.[a.alias]);
@@ -1929,30 +2053,45 @@ async function sqlColumnTotals(ctx: SqlContext, fields: ReportFieldDefinition[])
   return totals;
 }
 
-/** The KPI cards of a SQL domain: litres sent, litres received and the loss or variance. */
+/**
+ * The KPI cards of a SQL domain: litres sent, litres received, then the net loss or gain (received minus sent, so a gain
+ * offsets a loss), its percent of litres sent, and the gross loss and gross gain on their own.
+ */
 async function sqlSummaryKpis(ctx: SqlContext, domain: ReportDomain): Promise<DynamicSummaryKpi[]> {
-  const spec =
+  const fieldIds =
     domain === 'VEHICLE_DISPATCH'
-      ? [
-          { id: 'kpi-dispatched', label: 'Dispatched', fieldId: 'dispatch_gross_liters' },
-          { id: 'kpi-received', label: 'Plant Received', fieldId: 'received_gross_liters' },
-          { id: 'kpi-variance', label: 'Net Variance', fieldId: 'gross_variance_liters' },
-        ]
+      ? { sent: 'dispatch_gross_liters', received: 'received_gross_liters', diff: 'gross_variance_liters', loss: 'gross_loss_only_liters', gain: 'gross_gain_only_liters' }
       : domain === 'PLANT_TRANSIT'
-      ? [
-          { id: 'kpi-dispatched', label: 'Dispatched', fieldId: 'dispatched_liters' },
-          { id: 'kpi-received', label: 'Plant Received', fieldId: 'plant_received_liters' },
-          { id: 'kpi-transit-loss', label: 'Transit Loss', fieldId: 'transit_loss_liters' },
-        ]
-      : [];
-  if (spec.length === 0) return [];
-  const sums = spec.map((s, i) => `SUM(${sqlColumnOf(ctx, s.fieldId).expr})::float8 AS s${i}`).join(', ');
-  const rows = (await prisma.$queryRawUnsafe(`SELECT ${sums} FROM ${ctx.from} WHERE ${ctx.whereSql}`, ...ctx.params)) as Record<string, any>[];
+      ? { sent: 'dispatched_liters', received: 'plant_received_liters', diff: 'transit_diff_liters', loss: 'transit_loss_only_liters', gain: 'transit_gain_only_liters' }
+      : null;
+  if (!fieldIds) return [];
+  const expr = (key: keyof typeof fieldIds) => sqlColumnOf(ctx, fieldIds[key]).expr;
+  const diff = expr('diff');
+  const sent = expr('sent');
+  const ok = `${diff} IS NOT NULL AND ${sent} > 0`;
+  const select = [
+    `SUM(${sent})::float8 AS sent`,
+    `SUM(${expr('received')})::float8 AS received`,
+    `SUM(${diff})::float8 AS net`,
+    `SUM(${diff}) FILTER (WHERE ${ok})::float8 AS pct_num`,
+    `SUM(${sent}) FILTER (WHERE ${ok})::float8 AS pct_den`,
+    `SUM(${expr('loss')})::float8 AS loss`,
+    `SUM(${expr('gain')})::float8 AS gain`,
+  ].join(', ');
+  const rows = (await prisma.$queryRawUnsafe(`SELECT ${select} FROM ${ctx.from} WHERE ${ctx.whereSql}`, ...ctx.params)) as Record<string, unknown>[];
+  const r = rows[0] ?? {};
   const kpis: DynamicSummaryKpi[] = [];
-  spec.forEach((s, i) => {
-    const v = sqlNumber(rows[0]?.[`s${i}`]);
-    if (v !== null) kpis.push({ id: s.id, label: s.label, value: v, unit: 'L', format: 'liters' });
-  });
+  const add = (id: string, label: string, v: number | null, extra: Partial<DynamicSummaryKpi>) => {
+    if (v !== null) kpis.push({ id, label, value: v, unit: 'L', format: 'liters', ...extra });
+  };
+  add('kpi-dispatched', 'Dispatched', sqlNumber(r.sent), {});
+  add('kpi-received', 'Plant Received', sqlNumber(r.received), {});
+  add('kpi-loss-gain', 'Net Loss / Gain', sqlNumber(r.net), { lossGain: 'net' });
+  const num = sqlNumber(r.pct_num);
+  const den = sqlNumber(r.pct_den);
+  if (num !== null && den !== null && den > 0) add('kpi-loss-gain-pct', 'Loss / Gain %', roundTotal((num / den) * 100), { unit: '%', format: 'percent', lossGain: 'net' });
+  add('kpi-gross-loss', 'Gross Loss', sqlNumber(r.loss), { lossGain: 'loss_only' });
+  add('kpi-gross-gain', 'Gross Gain', sqlNumber(r.gain), { lossGain: 'gain_only' });
   return kpis;
 }
 
@@ -2044,12 +2183,18 @@ function formatKarachiDateTime(value: unknown): string {
 }
 
 /** The value a cell shows: numbers stay numbers, timestamps become Pakistan time, nothing becomes blank or a dash. */
-function exportCellValue(row: Record<string, any>, f: ReportFieldDefinition, blank: string): string | number | boolean | null {
+function exportCellValue(row: ReportRow, f: ReportFieldDefinition, blank: string): string | number | boolean | null {
   const val = row[f.id];
   if (val === null || val === undefined) return f.dataType === 'number' ? null : blank;
   if (f.dataType === 'datetime') return formatKarachiDateTime(val);
   if (typeof val === 'boolean') return val ? 'Active' : 'Inactive';
   return val;
+}
+
+/** The column heading in Excel and CSV. A net loss / gain column is one signed number: gain positive, loss negative. */
+function exportLabel(f: ReportFieldDefinition): string {
+  if (f.lossGain !== 'net') return f.label;
+  return `Gain (+) / Loss (-)${f.id.includes('13ts') ? ' @13 TS' : ''} ${f.format === 'percent' ? '%' : 'L'}`;
 }
 
 /** Every row matching the filters, read in chunks, with the same fields the table shows. */
@@ -2067,7 +2212,7 @@ async function collectExportRows(
     zmccId: req.zmccId,
   };
 
-  const rows: Record<string, any>[] = [];
+  const rows: ReportRow[] = [];
   let fields: ReportFieldDefinition[] = [];
   let total = 0;
   for (let page = 1; ; page++) {
@@ -2084,7 +2229,7 @@ async function collectExportRows(
 }
 
 /** The totals row: one value per column, or null where a total means nothing. */
-function exportTotals(fields: ReportFieldDefinition[], rows: Record<string, any>[]): Array<number | null> {
+function exportTotals(fields: ReportFieldDefinition[], rows: ReportRow[]): Array<number | null> {
   return fields.map((f) => (f.dataType === 'number' ? aggregateColumn(rows, f) : null));
 }
 
@@ -2148,7 +2293,7 @@ export async function generateDynamicExcelReport(
   ws.addRow([]);
 
   // Row 4: Column Headers
-  const headerRow = ws.addRow(fields.map((f) => f.label));
+  const headerRow = ws.addRow(fields.map(exportLabel));
   headerRow.height = 24;
   headerRow.eachCell((cell, colNumber) => {
     cell.fill = brandFill;
@@ -2160,6 +2305,8 @@ export async function generateDynamicExcelReport(
   });
 
   const numFmtFor = (f: ReportFieldDefinition | undefined): string | undefined => {
+    // Signed loss / gain: the header already says L or %, so the cell is a plain signed number that adds up.
+    if (f?.lossGain === 'net') return f.format === 'percent' ? '+0.00;[Red]-0.00;0.00' : '+#,##0.00;[Red]-#,##0.00;0.00';
     if (f?.format === 'liters') return '#,##0.00 "L"';
     if (f?.format === 'percent') return '0.00"%"';
     if (f?.format === 'temperature') return '0.0"°C"';
@@ -2201,7 +2348,7 @@ export async function generateDynamicExcelReport(
 
   // Auto-fit column widths
   fields.forEach((f, idx) => {
-    ws.getColumn(idx + 1).width = Math.max(f.label.length + 4, 14);
+    ws.getColumn(idx + 1).width = Math.max(exportLabel(f).length + 4, 14);
   });
 
   const buffer = await wb.xlsx.writeBuffer();
@@ -2224,7 +2371,7 @@ export async function generateDynamicCsvReport(
     return textCell(String(v));
   };
 
-  const headers = fields.map((f) => quote(f.label)).join(',');
+  const headers = fields.map((f) => quote(exportLabel(f))).join(',');
   const lines = queryRes.rows.map((row) => fields.map((f) => cell(exportCellValue(row, f, ''))).join(','));
 
   if (queryRes.rows.length > 0) {
