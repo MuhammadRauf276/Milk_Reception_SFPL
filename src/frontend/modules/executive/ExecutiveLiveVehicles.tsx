@@ -87,7 +87,7 @@ export function ExecutiveLiveVehicles({ showPhotos }: { showPhotos: boolean }) {
           </div>
           <p className="text-xs text-muted-foreground mt-1 tabular-nums">
             {isReport
-              ? 'One row per vehicle, dispatch to plant'
+              ? 'One row per vehicle, dispatch against plant'
               : fromDate && toDate
               ? `Dispatched ${formatOperationalDate(fromDate)} to ${formatOperationalDate(toDate)}, plus any still in the plant, all sources`
               : 'All sources'}

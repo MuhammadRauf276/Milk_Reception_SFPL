@@ -51,25 +51,30 @@ const decisionClass = (d: string) =>
     ? 'bg-amber-50 text-amber-800 border-amber-200'
     : 'bg-muted text-secondary-foreground border-border';
 
-/** Dispatch and plant in one cell, the difference under them, so one measure takes one column. */
+/** Dispatch, plant and their difference in one cell, each with its name, so one measure takes one column. */
 function Compare({ dispatch, plant, decimals = 2, suffix = '' }: { dispatch: number | null; plant: number | null; decimals?: number; suffix?: string }) {
   const show = (v: number | null) => (v == null ? EMPTY : `${v.toLocaleString(undefined, { maximumFractionDigits: decimals })}${suffix}`);
   const diff = dispatch != null && plant != null ? Math.round((plant - dispatch) * 10 ** decimals) / 10 ** decimals : null;
+  const diffClass = diff == null || diff === 0 ? 'text-muted-foreground' : diff < 0 ? 'text-rose-700' : 'text-emerald-700';
   return (
-    <div className="text-right leading-tight">
-      <div className="whitespace-nowrap">
-        <span className="text-secondary-foreground">{show(dispatch)}</span>
-        <span className="text-muted-foreground px-1">to</span>
-        <span className="font-semibold text-foreground">{show(plant)}</span>
-      </div>
-      {diff != null && (
-        <div className={`text-xs ${diff === 0 ? 'text-muted-foreground' : diff < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-          {diff > 0 ? '+' : ''}
-          {diff.toLocaleString(undefined, { maximumFractionDigits: decimals })}
-          {suffix}
-        </div>
-      )}
-    </div>
+    <table className="ml-auto text-xs leading-snug">
+      <tbody>
+        <tr>
+          <td className="pr-2 py-0 text-left text-muted-foreground">Dispatch</td>
+          <td className="py-0 text-right text-secondary-foreground">{show(dispatch)}</td>
+        </tr>
+        <tr>
+          <td className="pr-2 py-0 text-left text-muted-foreground">Plant</td>
+          <td className="py-0 text-right font-semibold text-foreground">{show(plant)}</td>
+        </tr>
+        <tr>
+          <td className="pr-2 py-0 text-left text-muted-foreground">Diff</td>
+          <td className={`py-0 text-right font-semibold ${diffClass}`}>
+            {diff == null ? EMPTY : `${diff > 0 ? '+' : ''}${diff.toLocaleString(undefined, { maximumFractionDigits: decimals })}${suffix}`}
+          </td>
+        </tr>
+      </tbody>
+    </table>
   );
 }
 
@@ -296,7 +301,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
               {totalRows.toLocaleString()} {totalRows === 1 ? 'vehicle' : 'vehicles'}
             </span>
             <InfoTip
-              text={`One row per vehicle. Each cell shows dispatch to plant, with the difference under it. A vehicle can have several compartments; Inspect shows each one. Up to ${REPORT_MAX_RANGE_DAYS} days at a time. Excel uses the same filters.`}
+              text={`One row per vehicle. Each cell shows the dispatch value, the plant value and the difference (plant minus dispatch). A vehicle can have several compartments; Inspect shows each one. Up to ${REPORT_MAX_RANGE_DAYS} days at a time. Excel uses the same filters.`}
             />
             <VehicleExcelButton getParams={() => rangeProblem ?? new URLSearchParams(filterParams)} />
           </div>
