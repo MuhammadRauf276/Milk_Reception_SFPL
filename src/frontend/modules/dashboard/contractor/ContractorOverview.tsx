@@ -19,6 +19,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
+import { QuantityStat } from '@/components/ui/quantity-stat';
 
 interface ContractorOverviewProps {
   logs: MilkProcessLog[];
@@ -215,10 +216,12 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
           value={summary?.completedVisits ?? metrics.completedReceiptsCount}
           hint="Verified silo receipts"
         />
-        <StatCard
-          label={pagination && pagination.totalPages > 1 ? 'Received gross (this page)' : 'Received gross'}
+        <QuantityStat
+          label={pagination && pagination.totalPages > 1 ? 'Received (this page)' : 'Received'}
           icon={Scale}
-          value={`${metrics.totalReceivedLiters.toLocaleString()} L`}
+          at13ts={metrics.totalReceivedAt13TsLiters}
+          gross={metrics.totalReceivedLiters}
+          missingAt13tsCount={metrics.receivedMissingAt13Ts}
           hint={pagination && pagination.totalPages > 1 ? `${visits.length} visits on this page` : 'From silo transactions'}
         />
       </div>

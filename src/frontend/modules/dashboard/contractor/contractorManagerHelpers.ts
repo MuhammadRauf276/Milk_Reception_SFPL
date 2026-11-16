@@ -260,6 +260,8 @@ export function buildContractorVehicleVisits(logs: MilkProcessLog[]): Contractor
 export function computeContractorOverview(visits: ContractorVehicleVisit[]): ContractorOverviewMetrics {
   let totalGrossLiters = 0;
   let totalReceivedLiters = 0;
+  let totalReceivedAt13Ts = 0;
+  let receivedMissingAt13Ts = 0;
   let activeInPlantCount = 0;
   let completedReceiptsCount = 0;
 
@@ -271,6 +273,8 @@ export function computeContractorOverview(visits: ContractorVehicleVisit[]): Con
     if (v.finalReceiptExists && v.authoritativeFinalLiters != null) {
       completedReceiptsCount++;
       totalReceivedLiters += v.authoritativeFinalLiters;
+      if (v.plantFinalAt13TsLiters != null) totalReceivedAt13Ts += v.plantFinalAt13TsLiters;
+      else receivedMissingAt13Ts++;
     } else if (v.status !== 'CANCELLED') {
       const reachedPlant = v.gateEntryTimestamp != null || v.journeyStage !== 'DISPATCHED';
       if (reachedPlant) {
@@ -285,6 +289,8 @@ export function computeContractorOverview(visits: ContractorVehicleVisit[]): Con
     completedReceiptsCount,
     totalReceivedLiters: Math.round(totalReceivedLiters * 100) / 100,
     totalGrossLiters: Math.round(totalGrossLiters * 100) / 100,
+    totalReceivedAt13TsLiters: Math.round(totalReceivedAt13Ts * 100) / 100,
+    receivedMissingAt13Ts,
   };
 }
 
@@ -324,6 +330,12 @@ export function computeContractorReceiptsMetrics(visits: ContractorVehicleVisit[
   let totalGrossDispatchedLiters = 0;
   let totalLitersVariance = 0;
   let hasVarianceRecords = false;
+  let recv13 = 0;
+  let recvMissing = 0;
+  let disp13 = 0;
+  let dispMissing = 0;
+  let net13 = 0;
+  let hasNet13 = false;
 
   for (const v of visits) {
     if (v.grossLiters != null) {
@@ -333,6 +345,14 @@ export function computeContractorReceiptsMetrics(visits: ContractorVehicleVisit[
     if (v.finalReceiptExists && v.authoritativeFinalLiters != null) {
       totalReceiptsCount++;
       totalAuthoritativeReceivedLiters += v.authoritativeFinalLiters;
+      if (v.plantFinalAt13TsLiters != null) recv13 += v.plantFinalAt13TsLiters;
+      else recvMissing++;
+      if (v.dispatch13TsLiters != null) disp13 += v.dispatch13TsLiters;
+      else dispMissing++;
+      if (v.at13TsVarianceLiters != null) {
+        net13 += v.at13TsVarianceLiters;
+        hasNet13 = true;
+      }
       if (v.litersVariance != null) {
         totalLitersVariance += v.litersVariance;
         hasVarianceRecords = true;
@@ -348,6 +368,11 @@ export function computeContractorReceiptsMetrics(visits: ContractorVehicleVisit[
     totalAuthoritativeReceivedLiters: Math.round(totalAuthoritativeReceivedLiters * 100) / 100,
     totalGrossDispatchedLiters: Math.round(totalGrossDispatchedLiters * 100) / 100,
     totalLitersVariance: hasVarianceRecords ? Math.round(totalLitersVariance * 100) / 100 : null,
+    totalAuthoritativeReceivedAt13TsLiters: Math.round(recv13 * 100) / 100,
+    receivedMissingAt13Ts: recvMissing,
+    totalDispatchedAt13TsLiters: Math.round(disp13 * 100) / 100,
+    dispatchedMissingAt13Ts: dispMissing,
+    netAt13TsVariance: hasNet13 ? Math.round(net13 * 100) / 100 : null,
   };
 }
 
@@ -361,6 +386,12 @@ export function computeContractorHistoryMetrics(visits: ContractorVehicleVisit[]
   let totalPendingReceipts = 0;
   let totalLitersVariance = 0;
   let hasVarianceRecords = false;
+  let recv13 = 0;
+  let recvMissing = 0;
+  let disp13 = 0;
+  let dispMissing = 0;
+  let net13 = 0;
+  let hasNet13 = false;
 
   for (const v of visits) {
     if (v.grossLiters != null) {
@@ -370,6 +401,14 @@ export function computeContractorHistoryMetrics(visits: ContractorVehicleVisit[]
     if (v.finalReceiptExists && v.authoritativeFinalLiters != null) {
       totalCompletedReceipts++;
       totalReceivedLiters += v.authoritativeFinalLiters;
+      if (v.plantFinalAt13TsLiters != null) recv13 += v.plantFinalAt13TsLiters;
+      else recvMissing++;
+      if (v.dispatch13TsLiters != null) disp13 += v.dispatch13TsLiters;
+      else dispMissing++;
+      if (v.at13TsVarianceLiters != null) {
+        net13 += v.at13TsVarianceLiters;
+        hasNet13 = true;
+      }
       if (v.litersVariance != null) {
         totalLitersVariance += v.litersVariance;
         hasVarianceRecords = true;
@@ -386,5 +425,10 @@ export function computeContractorHistoryMetrics(visits: ContractorVehicleVisit[]
     totalCompletedReceipts,
     totalPendingReceipts,
     netLitersVariance: hasVarianceRecords ? Math.round(totalLitersVariance * 100) / 100 : null,
+    totalReceivedAt13TsLiters: Math.round(recv13 * 100) / 100,
+    receivedMissingAt13Ts: recvMissing,
+    totalDispatchedAt13TsLiters: Math.round(disp13 * 100) / 100,
+    dispatchedMissingAt13Ts: dispMissing,
+    netAt13TsVariance: hasNet13 ? Math.round(net13 * 100) / 100 : null,
   };
 }

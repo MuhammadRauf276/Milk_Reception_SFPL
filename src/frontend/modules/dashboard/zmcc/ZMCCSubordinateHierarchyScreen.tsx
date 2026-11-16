@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { StatCard } from '@/components/ui/stat-card';
+import { QuantityStat } from '@/components/ui/quantity-stat';
 import { PageLoader } from '@/components/ui/spinner';
 import { getErrorMessage } from '@/lib/errors';
 import { toast } from '@/frontend/lib/appToast';
@@ -311,9 +312,11 @@ export function ZMCCSubordinateHierarchyScreen({
           icon={CheckCircle2}
           tone={summary.gpsVerifiedRate > 80 ? 'success' : 'warning'}
         />
-        <StatCard
+        <QuantityStat
           label="Today's Intake"
-          value={`${summary.todayIntakeLiters.toLocaleString()} L`}
+          at13ts={summary.todayIntakeAt13TsLiters}
+          gross={summary.todayIntakeLiters}
+          missingAt13tsCount={summary.todayIntakeMissingAt13Ts}
           hint="Field collection"
           icon={Milk}
           tone="info"

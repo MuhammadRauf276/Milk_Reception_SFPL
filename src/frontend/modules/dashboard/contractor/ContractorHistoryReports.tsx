@@ -25,6 +25,8 @@ import {
 import { getErrorMessage } from '@/lib/errors';
 import { useListPageSize } from '@/components/ui/pagination';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { QuantityStat } from '@/components/ui/quantity-stat';
+import { formatLossGain } from '@/lib/lossGain';
 
 interface ContractorHistoryReportsProps {
   initialLogs: MilkProcessLog[];
@@ -352,7 +354,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
             {totalPages > 1 ? (
               <span className="text-blue-700 font-semibold">Total visits</span>
             ) : (
-              <>Dispatched: <strong className="text-secondary-foreground tabular-nums">{metrics.totalDispatchedGrossLiters.toLocaleString()} L</strong></>
+              <>Dispatched @13 TS: <strong className="text-secondary-foreground tabular-nums">{metrics.totalDispatchedAt13TsLiters.toLocaleString()} L</strong>{metrics.dispatchedMissingAt13Ts > 0 ? ` (${metrics.dispatchedMissingAt13Ts} without tests)` : ''}</>
             )}
           </p>
         </div>
@@ -371,45 +373,25 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
           </p>
         </div>
 
-        {/* Total Received Liters */}
-        <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-blue-800 text-xs font-semibold">
-            <span>Received Vol {totalPages > 1 ? '(Current Page)' : ''}</span>
-            <Scale className="w-4 h-4 text-muted-foreground" />
-          </div>
-          <p className="text-2xl font-semibold text-blue-950 tabular-nums">
-            {metrics.totalReceivedLiters.toLocaleString()} L
-          </p>
-          <p className="text-xs text-blue-700 font-medium">
-            {totalPages > 1 ? `Page physical volume (${filteredVisits.length} visits)` : 'Authoritative physical volume'}
-          </p>
-        </div>
+        {/* Received @13 TS */}
+        <QuantityStat
+          label={`Received ${totalPages > 1 ? '(this page)' : ''}`.trim()}
+          icon={Scale}
+          at13ts={metrics.totalReceivedAt13TsLiters}
+          gross={metrics.totalReceivedLiters}
+          missingAt13tsCount={metrics.receivedMissingAt13Ts}
+        />
 
-        {/* Net Liters Variance */}
-        <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-secondary-foreground text-xs font-semibold">
-            <span>Net Variance {totalPages > 1 ? '(Current Page)' : ''}</span>
-            <ArrowRightLeft className="w-4 h-4 text-secondary-foreground" />
-          </div>
-          <p
-            className={`text-2xl font-semibold tabular-nums ${
-              metrics.netLitersVariance == null
-                ? 'text-muted-foreground'
-                : metrics.netLitersVariance < 0
-                ? 'text-rose-700'
-                : metrics.netLitersVariance > 0
-                ? 'text-emerald-700'
-                : 'text-foreground'
-            }`}
-          >
-            {metrics.netLitersVariance != null
-              ? `${metrics.netLitersVariance > 0 ? '+' : ''}${metrics.netLitersVariance.toLocaleString()} L`
-              : '—'}
-          </p>
-          <p className="text-xs text-muted-foreground font-medium">
-            {totalPages > 1 ? 'Page received vs dispatched' : 'Received vs Dispatched (L)'}
-          </p>
-        </div>
+        {/* Net @13 TS difference */}
+        <QuantityStat
+          label={`Net difference ${totalPages > 1 ? '(this page)' : ''}`.trim()}
+          icon={ArrowRightLeft}
+          at13ts={null}
+          valueText={metrics.netAt13TsVariance != null ? formatLossGain(metrics.netAt13TsVariance) : '—'}
+          tone={metrics.netAt13TsVariance != null && metrics.netAt13TsVariance < 0 ? 'danger' : 'default'}
+          gross={null}
+          hint={metrics.netLitersVariance != null ? `Gross ${formatLossGain(metrics.netLitersVariance)}` : undefined}
+        />
       </div>
 
       {/* 4. Historical Ledger Table */}

@@ -285,19 +285,32 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const intakeQuery = useQuery({
     queryKey: ['zmcc-manager', facilityId, 'accepted-intake', todayDate],
     queryFn: async ({ signal }) => {
-      const labData = await fetchJson<{ summary?: { totalGrossLiters?: unknown }; total?: number }>(
+      const labData = await fetchJson<{
+        summary?: { totalGrossLiters?: unknown; totalAt13TsLiters?: unknown; missingAt13TsCount?: unknown };
+        total?: number;
+      }>(
         `/api/zmcc/lab/history?date=${todayDate}&decision=ACCEPTED&page=1&pageSize=1`,
         { signal }
       ).catch(() => null);
       const totalGross = labData?.summary?.totalGrossLiters;
-      if (typeof totalGross === 'number') return Number(totalGross.toFixed(2));
-      if (labData?.total === 0) return 0;
+      const total13 = labData?.summary?.totalAt13TsLiters;
+      const missing = labData?.summary?.missingAt13TsCount;
+      if (typeof totalGross === 'number' || typeof total13 === 'number') {
+        return {
+          gross: typeof totalGross === 'number' ? Number(totalGross.toFixed(2)) : null,
+          at13ts: typeof total13 === 'number' ? Number(total13.toFixed(2)) : null,
+          missing: typeof missing === 'number' ? missing : 0,
+        };
+      }
+      if (labData?.total === 0) return { gross: 0, at13ts: 0, missing: 0 };
       return null;
     },
     enabled: needsOverviewStats,
     staleTime: 5 * 60_000,
   });
-  const todayAcceptedIntakeLiters = intakeQuery.data ?? null;
+  const todayAcceptedIntakeLiters = intakeQuery.data?.gross ?? null;
+  const todayAcceptedIntakeAt13Ts = intakeQuery.data?.at13ts ?? null;
+  const todayAcceptedIntakeMissing = intakeQuery.data?.missing ?? 0;
 
   const selectedVisitPortions = useMemo(() => {
     if (!selectedLog) return [];
@@ -367,6 +380,8 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
                 liveActiveInPlantCount={liveActiveInPlantCount}
                 zmccTankStock={zmccTankStock}
                 todayAcceptedIntakeLiters={todayAcceptedIntakeLiters}
+                todayAcceptedIntakeAt13Ts={todayAcceptedIntakeAt13Ts}
+                todayAcceptedIntakeMissing={todayAcceptedIntakeMissing}
                 vehiclesInsideZmccCount={vehiclesInsideZmccCount}
               />
             </div>

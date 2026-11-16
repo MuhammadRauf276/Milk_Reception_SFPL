@@ -5,7 +5,8 @@ import { getSupplyChainLossHierarchy } from '@/backend/services/lossCalculationS
 import { formatLossGainPercent, LOSS_GAIN_EXPORT_HEADER, LOSS_GAIN_EXPORT_PERCENT_HEADER } from '@/lib/lossGain';
 import { QaWarningEscalationService } from '@/backend/services/qaWarningEscalationService';
 import { writeAuditLog } from '@/backend/core/audit';
-import { calculateGrossLiters } from '@/backend/utils/milkFormulas';
+import { calculateAt13TSLiters, calculateGrossLiters } from '@/backend/utils/milkFormulas';
+import type { LossFigure } from '@/lib/lossGain';
 import { getPakistanDayWindow, plantVisitDateWhere, type DateBasis } from '@/backend/core/business-day';
 import { isHcSession } from '@/backend/services/zmccTankService';
 import type { ActingContext } from '@/types/acting';
@@ -105,6 +106,9 @@ export interface DailyReportData {
   kpis: {
     mot: {
       totalLiters: number;
+      /** @13 TS of the same collections. Collections without it are counted, never filled from gross. */
+      totalAt13tsLiters: number;
+      missing13tsCount: number;
       totalCollections: number;
       passedCount: number;
       warningCount: number;
@@ -115,6 +119,8 @@ export interface DailyReportData {
     };
     zmcc: {
       totalLiters: number;
+      totalAt13tsLiters: number;
+      missing13tsCount: number;
       totalPortions: number;
       passedCount: number;
       warningCount: number;
@@ -123,6 +129,8 @@ export interface DailyReportData {
     plantQa: {
       totalTankers: number;
       totalLiters: number;
+      totalAt13tsLiters: number;
+      missing13tsCount: number;
       acceptedCount: number;
       warningCount: number;
       rejectedCount: number;
@@ -149,6 +157,16 @@ export interface DailyReportData {
       tier3SignedAt13tsPercent: number;
       tier3SignedLiters: number;
       tier3SignedPercent: number;
+      /** The Loss / Gain levels for the day (null when the calculation could not run). */
+      levels: {
+        mot: LossFigure;
+        area: LossFigure;
+        transitAtZmcc: LossFigure;
+        transitOnRoad: LossFigure;
+        transitNet: LossFigure;
+        whole: LossFigure;
+        contractorTransit: LossFigure;
+      } | null;
     };
   };
   motCollections: MotCollectionReportItem[];
@@ -163,6 +181,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
   const endOfDay = new Date(`${targetDateStr}T23:59:59.999Z`);
   // startOfDay and endOfDay suit date-only columns. Timestamp columns hold real instants, so they use the Pakistan day.
   const pakistanDay = getPakistanDayWindow(targetDateStr);
+  if (filter.zmccId && !/^[0-9]{1,18}$/.test(String(filter.zmccId))) throw new Error('ZMCC id must be a number.');
   const zmccIdBigInt = filter.zmccId ? BigInt(filter.zmccId) : undefined;
 
   // All the day's reads start together; each takes only the columns the report shows.
@@ -210,6 +229,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
         lab_session_id: true,
         portion_number: true,
         gross_liters: true,
+        at_13ts_liters: true,
         quantity_value: true,
         quantity_unit: true,
         lr: true,
@@ -299,6 +319,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
             visit_number: true,
             vehicle_number: true,
             vehicle_dispatch_lr: true,
+            vehicle_dispatch_ts: true,
             procurement_source: { select: { name: true } },
           },
         },
@@ -309,12 +330,13 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       },
       orderBy: { portion_number: 'asc' },
     }),
-    // 5. Supply chain losses
+    // 5. Whole Loss / Gain and the levels under it
     getSupplyChainLossHierarchy({
       zmccId: zmccIdBigInt ? zmccIdBigInt.toString() : undefined,
       period: 'custom',
       from: targetDateStr,
       to: targetDateStr,
+      dateBasis: filter.dateBasis,
     }).then(
       (value) => ({ ok: true as const, value }),
       (error: unknown) => ({ ok: false as const, error })
@@ -323,6 +345,8 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
 
   const motCollections: MotCollectionReportItem[] = [];
   let motTotalLiters = 0;
+  let motTotal13ts = 0;
+  let motMissing13ts = 0;
   let motSumLr = 0;
   let motSumFat = 0;
   let motSumSnf = 0;
@@ -360,6 +384,8 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
     // Rejected milk stays listed with its verdict but is not intake, the same as the journey summary.
     if (!isRejected) {
       motTotalLiters += grossLiters;
+      if (c.at_13ts_liters == null) motMissing13ts++;
+      else motTotal13ts += at13ts;
       motSumLr += lr * grossLiters;
       motSumFat += fat * grossLiters;
       motSumSnf += snf * grossLiters;
@@ -389,6 +415,8 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
 
   const zmccPortions: ZmccPortionReportItem[] = [];
   let zmccTotalLiters = 0;
+  let zmccTotal13ts = 0;
+  let zmccMissing13ts = 0;
   let zmccPassed = 0;
   let zmccWarnings = 0;
   let zmccRejected = 0;
@@ -421,7 +449,11 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       }
     }
 
-    if (!isRejected) zmccTotalLiters += grossLiters ?? 0;
+    if (!isRejected) {
+      zmccTotalLiters += grossLiters ?? 0;
+      if (p.at_13ts_liters == null) zmccMissing13ts++;
+      else zmccTotal13ts += Number(p.at_13ts_liters);
+    }
 
     const arrivalType: 'MC' | 'HC' = isHcSession(p.lab_session?.arrival_type ?? '') ? 'HC' : 'MC';
     const tokenNo =
@@ -515,6 +547,8 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
 
   const plantQaVisits: PlantQaReportItem[] = [];
   let plantTotalLiters = 0;
+  let plantTotal13ts = 0;
+  let plantMissing13ts = 0;
   let plantAccepted = 0;
   let plantWarnings = 0;
   let plantRejected = 0;
@@ -529,7 +563,13 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       p.dispatch_quantity_unit,
       p.visit.vehicle_dispatch_lr != null ? Number(p.visit.vehicle_dispatch_lr) : null,
     );
-    if (p.plant_decision !== 'REJECTED') plantTotalLiters += grossLiters ?? 0;
+    if (p.plant_decision !== 'REJECTED') {
+      plantTotalLiters += grossLiters ?? 0;
+      // @13 TS needs the dispatch TS test; without it the portion is counted as missing, never filled from gross.
+      const dispatchTs = p.visit.vehicle_dispatch_ts != null ? Number(p.visit.vehicle_dispatch_ts) : null;
+      if (grossLiters == null || dispatchTs == null || !(dispatchTs > 0)) plantMissing13ts++;
+      else plantTotal13ts += calculateAt13TSLiters(grossLiters, dispatchTs);
+    }
     // By visit: one truck making two trips in a day is two tankers received.
     uniqueTankers.add(p.visit_id.toString());
 
@@ -591,7 +631,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
     });
   }
 
-  // 5. Supply Chain Losses
+  // 5. Whole Loss / Gain and its levels
   let lossSummary: DailyReportData['kpis']['losses'] = {
     tier1SignedAt13tsLiters: 0,
     tier1SignedAt13tsPercent: 0,
@@ -605,6 +645,7 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
     tier3SignedAt13tsPercent: 0,
     tier3SignedLiters: 0,
     tier3SignedPercent: 0,
+    levels: null,
   };
 
   try {
@@ -625,10 +666,19 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
         tier3SignedAt13tsPercent: s.tier3TransitLoss.signedVarianceAt13tsPercent,
         tier3SignedLiters: s.tier3TransitLoss.signedVarianceLiters,
         tier3SignedPercent: s.tier3TransitLoss.signedVariancePercent,
+        levels: {
+          mot: losses.levels.mot.total,
+          area: losses.levels.area.total,
+          transitAtZmcc: losses.levels.transit.atZmcc,
+          transitOnRoad: losses.levels.transit.onRoad,
+          transitNet: losses.levels.transit.net,
+          whole: { at13ts: losses.levels.whole.net.at13ts, gross: losses.levels.whole.net.gross, records: losses.levels.whole.byZmcc.length, missing13ts: 0 },
+          contractorTransit: losses.levels.contractorTransit.total,
+        },
       };
     }
   } catch (err) {
-    console.warn('Supply chain loss calculation fallback:', err);
+    console.warn('Whole loss calculation fallback:', err);
   }
 
   const approvedExCount = exceptions.filter((e) => e.decision === 'APPROVED').length;
@@ -642,6 +692,8 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
     kpis: {
       mot: {
         totalLiters: Math.round(motTotalLiters),
+        totalAt13tsLiters: Number(motTotal13ts.toFixed(2)),
+        missing13tsCount: motMissing13ts,
         totalCollections: motCollections.length,
         passedCount: motPassed,
         warningCount: motWarnings,
@@ -652,6 +704,8 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       },
       zmcc: {
         totalLiters: Math.round(zmccTotalLiters),
+        totalAt13tsLiters: Number(zmccTotal13ts.toFixed(2)),
+        missing13tsCount: zmccMissing13ts,
         totalPortions: zmccPortions.length,
         passedCount: zmccPassed,
         warningCount: zmccWarnings,
@@ -660,6 +714,8 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       plantQa: {
         totalTankers: uniqueTankers.size,
         totalLiters: Math.round(plantTotalLiters),
+        totalAt13tsLiters: Number(plantTotal13ts.toFixed(2)),
+        missing13tsCount: plantMissing13ts,
         acceptedCount: plantAccepted,
         warningCount: plantWarnings,
         rejectedCount: plantRejected,
@@ -745,9 +801,9 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
   s1.getCell('A6').value = '1. Stage Intake Volumes & Verdicts Summary';
   s1.getCell('A6').font = { bold: true, size: 11, color: { argb: 'FF0F172A' } };
 
-  s1.getRow(7).values = ['Stage', 'Intake Liters', 'Units/Entries', 'Passed', 'Warnings', 'Rejected', 'Success Rate'];
+  s1.getRow(7).values = ['Stage', '@13 TS Liters', 'Gross Liters', 'Missing @13 TS', 'Units/Entries', 'Passed', 'Warnings', 'Rejected', 'Success Rate'];
   s1.getRow(7).font = headerFont;
-  for (let c = 1; c <= 7; c++) {
+  for (let c = 1; c <= 9; c++) {
     const cell = s1.getRow(7).getCell(c);
     cell.fill = tableHeaderFill;
     cell.border = thinBorder;
@@ -756,7 +812,9 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
   const stageRows = [
     [
       'MOT Village Collections',
+      data.kpis.mot.totalAt13tsLiters,
       data.kpis.mot.totalLiters,
+      data.kpis.mot.missing13tsCount,
       data.kpis.mot.totalCollections,
       data.kpis.mot.passedCount,
       data.kpis.mot.warningCount,
@@ -767,7 +825,9 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
     ],
     [
       'ZMCC Reception Lab',
+      data.kpis.zmcc.totalAt13tsLiters,
       data.kpis.zmcc.totalLiters,
+      data.kpis.zmcc.missing13tsCount,
       data.kpis.zmcc.totalPortions,
       data.kpis.zmcc.passedCount,
       data.kpis.zmcc.warningCount,
@@ -778,7 +838,9 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
     ],
     [
       'Plant QA Reception',
+      data.kpis.plantQa.totalAt13tsLiters,
       data.kpis.plantQa.totalLiters,
+      data.kpis.plantQa.missing13tsCount,
       data.kpis.plantQa.totalTankers,
       data.kpis.plantQa.acceptedCount,
       data.kpis.plantQa.warningCount,
@@ -794,10 +856,11 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
     const row = s1.getRow(8 + idx);
     row.values = r;
     row.font = regularFont;
-    for (let c = 1; c <= 7; c++) {
+    for (let c = 1; c <= 9; c++) {
       const cell = row.getCell(c);
       cell.border = thinBorder;
-      if (c === 2) cell.numFmt = '#,##0';
+      if (c === 2) cell.numFmt = '#,##0.00';
+      if (c === 3) cell.numFmt = '#,##0';
     }
   });
 
@@ -825,11 +888,11 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
   exRow.font = regularFont;
   for (let c = 1; c <= 5; c++) exRow.getCell(c).border = thinBorder;
 
-  // Summary Table: Supply Chain Losses
-  s1.getCell('A18').value = '3. Supply Chain 3-Tier Loss / Gain';
+  // Summary Table: Whole Loss / Gain and the levels under it
+  s1.getCell('A18').value = '3. Loss / Gain Levels (Whole = MOT + Transit)';
   s1.getCell('A18').font = { bold: true, size: 11, color: { argb: 'FF0F172A' } };
 
-  s1.getRow(19).values = ['Tier Level', 'Description', 'Gain (+) / Loss (-) @13% TS L', 'Gain (+) / Loss (-) @13% TS %', LOSS_GAIN_EXPORT_HEADER, LOSS_GAIN_EXPORT_PERCENT_HEADER, 'Loss Alert At', 'Status'];
+  s1.getRow(19).values = ['Level', 'Part', 'Gain (+) / Loss (-) @13 TS L', 'Gain (+) / Loss (-) @13 TS %', LOSS_GAIN_EXPORT_HEADER, LOSS_GAIN_EXPORT_PERCENT_HEADER, 'Loss Alert At', 'Status'];
   s1.getRow(19).font = headerFont;
   for (let c = 1; c <= 8; c++) {
     const cell = s1.getRow(19).getCell(c);
@@ -838,11 +901,31 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
   }
 
   // Signed numbers (negative = loss) so a column adds up. The alert looks at loss only: a gain is never HIGH.
+  // The alert follows the @13 TS percent (the main figure), or gross when there is no @13 TS figure.
   const L = data.kpis.losses;
+  const levelRow = (level: string, part: string, f: LossFigure | undefined, limit: number | null): Array<string | number> => {
+    if (!f) return [level, part, '', '', '', '', limit === null ? '' : `${limit.toFixed(2)}%`, 'No data'];
+    const pct = f.at13ts.percent ?? f.gross.percent ?? 0;
+    return [
+      level,
+      part,
+      f.at13ts.signed,
+      (f.at13ts.percent ?? 0) / 100,
+      f.gross.signed,
+      (f.gross.percent ?? 0) / 100,
+      limit === null ? '' : `${limit.toFixed(2)}%`,
+      limit !== null && -pct > limit ? 'HIGH LOSS' : 'NORMAL',
+    ];
+  };
+  const lv = L.levels;
   const lossRows = [
-    ['Tier 1', 'MOT Route / Area (Shop vs ZMCC Gate)', L.tier1SignedAt13tsLiters, L.tier1SignedAt13tsPercent / 100, L.tier1SignedLiters, L.tier1SignedPercent / 100, '0.50%', -L.tier1SignedPercent > 0.5 ? 'HIGH LOSS' : 'NORMAL'],
-    ['Tier 2', 'ZMCC Process & Chilling', L.tier2SignedAt13tsLiters, L.tier2SignedAt13tsPercent / 100, L.tier2SignedLiters, L.tier2SignedPercent / 100, '0.75%', -L.tier2SignedPercent > 0.75 ? 'HIGH LOSS' : 'NORMAL'],
-    ['Tier 3', 'Road Transit (ZMCC to Plant)', L.tier3SignedAt13tsLiters, L.tier3SignedAt13tsPercent / 100, L.tier3SignedLiters, L.tier3SignedPercent / 100, '1.00%', -L.tier3SignedPercent > 1.0 ? 'HIGH LOSS' : 'NORMAL'],
+    levelRow('MOT Loss / Gain', 'Shops vs ZMCC gate', lv?.mot, 0.5),
+    levelRow('Area Loss / Gain', 'MOT per ZMCC', lv?.area, 0.5),
+    levelRow('Transit Loss / Gain', 'At ZMCC', lv?.transitAtZmcc, 0.75),
+    levelRow('Transit Loss / Gain', 'On road', lv?.transitOnRoad, 1.0),
+    levelRow('Transit Loss / Gain', 'Net (At ZMCC + On road)', lv?.transitNet, null),
+    levelRow('Whole Loss / Gain', 'Bought vs plant received', lv?.whole, null),
+    levelRow('Contractor Transit Loss / Gain', 'Not part of Whole', lv?.contractorTransit, 1.0),
   ];
 
   lossRows.forEach((r, idx) => {
@@ -857,7 +940,7 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
     }
   });
 
-  s1.columns = [{ width: 28 }, { width: 34 }, { width: 16 }, { width: 16 }, { width: 18 }, { width: 18 }, { width: 16 }, { width: 16 }];
+  s1.columns = [{ width: 30 }, { width: 34 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 16 }, { width: 16 }, { width: 14 }];
 
   // SHEET 2: MOT SHOP COLLECTIONS
   const s2 = workbook.addWorksheet('MOT Collections');
@@ -1145,12 +1228,14 @@ export async function sendSuperAdminDailyReportEmail(input: {
   const { recipients, date, note, reportData, actingContext } = input;
 
   const kpis = reportData.kpis;
+  const missingNote = (n: number) => (n > 0 ? ` (${n} without @13 TS)` : '');
+  const levelPercent = (f: LossFigure | undefined) => (f && f.at13ts.percent !== null ? formatLossGainPercent(f.at13ts.percent) : 'no data');
   const previewText = `Shakarganj Daily Quality & Operations Report (${date}):
-• MOT Village Intake: ${kpis.mot.totalLiters.toLocaleString()} L (${kpis.mot.totalCollections} collections, ${kpis.mot.warningCount} warnings, ${kpis.mot.rejectedCount} rejected)
-• ZMCC Lab Intake: ${kpis.zmcc.totalLiters.toLocaleString()} L (${kpis.zmcc.totalPortions} portions, ${kpis.zmcc.warningCount} warnings)
-• Plant QA Intake: ${kpis.plantQa.totalLiters.toLocaleString()} L (${kpis.plantQa.totalTankers} tankers, ${kpis.plantQa.mtdWarningEscalations} MTD escalations)
+• MOT Village Intake: ${kpis.mot.totalAt13tsLiters.toLocaleString()} L @13 TS, ${kpis.mot.totalLiters.toLocaleString()} L gross${missingNote(kpis.mot.missing13tsCount)} (${kpis.mot.totalCollections} collections, ${kpis.mot.warningCount} warnings, ${kpis.mot.rejectedCount} rejected)
+• ZMCC Lab Intake: ${kpis.zmcc.totalAt13tsLiters.toLocaleString()} L @13 TS, ${kpis.zmcc.totalLiters.toLocaleString()} L gross${missingNote(kpis.zmcc.missing13tsCount)} (${kpis.zmcc.totalPortions} portions, ${kpis.zmcc.warningCount} warnings)
+• Plant QA Intake: ${kpis.plantQa.totalAt13tsLiters.toLocaleString()} L @13 TS, ${kpis.plantQa.totalLiters.toLocaleString()} L gross${missingNote(kpis.plantQa.missing13tsCount)} (${kpis.plantQa.totalTankers} tankers, ${kpis.plantQa.mtdWarningEscalations} MTD escalations)
 • Exceptions Handled: ${kpis.exceptions.totalHandled} (${kpis.exceptions.approvedCount} approved, ${kpis.exceptions.rejectedCount} rejected)
-• Supply Chain Loss / Gain @13% TS: Tier 1: ${formatLossGainPercent(kpis.losses.tier1SignedAt13tsPercent)} | Tier 2: ${formatLossGainPercent(kpis.losses.tier2SignedAt13tsPercent)} | Tier 3: ${formatLossGainPercent(kpis.losses.tier3SignedAt13tsPercent)}
+• Loss / Gain @13 TS: MOT: ${levelPercent(kpis.losses.levels?.mot)} | Transit: ${levelPercent(kpis.losses.levels?.transitNet)} | Whole: ${levelPercent(kpis.losses.levels?.whole)}
 ${note ? `Note: ${note}` : ''}`;
 
   await writeAuditLog(prisma, {

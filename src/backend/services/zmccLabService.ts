@@ -3377,8 +3377,9 @@ export async function getLabHistory(
   const pageSize = Math.min(100, Math.max(1, Number(query.pageSize) || 50));
   const skip = (page - 1) * pageSize;
 
-  const [total, aggregate, items] = await Promise.all([
+  const [total, missingAt13Ts, aggregate, items] = await Promise.all([
     prisma.zmccLabSession.count({ where }),
+    prisma.zmccLabSession.count({ where: { AND: [where, { at_13ts_liters: null, gross_liters: { not: null } }] } }),
     prisma.zmccLabSession.aggregate({
       where,
       _sum: {
@@ -3462,6 +3463,7 @@ export async function getLabHistory(
           aggregate._sum.at_13ts_liters != null
             ? Number(aggregate._sum.at_13ts_liters)
             : null,
+        missingAt13TsCount: missingAt13Ts,
       },
       page,
       pageSize,

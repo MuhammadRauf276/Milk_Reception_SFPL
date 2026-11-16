@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { ErrorPopup } from '@/components/ui/error-popup';
 import { StatCard } from '@/components/ui/stat-card';
+import { QuantityStat } from '@/components/ui/quantity-stat';
+import { formatLossGain } from '@/lib/lossGain';
 import { TableWrapper } from '@/components/ui/table-wrapper';
 import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { formatTime } from '@/lib/format';
@@ -27,6 +29,9 @@ interface PlantQaComparisonRow {
   plantReceivedTime: string | null;
   dispatchedLiters: number | null;
   plantAcceptedLiters: number | null;
+  dispatched13Ts: number | null;
+  received13Ts: number | null;
+  variance13Ts: number | null;
   /** Signed: received minus dispatched, so a loss is negative and a gain is positive. */
   varianceLiters: number | null;
   variancePct: number | null;
@@ -48,6 +53,9 @@ interface PlantTransitApiRow {
   reconciled_at: string | null;
   current_status: string | null;
   dispatch_gross_liters: unknown;
+  dispatch_at_13ts_liters?: unknown;
+  received_at_13ts_liters?: unknown;
+  at_13ts_variance_liters?: unknown;
   sent_gross_liters: unknown;
   received_gross_liters: unknown;
   gross_variance_liters: unknown;
@@ -122,6 +130,9 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
         plantReceivedTime: r.reconciled_at ? formatTime(r.reconciled_at) : null,
         dispatchedLiters: dispatched,
         plantAcceptedLiters: received,
+        dispatched13Ts: numOrNull(r.dispatch_at_13ts_liters),
+        received13Ts: numOrNull(r.received_at_13ts_liters),
+        variance13Ts: numOrNull(r.at_13ts_variance_liters),
         varianceLiters,
         variancePct,
         dispatchFat: dFat,
@@ -149,6 +160,14 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
   const arrived = filteredRows.filter((r) => r.status !== 'IN_TRANSIT');
   const totalDispatched = filteredRows.reduce((s, r) => s + (r.dispatchedLiters ?? 0), 0);
   const totalReceived = arrived.reduce((s, r) => s + (r.plantAcceptedLiters ?? 0), 0);
+  const dispatched13Rows = filteredRows.filter((r) => r.dispatched13Ts != null);
+  const received13Rows = arrived.filter((r) => r.received13Ts != null);
+  const variance13Rows = arrived.filter((r) => r.variance13Ts != null);
+  const totalDispatched13 = dispatched13Rows.reduce((s, r) => s + (r.dispatched13Ts ?? 0), 0);
+  const totalReceived13 = received13Rows.reduce((s, r) => s + (r.received13Ts ?? 0), 0);
+  const totalVariance13 = variance13Rows.length > 0 ? variance13Rows.reduce((s, r) => s + (r.variance13Ts ?? 0), 0) : null;
+  const missingDispatched13 = filteredRows.length - dispatched13Rows.length;
+  const missingReceived13 = arrived.length - received13Rows.length;
   const withVariance = arrived.filter((r) => r.varianceLiters != null && r.dispatchedLiters != null);
   // Signed total: negative is a net loss, positive a net gain. In-transit rows are excluded.
   const totalVariance = withVariance.length > 0 ? withVariance.reduce((s, r) => s + (r.varianceLiters ?? 0), 0) : null;
@@ -172,20 +191,25 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
 
       {/* KPI Ribbon */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard
-          label="Total Dispatched"
-          value={<span>{totalDispatched.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">L</span></span>}
+        <QuantityStat
+          label="Total dispatched"
+          at13ts={totalDispatched13}
+          gross={totalDispatched}
+          missingAt13tsCount={missingDispatched13}
           hint="Across all filtered tankers"
         />
-        <StatCard
-          label="Plant Accepted"
-          value={<span>{totalReceived.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">L</span></span>}
+        <QuantityStat
+          label="Plant accepted"
+          at13ts={totalReceived13}
+          gross={totalReceived}
+          missingAt13tsCount={missingReceived13}
           hint="Weighbridge net weight truth"
         />
-        <StatCard
+        <QuantityStat
           label="Net Loss / Gain"
-          value={<LossGainValue value={totalVariance} unit="L" />}
-          hint={avgVariancePct != null ? `${formatLossGainText(avgVariancePct, '%')} of dispatched, arrived tankers only` : 'Arrived tankers only'}
+          at13ts={null}
+          valueText={totalVariance13 != null ? formatLossGain(totalVariance13) : '—'}
+          hint={avgVariancePct != null ? `Gross ${totalVariance != null ? formatLossGain(totalVariance) : '—'}. ${formatLossGainText(avgVariancePct, '%')} of dispatched, arrived tankers only` : 'Arrived tankers only'}
           tone={avgVariancePct != null && avgVariancePct < -LOSS_FLAG_PCT ? 'danger' : 'default'}
         />
         <StatCard

@@ -31,6 +31,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
+import { QuantityStat } from '@/components/ui/quantity-stat';
 
 interface ZMCCManagerOverviewProps {
   logs: MilkProcessLog[];
@@ -61,6 +62,8 @@ interface ZMCCManagerOverviewProps {
   liveActiveInPlantCount?: number | null;
   zmccTankStock?: number | null;
   todayAcceptedIntakeLiters?: number | null;
+  todayAcceptedIntakeAt13Ts?: number | null;
+  todayAcceptedIntakeMissing?: number;
   vehiclesInsideZmccCount?: number | null;
 }
 
@@ -79,6 +82,8 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
   liveActiveInPlantCount,
   zmccTankStock,
   todayAcceptedIntakeLiters,
+  todayAcceptedIntakeAt13Ts,
+  todayAcceptedIntakeMissing,
   vehiclesInsideZmccCount,
 }) => {
   const displayCalendarDate = serverCalendarDate || getPakistanCalendarDate(new Date());
@@ -156,11 +161,13 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             tone="info"
             value={zmccTankStock != null ? `${zmccTankStock.toLocaleString()} L` : '—'}
           />
-          <StatCard
+          <QuantityStat
             label="Accepted intake today"
             icon={CheckCircle2}
             tone="success"
-            value={todayAcceptedIntakeLiters != null ? `${todayAcceptedIntakeLiters.toLocaleString()} L` : '—'}
+            at13ts={todayAcceptedIntakeAt13Ts}
+            gross={todayAcceptedIntakeLiters}
+            missingAt13tsCount={todayAcceptedIntakeMissing}
           />
           <StatCard
             label="Dispatches to plant"
@@ -191,8 +198,52 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           <div className="bg-card border-border p-4 rounded-2xl border space-y-2">
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-semibold text-foreground flex items-center gap-2">
+                <FlaskConical className="w-4 h-4 text-muted-foreground" />
+                <span>Volume @13% TS</span>
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
+              <div>
+                <span className="text-xs text-muted-foreground font-sans block">Dispatch @13% TS</span>
+                <span className="font-semibold text-foreground">
+                  {metrics.totalDispatch13TsLiters != null
+                    ? `${metrics.totalDispatch13TsLiters.toLocaleString()} L`
+                    : '—'}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground font-sans block">Plant @13% TS</span>
+                <span className="font-semibold text-foreground">
+                  {metrics.totalPlant13TsLiters != null
+                    ? `${metrics.totalPlant13TsLiters.toLocaleString()} L`
+                    : '—'}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground font-sans block">TS variance</span>
+                <span
+                  className={`font-semibold ${
+                    metrics.tsDifferenceLiters == null
+                      ? 'text-muted-foreground'
+                      : metrics.tsDifferenceLiters >= 0
+                      ? 'text-emerald-800'
+                      : 'text-rose-800'
+                  }`}
+                >
+                  {metrics.tsDifferenceLiters == null
+                    ? '—'
+                    : metrics.tsDifferenceLiters > 0
+                    ? `+${metrics.tsDifferenceLiters.toLocaleString()} L`
+                    : `${metrics.tsDifferenceLiters.toLocaleString()} L`}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card border-border p-4 rounded-2xl border space-y-2">
+            <div className="flex items-center justify-between font-sans">
+              <span className="text-xs font-semibold text-foreground flex items-center gap-2">
                 <Scale className="w-4 h-4 text-muted-foreground" />
-                <span>Gross Volume</span>
+                <span>Gross and physical</span>
               </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
@@ -233,50 +284,6 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             </div>
           </div>
 
-          <div className="bg-card border-border p-4 rounded-2xl border space-y-2">
-            <div className="flex items-center justify-between font-sans">
-              <span className="text-xs font-semibold text-foreground flex items-center gap-2">
-                <FlaskConical className="w-4 h-4 text-muted-foreground" />
-                <span>Commercial Volume</span>
-              </span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
-              <div>
-                <span className="text-xs text-muted-foreground font-sans block">Dispatch @13% TS</span>
-                <span className="font-semibold text-foreground">
-                  {metrics.totalDispatch13TsLiters != null
-                    ? `${metrics.totalDispatch13TsLiters.toLocaleString()} L`
-                    : '—'}
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground font-sans block">Plant @13% TS</span>
-                <span className="font-semibold text-foreground">
-                  {metrics.totalPlant13TsLiters != null
-                    ? `${metrics.totalPlant13TsLiters.toLocaleString()} L`
-                    : '—'}
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground font-sans block">TS variance</span>
-                <span
-                  className={`font-semibold ${
-                    metrics.tsDifferenceLiters == null
-                      ? 'text-muted-foreground'
-                      : metrics.tsDifferenceLiters >= 0
-                      ? 'text-emerald-800'
-                      : 'text-rose-800'
-                  }`}
-                >
-                  {metrics.tsDifferenceLiters == null
-                    ? '—'
-                    : metrics.tsDifferenceLiters > 0
-                    ? `+${metrics.tsDifferenceLiters.toLocaleString()} L`
-                    : `${metrics.tsDifferenceLiters.toLocaleString()} L`}
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 

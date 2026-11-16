@@ -4,6 +4,8 @@ import React, { useState, useMemo } from 'react';
 import { MilkProcessLog } from '@backend/core/types';
 import { ContractorReceiptsMetrics, ContractorVehicleVisit } from './contractorManagerTypes';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
+import { QuantityStat } from '@/components/ui/quantity-stat';
+import { formatLossGain } from '@/lib/lossGain';
 import {
   buildContractorVehicleVisits,
   computeContractorReceiptsMetrics,
@@ -304,45 +306,24 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           </p>
         </div>
 
-        {/* Received Liters */}
-        <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-blue-800 text-xs font-semibold">
-            <span>Total Received Vol</span>
-            <Scale className="w-4 h-4 text-muted-foreground" />
-          </div>
-          <p className="text-2xl font-semibold text-blue-950 tabular-nums">
-            {metrics.totalAuthoritativeReceivedLiters.toLocaleString()} L
-          </p>
-          <p className="text-xs text-blue-700 font-medium">
-            Received volume
-          </p>
-        </div>
+        {/* Received @13 TS */}
+        <QuantityStat
+          label="Received"
+          icon={Scale}
+          at13ts={metrics.totalAuthoritativeReceivedAt13TsLiters}
+          gross={metrics.totalAuthoritativeReceivedLiters}
+          missingAt13tsCount={metrics.receivedMissingAt13Ts}
+        />
 
-        {/* Net Liters Variance */}
-        <div className="bg-card border-border p-5 rounded-2xl border shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-secondary-foreground text-xs font-semibold">
-            <span>Net Liters Variance</span>
-            <ArrowRightLeft className="w-4 h-4 text-secondary-foreground" />
-          </div>
-          <p
-            className={`text-2xl font-semibold tabular-nums ${
-              metrics.totalLitersVariance == null
-                ? 'text-muted-foreground'
-                : metrics.totalLitersVariance < 0
-                ? 'text-rose-700'
-                : metrics.totalLitersVariance > 0
-                ? 'text-emerald-700'
-                : 'text-foreground'
-            }`}
-          >
-            {metrics.totalLitersVariance != null
-              ? `${metrics.totalLitersVariance > 0 ? '+' : ''}${metrics.totalLitersVariance.toLocaleString()} L`
-              : '—'}
-          </p>
-          <p className="text-xs text-muted-foreground font-medium">
-            Received vs Dispatched (L)
-          </p>
-        </div>
+        {/* Net @13 TS difference */}
+        <QuantityStat
+          label="Net difference"
+          icon={ArrowRightLeft}
+          at13ts={null}
+          valueText={metrics.netAt13TsVariance != null ? formatLossGain(metrics.netAt13TsVariance) : '—'}
+          tone={metrics.netAt13TsVariance != null && metrics.netAt13TsVariance < 0 ? 'danger' : 'default'}
+          hint={metrics.totalLitersVariance != null ? `Gross ${formatLossGain(metrics.totalLitersVariance)}` : undefined}
+        />
       </div>
 
       {/* 3. Search & Filter Controls */}

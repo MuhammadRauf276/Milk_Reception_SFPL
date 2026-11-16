@@ -1,10 +1,27 @@
-import { getPakistanCalendarDate, parseDateBasis } from '@/backend/core/business-day';
-import { reportRangeError } from '@/backend/core/reportQuery';
+import { parseDateBasis } from '@/backend/core/business-day';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
-import { getSupplyChainLossHierarchy } from '@/backend/services/lossCalculationService';
+import { getSupplyChainLossHierarchy, parseLossQuery } from '@/backend/services/lossCalculationService';
 
+export const dynamic = 'force-dynamic';
+
+const ALLOWED_ROLES = [
+  'HEAD_OF_MPD',
+  'SUPER_ADMIN',
+  'EXECUTIVE_MANAGEMENT',
+  'FINANCE_ACCOUNTS',
+  'ZMCC_MANAGER',
+  'DATA_EXECUTIVE',
+  'QA_HEAD',
+  'ADMIN',
+];
+
+/**
+ * Loss / Gain: MOT, Area, Transit (At ZMCC, On road), Whole and Contractor Transit, with the older tier figures beside them.
+ * Filters: preset (TODAY, YESTERDAY, LAST_7, LAST_30, MTD) or from / to (Pakistan dates, up to 366 days), zmccIds,
+ * contractorIds, motProfileId. A ZMCC manager is always locked to their own ZMCC.
+ */
 export async function GET(req: Request) {
   const current = await getCurrentUser(req);
   if (!current) {
@@ -15,44 +32,22 @@ export async function GET(req: Request) {
     where: { id: BigInt(current.id) },
   });
 
-  const allowedRoles = [
-    'HEAD_OF_MPD',
-    'SUPER_ADMIN',
-    'EXECUTIVE_MANAGEMENT',
-    'FINANCE_ACCOUNTS',
-    'ZMCC_MANAGER',
-    'DATA_EXECUTIVE',
-    'QA_HEAD',
-    'ADMIN',
-  ];
-
-  if (!user || !allowedRoles.includes(user.role)) {
+  if (!user || !ALLOWED_ROLES.includes(user.role)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
 
   const searchParams = new URL(req.url).searchParams;
-  const rawPeriod = searchParams.get('period');
-  const period = (rawPeriod === 'wtd' || rawPeriod === 'mtd' || rawPeriod === 'custom') ? rawPeriod : 'today';
-  const from = searchParams.get('from') || undefined;
-  const to = searchParams.get('to') || undefined;
-
-  let zmccId: string | undefined = undefined;
-  if (user.role === 'ZMCC_MANAGER' && user.procurement_source_id) {
-    zmccId = user.procurement_source_id.toString();
-  } else if (searchParams.get('zmccId')) {
-    zmccId = searchParams.get('zmccId') || undefined;
-  }
-
-  const rangeError = period === 'custom' ? reportRangeError(from, to, getPakistanCalendarDate()) : null;
-  if (rangeError) return NextResponse.json({ error: rangeError }, { status: 400 });
+  const parsed = parseLossQuery(searchParams, {
+    role: user.role,
+    managerZmccId: user.procurement_source_id,
+    defaultPreset: 'LAST_30',
+  });
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
 
   try {
     const result = await getSupplyChainLossHierarchy({
-      period,
-      dateBasis: parseDateBasis(new URL(req.url).searchParams.get('basis')),
-      from,
-      to,
-      zmccId,
+      ...parsed.filters,
+      dateBasis: parseDateBasis(searchParams.get('basis')),
     });
 
     return NextResponse.json(result, {
@@ -61,7 +56,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unable to calculate supply chain loss report.';
+    const message = error instanceof Error ? error.message : 'Unable to calculate the loss report.';
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

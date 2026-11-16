@@ -3,7 +3,9 @@ import { withReportTimeout } from '@/backend/core/reportQuery';
 import { createTtlCache } from './ttlCache';
 import { writeAuditLog } from '@/backend/core/audit';
 import { prisma } from '@core/db';
-import { getSupplyChainLossHierarchy } from './lossCalculationService';
+import { getSupplyChainLossHierarchy, lossFilterCacheKey, type LossFilters } from './lossCalculationService';
+import type { LossFigure, LossPair } from '@/lib/lossGain';
+import type { LossFiltersEcho, LossLevels, WholeLines } from '@/backend/modules/management-reporting/lossLevelContracts';
 import { listZmccExitOutcomes } from './zmccManagerOverviewService';
 import { getTankPhysicalStock, getBatchTankPhysicalStock, getBatchTankCommercialStock } from './zmccTankService';
 import { getPakistanDayWindow } from '@core/business-day';
@@ -32,18 +34,38 @@ export interface LossTierTelemetry {
   grossGainLiters: number | null;
 }
 
+/** The Loss / Gain levels without their row lists: the figures the Command Center card shows. */
+export interface LossLevelsOverview {
+  filters: LossFiltersEcho;
+  mot: LossFigure;
+  area: LossFigure;
+  transit: { atZmcc: LossFigure; onRoad: LossFigure; net: LossFigure; highLossCount: number };
+  whole: { net: { at13ts: LossPair; gross: LossPair }; lines: WholeLines; reconciles: boolean };
+  contractorTransit: LossFigure;
+}
+
 export interface MpdExecutiveTelemetry {
   businessDate: string;
   calendarDate: string;
   summary: {
     totalIntakeLiters: number;
+    /** @13 TS of the intake records that have one; records without it are counted, never filled from gross. */
+    totalIntakeAt13tsLiters: number;
+    totalIntakeMissing13tsCount: number;
     weightedFatPercent: number | null;
     weightedLr: number | null;
     weightedSnfPercent: number | null;
     standardized13TsLiters: number | null;
     inTransitLiters: number;
     inTransitTankerCount: number;
-    /** Net result of the whole chain (gain minus loss), @13 TS main and gross beside it. */
+    inTransitAt13tsLiters: number;
+    inTransitMissing13tsCount: number;
+    /** Whole Loss / Gain (bought vs plant received): gain minus loss, @13 TS main and gross beside it. */
+    wholeSignedAt13tsLiters: number | null;
+    wholeSignedAt13tsPercent: number | null;
+    wholeSignedLiters: number | null;
+    wholeSignedPercent: number | null;
+    /** The older tier-based figures, kept until the screens move to the whole fields above. */
     supplyChainSignedAt13tsLiters: number | null;
     supplyChainSignedAt13tsPercent: number | null;
     supplyChainSignedLiters: number | null;
@@ -51,7 +73,9 @@ export interface MpdExecutiveTelemetry {
     activeZmccCount: number;
     activeContractorCount: number;
   };
-  /** Today's four-tier loss breakdown; null when the loss calculation could not run. */
+  /** The Loss / Gain levels for the chosen range (today unless a filter is sent); null when the calculation could not run. */
+  lossLevels: LossLevelsOverview | null;
+  /** The older four-tier breakdown (Tier 4 is Whole); null when the loss calculation could not run. */
   lossTiers: {
     tier1RouteLoss: LossTierTelemetry;
     tier2ZmccLoss: LossTierTelemetry;
@@ -97,6 +121,8 @@ export interface MpdExecutiveTelemetry {
     name: string;
     /** Gross liters received into ZMCC tanks today (lab-accepted milk). */
     intakeLiters: number;
+    intakeAt13tsLiters: number;
+    intakeMissing13tsCount: number;
     /** Current physical stock across the ZMCC's active tanks (inventory ledger). */
     siloStockLiters: number;
     /** Current commercial stock @13TS across the ZMCC's active tanks. */
@@ -105,6 +131,8 @@ export interface MpdExecutiveTelemetry {
     avgFatPercent: number | null;
     avgLr: number | null;
     dispatchedLiters: number;
+    dispatchedAt13tsLiters: number;
+    dispatchedMissing13tsCount: number;
     dispatchedTankerCount: number;
     isActive: boolean;
     /** Exit-outcome reporting (last 30 days): vehicles that left / were closed without full unloading. */
@@ -112,6 +140,8 @@ export interface MpdExecutiveTelemetry {
     pendingCloseRequestCount: number;
     /** Accepted by the lab but never received into a tank; excluded from loss. */
     acceptedNotReceivedLiters: number;
+    acceptedNotReceivedAt13tsLiters: number;
+    acceptedNotReceivedMissing13tsCount: number;
   }>;
   /** Today's received milk grouped by milk source (name always; ERP code only for owner/reporting roles). */
   intakeBySource: Array<{
@@ -121,13 +151,20 @@ export interface MpdExecutiveTelemetry {
     netKg: number;
     grossLiters: number;
     at13tsLiters: number;
+    missing13tsCount: number;
     avgLr: number | null;
     avgFatPercent: number | null;
     avgSnfPercent: number | null;
     avgTsPercent: number | null;
   }>;
   /** Totals of the exit-outcome counters across every ZMCC. */
-  exitOutcomes: { leftWithoutFullUnloading: number; pendingCloseRequests: number; acceptedNotReceivedLiters: number };
+  exitOutcomes: {
+    leftWithoutFullUnloading: number;
+    pendingCloseRequests: number;
+    acceptedNotReceivedLiters: number;
+    acceptedNotReceivedAt13tsLiters: number;
+    acceptedNotReceivedMissing13tsCount: number;
+  };
   plantContractors: Array<{
     id: string;
     code: string;
@@ -143,8 +180,13 @@ export interface MpdExecutiveTelemetry {
     villageShopRejectedLiters: number | null;
     villageShopRejectionPercent: number | null;
     zmccGateRejectedLiters: number;
+    /** @13 TS of the rejected milk that has tests; the rest is counted as missing. */
+    zmccGateRejectedAt13tsLiters: number;
+    zmccGateRejectedMissing13tsCount: number;
     zmccGateRejectionPercent: number | null;
     plantGateRejectedLiters: number;
+    plantGateRejectedAt13tsLiters: number;
+    plantGateRejectedMissing13tsCount: number;
     plantGateRejectionPercent: number | null;
     incidents: {
       formalinCount: number;
@@ -465,8 +507,8 @@ async function loadLastJourneyFixes(journeyIds: bigint[]) {
 
 /**
  * Command Center overview, shared between screens. Every open Command Center polls this every 30 s; the figures are
- * the same for everyone except the ERP code column, so one computation per variant is reused for a few seconds.
- * The cache is keyed by that variant only: the overview is not scoped to a ZMCC or a user.
+ * the same for everyone except the ERP code column and the Loss / Gain filter, so one computation per variant
+ * (ERP column + filter) is reused for a few seconds. Nothing else is scoped to a ZMCC or a user.
  */
 export const MPD_OVERVIEW_CACHE_TTL_MS = 15_000;
 const overviewCache = createTtlCache<MpdExecutiveTelemetry>({ ttlMs: MPD_OVERVIEW_CACHE_TTL_MS });
@@ -475,12 +517,35 @@ export function clearMpdExecutiveTelemetryCache(): void {
   overviewCache.clear();
 }
 
-export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boolean } = {}): Promise<MpdExecutiveTelemetry> {
-  return overviewCache.get(options.includeErpCode ? 'erp' : 'no-erp', () => computeMpdExecutiveTelemetry(options));
+export interface MpdOverviewOptions {
+  includeErpCode?: boolean;
+  /** Narrows only the Loss / Gain figures: range, ZMCCs, contractors, Mobile Tester. Default is today, every ZMCC. */
+  lossFilter?: LossFilters;
 }
 
-export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: boolean } = {}): Promise<MpdExecutiveTelemetry> {
-  // Same Pakistan day as the supply-chain loss service, so figures agree.
+export async function getMpdExecutiveTelemetry(options: MpdOverviewOptions = {}): Promise<MpdExecutiveTelemetry> {
+  const key = `${options.includeErpCode ? 'erp' : 'no-erp'}|${lossFilterCacheKey(options.lossFilter ?? { preset: 'TODAY' })}`;
+  return overviewCache.get(key, () => computeMpdExecutiveTelemetry(options));
+}
+
+function overviewOfLevels(levels: LossLevels): LossLevelsOverview {
+  return {
+    filters: levels.filters,
+    mot: levels.mot.total,
+    area: levels.area.total,
+    transit: {
+      atZmcc: levels.transit.atZmcc,
+      onRoad: levels.transit.onRoad,
+      net: levels.transit.net,
+      highLossCount: levels.transit.highLossCount,
+    },
+    whole: { net: levels.whole.net, lines: levels.whole.lines, reconciles: levels.whole.reconciles },
+    contractorTransit: levels.contractorTransit.total,
+  };
+}
+
+export async function computeMpdExecutiveTelemetry(options: MpdOverviewOptions = {}): Promise<MpdExecutiveTelemetry> {
+  // Same Pakistan day as the Loss / Gain service, so figures agree.
   const day = getPakistanDayWindow();
   const calendarDate = day.calendarDate;
   const today = { gte: day.start, lte: day.end };
@@ -555,7 +620,7 @@ export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: b
     // 5. ZMCC lab decisions made today
     prisma.zmccLabSession.findMany({
       where: { status: 'COMPLETED', completed_at: today },
-      select: { final_decision: true, decision: true, gross_liters: true },
+      select: { final_decision: true, decision: true, gross_liters: true, at_13ts_liters: true },
     }),
     // 6. Plant reception decisions made today
     prisma.visitPortion.findMany({
@@ -564,7 +629,7 @@ export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: b
         plant_decision: true,
         dispatch_quantity_value: true,
         dispatch_quantity_unit: true,
-        visit: { select: { vehicle_dispatch_density: true } },
+        visit: { select: { vehicle_dispatch_density: true, vehicle_dispatch_ts: true } },
       },
     }),
     // 7. Failed tests recorded today at dispatch, plant and ZMCC labs
@@ -581,21 +646,53 @@ export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: b
     }),
     listGovernanceOverrides(),
     listZmccExitOutcomes(),
-    getSupplyChainLossHierarchy({ period: 'today' }).catch(() => null),
+    getSupplyChainLossHierarchy({ preset: 'TODAY', ...(options.lossFilter ?? {}) }).catch(() => null),
   ]);
 
   // ZMCC centers
   const zmccSources = activeSources.filter((s) => s.source_type === 'ZMCC');
   const allTankIds = zmccSources.flatMap((z) => z.zmcc_tanks.map((t) => t.id));
-  const [tankStocks, tankCommercialStocks] = await Promise.all([
+  const exitItems = [...exitData.left, ...exitData.pending];
+  const exitSessionIds = [...new Set(exitItems.map((x) => x.sessionId))].map((id) => BigInt(id));
+  const [tankStocks, tankCommercialStocks, notReceivedPortions] = await Promise.all([
     getBatchTankPhysicalStock(allTankIds),
     getBatchTankCommercialStock(allTankIds),
+    // @13 TS of the milk accepted but never unloaded, from the portions' own tests.
+    exitSessionIds.length
+      ? prisma.zmccLabPortion.findMany({
+          where: { lab_session_id: { in: exitSessionIds }, final_decision: 'ACCEPTED', status: { notIn: ['WEIGHED', 'LOADED'] } },
+          select: { lab_session_id: true, gross_liters: true, ts: true, at_13ts_liters: true },
+        })
+      : Promise.resolve([]),
   ]);
+  const notReceivedBySession = new Map<string, { at13ts: number; missing: number }>();
+  for (const p of notReceivedPortions) {
+    const gross = toNumber(p.gross_liters);
+    const ts = toNumber(p.ts);
+    const stored = toNumber(p.at_13ts_liters);
+    const at13 = stored ?? (gross !== null && ts !== null && ts > 0 ? calculateAt13TSLiters(gross, ts) : null);
+    const entry = notReceivedBySession.get(p.lab_session_id.toString()) ?? { at13ts: 0, missing: 0 };
+    if (at13 === null) entry.missing += 1;
+    else entry.at13ts += at13;
+    notReceivedBySession.set(p.lab_session_id.toString(), entry);
+  }
+  const notReceived13 = (items: typeof exitItems) => {
+    let at13ts = 0;
+    let missing = 0;
+    for (const x of items) {
+      const e = notReceivedBySession.get(x.sessionId);
+      if (!e) continue;
+      at13ts += e.at13ts;
+      missing += e.missing;
+    }
+    return { at13ts: round(at13ts), missing };
+  };
 
   const zmccCenters = zmccSources.map((zmcc) => {
     const received = tankReceipts.filter((r) => r.zmcc_id === zmcc.id);
     const dispatched = zmcc.visits.map((v) => ({
       liters: toNumber(v.vehicle_dispatch_gross_liters) ?? 0,
+      at13ts: toNumber(v.vehicle_dispatch_at_13ts_liters),
       fat: toNumber(v.vehicle_dispatch_fat),
       lr: toNumber(v.vehicle_dispatch_lr),
     }));
@@ -608,25 +705,31 @@ export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: b
       code: zmcc.code,
       name: zmcc.name,
       intakeLiters: round(received.reduce((sum, r) => sum + (toNumber(r.gross_liters) ?? 0), 0)),
+      intakeAt13tsLiters: round(received.reduce((sum, r) => sum + (toNumber(r.at_13ts_liters) ?? 0), 0)),
+      intakeMissing13tsCount: received.filter((r) => toNumber(r.at_13ts_liters) === null).length,
       siloStockLiters: round(stock),
       siloStockAt13tsLiters: round(commercialStock),
       siloCapacityPercent: capacity > 0 ? Math.round((stock / capacity) * 100) : null,
       avgFatPercent: weightedMean(dispatched.map((d) => [d.fat, d.liters])),
       avgLr: weightedMean(dispatched.map((d) => [d.lr, d.liters])),
       dispatchedLiters: round(dispatched.reduce((sum, d) => sum + d.liters, 0)),
+      dispatchedAt13tsLiters: round(dispatched.reduce((sum, d) => sum + (d.at13ts ?? 0), 0)),
+      dispatchedMissing13tsCount: dispatched.filter((d) => d.at13ts === null).length,
       dispatchedTankerCount: dispatched.length,
       isActive: zmcc.is_active,
       leftWithoutFullUnloadingCount: exitData.left.filter((x) => x.zmccId === zmcc.id.toString()).length,
       pendingCloseRequestCount: exitData.pending.filter((x) => x.zmccId === zmcc.id.toString()).length,
       acceptedNotReceivedLiters: round(
-        [...exitData.left, ...exitData.pending].filter((x) => x.zmccId === zmcc.id.toString()).reduce((t, x) => t + x.acceptedNotReceivedLiters, 0)
+        exitItems.filter((x) => x.zmccId === zmcc.id.toString()).reduce((t, x) => t + x.acceptedNotReceivedLiters, 0)
       ),
+      acceptedNotReceivedAt13tsLiters: notReceived13(exitItems.filter((x) => x.zmccId === zmcc.id.toString())).at13ts,
+      acceptedNotReceivedMissing13tsCount: notReceived13(exitItems.filter((x) => x.zmccId === zmcc.id.toString())).missing,
     };
   });
 
   // Received milk by source (net kg from weighed portions via receipt quantity)
   const bySource = new Map<string, {
-    sourceId: string | null; sourceName: string; erpCode: string | null; netKg: number; gross: number; at13: number;
+    sourceId: string | null; sourceName: string; erpCode: string | null; netKg: number; gross: number; at13: number; missing13: number;
     lr: Array<[number | null, number]>; fat: Array<[number | null, number]>; snf: Array<[number | null, number]>; ts: Array<[number | null, number]>;
   }>();
   for (const r of tankReceipts) {
@@ -635,18 +738,19 @@ export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: b
     const netKg = toNumber(r.quantity_value) ?? 0;
     const entry = bySource.get(key) ?? {
       sourceId: r.milk_source_id ? r.milk_source_id.toString() : null, sourceName: name,
-      erpCode: options.includeErpCode ? r.milk_source?.erp_code ?? null : null, netKg: 0, gross: 0, at13: 0, lr: [], fat: [], snf: [], ts: [],
+      erpCode: options.includeErpCode ? r.milk_source?.erp_code ?? null : null, netKg: 0, gross: 0, at13: 0, missing13: 0, lr: [], fat: [], snf: [], ts: [],
     };
     entry.netKg += r.quantity_unit === 'KG' ? netKg : 0;
     entry.gross += toNumber(r.gross_liters) ?? 0;
     entry.at13 += toNumber(r.at_13ts_liters) ?? 0;
+    if (toNumber(r.at_13ts_liters) === null) entry.missing13 += 1;
     const w = r.quantity_unit === 'KG' ? netKg : toNumber(r.gross_liters) ?? 0;
     entry.lr.push([toNumber(r.lr), w]); entry.fat.push([toNumber(r.fat), w]); entry.snf.push([toNumber(r.snf), w]); entry.ts.push([toNumber(r.ts), w]);
     bySource.set(key, entry);
   }
   const intakeBySource = [...bySource.values()].map((e) => ({
     sourceId: e.sourceId, sourceName: e.sourceName, erpCode: e.erpCode,
-    netKg: round(e.netKg), grossLiters: round(e.gross), at13tsLiters: round(e.at13),
+    netKg: round(e.netKg), grossLiters: round(e.gross), at13tsLiters: round(e.at13), missing13tsCount: e.missing13,
     avgLr: weightedMean(e.lr), avgFatPercent: weightedMean(e.fat), avgSnfPercent: weightedMean(e.snf), avgTsPercent: weightedMean(e.ts),
   }));
 
@@ -732,6 +836,8 @@ export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: b
   ];
   const totalIntakeLiters = round(intakeRows.reduce((sum, r) => sum + r.liters, 0));
   const at13tsKnown = intakeRows.length > 0 && intakeRows.every((r) => r.at13ts !== null);
+  const intakeAt13ts = round(intakeRows.reduce((sum, r) => sum + (r.at13ts ?? 0), 0));
+  const intakeMissing13ts = intakeRows.filter((r) => r.at13ts === null).length;
 
   // Quality funnel
   const zmccTestedLiters = zmccLabSessionsToday.reduce((sum, s) => sum + (toNumber(s.gross_liters) ?? 0), 0);
@@ -744,6 +850,19 @@ export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: b
   }));
   const plantDecidedLiters = plantDecided.reduce((sum, p) => sum + p.liters, 0);
   const plantRejectedLiters = plantDecided.filter((p) => p.rejected).reduce((sum, p) => sum + p.liters, 0);
+  // @13 TS of rejected milk: only where a test (TS) exists; the rest is counted as missing, never taken from gross.
+  const rejectedLabSessions = zmccLabSessionsToday.filter((s) => (s.final_decision ?? s.decision) === 'REJECTED');
+  const zmccRejected13 = rejectedLabSessions.reduce((sum, s) => sum + (toNumber(s.at_13ts_liters) ?? 0), 0);
+  const zmccRejectedMissing13 = rejectedLabSessions.filter((s) => toNumber(s.at_13ts_liters) === null).length;
+  let plantRejected13 = 0;
+  let plantRejectedMissing13 = 0;
+  for (const p of plantPortionsToday) {
+    if (p.plant_decision !== 'REJECTED') continue;
+    const liters = portionLiters(p, toNumber(p.visit.vehicle_dispatch_density));
+    const ts = toNumber(p.visit.vehicle_dispatch_ts);
+    if (liters === null || ts === null || !(ts > 0)) plantRejectedMissing13 += 1;
+    else plantRejected13 += calculateAt13TSLiters(liters, ts);
+  }
 
   const incidents = { formalinCount: 0, ureaCount: 0, waterLowLrCount: 0, cobPositiveCount: 0 };
   for (const result of failedResultsToday.flat()) {
@@ -780,6 +899,8 @@ export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: b
   });
 
   const loss = lossData?.summary ?? null;
+  const levels = lossData?.levels ?? null;
+  const exitTotals13 = notReceived13(exitItems);
   const tier = (t: {
     lossLiters: number;
     lossPercent: number;
@@ -807,12 +928,20 @@ export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: b
     calendarDate,
     summary: {
       totalIntakeLiters,
+      totalIntakeAt13tsLiters: intakeAt13ts,
+      totalIntakeMissing13tsCount: intakeMissing13ts,
       weightedFatPercent: weightedMean(intakeRows.map((r) => [r.fat, r.liters])),
       weightedLr: weightedMean(intakeRows.map((r) => [r.lr, r.liters])),
       weightedSnfPercent: weightedMean(intakeRows.map((r) => [r.snf, r.liters])),
       standardized13TsLiters: at13tsKnown ? round(intakeRows.reduce((sum, r) => sum + (r.at13ts ?? 0), 0)) : null,
       inTransitLiters: round(inTransitTankers.reduce((sum, t) => sum + t.grossLiters, 0)),
       inTransitTankerCount: inTransitTankers.length,
+      inTransitAt13tsLiters: round(inTransitTankers.reduce((sum, t) => sum + (t.at13tsLiters ?? 0), 0)),
+      inTransitMissing13tsCount: inTransitTankers.filter((t) => t.at13tsLiters === null).length,
+      wholeSignedAt13tsLiters: levels ? round(levels.whole.net.at13ts.signed) : null,
+      wholeSignedAt13tsPercent: levels && levels.whole.net.at13ts.percent !== null ? round(levels.whole.net.at13ts.percent) : null,
+      wholeSignedLiters: levels ? round(levels.whole.net.gross.signed) : null,
+      wholeSignedPercent: levels && levels.whole.net.gross.percent !== null ? round(levels.whole.net.gross.percent) : null,
       supplyChainSignedAt13tsLiters: loss ? round(loss.tier4TotalLoss.signedVarianceAt13tsLiters) : null,
       supplyChainSignedAt13tsPercent: loss ? round(loss.tier4TotalLoss.signedVarianceAt13tsPercent) : null,
       supplyChainSignedLiters: loss ? round(loss.tier4TotalLoss.signedVarianceLiters) : null,
@@ -820,6 +949,7 @@ export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: b
       activeZmccCount: zmccCenters.length,
       activeContractorCount: plantContractors.length,
     },
+    lossLevels: levels ? overviewOfLevels(levels) : null,
     lossTiers: loss
       ? {
           tier1RouteLoss: tier(loss.tier1RouteLoss),
@@ -835,15 +965,21 @@ export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: b
     exitOutcomes: {
       leftWithoutFullUnloading: exitData.left.length,
       pendingCloseRequests: exitData.pending.length,
-      acceptedNotReceivedLiters: round([...exitData.left, ...exitData.pending].reduce((t, x) => t + x.acceptedNotReceivedLiters, 0)),
+      acceptedNotReceivedLiters: round(exitItems.reduce((t, x) => t + x.acceptedNotReceivedLiters, 0)),
+      acceptedNotReceivedAt13tsLiters: exitTotals13.at13ts,
+      acceptedNotReceivedMissing13tsCount: exitTotals13.missing,
     },
     plantContractors,
     qualityFunnel: {
       villageShopRejectedLiters: null,
       villageShopRejectionPercent: null,
       zmccGateRejectedLiters: round(zmccRejectedLiters),
+      zmccGateRejectedAt13tsLiters: round(zmccRejected13),
+      zmccGateRejectedMissing13tsCount: zmccRejectedMissing13,
       zmccGateRejectionPercent: percentOf(zmccRejectedLiters, zmccTestedLiters),
       plantGateRejectedLiters: round(plantRejectedLiters),
+      plantGateRejectedAt13tsLiters: round(plantRejected13),
+      plantGateRejectedMissing13tsCount: plantRejectedMissing13,
       plantGateRejectionPercent: percentOf(plantRejectedLiters, plantDecidedLiters),
       incidents,
     },

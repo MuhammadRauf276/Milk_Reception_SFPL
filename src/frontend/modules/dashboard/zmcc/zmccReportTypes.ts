@@ -86,6 +86,8 @@ export interface ZmccHierarchyReport {
     dormantShops: number;
     gpsVerifiedRate: number;
     todayIntakeLiters: number;
+    todayIntakeAt13TsLiters?: number;
+    todayIntakeMissingAt13Ts?: number;
     activeMotCount: number;
     activeHcSupplierCount: number;
   };

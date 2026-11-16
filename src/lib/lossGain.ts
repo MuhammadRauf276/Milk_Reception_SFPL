@@ -114,3 +114,125 @@ export function totalLossGain(records: Array<{ sent: number | null | undefined; 
     records: count,
   };
 }
+
+// ---------------------------------------------------------------------------------------------------------
+// Level figures. Sums are kept in whole hundredths of a litre, so a net always equals the sum of its parts
+// exactly (no floating-point drift): Whole = MOT + Transit holds to the last digit.
+// ---------------------------------------------------------------------------------------------------------
+
+export const toCents = (n: number | null | undefined): number =>
+  n == null || !Number.isFinite(n) ? 0 : Math.round(n * 100);
+export const fromCents = (c: number): number => c / 100;
+
+/** One stage pair, received minus sent. Percent is the net over what was sent (null when nothing was sent). */
+export interface LossPair {
+  sent: number;
+  received: number;
+  /** Net signed difference: received minus sent (negative = loss). */
+  signed: number;
+  percent: number | null;
+  /** Each record's own loss added up (positive number), beside the net. */
+  lossSum: number;
+  /** Each record's own gain added up. */
+  gainSum: number;
+}
+
+/** @13 TS is the main figure; gross sits beside it. */
+export interface LossFigure {
+  at13ts: LossPair;
+  gross: LossPair;
+  records: number;
+  /** Records where an @13 TS figure is missing on either side. Gross is never substituted for it. */
+  missing13ts: number;
+}
+
+export interface PairTotals {
+  sent: number;
+  received: number;
+  loss: number;
+  gain: number;
+}
+
+export function emptyPairTotals(): PairTotals {
+  return { sent: 0, received: 0, loss: 0, gain: 0 };
+}
+
+/** Adds one record (in litres) to running totals kept in hundredths. */
+export function addToPairTotals(t: PairTotals, sent: number | null | undefined, received: number | null | undefined): void {
+  const s = toCents(sent);
+  const r = toCents(received);
+  t.sent += s;
+  t.received += r;
+  const d = r - s;
+  if (d < 0) t.loss += -d;
+  else t.gain += d;
+}
+
+/** Adds a whole pre-summed group (hundredths already) so a parent can be built from its children. */
+export function mergePairTotals(into: PairTotals, from: PairTotals): void {
+  into.sent += from.sent;
+  into.received += from.received;
+  into.loss += from.loss;
+  into.gain += from.gain;
+}
+
+export function pairFromTotals(t: PairTotals): LossPair {
+  const signedC = t.received - t.sent;
+  const sent = fromCents(t.sent);
+  const signed = fromCents(signedC);
+  return {
+    sent,
+    received: fromCents(t.received),
+    signed,
+    percent: signedPercent(signed, sent),
+    lossSum: fromCents(t.loss),
+    gainSum: fromCents(t.gain),
+  };
+}
+
+/** A pair built from a sent amount and a signed net (received = sent + signed), both in hundredths. */
+export function pairFromSigned(sentCents: number, signedCents: number, lossCents = 0, gainCents = 0): LossPair {
+  const sent = fromCents(sentCents);
+  const signed = fromCents(signedCents);
+  return {
+    sent,
+    received: fromCents(sentCents + signedCents),
+    signed,
+    percent: signedPercent(signed, sent),
+    lossSum: fromCents(lossCents),
+    gainSum: fromCents(gainCents),
+  };
+}
+
+export interface FigureTotals {
+  at13ts: PairTotals;
+  gross: PairTotals;
+  records: number;
+  missing13ts: number;
+}
+
+export function emptyFigureTotals(): FigureTotals {
+  return { at13ts: emptyPairTotals(), gross: emptyPairTotals(), records: 0, missing13ts: 0 };
+}
+
+/** One record: gross both sides, and @13 TS both sides (null = not recorded: counted missing, never taken from gross). */
+export function addToFigureTotals(
+  f: FigureTotals,
+  rec: { sentGross: number | null | undefined; receivedGross: number | null | undefined; sent13ts: number | null | undefined; received13ts: number | null | undefined },
+): void {
+  addToPairTotals(f.gross, rec.sentGross, rec.receivedGross);
+  addToPairTotals(f.at13ts, rec.sent13ts, rec.received13ts);
+  f.records += 1;
+  if (rec.sent13ts == null || rec.received13ts == null) f.missing13ts += 1;
+}
+
+export function mergeFigureTotals(into: FigureTotals, from: FigureTotals): void {
+  mergePairTotals(into.gross, from.gross);
+  mergePairTotals(into.at13ts, from.at13ts);
+  into.records += from.records;
+  into.missing13ts += from.missing13ts;
+}
+
+export function figureFromTotals(f: FigureTotals): LossFigure {
+  return { at13ts: pairFromTotals(f.at13ts), gross: pairFromTotals(f.gross), records: f.records, missing13ts: f.missing13ts };
+}

@@ -5,8 +5,23 @@ import { prisma } from '@/backend/core/db';
 import {
   getSupplyChainLossHierarchy,
   generateLossReconciliationExcel,
+  parseLossQuery,
 } from '@/backend/services/lossCalculationService';
 
+export const dynamic = 'force-dynamic';
+
+const ALLOWED_ROLES = [
+  'HEAD_OF_MPD',
+  'SUPER_ADMIN',
+  'EXECUTIVE_MANAGEMENT',
+  'FINANCE_ACCOUNTS',
+  'ZMCC_MANAGER',
+  'DATA_EXECUTIVE',
+  'QA_HEAD',
+  'ADMIN',
+];
+
+/** The same filters as the report itself; one sheet per level plus a Summary. */
 export async function GET(req: Request) {
   const current = await getCurrentUser(req);
   if (!current) {
@@ -17,44 +32,26 @@ export async function GET(req: Request) {
     where: { id: BigInt(current.id) },
   });
 
-  const allowedRoles = [
-    'HEAD_OF_MPD',
-    'SUPER_ADMIN',
-    'FINANCE_ACCOUNTS',
-    'ZMCC_MANAGER',
-    'DATA_EXECUTIVE',
-    'QA_HEAD',
-    'ADMIN',
-  ];
-
-  if (!user || !allowedRoles.includes(user.role)) {
+  if (!user || !ALLOWED_ROLES.includes(user.role)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
 
   const searchParams = new URL(req.url).searchParams;
-  const rawPeriod = searchParams.get('period');
-  const period = (rawPeriod === 'wtd' || rawPeriod === 'mtd' || rawPeriod === 'custom') ? rawPeriod : 'today';
-  const from = searchParams.get('from') || undefined;
-  const to = searchParams.get('to') || undefined;
-
-  let zmccId: string | undefined = undefined;
-  if (user.role === 'ZMCC_MANAGER' && user.procurement_source_id) {
-    zmccId = user.procurement_source_id.toString();
-  } else if (searchParams.get('zmccId')) {
-    zmccId = searchParams.get('zmccId') || undefined;
-  }
+  const parsed = parseLossQuery(searchParams, {
+    role: user.role,
+    managerZmccId: user.procurement_source_id,
+    defaultPreset: 'LAST_30',
+  });
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
 
   try {
     const data = await getSupplyChainLossHierarchy({
-      period,
-      dateBasis: parseDateBasis(new URL(req.url).searchParams.get('basis')),
-      from,
-      to,
-      zmccId,
+      ...parsed.filters,
+      dateBasis: parseDateBasis(searchParams.get('basis')),
     });
 
     const excelBuffer = await generateLossReconciliationExcel(data);
-    const filename = `Loss_Reconciliation_Report_${period.toUpperCase()}_${data.summary.startDate}_${data.summary.endDate}.xlsx`;
+    const filename = `Loss_Gain_Report_${data.levels.filters.from}_${data.levels.filters.to}.xlsx`;
 
     return new Response(new Uint8Array(excelBuffer), {
       status: 200,

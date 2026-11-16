@@ -15,6 +15,7 @@ import {
 } from './components/BIChartCards';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { StatCard } from '@/components/ui/stat-card';
+import { QuantityStat } from '@/components/ui/quantity-stat';
 import { PageLoader } from '@/components/ui/spinner';
 import { getErrorMessage } from '@/lib/errors';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
@@ -269,19 +270,13 @@ export function ZMCCDynamicBIAnalyticsScreen({
 
       {/* Executive KPI Ribbon */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3">
-        <StatCard
+        <QuantityStat
           label="Total Procured"
-          value={`${summaryKpis.totalProcuredLiters.toLocaleString()} L`}
+          at13ts={summaryKpis.standardized13TsLiters}
+          gross={summaryKpis.totalProcuredLiters}
           hint={summaryKpis.intakeVarianceVsPriorPct != null ? `${summaryKpis.intakeVarianceVsPriorPct >= 0 ? '+' : ''}${summaryKpis.intakeVarianceVsPriorPct}% vs previous period` : 'No earlier period to compare'}
           icon={TrendingUp}
           tone="info"
-        />
-        <StatCard
-          label="13% TS Standard"
-          value={`${summaryKpis.standardized13TsLiters.toLocaleString()} L`}
-          hint="Normalized solids"
-          icon={FlaskConical}
-          tone="success"
         />
         <StatCard
           label="Weighted Fat"

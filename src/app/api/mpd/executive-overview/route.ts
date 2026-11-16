@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
 import { getMpdExecutiveTelemetry } from '@/backend/services/mpdExecutiveService';
 import { getErrorMessage } from '@/lib/errors';
+import { parseLossQuery } from '@/backend/services/lossCalculationService';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +42,17 @@ export async function GET(req: Request) {
       );
     }
 
+    // The Loss / Gain figures follow the same filters as the Loss / Gain report; today and every ZMCC when none are sent.
+    // A ZMCC manager's loss figures are always their own ZMCC.
+    const parsed = parseLossQuery(new URL(req.url).searchParams, {
+      role: user.role,
+      managerZmccId: user.procurement_source_id,
+      defaultPreset: 'TODAY',
+    });
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+
     const telemetry = await getMpdExecutiveTelemetry({
+      lossFilter: parsed.filters,
       // ERP codes are visible to the owner/reporting roles only.
       includeErpCode: ['SUPER_ADMIN', 'HEAD_OF_MPD', 'DATA_EXECUTIVE', 'DATA_ANALYST'].includes(user.role),
     });

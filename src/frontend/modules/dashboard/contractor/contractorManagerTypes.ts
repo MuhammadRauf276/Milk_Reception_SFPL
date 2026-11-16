@@ -13,6 +13,10 @@ export interface ContractorOverviewMetrics {
   completedReceiptsCount: number;
   totalReceivedLiters: number;
   totalGrossLiters: number;
+  /** Received @13 TS litres over completed receipts that have a test. Never gross. */
+  totalReceivedAt13TsLiters: number;
+  /** Completed receipts with no @13 TS figure. */
+  receivedMissingAt13Ts: number;
 }
 
 export interface ContractorQualityMetrics {
@@ -29,6 +33,12 @@ export interface ContractorReceiptsMetrics {
   totalAuthoritativeReceivedLiters: number;
   totalGrossDispatchedLiters: number;
   totalLitersVariance: number | null;
+  totalAuthoritativeReceivedAt13TsLiters: number;
+  receivedMissingAt13Ts: number;
+  totalDispatchedAt13TsLiters: number;
+  dispatchedMissingAt13Ts: number;
+  /** Net @13 TS difference, plant minus dispatch, over receipts with both figures. */
+  netAt13TsVariance: number | null;
 }
 
 export interface ContractorHistoryMetrics {
@@ -38,6 +48,11 @@ export interface ContractorHistoryMetrics {
   totalCompletedReceipts: number;
   totalPendingReceipts: number;
   netLitersVariance: number | null;
+  totalReceivedAt13TsLiters: number;
+  receivedMissingAt13Ts: number;
+  totalDispatchedAt13TsLiters: number;
+  dispatchedMissingAt13Ts: number;
+  netAt13TsVariance: number | null;
 }
 
 export type ContractorJourneyStage =

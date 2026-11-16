@@ -24,6 +24,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/loaders';
+import { QuantityStat } from '@/components/ui/quantity-stat';
+import { formatLossGain } from '@/lib/lossGain';
 import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { ErrorPopup } from '@/components/ui/error-popup';
 
@@ -123,54 +125,23 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
               {showKpiPlaceholders ? '—' : summary.completedReceiptCount}
             </span>
           </div>
-          <div className="bg-card border-border p-3 rounded-lg border">
-            <span className="text-xs font-sans text-emerald-700 block font-semibold">Physical Received Liters</span>
-            <span className="text-lg font-semibold text-emerald-800">
-              {showKpiPlaceholders
-                ? '—'
-                : summary.pairedComparison.finalPhysicalReceivedLiters != null
-                ? `${summary.pairedComparison.finalPhysicalReceivedLiters.toLocaleString()} L`
-                : '—'}
-            </span>
-          </div>
-          <div className="bg-card border-border p-3 rounded-lg border">
-            <span className="text-xs font-sans text-blue-700 block font-semibold">Dispatch Gross Liters</span>
-            <span className="text-lg font-semibold text-blue-800">
-              {showKpiPlaceholders
-                ? '—'
-                : summary.pairedComparison.dispatchGrossLiters != null
-                ? `${summary.pairedComparison.dispatchGrossLiters.toLocaleString()} L`
-                : '—'}
-            </span>
-          </div>
-          <div className="bg-card border-border p-3 rounded-lg border">
-            <span className="text-xs font-sans text-secondary-foreground block font-semibold">Quantity Difference</span>
-            <span
-              className={`text-lg font-semibold ${
-                showKpiPlaceholders || summary.pairedComparison.differenceLiters == null
-                  ? 'text-foreground'
-                  : summary.pairedComparison.differenceLiters >= 0
-                  ? 'text-emerald-800'
-                  : 'text-rose-800'
-              }`}
-            >
-              {showKpiPlaceholders
-                ? '—'
-                : summary.pairedComparison.differenceLiters != null
-                ? `${summary.pairedComparison.differenceLiters > 0 ? '+' : ''}${summary.pairedComparison.differenceLiters.toLocaleString()} L`
-                : '—'}
-            </span>
-          </div>
-          <div className="bg-card border-border p-3 rounded-lg border">
-            <span className="text-xs font-sans text-blue-700 block font-semibold">Final Liters @ 13% TS</span>
-            <span className="text-lg font-semibold text-blue-900">
-              {showKpiPlaceholders
-                ? '—'
-                : summary.pairedComparison.plant13TsLiters != null
-                ? `${summary.pairedComparison.plant13TsLiters.toLocaleString()} L`
-                : '—'}
-            </span>
-          </div>
+          <QuantityStat
+            label="Final received"
+            at13ts={showKpiPlaceholders ? null : summary.pairedComparison.plant13TsLiters}
+            gross={showKpiPlaceholders ? null : summary.pairedComparison.finalPhysicalReceivedLiters}
+          />
+          <QuantityStat
+            label="Dispatched"
+            at13ts={showKpiPlaceholders ? null : summary.pairedComparison.dispatch13TsLiters}
+            gross={showKpiPlaceholders ? null : summary.pairedComparison.dispatchGrossLiters}
+          />
+          <QuantityStat
+            label="Quantity difference"
+            at13ts={null}
+            valueText={showKpiPlaceholders || summary.pairedComparison.tsDifferenceLiters == null ? '—' : formatLossGain(summary.pairedComparison.tsDifferenceLiters)}
+            tone={!showKpiPlaceholders && summary.pairedComparison.tsDifferenceLiters != null && summary.pairedComparison.tsDifferenceLiters < 0 ? 'danger' : 'default'}
+            hint={showKpiPlaceholders || summary.pairedComparison.differenceLiters == null ? undefined : `Gross ${formatLossGain(summary.pairedComparison.differenceLiters)}`}
+          />
           <div className="bg-card border-border p-3 rounded-lg border">
             <span className="text-xs font-sans text-amber-700 block font-semibold">Receipt Pending</span>
             <span className="text-lg font-semibold text-amber-800">

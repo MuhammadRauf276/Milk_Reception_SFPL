@@ -101,6 +101,8 @@ export interface ZmccHierarchyReport {
     dormantShops: number;
     gpsVerifiedRate: number;
     todayIntakeLiters: number;
+    todayIntakeAt13TsLiters: number;
+    todayIntakeMissingAt13Ts: number;
     activeMotCount: number;
     activeHcSupplierCount: number;
   };
@@ -309,6 +311,7 @@ export async function getZmccHierarchyReport(
             shop_id: true,
             route_id: true,
             gross_liters: true,
+            at_13ts_liters: true,
             fat: true,
             lr: true,
             snf: true,
@@ -372,6 +375,8 @@ export async function getZmccHierarchyReport(
     let facActiveShops = 0;
     let facGpsVerified = 0;
     let facTodayLiters = 0;
+    let facTodayAt13Ts = 0;
+    let facMissingAt13Ts = 0;
 
     const routeNodes: ZmccRouteHierarchyNode[] = routes.map((r) => {
       let routeLiters = 0;
@@ -390,6 +395,11 @@ export async function getZmccHierarchyReport(
           const col = shopCollectionMap.get(s.id.toString());
           const ltr = col ? Number(col.gross_liters) : 0;
           if (ltr > 0) areaActiveShops++;
+          if (col) {
+            const at13 = Number(col.at_13ts_liters);
+            if (Number.isFinite(at13) && at13 > 0) facTodayAt13Ts += at13;
+            else if (ltr > 0) facMissingAt13Ts += 1;
+          }
           if (s.geotag_status === 'VERIFIED') areaGpsVerified++;
           areaLiters += ltr;
 
@@ -526,6 +536,8 @@ export async function getZmccHierarchyReport(
         dormantShops: facTotalShops - facActiveShops,
         gpsVerifiedRate: gpsRate,
         todayIntakeLiters: Number(facTodayLiters.toFixed(2)),
+        todayIntakeAt13TsLiters: Number(facTodayAt13Ts.toFixed(2)),
+        todayIntakeMissingAt13Ts: facMissingAt13Ts,
         activeMotCount: todayJourneys.length,
         activeHcSupplierCount: localSuppliers.filter((s) => s.is_active).length,
       },
