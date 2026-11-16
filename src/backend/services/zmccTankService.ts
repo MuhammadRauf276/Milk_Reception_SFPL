@@ -199,6 +199,31 @@ export async function getTankPhysicalStock(
   }
 
   /**
+   * Physical and @13TS stock of several tanks from one scan of the ledger (the two batch functions above read it twice).
+   */
+  export async function getBatchTankStocks(
+    tankIds: bigint[]
+  ): Promise<{ physical: Map<string, number>; commercial: Map<string, number> }> {
+    const physical = new Map<string, number>();
+    const commercial = new Map<string, number>();
+    if (tankIds.length === 0) return { physical, commercial };
+    const rows: Array<{ tank_id: bigint | string; current_stock: string | number | null; sum_commercial: string | number | null }> =
+      await prisma.$queryRaw`
+        SELECT tank_id,
+          COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN quantity_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -quantity_liters ELSE 0 END), 0) AS current_stock,
+          COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN at_13ts_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -at_13ts_liters ELSE 0 END), 0) AS sum_commercial
+        FROM zmcc_tank_inventory_transaction
+        WHERE tank_id IN (${Prisma.join(tankIds)})
+        GROUP BY tank_id
+      `;
+    for (const row of rows) {
+      physical.set(row.tank_id.toString(), Number(row.current_stock || 0));
+      commercial.set(row.tank_id.toString(), Number(row.sum_commercial || 0));
+    }
+    return { physical, commercial };
+  }
+
+  /**
    * What each tank really took in and sent out today (Pakistan day), from the ledger.
    */
   export async function getBatchTankTodayMovements(

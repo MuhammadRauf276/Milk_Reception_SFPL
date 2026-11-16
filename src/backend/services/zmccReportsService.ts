@@ -1,9 +1,10 @@
 import { prisma } from '@/backend/core/db';
+import { loadCollectionAggregates, loadHcReceiptAggregates } from '@/backend/services/zmccAnalyticsSql';
 import ExcelJS from 'exceljs';
 import { getPakistanCalendarDate, getPakistanDayWindow } from '@/backend/core/business-day';
 import { computeWeightedMilkMetrics } from '@/backend/utils/milkFormulas';
 import { getSupplyChainLossHierarchy } from '@/backend/services/lossCalculationService';
-import { getBatchTankPhysicalStock, getBatchTankCommercialStock, getBatchTankTodayMovements } from '@/backend/services/zmccTankService';
+import { getBatchTankStocks, getBatchTankTodayMovements } from '@/backend/services/zmccTankService';
 import { isTemperatureTest } from '@/lib/lab-test-roles';
 import { LOSS_GAIN_EXPORT_HEADER, LOSS_GAIN_EXPORT_PERCENT_HEADER } from '@/lib/lossGain';
 import { loadSystemRoles, type PolicyDb } from '@/backend/services/testPointPolicyService';
@@ -279,45 +280,80 @@ export async function getZmccHierarchyReport(
   });
 
   const reports: ZmccHierarchyReport[] = [];
+  const facilityIds = facilities.map((f) => f.id);
+
+  // One query per table for all ZMCCs together (grouped below), instead of five queries per ZMCC.
+  const [allRoutes, allCollections, allJourneys, allSuppliers, allArrivals] = facilityIds.length === 0
+    ? [[], [], [], [], []] as [never[], never[], never[], never[], never[]]
+    : await Promise.all([
+        prisma.zmccRoute.findMany({
+          where: { zmcc_id: { in: facilityIds } },
+          orderBy: { route_code: 'asc' },
+          include: {
+            areas: {
+              orderBy: { area_code: 'asc' },
+              include: {
+                shops: {
+                  orderBy: { shop_code: 'asc' },
+                  include: { chiller_ownership: { select: { name: true } } },
+                },
+              },
+            },
+          },
+        }),
+        prisma.motShopCollection.findMany({
+          where: { zmcc_id: { in: facilityIds }, operational_date: dateObj },
+          orderBy: { id: 'asc' },
+          select: {
+            zmcc_id: true,
+            shop_id: true,
+            route_id: true,
+            gross_liters: true,
+            fat: true,
+            lr: true,
+            snf: true,
+            device_collected_at: true,
+          },
+        }),
+        prisma.motJourney.findMany({
+          where: { zmcc_id: { in: facilityIds }, operational_date: dateObj },
+          orderBy: { id: 'asc' },
+          include: {
+            mot_profile: { select: { mot_code: true, name: true, phone_number: true } },
+            mot_vehicle: { select: { vehicle_number: true } },
+          },
+        }),
+        prisma.zmccLocalSupplier.findMany({
+          where: { zmcc_id: { in: facilityIds } },
+          orderBy: { local_supplier_code: 'asc' },
+        }),
+        prisma.zmccLocalSupplierArrival.findMany({
+          where: { zmcc_id: { in: facilityIds }, arrival_date: dateObj },
+          orderBy: { id: 'asc' },
+          include: { lab_session: { select: { gross_liters: true } } },
+        }),
+      ]);
+  const groupByZmcc = <T extends { zmcc_id: bigint }>(rows: T[]) => {
+    const map = new Map<string, T[]>();
+    for (const row of rows) {
+      const key = row.zmcc_id.toString();
+      const list = map.get(key);
+      if (list) list.push(row); else map.set(key, [row]);
+    }
+    return map;
+  };
+  const routesByZmcc = groupByZmcc(allRoutes);
+  const collectionsByZmcc = groupByZmcc(allCollections);
+  const journeysByZmcc = groupByZmcc(allJourneys);
+  const suppliersByZmcc = groupByZmcc(allSuppliers);
+  const arrivalsByZmcc = groupByZmcc(allArrivals);
 
   for (const fac of facilities) {
     const fId = fac.id;
 
-    // Fetch routes with areas, shops, chiller ownership
-    const routes = await prisma.zmccRoute.findMany({
-      where: { zmcc_id: fId },
-      orderBy: { route_code: 'asc' },
-      include: {
-        areas: {
-          orderBy: { area_code: 'asc' },
-          include: {
-            shops: {
-              orderBy: { shop_code: 'asc' },
-              include: {
-                chiller_ownership: { select: { name: true } },
-              },
-            },
-          },
-        },
-      },
-    });
+    const routes = routesByZmcc.get(fId.toString()) ?? [];
 
-    // Fetch today's collections for this ZMCC
-    const todayCollections = await prisma.motShopCollection.findMany({
-      where: {
-        zmcc_id: fId,
-        operational_date: dateObj,
-      },
-      select: {
-        shop_id: true,
-        route_id: true,
-        gross_liters: true,
-        fat: true,
-        lr: true,
-        snf: true,
-        device_collected_at: true,
-      },
-    });
+    const todayCollections = collectionsByZmcc.get(fId.toString()) ?? [];
 
     // Map collections by shop
     const shopCollectionMap = new Map<string, (typeof todayCollections)[0]>();
@@ -325,17 +361,7 @@ export async function getZmccHierarchyReport(
       shopCollectionMap.set(c.shop_id.toString(), c);
     }
 
-    // Fetch today's journeys to match assigned MOT
-    const todayJourneys = await prisma.motJourney.findMany({
-      where: {
-        zmcc_id: fId,
-        operational_date: dateObj,
-      },
-      include: {
-        mot_profile: { select: { mot_code: true, name: true, phone_number: true } },
-        mot_vehicle: { select: { vehicle_number: true } },
-      },
-    });
+    const todayJourneys = journeysByZmcc.get(fId.toString()) ?? [];
     const routeJourneyMap = new Map<string, (typeof todayJourneys)[0]>();
     for (const j of todayJourneys) {
       routeJourneyMap.set(j.route_id.toString(), j);
@@ -453,22 +479,8 @@ export async function getZmccHierarchyReport(
       };
     });
 
-    // Fetch direct local HC suppliers
-    const localSuppliers = await prisma.zmccLocalSupplier.findMany({
-      where: { zmcc_id: fId },
-      orderBy: { local_supplier_code: 'asc' },
-    });
-
-    // Fetch today's HC arrivals
-    const todayHcArrivals = await prisma.zmccLocalSupplierArrival.findMany({
-      where: {
-        zmcc_id: fId,
-        arrival_date: dateObj,
-      },
-      include: {
-        lab_session: { select: { gross_liters: true } },
-      },
-    });
+    const localSuppliers = suppliersByZmcc.get(fId.toString()) ?? [];
+    const todayHcArrivals = arrivalsByZmcc.get(fId.toString()) ?? [];
 
     const hcArrivalMap = new Map<string, { count: number; liters: number; lastTime: string | null }>();
     for (const a of todayHcArrivals) {
@@ -529,12 +541,6 @@ export async function getZmccHierarchyReport(
 // 5. DYNAMIC BI & STATISTICAL ANALYTICS
 // ==========================================
 
-const PAKISTAN_HOUR = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Karachi', hour: '2-digit', hourCycle: 'h23' });
-/** The hour in Pakistan, whatever timezone the server runs in. */
-function pakistanHour(at: Date): number {
-  return Number(PAKISTAN_HOUR.format(at));
-}
-
 export async function getZmccBIAnalytics(
   zmccId?: bigint,
   fromDateStr?: string,
@@ -559,14 +565,6 @@ export async function getZmccBIAnalytics(
   if (zmccId) whereCol.zmcc_id = zmccId;
   if (filters?.routeId) whereCol.route_id = BigInt(filters.routeId);
 
-  const collections = await prisma.motShopCollection.findMany({
-    where: whereCol,
-    include: {
-      route: { select: { id: true, route_code: true, name: true } },
-    },
-    orderBy: { device_collected_at: 'asc' },
-  });
-
   const totalDays = Math.max(1, Math.round((toDate.getTime() - fromDate.getTime()) / 86400000));
 
   const priorWhere = {
@@ -581,7 +579,7 @@ export async function getZmccBIAnalytics(
   // HC milk reaches the tank without a route, so it counts in procurement unless one route is selected.
   const receiptWindow = { gte: getPakistanDayWindow(from).start, lte: getPakistanDayWindow(to).end };
   const hcWhere = { arrival_type: 'HC' as const, ...(zmccId ? { zmcc_id: zmccId } : {}) };
-  const [journeys, priorIntake, lossHierarchy, hcReceipts, priorHcIntake] = await Promise.all([
+  const [journeys, priorIntake, lossHierarchy, hcReceipts, priorHcIntake, collectionAgg] = await Promise.all([
     prisma.motJourney.findMany({
       where: { ...whereCol, status: { not: 'CANCELLED' } },
       select: {
@@ -597,10 +595,7 @@ export async function getZmccBIAnalytics(
       : getSupplyChainLossHierarchy({ period: 'custom', from, to, zmccId }).catch(() => null),
     filters?.routeId
       ? []
-      : prisma.zmccTankReceipt.findMany({
-          where: { ...hcWhere, received_at: receiptWindow },
-          select: { gross_liters: true, at_13ts_liters: true, fat: true, lr: true, snf: true, received_at: true },
-        }),
+      : loadHcReceiptAggregates({ windowStart: receiptWindow.gte, windowEnd: receiptWindow.lte, zmccId }),
     filters?.routeId || filters?.shift
       ? null
       : prisma.zmccTankReceipt.aggregate({
@@ -610,6 +605,13 @@ export async function getZmccBIAnalytics(
           },
           _sum: { gross_liters: true },
         }),
+    loadCollectionAggregates({
+      from,
+      to,
+      zmccId,
+      routeId: filters?.routeId ? BigInt(filters.routeId) : undefined,
+      shift: filters?.shift,
+    }),
   ]);
 
   let totalLiters = 0;
@@ -620,135 +622,81 @@ export async function getZmccBIAnalytics(
   let morningLiters = 0;
   let eveningLiters = 0;
 
-  const dateMap = new Map<string, { gross: number; ts: number; morning: number; evening: number; count: number; fatSum: number; lrSum: number; snfSum: number }>();
+  type Sums = { gross: number; ts: number; morning: number; evening: number; count: number; fatSum: number; lrSum: number; snfSum: number };
+  const dateMap = new Map<string, Sums>();
   const hourlyMap = new Array(24).fill(0).map((_, i) => ({ hour: i, label: `${String(i).padStart(2, '0')}:00`, liters: 0, count: 0 }));
-  const routeMap = new Map<string, { routeCode: string; name: string; liters: number; ts: number; fatSum: number; lrSum: number; snfSum: number; shopIds: Set<string> }>();
-  const qualityScatter: QualityScatterPoint[] = [];
   const journeyShopLiters = new Map<string, number>();
   const journeysInShift = new Set<string>();
 
-  for (const c of collections) {
-    const lit = Number(c.gross_liters);
-    const tsLit = Number(c.at_13ts_liters);
-    const fat = Number(c.fat);
-    const lr = Number(c.lr);
-    const snf = Number(c.snf);
-    const dateKey = c.operational_date.toISOString().split('T')[0];
-    const hour = pakistanHour(c.device_collected_at);
+  // Rejected milk is not procured. Loss compares whole journeys, so every accepted collection counts, whichever shift is shown.
+  for (const j of collectionAgg.byJourney) {
+    journeyShopLiters.set(j.journeyId, j.shopLiters);
+    if (j.inShift) journeysInShift.add(j.journeyId);
+  }
 
-    // Loss compares whole journeys, so every non-rejected collection counts, whichever shift is shown.
-    const journeyKey = c.journey_id.toString();
-    if (c.final_decision !== 'REJECTED') {
-      journeyShopLiters.set(journeyKey, (journeyShopLiters.get(journeyKey) ?? 0) + lit);
-    }
+  // The database returns one row per day, hour (and route); the same sums the per-collection loop used to build.
+  const addToDay = (dateKey: string, row: { hour: number; liters: number; at13ts: number; fatWeighted: number; snfWeighted: number; lrWeighted: number; count: number }) => {
+    const isMorning = row.hour < 13;
+    totalLiters += row.liters;
+    total13Ts += row.at13ts;
+    fatProductSum += row.fatWeighted;
+    snfProductSum += row.snfWeighted;
+    lrProductSum += row.lrWeighted;
+    if (isMorning) morningLiters += row.liters;
+    else eveningLiters += row.liters;
 
-    // Rejected milk is not procured.
-    if (c.final_decision === 'REJECTED') continue;
-
-    const isMorning = hour < 13;
-    if (filters?.shift === 'MORNING' && !isMorning) continue;
-    if (filters?.shift === 'EVENING' && isMorning) continue;
-
-    journeysInShift.add(journeyKey);
-
-    totalLiters += lit;
-    total13Ts += tsLit;
-    fatProductSum += fat * lit;
-    snfProductSum += snf * lit;
-    lrProductSum += lr * lit;
-
-    if (isMorning) morningLiters += lit;
-    else eveningLiters += lit;
-
-    // Date grouping
     const dRec = dateMap.get(dateKey) || { gross: 0, ts: 0, morning: 0, evening: 0, count: 0, fatSum: 0, lrSum: 0, snfSum: 0 };
-    dRec.gross += lit;
-    dRec.ts += tsLit;
-    dRec.count += 1;
-    dRec.fatSum += fat * lit;
-    dRec.snfSum += snf * lit;
-    dRec.lrSum += lr * lit;
-    if (isMorning) dRec.morning += lit;
-    else dRec.evening += lit;
+    dRec.gross += row.liters;
+    dRec.ts += row.at13ts;
+    dRec.count += row.count;
+    dRec.fatSum += row.fatWeighted;
+    dRec.snfSum += row.snfWeighted;
+    dRec.lrSum += row.lrWeighted;
+    if (isMorning) dRec.morning += row.liters;
+    else dRec.evening += row.liters;
     dateMap.set(dateKey, dRec);
 
-    // Hourly flow
-    hourlyMap[hour].liters += lit;
-    hourlyMap[hour].count += 1;
+    hourlyMap[row.hour].liters += row.liters;
+    hourlyMap[row.hour].count += row.count;
+  };
+  for (const row of collectionAgg.byDayHourRoute) addToDay(row.date, row);
+  for (const row of hcReceipts) {
+    if (filters?.shift === 'MORNING' && row.hour >= 13) continue;
+    if (filters?.shift === 'EVENING' && row.hour < 13) continue;
+    addToDay(row.date, row);
+  }
 
-    // Route grouping
-    const rId = c.route_id.toString();
-    const rRec = routeMap.get(rId) || {
-      routeCode: c.route?.route_code || 'ROUTE',
-      name: c.route?.name || 'Unnamed Route',
-      liters: 0,
-      ts: 0,
-      fatSum: 0,
-      lrSum: 0,
-      snfSum: 0,
-      shopIds: new Set<string>(),
+  const routeMap = new Map(
+    collectionAgg.byRoute.map((r) => [
+      r.routeId,
+      {
+        routeCode: r.routeCode || 'ROUTE',
+        name: r.routeName || 'Unnamed Route',
+        liters: r.liters,
+        ts: r.at13ts,
+        fatSum: r.fatWeighted,
+        lrSum: r.lrWeighted,
+        snfSum: r.snfWeighted,
+        shopCount: r.shopCount,
+      },
+    ])
+  );
+  // Scatter sample (up to 150 items)
+  const qualityScatter: QualityScatterPoint[] = collectionAgg.scatter.map((c) => {
+    let tier: QualityScatterPoint['tier'] = 'STANDARD';
+    if (c.fat >= 4.5 && c.snf >= 8.5) tier = 'PREMIUM';
+    else if (c.fat < 3.5 || c.snf < 8.0) tier = 'WARNING';
+    return {
+      collectionId: c.id,
+      collectionNumber: c.collectionNumber,
+      routeCode: c.routeCode,
+      fat: c.fat,
+      snf: c.snf,
+      lr: c.lr,
+      grossLiters: c.liters,
+      tier,
     };
-    rRec.liters += lit;
-    rRec.ts += tsLit;
-    rRec.fatSum += fat * lit;
-    rRec.snfSum += snf * lit;
-    rRec.lrSum += lr * lit;
-    rRec.shopIds.add(c.shop_id.toString());
-    routeMap.set(rId, rRec);
-
-    // Scatter sample (up to 150 items)
-    if (qualityScatter.length < 150) {
-      let tier: QualityScatterPoint['tier'] = 'STANDARD';
-      if (fat >= 4.5 && snf >= 8.5) tier = 'PREMIUM';
-      else if (fat < 3.5 || snf < 8.0) tier = 'WARNING';
-
-      qualityScatter.push({
-        collectionId: c.id.toString(),
-        collectionNumber: c.collection_number,
-        routeCode: c.route?.route_code || '',
-        fat,
-        snf,
-        lr,
-        grossLiters: lit,
-        tier,
-      });
-    }
-  }
-
-  for (const r of hcReceipts) {
-    const lit = Number(r.gross_liters);
-    const tsLit = Number(r.at_13ts_liters);
-    const fat = Number(r.fat);
-    const lr = Number(r.lr);
-    const snf = Number(r.snf);
-    const hour = pakistanHour(r.received_at);
-    const isMorning = hour < 13;
-    if (filters?.shift === 'MORNING' && !isMorning) continue;
-    if (filters?.shift === 'EVENING' && isMorning) continue;
-
-    totalLiters += lit;
-    total13Ts += tsLit;
-    fatProductSum += fat * lit;
-    snfProductSum += snf * lit;
-    lrProductSum += lr * lit;
-    if (isMorning) morningLiters += lit;
-    else eveningLiters += lit;
-
-    const dateKey = getPakistanCalendarDate(r.received_at);
-    const dRec = dateMap.get(dateKey) || { gross: 0, ts: 0, morning: 0, evening: 0, count: 0, fatSum: 0, lrSum: 0, snfSum: 0 };
-    dRec.gross += lit;
-    dRec.ts += tsLit;
-    dRec.count += 1;
-    dRec.fatSum += fat * lit;
-    dRec.snfSum += snf * lit;
-    dRec.lrSum += lr * lit;
-    if (isMorning) dRec.morning += lit;
-    else dRec.evening += lit;
-    dateMap.set(dateKey, dRec);
-
-    hourlyMap[hour].liters += lit;
-    hourlyMap[hour].count += 1;
-  }
+  });
 
   // Build daily trend array
   const trends: DailyIntakeTrendPoint[] = Array.from(dateMap.entries())
@@ -803,7 +751,7 @@ export async function getZmccBIAnalytics(
       avgFat: r.liters > 0 ? Number((r.fatSum / r.liters).toFixed(2)) : 0,
       avgLr: r.liters > 0 ? Number((r.lrSum / r.liters).toFixed(2)) : 0,
       avgSnf: r.liters > 0 ? Number((r.snfSum / r.liters).toFixed(2)) : 0,
-      shopCount: r.shopIds.size,
+      shopCount: r.shopCount,
       completionRatePct: completionPct(stats),
       routeDiffLiters: lossLiters(stats),
       routeDiffPct: lossPct(stats),
@@ -1092,9 +1040,8 @@ export async function getZmccTankStorageReport(zmccId?: bigint): Promise<{ rows:
   });
 
   const tankIds = tanks.map((t) => t.id);
-  const [physicalStocks, commercialStocks, todayMovements] = await Promise.all([
-    getBatchTankPhysicalStock(tankIds),
-    getBatchTankCommercialStock(tankIds),
+  const [{ physical: physicalStocks, commercial: commercialStocks }, todayMovements] = await Promise.all([
+    getBatchTankStocks(tankIds),
     getBatchTankTodayMovements(tankIds, getPakistanDayWindow().start),
   ]);
 

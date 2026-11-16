@@ -551,23 +551,29 @@ export async function getSupplyChainLossHierarchy(filters: {
   const zmccIdBigInt = filters.zmccId ? BigInt(String(filters.zmccId)) : undefined;
 
   // 1. Query Tier 1 Journeys (MOT Route Collections vs ZMCC Arrival)
-  const journeys = await prisma.motJourney.findMany({
+  // The journey, tier 2, dispatch and stock reads do not depend on each other, so they all start together.
+  const journeysQuery = prisma.motJourney.findMany({
+    // Only the columns the rows below read.
     where: {
       operational_date: { gte: startDate, lte: endDate },
       ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
       status: 'COMPLETED',
     },
-    include: {
-      zmcc: true,
-      route: true,
-      mot_vehicle: true,
-      mot_profile: true,
-      summary: true,
+    select: {
+      operational_date: true,
+      journey_number: true,
+      area_received_liters: true,
+      area_received_at_13ts_liters: true,
+      zmcc: { select: { name: true, code: true } },
+      route: { select: { route_code: true } },
+      mot_vehicle: { select: { vehicle_number: true } },
+      mot_profile: { select: { name: true } },
+      summary: { select: { total_gross_liters: true, total_at_13ts_liters: true } },
       collections: { select: { gross_liters: true, at_13ts_liters: true, final_decision: true } },
       mot_arrival: {
-        include: {
+        select: {
           lab_session: {
-            include: {
+            select: {
               tank_receipt: { select: { gross_liters: true, at_13ts_liters: true } },
               portions: { select: { status: true, final_decision: true, gross_liters: true, at_13ts_liters: true } },
             },
@@ -577,6 +583,96 @@ export async function getSupplyChainLossHierarchy(filters: {
     },
     orderBy: { operational_date: 'desc' },
   });
+
+  // Tank stock at both ends of the period, physical and @13 TS. A failed query throws: zero stock would be invented.
+  const stockScope = zmccIdBigInt ? Prisma.sql`zmcc_id = ${zmccIdBigInt}` : Prisma.sql`TRUE`;
+  const stockQuery = prisma.$queryRaw<Array<{
+    start_stock: string | number | null;
+    end_stock: string | number | null;
+    start_stock_13ts: string | number | null;
+    end_stock_13ts: string | number | null;
+  }>>`
+    SELECT
+      COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN quantity_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -quantity_liters ELSE 0 END) FILTER (WHERE operational_timestamp < ${timestampStart}), 0) AS start_stock,
+      COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN quantity_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -quantity_liters ELSE 0 END) FILTER (WHERE operational_timestamp <= ${timestampEnd}), 0) AS end_stock,
+      COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN at_13ts_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -at_13ts_liters ELSE 0 END) FILTER (WHERE operational_timestamp < ${timestampStart}), 0) AS start_stock_13ts,
+      COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN at_13ts_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -at_13ts_liters ELSE 0 END) FILTER (WHERE operational_timestamp <= ${timestampEnd}), 0) AS end_stock_13ts
+    FROM zmcc_tank_inventory_transaction
+    WHERE ${stockScope}
+  `;
+
+  // 2. Query Tier 2 (ZMCC Inward vs Outward Dispatches vs Stock Delta)
+  const [journeys, stockRows, localSupplierSessions, hcNotReceivedPortions, dispatchedVisits, adminAdjustmentTransactions] = await Promise.all([
+    journeysQuery,
+    stockQuery,
+    prisma.zmccTankReceipt.findMany({
+      where: {
+        arrival_type: 'HC',
+        received_at: { gte: timestampStart, lte: timestampEnd },
+        ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
+      },
+      select: {
+        gross_liters: true,
+        at_13ts_liters: true,
+      },
+    }),
+    prisma.zmccLabPortion.findMany({
+      where: {
+        final_decision: 'ACCEPTED',
+        status: { notIn: ['WEIGHED', 'LOADED'] },
+        lab_session: {
+          arrival_type: 'HC',
+          created_at: { gte: timestampStart, lte: timestampEnd },
+          ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
+        },
+      },
+      select: { gross_liters: true },
+    }),
+    prisma.vehicleVisit.findMany({
+      where: {
+        ...plantVisitDateWhere(
+          filters.dateBasis ?? 'calendar',
+          startDate.toISOString().slice(0, 10),
+          endDate.toISOString().slice(0, 10)
+        ),
+        // ZMCC dispatches only: contractor visits never left a ZMCC tank.
+        ...(zmccIdBigInt ? { procurement_source_id: zmccIdBigInt } : { procurement_source: { source_type: 'ZMCC' } }),
+        // A tanker the plant rejected still left the tank. Only requests never sent are left out.
+        current_status: { notIn: ['DRAFT_DISPATCH', 'PENDING_APPROVAL', 'REOPENED', 'CANCELLED'] },
+      },
+      // Only the columns the rows below read: a visit row also carries large JSON decision columns that are never used here.
+      select: {
+        visit_number: true,
+        vehicle_number: true,
+        raw_milk_dispatch_note_number: true,
+        operational_date: true,
+        created_at: true,
+        vehicle_dispatch_gross_liters: true,
+        vehicle_dispatch_at_13ts_liters: true,
+        vehicle_dispatch_lr: true,
+        vehicle_dispatch_fat: true,
+        procurement_source: { select: { name: true, code: true } },
+        weight_ticket: { select: { net_weight_kg: true } },
+        dual_reconciliation: { select: { received_gross_liters: true, received_at_13ts_liters: true } },
+      },
+      orderBy: { created_at: 'desc' },
+    }),
+    prisma.zmccTankInventoryTransaction.findMany({
+      where: {
+        transaction_type: { in: ['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'] },
+        // A correction is already in the corrected receipt or dispatch figure; counting its ledger row too would double it.
+        reference_type: { notIn: ['ZMCC_LAB_SESSION_CORRECTION', 'DISPATCH_CORRECTION'] },
+        operational_timestamp: { gte: timestampStart, lte: timestampEnd },
+        ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
+      },
+      select: {
+        transaction_type: true,
+        quantity_liters: true,
+        at_13ts_liters: true,
+      },
+    }),
+  ]);
+
 
   let totalShopGrossLiters = 0;
   let totalShopAt13tsLiters = 0;
@@ -662,76 +758,6 @@ export async function getSupplyChainLossHierarchy(filters: {
     at13tsGrossLossLiters: Number(routeGrossLoss13ts.toFixed(2)),
     at13tsGrossGainLiters: Number(routeGrossGain13ts.toFixed(2)),
   };
-
-  // 2. Query Tier 2 (ZMCC Inward vs Outward Dispatches vs Stock Delta)
-  const [localSupplierSessions, hcNotReceivedPortions, dispatchedVisits, adminAdjustmentTransactions] = await Promise.all([
-    prisma.zmccTankReceipt.findMany({
-      where: {
-        arrival_type: 'HC',
-        received_at: { gte: timestampStart, lte: timestampEnd },
-        ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
-      },
-      select: {
-        gross_liters: true,
-        at_13ts_liters: true,
-      },
-    }),
-    prisma.zmccLabPortion.findMany({
-      where: {
-        final_decision: 'ACCEPTED',
-        status: { notIn: ['WEIGHED', 'LOADED'] },
-        lab_session: {
-          arrival_type: 'HC',
-          created_at: { gte: timestampStart, lte: timestampEnd },
-          ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
-        },
-      },
-      select: { gross_liters: true },
-    }),
-    prisma.vehicleVisit.findMany({
-      where: {
-        ...plantVisitDateWhere(
-          filters.dateBasis ?? 'calendar',
-          startDate.toISOString().slice(0, 10),
-          endDate.toISOString().slice(0, 10)
-        ),
-        // ZMCC dispatches only: contractor visits never left a ZMCC tank.
-        ...(zmccIdBigInt ? { procurement_source_id: zmccIdBigInt } : { procurement_source: { source_type: 'ZMCC' } }),
-        // A tanker the plant rejected still left the tank. Only requests never sent are left out.
-        current_status: { notIn: ['DRAFT_DISPATCH', 'PENDING_APPROVAL', 'REOPENED', 'CANCELLED'] },
-      },
-      // Only the columns the rows below read: a visit row also carries large JSON decision columns that are never used here.
-      select: {
-        visit_number: true,
-        vehicle_number: true,
-        raw_milk_dispatch_note_number: true,
-        operational_date: true,
-        created_at: true,
-        vehicle_dispatch_gross_liters: true,
-        vehicle_dispatch_at_13ts_liters: true,
-        vehicle_dispatch_lr: true,
-        vehicle_dispatch_fat: true,
-        procurement_source: { select: { name: true, code: true } },
-        weight_ticket: { select: { net_weight_kg: true } },
-        dual_reconciliation: { select: { received_gross_liters: true, received_at_13ts_liters: true } },
-      },
-      orderBy: { created_at: 'desc' },
-    }),
-    prisma.zmccTankInventoryTransaction.findMany({
-      where: {
-        transaction_type: { in: ['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'] },
-        // A correction is already in the corrected receipt or dispatch figure; counting its ledger row too would double it.
-        reference_type: { notIn: ['ZMCC_LAB_SESSION_CORRECTION', 'DISPATCH_CORRECTION'] },
-        operational_timestamp: { gte: timestampStart, lte: timestampEnd },
-        ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
-      },
-      select: {
-        transaction_type: true,
-        quantity_liters: true,
-        at_13ts_liters: true,
-      },
-    }),
-  ]);
 
   let localInwardGross = 0;
   let localInward13ts = 0;
@@ -853,22 +879,6 @@ export async function getSupplyChainLossHierarchy(filters: {
     });
   }
 
-  // Tank stock at both ends of the period, physical and @13 TS. A failed query throws: zero stock would be invented.
-  const stockScope = zmccIdBigInt ? Prisma.sql`zmcc_id = ${zmccIdBigInt}` : Prisma.sql`TRUE`;
-  const stockRows = await prisma.$queryRaw<Array<{
-    start_stock: string | number | null;
-    end_stock: string | number | null;
-    start_stock_13ts: string | number | null;
-    end_stock_13ts: string | number | null;
-  }>>`
-    SELECT
-      COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN quantity_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -quantity_liters ELSE 0 END) FILTER (WHERE operational_timestamp < ${timestampStart}), 0) AS start_stock,
-      COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN quantity_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -quantity_liters ELSE 0 END) FILTER (WHERE operational_timestamp <= ${timestampEnd}), 0) AS end_stock,
-      COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN at_13ts_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -at_13ts_liters ELSE 0 END) FILTER (WHERE operational_timestamp < ${timestampStart}), 0) AS start_stock_13ts,
-      COALESCE(SUM(CASE WHEN transaction_type IN ('RECEIPT', 'ADJUSTMENT_IN') THEN at_13ts_liters WHEN transaction_type IN ('ISSUE', 'ADJUSTMENT_OUT') THEN -at_13ts_liters ELSE 0 END) FILTER (WHERE operational_timestamp <= ${timestampEnd}), 0) AS end_stock_13ts
-    FROM zmcc_tank_inventory_transaction
-    WHERE ${stockScope}
-  `;
   const stock = stockRows[0];
 
   const tier2Calc = calculateTier2ZmccLoss({

@@ -1,4 +1,5 @@
-import { parseDateBasis } from '@/backend/core/business-day';
+import { getPakistanCalendarDate, parseDateBasis } from '@/backend/core/business-day';
+import { reportRangeError } from '@/backend/core/reportQuery';
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
@@ -41,6 +42,9 @@ export async function GET(req: Request) {
   } else if (searchParams.get('zmccId')) {
     zmccId = searchParams.get('zmccId') || undefined;
   }
+
+  const rangeError = period === 'custom' ? reportRangeError(from, to, getPakistanCalendarDate()) : null;
+  if (rangeError) return NextResponse.json({ error: rangeError }, { status: 400 });
 
   try {
     const result = await getSupplyChainLossHierarchy({

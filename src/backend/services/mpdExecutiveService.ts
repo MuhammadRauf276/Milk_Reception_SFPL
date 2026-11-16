@@ -1,4 +1,6 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { withReportTimeout } from '@/backend/core/reportQuery';
+import { createTtlCache } from './ttlCache';
 import { writeAuditLog } from '@/backend/core/audit';
 import { prisma } from '@core/db';
 import { getSupplyChainLossHierarchy } from './lossCalculationService';
@@ -442,7 +444,42 @@ export async function recordGovernanceAudit(params: {
   return { status: 200, auditedAt: stored.created_at.toISOString() };
 }
 
+/** The latest GPS fix of each journey, picked in the database so only one row per journey is read. */
+async function loadLastJourneyFixes(journeyIds: bigint[]) {
+  return withReportTimeout((tx) =>
+    tx.$queryRaw<Array<{
+      journey_id: bigint;
+      latitude: number | null;
+      longitude: number | null;
+      heading_deg: number | null;
+      speed_mps: number | null;
+      device_recorded_at: Date;
+    }>>`
+      SELECT DISTINCT ON (journey_id) journey_id, latitude::float8 AS latitude, longitude::float8 AS longitude,
+             heading_deg::float8 AS heading_deg, speed_mps::float8 AS speed_mps, device_recorded_at
+      FROM mot_journey_location
+      WHERE journey_id IN (${Prisma.join(journeyIds)})
+      ORDER BY journey_id, device_recorded_at DESC, id DESC`
+  );
+}
+
+/**
+ * Command Center overview, shared between screens. Every open Command Center polls this every 30 s; the figures are
+ * the same for everyone except the ERP code column, so one computation per variant is reused for a few seconds.
+ * The cache is keyed by that variant only: the overview is not scoped to a ZMCC or a user.
+ */
+export const MPD_OVERVIEW_CACHE_TTL_MS = 15_000;
+const overviewCache = createTtlCache<MpdExecutiveTelemetry>({ ttlMs: MPD_OVERVIEW_CACHE_TTL_MS });
+
+export function clearMpdExecutiveTelemetryCache(): void {
+  overviewCache.clear();
+}
+
 export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boolean } = {}): Promise<MpdExecutiveTelemetry> {
+  return overviewCache.get(options.includeErpCode ? 'erp' : 'no-erp', () => computeMpdExecutiveTelemetry(options));
+}
+
+export async function computeMpdExecutiveTelemetry(options: { includeErpCode?: boolean } = {}): Promise<MpdExecutiveTelemetry> {
   // Same Pakistan day as the supply-chain loss service, so figures agree.
   const day = getPakistanDayWindow();
   const calendarDate = day.calendarDate;
@@ -647,13 +684,7 @@ export async function getMpdExecutiveTelemetry(options: { includeErpCode?: boole
   }));
 
   // MOT routes
-  const lastFixes = activeJourneys.length
-    ? await prisma.motJourneyLocation.findMany({
-        where: { journey_id: { in: activeJourneys.map((j) => j.id) } },
-        orderBy: { device_recorded_at: 'desc' },
-        distinct: ['journey_id'],
-      })
-    : [];
+  const lastFixes = activeJourneys.length ? await loadLastJourneyFixes(activeJourneys.map((j) => j.id)) : [];
   const lastFixByJourney = new Map(lastFixes.map((f) => [f.journey_id.toString(), f]));
   const motRoutes = activeJourneys.map((j) => ({
     latitude: toNumber(lastFixByJourney.get(j.id.toString())?.latitude),

@@ -165,24 +165,161 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
   const pakistanDay = getPakistanDayWindow(targetDateStr);
   const zmccIdBigInt = filter.zmccId ? BigInt(filter.zmccId) : undefined;
 
-  // 1. MOT Shop Collections
-  const motCollectionsRaw = await prisma.motShopCollection.findMany({
-    where: {
-      operational_date: { gte: startOfDay, lte: endOfDay },
-      ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
-    },
-    include: {
-      journey: {
-        include: {
-          mot_profile: true,
-          route: true,
+  // All the day's reads start together; each takes only the columns the report shows.
+  const motScope = {
+    operational_date: { gte: startOfDay, lte: endOfDay },
+    ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
+  };
+  const labScope = {
+    created_at: { gte: pakistanDay.start, lte: pakistanDay.end },
+    ...(zmccIdBigInt ? { lab_session: { zmcc_id: zmccIdBigInt } } : {}),
+  };
+  const [motCollectionsRaw, zmccPortionsRaw, motExceptions, labExceptions, plantPortionsRaw, lossResult] = await Promise.all([
+    // 1. MOT Shop Collections
+    prisma.motShopCollection.findMany({
+      where: motScope,
+      select: {
+        id: true,
+        collection_number: true,
+        gross_liters: true,
+        at_13ts_liters: true,
+        lr: true,
+        fat: true,
+        snf: true,
+        ts: true,
+        decision_details: true,
+        final_decision: true,
+        person_decision: true,
+        device_collected_at: true,
+        server_received_at: true,
+        milk_source_name_snapshot: true,
+        decision_remarks: true,
+        collection_notes: true,
+        exception_reasons: true,
+        stop: { select: { shop_code_snapshot: true, shop_name_snapshot: true } },
+        shop: { select: { shop_code: true, shop_name: true } },
+        journey: { select: { route: { select: { route_code: true } }, mot_profile: { select: { name: true } } } },
+      },
+      orderBy: { server_received_at: 'desc' },
+    }),
+    // 2. ZMCC Lab Portions
+    prisma.zmccLabPortion.findMany({
+      where: labScope,
+      select: {
+        id: true,
+        lab_session_id: true,
+        portion_number: true,
+        gross_liters: true,
+        quantity_value: true,
+        quantity_unit: true,
+        lr: true,
+        fat: true,
+        decision_details: true,
+        final_decision: true,
+        person_decision: true,
+        decision_remarks: true,
+        performed_as_role: true,
+        decided_at: true,
+        lab_session: {
+          select: {
+            arrival_type: true,
+            zmcc: { select: { name: true } },
+            mot_arrival: {
+              select: { zmcc_token: true, journey: { select: { mot_vehicle: { select: { vehicle_number: true } } } } },
+            },
+            local_supplier_arrival: {
+              select: { rmr_number: true, raw_milk_token_number: true, vehicle_number: true, local_supplier: { select: { name: true } } },
+            },
+          },
         },
       },
-      stop: true,
-      shop: true,
-    },
-    orderBy: { server_received_at: 'desc' },
-  });
+      orderBy: { portion_number: 'asc' },
+    }),
+    // 3a. MOT exceptions with reviews
+    prisma.motShopCollection.findMany({
+      where: { ...motScope, review_status: { in: ['PENDING', 'APPROVED', 'REJECTED'] } },
+      select: {
+        id: true,
+        collection_number: true,
+        review_status: true,
+        exception_reasons: true,
+        reviewed_as_role: true,
+        review_remarks: true,
+        decision_remarks: true,
+        reviewed_at: true,
+        server_received_at: true,
+        submitted_by: { select: { full_name: true, role: true } },
+        reviewed_by: { select: { full_name: true, role: true } },
+        shop: { select: { shop_name: true } },
+        journey: { select: { mot_profile: { select: { name: true } } } },
+      },
+    }),
+    // 3b. ZMCC Lab portions exceptions
+    prisma.zmccLabPortion.findMany({
+      where: { ...labScope, review_status: { in: ['PENDING', 'APPROVED', 'REJECTED'] } },
+      select: {
+        id: true,
+        lab_session_id: true,
+        portion_number: true,
+        review_status: true,
+        exception_reasons: true,
+        reviewed_as_role: true,
+        performed_as_role: true,
+        review_remarks: true,
+        decision_remarks: true,
+        reviewed_at: true,
+        decided_at: true,
+        creator: { select: { full_name: true, role: true } },
+        reviewer: { select: { full_name: true, role: true } },
+        lab_session: { select: { zmcc: { select: { name: true } } } },
+      },
+    }),
+    // 4. Plant QA Receptions
+    prisma.visitPortion.findMany({
+      where: {
+        visit: {
+          ...plantVisitDateWhere(filter.dateBasis ?? 'calendar', targetDateStr),
+          current_status: { notIn: ['DRAFT_DISPATCH', 'CANCELLED'] },
+          ...(zmccIdBigInt ? { procurement_source_id: zmccIdBigInt } : {}),
+        },
+      },
+      select: {
+        id: true,
+        visit_id: true,
+        portion_number: true,
+        dispatch_quantity_value: true,
+        dispatch_quantity_unit: true,
+        plant_decision: true,
+        plant_decided_as_role: true,
+        plant_rejection_reason: true,
+        plant_decided_at: true,
+        visit: {
+          select: {
+            procurement_source_id: true,
+            visit_number: true,
+            vehicle_number: true,
+            vehicle_dispatch_lr: true,
+            procurement_source: { select: { name: true } },
+          },
+        },
+        decided_by: { select: { full_name: true, role: true } },
+        plant_lab_results: {
+          select: { evaluation_status: true, numeric_value: true, text_value: true, lab_test: { select: { testName: true } } },
+        },
+      },
+      orderBy: { portion_number: 'asc' },
+    }),
+    // 5. Supply chain losses
+    getSupplyChainLossHierarchy({
+      zmccId: zmccIdBigInt ? zmccIdBigInt.toString() : undefined,
+      period: 'custom',
+      from: targetDateStr,
+      to: targetDateStr,
+    }).then(
+      (value) => ({ ok: true as const, value }),
+      (error: unknown) => ({ ok: false as const, error })
+    ),
+  ]);
 
   const motCollections: MotCollectionReportItem[] = [];
   let motTotalLiters = 0;
@@ -249,30 +386,6 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       exceptionReasons: Array.isArray(c.exception_reasons) ? (c.exception_reasons as string[]) : [],
     });
   }
-
-  // 2. ZMCC Lab Portions
-  const zmccPortionsRaw = await prisma.zmccLabPortion.findMany({
-    where: {
-      created_at: { gte: pakistanDay.start, lte: pakistanDay.end },
-      ...(zmccIdBigInt ? { lab_session: { zmcc_id: zmccIdBigInt } } : {}),
-    },
-    include: {
-      lab_session: {
-        include: {
-          mot_arrival: {
-            include: {
-              journey: {
-                include: { mot_vehicle: true },
-              },
-            },
-          },
-          local_supplier_arrival: { include: { local_supplier: { select: { name: true } } } },
-          zmcc: true,
-        },
-      },
-    },
-    orderBy: { portion_number: 'asc' },
-  });
 
   const zmccPortions: ZmccPortionReportItem[] = [];
   let zmccTotalLiters = 0;
@@ -352,21 +465,6 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
   const exceptions: ExceptionAuditReportItem[] = [];
   const exceptionRoleCounts: Record<string, number> = {};
 
-  // 3a. MOT exceptions with reviews
-  const motExceptions = await prisma.motShopCollection.findMany({
-    where: {
-      operational_date: { gte: startOfDay, lte: endOfDay },
-      review_status: { in: ['PENDING', 'APPROVED', 'REJECTED'] },
-      ...(zmccIdBigInt ? { zmcc_id: zmccIdBigInt } : {}),
-    },
-    include: {
-      submitted_by: { select: { full_name: true, role: true } },
-      reviewed_by: { select: { full_name: true, role: true } },
-      shop: { select: { shop_name: true } },
-      journey: { include: { mot_profile: true } },
-    },
-  });
-
   for (const m of motExceptions) {
     const reasons = Array.isArray(m.exception_reasons) ? (m.exception_reasons as string[]) : [];
     const dec: 'APPROVED' | 'REJECTED' | 'PENDING' =
@@ -391,20 +489,6 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
     });
   }
 
-  // 3b. ZMCC Lab portions exceptions
-  const labExceptions = await prisma.zmccLabPortion.findMany({
-    where: {
-      created_at: { gte: pakistanDay.start, lte: pakistanDay.end },
-      review_status: { in: ['PENDING', 'APPROVED', 'REJECTED'] },
-      ...(zmccIdBigInt ? { lab_session: { zmcc_id: zmccIdBigInt } } : {}),
-    },
-    include: {
-      creator: { select: { full_name: true, role: true } },
-      reviewer: { select: { full_name: true, role: true } },
-      lab_session: { include: { zmcc: true } },
-    },
-  });
-
   for (const l of labExceptions) {
     const reasons = Array.isArray(l.exception_reasons) ? (l.exception_reasons as string[]) : [];
     const dec: 'APPROVED' | 'REJECTED' | 'PENDING' =
@@ -428,29 +512,6 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
       timestamp: PAKISTAN_TIME.format(l.reviewed_at || l.decided_at || new Date()),
     });
   }
-
-  // 4. Plant QA Receptions
-  const plantPortionsRaw = await prisma.visitPortion.findMany({
-    where: {
-      visit: {
-        ...plantVisitDateWhere(filter.dateBasis ?? 'calendar', targetDateStr),
-        current_status: { notIn: ['DRAFT_DISPATCH', 'CANCELLED'] },
-        ...(zmccIdBigInt ? { procurement_source_id: zmccIdBigInt } : {}),
-      },
-    },
-    include: {
-      visit: {
-        include: {
-          procurement_source: true,
-        },
-      },
-      decided_by: { select: { full_name: true, role: true } },
-      plant_lab_results: {
-        include: { lab_test: true },
-      },
-    },
-    orderBy: { portion_number: 'asc' },
-  });
 
   const plantQaVisits: PlantQaReportItem[] = [];
   let plantTotalLiters = 0;
@@ -547,12 +608,8 @@ export async function getSuperAdminDailyReportData(filter: DailyReportFilter): P
   };
 
   try {
-    const losses = await getSupplyChainLossHierarchy({
-      zmccId: zmccIdBigInt ? zmccIdBigInt.toString() : undefined,
-      period: 'custom',
-      from: targetDateStr,
-      to: targetDateStr,
-    });
+    if (!lossResult.ok) throw lossResult.error;
+    const losses = lossResult.value;
     if (losses?.summary) {
       const s = losses.summary;
       lossSummary = {

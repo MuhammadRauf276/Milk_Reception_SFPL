@@ -323,6 +323,7 @@ model VisitPortion {
   @@unique([visit_id, portion_number])
   @@unique([visit_id, seal_number])
   @@index([plant_decision])
+  @@index([plant_decided_at])
   @@index([manager_review_status])
   @@index([seal_number])
   @@map("visit_portion")
@@ -1311,6 +1312,7 @@ model MotJourneyLocation {
   recorded_by User?      @relation("MotJourneyLocationRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
 
   @@index([journey_id])
+  @@index([journey_id, device_recorded_at(sort: Desc)])
   @@index([device_recorded_at])
   @@map("mot_journey_location")
 }
@@ -1842,6 +1844,7 @@ model ZmccLabSession {
 
   @@index([zmcc_id, status])
   @@index([status, created_at])
+  @@index([status, completed_at])
   @@index([manager_review_status])
   @@map("zmcc_lab_session")
 }
@@ -2196,6 +2199,7 @@ model ZmccTankReceipt {
   portion            ZmccLabPortion?                @relation("ZmccPortionReceipts", fields: [portion_id], references: [id], onDelete: Restrict)
 
   @@index([zmcc_id, received_at])
+  @@index([received_at])
   @@index([tank_id])
   @@index([portion_id])
   @@index([milk_source_id])

@@ -3,6 +3,8 @@ import { getCurrentUser } from '@/backend/core/auth';
 import { canActAs } from '@/backend/core/roles/hierarchy';
 import { getZmccBIAnalytics } from '@/backend/services/zmccReportsService';
 import { getErrorMessage } from '@/lib/errors';
+import { getPakistanCalendarDate } from '@/backend/core/business-day';
+import { reportRangeError, ReportTimeoutError } from '@/backend/core/reportQuery';
 
 export async function GET(req: Request) {
   try {
@@ -29,6 +31,9 @@ export async function GET(req: Request) {
     const routeId = searchParams.get('routeId') || undefined;
     const shift = searchParams.get('shift') || undefined;
 
+    const rangeError = reportRangeError(fromDate, toDate, getPakistanCalendarDate());
+    if (rangeError) return NextResponse.json({ error: rangeError }, { status: 400 });
+
     let targetZmccId: bigint | undefined = undefined;
     if (isSystemScope) {
       if (requestedSource && requestedSource !== 'ALL') {
@@ -44,6 +49,7 @@ export async function GET(req: Request) {
     const analytics = await getZmccBIAnalytics(targetZmccId, fromDate, toDate, { routeId, shift });
     return NextResponse.json({ data: analytics });
   } catch (error) {
+    if (error instanceof ReportTimeoutError) return NextResponse.json({ error: error.message }, { status: 503 });
     return NextResponse.json({ error: getErrorMessage(error) || 'Failed to fetch BI analytics' }, { status: 500 });
   }
 }
