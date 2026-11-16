@@ -23,6 +23,7 @@ import { RequestCorrectionModal, type EditableFieldOption } from './RequestCorre
 import { RequestCorrectionPanel } from './RequestCorrectionPanel';
 import { MySubmittedRequestsPanel } from '@/frontend/modules/approvals/MySubmittedRequestsPanel';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { getRoleLabel } from '@/backend/core/roles/labels';
 
 type WorkTab = 'work' | 'requests';
 
@@ -64,6 +65,20 @@ function fieldText(f: EditorField): string {
 }
 
 /** Previous work and correction requests for the people who enter records. */
+/**
+ * While a superior covers an operator, the menu opens My work with ?as=ROLE (and the station id). Those are sent as
+ * the covering headers, so the server lists the covered role's stages and checks the person may cover it.
+ */
+function useCoverHeaders(): Record<string, string> | undefined {
+  const params = useSearchParams();
+  const as = params.get('as');
+  const station = params.get('zmccId') || params.get('sourceId');
+  return useMemo(() => {
+    if (!as || !/^[A-Z_]+$/.test(as)) return undefined;
+    return { 'x-acting-as': as, ...(station && /^\d+$/.test(station) ? { 'x-acting-source-id': station } : {}) };
+  }, [as, station]);
+}
+
 export function MyWorkWorkspace() {
   const router = useRouter();
   const pathname = usePathname();
@@ -77,13 +92,28 @@ export function MyWorkWorkspace() {
   });
   const waiting = approvals.data?.items?.length ?? 0;
 
+  const coveringAs = params.get('as');
+
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
+      {coveringAs ? (
+        <div role="status" className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+          <span className="text-muted-foreground">Covering:</span>
+          <span className="font-semibold text-foreground">{getRoleLabel(coveringAs)}</span>
+          <span className="text-muted-foreground">· the records you entered in this role</span>
+        </div>
+      ) : null}
       <SegmentedTabs<WorkTab>
         label="My work"
         fullWidth
         value={tab}
-        onValueChange={(next) => router.replace(`${pathname}?tab=${next}`)}
+        onValueChange={(next) => {
+          // Keep the covered role and station when switching tabs.
+          const q = new URLSearchParams(params.toString());
+          q.set('tab', next);
+          router.replace(`${pathname}?${q.toString()}`);
+        }}
         tabs={[
           { value: 'work', label: 'Previous work', icon: History },
           { value: 'requests', label: 'Requests', icon: FilePenLine, count: waiting > 0 ? waiting : undefined },
@@ -101,13 +131,14 @@ function PreviousWork() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [openKey, setOpenKey] = useState<MyWorkRow | null>(null);
+  const coverHeaders = useCoverHeaders();
 
   const query = useQuery({
-    queryKey: ['my-work', days, search, page, pageSize],
+    queryKey: ['my-work', days, search, page, pageSize, coverHeaders],
     queryFn: ({ signal }) =>
       fetchJson<{ rows: MyWorkRow[]; total: number; days: number }>(
         `/api/my-work?days=${days}&page=${page}&pageSize=${pageSize}${search ? `&search=${encodeURIComponent(search)}` : ''}`,
-        { signal }
+        { signal, headers: coverHeaders }
       ),
     placeholderData: keepPreviousData,
     staleTime: 15_000,
@@ -219,9 +250,10 @@ function PreviousWork() {
 /** The full record, loaded only when its row is opened. */
 function InspectDrawer({ row, onClose }: { row: MyWorkRow | null; onClose: () => void }) {
   const [picked, setPicked] = useState<Picked | null>(null);
+  const coverHeaders = useCoverHeaders();
   const query = useQuery({
-    queryKey: ['my-work', 'record', row?.key],
-    queryFn: ({ signal }) => fetchJson<{ group: EditorGroup }>(`/api/my-work/${row!.key}`, { signal }),
+    queryKey: ['my-work', 'record', row?.key, coverHeaders],
+    queryFn: ({ signal }) => fetchJson<{ group: EditorGroup }>(`/api/my-work/${row!.key}`, { signal, headers: coverHeaders }),
     enabled: !!row,
     staleTime: 15_000,
   });

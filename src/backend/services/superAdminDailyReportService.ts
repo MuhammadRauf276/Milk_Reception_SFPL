@@ -921,9 +921,9 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
   const lossRows = [
     levelRow('MOT Loss / Gain', 'Shops vs ZMCC gate', lv?.mot, 0.5),
     levelRow('Area Loss / Gain', 'MOT per ZMCC', lv?.area, 0.5),
-    levelRow('Transit Loss / Gain', 'At ZMCC', lv?.transitAtZmcc, 0.75),
-    levelRow('Transit Loss / Gain', 'On road', lv?.transitOnRoad, 1.0),
-    levelRow('Transit Loss / Gain', 'Net (At ZMCC + On road)', lv?.transitNet, null),
+    levelRow('Transit Loss / Gain', 'At ZMCC (tank)', lv?.transitAtZmcc, 0.75),
+    levelRow('Transit Loss / Gain', 'Tanker trip (ZMCC to plant)', lv?.transitOnRoad, 1.0),
+    levelRow('Transit Loss / Gain', 'Net (tank + tanker trip)', lv?.transitNet, null),
     levelRow('Whole Loss / Gain', 'Bought vs plant received', lv?.whole, null),
     levelRow('Contractor Transit Loss / Gain', 'Not part of Whole', lv?.contractorTransit, 1.0),
   ];

@@ -156,7 +156,7 @@ export function VehicleProblem({ journey, vehicleRequests, coverHeaders, open, o
         ))}
 
       {open && (
-        <Modal onClose={onClose} title="Send Request" className="max-w-md">
+        <Modal onClose={onClose} title="Vehicle problem" className="max-w-md" showClose dirty={reason.trim() !== ''} preventClose={sending}>
           <div className="p-4 space-y-3">
             <p className="text-xs text-secondary-foreground">
               Use only if this vehicle cannot continue. Your milk and finished shops stay on this journey.

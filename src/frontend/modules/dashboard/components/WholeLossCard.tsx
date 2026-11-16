@@ -22,7 +22,7 @@ const PERIODS: Array<{ value: 'today' | 'wtd' | 'mtd'; preset: LossPreset; label
 ];
 
 const WHOLE_INFO =
-  'Milk bought from shops and HC vs milk received at the plant, with milk still in ZMCC tanks and on the road counted. Received minus bought. Admin adjustments are shown on their own line.';
+  'Milk bought from shops and HC vs milk received at the plant, with milk still in ZMCC tanks and in tankers counted. Received minus bought. Admin adjustments are shown on their own line.';
 
 /** Whole Loss / Gain with its lines: @13 TS is the main figure, gross sits beside it. */
 export const WholeLossCard: React.FC<WholeLossCardProps> = ({ zmccId, initialPeriod = 'today', showExportButton = true }) => {

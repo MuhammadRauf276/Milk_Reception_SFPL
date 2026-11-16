@@ -70,7 +70,7 @@ export function UnsentWorkLogoutDialog({
   const body = `${waiting} ${waiting === 1 ? 'item is' : 'items are'} saved locally on this device but not sent to the server yet.`;
 
   return (
-    <Modal onClose={onClose} title="Work not sent yet" description={body} size="sm" closeOnOutsideClick={!sending} preventClose={sending}>
+    <Modal onClose={onClose} title="Work not sent yet" description={body} size="sm" closeOnOutsideClick={!sending} preventClose={sending} showClose>
       <div className="space-y-4 p-5">
         <div className="space-y-2">
           <h2 className="text-lg font-semibold leading-tight">Work not sent yet</h2>

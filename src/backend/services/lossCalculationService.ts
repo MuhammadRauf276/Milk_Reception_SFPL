@@ -1668,7 +1668,7 @@ export async function getSupplyChainLossHierarchy(filters: LossFilters): Promise
       endDate: toDay,
       tier1RouteLoss: { ...tier1Calc, label: 'MOT / Area Loss / Gain (shops vs ZMCC)' },
       tier2ZmccLoss: { ...tier2Calc, label: 'ZMCC Tank & Processing Loss / Gain' },
-      tier3TransitLoss: { ...tier3Calc, label: 'On road Loss / Gain (Dispatch vs Plant Received)', highLossCount },
+      tier3TransitLoss: { ...tier3Calc, label: 'Tanker trip Loss / Gain (Dispatch vs Plant Received)', highLossCount },
       tier4TotalLoss: { ...tier4Calc, label: 'Whole Loss / Gain (Bought vs Plant Received)' },
       acceptedNotReceivedLiters: totalAcceptedNotReceivedLiters,
     },
@@ -1881,9 +1881,9 @@ export async function generateLossReconciliationExcel(data: {
     summaryRows.push({ level, part, ...figureCells(f), status: status ?? statusOf(f.at13ts.signed) });
   add('MOT Loss / Gain', '', levels.mot.total);
   add('Area Loss / Gain', '', levels.area.total);
-  add('Transit Loss / Gain', 'At ZMCC', levels.transit.atZmcc);
-  add('Transit Loss / Gain', 'On road', levels.transit.onRoad, levels.transit.highLossCount > 0 ? 'High loss tankers' : undefined);
-  summaryRows.push({ level: 'Transit Loss / Gain', part: 'Net (At ZMCC + On road)', ...figureCells(levels.transit.net), status: statusOf(levels.transit.net.at13ts.signed), __bold: true });
+  add('Transit Loss / Gain', 'At ZMCC (tank)', levels.transit.atZmcc);
+  add('Transit Loss / Gain', 'Tanker trip (ZMCC to plant)', levels.transit.onRoad, levels.transit.highLossCount > 0 ? 'High loss tankers' : undefined);
+  summaryRows.push({ level: 'Transit Loss / Gain', part: 'Net (tank + tanker trip)', ...figureCells(levels.transit.net), status: statusOf(levels.transit.net.at13ts.signed), __bold: true });
   const wholeFigure: LossFigure = { at13ts: levels.whole.net.at13ts, gross: levels.whole.net.gross, records: levels.whole.byZmcc.length, missing13ts: 0 };
   summaryRows.push({ level: 'Whole Loss / Gain', part: 'Bought vs plant received', ...figureCells(wholeFigure), status: statusOf(wholeFigure.at13ts.signed), __bold: true });
   add('Contractor Transit Loss / Gain', 'Not part of Whole', levels.contractorTransit.total);
@@ -1936,12 +1936,12 @@ export async function generateLossReconciliationExcel(data: {
   // Transit: per ZMCC (At ZMCC, On road, net), then per tanker.
   const transitRows: SheetRow[] = [];
   for (const z of levels.transit.byZmcc) {
-    transitRows.push({ zmcc: z.zmccName, part: 'At ZMCC', note: `In ${z.flows.totalIn.at13ts.toFixed(2)} | dispatched ${z.flows.dispatched.at13ts.toFixed(2)} | stock change ${z.flows.stockChange.at13ts.toFixed(2)} (@13 TS L)`, ...figureCells(z.atZmcc) });
-    transitRows.push({ zmcc: z.zmccName, part: 'On road', ...figureCells(z.onRoad) });
+    transitRows.push({ zmcc: z.zmccName, part: 'At ZMCC (tank)', note: `In ${z.flows.totalIn.at13ts.toFixed(2)} | dispatched ${z.flows.dispatched.at13ts.toFixed(2)} | stock change ${z.flows.stockChange.at13ts.toFixed(2)} (@13 TS L)`, ...figureCells(z.atZmcc) });
+    transitRows.push({ zmcc: z.zmccName, part: 'Tanker trip (ZMCC to plant)', ...figureCells(z.onRoad) });
     transitRows.push({ zmcc: z.zmccName, part: 'Net', ...figureCells(z.net), __bold: true });
   }
-  transitRows.push({ zmcc: 'All ZMCCs', part: 'At ZMCC', ...figureCells(levels.transit.atZmcc), __bold: true });
-  transitRows.push({ zmcc: 'All ZMCCs', part: 'On road', ...figureCells(levels.transit.onRoad), __bold: true });
+  transitRows.push({ zmcc: 'All ZMCCs', part: 'At ZMCC (tank)', ...figureCells(levels.transit.atZmcc), __bold: true });
+  transitRows.push({ zmcc: 'All ZMCCs', part: 'Tanker trip (ZMCC to plant)', ...figureCells(levels.transit.onRoad), __bold: true });
   transitRows.push({ zmcc: 'All ZMCCs', part: 'Net', ...figureCells(levels.transit.net), __bold: true });
   transitRows.push({});
   for (const t of levels.transit.tankers) {
@@ -1968,7 +1968,7 @@ export async function generateLossReconciliationExcel(data: {
     line('Milk bought: HC receipts', w.lines.boughtHc),
     line('Milk bought (total)', w.lines.bought, true),
     line('Still in ZMCC tanks (stock change)', w.lines.stockChange),
-    line('On the road (dispatched, not yet reconciled)', w.lines.onRoad),
+    line('In tankers, not at plant yet (dispatched, plant not finished)', w.lines.onRoad),
     line('Received at plant', w.lines.plantReceived),
     { line: 'Whole Gain (+) / Loss (-)', at13ts: lossGainExportValue(w.net.at13ts.signed), gross: lossGainExportValue(w.net.gross.signed), __bold: true },
     { line: 'Whole Gain (+) / Loss (-) % of bought', at13ts: w.net.at13ts.percent, gross: w.net.gross.percent, __bold: true },

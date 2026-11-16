@@ -43,8 +43,18 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
     if (delegationContext.isDelegated && delegationContext.actingAs) {
       // Station-aware mode: render the active station's full operational navigation
       const stationSections = getRoleNavSections({ ...currentUser, role: delegationContext.actingAs }, zmccId);
-      // The delegation banner already offers 'Return to My Work'.
-      return stationSections.filter((s) => s.id !== REQUEST_CORRECTION_NAV_ID);
+      // "My work" stays: while covering, it lists the records this person entered in the covered role. Its links
+      // carry the covered role and station, because My work is not a station page.
+      const cover = new URLSearchParams({ as: delegationContext.actingAs });
+      if (zmccId) cover.set('zmccId', zmccId);
+      const withCover = (href?: string) => (href ? `${href}${href.includes('?') ? '&' : '?'}${cover.toString()}` : href);
+      // Every other link keeps the covered station, so moving between pages never asks for the ZMCC again.
+      const withStation = (href?: string) =>
+        href && zmccId && !/[?&](zmccId|zmcc_id|sourceId)=/.test(href) ? `${href}${href.includes('?') ? '&' : '?'}zmccId=${zmccId}` : href;
+      return stationSections.map((s) => {
+        const link = s.id === REQUEST_CORRECTION_NAV_ID ? withCover : withStation;
+        return { ...s, href: link(s.href), children: s.children?.map((c) => ({ ...c, href: link(c.href) as string })) };
+      });
     }
 
     const roleSections = getRoleNavSections(currentUser, zmccId);

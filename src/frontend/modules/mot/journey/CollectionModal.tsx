@@ -33,6 +33,8 @@ export function CollectionModal({ collection: c, currentUser, journey, isCoverin
       onClose={() => setActiveStop(null)}
       title="Collection stop"
       preventClose={submittingCollection}
+      showClose
+      dirty={Boolean(String(quantity ?? '').trim() || String(shopRmrNumber ?? '').trim() || String(lr ?? '').trim() || String(fat ?? '').trim())}
       className="max-w-lg overflow-hidden"
     >
               <ShopCollectionWizard

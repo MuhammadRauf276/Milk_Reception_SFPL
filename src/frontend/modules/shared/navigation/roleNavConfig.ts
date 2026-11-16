@@ -137,7 +137,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
           },
           {
             id: 'phe-my-requests',
-            label: 'My Submitted Requests',
+            label: 'My approval requests',
             href: '/my-requests',
             icon: Send,
           },
@@ -498,13 +498,13 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'mot-send-request',
-        label: 'Send Request',
+        label: 'Vehicle problem',
         icon: AlertTriangle,
         href: '/mot?request=vehicle',
       },
       {
         id: 'mot-my-requests',
-        label: 'My Submitted Requests',
+        label: 'My approval requests',
         icon: Send,
         href: '/my-requests',
       },
@@ -541,7 +541,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'sec-my-requests',
-        label: 'My Submitted Requests',
+        label: 'My approval requests',
         icon: Send,
         href: '/my-requests',
       },
@@ -627,7 +627,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'wb-my-requests',
-        label: 'My Submitted Requests',
+        label: 'My approval requests',
         icon: Send,
         href: '/my-requests',
       },
@@ -670,7 +670,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'prod-my-requests',
-        label: 'My Submitted Requests',
+        label: 'My approval requests',
         icon: Send,
         href: '/my-requests',
       },
@@ -827,7 +827,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
       },
       {
         id: 'qa-head-my-requests',
-        label: 'My Submitted Requests',
+        label: 'My approval requests',
         icon: Send,
         href: '/my-requests',
       },

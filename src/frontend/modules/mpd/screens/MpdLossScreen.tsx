@@ -35,10 +35,10 @@ const TABS: Array<{ value: LevelTab; label: string }> = [
 const INFO = {
   mot: 'Milk collected from shops vs milk received at the ZMCC, per Mobile Tester journey. Received minus sent. The total is the net of all journeys.',
   area: 'MOT Loss / Gain added up for each ZMCC.',
-  transit: 'At ZMCC plus On road.',
+  transit: 'At ZMCC (tank) plus the tanker trip from ZMCC to plant.',
   atZmcc: 'Milk received at the ZMCC (MOT and HC) vs milk dispatched, with the change in tank stock taken into account.',
   onRoad: 'Milk dispatched by the ZMCC vs milk received at the plant. Tankers the plant has not reconciled yet are left out.',
-  whole: 'Milk bought from shops and HC vs milk received at the plant, with milk still in ZMCC tanks and on the road counted. Equals MOT plus Transit.',
+  whole: 'Milk bought from shops and HC vs milk received at the plant, with milk still in ZMCC tanks and in tankers counted. Equals MOT plus Transit.',
   contractor: 'Contractor tankers: dispatched vs received at the plant. Separate from Whole.',
 };
 
@@ -138,8 +138,8 @@ const areaColumns: Array<DataColumn<AreaLossRow>> = [
 const transitZmccColumns: Array<DataColumn<TransitZmccRow>> = [
   { key: 'zmcc', header: 'ZMCC', primary: true, cell: (z) => <span className="font-medium">{z.zmccName}</span> },
   { key: 'net', header: 'Transit', align: 'right', cell: (z) => <Signed value={z.net.at13ts.signed} /> },
-  { key: 'atZmcc', header: 'At ZMCC', align: 'right', cell: (z) => <Signed value={z.atZmcc.at13ts.signed} /> },
-  { key: 'onRoad', header: 'On road', align: 'right', cell: (z) => <Signed value={z.onRoad.at13ts.signed} /> },
+  { key: 'atZmcc', header: 'At ZMCC (tank)', align: 'right', cell: (z) => <Signed value={z.atZmcc.at13ts.signed} /> },
+  { key: 'onRoad', header: 'Tanker trip', align: 'right', cell: (z) => <Signed value={z.onRoad.at13ts.signed} /> },
   { key: 'gross', header: 'Gross', align: 'right', cell: (z) => <Signed value={z.net.gross.signed} /> },
   { key: 'dispatched', header: 'Dispatched @13 TS', align: 'right', cell: (z) => litres(z.flows.dispatched.at13ts) },
   {
@@ -193,7 +193,7 @@ const wholeZmccColumns: Array<DataColumn<WholeZmccRow>> = [
   { key: 'gross', header: 'Gross', align: 'right', cell: (z) => <Signed value={z.net.gross.signed} /> },
   { key: 'bought', header: 'Bought @13 TS', align: 'right', cell: (z) => litres(z.lines.bought.at13ts) },
   { key: 'tanks', header: 'In tanks', align: 'right', cell: (z) => litres(z.lines.stockChange.at13ts) },
-  { key: 'road', header: 'On the road', align: 'right', cell: (z) => litres(z.lines.onRoad.at13ts) },
+  { key: 'road', header: 'In tankers', align: 'right', cell: (z) => litres(z.lines.onRoad.at13ts) },
   { key: 'plant', header: 'Plant received', align: 'right', cell: (z) => litres(z.lines.plantReceived.at13ts) },
   { key: 'admin', header: 'Admin', align: 'right', cell: (z) => litres(z.lines.adminAdjustment.at13ts) },
 ];
@@ -300,8 +300,8 @@ export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ role }) => {
             </h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <LossStatCard label="Transit" figure={levels?.transit?.net} info={INFO.transit} icon={Truck} />
-              <LossStatCard label="At ZMCC" figure={levels?.transit?.atZmcc} info={INFO.atZmcc} />
-              <LossStatCard label="On road" figure={levels?.transit?.onRoad} info={INFO.onRoad} />
+              <LossStatCard label="At ZMCC (tank)" figure={levels?.transit?.atZmcc} info={INFO.atZmcc} />
+              <LossStatCard label="Tanker trip (ZMCC to plant)" figure={levels?.transit?.onRoad} info={INFO.onRoad} />
             </div>
           </div>
 

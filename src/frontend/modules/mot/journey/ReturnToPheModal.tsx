@@ -33,7 +33,7 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
   const hasPending = pendingStops.length > 0;
 
   return (
-    <Modal onClose={onClose} title="Return to PHE (ZMCC Intake)" className="max-w-md overflow-hidden">
+    <Modal onClose={onClose} title="Return to PHE (ZMCC Intake)" className="max-w-md overflow-hidden" showClose>
       <div className="p-4 space-y-4 text-xs">
         {hasPending ? (
           <div className="bg-card border-border p-3 border rounded-xl text-amber-950 flex items-start space-x-3">

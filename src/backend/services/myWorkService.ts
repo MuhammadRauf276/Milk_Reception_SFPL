@@ -94,7 +94,9 @@ export async function listMyWork(f: MyWorkFilters): Promise<{ rows: MyWorkRow[];
       ? Prisma.sql`AND (j.journey_number ILIKE ${like} OR a.zmcc_token ILIKE ${like} OR a.raw_milk_token_number ILIKE ${like} OR a.route_milk_token ILIKE ${like})`
       : Prisma.empty;
     branches.push(Prisma.sql`
-      SELECT 'JOURNEY' AS kind, j.id, COALESCE(a.arrival_timestamp, j.created_at) AS ts,
+      SELECT 'JOURNEY' AS kind, j.id,
+        -- The journey's latest activity, so a shop collected today on an older journey still shows.
+        GREATEST(COALESCE(a.arrival_timestamp, j.created_at), (SELECT MAX(c.created_at) FROM mot_shop_collection c WHERE c.journey_id = j.id)) AS ts,
         j.journey_number::text AS reference, CONCAT_WS(' · ', r.name, a.zmcc_token) AS detail, j.status::text AS status,
         COALESCE(
           (SELECT COALESCE(u.full_name, u.username) FROM mot_shop_collection c JOIN users u ON u.id = c.submitted_by_user_id WHERE c.journey_id = j.id ORDER BY c.id LIMIT 1),

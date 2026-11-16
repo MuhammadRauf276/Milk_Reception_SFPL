@@ -160,7 +160,7 @@ export const WholeLinesTable: React.FC<{ whole: WholeLevel | null | undefined; c
         { id: 'shop', label: 'Bought from shops', pair: l.boughtShop },
         { id: 'hc', label: 'Bought from HC', pair: l.boughtHc },
         { id: 'tanks', label: 'Still in ZMCC tanks', pair: l.stockChange },
-        { id: 'road', label: 'On the road', pair: l.onRoad },
+        { id: 'road', label: 'In tankers, not at plant yet', pair: l.onRoad },
         { id: 'admin', label: 'Admin adjustments', pair: l.adminAdjustment },
         { id: 'plant', label: 'Plant received', pair: l.plantReceived },
         { id: 'net', label: 'Net', net: { at13ts: whole.net.at13ts.signed, gross: whole.net.gross.signed } },

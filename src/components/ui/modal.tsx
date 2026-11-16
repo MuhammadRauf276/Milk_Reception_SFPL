@@ -32,8 +32,15 @@ export interface ModalProps {
   closeOnOutsideClick?: boolean;
   /** Prevent Escape/outside-click from closing, e.g. while a request is in flight. */
   preventClose?: boolean;
+  /** A close (X) button in the top corner, for bodies without the standard header. */
+  showClose?: boolean;
+  /** Something has been typed: closing first asks "Discard what you typed?". */
+  dirty?: boolean;
   children: React.ReactNode;
 }
+
+const CLOSE_BUTTON_CLASS =
+  'inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring';
 
 /**
  * Accessible, animated modal built on Radix Dialog + framer-motion.
@@ -52,13 +59,26 @@ export function Modal({
   className,
   closeOnOutsideClick = false,
   preventClose = false,
+  showClose = false,
+  dirty = false,
   children,
 }: ModalProps) {
   const reduceMotion = useReducedMotion();
   const contentRef = React.useRef<HTMLDivElement | null>(null);
+  const [confirmingDiscard, setConfirmingDiscard] = React.useState(false);
+
+  // Every way of closing (X, Escape, outside click) comes here, so typed work is never lost without asking.
+  const requestClose = () => {
+    if (preventClose) return;
+    if (dirty && !confirmingDiscard) {
+      setConfirmingDiscard(true);
+      return;
+    }
+    onClose();
+  };
 
   const handleOpenChange = (next: boolean) => {
-    if (!next && !preventClose) onClose();
+    if (!next) requestClose();
   };
 
   // Focus the first form field rather than the close button so forms are ready to type into.
@@ -120,7 +140,7 @@ export function Modal({
                     </div>
                     <DialogPrimitive.Close
                       disabled={preventClose}
-                      className="-mr-1 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                      className={cn('-mr-1', CLOSE_BUTTON_CLASS)}
                       aria-label="Close"
                     >
                       <X className="h-4 w-4" />
@@ -132,7 +152,48 @@ export function Modal({
                     {description ? <DialogPrimitive.Description>{description}</DialogPrimitive.Description> : null}
                   </VisuallyHidden>
                 )}
+                {showClose && !showHeader ? (
+                  <div className="sticky top-0 z-20 flex h-0 justify-end">
+                    <DialogPrimitive.Close
+                      disabled={preventClose}
+                      className={cn('mt-1 mr-1 bg-card/90', CLOSE_BUTTON_CLASS)}
+                      aria-label="Close"
+                    >
+                      <X className="h-5 w-5" />
+                    </DialogPrimitive.Close>
+                  </div>
+                ) : null}
                 {children}
+                {confirmingDiscard ? (
+                  <div
+                    role="alertdialog"
+                    aria-label="Discard what you typed?"
+                    className="absolute inset-0 z-30 flex items-center justify-center bg-card/95 p-4"
+                  >
+                    <div className="w-full max-w-xs space-y-3 text-center">
+                      <p className="text-sm font-semibold text-foreground">Discard what you typed?</p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingDiscard(false)}
+                          className="min-h-11 flex-1 rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground hover:bg-muted"
+                        >
+                          Keep editing
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConfirmingDiscard(false);
+                            onClose();
+                          }}
+                          className="min-h-11 flex-1 rounded-lg bg-destructive px-3 text-sm font-semibold text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Discard
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </motion.div>
             </DialogPrimitive.Content>
           </motion.div>

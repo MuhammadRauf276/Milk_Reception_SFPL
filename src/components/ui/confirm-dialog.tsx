@@ -57,7 +57,7 @@ export function ConfirmHost() {
   const blocked = !!requireText && typed.trim() !== requireText;
 
   return (
-    <Modal title={title} size="sm" onClose={() => close(false)}>
+    <Modal title={title} size="sm" onClose={() => close(false)} showClose>
       <div className="space-y-4 p-4 sm:p-5">
         <div className="flex items-start gap-3">
           {destructive ? <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" /> : null}

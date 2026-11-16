@@ -19,7 +19,7 @@ export function ReceiptModal({
   hasRemainingStops = true,
 }: Props) {
   return (
-    <Modal onClose={onClose} title="Collection Saved & WhatsApp Receipt" className="max-w-md overflow-hidden">
+    <Modal onClose={onClose} title="Collection Saved & WhatsApp Receipt" className="max-w-md overflow-hidden" showClose>
       <div className="p-4 space-y-4">
         <div className="bg-card border-border p-3 border rounded-xl text-emerald-950 flex items-start space-x-3">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
