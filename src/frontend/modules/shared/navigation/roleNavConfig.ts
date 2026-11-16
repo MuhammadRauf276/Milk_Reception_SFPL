@@ -908,14 +908,17 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
     ];
   }
 
-  // 16. Senior Executive Management
+  // 16. Senior Executive Management: views and reports only. The role cannot approve or act (VIEW and VIEW_AUDIT),
+  // so the Approval Inbox, the Exception Desk, Testing Policies and the yard TV board are left out.
   if (role === 'EXECUTIVE_MANAGEMENT') {
+    const pickViews = (ids: string[]) =>
+      ids.map((id) => MPD_VIEW_LINKS.find((l) => l.id === id)).filter((l): l is RoleNavLeaf => Boolean(l));
     return [
       {
-        id: 'exec-command',
-        label: 'Command Center',
-        icon: LayoutDashboard,
-        children: MPD_VIEW_LINKS.filter((l) => l.href !== '/command?view=POLICIES'),
+        id: 'exec-reports',
+        label: 'Reports',
+        icon: FileSpreadsheet,
+        children: pickViews(['mpd-v-reports', 'mpd-v-rep-routes', 'mpd-v-rep-hc', 'mpd-v-rep-tanks', 'mpd-v-quality', 'mpd-v-loss']),
       },
       {
         id: 'exec-live-vehicles',
@@ -924,16 +927,10 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         children: SEVEN_DAY_VEHICLE_LINKS,
       },
       {
-        id: 'exec-approvals',
-        label: 'Approval Inbox',
-        icon: ShieldAlert,
-        href: '/approvals',
-      },
-      {
-        id: 'tv-board',
-        label: 'Yard Board',
-        icon: Tv,
-        href: '/tv-board',
+        id: 'exec-command',
+        label: 'Live operations',
+        icon: LayoutDashboard,
+        children: pickViews(['mpd-v-fleet', 'mpd-v-journeys', 'mpd-v-sources', 'mpd-v-hierarchy', 'mpd-v-hierarchy-hc']),
       },
     ];
   }
