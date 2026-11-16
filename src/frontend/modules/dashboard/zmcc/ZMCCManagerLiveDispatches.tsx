@@ -97,7 +97,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
         );
       if (lifecycleFilter === 'UNLOADING') return g.lifecycle.currentStageId === 'UNLOADING';
       if (lifecycleFilter === 'AWAITING_RECEIPT')
-        return g.lifecycle.currentStageId === 'FINAL_RECEIPT';
+        return g.lifecycle.currentStageId === 'FINAL_RECEIPT' || g.lifecycle.currentStageId === 'GATE_EXIT';
 
       return true;
     });

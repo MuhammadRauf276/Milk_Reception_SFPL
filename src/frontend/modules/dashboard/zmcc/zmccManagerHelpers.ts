@@ -178,6 +178,7 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
 
   // Authoritative Final Receipt: requires SiloInventoryTransaction RECEIPT existence
   const hasFinalReceipt = Boolean(primary.final_receipt_exists);
+  const hasGateExit = Boolean(primary.gate_exit_timestamp || primary.out_from_gate_time) || overallStatus === 'GATE_OUT';
 
   // Definitive QA Completion: Every portion is either ACCEPTED or REJECTED
   const isAllQaDefinitive =
@@ -287,13 +288,28 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
         ? formatOperationalDatetime(primary.final_receipt_timestamp)
         : null,
     },
+    {
+      id: 'GATE_EXIT',
+      label: 'Gate Exit',
+      shortLabel: 'Exit',
+      status: hasGateExit ? 'COMPLETED' : hasFinalReceipt || overallStatus === 'READY_FOR_GATE_EXIT' ? 'CURRENT' : 'UPCOMING',
+      eventTimestamp: primary.gate_exit_timestamp
+        ? formatOperationalDatetime(primary.gate_exit_timestamp)
+        : primary.out_from_gate_time || null,
+    },
   ];
 
   // Determine current active stage
   let currentStageId: LifecycleStageId = 'DISPATCH';
   let currentStageLabel = 'Dispatch';
 
-  if (hasFinalReceipt) {
+  if (hasGateExit) {
+    currentStageId = 'GATE_EXIT';
+    currentStageLabel = 'Exited Plant';
+  } else if (overallStatus === 'READY_FOR_GATE_EXIT' && !hasFirstWeight) {
+    currentStageId = 'GATE_EXIT';
+    currentStageLabel = 'Rejected, Awaiting Gate Exit';
+  } else if (hasFinalReceipt) {
     currentStageId = 'FINAL_RECEIPT';
     currentStageLabel = 'Final Receipt Completed';
   } else if (hasSecondWeight) {
@@ -323,7 +339,10 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
     ? formatOperationalDatetime(primary.dispatch_timestamp)
     : null;
 
-  if (hasFinalReceipt && primary.final_receipt_timestamp) {
+  if (hasGateExit && primary.gate_exit_timestamp) {
+    latestEventLabel = 'Gate Exit';
+    latestEventTimestamp = formatOperationalDatetime(primary.gate_exit_timestamp);
+  } else if (hasFinalReceipt && primary.final_receipt_timestamp) {
     latestEventLabel = 'Final Receipt Posted';
     latestEventTimestamp = formatOperationalDatetime(primary.final_receipt_timestamp);
   } else if (primary.second_weight_timestamp) {

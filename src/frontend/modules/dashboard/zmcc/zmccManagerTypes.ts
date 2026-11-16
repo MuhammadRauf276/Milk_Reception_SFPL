@@ -21,7 +21,8 @@ export type LifecycleStageId =
   | 'FIRST_WEIGHT'
   | 'UNLOADING'
   | 'SECOND_WEIGHT'
-  | 'FINAL_RECEIPT';
+  | 'FINAL_RECEIPT'
+  | 'GATE_EXIT';
 
 export type LifecycleStageStatus = 'COMPLETED' | 'CURRENT' | 'UPCOMING' | 'SKIPPED';
 

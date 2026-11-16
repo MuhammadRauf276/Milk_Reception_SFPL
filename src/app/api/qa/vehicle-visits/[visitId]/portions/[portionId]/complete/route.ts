@@ -794,8 +794,11 @@ export async function POST(
           },
         });
       } else if (isComposite && finalPlantDecision === 'ACCEPTED') {
+        // Only the compartments the dispatch sent. A portion added at the plant is never accepted without its own test.
+        // (Older visits with no dispatch rows at all keep the old rule.)
+        const hasDispatchRows = (await tx.dispatchInfo.count({ where: { portion: { visit_id: visitId } } })) > 0;
         await tx.visitPortion.updateMany({
-          where: { visit_id: visitId, plant_decision: { not: 'ACCEPTED' } },
+          where: { visit_id: visitId, plant_decision: { not: 'ACCEPTED' }, ...(hasDispatchRows ? { dispatch_info: { isNot: null } } : {}) },
           data: {
             plant_decision: 'ACCEPTED',
             current_status: 'ACCEPTED',

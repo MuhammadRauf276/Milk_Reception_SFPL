@@ -32,8 +32,19 @@ type PortionTestRow = {
   performed: boolean;
   dispatchResult: string;
   plantResult: string;
+  dispatchNumber: number | null;
+  plantNumber: number | null;
   unit: string;
 };
+
+const asNumber = (v: unknown): number | null => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+
+/** Plant minus dispatch, with a sign, rounded to what the tests are recorded in. */
+function differenceText(plant: number | null, dispatch: number | null): string {
+  if (plant == null || dispatch == null) return '-';
+  const d = Math.round((plant - dispatch) * 1000) / 1000;
+  return d > 0 ? `+${d}` : `${d}`;
+}
 
 function buildPortionTests(p: MilkProcessLog): PortionTestRow[] {
   if (p.portion_lab_results && p.portion_lab_results.length > 0) {
@@ -56,17 +67,67 @@ function buildPortionTests(p: MilkProcessLog): PortionTestRow[] {
         performed: tr.plant_performed || tr.dispatch_performed,
         dispatchResult,
         plantResult,
+        dispatchNumber: asNumber(tr.dispatch_numeric_value),
+        plantNumber: asNumber(tr.plant_numeric_value),
         unit: tr.unit || '-',
       };
     });
   }
+  const row = (name: string, dispatch: number | null | undefined, plant: number | null | undefined, unit: string): PortionTestRow => ({
+    name,
+    performed: plant != null,
+    dispatchResult: dispatch != null ? `${dispatch}` : 'Not recorded',
+    plantResult: plant != null ? `${plant}` : 'Pending',
+    dispatchNumber: dispatch ?? null,
+    plantNumber: plant ?? null,
+    unit,
+  });
   return [
-    { name: 'Fat', performed: p.sampling_fat != null, dispatchResult: p.dispatch_fat != null ? `${p.dispatch_fat}` : 'Not recorded', plantResult: p.sampling_fat != null ? `${p.sampling_fat}` : 'Pending', unit: '%' },
-    { name: 'LR', performed: p.sampling_lr != null, dispatchResult: p.dispatch_lr != null ? `${p.dispatch_lr}` : 'Not recorded', plantResult: p.sampling_lr != null ? `${p.sampling_lr}` : 'Pending', unit: '°L' },
-    { name: 'SNF', performed: p.computed_sampling_snf != null, dispatchResult: p.computed_dispatch_snf != null ? `${p.computed_dispatch_snf}` : 'Not recorded', plantResult: p.computed_sampling_snf != null ? `${p.computed_sampling_snf}` : 'Pending', unit: '%' },
-    { name: 'TS', performed: p.computed_sampling_ts != null, dispatchResult: p.computed_dispatch_ts != null ? `${p.computed_dispatch_ts}` : 'Not recorded', plantResult: p.computed_sampling_ts != null ? `${p.computed_sampling_ts}` : 'Pending', unit: '%' },
-    { name: 'MBRT', performed: p.b_mbrt_minutes_test != null, dispatchResult: 'Not recorded', plantResult: p.b_mbrt_minutes_test != null ? `${p.b_mbrt_minutes_test}` : 'Pending', unit: 'min' },
+    row('Fat', p.dispatch_fat, p.sampling_fat, '%'),
+    row('LR', p.dispatch_lr, p.sampling_lr, '°L'),
+    row('SNF', p.computed_dispatch_snf, p.computed_sampling_snf, '%'),
+    row('TS', p.computed_dispatch_ts, p.computed_sampling_ts, '%'),
+    row('MBRT', null, p.b_mbrt_minutes_test, 'min'),
   ];
+}
+
+const kg = (v: number | null | undefined) => (v == null ? null : `${v.toLocaleString()} kg`);
+const when = (v: string | null | undefined) => (v ? formatOperationalDatetime(v) : null);
+
+interface Weighing {
+  label: string;
+  weight: string | null;
+  net: string | null;
+  time: string | null;
+}
+
+/**
+ * Every weighing of the vehicle in order: loaded, then one after each unloaded portion (portion-wise weighing
+ * records the weight before and after each compartment). Older visits with only a gross and a tare show those two.
+ */
+function buildWeighings(log: MilkProcessLog, portions: MilkProcessLog[]): Weighing[] {
+  const rows: Weighing[] = [];
+  if (log.first_weight_of_vehicle == null) return rows;
+  rows.push({ label: 'Loaded', weight: kg(log.first_weight_of_vehicle), net: null, time: when(log.first_weight_timestamp) });
+  const weighed = [...portions]
+    .filter((p) => p.portion_second_weight_kg != null)
+    .sort((a, b) => String(a.portion_number).localeCompare(String(b.portion_number), undefined, { numeric: true }));
+  for (const p of weighed) {
+    rows.push({
+      label: `After ${p.portion_number} unloaded`,
+      weight: kg(p.portion_second_weight_kg),
+      net: kg(p.portion_net_weight_kg),
+      time: when(p.portion_second_weight_at),
+    });
+  }
+  const lastWeight = weighed.length > 0 ? weighed[weighed.length - 1].portion_second_weight_kg : null;
+  if (log.second_weight_of_vehicle != null && log.second_weight_of_vehicle !== lastWeight) {
+    rows.push({ label: 'Empty', weight: kg(log.second_weight_of_vehicle), net: kg(log.computed_net_milk_weight), time: when(log.second_weight_timestamp) });
+  }
+  if (log.second_weight_of_vehicle == null) {
+    rows.push({ label: 'Next weighing', weight: null, net: null, time: null });
+  }
+  return rows;
 }
 
 const portionLabel = (p: MilkProcessLog, idx: number) =>
@@ -98,6 +159,15 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
     () => displayPortions.map((p) => new Map(buildPortionTests(p).map((t) => [t.name, t]))),
     [displayPortions]
   );
+  // Portions the dispatch sent. A portion the plant added has plant results only.
+  const dispatchIndexes = useMemo(
+    () => displayPortions.map((p, i) => (p.is_dispatch_portion === false ? -1 : i)).filter((i) => i >= 0),
+    [displayPortions]
+  );
+  // Each plant portion is compared with the same dispatched portion, or with the only dispatched one (composite).
+  const dispatchFor = (i: number): number | null =>
+    dispatchIndexes.includes(i) ? i : dispatchIndexes.length === 1 ? dispatchIndexes[0] : null;
+  const weighings = useMemo(() => (log ? buildWeighings(log, displayPortions) : []), [log, displayPortions]);
   const testNames = useMemo(() => {
     const names: string[] = [];
     for (const m of portionTests) for (const n of m.keys()) if (!names.includes(n)) names.push(n);
@@ -227,6 +297,33 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                   {log.gate_entry_timestamp ? formatOperationalDatetime(log.gate_entry_timestamp) : 'Pending'}
                 </span>
               </div>
+
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
+                  Gate Exit Time
+                </span>
+                <span className="text-xs font-semibold text-foreground">
+                  {log.gate_exit_timestamp ? formatOperationalDatetime(log.gate_exit_timestamp) : 'Pending'}
+                </span>
+              </div>
+
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
+                  Dispatch Gross Liters
+                </span>
+                <span className="text-sm font-semibold text-foreground">
+                  {log.vehicle_dispatch_gross_liters != null ? `${log.vehicle_dispatch_gross_liters.toLocaleString()} L` : 'Not recorded'}
+                </span>
+              </div>
+
+              <div className="bg-card border-border/60 p-3 rounded-lg border">
+                <span className="text-xs font-sans font-semibold text-muted-foreground block">
+                  Dispatch Weight
+                </span>
+                <span className="text-sm font-semibold text-foreground">
+                  {log.vehicle_dispatch_kg != null ? `${log.vehicle_dispatch_kg.toLocaleString()} kg` : 'Not recorded'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -290,28 +387,34 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 </span>
               </div>
 
-              <div className="bg-card border-border/60 p-3 rounded-lg border">
-                <span className="text-xs font-sans font-semibold text-muted-foreground block">
-                  First Weight Time
-                </span>
-                <span className="text-xs font-semibold text-foreground">
-                  {log.first_weight_timestamp ? formatOperationalDatetime(log.first_weight_timestamp) : 'Not recorded'}
-                </span>
-              </div>
-
-              <div className="bg-card border-border/60 p-3 rounded-lg border">
-                <span className="text-xs font-sans font-semibold text-muted-foreground block">
-                  Second Weight Time
-                </span>
-                <span className="text-xs font-semibold text-foreground">
-                  {log.second_weight_timestamp
-                    ? formatOperationalDatetime(log.second_weight_timestamp)
-                    : log.first_weight_of_vehicle != null
-                    ? 'Pending'
-                    : 'Not recorded'}
-                </span>
-              </div>
             </div>
+
+            {weighings.length > 0 && (
+              <TableWrapper className="rounded-lg border border-border/60">
+                <table className="w-full text-left text-xs tabular-nums">
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground">
+                      <th className="py-2 px-2 font-semibold">Weighing</th>
+                      <th className="py-2 px-2 font-semibold">Step</th>
+                      <th className="py-2 px-2 font-semibold text-right">Weight</th>
+                      <th className="py-2 px-2 font-semibold text-right">Milk Off</th>
+                      <th className="py-2 px-2 font-semibold">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40">
+                    {weighings.map((w, i) => (
+                      <tr key={`${w.label}-${i}`}>
+                        <td className="py-2 px-2 font-semibold text-foreground">{w.weight ? `Weight ${i + 1}` : '-'}</td>
+                        <td className="py-2 px-2 text-secondary-foreground">{w.label}</td>
+                        <td className="py-2 px-2 text-right font-semibold text-foreground">{w.weight ?? 'Pending'}</td>
+                        <td className="py-2 px-2 text-right text-secondary-foreground">{w.net ?? '-'}</td>
+                        <td className="py-2 px-2 text-secondary-foreground whitespace-nowrap">{w.time ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableWrapper>
+            )}
           </div>
 
           {/* 3. Portion Quality Results */}
@@ -334,7 +437,9 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                         <span className="text-xs text-muted-foreground tabular-nums">
                           (Quantity:{' '}
                           <span className="font-semibold text-foreground">
-                            {p.dispatch_liters_gross != null
+                            {p.is_dispatch_portion === false
+                              ? 'Added at plant'
+                              : p.dispatch_liters_gross != null
                               ? `${p.dispatch_liters_gross.toLocaleString()} L`
                               : p.dispatch_kg_gross != null
                               ? `${p.dispatch_kg_gross.toLocaleString()} kg`
@@ -363,14 +468,19 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                     <tr className="border-b border-border text-xs font-semibold text-muted-foreground">
                       <th className="py-2 px-2">Lab Test</th>
                       <th className="py-2 px-2">Status</th>
-                      {displayPortions.map((p, idx) => (
-                        <th key={`d-${p.portion_id || idx}`} className="py-2 px-2 tabular-nums whitespace-nowrap">
-                          Dispatch {displayPortions.length > 1 ? portionLabel(p, idx) : 'Result'}
+                      {dispatchIndexes.map((idx) => (
+                        <th key={`d-${displayPortions[idx].portion_id || idx}`} className="py-2 px-2 tabular-nums whitespace-nowrap">
+                          Dispatch {dispatchIndexes.length > 1 ? portionLabel(displayPortions[idx], idx) : ''}
                         </th>
                       ))}
                       {displayPortions.map((p, idx) => (
                         <th key={`p-${p.portion_id || idx}`} className="py-2 px-2 tabular-nums whitespace-nowrap">
-                          Plant {displayPortions.length > 1 ? portionLabel(p, idx) : 'Result'}
+                          Plant {displayPortions.length > 1 ? portionLabel(p, idx) : ''}
+                        </th>
+                      ))}
+                      {displayPortions.map((p, idx) => (
+                        <th key={`x-${p.portion_id || idx}`} className="py-2 px-2 tabular-nums whitespace-nowrap">
+                          Diff {displayPortions.length > 1 ? portionLabel(p, idx) : ''}
                         </th>
                       ))}
                       <th className="py-2 px-2">Unit</th>
@@ -387,9 +497,9 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                             <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-muted text-muted-foreground">Not performed</span>
                           )}
                         </td>
-                        {portionTests.map((tests, i) => (
+                        {dispatchIndexes.map((i) => (
                           <td key={`d-${i}`} className="py-2 px-2 text-secondary-foreground">
-                            {tests.get(name)?.dispatchResult ?? 'Not recorded'}
+                            {portionTests[i].get(name)?.dispatchResult ?? 'Not recorded'}
                           </td>
                         ))}
                         {portionTests.map((tests, i) => (
@@ -397,6 +507,18 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                             {tests.get(name)?.plantResult ?? 'Pending'}
                           </td>
                         ))}
+                        {portionTests.map((tests, i) => {
+                          const from = dispatchFor(i);
+                          const text = differenceText(
+                            tests.get(name)?.plantNumber ?? null,
+                            from == null ? null : portionTests[from].get(name)?.dispatchNumber ?? null
+                          );
+                          return (
+                            <td key={`x-${i}`} className={`py-2 px-2 ${text === '-' || text === '0' ? 'text-muted-foreground' : 'font-semibold text-foreground'}`}>
+                              {text}
+                            </td>
+                          );
+                        })}
                         <td className="py-2 px-2 font-sans text-muted-foreground">
                           {portionTests.map((t) => t.get(name)?.unit).find((u) => u) ?? '-'}
                         </td>

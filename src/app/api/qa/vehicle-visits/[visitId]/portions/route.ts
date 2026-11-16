@@ -139,6 +139,13 @@ export async function POST(
           },
         });
 
+        // A portion added at the plant exists to be tested on its own, so the visit is tested portion by portion
+        // from now on. In composite mode the first portion's result would otherwise decide this one too, and it
+        // would be accepted with no test of its own.
+        if (visit.test_mode !== 'PORTION_WISE') {
+          await tx.vehicleVisit.update({ where: { id: visitId }, data: { test_mode: 'PORTION_WISE' } });
+        }
+
         if (visit.qa_session && visit.qa_session.status === 'IN_PROGRESS') {
           await tx.qATestingSessionEvent.create({
             data: {

@@ -47,7 +47,7 @@ export async function POST(
       const visit = await tx.vehicleVisit.findUnique({
         where: { id: visitId },
         include: {
-          portions: { orderBy: { portion_number: 'asc' } },
+          portions: { orderBy: { portion_number: 'asc' }, include: { dispatch_info: { select: { id: true } } } },
           qa_session: true,
         },
       });
@@ -57,7 +57,14 @@ export async function POST(
       }
 
       const portions = visit.portions;
-      const effectivePortions = visit.test_mode === 'COMPOSITE' ? portions.slice(0, 1) : portions;
+      // Composite: the first portion decides the dispatched compartments. A portion added at the plant always
+      // needs its own decision, so the vehicle cannot move on while it is untested.
+      // (A plant portion has no dispatch row while another portion has one; older visits with none keep the old rule.)
+      const hasDispatchRows = portions.some((p) => p.dispatch_info);
+      const effectivePortions =
+        visit.test_mode === 'COMPOSITE'
+          ? portions.filter((p, i) => i === 0 || (hasDispatchRows && !p.dispatch_info))
+          : portions;
       const decisions = effectivePortions.map((p) => p.plant_decision);
       const allRejected = decisions.length > 0 && decisions.every((d) => d === 'REJECTED');
       const hasAccepted = decisions.some((d) => d === 'ACCEPTED');

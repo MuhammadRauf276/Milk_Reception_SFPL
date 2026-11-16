@@ -372,6 +372,20 @@ export function mapVisitToLogs(
     }
   }
 
+  // Whole-vehicle dispatch weight: as declared in kg, or the litres times the density.
+  let vehicleDispatchKg: number | null = vDeclaredUnit === 'KG' ? vDeclaredVal : null;
+  if (vehicleDispatchKg == null && vehicleDispatchGrossLiters != null) {
+    const density =
+      visit.vehicle_dispatch_density != null
+        ? Number(visit.vehicle_dispatch_density)
+        : visit.vehicle_dispatch_lr != null
+        ? calculateDensity(Number(visit.vehicle_dispatch_lr))
+        : null;
+    if (density != null) vehicleDispatchKg = Number((vehicleDispatchGrossLiters * density).toFixed(2));
+  }
+
+  const visitHasDispatchRows = visit.portions.some((p) => Boolean(p.dispatch_info));
+
   for (const portion of visit.portions) {
     const portionStr = `P-${String(portion.portion_number).padStart(2, '0')}`;
     const declaredVal = portion.dispatch_quantity_value ? Number(portion.dispatch_quantity_value) : null;
@@ -380,15 +394,21 @@ export function mapVisitToLogs(
     // Dispatch QA
     // A portion's own result rows come first, then the values kept in the stored dispatch decision. Last, the
     // vehicle-level values, for dispatches that recorded Fat and LR once on the visit.
-    const decisionPortion = dispatchDecisionPortion(visit.dispatch_decision_details, portion);
-    const dFat =
-      extractTestNumericValue(portion.dispatch_lab_results, isDispatchFatTest) ??
-      decisionPortion?.fat ??
-      (visit.vehicle_dispatch_fat != null ? Number(visit.vehicle_dispatch_fat) : null);
-    const dLr =
-      extractTestNumericValue(portion.dispatch_lab_results, isDispatchLrTest) ??
-      decisionPortion?.lr ??
-      (visit.vehicle_dispatch_lr != null ? Number(visit.vehicle_dispatch_lr) : null);
+    // A portion the plant added was never dispatched: it gets no dispatch values, not even the vehicle's. It is
+    // recognised by having no dispatch row while another portion of the visit has one (older visits with no
+    // dispatch rows at all keep their values).
+    const isDispatchPortion = Boolean(portion.dispatch_info) || !visitHasDispatchRows;
+    const decisionPortion = isDispatchPortion ? dispatchDecisionPortion(visit.dispatch_decision_details, portion) : null;
+    const dFat = isDispatchPortion
+      ? extractTestNumericValue(portion.dispatch_lab_results, isDispatchFatTest) ??
+        decisionPortion?.fat ??
+        (visit.vehicle_dispatch_fat != null ? Number(visit.vehicle_dispatch_fat) : null)
+      : null;
+    const dLr = isDispatchPortion
+      ? extractTestNumericValue(portion.dispatch_lab_results, isDispatchLrTest) ??
+        decisionPortion?.lr ??
+        (visit.vehicle_dispatch_lr != null ? Number(visit.vehicle_dispatch_lr) : null)
+      : null;
 
     // Unit-safe dispatch gross liters
     let dispatchGrossLiters: number | null = null;
@@ -666,6 +686,8 @@ export function mapVisitToLogs(
       dispatch_tests: null,
       dispatch_fat: dFat,
       dispatch_lr: dLr,
+      is_dispatch_portion: isDispatchPortion,
+      vehicle_dispatch_kg: vehicleDispatchKg,
 
       igp_date: visit.gate_log?.entry_timestamp ? new Date(visit.gate_log.entry_timestamp).toISOString().split('T')[0] : null,
       igp_time: formatTimeOnly(visit.gate_log?.entry_timestamp),
@@ -687,6 +709,11 @@ export function mapVisitToLogs(
       first_weight_of_vehicle: firstWeightKg,
       second_weight_time: formatTimeOnly(visit.weight_ticket?.tare_timestamp),
       second_weight_of_vehicle: secondWeightKg,
+      portion_first_weight_kg: portion.first_weight_kg != null ? Number(portion.first_weight_kg) : null,
+      portion_first_weight_at: portion.first_weight_at ? new Date(portion.first_weight_at).toISOString() : null,
+      portion_second_weight_kg: portion.second_weight_kg != null ? Number(portion.second_weight_kg) : null,
+      portion_second_weight_at: portion.second_weight_at ? new Date(portion.second_weight_at).toISOString() : null,
+      portion_net_weight_kg: portion.net_weight_kg != null ? Number(portion.net_weight_kg) : null,
 
       reception_date: unloadingLog?.pump_start_timestamp ? new Date(unloadingLog.pump_start_timestamp).toISOString().split('T')[0] : null,
       reception_start_time: formatTimeOnly(unloadingLog?.pump_start_timestamp),

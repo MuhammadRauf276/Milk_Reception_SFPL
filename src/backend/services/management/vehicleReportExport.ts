@@ -127,6 +127,11 @@ const COLUMNS: ExportColumn[] = [
   number('First Weight kg', 'first_weight_kg', 'weights', { vehicleWide: true, width: 16 }),
   number('Second Weight kg', 'second_weight_kg', 'weights', { vehicleWide: true, width: 17 }),
   number('Net Weight kg', 'net_weight_kg', 'weights', { vehicleWide: true, width: 15 }),
+  // Portion-wise weighing: the vehicle is weighed again after each portion is unloaded.
+  number('Portion Weight Before kg', 'portion_weight_before_kg', 'weights', { width: 18 }),
+  number('Portion Weight After kg', 'portion_weight_after_kg', 'weights', { width: 18 }),
+  number('Portion Net kg', 'portion_net_weight_kg', 'weights', { width: 15 }),
+  time('Portion Weighed At', 'portion_weighed_at', 'weights', false),
 
   time('Gate In', 'gate_in_at', 'timings'),
   time('First Weight At', 'first_weight_at', 'timings'),
@@ -146,7 +151,8 @@ const FIXED_SQL = [
   'plant_rejection_reason', 'plant_decided_at', 'dispatch_fat', 'plant_fat', 'dispatch_lr', 'plant_lr', 'dispatch_snf',
   'plant_snf', 'dispatch_ts', 'plant_ts', 'dispatch_gross_liters', 'received_gross_liters', 'gross_variance_liters',
   'gross_variance_percent', 'dispatch_at_13ts_liters', 'received_at_13ts_liters', 'at_13ts_variance_liters',
-  'at_13ts_variance_percent', 'weight_ticket_number', 'first_weight_kg', 'second_weight_kg', 'net_weight_kg', 'gate_in_at',
+  'at_13ts_variance_percent', 'weight_ticket_number', 'first_weight_kg', 'second_weight_kg', 'net_weight_kg', 'portion_weight_before_kg',
+  'portion_weight_after_kg', 'portion_net_weight_kg', 'portion_weighed_at', 'gate_in_at',
   'first_weight_at', 'unloading_started_at', 'unloading_finished_at', 'silo_number', 'second_weight_at', 'gate_out_at',
   'reconciled_at',
 ].join(', ');

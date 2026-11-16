@@ -467,6 +467,10 @@ export interface MilkProcessLog {
   dispatch_tests?: string | null;
   dispatch_fat?: number | null;
   dispatch_lr?: number | null;
+  /** False for a portion the plant added for its own testing: it was never sent by the dispatch side. */
+  is_dispatch_portion?: boolean;
+  /** Whole-vehicle dispatch weight in kg (as declared, or worked out from the litres and density). */
+  vehicle_dispatch_kg?: number | null;
 
   // QA PHYSICAL RAW INPUTS
   igp_date?: string | null;
@@ -493,6 +497,12 @@ export interface MilkProcessLog {
   first_weight_of_vehicle?: number | null; // Gross Loaded Weight
   second_weight_time?: string | null;
   second_weight_of_vehicle?: number | null; // Tare Empty Weight
+  // Portion-wise weighing: weight before and after this portion was unloaded
+  portion_first_weight_kg?: number | null;
+  portion_first_weight_at?: string | null;
+  portion_second_weight_kg?: number | null;
+  portion_second_weight_at?: string | null;
+  portion_net_weight_kg?: number | null;
   out_from_gate_time?: string | null;
 
   // PRODUCTION RAW INPUTS
