@@ -21,7 +21,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Forbidden. Route belongs to another ZMCC.' }, { status: 403 });
     }
 
-    const [areas, chillers] = await Promise.all([
+    const [areas, chillers, routes] = await Promise.all([
       prisma.zmccArea.findMany({
         where: { route_id: BigInt(routeParam), is_active: true },
         orderBy: { name: 'asc' },
@@ -32,11 +32,17 @@ export async function GET(req: Request) {
         orderBy: { name: 'asc' },
         select: { id: true, name: true },
       }),
+      prisma.zmccRoute.findMany({
+        where: { zmcc_id: route.zmcc_id, is_active: true },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, route_code: true },
+      }),
     ]);
 
     return NextResponse.json({
       areas: areas.map((a) => ({ id: a.id.toString(), name: a.name, area_code: a.area_code })),
       chillers: chillers.map((c) => ({ id: c.id.toString(), name: c.name })),
+      routes: routes.map((r) => ({ id: r.id.toString(), name: r.name, route_code: r.route_code })),
     });
   } catch (err) {
     console.error('GET /api/zmcc/mot/shop-request-options error:', err);

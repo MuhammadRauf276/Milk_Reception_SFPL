@@ -45,6 +45,7 @@ import { ProfilesTab } from './workspace/ProfilesTab';
 import { VehiclesTab } from './workspace/VehiclesTab';
 import { JourneyDetailSheet } from './workspace/JourneyDetailSheet';
 import { CancelJourneySheet } from './workspace/CancelJourneySheet';
+import { DeleteJourneySheet } from './workspace/DeleteJourneySheet';
 import { ProfileSheet } from './workspace/ProfileSheet';
 import { RouteRequestSheet } from './workspace/RouteRequestSheet';
 import {
@@ -145,6 +146,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
   // Sheets
   const [selectedJourneyDetail, setSelectedJourneyDetail] = useState<JourneyItem | null>(null);
   const [cancelSheetJourney, setCancelSheetJourney] = useState<JourneyItem | null>(null);
+  const [deleteSheetJourney, setDeleteSheetJourney] = useState<JourneyItem | null>(null);
   const [profileSheet, setProfileSheet] = useState<{ editing: MotProfileItem | null } | null>(null);
   const [routeRequestOpen, setRouteRequestOpen] = useState(false);
 
@@ -326,6 +328,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
             onViewMap={showMap}
             onViewStops={(id) => inspectMutation.mutate(id)}
             onCancel={setCancelSheetJourney}
+            onDelete={isSuperAdmin ? setDeleteSheetJourney : undefined}
           />
         )}
 
@@ -338,6 +341,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
             onRefresh={refreshData}
             onViewMap={showMap}
             onViewStops={(id) => inspectMutation.mutate(id)}
+            onDelete={isSuperAdmin ? setDeleteSheetJourney : undefined}
           />
         )}
 
@@ -406,6 +410,14 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
 
       {selectedJourneyDetail && (
         <JourneyDetailSheet journey={selectedJourneyDetail} onClose={() => setSelectedJourneyDetail(null)} />
+      )}
+
+      {deleteSheetJourney && (
+        <DeleteJourneySheet
+          journey={deleteSheetJourney}
+          onClose={() => setDeleteSheetJourney(null)}
+          onDone={(message) => finishSheet(message, () => setDeleteSheetJourney(null))}
+        />
       )}
 
       {cancelSheetJourney && (

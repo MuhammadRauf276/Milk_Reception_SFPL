@@ -14,9 +14,11 @@ interface Props {
   onRefresh: () => void;
   onViewMap: (journeyId: string) => void;
   onViewStops: (journeyId: string) => void;
+  /** Super Admin only: remove a cancelled journey assigned by mistake. */
+  onDelete?: (journey: JourneyItem) => void;
 }
 
-export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFilterChange, onRefresh, onViewMap, onViewStops }: Props) {
+export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFilterChange, onRefresh, onViewMap, onViewStops, onDelete }: Props) {
   const columns: DataColumn<JourneyItem>[] = [
     {
       key: 'number',
@@ -90,6 +92,11 @@ export function JourneyHistoryTab({ journeys, loading, statusFilter, onStatusFil
           <Button variant="secondary" size="sm" onClick={() => onViewStops(j.id)}>
             View Stops
           </Button>
+          {onDelete && j.status === 'CANCELLED' && (
+            <Button variant="outline" size="sm" onClick={() => onDelete(j)}>
+              Remove
+            </Button>
+          )}
         </div>
       ),
     },

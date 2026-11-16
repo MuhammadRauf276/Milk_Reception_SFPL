@@ -65,6 +65,7 @@ export interface PendingShopItem {
   area_code: string;
   route_name: string;
   route_code: string;
+  extra_route_names?: string[];
   creator_name: string;
   created_at: string;
 }
@@ -438,6 +439,9 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                       <span>Phone: <strong className="text-foreground">{s.phone_number}</strong></span>
                       <span>CNIC: <strong className="text-foreground font-mono">{s.cnic}</strong></span>
                       <span>Route: <strong className="text-foreground">{s.route_name}</strong></span>
+                      {(s.extra_route_names?.length ?? 0) > 0 && (
+                        <span>Also on: <strong className="text-foreground">{s.extra_route_names?.join(', ')}</strong></span>
+                      )}
                       <span>Area: <strong className="text-foreground">{s.area_name}</strong></span>
                     </div>
                     <div className="text-xs text-muted-foreground flex items-center space-x-2">

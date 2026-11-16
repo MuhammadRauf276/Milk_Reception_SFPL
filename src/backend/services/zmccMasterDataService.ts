@@ -11,6 +11,7 @@ import { ACTING_AS_HEADER } from '@core/route-guards';
 import type { ActingContext } from '@/types/acting';
 import { Prisma } from '@prisma/client';
 import { requireZmccScope } from '@/backend/core/scope';
+import { allRouteIdsOfShop, replaceShopExtraRoutes, resolveExtraRoutes, shopsOnRouteWhere } from '@/backend/services/routeShops';
 import { isSourceOwnerRole, stripErpForRole } from '@/backend/services/milkSourceService';
 import { createErpSource, updateErpSource } from '@/backend/services/financeMasterDataService';
 
@@ -358,6 +359,17 @@ export async function listRoutes(
     },
   });
 
+  const routeIds = routes.map((r) => r.id);
+  const [homeShopCounts, linkedShopCounts] = routeIds.length === 0 ? [[], []] : await Promise.all([
+    prisma.zmccShop.groupBy({ by: ['route_id'], where: { route_id: { in: routeIds }, is_active: true }, _count: { _all: true } }),
+    prisma.zmccRouteShop.groupBy({ by: ['route_id'], where: { route_id: { in: routeIds }, shop: { is_active: true } }, _count: { _all: true } }),
+  ]);
+  const shopCountByRoute = new Map<string, number>();
+  for (const row of [...homeShopCounts, ...linkedShopCounts]) {
+    const key = row.route_id.toString();
+    shopCountByRoute.set(key, (shopCountByRoute.get(key) ?? 0) + row._count._all);
+  }
+
   return routes.map((r) => ({
     id: r.id.toString(),
     route_code: r.route_code,
@@ -383,6 +395,7 @@ export async function listRoutes(
     created_at: r.created_at.toISOString(),
     updated_at: r.updated_at.toISOString(),
     area_count: r._count.areas,
+    shop_count: shopCountByRoute.get(r.id.toString()) ?? 0,
   }));
 }
 
@@ -838,7 +851,7 @@ export async function updateRoute(
       }
 
       const activeShopsCount = await prisma.zmccShop.count({
-        where: { route_id: routeId, is_active: true },
+        where: { ...shopsOnRouteWhere(routeId), is_active: true },
       });
       if (activeShopsCount > 0) {
         return {
@@ -1680,7 +1693,7 @@ export async function listShopsPage(
   }
 
   if (filters?.route_id) {
-    where.route_id = BigInt(filters.route_id);
+    where.AND = [shopsOnRouteWhere(BigInt(filters.route_id))];
   }
   if (filters?.area_id) {
     where.area_id = BigInt(filters.area_id);
@@ -1719,10 +1732,11 @@ export async function listShopsPage(
       orderBy: { shop_code: 'asc' },
       ...(paginated ? { skip: (page - 1) * pageSize, take: pageSize } : {}),
       include: {
-        area: { select: { id: true, area_code: true, name: true, is_active: true } },
+        area: { select: { id: true, area_code: true, name: true, is_active: true, route: { select: { name: true } } } },
         chiller_ownership: { select: { id: true, ownership_code: true, name: true, is_active: true } },
         creator: { select: { id: true, username: true, full_name: true } },
         updater: { select: { id: true, username: true, full_name: true } },
+        route_links: { select: { route_id: true, route: { select: { id: true, route_code: true, name: true } } } },
       },
     }),
     paginated ? prisma.zmccShop.count({ where }) : Promise.resolve(0),
@@ -1737,6 +1751,9 @@ export async function listShopsPage(
     cnic: s.cnic,
     area_id: s.area_id.toString(),
     route_id: s.route_id.toString(),
+    route_name: s.area.route.name,
+    extra_route_ids: s.route_links.filter((l) => l.route_id !== s.route_id).map((l) => l.route_id.toString()),
+    extra_routes: s.route_links.filter((l) => l.route_id !== s.route_id).map((l) => ({ id: l.route.id.toString(), route_code: l.route.route_code, name: l.route.name })),
     zmcc_id: s.zmcc_id.toString(),
     chiller_ownership_id: s.chiller_ownership_id.toString(),
     latitude: s.latitude ? Number(s.latitude) : null,
@@ -1789,6 +1806,7 @@ export async function getShopById(auth: ZmccAuthContext, shopId: bigint) {
       chiller_ownership: true,
       creator: { select: { id: true, username: true, full_name: true } },
       updater: { select: { id: true, username: true, full_name: true } },
+      route_links: { select: { route_id: true } },
     },
   });
 
@@ -1809,6 +1827,7 @@ export async function getShopById(auth: ZmccAuthContext, shopId: bigint) {
     cnic: shop.cnic,
     area_id: shop.area_id.toString(),
     route_id: shop.route_id.toString(),
+    extra_route_ids: allRouteIdsOfShop(shop).slice(1).map((id) => id.toString()),
     zmcc_id: shop.zmcc_id.toString(),
     chiller_ownership_id: shop.chiller_ownership_id.toString(),
     latitude: shop.latitude ? Number(shop.latitude) : null,
@@ -1861,8 +1880,9 @@ async function addShopToActiveJourneysTx(
   },
   area: { area_code: string; name: string }
 ): Promise<void> {
+  const links = await tx.zmccRouteShop.findMany({ where: { shop_id: shop.id }, select: { route_id: true } });
   const activeJourneys = await tx.motJourney.findMany({
-    where: { route_id: shop.route_id, status: 'COLLECTING' },
+    where: { route_id: { in: allRouteIdsOfShop({ route_id: shop.route_id, route_links: links }) }, status: 'COLLECTING' },
     include: { stops: { orderBy: { planned_sequence: 'desc' }, take: 1 } },
   });
   for (const journey of activeJourneys) {
@@ -1901,6 +1921,8 @@ export async function createShop(
     chiller_ownership_id: string;
     latitude?: number | null;
     longitude?: number | null;
+    /** Routes the shop is also listed on, besides its home route (the route of its area). */
+    extra_route_ids?: string[];
   }
 ): Promise<ServiceResult<unknown>> {
   const shop_code = body.shop_code?.trim();
@@ -1967,6 +1989,9 @@ export async function createShop(
     return { status: 409, error: 'Cannot create shop: parent Area is inactive.' };
   }
 
+  const extraRoutes = await resolveExtraRoutes(prisma, body.extra_route_ids, routeId, effectiveZmccId);
+  if (!extraRoutes.ok) return { status: 400, error: extraRoutes.error };
+
   // Validate Chiller Ownership (must exist and be active)
   const chillerOwnership = await prisma.chillerOwnership.findUnique({
     where: { id: chillerOwnershipId },
@@ -2015,6 +2040,7 @@ export async function createShop(
       },
     });
 
+    await replaceShopExtraRoutes(tx, created.id, extraRoutes.ids, auth.actorUserId);
     if (created.is_active) await addShopToActiveJourneysTx(tx, created, area);
 
     await writeAuditLog(tx, {
@@ -2031,6 +2057,7 @@ export async function createShop(
         cnic: created.cnic,
         area_id: created.area_id.toString(),
         route_id: created.route_id.toString(),
+        extra_route_ids: extraRoutes.ids.map((id) => id.toString()),
         zmcc_id: created.zmcc_id.toString(),
         chiller_ownership_id: created.chiller_ownership_id.toString(),
         is_active: true,
@@ -2067,6 +2094,8 @@ export async function updateShop(
     latitude?: number | null;
     longitude?: number | null;
     is_active?: boolean;
+    /** When given, replaces the shop's extra routes (the home route is the route of its area). */
+    extra_route_ids?: string[];
   }
 ): Promise<ServiceResult<unknown>> {
   const existing = await prisma.zmccShop.findUnique({
@@ -2074,6 +2103,7 @@ export async function updateShop(
     include: {
       area: { include: { route: { include: { zmcc: true } } } },
       chiller_ownership: true,
+      route_links: { select: { route_id: true } },
     },
   });
 
@@ -2210,6 +2240,17 @@ export async function updateShop(
 
   const updatedGeotagStatus = (targetLat != null && targetLng != null) ? 'VERIFIED' : existing.geotag_status;
 
+  const oldExtraRouteIds = allRouteIdsOfShop(existing).slice(1);
+  let newExtraRouteIds = oldExtraRouteIds;
+  if (body.extra_route_ids !== undefined) {
+    const extraRoutes = await resolveExtraRoutes(prisma, body.extra_route_ids, targetRouteId, targetZmccId);
+    if (!extraRoutes.ok) return { status: 400, error: extraRoutes.error };
+    newExtraRouteIds = extraRoutes.ids;
+  } else if (targetRouteId !== existing.route_id) {
+    // Home route moved: the new home route is no longer an extra route.
+    newExtraRouteIds = oldExtraRouteIds.filter((id) => id !== targetRouteId);
+  }
+
   return await prisma.$transaction(async (tx) => {
     const updated = await tx.zmccShop.update({
       where: { id: shopId },
@@ -2229,6 +2270,7 @@ export async function updateShop(
       },
     });
 
+    await replaceShopExtraRoutes(tx, shopId, newExtraRouteIds, auth.actorUserId);
     const shopArea = await tx.zmccArea.findUnique({
       where: { id: targetAreaId },
       select: { area_code: true, name: true },
@@ -2259,6 +2301,7 @@ export async function updateShop(
         cnic: existing.cnic,
         area_id: existing.area_id.toString(),
         route_id: existing.route_id.toString(),
+        extra_route_ids: oldExtraRouteIds.map((id) => id.toString()),
         chiller_ownership_id: existing.chiller_ownership_id.toString(),
         is_active: existing.is_active,
         geotag_status: existing.geotag_status,
@@ -2270,6 +2313,7 @@ export async function updateShop(
         cnic: updated.cnic,
         area_id: updated.area_id.toString(),
         route_id: updated.route_id.toString(),
+        extra_route_ids: newExtraRouteIds.map((id) => id.toString()),
         chiller_ownership_id: updated.chiller_ownership_id.toString(),
         is_active: updated.is_active,
         geotag_status: updated.geotag_status,
@@ -2302,6 +2346,7 @@ export async function requestNewShop(
     chiller_ownership_id?: string;
     latitude?: number | null;
     longitude?: number | null;
+    extra_route_ids?: string[];
   }
 ): Promise<ServiceResult<unknown>> {
   const shop_name = body.shop_name?.trim();
@@ -2407,6 +2452,9 @@ export async function requestNewShop(
     chillerOwnershipId = defaultCo.id;
   }
 
+  const extraRoutes = await resolveExtraRoutes(prisma, body.extra_route_ids, targetRouteId!, effectiveZmccId!);
+  if (!extraRoutes.ok) return { status: 400, error: extraRoutes.error };
+
   const hasGps = body.latitude != null && body.longitude != null;
   const geotag_status = hasGps ? 'VERIFIED' : 'PENDING_FIRST_VISIT';
   const tempShopCode = `REQ-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
@@ -2434,6 +2482,8 @@ export async function requestNewShop(
       },
     });
 
+    await replaceShopExtraRoutes(tx, created.id, extraRoutes.ids, auth.actorUserId);
+
     await createNotificationsForEvent(tx, {
       eventKey: 'NEW_SHOP_PENDING',
       sourceId: created.id.toString(),
@@ -2459,6 +2509,7 @@ export async function requestNewShop(
         cnic,
         area_id: targetAreaId!.toString(),
         route_id: targetRouteId!.toString(),
+        extra_route_ids: extraRoutes.ids.map((id) => id.toString()),
         zmcc_id: effectiveZmccId!.toString(),
         geotag_status,
       },
@@ -2650,6 +2701,7 @@ export async function listPendingShops(auth: ZmccAuthContext) {
         },
       },
       creator: { select: { id: true, username: true, full_name: true } },
+      route_links: { select: { route: { select: { route_code: true, name: true } } } },
     },
   });
 
@@ -2673,6 +2725,7 @@ export async function listPendingShops(auth: ZmccAuthContext) {
     area_code: s.area.area_code,
     route_name: s.area.route.name,
     route_code: s.area.route.route_code,
+    extra_route_names: s.route_links.map((l) => l.route.name),
     creator_name: s.creator.full_name || s.creator.username,
     created_at: s.created_at.toISOString(),
   }));

@@ -363,9 +363,11 @@ export function RecordEditor() {
             className="min-h-11 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground"
           >
             <option value="ALL">All stages</option>
-            <option value="MC">Mobile Tester, arrival and lab</option>
-            <option value="HC">Supplier arrival and lab</option>
-            <option value="VISIT">Dispatch and plant</option>
+            <option value="SHOP">1. Shop collection</option>
+            <option value="MC">2. ZMCC arrival and lab: Mobile Tester milk</option>
+            <option value="HC">2. ZMCC arrival and lab: HC suppliers</option>
+            <option value="DISPATCH">3. Dispatch</option>
+            <option value="PLANT">4. Plant: gate, weighbridge, QA, unloading</option>
           </select>
         </FormField>
         <FormField label="Entered by" htmlFor="rec-user">

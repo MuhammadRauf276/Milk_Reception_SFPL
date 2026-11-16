@@ -14,9 +14,11 @@ interface Props {
   onViewMap: (journeyId: string) => void;
   onViewStops: (journeyId: string) => void;
   onCancel: (journey: JourneyItem) => void;
+  /** Super Admin only: remove a journey assigned by mistake. */
+  onDelete?: (journey: JourneyItem) => void;
 }
 
-export function ActiveJourneysTab({ journeys, loading, canCancel, onRefresh, onViewMap, onViewStops, onCancel }: Props) {
+export function ActiveJourneysTab({ journeys, loading, canCancel, onRefresh, onViewMap, onViewStops, onCancel, onDelete }: Props) {
   const columns: DataColumn<JourneyItem>[] = [
     {
       key: 'number',
@@ -86,6 +88,11 @@ export function ActiveJourneysTab({ journeys, loading, canCancel, onRefresh, onV
           {canCancel && (
             <Button variant="destructive" size="sm" onClick={() => onCancel(j)}>
               Cancel
+            </Button>
+          )}
+          {onDelete && (
+            <Button variant="outline" size="sm" onClick={() => onDelete(j)}>
+              Remove
             </Button>
           )}
         </div>

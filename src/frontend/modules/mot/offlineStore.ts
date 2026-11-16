@@ -190,6 +190,7 @@ export interface QueuedShopRequest {
   phone_number: string;
   cnic: string;
   route_id?: string;
+  extra_route_ids?: string[];
   area_id?: string;
   chiller_ownership_id?: string;
   latitude?: number | null;
@@ -1241,6 +1242,7 @@ export async function queueShopRequest(request: {
   phone_number: string;
   cnic: string;
   route_id?: string;
+  extra_route_ids?: string[];
   area_id?: string;
   chiller_ownership_id?: string;
   latitude?: number | null;
@@ -1304,6 +1306,7 @@ export async function syncPendingShopRequests(): Promise<{ synced: number; faile
           phone_number: item.phone_number,
           cnic: item.cnic,
           route_id: item.route_id,
+          extra_route_ids: item.extra_route_ids,
           area_id: item.area_id,
           chiller_ownership_id: item.chiller_ownership_id,
           latitude: item.latitude,

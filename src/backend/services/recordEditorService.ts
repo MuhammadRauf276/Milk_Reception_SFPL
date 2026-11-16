@@ -435,7 +435,22 @@ async function attachPhotos(groups: EditorGroup[]): Promise<void> {
   }
 }
 
-export type RecordStageFilter = 'ALL' | 'MC' | 'HC' | 'VISIT';
+/**
+ * The four stages of the milk, the ZMCC one split by where the milk came from:
+ * SHOP (Mobile Tester shop collections), MC (ZMCC arrival and lab, Mobile Tester milk), HC (ZMCC arrival and lab,
+ * HC suppliers), DISPATCH (dispatch to the plant), PLANT (gate, weighbridge, plant QA, unloading).
+ * VISIT (dispatch and plant together) is kept for old links.
+ */
+export type RecordStageFilter = 'ALL' | 'SHOP' | 'MC' | 'HC' | 'DISPATCH' | 'PLANT' | 'VISIT';
+export const RECORD_STAGE_FILTERS: readonly RecordStageFilter[] = ['ALL', 'SHOP', 'MC', 'HC', 'DISPATCH', 'PLANT', 'VISIT'];
+
+/** The sections a stage shows; null shows them all. */
+const STAGE_SECTIONS: Partial<Record<RecordStageFilter, readonly EditorEntity[]>> = {
+  SHOP: ['MOT_COLLECTION'],
+  MC: ['MC_ARRIVAL', 'LAB_SESSION', 'LAB_PORTION', 'ZMCC_EXIT'],
+  DISPATCH: ['DISPATCH', 'DISPATCH_PORTION'],
+  PLANT: ['GATE_LOG', 'PLANT_RECEPTION', 'PLANT_QA', 'UNLOADING'],
+};
 
 export interface RecordListFilters {
   date?: string;
@@ -460,7 +475,14 @@ export async function listRecordGroups(f: RecordListFilters): Promise<{ groups: 
   const stage = f.stage ?? 'ALL';
   const branches: Prisma.Sql[] = [];
 
-  if (stage === 'ALL' || stage === 'MC') {
+  if (stage === 'ALL' || stage === 'MC' || stage === 'SHOP') {
+    // Shop collections need a collection; the ZMCC stage needs an arrival at the ZMCC.
+    const stageWhere =
+      stage === 'SHOP'
+        ? Prisma.sql`EXISTS (SELECT 1 FROM mot_shop_collection c WHERE c.journey_id = j.id)`
+        : stage === 'MC'
+        ? Prisma.sql`a.id IS NOT NULL`
+        : Prisma.sql`(a.id IS NOT NULL OR EXISTS (SELECT 1 FROM mot_shop_collection c WHERE c.journey_id = j.id))`;
     const match = like
       ? Prisma.sql`AND (j.journey_number ILIKE ${like} OR a.zmcc_token ILIKE ${like} OR a.raw_milk_token_number ILIKE ${like} OR a.route_milk_token ILIKE ${like}
           OR EXISTS (SELECT 1 FROM mot_shop_collection c WHERE c.journey_id = j.id AND (c.collection_number ILIKE ${like} OR c.shop_rmr_number ILIKE ${like})))`
@@ -472,7 +494,7 @@ export async function listRecordGroups(f: RecordListFilters): Promise<{ groups: 
           (SELECT COALESCE(u.full_name, u.username) FROM users u WHERE u.id = a.recorded_by_user_id)
         ) AS entered_by
       FROM mot_journey j LEFT JOIN zmcc_mot_arrival a ON a.journey_id = j.id
-      WHERE (a.id IS NOT NULL OR EXISTS (SELECT 1 FROM mot_shop_collection c WHERE c.journey_id = j.id)) ${match}`);
+      WHERE ${stageWhere} ${match}`);
   }
   if (stage === 'ALL' || stage === 'HC') {
     const match = like
@@ -483,14 +505,16 @@ export async function listRecordGroups(f: RecordListFilters): Promise<{ groups: 
       FROM zmcc_local_supplier_arrival h LEFT JOIN users u ON u.id = h.recorded_by_user_id
       WHERE TRUE ${match}`);
   }
-  if (stage === 'ALL' || stage === 'VISIT') {
+  if (stage === 'ALL' || stage === 'VISIT' || stage === 'DISPATCH' || stage === 'PLANT') {
+    // The plant stage starts at the gate.
+    const plantWhere = stage === 'PLANT' ? Prisma.sql`AND EXISTS (SELECT 1 FROM gate_log g WHERE g.visit_id = v.id AND g.entry_timestamp IS NOT NULL)` : Prisma.empty;
     const match = like
       ? Prisma.sql`AND (v.visit_number ILIKE ${like} OR v.reception_number ILIKE ${like} OR v.token_number ILIKE ${like} OR v.vehicle_number ILIKE ${like} OR v.raw_milk_dispatch_note_number ILIKE ${like})`
       : Prisma.empty;
     branches.push(Prisma.sql`
       SELECT 'VISIT' AS kind, v.id, v.created_at AS ts, COALESCE(u.full_name, u.username) AS entered_by
       FROM vehicle_visit v LEFT JOIN users u ON u.id = v.created_by
-      WHERE v.current_status <> 'DRAFT_DISPATCH' AND NOT (v.current_status = 'CANCELLED' AND v.vehicle_number = 'DRAFT') ${match}`);
+      WHERE v.current_status <> 'DRAFT_DISPATCH' AND NOT (v.current_status = 'CANCELLED' AND v.vehicle_number = 'DRAFT') ${plantWhere} ${match}`);
   }
 
   const dateFilter = f.date ? Prisma.sql`AND (t.ts AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi')::date = ${f.date}::date` : Prisma.empty;
@@ -510,9 +534,12 @@ export async function listRecordGroups(f: RecordListFilters): Promise<{ groups: 
   ]);
   const byKey = new Map([...journeys, ...suppliers, ...visits].map((g) => [g.key, g]));
   const keyOf = (r: ListRow) => `${r.kind === 'JOURNEY' ? 'journey' : r.kind === 'HC' ? 'hc' : 'visit'}-${r.id}`;
+  const only = STAGE_SECTIONS[stage];
   const groups = rows.flatMap((r) => {
     const g = byKey.get(keyOf(r));
-    return g ? [{ ...g, at: r.ts.toISOString(), enteredBy: r.entered_by }] : [];
+    if (!g) return [];
+    const sections = only ? g.sections.filter((sec) => only.includes(sec.entity)) : g.sections;
+    return [{ ...g, sections, at: r.ts.toISOString(), enteredBy: r.entered_by }];
   });
   await attachPhotos(groups);
   return { groups, total: rows[0]?.total ?? 0 };

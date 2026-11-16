@@ -44,6 +44,7 @@ import type { MotShopDecisionDetails, PersonDecision } from '@/types/stage1-deci
 import { clearHandledNotifications, createNotificationsForEvent } from '@/backend/services/notificationService';
 import { getErrorCode, getErrorMessage, getErrorMetaTarget } from '@/lib/errors';
 import { requireZmccScope } from '@/backend/core/scope';
+import { shopsOnRouteWhere } from '@/backend/services/routeShops';
 import { toJsonInput } from '@/lib/json';
 
 export interface MotAuthContext {
@@ -1605,7 +1606,7 @@ export async function assignAndDispatchJourney(
 
   // Deterministically snapshot active shops: area.area_code ASC, shop_code ASC, id ASC
   const activeShops = await prisma.zmccShop.findMany({
-    where: { route_id: routeId, is_active: true },
+    where: { ...shopsOnRouteWhere(routeId), is_active: true },
     include: {
       area: { select: { id: true, area_code: true, name: true } },
     },
@@ -2224,7 +2225,7 @@ async function addMissingRouteShops(journey: { id: bigint; route_id: bigint; sta
     });
     const missing = await prisma.zmccShop.findMany({
       where: {
-        route_id: journey.route_id,
+        ...shopsOnRouteWhere(journey.route_id),
         is_active: true,
         approval_status: 'ACTIVE',
         id: { notIn: stops.map((x) => x.shop_id) },

@@ -27,7 +27,7 @@ export type MasterFormField =
   | 'chiller_ownership_id' | 'latitude' | 'longitude'
   | 'tank_code' | 'tank_name' | 'capacity_liters'
   | 'vehicle_number' | 'vehicle_type' | 'category' | 'driver_name' | 'driver_phone';
-export type MasterFormData = Partial<Record<MasterFormField, string | number>>;
+export type MasterFormData = Partial<Record<MasterFormField, string | number>> & { extra_route_ids?: string[] };
 export interface TankItem {
   id: string;
   zmcc_id: string;
@@ -65,6 +65,7 @@ export interface RouteItem {
   creator_name: string;
   updater_name: string | null;
   area_count?: number;
+  shop_count?: number;
   created_at: string;
 }
 
@@ -113,6 +114,9 @@ export interface ShopItem {
   cnic: string;
   area_id: string;
   route_id: string;
+  route_name?: string;
+  extra_route_ids?: string[];
+  extra_routes?: Array<{ id: string; route_code: string; name: string }>;
   zmcc_id: string;
   chiller_ownership_id: string;
   latitude: number | null;

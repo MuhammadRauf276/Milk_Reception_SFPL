@@ -75,6 +75,7 @@ export function useMasterRecordForm({ activeTab, isSuperAdmin, selectedZmccId, c
         cnic: item.cnic ?? '',
         area_id: item.area_id ?? '',
         route_id: item.route_id ?? '',
+        extra_route_ids: item.extra_route_ids ?? [],
         chiller_ownership_id: item.chiller_ownership_id ?? '',
         latitude: item.latitude ?? '',
         longitude: item.longitude ?? '',
@@ -171,6 +172,7 @@ export function useMasterRecordForm({ activeTab, isSuperAdmin, selectedZmccId, c
           cnic: formData.cnic,
           area_id: formData.area_id,
           chiller_ownership_id: formData.chiller_ownership_id,
+          extra_route_ids: (formData.extra_route_ids ?? []).filter((id) => id !== String(formData.route_id ?? '')),
           latitude: formData.latitude !== '' && formData.latitude != null ? Number(formData.latitude) : null,
           longitude: formData.longitude !== '' && formData.longitude != null ? Number(formData.longitude) : null,
         };
@@ -184,6 +186,7 @@ export function useMasterRecordForm({ activeTab, isSuperAdmin, selectedZmccId, c
           cnic: formData.cnic,
           area_id: formData.area_id,
           chiller_ownership_id: formData.chiller_ownership_id,
+          extra_route_ids: (formData.extra_route_ids ?? []).filter((id) => id !== String(formData.route_id ?? '')),
           latitude: formData.latitude !== '' && formData.latitude != null ? Number(formData.latitude) : null,
           longitude: formData.longitude !== '' && formData.longitude != null ? Number(formData.longitude) : null,
         };

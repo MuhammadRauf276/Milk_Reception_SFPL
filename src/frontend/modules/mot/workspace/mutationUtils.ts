@@ -3,7 +3,7 @@ import { fetchJson } from '@/lib/query/fetchJson';
 /** JSON request for useMutation; keeps the original per-action fallback text when the server sends no message. */
 export async function sendJson<T = any>(
   url: string,
-  method: 'POST' | 'PATCH',
+  method: 'POST' | 'PATCH' | 'DELETE',
   body: unknown,
   fallbackMessage: string
 ): Promise<T> {

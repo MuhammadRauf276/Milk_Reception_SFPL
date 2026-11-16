@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireDirectEditAuthority } from '@/backend/core/route-guards';
-import { listRecordGroups } from '@/backend/services/recordEditorService';
+import { listRecordGroups, RECORD_STAGE_FILTERS } from '@/backend/services/recordEditorService';
 import { correctPlantReception } from '@/backend/services/corrections/plantReceptionCorrection';
 
 /** Every saved transaction, newest first, with filters. Super Admin only. */
@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   const date = q.get('date') || undefined;
   if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({ error: 'Invalid date.' }, { status: 400 });
   const rawStage = q.get('stage');
-  const stage = rawStage === 'MC' || rawStage === 'HC' || rawStage === 'VISIT' ? rawStage : 'ALL';
+  const stage = RECORD_STAGE_FILTERS.find((x) => x === rawStage) ?? 'ALL';
 
   try {
     return NextResponse.json(

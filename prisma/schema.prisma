@@ -992,6 +992,7 @@ model ZmccRoute {
   areas           ZmccArea[]
   mot_journeys    MotJourney[]
   mot_collections MotShopCollection[] @relation("ZmccRouteMotCollections")
+  shop_links      ZmccRouteShop[]
 
   @@unique([zmcc_id, name])
   @@unique([id, zmcc_id])
@@ -1116,6 +1117,7 @@ model ZmccShop {
   journey_stops     MotJourneyStop[]
   mot_collections   MotShopCollection[] @relation("ZmccShopMotCollections")
   location_verifier User?               @relation("ZmccShopLocationVerifiedBy", fields: [location_verified_by], references: [id], onDelete: SetNull)
+  route_links       ZmccRouteShop[]
 
   @@unique([area_id, shop_name])
   @@index([area_id])
@@ -1123,6 +1125,22 @@ model ZmccShop {
   @@index([zmcc_id])
   @@index([chiller_ownership_id])
   @@map("zmcc_shop")
+}
+
+/// Extra routes a shop is also listed on. zmcc_shop.route_id stays the home route.
+model ZmccRouteShop {
+  id         BigInt   @id @default(autoincrement())
+  route_id   BigInt   @map("route_id")
+  shop_id    BigInt   @map("shop_id")
+  created_by BigInt?  @map("created_by")
+  created_at DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  route ZmccRoute @relation(fields: [route_id], references: [id], onDelete: Restrict)
+  shop  ZmccShop  @relation(fields: [shop_id], references: [id], onDelete: Cascade)
+
+  @@unique([route_id, shop_id])
+  @@index([shop_id])
+  @@map("zmcc_route_shop")
 }
 
 model MotProfile {

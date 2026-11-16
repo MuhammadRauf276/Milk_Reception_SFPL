@@ -4,6 +4,7 @@ import { typePakistaniCnic, typePakistaniMobile } from '@/lib/pakistani-identity
 import React from 'react';
 import { Combobox } from '@/components/ui/combobox';
 import { InfoTip } from '@/components/ui/info-tip';
+import { RouteMultiSelect } from '@/components/ui/route-multi-select';
 import type { MasterFormProps } from './masterFormProps';
 
 export const OperationalRecordForms: React.FC<MasterFormProps> = ({
@@ -74,11 +75,11 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                   {/* Dependent Route & Area Selection */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Route</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Home route</label>
                       <Combobox
                         options={helperRoutes.map((r) => ({ value: r.id, label: `${r.name} · ${r.route_code}`, keywords: r.route_code }))}
                         value={String(formData.route_id || '')}
-                        onValueChange={(v) => setFormData({ ...formData, route_id: v, area_id: '' })}
+                        onValueChange={(v) => setFormData({ ...formData, route_id: v, area_id: '', extra_route_ids: (formData.extra_route_ids ?? []).filter((id) => id !== v) })}
                         placeholder="Select route"
                         searchPlaceholder="Search route"
                         className="min-h-11 w-full text-xs font-semibold"
@@ -101,6 +102,19 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                         className="min-h-11 w-full text-xs font-semibold"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 flex items-center gap-1 text-xs font-semibold text-secondary-foreground">
+                      Also on routes
+                      <InfoTip label="About routes" text="The shop also shows on each ticked route. Collections count on the route driven." />
+                    </label>
+                    <RouteMultiSelect
+                      routes={helperRoutes}
+                      homeRouteId={String(formData.route_id || '')}
+                      value={formData.extra_route_ids ?? []}
+                      onChange={(ids) => setFormData({ ...formData, extra_route_ids: ids })}
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">

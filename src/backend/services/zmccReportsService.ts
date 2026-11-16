@@ -297,7 +297,20 @@ export async function getZmccHierarchyReport(
               include: {
                 shops: {
                   orderBy: { shop_code: 'asc' },
-                  include: { chiller_ownership: { select: { name: true } } },
+                  include: { chiller_ownership: { select: { name: true } }, route_links: { select: { route_id: true } } },
+                },
+              },
+            },
+            // Shops whose home route is another one but that are also listed on this route.
+            shop_links: {
+              orderBy: { shop: { shop_code: 'asc' } },
+              include: {
+                shop: {
+                  include: {
+                    chiller_ownership: { select: { name: true } },
+                    route_links: { select: { route_id: true } },
+                    area: { select: { id: true, area_code: true, name: true, is_active: true } },
+                  },
                 },
               },
             },
@@ -358,11 +371,16 @@ export async function getZmccHierarchyReport(
 
     const todayCollections = collectionsByZmcc.get(fId.toString()) ?? [];
 
-    // Map collections by shop
+    // Collections belong to the route that was driven (the journey's route), not the shop's home route.
     const shopCollectionMap = new Map<string, (typeof todayCollections)[0]>();
+    const shopAnyCollectionMap = new Map<string, (typeof todayCollections)[0]>();
     for (const c of todayCollections) {
-      shopCollectionMap.set(c.shop_id.toString(), c);
+      shopCollectionMap.set(`${c.route_id}:${c.shop_id}`, c);
+      shopAnyCollectionMap.set(c.shop_id.toString(), c);
     }
+    const seenShops = new Set<string>();
+    const seenActiveShops = new Set<string>();
+    const seenGpsShops = new Set<string>();
 
     const todayJourneys = journeysByZmcc.get(fId.toString()) ?? [];
     const routeJourneyMap = new Map<string, (typeof todayJourneys)[0]>();
@@ -386,21 +404,34 @@ export async function getZmccHierarchyReport(
       let routeActiveShops = 0;
       let routeGpsVerified = 0;
 
-      const areaNodes: ZmccAreaHierarchyNode[] = r.areas.map((a) => {
+      type AreaShop = (typeof r.areas)[number]['shops'][number];
+      const buildAreaNode = (
+        a: { id: bigint; area_code: string; name: string; is_active: boolean },
+        areaShops: AreaShop[]
+      ): ZmccAreaHierarchyNode => {
         let areaLiters = 0;
         let areaActiveShops = 0;
         let areaGpsVerified = 0;
 
-        const shopNodes: ZmccShopHierarchyNode[] = a.shops.map((s) => {
-          const col = shopCollectionMap.get(s.id.toString());
+        const shopNodes: ZmccShopHierarchyNode[] = areaShops.map((s) => {
+          // A shop only on its home route keeps any collection it has; on several routes, only the driven route counts.
+          const col = shopCollectionMap.get(`${r.id}:${s.id}`)
+            ?? (s.route_links.length === 0 && s.route_id === r.id ? shopAnyCollectionMap.get(s.id.toString()) : undefined);
           const ltr = col ? Number(col.gross_liters) : 0;
-          if (ltr > 0) areaActiveShops++;
+          if (ltr > 0) {
+            areaActiveShops++;
+            seenActiveShops.add(`${r.id}:${s.id}`);
+          }
           if (col) {
             const at13 = Number(col.at_13ts_liters);
             if (Number.isFinite(at13) && at13 > 0) facTodayAt13Ts += at13;
             else if (ltr > 0) facMissingAt13Ts += 1;
           }
-          if (s.geotag_status === 'VERIFIED') areaGpsVerified++;
+          if (s.geotag_status === 'VERIFIED') {
+            areaGpsVerified++;
+            seenGpsShops.add(s.id.toString());
+          }
+          seenShops.add(s.id.toString());
           areaLiters += ltr;
 
           if (col) {
@@ -427,7 +458,7 @@ export async function getZmccHierarchyReport(
           };
         });
 
-        routeTotalShops += a.shops.length;
+        routeTotalShops += areaShops.length;
         routeActiveShops += areaActiveShops;
         routeGpsVerified += areaGpsVerified;
         routeLiters += areaLiters;
@@ -438,17 +469,24 @@ export async function getZmccHierarchyReport(
           name: a.name,
           routeId: r.id.toString(),
           isActive: a.is_active,
-          totalShops: a.shops.length,
+          totalShops: areaShops.length,
           activeShops: areaActiveShops,
           verifiedGpsShops: areaGpsVerified,
           todayLiters: Number(areaLiters.toFixed(2)),
           shops: shopNodes,
         };
-      });
+      };
 
-      facTotalShops += routeTotalShops;
-      facActiveShops += routeActiveShops;
-      facGpsVerified += routeGpsVerified;
+      const areaNodes: ZmccAreaHierarchyNode[] = r.areas.map((a) => buildAreaNode(a, a.shops));
+      // Shops linked from other routes appear under their own area, once.
+      const linkedByArea = new Map<string, { area: { id: bigint; area_code: string; name: string; is_active: boolean }; shops: AreaShop[] }>();
+      for (const link of r.shop_links) {
+        const key = link.shop.area_id.toString();
+        const group = linkedByArea.get(key) ?? { area: link.shop.area, shops: [] };
+        group.shops.push(link.shop);
+        linkedByArea.set(key, group);
+      }
+      for (const group of linkedByArea.values()) areaNodes.push(buildAreaNode(group.area, group.shops));
       facTodayLiters += routeLiters;
 
       const journey = routeJourneyMap.get(r.id.toString());
@@ -474,7 +512,7 @@ export async function getZmccHierarchyReport(
         destination: r.destination,
         zmccId: fId.toString(),
         isActive: r.is_active,
-        totalAreas: r.areas.length,
+        totalAreas: areaNodes.length,
         totalShops: routeTotalShops,
         activeShops: routeActiveShops,
         verifiedGpsShops: routeGpsVerified,
@@ -488,6 +526,11 @@ export async function getZmccHierarchyReport(
         areas: areaNodes,
       };
     });
+
+    // A shop listed on several routes counts once in the ZMCC totals.
+    facTotalShops = seenShops.size;
+    facActiveShops = new Set([...seenActiveShops].map((k) => k.split(':')[1])).size;
+    facGpsVerified = seenGpsShops.size;
 
     const localSuppliers = suppliersByZmcc.get(fId.toString()) ?? [];
     const todayHcArrivals = arrivalsByZmcc.get(fId.toString()) ?? [];

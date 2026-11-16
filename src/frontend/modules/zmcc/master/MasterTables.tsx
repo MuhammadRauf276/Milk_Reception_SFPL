@@ -55,6 +55,7 @@ const routeCols: MasterCol<RouteItem>[] = [
   { header: 'Origin', tdClass: 'text-secondary-foreground', cell: (r) => r.origin },
   { header: 'Destination', tdClass: 'text-secondary-foreground', cell: (r) => r.destination },
   { header: 'Areas', align: 'center', tdClass: 'font-semibold tabular-nums', cell: (r) => r.area_count || 0 },
+  { header: 'Shops', align: 'center', tdClass: 'font-semibold tabular-nums', cell: (r) => r.shop_count || 0 },
   status<RouteItem>(),
 ];
 
@@ -94,7 +95,8 @@ const shopCols: MasterCol<ShopItem>[] = [
   { header: 'Shop Name', tdClass: 'font-semibold text-foreground', cell: (s) => s.shop_name },
   { header: 'Owner / Contractor', tdClass: 'font-medium text-secondary-foreground', cell: (s) => s.owner_name },
   { header: 'Contact', tdClass: 'tabular-nums text-secondary-foreground', cell: (s) => s.phone_number },
-  { header: 'Area & Route', tdClass: 'text-secondary-foreground', cell: (s) => s.area.name },
+  { header: 'Area', tdClass: 'text-secondary-foreground', cell: (s) => s.area.name },
+  { header: 'Routes', tdClass: 'text-secondary-foreground', cell: (s) => [s.route_name, ...(s.extra_routes ?? []).map((r) => r.name)].filter(Boolean).join(', ') || '-' },
   { header: 'Chiller', tdClass: 'text-secondary-foreground font-medium', cell: (s) => s.chiller_ownership.name },
   status<ShopItem>(),
 ];

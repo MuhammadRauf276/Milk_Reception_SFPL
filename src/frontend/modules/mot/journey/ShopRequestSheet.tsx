@@ -8,6 +8,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { queueShopRequest, syncPendingShopRequests } from '../offlineStore';
 import { MotSheet, sheetInputClass, sheetLabelClass, sheetPrimaryButtonClass } from '../MotSheet';
 import { SheetError } from '../workspace/SheetError';
+import { RouteMultiSelect, type RouteChoice } from '@/components/ui/route-multi-select';
 
 interface Props {
   routeId?: string;
@@ -28,6 +29,7 @@ const EMPTY_FORM = { shop_name: '', owner_name: '', phone_number: '', cnic: '', 
 interface ShopRequestOptions {
   areas: Array<{ id: string; name: string; area_code: string }>;
   chillers: Array<{ id: string; name: string }>;
+  routes?: RouteChoice[];
 }
 
 /** Areas and chiller types for the form. The last list stays on the phone for use without signal. */
@@ -67,6 +69,7 @@ function useShopRequestOptions(routeId?: string): ShopRequestOptions {
 /** Asks for a new shop met in the field. Queued on the phone, so it works offline. */
 export function ShopRequestSheet({ routeId, routeName, deviceGps, gpsBadge, onClose }: Props) {
   const [form, setForm] = useState(EMPTY_FORM);
+  const [extraRouteIds, setExtraRouteIds] = useState<string[]>([]);
   const options = useShopRequestOptions(routeId);
   const [submitting, setSubmitting] = useState(false);
   const formDraft = useLocalFormDraft({
@@ -119,6 +122,7 @@ export function ShopRequestSheet({ routeId, routeName, deviceGps, gpsBadge, onCl
         phone_number: form.phone_number.trim(),
         cnic: form.cnic.trim(),
         route_id: routeId,
+        extra_route_ids: extraRouteIds,
         area_id: areaId || undefined,
         chiller_ownership_id: form.chiller_ownership_id || undefined,
         latitude: deviceGps?.latitude ?? null,
@@ -132,6 +136,7 @@ export function ShopRequestSheet({ routeId, routeName, deviceGps, gpsBadge, onCl
       formDraft.clear();
       setSuccess('Shop request queued successfully. It will be added to your journey once approved.');
       setForm(EMPTY_FORM);
+      setExtraRouteIds([]);
       closeTimer.current = setTimeout(onClose, 1500);
     } catch (err) {
       setError(getErrorMessage(err) || 'Failed to submit shop request.');
@@ -216,6 +221,12 @@ export function ShopRequestSheet({ routeId, routeName, deviceGps, gpsBadge, onCl
                 </option>
               ))}
             </select>
+          </div>
+        )}
+        {(options.routes?.length ?? 0) > 1 && (
+          <div className="min-w-0">
+            <span className={sheetLabelClass}>Also on routes</span>
+            <RouteMultiSelect routes={options.routes ?? []} homeRouteId={routeId} value={extraRouteIds} onChange={setExtraRouteIds} idPrefix="shop-request-route" />
           </div>
         )}
         <div className="bg-card border-border flex items-center justify-between rounded-xl border p-3 text-xs text-secondary-foreground">
