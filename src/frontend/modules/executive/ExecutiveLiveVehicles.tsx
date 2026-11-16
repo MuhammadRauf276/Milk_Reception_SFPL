@@ -10,7 +10,9 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import { formatOperationalDate } from '@/lib/datetime-utils';
 import { ZMCCManagerLiveDispatches } from '@/frontend/modules/dashboard/zmcc/ZMCCManagerLiveDispatches';
 import { ZMCCManagerVisitDetailModal } from '@/frontend/modules/dashboard/zmcc/ZMCCManagerVisitDetailModal';
+import { getPakistanCalendarDate } from '@backend/core/business-day';
 import { VehicleReportTable } from './VehicleReportTable';
+import { VehicleExcelButton } from './VehicleExcelButton';
 import { VisitPhotosSection } from './VisitPhotosSection';
 
 const NO_LOGS: MilkProcessLog[] = [];
@@ -76,6 +78,15 @@ export function ExecutiveLiveVehicles({ showPhotos }: { showPhotos: boolean }) {
     router.replace(query ? `${pathname}?${query}` : (pathname ?? ''));
   };
 
+  // The Excel file of the cards view: the same last 7 days, with the vehicle search when one is typed.
+  const lastSevenDaysParams = () => {
+    const to = getPakistanCalendarDate(new Date());
+    const from = new Date(Date.parse(`${to}T00:00:00Z`) - 6 * 86_400_000).toISOString().slice(0, 10);
+    const p = new URLSearchParams({ from, to });
+    if (deferredSearch) p.set('f_vehicle', deferredSearch);
+    return p;
+  };
+
   const tabClass = (active: boolean) =>
     `min-h-9 px-4 py-2 text-xs font-semibold rounded-md transition flex items-center justify-center gap-2 flex-1 sm:flex-initial ${
       active ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
@@ -98,6 +109,8 @@ export function ExecutiveLiveVehicles({ showPhotos }: { showPhotos: boolean }) {
           </p>
         </div>
 
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        {!isReport && <VehicleExcelButton chooseSourceType getParams={lastSevenDaysParams} />}
         <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border w-full sm:w-fit" role="tablist" aria-label="Vehicle view">
           <button type="button" role="tab" aria-selected={!isReport} onClick={() => openTab(false)} className={tabClass(!isReport)}>
             <LayoutGrid className="w-3.5 h-3.5" />
@@ -107,6 +120,7 @@ export function ExecutiveLiveVehicles({ showPhotos }: { showPhotos: boolean }) {
             <Table2 className="w-3.5 h-3.5" />
             <span>Report Table</span>
           </button>
+        </div>
         </div>
       </div>
 

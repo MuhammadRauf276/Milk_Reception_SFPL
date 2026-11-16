@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Eye, Truck } from 'lucide-react';
+import { ChevronDown, Eye, Truck } from 'lucide-react';
 import { Pagination, useListPageSize } from '@/components/ui/pagination';
 import { TableWrapper } from '@/components/ui/table-wrapper';
 import { toast } from '@/frontend/lib/appToast';
@@ -12,7 +12,9 @@ import { getPakistanCalendarDate } from '@backend/core/business-day';
 import { fetchJson } from '@/lib/query/fetchJson';
 import {
   REPORT_MAX_RANGE_DAYS,
+  SOURCE_TYPES,
   dateRangeProblem,
+  type SourceTypeFilter,
   type ReportColumnFilters,
   type ReportColumnKey,
   type VehiclePortionReport,
@@ -21,6 +23,16 @@ import {
 import { ZMCCManagerVisitDetailModal } from '@/frontend/modules/dashboard/zmcc/ZMCCManagerVisitDetailModal';
 import { VisitPhotosSection } from './VisitPhotosSection';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { SOURCE_TYPE_LABELS, VehicleExcelButton } from './VehicleExcelButton';
+
+interface SourceOption {
+  id: string;
+  name: string;
+  code: string;
+  type: string;
+  active: boolean;
+}
 
 const EMPTY = '—';
 const SEARCH_DELAY_MS = 400;
@@ -97,6 +109,30 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
   const [filters, setFilters] = useState<ReportColumnFilters>({});
   const requestedPageSize = useListPageSize(25);
   const [inspectVisitId, setInspectVisitId] = useState<string | null>(null);
+  const [sourceType, setSourceType] = useState<SourceTypeFilter>('ALL');
+  const [sourceIds, setSourceIds] = useState<string[]>([]);
+
+  const sourcesQuery = useQuery({
+    queryKey: ['executive', 'vehicle-report-sources'],
+    queryFn: ({ signal }) => fetchJson<{ items: SourceOption[] }>('/api/executive/vehicles/sources', { signal }),
+    staleTime: 300_000,
+    refetchOnWindowFocus: false,
+  });
+  const sourceOptions = useMemo(
+    () => (sourcesQuery.data?.items ?? []).filter((s) => sourceType === 'ALL' || s.type === sourceType),
+    [sourcesQuery.data, sourceType]
+  );
+
+  const chooseSourceType = (type: SourceTypeFilter) => {
+    setSourceType(type);
+    // A chosen source of the other kind would leave the report empty.
+    setSourceIds((prev) => prev.filter((id) => (sourcesQuery.data?.items ?? []).some((s) => s.id === id && (type === 'ALL' || s.type === type))));
+    setPage(1);
+  };
+  const toggleSource = (id: string) => {
+    setSourceIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setPage(1);
+  };
 
   // Wait for a pause in typing, so one search sends one request instead of one per letter.
   useEffect(() => {
@@ -108,13 +144,22 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
   }, [typedFilters]);
 
   const rangeProblem = dateRangeProblem(from, to);
-  const params = useMemo(() => {
-    const p = new URLSearchParams({ from, to, page: String(page), pageSize: String(requestedPageSize) });
+  // The dates, the source choice and the column searches: the same for the screen and the Excel file.
+  const filterParams = useMemo(() => {
+    const p = new URLSearchParams({ from, to });
+    if (sourceType !== 'ALL') p.set('sourceType', sourceType);
+    if (sourceIds.length > 0) p.set('sourceIds', sourceIds.join(','));
     for (const [key, value] of Object.entries(filters)) {
       if (value?.trim()) p.set(`f_${key}`, value.trim());
     }
+    return p;
+  }, [from, to, sourceType, sourceIds, filters]);
+  const params = useMemo(() => {
+    const p = new URLSearchParams(filterParams);
+    p.set('page', String(page));
+    p.set('pageSize', String(requestedPageSize));
     return p.toString();
-  }, [from, to, page, requestedPageSize, filters]);
+  }, [filterParams, page, requestedPageSize]);
 
   // No background refresh: a report only asks the database when the person changes something.
   const reportQuery = useQuery({
@@ -188,7 +233,60 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
               className={inputClass}
             />
           </label>
+          <div className="text-xs font-semibold text-secondary-foreground space-y-1">
+            <span className="block">Dispatched from</span>
+            <div className="flex gap-1 p-1 rounded-lg bg-muted/60 border border-border" role="radiogroup" aria-label="Dispatched from">
+              {SOURCE_TYPES.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="radio"
+                  aria-checked={sourceType === t}
+                  onClick={() => chooseSourceType(t)}
+                  className={`min-h-9 px-3 rounded-md text-xs font-semibold transition ${
+                    sourceType === t ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
+                  }`}
+                >
+                  {SOURCE_TYPE_LABELS[t]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="text-xs font-semibold text-secondary-foreground space-y-1">
+            <span className="block">Source</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" className={`${inputClass} inline-flex items-center justify-between gap-2 min-w-40`}>
+                  <span>{sourceIds.length === 0 ? 'All sources' : `${sourceIds.length} chosen`}</span>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-72 p-2 max-h-80 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSourceIds([]);
+                    setPage(1);
+                  }}
+                  className="w-full text-left min-h-9 px-2 rounded text-xs font-semibold text-primary hover:bg-subtle"
+                >
+                  All sources
+                </button>
+                {sourceOptions.map((s) => (
+                  <label key={s.id} className="flex items-center gap-2 min-h-9 px-2 rounded text-xs text-foreground cursor-pointer hover:bg-subtle">
+                    <input type="checkbox" checked={sourceIds.includes(s.id)} onChange={() => toggleSource(s.id)} className="w-4 h-4 accent-primary" />
+                    <span className="flex-1 truncate">{s.name}</span>
+                    <span className="text-muted-foreground">{s.type === 'ZMCC' ? 'ZMCC' : 'Contractor'}</span>
+                  </label>
+                ))}
+                {sourceOptions.length === 0 && <p className="px-2 py-3 text-xs text-muted-foreground">{sourcesQuery.isPending ? 'Loading…' : 'No sources'}</p>}
+              </PopoverContent>
+            </Popover>
+          </div>
           <p className="text-xs text-muted-foreground pb-3">Up to {REPORT_MAX_RANGE_DAYS} days at a time</p>
+          <div className="sm:ml-auto">
+            <VehicleExcelButton getParams={() => rangeProblem ?? new URLSearchParams(filterParams)} />
+          </div>
         </div>
         {rangeProblem && (
           <p className="text-xs font-semibold text-rose-800" role="alert">

@@ -155,9 +155,20 @@ export function DynamicReportTable({
     if (field.format === 'datetime') {
       try {
         const d = new Date(value);
+        // Pakistan time, the same as the Excel and CSV exports.
+        const parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Karachi',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23',
+        }).formatToParts(d);
+        const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
         return (
           <span className="tabular-nums text-xs text-muted-foreground">
-            {d.toISOString().slice(0, 16).replace('T', ' ')}
+            {`${part('year')}-${part('month')}-${part('day')} ${part('hour')}:${part('minute')}`}
           </span>
         );
       } catch {

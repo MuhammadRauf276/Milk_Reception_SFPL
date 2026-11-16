@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
 import { canActAs } from '@/backend/core/roles/hierarchy';
-import { executeDynamicReportQuery } from '@/backend/services/dynamicReportEngine';
+import { executeDynamicReportQuery, ReportRequestError } from '@/backend/services/dynamicReportEngine';
 import type { DynamicQueryRequest } from '@/frontend/modules/dashboard/reports/dynamicReportTypes';
 
 export async function POST(req: Request) {
@@ -36,6 +36,9 @@ export async function POST(req: Request) {
     const result = await executeDynamicReportQuery(body, user);
     return NextResponse.json(result);
   } catch (error: any) {
+    if (error instanceof ReportRequestError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json(
       { error: error?.message || 'Failed to execute dynamic report query' },
       { status: 500 }

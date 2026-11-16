@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/backend/core/auth';
+import { getPakistanCalendarDate } from '@core/business-day';
 import { canActAs } from '@/backend/core/roles/hierarchy';
 import {
   generateDynamicExcelReport,
   generateDynamicCsvReport,
+  ReportRequestError,
 } from '@/backend/services/dynamicReportEngine';
 import type { DynamicExportRequest } from '@/frontend/modules/dashboard/reports/dynamicReportTypes';
 
@@ -36,7 +38,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const dateStr = new Date().toISOString().split('T')[0];
+    if (body.exportFormat !== 'CSV' && body.exportFormat !== 'XLSX') {
+      return NextResponse.json({ error: 'Choose Excel or CSV.' }, { status: 400 });
+    }
+
+    const dateStr = getPakistanCalendarDate();
     const safeDomain = body.domain.toLowerCase().replace(/_/g, '-');
 
     if (body.exportFormat === 'CSV') {
@@ -59,6 +65,9 @@ export async function POST(req: Request) {
       },
     });
   } catch (error: any) {
+    if (error instanceof ReportRequestError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json(
       { error: error?.message || 'Failed to generate dynamic export' },
       { status: 500 }

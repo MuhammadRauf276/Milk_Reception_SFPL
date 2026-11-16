@@ -5,6 +5,7 @@ import {
   ReportInputError,
   getVehiclePortionReport,
   parseColumnFilters,
+  parseSourceFilter,
   type VehiclePortionReportDb,
 } from '@/backend/services/management/vehiclePortionReport';
 
@@ -22,6 +23,7 @@ export async function GET(req: Request) {
         page: Number(params.get('page')) || 1,
         pageSize: Number(params.get('pageSize')) || undefined,
         filters: parseColumnFilters(params),
+        source: parseSourceFilter(params),
       },
       prisma as unknown as VehiclePortionReportDb
     );

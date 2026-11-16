@@ -213,7 +213,8 @@ export function DynamicReportGeneratorScreen({
       });
 
       if (!response.ok) {
-        throw new Error('Export request failed');
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || 'Export request failed');
       }
 
       const blob = await response.blob();
@@ -227,8 +228,8 @@ export function DynamicReportGeneratorScreen({
       document.body.removeChild(a);
 
       toast.success(`Exported ${format} file successfully.`);
-    } catch {
-      toast.error(`Failed to export ${format} report.`);
+    } catch (err) {
+      toast.error(err instanceof Error && err.message !== 'Export request failed' ? err.message : `Failed to export ${format} report.`);
     } finally {
       setIsExporting(false);
     }

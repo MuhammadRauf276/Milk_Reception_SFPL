@@ -2,7 +2,6 @@ import { LIVE_PLANT_TRANSIT_SQL } from './liveReportSql';
 import { getBatchTankPhysicalStock, getBatchTankTodayMovements } from '@/backend/services/zmccTankService';
 import { prisma } from '@core/db';
 import type { User } from '@core/types';
-import { canActAs } from '@core/roles/hierarchy';
 import { getPakistanCalendarDate, getPakistanDayWindow } from '@core/business-day';
 import ExcelJS from 'exceljs';
 import { isTemperatureTest } from '@/lib/lab-test-roles';
@@ -56,13 +55,13 @@ export const HC_SUPPLIERS_FIELDS: ReportFieldDefinition[] = [
   { id: 'phone', label: 'Phone Number', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: false, sortable: false, filterable: true },
   { id: 'vehicle_number', label: 'Vehicle #', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
   { id: 'gross_liters', label: 'Gross Liters', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
-  { id: 'fat', label: 'Fat %', category: 'QUALITY', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
-  { id: 'lr', label: 'LR', category: 'QUALITY', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
+  { id: 'fat', label: 'Fat %', category: 'QUALITY', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: false, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
+  { id: 'lr', label: 'LR', category: 'QUALITY', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: false, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
   { id: 'snf', label: 'SNF %', category: 'QUALITY', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
-  { id: 'temperature_c', label: 'Temperature (°C)', category: 'QUALITY', dataType: 'number', format: 'temperature', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MAX'] },
+  { id: 'temperature_c', label: 'Temperature (°C)', category: 'QUALITY', dataType: 'number', format: 'temperature', align: 'right', defaultSelected: true, sortable: false, filterable: true, aggregations: ['AVG', 'MAX'] },
   { id: 'decision', label: 'Lab Decision', category: 'QUALITY', dataType: 'enum', format: 'status_pill', defaultSelected: true, sortable: true, filterable: true, enumValues: ['ACCEPTED', 'REJECTED', 'PENDING'] },
-  { id: 'rmr_number', label: 'RMR Receipt #', category: 'IDENTIFICATION', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
-  { id: 'rmr_status', label: 'RMR Status', category: 'IDENTIFICATION', dataType: 'enum', format: 'status_pill', defaultSelected: true, sortable: true, filterable: true, enumValues: ['ISSUED', 'RECORDED', 'CANCELLED', 'PENDING'] },
+  { id: 'rmr_number', label: 'RMR Receipt #', category: 'IDENTIFICATION', dataType: 'string', format: 'text', defaultSelected: true, sortable: false, filterable: true },
+  { id: 'rmr_status', label: 'RMR Status', category: 'IDENTIFICATION', dataType: 'enum', format: 'status_pill', defaultSelected: true, sortable: false, filterable: true, enumValues: ['ISSUED', 'RECORDED', 'CANCELLED', 'PENDING'] },
 ];
 
 export const JOURNEY_RECONCILIATION_FIELDS: ReportFieldDefinition[] = [
@@ -73,13 +72,13 @@ export const JOURNEY_RECONCILIATION_FIELDS: ReportFieldDefinition[] = [
   { id: 'mot_name', label: 'MOT Driver', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
   { id: 'vehicle_number', label: 'Vehicle #', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
   { id: 'status', label: 'Status', category: 'OPERATIONAL', dataType: 'enum', format: 'status_pill', defaultSelected: true, sortable: true, filterable: true, enumValues: ['COLLECTING', 'RETURNED_TO_ZMCC', 'COMPLETED', 'CANCELLED'] },
-  { id: 'planned_stops', label: 'Planned Stops', category: 'OPERATIONAL', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
-  { id: 'visited_stops', label: 'Visited Stops', category: 'OPERATIONAL', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
-  { id: 'completion_rate', label: 'Completion %', category: 'OPERATIONAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG'] },
-  { id: 'shop_liters', label: 'Shop Collected (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
+  { id: 'planned_stops', label: 'Planned Stops', category: 'OPERATIONAL', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'] },
+  { id: 'visited_stops', label: 'Visited Stops', category: 'OPERATIONAL', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'] },
+  { id: 'completion_rate', label: 'Completion %', category: 'OPERATIONAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['AVG'] },
+  { id: 'shop_liters', label: 'Shop Collected (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'] },
   { id: 'gate_liters', label: 'Gate Received (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
-  { id: 'loss_liters', label: 'Route Loss (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
-  { id: 'loss_pct', label: 'Route Loss %', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG'] },
+  { id: 'loss_liters', label: 'Route Loss (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'] },
+  { id: 'loss_pct', label: 'Route Loss %', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['AVG'] },
   { id: 'dispatched_at', label: 'Dispatched At', category: 'TIMING', dataType: 'datetime', format: 'datetime', defaultSelected: false, sortable: true, filterable: true },
   { id: 'returned_at', label: 'Returned At', category: 'TIMING', dataType: 'datetime', format: 'datetime', defaultSelected: false, sortable: true, filterable: true },
 ];
@@ -90,10 +89,8 @@ export const TANK_STORAGE_FIELDS: ReportFieldDefinition[] = [
   { id: 'capacity_liters', label: 'Capacity (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
   { id: 'current_stock_liters', label: 'Current Stock (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
   { id: 'fill_pct', label: 'Fill %', category: 'VOLUMES', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG'] },
-  { id: 'current_temp_c', label: 'Temperature (°C)', category: 'QUALITY', dataType: 'number', format: 'temperature', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MAX'] },
   { id: 'today_receipts_liters', label: 'Today Received (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
   { id: 'today_dispatches_liters', label: 'Today Dispatched (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
-  { id: 'holding_hours', label: 'Holding (Hrs)', category: 'TIMING', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MAX'] },
   { id: 'is_active', label: 'Operational State', category: 'OPERATIONAL', dataType: 'boolean', format: 'status_pill', defaultSelected: true, sortable: true, filterable: true },
 ];
 
@@ -101,7 +98,7 @@ export const PLANT_TRANSIT_FIELDS: ReportFieldDefinition[] = [
   { id: 'dispatch_note_number', label: 'Dispatch Slip #', category: 'IDENTIFICATION', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
   { id: 'dispatch_date', label: 'Dispatch Date', category: 'TIMING', dataType: 'date', format: 'date', defaultSelected: true, sortable: true, filterable: true },
   { id: 'vehicle_number', label: 'Tanker Vehicle', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
-  { id: 'contractor_name', label: 'Contractor', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
+  { id: 'contractor_name', label: 'ZMCC', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
   { id: 'dispatched_liters', label: 'Dispatched Gross (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
   { id: 'dispatched_13ts_liters', label: 'Dispatched 13% TS (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
   { id: 'plant_received_liters', label: 'Plant Received (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
@@ -111,16 +108,16 @@ export const PLANT_TRANSIT_FIELDS: ReportFieldDefinition[] = [
 ];
 
 export const QUALITY_SCREENING_FIELDS: ReportFieldDefinition[] = [
-  { id: 'sample_token', label: 'Token #', category: 'IDENTIFICATION', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
-  { id: 'source_type', label: 'Origin Source', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
+  { id: 'sample_token', label: 'Token #', category: 'IDENTIFICATION', dataType: 'string', format: 'text', defaultSelected: true, sortable: false, filterable: true },
+  { id: 'source_type', label: 'Origin Source', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: false, filterable: true },
   { id: 'test_date', label: 'Test Date', category: 'TIMING', dataType: 'date', format: 'date', defaultSelected: true, sortable: true, filterable: true },
   { id: 'tested_at', label: 'Timestamp', category: 'TIMING', dataType: 'datetime', format: 'datetime', defaultSelected: true, sortable: true, filterable: true },
   { id: 'gross_liters', label: 'Gross Liters', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
   { id: 'fat', label: 'Fat %', category: 'QUALITY', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
   { id: 'lr', label: 'LR', category: 'QUALITY', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
   { id: 'snf', label: 'SNF %', category: 'QUALITY', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
-  { id: 'temperature_c', label: 'Temperature (°C)', category: 'QUALITY', dataType: 'number', format: 'temperature', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MAX'] },
-  { id: 'decision', label: 'Final Decision', category: 'QUALITY', dataType: 'enum', format: 'status_pill', defaultSelected: true, sortable: true, filterable: true, enumValues: ['ACCEPTED', 'REJECTED', 'FLAGGED'] },
+  { id: 'temperature_c', label: 'Temperature (°C)', category: 'QUALITY', dataType: 'number', format: 'temperature', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['AVG', 'MAX'] },
+  { id: 'decision', label: 'Final Decision', category: 'QUALITY', dataType: 'enum', format: 'status_pill', defaultSelected: true, sortable: true, filterable: true, enumValues: ['ACCEPTED', 'REJECTED'] },
   { id: 'exception_reason', label: 'Rejection Reason', category: 'QUALITY', dataType: 'string', format: 'text', defaultSelected: true, sortable: false, filterable: true },
 ];
 
@@ -193,7 +190,7 @@ export const SYSTEM_DEFAULT_TEMPLATES: SavedReportTemplate[] = [
     name: 'ZMCC Silo Tanks Utilization & Inventory',
     description: 'Physical silo stock, capacity utilization percentage, chilling temperatures, and CIP state.',
     domain: 'TANK_STORAGE',
-    selectedFieldIds: ['tank_code', 'tank_name', 'capacity_liters', 'current_stock_liters', 'fill_pct', 'current_temp_c', 'today_receipts_liters', 'today_dispatches_liters', 'holding_hours', 'is_active'],
+    selectedFieldIds: ['tank_code', 'tank_name', 'capacity_liters', 'current_stock_liters', 'fill_pct', 'today_receipts_liters', 'today_dispatches_liters', 'is_active'],
     filters: [],
     sortFieldId: 'tank_code',
     sortDirection: 'asc',
@@ -216,11 +213,34 @@ export const SYSTEM_DEFAULT_TEMPLATES: SavedReportTemplate[] = [
 // 3. DYNAMIC QUERY EXECUTOR
 // ============================================================================
 
+/** Hard cap for one export; a bigger result must be narrowed by date or filters first. */
+export const MAX_REPORT_ROWS = 50000;
+const MAX_PAGE_SIZE = 500;
+const EXPORT_CHUNK_SIZE = 1000;
+
+/** A problem with what the user asked for (not a server fault): the routes answer it with a 4xx and the message. */
+export class ReportRequestError extends Error {}
+
+const hasValue = (v: unknown) => v !== undefined && v !== null && v !== '';
+
+interface DynamicQueryOptions {
+  /** Rows only: skips KPI cards and grouped subtotals. Used by the export, which reads in chunks. */
+  light?: boolean;
+}
+
 export async function executeDynamicReportQuery(
   req: DynamicQueryRequest,
-  currentUser: User | null
+  currentUser: User | null,
+  opts: DynamicQueryOptions = {}
 ): Promise<DynamicQueryResponse> {
-  const { domain, selectedFieldIds, filters, groupByFieldId, sortFieldId, sortDirection, page = 1, pageSize = 20, zmccId } = req;
+  const { domain, selectedFieldIds, groupByFieldId, sortFieldId, sortDirection, zmccId } = req;
+  const filters = Array.isArray(req.filters) ? req.filters : [];
+  const page = Math.max(1, Math.floor(Number(req.page)) || 1);
+  const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(Number(req.pageSize)) || 20));
+  const light = opts.light === true;
+
+  const allDomainFields = DOMAIN_FIELD_MAP[domain];
+  if (!allDomainFields) throw new ReportRequestError('Unknown report type.');
 
   const isSystemScope =
     currentUser?.role === 'HEAD_OF_MPD' ||
@@ -235,36 +255,53 @@ export async function executeDynamicReportQuery(
     }
   } else if (currentUser?.procurement_source_id) {
     effectiveZmccId = BigInt(currentUser.procurement_source_id);
+  } else {
+    // Never fall back to every source for a user who belongs to none.
+    throw new ReportRequestError('Your account has no source assigned.');
   }
 
-  const allDomainFields = DOMAIN_FIELD_MAP[domain] || MOT_COLLECTIONS_FIELDS;
   const activeFields = allDomainFields.filter((f) => selectedFieldIds.includes(f.id));
 
   let rawRows: Record<string, any>[] = [];
   let totalCount = 0;
   // KPI figures across the whole filter, never just the current page.
   let kpiTotals: DomainKpiTotals = {};
+  const noTotals = Promise.resolve<DomainKpiTotals>({});
 
   // --------------------------------------------------------------------------
   // DOMAIN 1: MOT_COLLECTIONS
   // --------------------------------------------------------------------------
   if (domain === 'MOT_COLLECTIONS') {
+    const and: any[] = [];
+    applyFilters(and, filters, MOT_SPECS);
     const where: any = {};
     if (effectiveZmccId) where.zmcc_id = effectiveZmccId;
-
-    for (const flt of filters) {
-      applyCollectionFilter(where, flt);
-    }
+    if (and.length > 0) where.AND = and;
 
     const [count, totals, records] = await Promise.all([
       prisma.motShopCollection.count({ where }),
-      getCollectionKpiTotals(where),
+      light ? noTotals : getCollectionKpiTotals(where),
       prisma.motShopCollection.findMany({
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: getOrderByClause(sortFieldId, sortDirection, 'device_collected_at'),
-        include: {
+        orderBy: buildOrderBy(domain, MOT_SPECS, sortFieldId, sortDirection, 'device_collected_at'),
+        select: {
+          id: true,
+          collection_number: true,
+          operational_date: true,
+          gross_liters: true,
+          at_13ts_liters: true,
+          fat: true,
+          lr: true,
+          snf: true,
+          density: true,
+          final_decision: true,
+          device_collected_at: true,
+          collection_latitude: true,
+          collection_longitude: true,
+          shop_rmr_number: true,
+          collection_notes: true,
           route: { select: { route_code: true, name: true } },
           shop: { select: { shop_code: true, shop_name: true, owner_name: true } },
           mot_profile: { select: { name: true } },
@@ -286,16 +323,16 @@ export async function executeDynamicReportQuery(
       owner_name: r.shop?.owner_name || '—',
       mot_name: r.mot_profile?.name || '—',
       vehicle_number: r.mot_vehicle?.vehicle_number || '—',
-      gross_liters: r.gross_liters ? Number(r.gross_liters) : 0,
-      at_13ts_liters: r.at_13ts_liters ? Number(r.at_13ts_liters) : 0,
-      fat: r.fat ? Number(r.fat) : null,
-      lr: r.lr ? Number(r.lr) : null,
-      snf: r.snf ? Number(r.snf) : null,
-      density: r.density ? Number(r.density) : null,
+      gross_liters: r.gross_liters != null ? Number(r.gross_liters) : 0,
+      at_13ts_liters: r.at_13ts_liters != null ? Number(r.at_13ts_liters) : 0,
+      fat: r.fat != null ? Number(r.fat) : null,
+      lr: r.lr != null ? Number(r.lr) : null,
+      snf: r.snf != null ? Number(r.snf) : null,
+      density: r.density != null ? Number(r.density) : null,
       final_decision: r.final_decision || 'PENDING',
       device_collected_at: r.device_collected_at ? r.device_collected_at.toISOString() : null,
-      collection_latitude: r.collection_latitude ? Number(r.collection_latitude) : null,
-      collection_longitude: r.collection_longitude ? Number(r.collection_longitude) : null,
+      collection_latitude: r.collection_latitude != null ? Number(r.collection_latitude) : null,
+      collection_longitude: r.collection_longitude != null ? Number(r.collection_longitude) : null,
       shop_rmr_number: r.shop_rmr_number || '—',
       collection_notes: r.collection_notes || '',
     }));
@@ -305,41 +342,32 @@ export async function executeDynamicReportQuery(
   // DOMAIN 2: HC_SUPPLIERS
   // --------------------------------------------------------------------------
   else if (domain === 'HC_SUPPLIERS') {
+    const roles = await loadSystemRoles(prisma as unknown as PolicyDb);
+    const and: any[] = [];
+    applyFilters(and, filters, HC_SPECS, hcCustomFilters(roles));
     const where: any = {};
     if (effectiveZmccId) where.zmcc_id = effectiveZmccId;
+    if (and.length > 0) where.AND = and;
 
-    for (const flt of filters) {
-      applyHcFilter(where, flt);
-    }
-
-    const [count, hcKpiSessions, records] = await Promise.all([
+    const [count, records] = await Promise.all([
       prisma.zmccLocalSupplierArrival.count({ where }),
-      // LR and Fat live in lab result rows, so the weighted figures cannot be a single SQL aggregate here.
-      prisma.zmccLocalSupplierArrival.findMany({
-        where,
-        select: {
-          lab_session: {
-            select: {
-              gross_liters: true,
-              snf: true,
-              results: { select: { test_id: true, test_code_snapshot: true, test_name_snapshot: true, numeric_value: true } },
-            },
-          },
-        },
-      }),
       prisma.zmccLocalSupplierArrival.findMany({
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: getOrderByClause(sortFieldId, sortDirection, 'arrival_timestamp'),
-        include: {
+        orderBy: buildOrderBy(domain, HC_SPECS, sortFieldId, sortDirection, 'arrival_timestamp'),
+        select: {
+          id: true,
+          zmcc_token: true,
+          arrival_date: true,
+          arrival_timestamp: true,
+          vehicle_number: true,
+          rmr_number: true,
           local_supplier: { select: { local_supplier_code: true, name: true, phone: true } },
           lab_session: {
             select: {
-              status: true,
               decision: true,
               gross_liters: true,
-              density: true,
               snf: true,
               results: { select: { test_id: true, test_code_snapshot: true, test_name_snapshot: true, numeric_value: true } },
             },
@@ -352,7 +380,6 @@ export async function executeDynamicReportQuery(
     ]);
 
     totalCount = count;
-    const roles = await loadSystemRoles(prisma as unknown as PolicyDb);
     const hasFatRole = [...roles.values()].includes('FAT');
     const hasLrRole = [...roles.values()].includes('LR');
     const readResults = (results: LabResultRow[] | undefined) => {
@@ -361,7 +388,7 @@ export async function executeDynamicReportQuery(
       let temp: number | null = null;
       for (const res of results ?? []) {
         const code = res.test_code_snapshot.toUpperCase();
-        const num = res.numeric_value ? Number(res.numeric_value) : null;
+        const num = res.numeric_value != null ? Number(res.numeric_value) : null;
         const role = roles.get(String(res.test_id));
         if (role === 'FAT' || (!hasFatRole && code.includes('FAT'))) fat = num;
         else if (role === 'LR' || (!hasLrRole && (code.includes('LR') || code.includes('CLR')))) lr = num;
@@ -370,18 +397,34 @@ export async function executeDynamicReportQuery(
       return { fat, lr, temp };
     };
 
-    const hcKpiRows = hcKpiSessions.flatMap((a) => {
-      if (!a.lab_session) return [];
-      const liters = a.lab_session.gross_liters != null ? Number(a.lab_session.gross_liters) : 0;
-      const { fat, lr } = readResults(a.lab_session.results);
-      return [{ liters, fat, lr, snf: a.lab_session.snf != null ? Number(a.lab_session.snf) : null }];
-    });
-    kpiTotals = {
-      grossLiters: hcKpiRows.length > 0 ? hcKpiRows.reduce((sum, r) => sum + r.liters, 0) : null,
-      avgFat: weightedAverage(hcKpiRows.map((r) => [r.fat, r.liters])),
-      avgLr: weightedAverage(hcKpiRows.map((r) => [r.lr, r.liters])),
-      avgSnf: weightedAverage(hcKpiRows.map((r) => [r.snf, r.liters])),
-    };
+    // LR and Fat live in lab result rows, so the weighted figures cannot be a single SQL aggregate here.
+    // Skipped for exports and for very large filters, where reading every result would load the database.
+    if (!light && count > 0 && count <= MAX_REPORT_ROWS) {
+      const hcKpiSessions = await prisma.zmccLocalSupplierArrival.findMany({
+        where,
+        select: {
+          lab_session: {
+            select: {
+              gross_liters: true,
+              snf: true,
+              results: { select: { test_id: true, test_code_snapshot: true, test_name_snapshot: true, numeric_value: true } },
+            },
+          },
+        },
+      });
+      const hcKpiRows = hcKpiSessions.flatMap((a) => {
+        if (!a.lab_session) return [];
+        const liters = a.lab_session.gross_liters != null ? Number(a.lab_session.gross_liters) : 0;
+        const { fat, lr } = readResults(a.lab_session.results);
+        return [{ liters, fat, lr, snf: a.lab_session.snf != null ? Number(a.lab_session.snf) : null }];
+      });
+      kpiTotals = {
+        grossLiters: hcKpiRows.length > 0 ? hcKpiRows.reduce((sum, r) => sum + r.liters, 0) : null,
+        avgFat: weightedAverage(hcKpiRows.map((r) => [r.fat, r.liters])),
+        avgLr: weightedAverage(hcKpiRows.map((r) => [r.lr, r.liters])),
+        avgSnf: weightedAverage(hcKpiRows.map((r) => [r.snf, r.liters])),
+      };
+    }
 
     rawRows = records.map((a) => {
       const { fat: fatVal, lr: lrVal, temp: tempVal } = readResults(a.lab_session?.results);
@@ -409,10 +452,10 @@ export async function executeDynamicReportQuery(
         supplier_name: a.local_supplier?.name || '—',
         phone: a.local_supplier?.phone || '—',
         vehicle_number: a.vehicle_number,
-        gross_liters: a.lab_session?.gross_liters ? Number(a.lab_session.gross_liters) : 0,
+        gross_liters: a.lab_session?.gross_liters != null ? Number(a.lab_session.gross_liters) : 0,
         fat: fatVal,
         lr: lrVal,
-        snf: a.lab_session?.snf ? Number(a.lab_session.snf) : null,
+        snf: a.lab_session?.snf != null ? Number(a.lab_session.snf) : null,
         temperature_c: tempVal,
         decision: a.lab_session?.decision || 'PENDING',
         rmr_number: rmrStr || '—',
@@ -425,22 +468,27 @@ export async function executeDynamicReportQuery(
   // DOMAIN 3: JOURNEY_RECONCILIATION
   // --------------------------------------------------------------------------
   else if (domain === 'JOURNEY_RECONCILIATION') {
+    const and: any[] = [];
+    applyFilters(and, filters, JOURNEY_SPECS);
     const where: any = {};
     if (effectiveZmccId) where.zmcc_id = effectiveZmccId;
-
-    for (const flt of filters) {
-      applyJourneyFilter(where, flt);
-    }
+    if (and.length > 0) where.AND = and;
 
     const [count, totals, records] = await Promise.all([
       prisma.motJourney.count({ where }),
-      getJourneyKpiTotals(where),
+      light ? noTotals : getJourneyKpiTotals(where),
       prisma.motJourney.findMany({
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: getOrderByClause(sortFieldId, sortDirection, 'assigned_at'),
-        include: {
+        orderBy: buildOrderBy(domain, JOURNEY_SPECS, sortFieldId, sortDirection, 'assigned_at'),
+        select: {
+          id: true,
+          journey_number: true,
+          operational_date: true,
+          status: true,
+          assigned_at: true,
+          area_received_liters: true,
           route: { select: { route_code: true, name: true } },
           mot_profile: { select: { name: true } },
           mot_vehicle: { select: { vehicle_number: true } },
@@ -491,29 +539,28 @@ export async function executeDynamicReportQuery(
 
   // --------------------------------------------------------------------------
   // DOMAIN 4: TANK_STORAGE
+  // A source has only a handful of tanks, so stock is computed for all of them and filtered, sorted and paged here.
   // --------------------------------------------------------------------------
   else if (domain === 'TANK_STORAGE') {
-    const where: any = { is_active: true };
+    const where: any = {};
     if (effectiveZmccId) where.zmcc_id = effectiveZmccId;
+    // Active tanks only, unless the user filters on the state itself.
+    if (!filters.some((f) => f.fieldId === 'is_active' && hasValue(f.value))) where.is_active = true;
 
-    const [count, records] = await Promise.all([
-      prisma.zmccTank.count({ where }),
-      prisma.zmccTank.findMany({
-        where,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        orderBy: { tank_code: 'asc' },
-      }),
-    ]);
+    const tanks = await prisma.zmccTank.findMany({
+      where,
+      orderBy: { tank_code: 'asc' },
+      take: MAX_REPORT_ROWS + 1,
+    });
+    if (tanks.length > MAX_REPORT_ROWS) throw new ReportRequestError(tooManyRowsMessage());
 
-    const tankIds = records.map((t) => t.id);
+    const tankIds = tanks.map((t) => t.id);
     const [physicalStocks, todayMovements] = await Promise.all([
       getBatchTankPhysicalStock(tankIds),
       getBatchTankTodayMovements(tankIds, getPakistanDayWindow().start),
     ]);
 
-    totalCount = count;
-    rawRows = records.map((t) => {
+    let tankRows: Record<string, any>[] = tanks.map((t) => {
       const cap = Number(t.capacity_liters);
       const today = todayMovements.get(t.id.toString());
       const stock = Number((physicalStocks.get(t.id.toString()) ?? 0).toFixed(2));
@@ -526,13 +573,31 @@ export async function executeDynamicReportQuery(
         capacity_liters: cap,
         current_stock_liters: stock,
         fill_pct: fillPct,
-        current_temp_c: null,
         today_receipts_liters: Number((today?.received ?? 0).toFixed(2)),
         today_dispatches_liters: Number((today?.dispatched ?? 0).toFixed(2)),
-        holding_hours: null,
         is_active: t.is_active,
       };
     });
+
+    for (const flt of filters) {
+      if (!hasValue(flt.value)) continue;
+      const def = allDomainFields.find((f) => f.id === flt.fieldId);
+      if (!def || def.filterable === false) throw new ReportRequestError('This field cannot be filtered.');
+      tankRows = tankRows.filter((row) => matchesRowFilter(row[def.id], def, flt));
+    }
+
+    const sortDef = allDomainFields.find((f) => f.id === sortFieldId && f.sortable !== false);
+    const dirFactor = sortDirection === 'desc' ? -1 : 1;
+    const sortId = sortDef ? sortDef.id : 'tank_code';
+    tankRows.sort((a, b) => {
+      const av = a[sortId];
+      const bv = b[sortId];
+      const cmp = typeof av === 'string' ? String(av).localeCompare(String(bv)) : Number(av) - Number(bv);
+      return (sortDef ? dirFactor : 1) * cmp;
+    });
+
+    totalCount = tankRows.length;
+    rawRows = tankRows.slice((page - 1) * pageSize, page * pageSize);
   }
 
   // --------------------------------------------------------------------------
@@ -542,22 +607,32 @@ export async function executeDynamicReportQuery(
     // A failed query throws to the caller: it must show as an error, never as made-up rows.
     const conditions = ['1=1'];
     const params: any[] = [];
-    let pIdx = 1;
 
     if (effectiveZmccId) {
-      conditions.push(`zmcc_id = $${pIdx++}`);
       params.push(effectiveZmccId);
+      conditions.push(`zmcc_id = $${params.length}`);
     }
+    for (const flt of filters) {
+      const clause = transitFilterClause(flt, params);
+      if (clause) conditions.push(clause);
+    }
+    const whereSql = conditions.join(' AND ');
 
     const countRes = (await prisma.$queryRawUnsafe(
-      `SELECT COUNT(*)::text as count FROM ${LIVE_PLANT_TRANSIT_SQL} WHERE ${conditions.join(' AND ')}`,
+      `SELECT COUNT(*)::text as count FROM ${LIVE_PLANT_TRANSIT_SQL} WHERE ${whereSql}`,
       ...params
     )) as { count: string }[];
     totalCount = Number(countRes[0]?.count || 0);
 
+    const sortDef = allDomainFields.find((f) => f.id === sortFieldId && f.sortable !== false);
+    const sortExpr = sortDef ? TRANSIT_SPECS[sortDef.id]?.expr : undefined;
+    const orderSql = sortExpr
+      ? `${sortExpr} ${sortDirection === 'asc' ? 'ASC' : 'DESC'} NULLS LAST, visit_id DESC`
+      : 'operational_date DESC NULLS LAST, visit_id DESC';
+
     const offset = (page - 1) * pageSize;
     const records = (await prisma.$queryRawUnsafe(
-      `SELECT * FROM ${LIVE_PLANT_TRANSIT_SQL} WHERE ${conditions.join(' AND ')} ORDER BY operational_date DESC NULLS LAST, visit_id DESC LIMIT ${pageSize} OFFSET ${offset}`,
+      `SELECT * FROM ${LIVE_PLANT_TRANSIT_SQL} WHERE ${whereSql} ORDER BY ${orderSql} LIMIT ${pageSize} OFFSET ${offset}`,
       ...params
     )) as any[];
 
@@ -587,23 +662,32 @@ export async function executeDynamicReportQuery(
   // DOMAIN 6: QUALITY_SCREENING
   // --------------------------------------------------------------------------
   else {
+    const and: any[] = [];
+    applyFilters(and, filters, QUALITY_SPECS, QUALITY_CUSTOM_FILTERS);
     const where: any = { final_decision: { in: ['ACCEPTED', 'REJECTED'] } };
     if (effectiveZmccId) where.lab_session = { zmcc_id: effectiveZmccId };
-
-    for (const flt of filters) {
-      applyQualityFilter(where, flt);
-    }
+    if (and.length > 0) where.AND = and;
 
     const labResultSelect = { test_id: true, test_code_snapshot: true, test_name_snapshot: true, numeric_value: true } as const;
     const [count, totals, records] = await Promise.all([
       prisma.zmccLabPortion.count({ where }),
-      getQualityKpiTotals(where),
+      light ? noTotals : getQualityKpiTotals(where),
       prisma.zmccLabPortion.findMany({
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: getOrderByClause(sortFieldId, sortDirection, 'decided_at'),
-        include: {
+        orderBy: buildOrderBy(domain, QUALITY_SPECS, sortFieldId, sortDirection, 'decided_at'),
+        select: {
+          id: true,
+          decided_at: true,
+          created_at: true,
+          gross_liters: true,
+          fat: true,
+          lr: true,
+          snf: true,
+          final_decision: true,
+          exception_reasons: true,
+          decision_remarks: true,
           results: { select: labResultSelect },
           lab_session: {
             select: {
@@ -655,12 +739,13 @@ export async function executeDynamicReportQuery(
     });
   }
 
-  const summaryKpis = computeDynamicSummaryKpis(totalCount, kpiTotals);
+  const summaryKpis = light ? [] : computeDynamicSummaryKpis(totalCount, kpiTotals);
 
-  // Compute Grouped Subtotals if requested
-  const groupedSubtotals = groupByFieldId
-    ? computeGroupedSubtotals(rawRows, groupByFieldId, activeFields)
-    : undefined;
+  // Grouped subtotals cover the rows of the current page, the same rows the table shows.
+  const groupedSubtotals =
+    !light && groupByFieldId && allDomainFields.some((f) => f.id === groupByFieldId)
+      ? computeGroupedSubtotals(rawRows, groupByFieldId, activeFields)
+      : undefined;
 
   return {
     domain,
@@ -675,116 +760,357 @@ export async function executeDynamicReportQuery(
   };
 }
 
+function tooManyRowsMessage(): string {
+  return `More than ${MAX_REPORT_ROWS.toLocaleString('en-US')} rows match. Narrow the date range or filters.`;
+}
+
 // ============================================================================
-// 4. FILTER TRANSLATION HELPERS
+// 4. FILTER AND SORT TRANSLATION HELPERS
 // ============================================================================
 
-function applyCollectionFilter(where: any, flt: DynamicFilterClause) {
-  if (flt.value === undefined || flt.value === null || flt.value === '') return;
+type FilterKind = 'string' | 'number' | 'date' | 'datetime' | 'enum';
 
-  if (flt.fieldId === 'operational_date') {
-    const d = new Date(`${flt.value}T00:00:00.000Z`);
-    if (flt.operator === 'EQUALS') where.operational_date = d;
-    else if (flt.operator === 'BETWEEN' && flt.valueSecondary) {
-      where.operational_date = {
-        gte: new Date(`${flt.value}T00:00:00.000Z`),
-        lte: new Date(`${flt.valueSecondary}T23:59:59.999Z`),
-      };
+/** One filterable column: its kind and where it lives (a dotted path through relations). */
+interface FilterSpec {
+  kind: FilterKind;
+  path: string;
+}
+
+type CustomFilters = Record<string, (flt: DynamicFilterClause) => any>;
+
+const MOT_SPECS: Record<string, FilterSpec> = {
+  collection_number: { kind: 'string', path: 'collection_number' },
+  operational_date: { kind: 'date', path: 'operational_date' },
+  route_code: { kind: 'string', path: 'route.route_code' },
+  route_name: { kind: 'string', path: 'route.name' },
+  shop_code: { kind: 'string', path: 'shop.shop_code' },
+  shop_name: { kind: 'string', path: 'shop.shop_name' },
+  owner_name: { kind: 'string', path: 'shop.owner_name' },
+  mot_name: { kind: 'string', path: 'mot_profile.name' },
+  vehicle_number: { kind: 'string', path: 'mot_vehicle.vehicle_number' },
+  gross_liters: { kind: 'number', path: 'gross_liters' },
+  at_13ts_liters: { kind: 'number', path: 'at_13ts_liters' },
+  fat: { kind: 'number', path: 'fat' },
+  lr: { kind: 'number', path: 'lr' },
+  snf: { kind: 'number', path: 'snf' },
+  density: { kind: 'number', path: 'density' },
+  final_decision: { kind: 'enum', path: 'final_decision' },
+  device_collected_at: { kind: 'datetime', path: 'device_collected_at' },
+  shop_rmr_number: { kind: 'string', path: 'shop_rmr_number' },
+  collection_notes: { kind: 'string', path: 'collection_notes' },
+};
+
+const HC_SPECS: Record<string, FilterSpec> = {
+  zmcc_token: { kind: 'string', path: 'zmcc_token' },
+  arrival_date: { kind: 'date', path: 'arrival_date' },
+  arrival_timestamp: { kind: 'datetime', path: 'arrival_timestamp' },
+  supplier_code: { kind: 'string', path: 'local_supplier.local_supplier_code' },
+  supplier_name: { kind: 'string', path: 'local_supplier.name' },
+  phone: { kind: 'string', path: 'local_supplier.phone' },
+  vehicle_number: { kind: 'string', path: 'vehicle_number' },
+  gross_liters: { kind: 'number', path: 'lab_session.gross_liters' },
+  snf: { kind: 'number', path: 'lab_session.snf' },
+  decision: { kind: 'enum', path: 'lab_session.decision' },
+};
+
+const JOURNEY_SPECS: Record<string, FilterSpec> = {
+  journey_number: { kind: 'string', path: 'journey_number' },
+  operational_date: { kind: 'date', path: 'operational_date' },
+  route_code: { kind: 'string', path: 'route.route_code' },
+  route_name: { kind: 'string', path: 'route.name' },
+  mot_name: { kind: 'string', path: 'mot_profile.name' },
+  vehicle_number: { kind: 'string', path: 'mot_vehicle.vehicle_number' },
+  status: { kind: 'enum', path: 'status' },
+  gate_liters: { kind: 'number', path: 'area_received_liters' },
+  dispatched_at: { kind: 'datetime', path: 'assigned_at' },
+  returned_at: { kind: 'datetime', path: 'mot_arrival.arrival_timestamp' },
+};
+
+const QUALITY_SPECS: Record<string, FilterSpec> = {
+  test_date: { kind: 'datetime', path: 'decided_at' },
+  tested_at: { kind: 'datetime', path: 'decided_at' },
+  gross_liters: { kind: 'number', path: 'gross_liters' },
+  fat: { kind: 'number', path: 'fat' },
+  lr: { kind: 'number', path: 'lr' },
+  snf: { kind: 'number', path: 'snf' },
+  decision: { kind: 'enum', path: 'final_decision' },
+};
+
+const dayOf = (value: unknown): string => {
+  const s = String(value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) throw new ReportRequestError('Pick a valid date in the filter.');
+  return s;
+};
+
+const numberOf = (value: unknown): number => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) throw new ReportRequestError('Enter a valid number in the filter.');
+  return n;
+};
+
+const needSecond = (flt: DynamicFilterClause) => {
+  if (!hasValue(flt.valueSecondary)) throw new ReportRequestError('Fill both values of the between filter.');
+};
+
+/** Prisma condition for one filter on one column. negate means the condition must be wrapped in NOT. */
+function scalarCondition(kind: FilterKind, flt: DynamicFilterClause): { cond: any; negate: boolean } {
+  const op = flt.operator;
+  const unsupported = () => new ReportRequestError('This filter does not fit the field.');
+
+  if (kind === 'string' || kind === 'enum') {
+    const v = String(flt.value);
+    const mode = kind === 'string' ? ({ mode: 'insensitive' } as const) : {};
+    if (op === 'EQUALS') return { cond: { equals: v, ...mode }, negate: false };
+    if (op === 'NOT_EQUALS') return { cond: { equals: v, ...mode }, negate: true };
+    if (op === 'CONTAINS') return { cond: { contains: v, ...mode }, negate: false };
+    if (op === 'STARTS_WITH') return { cond: { startsWith: v, ...mode }, negate: false };
+    if (op === 'IN_LIST') {
+      const list = v.split(',').map((s) => s.trim()).filter(Boolean);
+      return { cond: { in: list }, negate: false };
     }
-  } else if (flt.fieldId === 'fat' || flt.fieldId === 'lr' || flt.fieldId === 'snf' || flt.fieldId === 'gross_liters') {
-    const num = Number(flt.value);
-    if (!isNaN(num)) {
-      if (flt.operator === 'GREATER_THAN') where[flt.fieldId] = { gt: num };
-      else if (flt.operator === 'LESS_THAN') where[flt.fieldId] = { lt: num };
-      else if (flt.operator === 'GREATER_EQUAL') where[flt.fieldId] = { gte: num };
-      else if (flt.operator === 'LESS_EQUAL') where[flt.fieldId] = { lte: num };
-      else if (flt.operator === 'EQUALS') where[flt.fieldId] = num;
+    throw unsupported();
+  }
+
+  if (kind === 'number') {
+    const n = numberOf(flt.value);
+    if (op === 'GREATER_THAN') return { cond: { gt: n }, negate: false };
+    if (op === 'LESS_THAN') return { cond: { lt: n }, negate: false };
+    if (op === 'GREATER_EQUAL') return { cond: { gte: n }, negate: false };
+    if (op === 'LESS_EQUAL') return { cond: { lte: n }, negate: false };
+    if (op === 'EQUALS') return { cond: { equals: n }, negate: false };
+    if (op === 'NOT_EQUALS') return { cond: { equals: n }, negate: true };
+    if (op === 'BETWEEN') {
+      needSecond(flt);
+      return { cond: { gte: n, lte: numberOf(flt.valueSecondary) }, negate: false };
     }
-  } else if (flt.fieldId === 'final_decision') {
-    where.final_decision = flt.value;
-  } else if (flt.fieldId === 'route_name') {
-    where.route = { name: { contains: String(flt.value), mode: 'insensitive' } };
-  } else if (flt.fieldId === 'route_code') {
-    where.route = { route_code: { contains: String(flt.value), mode: 'insensitive' } };
-  } else if (flt.fieldId === 'shop_name') {
-    where.shop = { shop_name: { contains: String(flt.value), mode: 'insensitive' } };
-  } else if (flt.fieldId === 'shop_code') {
-    where.shop = { shop_code: { contains: String(flt.value), mode: 'insensitive' } };
+    if (op === 'IN_LIST') return { cond: { in: String(flt.value).split(',').map((s) => numberOf(s.trim())) }, negate: false };
+    throw unsupported();
+  }
+
+  // Calendar dates are stored as UTC midnight; timestamps are compared by Pakistan calendar day.
+  const day = dayOf(flt.value);
+  const isDate = kind === 'date';
+  const lo = isDate ? new Date(`${day}T00:00:00.000Z`) : getPakistanDayWindow(day).start;
+  const hi = isDate ? new Date(`${day}T00:00:00.000Z`) : getPakistanDayWindow(day).end;
+  if (op === 'EQUALS') return { cond: isDate ? { equals: lo } : { gte: lo, lte: hi }, negate: false };
+  if (op === 'NOT_EQUALS') return { cond: isDate ? { equals: lo } : { gte: lo, lte: hi }, negate: true };
+  if (op === 'GREATER_THAN') return { cond: { gt: hi }, negate: false };
+  if (op === 'GREATER_EQUAL') return { cond: { gte: lo }, negate: false };
+  if (op === 'LESS_THAN') return { cond: { lt: lo }, negate: false };
+  if (op === 'LESS_EQUAL') return { cond: { lte: hi }, negate: false };
+  if (op === 'BETWEEN') {
+    needSecond(flt);
+    const day2 = dayOf(flt.valueSecondary);
+    const end = isDate ? new Date(`${day2}T00:00:00.000Z`) : getPakistanDayWindow(day2).end;
+    return { cond: { gte: lo, lte: end }, negate: false };
+  }
+  throw unsupported();
+}
+
+/** Wraps a column condition in the relations leading to it: ('route.name', c) gives { route: { name: c } }. */
+function nestPath(path: string, inner: any): any {
+  return path.split('.').reduceRight((acc, key) => ({ [key]: acc }), inner);
+}
+
+function specNode(spec: FilterSpec, flt: DynamicFilterClause): any {
+  const { cond, negate } = scalarCondition(spec.kind, flt);
+  const node = nestPath(spec.path, cond);
+  return negate ? { NOT: node } : node;
+}
+
+/** One text filter that may match any of several columns. */
+function anyOfNode(paths: string[], flt: DynamicFilterClause): any {
+  const { cond, negate } = scalarCondition('string', flt);
+  const node = { OR: paths.map((p) => nestPath(p, cond)) };
+  return negate ? { NOT: node } : node;
+}
+
+/** Every filter is its own AND member, so two filters on one field (a range) never overwrite each other. */
+function applyFilters(and: any[], filters: DynamicFilterClause[], specs: Record<string, FilterSpec>, custom: CustomFilters = {}) {
+  for (const flt of filters) {
+    if (!hasValue(flt.value)) continue;
+    const handler = custom[flt.fieldId];
+    if (handler) {
+      and.push(handler(flt));
+      continue;
+    }
+    const spec = specs[flt.fieldId];
+    if (!spec) throw new ReportRequestError('This field cannot be filtered.');
+    and.push(specNode(spec, flt));
   }
 }
 
-function applyHcFilter(where: any, flt: DynamicFilterClause) {
-  if (flt.value === undefined || flt.value === null || flt.value === '') return;
-
-  if (flt.fieldId === 'arrival_date') {
-    if (flt.operator === 'EQUALS') where.arrival_date = new Date(`${flt.value}T00:00:00.000Z`);
-    else if (flt.operator === 'BETWEEN' && flt.valueSecondary) {
-      where.arrival_date = {
-        gte: new Date(`${flt.value}T00:00:00.000Z`),
-        lte: new Date(`${flt.valueSecondary}T23:59:59.999Z`),
-      };
-    }
-  } else if (flt.fieldId === 'supplier_name') {
-    where.local_supplier = { name: { contains: String(flt.value), mode: 'insensitive' } };
-  } else if (flt.fieldId === 'supplier_code') {
-    where.local_supplier = { local_supplier_code: { contains: String(flt.value), mode: 'insensitive' } };
-  } else if (flt.fieldId === 'decision') {
-    where.lab_session = { decision: flt.value };
-  }
-}
-
-function applyJourneyFilter(where: any, flt: DynamicFilterClause) {
-  if (flt.value === undefined || flt.value === null || flt.value === '') return;
-
-  if (flt.fieldId === 'operational_date') {
-    if (flt.operator === 'EQUALS') where.operational_date = new Date(`${flt.value}T00:00:00.000Z`);
-    else if (flt.operator === 'BETWEEN' && flt.valueSecondary) {
-      where.operational_date = {
-        gte: new Date(`${flt.value}T00:00:00.000Z`),
-        lte: new Date(`${flt.valueSecondary}T23:59:59.999Z`),
-      };
-    }
-  } else if (flt.fieldId === 'status') {
-    where.status = flt.value;
-  } else if (flt.fieldId === 'route_name') {
-    where.route = { name: { contains: String(flt.value), mode: 'insensitive' } };
-  }
-}
-
-function applyQualityFilter(where: any, flt: DynamicFilterClause) {
-  if (flt.value === undefined || flt.value === null || flt.value === '') return;
-
-  if (flt.fieldId === 'test_date') {
-    const first = getPakistanDayWindow(String(flt.value));
-    if (flt.operator === 'EQUALS') where.decided_at = { gte: first.start, lte: first.end };
-    else if (flt.operator === 'BETWEEN' && flt.valueSecondary) {
-      where.decided_at = { gte: first.start, lte: getPakistanDayWindow(String(flt.valueSecondary)).end };
-    }
-  } else if (flt.fieldId === 'decision') {
-    where.final_decision = flt.value;
-  } else if (flt.fieldId === 'fat' || flt.fieldId === 'lr' || flt.fieldId === 'snf' || flt.fieldId === 'gross_liters') {
-    const num = Number(flt.value);
-    if (!isNaN(num)) {
-      if (flt.operator === 'GREATER_THAN') where[flt.fieldId] = { gt: num };
-      else if (flt.operator === 'LESS_THAN') where[flt.fieldId] = { lt: num };
-      else if (flt.operator === 'GREATER_EQUAL') where[flt.fieldId] = { gte: num };
-      else if (flt.operator === 'LESS_EQUAL') where[flt.fieldId] = { lte: num };
-      else if (flt.operator === 'EQUALS') where[flt.fieldId] = num;
-    }
-  }
-}
-
-function getOrderByClause(sortFieldId?: string, sortDirection?: 'asc' | 'desc', defaultField = 'created_at'): any {
+/** Sort by the chosen column when the field is sortable and stored; id keeps the paging order stable. */
+function buildOrderBy(
+  domain: ReportDomain,
+  specs: Record<string, FilterSpec>,
+  sortFieldId: string | undefined,
+  sortDirection: 'asc' | 'desc' | undefined,
+  defaultPath: string
+): any[] {
   const dir = sortDirection === 'asc' ? 'asc' : 'desc';
-  if (!sortFieldId) return { [defaultField]: dir };
-
-  // Direct properties
-  const directFields = ['operational_date', 'arrival_date', 'arrival_timestamp', 'gross_liters', 'fat', 'lr', 'snf', 'at_13ts_liters', 'assigned_at', 'status', 'tank_code'];
-  if (directFields.includes(sortFieldId)) {
-    return { [sortFieldId]: dir };
-  }
-  return { [defaultField]: dir };
+  const def = DOMAIN_FIELD_MAP[domain].find((f) => f.id === sortFieldId && f.sortable !== false);
+  const path = def && specs[def.id] ? specs[def.id].path : defaultPath;
+  return [nestPath(path, dir), { id: 'asc' }];
 }
+
+// --- HC suppliers: lab result values live in result rows, the rest on the arrival -----------------
+
+function hcCustomFilters(roles: Map<string, string>): CustomFilters {
+  const idsFor = (role: string) => [...roles.entries()].filter(([, r]) => r === role).map(([id]) => BigInt(id));
+  const ci = (v: string) => ({ contains: v, mode: 'insensitive' as const });
+
+  const resultNode = (match: any, flt: DynamicFilterClause) => {
+    const { cond, negate } = scalarCondition('number', flt);
+    const node = { lab_session: { results: { some: { AND: [match, { numeric_value: cond }] } } } };
+    return negate ? { NOT: node } : node;
+  };
+  const roleMatch = (role: 'FAT' | 'LR') => {
+    const ids = idsFor(role);
+    return ids.length > 0 ? { test_id: { in: ids } } : { test_code_snapshot: ci(role) };
+  };
+
+  return {
+    fat: (flt) => resultNode(roleMatch('FAT'), flt),
+    lr: (flt) => resultNode(roleMatch('LR'), flt),
+    temperature_c: (flt) =>
+      resultNode({ OR: [{ test_code_snapshot: ci('TEMP') }, { test_name_snapshot: { equals: 'temperature', mode: 'insensitive' } }] }, flt),
+    decision: (flt) => {
+      // A token without a finished lab session shows as PENDING.
+      if (flt.operator === 'EQUALS' && String(flt.value) === 'PENDING') {
+        return { OR: [{ lab_session: { is: null } }, { lab_session: { decision: null } }, { lab_session: { decision: 'PENDING' } }] };
+      }
+      return specNode(HC_SPECS.decision, flt);
+    },
+    rmr_number: (flt) => anyOfNode(['rmr_number', 'rmr_issuance.receipt_number'], flt),
+    rmr_status: (flt) => {
+      const v = String(flt.value);
+      const byStatus: Record<string, any> = {
+        CANCELLED: { rmr_issuance: { is: { cancelled_at: { not: null } } } },
+        ISSUED: { rmr_issuance: { is: { cancelled_at: null } } },
+        RECORDED: { rmr_issuance: { is: null }, rmr_number: { not: null } },
+        PENDING: { rmr_issuance: { is: null }, rmr_number: null },
+      };
+      const node = byStatus[v];
+      if (!node) throw new ReportRequestError('Unknown RMR status.');
+      if (flt.operator === 'NOT_EQUALS') return { NOT: node };
+      if (flt.operator !== 'EQUALS') throw new ReportRequestError('This filter does not fit the field.');
+      return node;
+    },
+  };
+}
+
+// --- Quality screening ----------------------------------------------------------------------------
+
+const QUALITY_CUSTOM_FILTERS: CustomFilters = {
+  sample_token: (flt) => anyOfNode(['lab_session.mot_arrival.zmcc_token', 'lab_session.local_supplier_arrival.zmcc_token'], flt),
+  exception_reason: (flt) => anyOfNode(['decision_remarks', 'lab_session.rejection_reason'], flt),
+  source_type: (flt) => {
+    // The column shows "Direct HC (code)" or "Route MOT (code)": match the kind words and the code inside.
+    const v = String(flt.value).trim();
+    const lower = v.toLowerCase();
+    const ci = { contains: v, mode: 'insensitive' as const };
+    const or: any[] = [
+      { lab_session: { local_supplier_arrival: { local_supplier: { local_supplier_code: ci } } } },
+      { lab_session: { mot_arrival: { journey: { route: { route_code: ci } } } } },
+    ];
+    if ('direct hc'.includes(lower) || lower.includes('hc') || lower.includes('direct')) or.push({ lab_session: { arrival_type: 'HC' } });
+    if ('route mot'.includes(lower) || lower.includes('route') || lower.includes('mot')) or.push({ lab_session: { arrival_type: { not: 'HC' } } });
+    const node = { OR: or };
+    return flt.operator === 'NOT_EQUALS' ? { NOT: node } : node;
+  },
+};
+
+// --- Plant transit: raw SQL over the live view; every column is an expression, never user text ------
+
+const TRANSIT_STATUS_SQL = `(CASE WHEN current_status = 'COMPLETED' THEN 'RECONCILED' ELSE COALESCE(current_status, 'IN_TRANSIT') END)`;
+
+const TRANSIT_SPECS: Record<string, { kind: FilterKind; expr: string }> = {
+  dispatch_note_number: { kind: 'string', expr: `COALESCE(visit_number, 'DSP-' || visit_id::text)` },
+  dispatch_date: { kind: 'date', expr: 'operational_date' },
+  vehicle_number: { kind: 'string', expr: 'vehicle_number' },
+  contractor_name: { kind: 'string', expr: 'zmcc_name' },
+  dispatched_liters: { kind: 'number', expr: 'COALESCE(dispatch_gross_liters, sent_gross_liters)' },
+  dispatched_13ts_liters: { kind: 'number', expr: 'COALESCE(dispatch_at_13ts_liters, sent_at_13ts_liters)' },
+  plant_received_liters: { kind: 'number', expr: 'received_gross_liters' },
+  transit_loss_liters: { kind: 'number', expr: 'GREATEST(0, -gross_variance_liters)' },
+  transit_loss_pct: { kind: 'number', expr: 'GREATEST(0, -gross_variance_percent)' },
+  status: { kind: 'enum', expr: TRANSIT_STATUS_SQL },
+};
+
+/** SQL condition for one plant transit filter; the values go in as bound parameters. */
+function transitFilterClause(flt: DynamicFilterClause, params: any[]): string | null {
+  if (!hasValue(flt.value)) return null;
+  const spec = TRANSIT_SPECS[flt.fieldId];
+  if (!spec) throw new ReportRequestError('This field cannot be filtered.');
+  const bind = (v: unknown) => {
+    params.push(v);
+    return `$${params.length}`;
+  };
+  const op = flt.operator;
+  const unsupported = () => new ReportRequestError('This filter does not fit the field.');
+  const compare: Record<string, string> = { EQUALS: '=', NOT_EQUALS: '<>', GREATER_THAN: '>', LESS_THAN: '<', GREATER_EQUAL: '>=', LESS_EQUAL: '<=' };
+
+  if (spec.kind === 'string' || spec.kind === 'enum') {
+    const v = String(flt.value);
+    const text = `${spec.expr}::text`;
+    const like = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
+    if (op === 'EQUALS') return `LOWER(${text}) = LOWER(${bind(v)})`;
+    if (op === 'NOT_EQUALS') return `LOWER(${text}) <> LOWER(${bind(v)})`;
+    if (op === 'CONTAINS') return `${text} ILIKE ${bind(`%${like(v)}%`)}`;
+    if (op === 'STARTS_WITH') return `${text} ILIKE ${bind(`${like(v)}%`)}`;
+    if (op === 'IN_LIST') return `${text} = ANY(${bind(v.split(',').map((s) => s.trim()).filter(Boolean))}::text[])`;
+    throw unsupported();
+  }
+  if (spec.kind === 'number') {
+    if (op === 'BETWEEN') {
+      needSecond(flt);
+      return `${spec.expr} BETWEEN ${bind(numberOf(flt.value))}::numeric AND ${bind(numberOf(flt.valueSecondary))}::numeric`;
+    }
+    if (op === 'IN_LIST') return `${spec.expr} = ANY(${bind(String(flt.value).split(',').map((s) => numberOf(s.trim())))}::numeric[])`;
+    if (compare[op]) return `${spec.expr} ${compare[op]} ${bind(numberOf(flt.value))}::numeric`;
+    throw unsupported();
+  }
+  if (op === 'BETWEEN') {
+    needSecond(flt);
+    return `${spec.expr} BETWEEN ${bind(dayOf(flt.value))}::date AND ${bind(dayOf(flt.valueSecondary))}::date`;
+  }
+  if (compare[op]) return `${spec.expr} ${compare[op]} ${bind(dayOf(flt.value))}::date`;
+  throw unsupported();
+}
+
+// --- Tanks: filters on the computed rows ----------------------------------------------------------
+
+function matchesRowFilter(value: unknown, def: ReportFieldDefinition, flt: DynamicFilterClause): boolean {
+  const op = flt.operator;
+  const unsupported = () => new ReportRequestError('This filter does not fit the field.');
+
+  if (def.dataType === 'number') {
+    const n = Number(value);
+    const a = numberOf(flt.value);
+    if (op === 'GREATER_THAN') return n > a;
+    if (op === 'LESS_THAN') return n < a;
+    if (op === 'GREATER_EQUAL') return n >= a;
+    if (op === 'LESS_EQUAL') return n <= a;
+    if (op === 'EQUALS') return n === a;
+    if (op === 'NOT_EQUALS') return n !== a;
+    if (op === 'BETWEEN') {
+      needSecond(flt);
+      return n >= a && n <= numberOf(flt.valueSecondary);
+    }
+    throw unsupported();
+  }
+
+  const text = String(value).toLowerCase();
+  const v = String(flt.value).toLowerCase();
+  if (op === 'EQUALS') return text === v;
+  if (op === 'NOT_EQUALS') return text !== v;
+  if (op === 'CONTAINS') return text.includes(v);
+  if (op === 'STARTS_WITH') return text.startsWith(v);
+  if (op === 'IN_LIST') return v.split(',').map((s) => s.trim()).includes(text);
+  throw unsupported();
+}
+
 
 // ============================================================================
 // 5. SUMMARY KPI & GROUPING CALCULATORS
@@ -942,6 +1268,28 @@ function computeDynamicSummaryKpis(totalCount: number, totals: DomainKpiTotals):
   return kpis;
 }
 
+/** Weighted by litres for the quality readings, so a small load does not count as much as a big one. */
+const LITER_WEIGHTED_FIELDS = new Set(['fat', 'lr', 'snf']);
+
+/** One total for a column: a sum, or an average where a sum means nothing. Null when there is nothing to total. */
+function aggregateColumn(rows: Record<string, any>[], f: ReportFieldDefinition): number | null {
+  const present = rows.filter((r) => r[f.id] != null && !isNaN(Number(r[f.id])));
+  if (present.length === 0) return null;
+  const nums = present.map((r) => Number(r[f.id]));
+
+  if (f.aggregations?.includes('SUM') || f.format === 'liters') {
+    return Number(nums.reduce((a, b) => a + b, 0).toFixed(2));
+  }
+  if (f.aggregations?.includes('AVG') || f.format === 'percent' || f.format === 'temperature') {
+    if (LITER_WEIGHTED_FIELDS.has(f.id)) {
+      const avg = weightedAverage(present.map((r): [number | null, number] => [Number(r[f.id]), Number(r.gross_liters ?? 0)]));
+      if (avg !== null) return Number(avg.toFixed(2));
+    }
+    return Number((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2));
+  }
+  return null;
+}
+
 function computeGroupedSubtotals(
   rows: Record<string, any>[],
   groupByFieldId: string,
@@ -950,7 +1298,8 @@ function computeGroupedSubtotals(
   const groups = new Map<string, { label: string; records: Record<string, any>[] }>();
 
   for (const r of rows) {
-    const key = String(r[groupByFieldId] || 'Unassigned');
+    const raw = r[groupByFieldId];
+    const key = raw === null || raw === undefined || raw === '' ? 'Unassigned' : String(raw);
     const curr = groups.get(key) || { label: key, records: [] };
     curr.records.push(r);
     groups.set(key, curr);
@@ -962,14 +1311,8 @@ function computeGroupedSubtotals(
     const aggs: Record<string, number> = {};
     for (const f of fields) {
       if (f.dataType === 'number') {
-        const nums = group.records.filter((r) => r[f.id] != null).map((r) => Number(r[f.id])).filter((n) => !isNaN(n));
-        if (nums.length > 0) {
-          if (f.aggregations?.includes('SUM') || f.format === 'liters') {
-            aggs[f.id] = Number(nums.reduce((a, b) => a + b, 0).toFixed(2));
-          } else if (f.aggregations?.includes('AVG') || f.format === 'percent' || f.format === 'temperature') {
-            aggs[f.id] = Number((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2));
-          }
-        }
+        const total = aggregateColumn(group.records, f);
+        if (total !== null) aggs[f.id] = total;
       }
     }
 
@@ -988,30 +1331,78 @@ function computeGroupedSubtotals(
 // 6. DYNAMIC EXCEL & CSV EXPORT GENERATOR
 // ============================================================================
 
+/** Date and time as Pakistan staff read it, e.g. 2026-11-16 14:05. */
+function formatKarachiDateTime(value: unknown): string {
+  const d = new Date(String(value));
+  if (isNaN(d.getTime())) return String(value);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Karachi',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(d);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${part('year')}-${part('month')}-${part('day')} ${part('hour')}:${part('minute')}`;
+}
+
+/** The value a cell shows: numbers stay numbers, timestamps become Pakistan time, nothing becomes blank or a dash. */
+function exportCellValue(row: Record<string, any>, f: ReportFieldDefinition, blank: string): string | number | boolean | null {
+  const val = row[f.id];
+  if (val === null || val === undefined) return f.dataType === 'number' ? null : blank;
+  if (f.dataType === 'datetime') return formatKarachiDateTime(val);
+  if (typeof val === 'boolean') return val ? 'Active' : 'Inactive';
+  return val;
+}
+
+/** Every row matching the filters, read in chunks, with the same fields the table shows. */
+async function collectExportRows(req: DynamicExportRequest, currentUser: User | null) {
+  const base = {
+    domain: req.domain,
+    selectedFieldIds: req.selectedFieldIds,
+    filters: req.filters,
+    sortFieldId: req.sortFieldId,
+    sortDirection: req.sortDirection,
+    pageSize: EXPORT_CHUNK_SIZE,
+    zmccId: req.zmccId,
+  };
+
+  const rows: Record<string, any>[] = [];
+  let fields: ReportFieldDefinition[] = [];
+  let total = 0;
+  for (let page = 1; ; page++) {
+    const res = await executeDynamicReportQuery({ ...base, page }, currentUser, { light: true });
+    if (page === 1) {
+      total = res.totalRecords;
+      fields = res.fields;
+      if (total > MAX_REPORT_ROWS) throw new ReportRequestError(tooManyRowsMessage());
+    }
+    rows.push(...res.rows);
+    if (res.rows.length === 0 || rows.length >= total) break;
+  }
+  return { fields, rows, total };
+}
+
+/** The totals row: one value per column, or null where a total means nothing. */
+function exportTotals(fields: ReportFieldDefinition[], rows: Record<string, any>[]): Array<number | null> {
+  return fields.map((f) => (f.dataType === 'number' ? aggregateColumn(rows, f) : null));
+}
+
 export async function generateDynamicExcelReport(
   req: DynamicExportRequest,
   currentUser: User | null
 ): Promise<Buffer> {
-  const queryRes = await executeDynamicReportQuery(
-    {
-      domain: req.domain,
-      selectedFieldIds: req.selectedFieldIds,
-      filters: req.filters,
-      groupByFieldId: req.groupByFieldId,
-      sortFieldId: req.sortFieldId,
-      sortDirection: req.sortDirection,
-      page: 1,
-      pageSize: 5000,
-      zmccId: req.zmccId,
-    },
-    currentUser
-  );
+  const queryRes = await collectExportRows(req, currentUser);
+  const fields = queryRes.fields;
 
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Milk Reception Platform';
   wb.created = new Date();
 
-  const sheetName = req.reportTitle ? req.reportTitle.slice(0, 30) : req.domain.replace('_', ' ');
+  const rawName = req.reportTitle ? req.reportTitle : req.domain.replace(/_/g, ' ');
+  const sheetName = rawName.replace(/[\\/?*:[\]]/g, ' ').trim().slice(0, 30) || 'Report';
   const ws = wb.addWorksheet(sheetName, {
     views: [{ state: 'frozen', ySplit: 4 }],
   });
@@ -1041,105 +1432,78 @@ export async function generateDynamicExcelReport(
     size: 9,
   };
 
+  const colCount = Math.max(fields.length, 1);
+
   // Row 1: Report Title Banner
-  ws.mergeCells(1, 1, 1, queryRes.fields.length || 6);
+  if (colCount > 1) ws.mergeCells(1, 1, 1, colCount);
   const titleCell = ws.getCell(1, 1);
   titleCell.value = req.reportTitle || `${req.domain.replace(/_/g, ' ')} Dynamic Report`;
   titleCell.font = titleFont;
 
   // Row 2: Metadata (Generated date & Active records)
-  ws.mergeCells(2, 1, 2, queryRes.fields.length || 6);
+  if (colCount > 1) ws.mergeCells(2, 1, 2, colCount);
   const metaCell = ws.getCell(2, 1);
-  metaCell.value = `Generated at ${new Date().toISOString()} · Total Records: ${queryRes.totalRecords}`;
+  metaCell.value = `Generated ${formatKarachiDateTime(new Date())} (Pakistan time) | Total Records: ${queryRes.total}`;
   metaCell.font = metaFont;
 
   // Row 3: Blank separator
   ws.addRow([]);
 
   // Row 4: Column Headers
-  const headerRow = ws.addRow(queryRes.fields.map((f) => f.label));
+  const headerRow = ws.addRow(fields.map((f) => f.label));
   headerRow.height = 24;
   headerRow.eachCell((cell, colNumber) => {
     cell.fill = brandFill;
     cell.font = headerFont;
     cell.alignment = {
       vertical: 'middle',
-      horizontal: queryRes.fields[colNumber - 1]?.align || 'left',
+      horizontal: fields[colNumber - 1]?.align || 'left',
     };
   });
 
-  // Data Rows
+  const numFmtFor = (f: ReportFieldDefinition | undefined): string | undefined => {
+    if (f?.format === 'liters') return '#,##0.00 "L"';
+    if (f?.format === 'percent') return '0.00"%"';
+    if (f?.format === 'temperature') return '0.0"°C"';
+    if (f?.dataType === 'number') return '#,##0.00';
+    return undefined;
+  };
+
+  // Data Rows (every column keeps its place, so blanks must be written as cells)
   for (const row of queryRes.rows) {
-    const rowValues = queryRes.fields.map((f) => {
-      const val = row[f.id];
-      if (val === null || val === undefined) return '—';
-      return val;
-    });
-
-    const dataRow = ws.addRow(rowValues);
-    dataRow.eachCell((cell, colNumber) => {
-      const f = queryRes.fields[colNumber - 1];
+    const dataRow = ws.addRow(fields.map((f) => exportCellValue(row, f, '-')));
+    fields.forEach((f, i) => {
+      const cell = dataRow.getCell(i + 1);
       cell.font = { name: 'Segoe UI', size: 9 };
-      cell.alignment = {
-        vertical: 'middle',
-        horizontal: f?.align || 'left',
-      };
-
-      if (f?.format === 'liters') {
-        cell.numFmt = '#,##0.00 "L"';
-      } else if (f?.format === 'percent') {
-        cell.numFmt = '0.00"%"';
-      } else if (f?.format === 'temperature') {
-        cell.numFmt = '0.0"°C"';
-      } else if (f?.dataType === 'number') {
-        cell.numFmt = '#,##0.00';
-      }
+      cell.alignment = { vertical: 'middle', horizontal: f.align || 'left' };
+      const fmt = numFmtFor(f);
+      if (fmt) cell.numFmt = fmt;
     });
   }
 
-  // Summary / Total Row
+  // Summary / Total Row: sums, averages and similar, over every exported row
   if (queryRes.rows.length > 0) {
-    const totalValues = queryRes.fields.map((f, idx) => {
-      if (idx === 0) return 'TOTAL / SUMMARY';
-      if (f.dataType === 'number') {
-        const nums = queryRes.rows.filter((r) => r[f.id] != null).map((r) => Number(r[f.id])).filter((n) => !isNaN(n));
-        if (nums.length === 0) return '—';
-        if (f.aggregations?.includes('SUM') || f.format === 'liters') {
-          return Number(nums.reduce((a, b) => a + b, 0).toFixed(2));
-        }
-        if (f.aggregations?.includes('AVG') || f.format === 'percent' || f.format === 'temperature') {
-          return Number((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2));
-        }
-      }
-      return '—';
-    });
-
-    const totalRow = ws.addRow(totalValues);
+    const totals = exportTotals(fields, queryRes.rows);
+    const labelIdx = totals.findIndex((t) => t === null);
+    const totalRow = ws.addRow(totals.map((t, i) => (i === labelIdx ? 'TOTAL' : t)));
     totalRow.height = 22;
-    totalRow.eachCell((cell, colNumber) => {
+    fields.forEach((f, i) => {
+      const cell = totalRow.getCell(i + 1);
       cell.font = { name: 'Segoe UI', bold: true, size: 9 };
       cell.fill = {
         type: 'pattern',
         pattern: 'solid',
         fgColor: { argb: 'F1F5F9' },
       };
-      const f = queryRes.fields[colNumber - 1];
-      cell.alignment = {
-        vertical: 'middle',
-        horizontal: f?.align || 'left',
-      };
-      if (f?.format === 'liters') cell.numFmt = '#,##0.00 "L"';
-      else if (f?.format === 'percent') cell.numFmt = '0.00"%"';
-      else if (f?.format === 'temperature') cell.numFmt = '0.0"°C"';
-      else if (f?.dataType === 'number') cell.numFmt = '#,##0.00';
+      cell.alignment = { vertical: 'middle', horizontal: f.align || 'left' };
+      const fmt = numFmtFor(f);
+      if (fmt && totals[i] !== null) cell.numFmt = fmt;
     });
   }
 
   // Auto-fit column widths
-  ws.columns.forEach((col, idx) => {
-    const f = queryRes.fields[idx];
-    const headerLen = f ? f.label.length : 12;
-    col.width = Math.max(headerLen + 4, 14);
+  fields.forEach((f, idx) => {
+    ws.getColumn(idx + 1).width = Math.max(f.label.length + 4, 14);
   });
 
   const buffer = await wb.xlsx.writeBuffer();
@@ -1150,31 +1514,27 @@ export async function generateDynamicCsvReport(
   req: DynamicExportRequest,
   currentUser: User | null
 ): Promise<string> {
-  const queryRes = await executeDynamicReportQuery(
-    {
-      domain: req.domain,
-      selectedFieldIds: req.selectedFieldIds,
-      filters: req.filters,
-      groupByFieldId: req.groupByFieldId,
-      sortFieldId: req.sortFieldId,
-      sortDirection: req.sortDirection,
-      page: 1,
-      pageSize: 10000,
-      zmccId: req.zmccId,
-    },
-    currentUser
-  );
+  const queryRes = await collectExportRows(req, currentUser);
+  const fields = queryRes.fields;
 
-  const headers = queryRes.fields.map((f) => `"${f.label.replace(/"/g, '""')}"`).join(',');
-  const rows = queryRes.rows.map((row) => {
-    return queryRes.fields
-      .map((f) => {
-        const val = row[f.id];
-        if (val === null || val === undefined) return '""';
-        return `"${String(val).replace(/"/g, '""')}"`;
-      })
-      .join(',');
-  });
+  const quote = (s: string) => `"${s.replace(/"/g, '""')}"`;
+  // Text that starts with a formula character is prefixed so a spreadsheet never runs it.
+  const textCell = (s: string) => quote(/^[=+\-@\t\r]/.test(s) ? `'${s}` : s);
+  const cell = (v: string | number | boolean | null) => {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'number') return String(v);
+    return textCell(String(v));
+  };
 
-  return [headers, ...rows].join('\n');
+  const headers = fields.map((f) => quote(f.label)).join(',');
+  const lines = queryRes.rows.map((row) => fields.map((f) => cell(exportCellValue(row, f, ''))).join(','));
+
+  if (queryRes.rows.length > 0) {
+    const totals = exportTotals(fields, queryRes.rows);
+    const labelIdx = totals.findIndex((t) => t === null);
+    lines.push(totals.map((t, i) => (i === labelIdx ? quote('TOTAL') : cell(t))).join(','));
+  }
+
+  // The byte order mark lets Excel open the file as UTF-8.
+  return `﻿${[headers, ...lines].join('\r\n')}\r\n`;
 }
