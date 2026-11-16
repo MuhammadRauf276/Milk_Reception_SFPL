@@ -4,7 +4,9 @@ import React, { useState, useMemo } from 'react';
 import type {
   ReportFieldDefinition,
   GroupedSubtotal,
+  TimeBucket,
 } from '../dynamicReportTypes';
+import { reportGroupKey } from '../dynamicReportTypes';
 import {
   ArrowUpDown,
   ArrowUp,
@@ -18,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TableWrapper } from '@/components/ui/table-wrapper';
+import { InfoTip } from '@/components/ui/info-tip';
 
 interface DynamicReportTableProps {
   fields: ReportFieldDefinition[];
@@ -32,6 +35,11 @@ interface DynamicReportTableProps {
   sortDirection?: 'asc' | 'desc';
   onSort: (fieldId: string) => void;
   groupByFieldId?: string;
+  /** The field rows are grouped by (with its type), and the time bucket for date fields. */
+  groupField?: ReportFieldDefinition;
+  timeBucket?: TimeBucket;
+  /** Totals of every matching row, from the server. Without them the footer adds up this page only. */
+  columnTotals?: Record<string, number>;
   groupedSubtotals?: GroupedSubtotal[];
   isLoading?: boolean;
 }
@@ -49,6 +57,9 @@ export function DynamicReportTable({
   sortDirection,
   onSort,
   groupByFieldId,
+  groupField,
+  timeBucket,
+  columnTotals: serverTotals,
   groupedSubtotals,
   isLoading,
 }: DynamicReportTableProps) {
@@ -68,16 +79,17 @@ export function DynamicReportTable({
     if (!groupByFieldId) return null;
     const map = new Map<string, Record<string, any>[]>();
     for (const r of rows) {
-      const key = String(r[groupByFieldId] || 'Unassigned');
+      const key = reportGroupKey(r[groupByFieldId], groupField?.dataType ?? 'string', timeBucket);
       const list = map.get(key) || [];
       list.push(r);
       map.set(key, list);
     }
     return map;
-  }, [rows, groupByFieldId]);
+  }, [rows, groupByFieldId, groupField, timeBucket]);
 
-  // Overall totals for numeric columns
+  // Totals for numeric columns: the whole result when the server sent them, else this page.
   const columnTotals = useMemo(() => {
+    if (serverTotals) return serverTotals as Record<string, number | null>;
     const totals: Record<string, number | null> = {};
     for (const f of fields) {
       if (f.dataType === 'number') {
@@ -92,7 +104,7 @@ export function DynamicReportTable({
       }
     }
     return totals;
-  }, [fields, rows]);
+  }, [fields, rows, serverTotals]);
 
   const renderCellValue = (value: any, field: ReportFieldDefinition) => {
     if (value === null || value === undefined || value === '') {
@@ -261,7 +273,10 @@ export function DynamicReportTable({
                             )}
                             <span>{groupKey}</span>
                             <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-semibold">
-                              {groupRows.length} records
+                              {subtotal && subtotal.recordCount !== groupRows.length
+                                ? `${groupRows.length} of ${subtotal.recordCount}`
+                                : groupRows.length}{' '}
+                              records
                             </span>
                           </div>
 
@@ -272,7 +287,7 @@ export function DynamicReportTable({
                                 if (!fDef) return null;
                                 return (
                                   <span key={fId} className="bg-background px-2 py-0.5 rounded-md border border-border">
-                                    {fDef.label}: <strong className="text-foreground">{val}</strong>
+                                    {fDef.label}: <strong className="text-foreground">{renderCellValue(val, fDef)}</strong>
                                   </span>
                                 );
                               })}
@@ -331,7 +346,7 @@ export function DynamicReportTable({
                   if (idx === 0) {
                     return (
                       <td key={f.id} className="py-3 px-4 text-foreground text-xs font-semibold">
-                        TOTAL ({totalRecords})
+                        {serverTotals ? `TOTAL (${totalRecords})` : 'PAGE TOTAL'}
                       </td>
                     );
                   }
@@ -367,6 +382,9 @@ export function DynamicReportTable({
             <option value={50}>50</option>
             <option value={100}>100</option>
           </select>
+          {groupByFieldId && (
+            <InfoTip text="Group and total figures cover every matching row, not only this page. The rows below are this page." />
+          )}
           <span className="ml-2 font-mono">
             Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalRecords)} of {totalRecords} records
           </span>

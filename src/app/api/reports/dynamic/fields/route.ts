@@ -34,6 +34,7 @@ export async function GET(req: Request) {
       { id: 'TANK_STORAGE', label: 'Silo Tank Inventory', description: 'Physical silo stock, capacity utilization, temperature, and CIP state' },
       { id: 'PLANT_TRANSIT', label: 'Plant Transit & Dispatches', description: 'Dispatched tankers, plant arrival volumes, and transit loss' },
       { id: 'QUALITY_SCREENING', label: 'Quality Lab Screening', description: 'Lab tests, fat/LR/SNF, adulteration strips, and rejection reasons' },
+      { id: 'VEHICLE_DISPATCH', label: 'Vehicles: dispatch vs plant', description: 'One row per dispatched vehicle: dispatch and plant litres, quality, and variance' },
     ];
 
     return NextResponse.json({

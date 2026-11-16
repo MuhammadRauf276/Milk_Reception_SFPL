@@ -16,7 +16,12 @@ import type {
   GroupedSubtotal,
   SavedReportTemplate,
   DynamicExportRequest,
+  AggregationType,
+  PivotRequest,
+  PivotResult,
+  TimeBucket,
 } from '@/frontend/modules/dashboard/reports/dynamicReportTypes';
+import { reportGroupKey } from '@/frontend/modules/dashboard/reports/dynamicReportTypes';
 
 // ============================================================================
 // 1. FIELD CATALOGS BY DOMAIN
@@ -74,11 +79,11 @@ export const JOURNEY_RECONCILIATION_FIELDS: ReportFieldDefinition[] = [
   { id: 'status', label: 'Status', category: 'OPERATIONAL', dataType: 'enum', format: 'status_pill', defaultSelected: true, sortable: true, filterable: true, enumValues: ['COLLECTING', 'RETURNED_TO_ZMCC', 'COMPLETED', 'CANCELLED'] },
   { id: 'planned_stops', label: 'Planned Stops', category: 'OPERATIONAL', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'] },
   { id: 'visited_stops', label: 'Visited Stops', category: 'OPERATIONAL', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'] },
-  { id: 'completion_rate', label: 'Completion %', category: 'OPERATIONAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['AVG'] },
+  { id: 'completion_rate', label: 'Completion %', category: 'OPERATIONAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['AVG'], ratioOf: { numerator: 'visited_stops', denominator: 'planned_stops' } },
   { id: 'shop_liters', label: 'Shop Collected (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'] },
   { id: 'gate_liters', label: 'Gate Received (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
   { id: 'loss_liters', label: 'Route Loss (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['SUM', 'AVG'] },
-  { id: 'loss_pct', label: 'Route Loss %', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['AVG'] },
+  { id: 'loss_pct', label: 'Route Loss %', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: false, filterable: false, aggregations: ['AVG'], ratioOf: { numerator: 'loss_liters', denominator: 'shop_liters' } },
   { id: 'dispatched_at', label: 'Dispatched At', category: 'TIMING', dataType: 'datetime', format: 'datetime', defaultSelected: false, sortable: true, filterable: true },
   { id: 'returned_at', label: 'Returned At', category: 'TIMING', dataType: 'datetime', format: 'datetime', defaultSelected: false, sortable: true, filterable: true },
 ];
@@ -88,7 +93,7 @@ export const TANK_STORAGE_FIELDS: ReportFieldDefinition[] = [
   { id: 'tank_name', label: 'Tank Name', category: 'IDENTIFICATION', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
   { id: 'capacity_liters', label: 'Capacity (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
   { id: 'current_stock_liters', label: 'Current Stock (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
-  { id: 'fill_pct', label: 'Fill %', category: 'VOLUMES', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG'] },
+  { id: 'fill_pct', label: 'Fill %', category: 'VOLUMES', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG'], ratioOf: { numerator: 'current_stock_liters', denominator: 'capacity_liters' } },
   { id: 'today_receipts_liters', label: 'Today Received (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
   { id: 'today_dispatches_liters', label: 'Today Dispatched (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
   { id: 'is_active', label: 'Operational State', category: 'OPERATIONAL', dataType: 'boolean', format: 'status_pill', defaultSelected: true, sortable: true, filterable: true },
@@ -100,10 +105,10 @@ export const PLANT_TRANSIT_FIELDS: ReportFieldDefinition[] = [
   { id: 'vehicle_number', label: 'Tanker Vehicle', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
   { id: 'contractor_name', label: 'ZMCC', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
   { id: 'dispatched_liters', label: 'Dispatched Gross (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
-  { id: 'dispatched_13ts_liters', label: 'Dispatched 13% TS (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
-  { id: 'plant_received_liters', label: 'Plant Received (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
-  { id: 'transit_loss_liters', label: 'Transit Loss (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM'] },
-  { id: 'transit_loss_pct', label: 'Transit Loss %', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG'] },
+  { id: 'dispatched_13ts_liters', label: 'Dispatched 13% TS (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
+  { id: 'plant_received_liters', label: 'Plant Received (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
+  { id: 'transit_loss_liters', label: 'Transit Loss (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
+  { id: 'transit_loss_pct', label: 'Transit Loss %', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG'], ratioOf: { numerator: 'transit_loss_liters', denominator: 'dispatched_liters' } },
   { id: 'status', label: 'Status', category: 'OPERATIONAL', dataType: 'enum', format: 'status_pill', defaultSelected: true, sortable: true, filterable: true, enumValues: ['IN_TRANSIT', 'RECEIVED_AT_PLANT', 'RECONCILED', 'FLAGGED'] },
 ];
 
@@ -121,6 +126,89 @@ export const QUALITY_SCREENING_FIELDS: ReportFieldDefinition[] = [
   { id: 'exception_reason', label: 'Rejection Reason', category: 'QUALITY', dataType: 'string', format: 'text', defaultSelected: true, sortable: false, filterable: true },
 ];
 
+const vehicleField = (
+  id: string,
+  label: string,
+  category: ReportFieldDefinition['category'],
+  dataType: ReportFieldDefinition['dataType'],
+  format: ReportFieldDefinition['format'],
+  extra: Partial<ReportFieldDefinition> = {}
+): ReportFieldDefinition => ({
+  id,
+  label,
+  category,
+  dataType,
+  format,
+  ...(dataType === 'number' ? { align: 'right' as const } : {}),
+  defaultSelected: false,
+  sortable: true,
+  filterable: true,
+  ...extra,
+});
+
+/** One row per vehicle dispatched by a ZMCC or contractor, with what the plant measured on arrival. */
+export const VEHICLE_DISPATCH_FIELDS: ReportFieldDefinition[] = [
+  vehicleField('dispatch_date', 'Dispatch Date', 'TIMING', 'date', 'date', { defaultSelected: true }),
+  vehicleField('dispatched_at', 'Dispatched At', 'TIMING', 'datetime', 'datetime'),
+  vehicleField('visit_number', 'Visit #', 'IDENTIFICATION', 'string', 'text', { defaultSelected: true }),
+  vehicleField('vehicle_number', 'Vehicle #', 'IDENTIFICATION', 'string', 'text', { defaultSelected: true }),
+  vehicleField('token_number', 'Token #', 'IDENTIFICATION', 'string', 'text'),
+  vehicleField('dispatch_note_number', 'Dispatch Slip #', 'IDENTIFICATION', 'string', 'text'),
+  vehicleField('reception_number', 'Reception #', 'IDENTIFICATION', 'string', 'text'),
+  vehicleField('weight_ticket_number', 'Weight Ticket #', 'IDENTIFICATION', 'string', 'text'),
+  vehicleField('driver_name', 'Driver', 'OPERATIONAL', 'string', 'text'),
+  vehicleField('source_name', 'Source', 'OPERATIONAL', 'string', 'text', { defaultSelected: true }),
+  vehicleField('source_code', 'Source Code', 'OPERATIONAL', 'string', 'text'),
+  vehicleField('source_type', 'Source Type', 'OPERATIONAL', 'enum', 'status_pill', { enumValues: ['ZMCC', 'CONTRACTOR'] }),
+  vehicleField('stage', 'Stage', 'OPERATIONAL', 'string', 'text'),
+  vehicleField('decision', 'Decision', 'OPERATIONAL', 'enum', 'status_pill', { defaultSelected: true, enumValues: ['ACCEPTED', 'REJECTED', 'PARTLY ACCEPTED', 'PENDING'] }),
+  vehicleField('approval_status', 'Approval', 'OPERATIONAL', 'string', 'text'),
+  vehicleField('dispatch_person_decision', 'Dispatch Decision', 'OPERATIONAL', 'string', 'text'),
+  vehicleField('dispatch_system_outcome', 'System Outcome', 'OPERATIONAL', 'string', 'text'),
+  vehicleField('tanker_washed', 'Tanker Washed', 'OPERATIONAL', 'enum', 'text', { enumValues: ['YES', 'NO'] }),
+  vehicleField('portions', 'Portions', 'OPERATIONAL', 'number', 'number', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('plant_added_portions', 'Plant Added Portions', 'OPERATIONAL', 'number', 'number', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('accepted_portions', 'Accepted Portions', 'OPERATIONAL', 'number', 'number', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('rejected_portions', 'Rejected Portions', 'OPERATIONAL', 'number', 'number', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('dispatch_quantity_value', 'Dispatch Quantity', 'VOLUMES', 'number', 'number', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('dispatch_quantity_unit', 'Quantity Unit', 'VOLUMES', 'string', 'text'),
+  vehicleField('dispatch_gross_liters', 'Dispatched Gross (L)', 'VOLUMES', 'number', 'liters', { defaultSelected: true, aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('received_gross_liters', 'Plant Received (L)', 'VOLUMES', 'number', 'liters', { defaultSelected: true, aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('dispatch_at_13ts_liters', 'Dispatched 13% TS (L)', 'VOLUMES', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('received_at_13ts_liters', 'Received 13% TS (L)', 'VOLUMES', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('gross_weight_kg', 'Gross Weight (kg)', 'VOLUMES', 'number', 'number', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('tare_weight_kg', 'Tare Weight (kg)', 'VOLUMES', 'number', 'number', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('net_weight_kg', 'Net Weight (kg)', 'VOLUMES', 'number', 'number', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('dispatch_fat', 'Dispatch Fat %', 'QUALITY', 'number', 'percent', { defaultSelected: true, aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'dispatch_gross_liters' }),
+  vehicleField('plant_fat', 'Plant Fat %', 'QUALITY', 'number', 'percent', { defaultSelected: true, aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'received_gross_liters' }),
+  vehicleField('fat_diff', 'Fat Diff (plant - dispatch)', 'QUALITY', 'number', 'number', { defaultSelected: true, aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'received_gross_liters' }),
+  vehicleField('dispatch_lr', 'Dispatch LR', 'QUALITY', 'number', 'number', { aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'dispatch_gross_liters' }),
+  vehicleField('plant_lr', 'Plant LR', 'QUALITY', 'number', 'number', { aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'received_gross_liters' }),
+  vehicleField('lr_diff', 'LR Diff (plant - dispatch)', 'QUALITY', 'number', 'number', { aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'received_gross_liters' }),
+  vehicleField('dispatch_snf', 'Dispatch SNF %', 'QUALITY', 'number', 'percent', { aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'dispatch_gross_liters' }),
+  vehicleField('plant_snf', 'Plant SNF %', 'QUALITY', 'number', 'percent', { aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'received_gross_liters' }),
+  vehicleField('snf_diff', 'SNF Diff (plant - dispatch)', 'QUALITY', 'number', 'number', { aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'received_gross_liters' }),
+  vehicleField('dispatch_ts', 'Dispatch TS %', 'QUALITY', 'number', 'percent', { aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'dispatch_gross_liters' }),
+  vehicleField('plant_ts', 'Plant TS %', 'QUALITY', 'number', 'percent', { aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'received_gross_liters' }),
+  vehicleField('ts_diff', 'TS Diff (plant - dispatch)', 'QUALITY', 'number', 'number', { aggregations: ['AVG', 'MIN', 'MAX'], weightFieldId: 'received_gross_liters' }),
+  vehicleField('gross_variance_liters', 'Variance (L)', 'LOSS_FINANCIAL', 'number', 'liters', { defaultSelected: true, aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('gross_variance_percent', 'Variance %', 'LOSS_FINANCIAL', 'number', 'percent', {
+    defaultSelected: true,
+    aggregations: ['AVG', 'MIN', 'MAX'],
+    ratioOf: { numerator: 'gross_variance_liters', denominator: 'dispatch_gross_liters' },
+  }),
+  vehicleField('at_13ts_variance_liters', '13% TS Variance (L)', 'LOSS_FINANCIAL', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('at_13ts_variance_percent', '13% TS Variance %', 'LOSS_FINANCIAL', 'number', 'percent', {
+    aggregations: ['AVG', 'MIN', 'MAX'],
+    ratioOf: { numerator: 'at_13ts_variance_liters', denominator: 'dispatch_at_13ts_liters' },
+  }),
+  vehicleField('gate_in_at', 'Gate In', 'TIMING', 'datetime', 'datetime'),
+  vehicleField('first_weight_at', 'First Weight', 'TIMING', 'datetime', 'datetime'),
+  vehicleField('second_weight_at', 'Second Weight', 'TIMING', 'datetime', 'datetime'),
+  vehicleField('gate_out_at', 'Gate Out', 'TIMING', 'datetime', 'datetime'),
+  vehicleField('reconciled_at', 'Reconciled', 'TIMING', 'datetime', 'datetime'),
+];
+
 export const DOMAIN_FIELD_MAP: Record<ReportDomain, ReportFieldDefinition[]> = {
   MOT_COLLECTIONS: MOT_COLLECTIONS_FIELDS,
   HC_SUPPLIERS: HC_SUPPLIERS_FIELDS,
@@ -128,6 +216,7 @@ export const DOMAIN_FIELD_MAP: Record<ReportDomain, ReportFieldDefinition[]> = {
   TANK_STORAGE: TANK_STORAGE_FIELDS,
   PLANT_TRANSIT: PLANT_TRANSIT_FIELDS,
   QUALITY_SCREENING: QUALITY_SCREENING_FIELDS,
+  VEHICLE_DISPATCH: VEHICLE_DISPATCH_FIELDS,
 };
 
 // ============================================================================
@@ -207,6 +296,31 @@ export const SYSTEM_DEFAULT_TEMPLATES: SavedReportTemplate[] = [
     sortDirection: 'desc',
     isSystemDefault: true,
   },
+  {
+    id: 'sys-preset-vehicle-by-source',
+    name: 'Dispatch vs Plant by Source',
+    description: 'Vehicles dispatched in the last 30 days, grouped by source: dispatched and received litres, variance, and fat difference.',
+    domain: 'VEHICLE_DISPATCH',
+    selectedFieldIds: ['dispatch_date', 'vehicle_number', 'source_name', 'decision', 'dispatch_gross_liters', 'received_gross_liters', 'gross_variance_liters', 'gross_variance_percent', 'dispatch_fat', 'plant_fat', 'fat_diff'],
+    filters: [],
+    groupByFieldId: 'source_name',
+    sortFieldId: 'dispatched_at',
+    sortDirection: 'desc',
+    isSystemDefault: true,
+  },
+  {
+    id: 'sys-preset-vehicle-monthly',
+    name: 'Dispatch vs Plant by Month',
+    description: 'Dispatched and received litres, variance and quality differences per month. Widen the date filter for more months.',
+    domain: 'VEHICLE_DISPATCH',
+    selectedFieldIds: ['dispatch_date', 'vehicle_number', 'source_name', 'dispatch_gross_liters', 'received_gross_liters', 'gross_variance_liters', 'gross_variance_percent', 'fat_diff', 'snf_diff', 'ts_diff'],
+    filters: [],
+    groupByFieldId: 'dispatched_at',
+    timeBucket: 'MONTH',
+    sortFieldId: 'dispatched_at',
+    sortDirection: 'desc',
+    isSystemDefault: true,
+  },
 ];
 
 // ============================================================================
@@ -234,6 +348,7 @@ export async function executeDynamicReportQuery(
   opts: DynamicQueryOptions = {}
 ): Promise<DynamicQueryResponse> {
   const { domain, selectedFieldIds, groupByFieldId, sortFieldId, sortDirection, zmccId } = req;
+  const timeBucket = req.timeBucket && TIME_BUCKETS.includes(req.timeBucket) ? req.timeBucket : undefined;
   const filters = Array.isArray(req.filters) ? req.filters : [];
   const page = Math.max(1, Math.floor(Number(req.page)) || 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(Number(req.pageSize)) || 20));
@@ -261,6 +376,12 @@ export async function executeDynamicReportQuery(
   }
 
   const activeFields = allDomainFields.filter((f) => selectedFieldIds.includes(f.id));
+  const groupField = groupByFieldId ? allDomainFields.find((f) => f.id === groupByFieldId) : undefined;
+  if (groupByFieldId && !groupField) throw new ReportRequestError('This field cannot be grouped.');
+  const pivotPlan = req.pivot && !light ? resolvePivot(req.pivot, allDomainFields) : undefined;
+  // Set by the two raw SQL domains: lets groups, totals and the pivot be computed by the database over the whole filter.
+  let sqlCtx: SqlContext | undefined;
+  let dateRange: DynamicQueryResponse['dateRange'];
 
   let rawRows: Record<string, any>[] = [];
   let totalCount = 0;
@@ -324,7 +445,7 @@ export async function executeDynamicReportQuery(
       mot_name: r.mot_profile?.name || '—',
       vehicle_number: r.mot_vehicle?.vehicle_number || '—',
       gross_liters: r.gross_liters != null ? Number(r.gross_liters) : 0,
-      at_13ts_liters: r.at_13ts_liters != null ? Number(r.at_13ts_liters) : 0,
+      at_13ts_liters: r.at_13ts_liters != null ? Number(r.at_13ts_liters) : null,
       fat: r.fat != null ? Number(r.fat) : null,
       lr: r.lr != null ? Number(r.lr) : null,
       snf: r.snf != null ? Number(r.snf) : null,
@@ -452,7 +573,7 @@ export async function executeDynamicReportQuery(
         supplier_name: a.local_supplier?.name || '—',
         phone: a.local_supplier?.phone || '—',
         vehicle_number: a.vehicle_number,
-        gross_liters: a.lab_session?.gross_liters != null ? Number(a.lab_session.gross_liters) : 0,
+        gross_liters: a.lab_session?.gross_liters != null ? Number(a.lab_session.gross_liters) : null,
         fat: fatVal,
         lr: lrVal,
         snf: a.lab_session?.snf != null ? Number(a.lab_session.snf) : null,
@@ -613,10 +734,11 @@ export async function executeDynamicReportQuery(
       conditions.push(`zmcc_id = $${params.length}`);
     }
     for (const flt of filters) {
-      const clause = transitFilterClause(flt, params);
+      const clause = sqlFilterClause(TRANSIT_SPECS, flt, params);
       if (clause) conditions.push(clause);
     }
     const whereSql = conditions.join(' AND ');
+    sqlCtx = { from: LIVE_PLANT_TRANSIT_SQL, whereSql, params, columns: TRANSIT_SPECS };
 
     const countRes = (await prisma.$queryRawUnsafe(
       `SELECT COUNT(*)::text as count FROM ${LIVE_PLANT_TRANSIT_SQL} WHERE ${whereSql}`,
@@ -655,6 +777,60 @@ export async function executeDynamicReportQuery(
         transit_loss_pct: variancePct !== null ? Math.max(0, -variancePct) : null,
         status: r.current_status === 'COMPLETED' ? 'RECONCILED' : (r.current_status || 'IN_TRANSIT'),
       };
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // DOMAIN 7: VEHICLE_DISPATCH (one row per dispatched vehicle, read from the vehicle report view)
+  // --------------------------------------------------------------------------
+  else if (domain === 'VEHICLE_DISPATCH') {
+    dateRange = resolveVehicleDateRange(filters);
+    const conditions: string[] = [];
+    const params: any[] = [];
+    // The dispatch time range always comes first: it is the indexed condition.
+    params.push(`${dateRange.from}T00:00:00.000+05:00`, `${addDays(dateRange.to, 1)}T00:00:00.000+05:00`);
+    conditions.push("dispatched_at >= ($1::timestamptz AT TIME ZONE 'UTC')", "dispatched_at < ($2::timestamptz AT TIME ZONE 'UTC')");
+    if (effectiveZmccId) {
+      params.push(effectiveZmccId);
+      conditions.push(`source_id = $${params.length}`);
+    }
+    for (const flt of filters) {
+      const clause = sqlFilterClause(VEHICLE_SPECS, flt, params);
+      if (clause) conditions.push(clause);
+    }
+    const whereSql = conditions.join(' AND ');
+    sqlCtx = { from: VEHICLE_VIEW_SQL, whereSql, params, columns: VEHICLE_SPECS };
+
+    const countRes = (await prisma.$queryRawUnsafe(
+      `SELECT COUNT(*)::text as count FROM ${VEHICLE_VIEW_SQL} WHERE ${whereSql}`,
+      ...params
+    )) as { count: string }[];
+    totalCount = Number(countRes[0]?.count || 0);
+
+    const sortDef = allDomainFields.find((f) => f.id === sortFieldId && f.sortable !== false);
+    const sortExpr = sortDef ? VEHICLE_SPECS[sortDef.id]?.expr : undefined;
+    const orderSql = sortExpr
+      ? `${sortExpr} ${sortDirection === 'asc' ? 'ASC' : 'DESC'} NULLS LAST, visit_id DESC`
+      : 'dispatched_at DESC NULLS LAST, visit_id DESC';
+
+    const selectSql = Object.entries(VEHICLE_SPECS)
+      .map(([id, c]) => `${c.kind === 'date' ? `to_char(${c.expr}, 'YYYY-MM-DD')` : c.expr} AS "${id}"`)
+      .join(', ');
+    const records = (await prisma.$queryRawUnsafe(
+      `SELECT visit_id, ${selectSql} FROM ${VEHICLE_VIEW_SQL} WHERE ${whereSql} ORDER BY ${orderSql} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
+      ...params
+    )) as Record<string, any>[];
+
+    rawRows = records.map((r) => {
+      const row: Record<string, any> = { id: String(r.visit_id) };
+      for (const f of VEHICLE_DISPATCH_FIELDS) {
+        const v = r[f.id];
+        if (v === null || v === undefined) row[f.id] = null;
+        else if (f.dataType === 'number') row[f.id] = Number(v);
+        else if (f.dataType === 'datetime') row[f.id] = v instanceof Date ? v.toISOString() : String(v);
+        else row[f.id] = String(v);
+      }
+      return row;
     });
   }
 
@@ -739,13 +915,35 @@ export async function executeDynamicReportQuery(
     });
   }
 
-  const summaryKpis = light ? [] : computeDynamicSummaryKpis(totalCount, kpiTotals);
+  // Groups, totals and the pivot cover the WHOLE filtered result, never just the current page.
+  let groupedSubtotals: GroupedSubtotal[] | undefined;
+  let columnTotals: Record<string, number> | undefined;
+  let pivot: PivotResult | undefined;
+  if (!light) {
+    if (sqlCtx) {
+      const ctx = sqlCtx;
+      const [groups, totals, extraKpis, pivotResult] = await Promise.all([
+        groupField ? sqlGroupSubtotals(ctx, groupField, timeBucket, activeFields) : undefined,
+        sqlColumnTotals(ctx, activeFields),
+        sqlSummaryKpis(ctx, domain),
+        pivotPlan ? sqlPivot(ctx, pivotPlan) : undefined,
+      ]);
+      groupedSubtotals = groups;
+      columnTotals = totals;
+      pivot = pivotResult;
+      kpiTotals = { ...kpiTotals, extra: extraKpis };
+    } else if (groupField || pivotPlan) {
+      // Prisma domains: read every matching row in chunks (capped), then add up here.
+      const all = await collectExportRows(req, currentUser);
+      if (groupField) {
+        groupedSubtotals = computeGroupedSubtotals(all.rows, groupField, timeBucket, activeFields);
+        columnTotals = computeColumnTotals(all.rows, activeFields);
+      }
+      if (pivotPlan) pivot = computePivotFromRows(all.rows, pivotPlan);
+    }
+  }
 
-  // Grouped subtotals cover the rows of the current page, the same rows the table shows.
-  const groupedSubtotals =
-    !light && groupByFieldId && allDomainFields.some((f) => f.id === groupByFieldId)
-      ? computeGroupedSubtotals(rawRows, groupByFieldId, activeFields)
-      : undefined;
+  const summaryKpis = light ? [] : computeDynamicSummaryKpis(totalCount, kpiTotals);
 
   return {
     domain,
@@ -757,6 +955,9 @@ export async function executeDynamicReportQuery(
     pageSize,
     summaryKpis,
     groupedSubtotals,
+    columnTotals,
+    pivot,
+    dateRange,
   };
 }
 
@@ -1025,7 +1226,24 @@ const QUALITY_CUSTOM_FILTERS: CustomFilters = {
 
 const TRANSIT_STATUS_SQL = `(CASE WHEN current_status = 'COMPLETED' THEN 'RECONCILED' ELSE COALESCE(current_status, 'IN_TRANSIT') END)`;
 
-const TRANSIT_SPECS: Record<string, { kind: FilterKind; expr: string }> = {
+/** A raw SQL column: its kind and a fixed SQL expression written in this file, never user text. */
+interface SqlColumn {
+  kind: FilterKind;
+  expr: string;
+}
+
+/** What a SQL domain is read from: FROM text, the WHERE built so far, its bound parameters, and the column allow-list. */
+interface SqlContext {
+  from: string;
+  whereSql: string;
+  params: any[];
+  columns: Record<string, SqlColumn>;
+}
+
+/** A timestamp stored as UTC (no zone) shown as Pakistan local time. */
+const karachiTime = (col: string) => `((${col}) AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi')`;
+
+const TRANSIT_SPECS: Record<string, SqlColumn> = {
   dispatch_note_number: { kind: 'string', expr: `COALESCE(visit_number, 'DSP-' || visit_id::text)` },
   dispatch_date: { kind: 'date', expr: 'operational_date' },
   vehicle_number: { kind: 'string', expr: 'vehicle_number' },
@@ -1038,10 +1256,137 @@ const TRANSIT_SPECS: Record<string, { kind: FilterKind; expr: string }> = {
   status: { kind: 'enum', expr: TRANSIT_STATUS_SQL },
 };
 
-/** SQL condition for one plant transit filter; the values go in as bound parameters. */
-function transitFilterClause(flt: DynamicFilterClause, params: any[]): string | null {
+// --- Vehicle dispatch: one fixed column list over the vehicle report view ----------------------------
+
+const VEHICLE_VIEW_SQL = 'vw_vehicle_visit_report';
+
+const vehicleText = (column: string): SqlColumn => ({ kind: 'string', expr: column });
+const vehicleNumber = (column: string): SqlColumn => ({ kind: 'number', expr: column });
+const vehicleTime = (column: string): SqlColumn => ({ kind: 'datetime', expr: column });
+const vehicleDiff = (plant: string, dispatch: string): SqlColumn => ({ kind: 'number', expr: `(${plant} - ${dispatch})` });
+
+/** Field id to SQL column. Anything not listed here can never reach the query. */
+const VEHICLE_SPECS: Record<string, SqlColumn> = {
+  dispatch_date: { kind: 'date', expr: `${karachiTime('dispatched_at')}::date` },
+  dispatched_at: vehicleTime('dispatched_at'),
+  visit_number: vehicleText('visit_number'),
+  vehicle_number: vehicleText('vehicle_number'),
+  token_number: vehicleText('token_number'),
+  dispatch_note_number: vehicleText('dispatch_note_number'),
+  reception_number: vehicleText('reception_number'),
+  weight_ticket_number: vehicleText('weight_ticket_number'),
+  driver_name: vehicleText('driver_name'),
+  source_name: vehicleText('source_name'),
+  source_code: vehicleText('source_code'),
+  source_type: { kind: 'enum', expr: 'source_type' },
+  stage: vehicleText('stage'),
+  decision: { kind: 'enum', expr: 'decision' },
+  approval_status: vehicleText('approval_status'),
+  dispatch_person_decision: vehicleText('dispatch_person_decision'),
+  dispatch_system_outcome: vehicleText('dispatch_system_outcome'),
+  tanker_washed: { kind: 'enum', expr: `(CASE WHEN tanker_washed THEN 'YES' WHEN tanker_washed IS NOT NULL THEN 'NO' END)` },
+  portions: vehicleNumber('portions'),
+  plant_added_portions: vehicleNumber('plant_added_portions'),
+  accepted_portions: vehicleNumber('accepted_portions'),
+  rejected_portions: vehicleNumber('rejected_portions'),
+  dispatch_quantity_value: vehicleNumber('dispatch_quantity_value'),
+  dispatch_quantity_unit: vehicleText('dispatch_quantity_unit'),
+  dispatch_gross_liters: vehicleNumber('dispatch_gross_liters'),
+  received_gross_liters: vehicleNumber('received_gross_liters'),
+  dispatch_at_13ts_liters: vehicleNumber('dispatch_at_13ts_liters'),
+  received_at_13ts_liters: vehicleNumber('received_at_13ts_liters'),
+  gross_weight_kg: vehicleNumber('gross_weight_kg'),
+  tare_weight_kg: vehicleNumber('tare_weight_kg'),
+  net_weight_kg: vehicleNumber('net_weight_kg'),
+  dispatch_fat: vehicleNumber('dispatch_fat'),
+  plant_fat: vehicleNumber('plant_fat'),
+  fat_diff: vehicleDiff('plant_fat', 'dispatch_fat'),
+  dispatch_lr: vehicleNumber('dispatch_lr'),
+  plant_lr: vehicleNumber('plant_lr'),
+  lr_diff: vehicleDiff('plant_lr', 'dispatch_lr'),
+  dispatch_snf: vehicleNumber('dispatch_snf'),
+  plant_snf: vehicleNumber('plant_snf'),
+  snf_diff: vehicleDiff('plant_snf', 'dispatch_snf'),
+  dispatch_ts: vehicleNumber('dispatch_ts'),
+  plant_ts: vehicleNumber('plant_ts'),
+  ts_diff: vehicleDiff('plant_ts', 'dispatch_ts'),
+  gross_variance_liters: vehicleNumber('gross_variance_liters'),
+  gross_variance_percent: vehicleNumber('gross_variance_percent'),
+  at_13ts_variance_liters: vehicleNumber('at_13ts_variance_liters'),
+  at_13ts_variance_percent: vehicleNumber('at_13ts_variance_percent'),
+  gate_in_at: vehicleTime('gate_in_at'),
+  first_weight_at: vehicleTime('first_weight_at'),
+  second_weight_at: vehicleTime('second_weight_at'),
+  gate_out_at: vehicleTime('gate_out_at'),
+  reconciled_at: vehicleTime('reconciled_at'),
+};
+
+const MAX_VEHICLE_RANGE_DAYS = 366;
+
+/** The calendar day n days after (or before) a YYYY-MM-DD day. */
+function addDays(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The Pakistan days a vehicle report covers, taken from the filters on the dispatch date.
+ * With no date filter it is the last 30 days. More than 366 days is refused.
+ */
+function resolveVehicleDateRange(filters: DynamicFilterClause[]): { from: string; to: string; defaulted: boolean } {
+  const today = getPakistanCalendarDate();
+  const bound: { lo: string | null; hi: string | null } = { lo: null, hi: null };
+  const lower = (d: string) => {
+    if (bound.lo === null || d > bound.lo) bound.lo = d;
+  };
+  const upper = (d: string) => {
+    if (bound.hi === null || d < bound.hi) bound.hi = d;
+  };
+  for (const flt of filters) {
+    if ((flt.fieldId !== 'dispatch_date' && flt.fieldId !== 'dispatched_at') || !hasValue(flt.value)) continue;
+    const day = dayOf(flt.value);
+    if (flt.operator === 'EQUALS') {
+      lower(day);
+      upper(day);
+    } else if (flt.operator === 'BETWEEN') {
+      needSecond(flt);
+      lower(day);
+      upper(dayOf(flt.valueSecondary));
+    } else if (flt.operator === 'GREATER_EQUAL') lower(day);
+    else if (flt.operator === 'GREATER_THAN') lower(addDays(day, 1));
+    else if (flt.operator === 'LESS_EQUAL') upper(day);
+    else if (flt.operator === 'LESS_THAN') upper(addDays(day, -1));
+  }
+  const { lo, hi } = bound;
+  const defaulted = lo === null && hi === null;
+  let from: string;
+  let to: string;
+  if (lo === null && hi === null) {
+    to = today;
+    from = addDays(today, -29);
+  } else if (lo === null) {
+    to = hi as string;
+    from = addDays(to, -29);
+  } else if (hi === null) {
+    from = lo;
+    to = from > today ? from : today;
+  } else {
+    from = lo;
+    to = hi;
+  }
+  if (from > to) throw new ReportRequestError('The start date is after the end date.');
+  const days = Math.round((new Date(`${to}T00:00:00.000Z`).getTime() - new Date(`${from}T00:00:00.000Z`).getTime()) / 86400000) + 1;
+  if (days > MAX_VEHICLE_RANGE_DAYS) {
+    throw new ReportRequestError(`Pick at most ${MAX_VEHICLE_RANGE_DAYS} days of dispatches. You picked ${days}.`);
+  }
+  return { from, to, defaulted };
+}
+
+/** SQL condition for one filter on a raw SQL domain; the values go in as bound parameters. */
+function sqlFilterClause(specs: Record<string, SqlColumn>, flt: DynamicFilterClause, params: any[]): string | null {
   if (!hasValue(flt.value)) return null;
-  const spec = TRANSIT_SPECS[flt.fieldId];
+  const spec = Object.prototype.hasOwnProperty.call(specs, flt.fieldId) ? specs[flt.fieldId] : undefined;
   if (!spec) throw new ReportRequestError('This field cannot be filtered.');
   const bind = (v: unknown) => {
     params.push(v);
@@ -1071,13 +1416,16 @@ function transitFilterClause(flt: DynamicFilterClause, params: any[]): string | 
     if (compare[op]) return `${spec.expr} ${compare[op]} ${bind(numberOf(flt.value))}::numeric`;
     throw unsupported();
   }
+  // Days and moments are compared by Pakistan calendar day.
+  const dayExpr = spec.kind === 'datetime' ? `${karachiTime(spec.expr)}::date` : spec.expr;
   if (op === 'BETWEEN') {
     needSecond(flt);
-    return `${spec.expr} BETWEEN ${bind(dayOf(flt.value))}::date AND ${bind(dayOf(flt.valueSecondary))}::date`;
+    return `${dayExpr} BETWEEN ${bind(dayOf(flt.value))}::date AND ${bind(dayOf(flt.valueSecondary))}::date`;
   }
-  if (compare[op]) return `${spec.expr} ${compare[op]} ${bind(dayOf(flt.value))}::date`;
+  if (compare[op]) return `${dayExpr} ${compare[op]} ${bind(dayOf(flt.value))}::date`;
   throw unsupported();
 }
+
 
 // --- Tanks: filters on the computed rows ----------------------------------------------------------
 
@@ -1126,6 +1474,8 @@ interface DomainKpiTotals {
   avgLr?: number | null;
   avgSnf?: number | null;
   routeLossLiters?: number | null;
+  /** Ready-made cards (the SQL domains add their own). */
+  extra?: DynamicSummaryKpi[];
 }
 
 /** Volume-weighted average of (value, litres) pairs, ignoring missing values. Null when nothing is weighted. */
@@ -1265,66 +1615,411 @@ function computeDynamicSummaryKpis(totalCount: number, totals: DomainKpiTotals):
     });
   }
 
+  if (totals.extra) kpis.push(...totals.extra);
+
   return kpis;
 }
 
 /** Weighted by litres for the quality readings, so a small load does not count as much as a big one. */
 const LITER_WEIGHTED_FIELDS = new Set(['fat', 'lr', 'snf']);
 
-/** One total for a column: a sum, or an average where a sum means nothing. Null when there is nothing to total. */
-function aggregateColumn(rows: Record<string, any>[], f: ReportFieldDefinition): number | null {
-  const present = rows.filter((r) => r[f.id] != null && !isNaN(Number(r[f.id])));
-  if (present.length === 0) return null;
-  const nums = present.map((r) => Number(r[f.id]));
+const TIME_BUCKETS: TimeBucket[] = ['DAY', 'WEEK', 'MONTH'];
+const AGGREGATIONS: AggregationType[] = ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX'];
 
-  if (f.aggregations?.includes('SUM') || f.format === 'liters') {
-    return Number(nums.reduce((a, b) => a + b, 0).toFixed(2));
-  }
-  if (f.aggregations?.includes('AVG') || f.format === 'percent' || f.format === 'temperature') {
-    if (LITER_WEIGHTED_FIELDS.has(f.id)) {
-      const avg = weightedAverage(present.map((r): [number | null, number] => [Number(r[f.id]), Number(r.gross_liters ?? 0)]));
-      if (avg !== null) return Number(avg.toFixed(2));
-    }
-    return Number((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2));
-  }
+/** Most groups, pivot rows and pivot columns one report may return. */
+const MAX_GROUPS = 1000;
+const MAX_PIVOT_ROWS = 500;
+const MAX_PIVOT_COLUMNS = 50;
+
+/** A usable number, or null. Blank, missing and non-numeric values are never zero. */
+function finiteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+const roundTotal = (n: number): number => Number(n.toFixed(3));
+
+/** The field whose litres weight an average of this field, if any. */
+function weightFieldIdOf(f: ReportFieldDefinition): string | undefined {
+  return f.weightFieldId ?? (LITER_WEIGHTED_FIELDS.has(f.id) ? 'gross_liters' : undefined);
+}
+
+/** How a number column is totalled when the user did not pick: a sum, or an average where a sum means nothing. */
+function defaultAggregation(f: ReportFieldDefinition): AggregationType | null {
+  if (f.dataType !== 'number') return null;
+  if (f.aggregations?.includes('SUM') || f.format === 'liters') return 'SUM';
+  if (f.aggregations?.includes('AVG') || f.format === 'percent' || f.format === 'temperature') return 'AVG';
   return null;
 }
 
+/**
+ * One figure over a set of rows. Missing values are skipped, never counted as zero.
+ * An average of a ratio field is sum(numerator) / sum(denominator); an average of a weighted field is weighted by litres.
+ */
+function aggregateValues(rows: Record<string, any>[], f: ReportFieldDefinition, agg: AggregationType): number | null {
+  const values: number[] = [];
+  for (const r of rows) {
+    const n = finiteNumber(r[f.id]);
+    if (n !== null) values.push(n);
+  }
+  if (agg === 'COUNT') return values.length;
+  if (values.length === 0) return null;
+  if (agg === 'SUM') return roundTotal(values.reduce((a, b) => a + b, 0));
+  if (agg === 'MIN') return roundTotal(Math.min(...values));
+  if (agg === 'MAX') return roundTotal(Math.max(...values));
+
+  if (f.ratioOf) {
+    let num = 0;
+    let den = 0;
+    for (const r of rows) {
+      const n = finiteNumber(r[f.ratioOf.numerator]);
+      const d = finiteNumber(r[f.ratioOf.denominator]);
+      if (n === null || d === null || !(d > 0)) continue;
+      num += n;
+      den += d;
+    }
+    if (den > 0) return roundTotal((num / den) * 100);
+  }
+  const weightId = weightFieldIdOf(f);
+  if (weightId) {
+    const avg = weightedAverage(rows.map((r): [number | null, number] => [finiteNumber(r[f.id]), finiteNumber(r[weightId]) ?? 0]));
+    if (avg !== null) return roundTotal(avg);
+  }
+  return roundTotal(values.reduce((a, b) => a + b, 0) / values.length);
+}
+
+/** One total for a column: a sum, or an average where a sum means nothing. Null when there is nothing to total. */
+function aggregateColumn(rows: Record<string, any>[], f: ReportFieldDefinition): number | null {
+  const agg = defaultAggregation(f);
+  return agg ? aggregateValues(rows, f, agg) : null;
+}
+
+/** One total per numeric selected field. */
+function computeColumnTotals(rows: Record<string, any>[], fields: ReportFieldDefinition[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const f of fields) {
+    const total = aggregateColumn(rows, f);
+    if (total !== null) totals[f.id] = total;
+  }
+  return totals;
+}
+
+/** Groups the rows by one field (days, weeks or months for date fields) and totals each numeric selected field. */
 function computeGroupedSubtotals(
   rows: Record<string, any>[],
-  groupByFieldId: string,
+  groupField: ReportFieldDefinition,
+  bucket: TimeBucket | undefined,
   fields: ReportFieldDefinition[]
 ): GroupedSubtotal[] {
-  const groups = new Map<string, { label: string; records: Record<string, any>[] }>();
-
+  const groups = new Map<string, Record<string, any>[]>();
   for (const r of rows) {
-    const raw = r[groupByFieldId];
-    const key = raw === null || raw === undefined || raw === '' ? 'Unassigned' : String(raw);
-    const curr = groups.get(key) || { label: key, records: [] };
-    curr.records.push(r);
-    groups.set(key, curr);
+    const key = reportGroupKey(r[groupField.id], groupField.dataType, bucket);
+    const list = groups.get(key);
+    if (list) list.push(r);
+    else groups.set(key, [r]);
   }
+  if (groups.size > MAX_GROUPS) throw new ReportRequestError(tooManyGroupsMessage());
 
-  const result: GroupedSubtotal[] = [];
-
-  for (const [key, group] of groups.entries()) {
-    const aggs: Record<string, number> = {};
-    for (const f of fields) {
-      if (f.dataType === 'number') {
-        const total = aggregateColumn(group.records, f);
-        if (total !== null) aggs[f.id] = total;
-      }
-    }
-
-    result.push({
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([key, records]) => ({
       groupKey: key,
-      groupLabel: group.label,
-      recordCount: group.records.length,
-      aggregations: aggs,
-    });
+      groupLabel: key,
+      recordCount: records.length,
+      aggregations: computeColumnTotals(records, fields),
+    }));
+}
+
+function tooManyGroupsMessage(): string {
+  return `More than ${MAX_GROUPS} groups. Pick a broader field or narrow the filters.`;
+}
+
+// --- Pivot --------------------------------------------------------------------------------------------
+
+interface PivotPlan {
+  rowField: ReportFieldDefinition;
+  colField: ReportFieldDefinition;
+  /** Absent only for COUNT, which counts rows. */
+  metricField?: ReportFieldDefinition;
+  aggregation: AggregationType;
+  rowBucket?: TimeBucket;
+  colBucket?: TimeBucket;
+}
+
+/** Checks a pivot request against the field list; anything unknown is refused. */
+function resolvePivot(pivot: PivotRequest, fields: ReportFieldDefinition[]): PivotPlan {
+  const find = (id: unknown) => fields.find((f) => f.id === id);
+  const rowField = find(pivot.rowFieldId);
+  const colField = find(pivot.colFieldId);
+  if (!rowField || !colField) throw new ReportRequestError('Pick valid fields for the pivot rows and columns.');
+  const aggregation = pivot.aggregation;
+  if (!AGGREGATIONS.includes(aggregation)) throw new ReportRequestError('Pick Sum, Average, Count, Min or Max.');
+  let metricField: ReportFieldDefinition | undefined;
+  if (hasValue(pivot.metricFieldId)) {
+    metricField = find(pivot.metricFieldId);
+    if (!metricField || metricField.dataType !== 'number') throw new ReportRequestError('Pick a number field for the pivot value.');
+  } else if (aggregation !== 'COUNT') {
+    throw new ReportRequestError('Pick a number field for the pivot value.');
+  }
+  const rowBucket = pivot.rowBucket && TIME_BUCKETS.includes(pivot.rowBucket) ? pivot.rowBucket : undefined;
+  const colBucket = pivot.colBucket && TIME_BUCKETS.includes(pivot.colBucket) ? pivot.colBucket : undefined;
+  if (rowField.id === colField.id && rowBucket === colBucket) throw new ReportRequestError('Pick different fields for rows and columns.');
+  return { rowField, colField, metricField, aggregation, rowBucket, colBucket };
+}
+
+/** The figure of one pivot cell, row, column or the whole result. */
+function pivotValue(rows: Record<string, any>[], plan: PivotPlan): number | null {
+  if (!plan.metricField) return rows.length;
+  return aggregateValues(rows, plan.metricField, plan.aggregation);
+}
+
+/** Pivot from rows already in memory (the Prisma domains). Columns beyond the top 49 become one "Other" column. */
+function computePivotFromRows(rows: Record<string, any>[], plan: PivotPlan): PivotResult {
+  const keyOf = (r: Record<string, any>, f: ReportFieldDefinition, bucket?: TimeBucket) => reportGroupKey(r[f.id], f.dataType, bucket);
+
+  const byRow = new Map<string, Record<string, any>[]>();
+  const byCol = new Map<string, Record<string, any>[]>();
+  for (const r of rows) {
+    const rk = keyOf(r, plan.rowField, plan.rowBucket);
+    const ck = keyOf(r, plan.colField, plan.colBucket);
+    (byRow.get(rk) ?? byRow.set(rk, []).get(rk)!).push(r);
+    (byCol.get(ck) ?? byCol.set(ck, []).get(ck)!).push(r);
+  }
+  if (byRow.size > MAX_PIVOT_ROWS) throw new ReportRequestError(`More than ${MAX_PIVOT_ROWS} pivot rows. Pick a broader field or narrow the filters.`);
+
+  // Keep the 49 columns with the biggest totals; the rest are folded into "Other".
+  let keptCols = new Set(byCol.keys());
+  let hasOther = false;
+  if (byCol.size > MAX_PIVOT_COLUMNS) {
+    hasOther = true;
+    const ranked = [...byCol.entries()]
+      .map(([k, list]) => [k, pivotValue(list, plan)] as const)
+      .sort((a, b) => (b[1] ?? -Infinity) - (a[1] ?? -Infinity) || (a[0] < b[0] ? -1 : 1));
+    keptCols = new Set(ranked.slice(0, MAX_PIVOT_COLUMNS - 1).map(([k]) => k));
+  }
+  const colOf = (r: Record<string, any>) => {
+    const k = keyOf(r, plan.colField, plan.colBucket);
+    return keptCols.has(k) ? k : 'Other';
+  };
+
+  const colKeys = [...keptCols].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  if (hasOther) colKeys.push('Other');
+  const rowKeys = [...byRow.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+
+  const cells: Record<string, Record<string, number | null>> = {};
+  const rowTotals: Record<string, number | null> = {};
+  const colRows = new Map<string, Record<string, any>[]>();
+  for (const rk of rowKeys) {
+    const list = byRow.get(rk)!;
+    rowTotals[rk] = pivotValue(list, plan);
+    const perCol = new Map<string, Record<string, any>[]>();
+    for (const r of list) {
+      const ck = colOf(r);
+      (perCol.get(ck) ?? perCol.set(ck, []).get(ck)!).push(r);
+      (colRows.get(ck) ?? colRows.set(ck, []).get(ck)!).push(r);
+    }
+    cells[rk] = {};
+    for (const ck of colKeys) {
+      const cellRows = perCol.get(ck);
+      cells[rk][ck] = cellRows ? pivotValue(cellRows, plan) : null;
+    }
+  }
+  const colTotals: Record<string, number | null> = {};
+  for (const ck of colKeys) colTotals[ck] = colRows.has(ck) ? pivotValue(colRows.get(ck)!, plan) : null;
+
+  return { rowKeys, colKeys, cells, rowTotals, colTotals, grandTotal: rows.length > 0 ? pivotValue(rows, plan) : null, hasOther };
+}
+
+// --- The same figures computed by the database (the raw SQL domains) -----------------------------------
+
+/** Expression of a field's column; refuses an id the allow-list does not know. */
+function sqlColumnOf(ctx: SqlContext, id: string): SqlColumn {
+  const col = Object.prototype.hasOwnProperty.call(ctx.columns, id) ? ctx.columns[id] : undefined;
+  if (!col) throw new ReportRequestError('This field cannot be used here.');
+  return col;
+}
+
+/** SQL for one aggregate of one field, matching aggregateValues (missing values skipped, ratios and weights respected). */
+function sqlAggregate(ctx: SqlContext, f: ReportFieldDefinition, agg: AggregationType): string {
+  const e = sqlColumnOf(ctx, f.id).expr;
+  if (agg === 'COUNT') return `COUNT(${e})::float8`;
+  if (agg === 'SUM') return `SUM(${e})::float8`;
+  if (agg === 'MIN') return `MIN(${e})::float8`;
+  if (agg === 'MAX') return `MAX(${e})::float8`;
+  const plain = `AVG(${e})`;
+  let best = plain;
+  const weightId = weightFieldIdOf(f);
+  if (weightId && Object.prototype.hasOwnProperty.call(ctx.columns, weightId)) {
+    const w = ctx.columns[weightId].expr;
+    const ok = `${e} IS NOT NULL AND ${w} > 0`;
+    best = `COALESCE(SUM((${e}) * (${w})) FILTER (WHERE ${ok}) / NULLIF(SUM(${w}) FILTER (WHERE ${ok}), 0), ${plain})`;
+  }
+  if (f.ratioOf) {
+    const n = sqlColumnOf(ctx, f.ratioOf.numerator).expr;
+    const d = sqlColumnOf(ctx, f.ratioOf.denominator).expr;
+    const ok = `${n} IS NOT NULL AND ${d} > 0`;
+    best = `COALESCE(100.0 * SUM(${n}) FILTER (WHERE ${ok}) / NULLIF(SUM(${d}) FILTER (WHERE ${ok}), 0), ${best})`;
+  }
+  return `(${best})::float8`;
+}
+
+/** SQL text of the group key: a Pakistan day, week or month for date fields; the value as text (or Unassigned) otherwise. */
+function sqlKeyExpr(ctx: SqlContext, f: ReportFieldDefinition, bucket?: TimeBucket): string {
+  const col = sqlColumnOf(ctx, f.id);
+  if (col.kind === 'date' || col.kind === 'datetime') {
+    const day = col.kind === 'datetime' ? `${karachiTime(col.expr)}::date` : `(${col.expr})::date`;
+    if (bucket === 'MONTH') return `COALESCE(to_char(${day}, 'YYYY-MM'), 'Unassigned')`;
+    if (bucket === 'WEEK') return `COALESCE(to_char(date_trunc('week', ${day}::timestamp), 'YYYY-MM-DD'), 'Unassigned')`;
+    return `COALESCE(to_char(${day}, 'YYYY-MM-DD'), 'Unassigned')`;
+  }
+  return `COALESCE(NULLIF((${col.expr})::text, ''), 'Unassigned')`;
+}
+
+const sqlNumber = (v: unknown): number | null => (v === null || v === undefined ? null : roundTotal(Number(v)));
+
+/** Aggregates of the numeric selected fields, as "<sql> AS a0, <sql> AS a1". */
+function sqlFieldAggregates(ctx: SqlContext, fields: ReportFieldDefinition[]): Array<{ field: ReportFieldDefinition; alias: string; sql: string }> {
+  const out: Array<{ field: ReportFieldDefinition; alias: string; sql: string }> = [];
+  for (const f of fields) {
+    const agg = defaultAggregation(f);
+    if (!agg || !Object.prototype.hasOwnProperty.call(ctx.columns, f.id)) continue;
+    out.push({ field: f, alias: `a${out.length}`, sql: sqlAggregate(ctx, f, agg) });
+  }
+  return out;
+}
+
+/** One GROUP BY query over the whole filter. */
+async function sqlGroupSubtotals(
+  ctx: SqlContext,
+  groupField: ReportFieldDefinition,
+  bucket: TimeBucket | undefined,
+  fields: ReportFieldDefinition[]
+): Promise<GroupedSubtotal[]> {
+  const aggs = sqlFieldAggregates(ctx, fields);
+  const key = sqlKeyExpr(ctx, groupField, bucket);
+  const select = [`${key} AS k`, 'COUNT(*)::int AS n', ...aggs.map((a) => `${a.sql} AS ${a.alias}`)].join(', ');
+  const rows = (await prisma.$queryRawUnsafe(
+    `SELECT ${select} FROM ${ctx.from} WHERE ${ctx.whereSql} GROUP BY 1 ORDER BY 1 LIMIT ${MAX_GROUPS + 1}`,
+    ...ctx.params
+  )) as Record<string, any>[];
+  if (rows.length > MAX_GROUPS) throw new ReportRequestError(tooManyGroupsMessage());
+
+  return rows.map((r) => {
+    const aggregations: Record<string, number> = {};
+    for (const a of aggs) {
+      const v = sqlNumber(r[a.alias]);
+      if (v !== null) aggregations[a.field.id] = v;
+    }
+    return { groupKey: String(r.k), groupLabel: String(r.k), recordCount: Number(r.n), aggregations };
+  });
+}
+
+/** One total per numeric selected field over the whole filter. */
+async function sqlColumnTotals(ctx: SqlContext, fields: ReportFieldDefinition[]): Promise<Record<string, number>> {
+  const aggs = sqlFieldAggregates(ctx, fields);
+  if (aggs.length === 0) return {};
+  const select = aggs.map((a) => `${a.sql} AS ${a.alias}`).join(', ');
+  const rows = (await prisma.$queryRawUnsafe(`SELECT ${select} FROM ${ctx.from} WHERE ${ctx.whereSql}`, ...ctx.params)) as Record<string, any>[];
+  const totals: Record<string, number> = {};
+  for (const a of aggs) {
+    const v = sqlNumber(rows[0]?.[a.alias]);
+    if (v !== null) totals[a.field.id] = v;
+  }
+  return totals;
+}
+
+/** The KPI cards of a SQL domain: litres sent, litres received and the loss or variance. */
+async function sqlSummaryKpis(ctx: SqlContext, domain: ReportDomain): Promise<DynamicSummaryKpi[]> {
+  const spec =
+    domain === 'VEHICLE_DISPATCH'
+      ? [
+          { id: 'kpi-dispatched', label: 'Dispatched', fieldId: 'dispatch_gross_liters' },
+          { id: 'kpi-received', label: 'Plant Received', fieldId: 'received_gross_liters' },
+          { id: 'kpi-variance', label: 'Net Variance', fieldId: 'gross_variance_liters' },
+        ]
+      : domain === 'PLANT_TRANSIT'
+      ? [
+          { id: 'kpi-dispatched', label: 'Dispatched', fieldId: 'dispatched_liters' },
+          { id: 'kpi-received', label: 'Plant Received', fieldId: 'plant_received_liters' },
+          { id: 'kpi-transit-loss', label: 'Transit Loss', fieldId: 'transit_loss_liters' },
+        ]
+      : [];
+  if (spec.length === 0) return [];
+  const sums = spec.map((s, i) => `SUM(${sqlColumnOf(ctx, s.fieldId).expr})::float8 AS s${i}`).join(', ');
+  const rows = (await prisma.$queryRawUnsafe(`SELECT ${sums} FROM ${ctx.from} WHERE ${ctx.whereSql}`, ...ctx.params)) as Record<string, any>[];
+  const kpis: DynamicSummaryKpi[] = [];
+  spec.forEach((s, i) => {
+    const v = sqlNumber(rows[0]?.[`s${i}`]);
+    if (v !== null) kpis.push({ id: s.id, label: s.label, value: v, unit: 'L', format: 'liters' });
+  });
+  return kpis;
+}
+
+/**
+ * Pivot over the whole filter: one query for the column totals (to pick the top 49), one to count the rows,
+ * one GROUPING SETS query for the cells with their row, column and grand totals.
+ */
+async function sqlPivot(ctx: SqlContext, plan: PivotPlan): Promise<PivotResult> {
+  const agg = plan.metricField ? sqlAggregate(ctx, plan.metricField, plan.aggregation) : 'COUNT(*)::float8';
+  const rowKey = sqlKeyExpr(ctx, plan.rowField, plan.rowBucket);
+  const colKey = sqlKeyExpr(ctx, plan.colField, plan.colBucket);
+  const base = `FROM ${ctx.from} WHERE ${ctx.whereSql}`;
+
+  const rowCount = (await prisma.$queryRawUnsafe(`SELECT COUNT(DISTINCT ${rowKey})::int AS n ${base}`, ...ctx.params)) as { n: number }[];
+  if (Number(rowCount[0]?.n ?? 0) > MAX_PIVOT_ROWS) {
+    throw new ReportRequestError(`More than ${MAX_PIVOT_ROWS} pivot rows. Pick a broader field or narrow the filters.`);
   }
 
-  return result;
+  const colTotalRows = (await prisma.$queryRawUnsafe(
+    `SELECT ${colKey} AS c, ${agg} AS v ${base} GROUP BY 1 LIMIT ${MAX_GROUPS * 20 + 1}`,
+    ...ctx.params
+  )) as { c: string; v: number | null }[];
+  if (colTotalRows.length > MAX_GROUPS * 20) throw new ReportRequestError(tooManyGroupsMessage());
+
+  const params = [...ctx.params];
+  let colExpr = colKey;
+  let kept = colTotalRows.map((r) => String(r.c));
+  const hasOther = colTotalRows.length > MAX_PIVOT_COLUMNS;
+  if (hasOther) {
+    kept = [...colTotalRows]
+      .sort((a, b) => (b.v ?? -Infinity) - (a.v ?? -Infinity) || (String(a.c) < String(b.c) ? -1 : 1))
+      .slice(0, MAX_PIVOT_COLUMNS - 1)
+      .map((r) => String(r.c));
+    params.push(kept);
+    colExpr = `(CASE WHEN ${colKey} = ANY($${params.length}::text[]) THEN ${colKey} ELSE 'Other' END)`;
+  }
+
+  const rows = (await prisma.$queryRawUnsafe(
+    `SELECT ${rowKey} AS r, ${colExpr} AS c, ${agg} AS v ${base} GROUP BY GROUPING SETS ((1, 2), (1), (2), ())`,
+    ...params
+  )) as { r: string | null; c: string | null; v: number | null }[];
+
+  const colKeys = [...kept].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  if (hasOther) colKeys.push('Other');
+  const cells: Record<string, Record<string, number | null>> = {};
+  const rowTotals: Record<string, number | null> = {};
+  const colTotals: Record<string, number | null> = {};
+  let grandTotal: number | null = null;
+  const rowSet = new Set<string>();
+  for (const r of rows) {
+    const v = sqlNumber(r.v);
+    if (r.r !== null && r.c !== null) {
+      rowSet.add(r.r);
+      (cells[r.r] ??= {})[r.c] = v;
+    } else if (r.r !== null) {
+      rowSet.add(r.r);
+      rowTotals[r.r] = v;
+    } else if (r.c !== null) colTotals[r.c] = v;
+    else grandTotal = v;
+  }
+  const rowKeys = [...rowSet].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  for (const rk of rowKeys) {
+    cells[rk] ??= {};
+    for (const ck of colKeys) cells[rk][ck] ??= null;
+  }
+  for (const ck of colKeys) colTotals[ck] ??= null;
+  return { rowKeys, colKeys, cells, rowTotals, colTotals, grandTotal, hasOther };
 }
 
 // ============================================================================
@@ -1358,7 +2053,10 @@ function exportCellValue(row: Record<string, any>, f: ReportFieldDefinition, bla
 }
 
 /** Every row matching the filters, read in chunks, with the same fields the table shows. */
-async function collectExportRows(req: DynamicExportRequest, currentUser: User | null) {
+async function collectExportRows(
+  req: Pick<DynamicQueryRequest, 'domain' | 'selectedFieldIds' | 'filters' | 'sortFieldId' | 'sortDirection' | 'zmccId'>,
+  currentUser: User | null
+) {
   const base = {
     domain: req.domain,
     selectedFieldIds: req.selectedFieldIds,

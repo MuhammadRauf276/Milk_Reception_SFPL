@@ -10,6 +10,8 @@ import type {
   DynamicFilterClause,
   DynamicQueryResponse,
   SavedReportTemplate,
+  PivotRequest,
+  TimeBucket,
 } from './dynamicReportTypes';
 import {
   Download,
@@ -31,10 +33,11 @@ import { Button } from '@/components/ui/button';
 import { useListPageSize } from '@/components/ui/pagination';
 import { StatCard } from '@/components/ui/stat-card';
 import { toast } from '@/frontend/lib/appToast';
+import { ErrorPopup } from '@/components/ui/error-popup';
 import { CompactColumnPopover } from './components/CompactColumnPopover';
 import { DynamicFilterBar } from './components/DynamicFilterBar';
 import { DynamicReportTable } from './components/DynamicReportTable';
-import { DynamicPivotGrid } from './components/DynamicPivotGrid';
+import { DynamicPivotGrid, defaultPivotConfig } from './components/DynamicPivotGrid';
 import { DynamicReportVisualizer } from './components/DynamicReportVisualizer';
 import { SavedTemplateManager } from './components/SavedTemplateManager';
 import { PlantQaComparisonView } from './components/PlantQaComparisonView';
@@ -56,6 +59,8 @@ export function DynamicReportGeneratorScreen({
   const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<DynamicFilterClause[]>([]);
   const [groupByFieldId, setGroupByFieldId] = useState<string | undefined>(undefined);
+  const [timeBucket, setTimeBucket] = useState<TimeBucket>('DAY');
+  const [pivotConfig, setPivotConfig] = useState<PivotRequest | null>(null);
   const [sortFieldId, setSortFieldId] = useState<string | undefined>(undefined);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const listPageSize = useListPageSize(25);
@@ -111,9 +116,19 @@ export function DynamicReportGeneratorScreen({
       setSelectedFieldIds(defaultIds.length > 0 ? defaultIds : allFields.slice(0, 8).map((f) => f.id));
       setFilters([]);
       setGroupByFieldId(undefined);
+      setTimeBucket('DAY');
+      setPivotConfig(defaultPivotConfig(allFields));
       setPage(1);
     }
+    // allFields changes only with the domain or the loaded field list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [domain, allFields.length]);
+
+  // After a domain switch the old selection lingers for one render: wait until it fits the new fields.
+  const fieldsFit =
+    allFields.length > 0 &&
+    selectedFieldIds.every((id) => allFields.some((f) => f.id === id)) &&
+    (!groupByFieldId || allFields.some((f) => f.id === groupByFieldId));
 
   // Determine effective ZMCC facility ID
   const isSystemScope =
@@ -137,6 +152,7 @@ export function DynamicReportGeneratorScreen({
       selectedFieldIds,
       filters,
       groupByFieldId,
+      timeBucket,
       sortFieldId,
       sortDirection,
       page,
@@ -153,6 +169,7 @@ export function DynamicReportGeneratorScreen({
           selectedFieldIds,
           filters,
           groupByFieldId,
+          timeBucket,
           sortFieldId,
           sortDirection,
           page,
@@ -162,12 +179,38 @@ export function DynamicReportGeneratorScreen({
       });
       return res;
     },
-    enabled: selectedFieldIds.length > 0 && viewMode !== 'PLANT_QA',
+    enabled: selectedFieldIds.length > 0 && fieldsFit && viewMode !== 'PLANT_QA',
     staleTime: 30 * 1000,
+    retry: false,
+  });
+
+  // The pivot is computed by the server over the whole filtered result.
+  const pivotQuery = useQuery({
+    queryKey: ['reports', 'dynamic-pivot', domain, filters, pivotConfig, effectiveFacilityId],
+    queryFn: async () => {
+      const res = await fetchJson<DynamicQueryResponse>('/api/reports/dynamic/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain,
+          selectedFieldIds,
+          filters,
+          pivot: pivotConfig,
+          page: 1,
+          pageSize: 1,
+          zmccId: effectiveFacilityId,
+        }),
+      });
+      return res;
+    },
+    enabled: viewMode === 'PIVOT' && !!pivotConfig && fieldsFit && selectedFieldIds.length > 0,
+    staleTime: 30 * 1000,
+    retry: false,
   });
 
   const queryData = reportQuery.data;
   const isLoading = reportQuery.isPending || reportQuery.isFetching;
+  const activeError = viewMode === 'PIVOT' ? pivotQuery.error : reportQuery.error;
 
   // Sorting handler
   const handleSort = (fieldId: string) => {
@@ -187,6 +230,7 @@ export function DynamicReportGeneratorScreen({
     setSelectedFieldIds(template.selectedFieldIds);
     setFilters(template.filters || []);
     setGroupByFieldId(template.groupByFieldId);
+    setTimeBucket(template.timeBucket ?? 'DAY');
     if (template.sortFieldId) setSortFieldId(template.sortFieldId);
     if (template.sortDirection) setSortDirection(template.sortDirection);
     setPage(1);
@@ -269,6 +313,7 @@ export function DynamicReportGeneratorScreen({
             { id: 'TANK_STORAGE', label: 'Tank storage' },
             { id: 'PLANT_TRANSIT', label: 'Plant Transit' },
             { id: 'QUALITY_SCREENING', label: 'Quality Lab Screening' },
+            { id: 'VEHICLE_DISPATCH', label: 'Vehicles: dispatch vs plant' },
           ]).map((d) => (
             <button
               key={d.id}
@@ -303,7 +348,21 @@ export function DynamicReportGeneratorScreen({
             setGroupByFieldId(gId);
             setPage(1);
           }}
+          timeBucket={timeBucket}
+          onChangeTimeBucket={(b) => {
+            setTimeBucket(b);
+            setPage(1);
+          }}
         />
+      )}
+
+      <ErrorPopup message={activeError instanceof Error ? activeError.message : null} />
+
+      {viewMode !== 'PLANT_QA' && queryData?.dateRange && (
+        <p className="text-xs text-muted-foreground">
+          Dispatched {queryData.dateRange.from} to {queryData.dateRange.to}
+          {queryData.dateRange.defaulted ? ' (last 30 days)' : ''}
+        </p>
       )}
 
       {/* KPI Summary Ribbon */}
@@ -470,6 +529,9 @@ export function DynamicReportGeneratorScreen({
           sortDirection={sortDirection}
           onSort={handleSort}
           groupByFieldId={groupByFieldId}
+          groupField={allFields.find((f) => f.id === groupByFieldId)}
+          timeBucket={timeBucket}
+          columnTotals={queryData?.columnTotals}
           groupedSubtotals={queryData?.groupedSubtotals}
           isLoading={isLoading}
         />
@@ -477,8 +539,11 @@ export function DynamicReportGeneratorScreen({
 
       {viewMode === 'PIVOT' && (
         <DynamicPivotGrid
-          fields={queryData?.fields || allFields.filter((f) => selectedFieldIds.includes(f.id))}
-          rows={queryData?.rows || []}
+          fields={allFields}
+          config={pivotConfig}
+          onChangeConfig={setPivotConfig}
+          result={pivotQuery.data?.pivot}
+          isLoading={pivotQuery.isFetching}
         />
       )}
 

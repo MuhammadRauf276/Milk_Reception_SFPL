@@ -5,7 +5,9 @@ import type {
   ReportFieldDefinition,
   DynamicFilterClause,
   FilterOperator,
+  TimeBucket,
 } from '../dynamicReportTypes';
+import { TIME_BUCKET_LABELS, isTimeField } from '../dynamicReportTypes';
 import {
   Filter,
   Plus,
@@ -23,6 +25,8 @@ interface DynamicFilterBarProps {
   onChangeFilters: (filters: DynamicFilterClause[]) => void;
   groupByFieldId?: string;
   onChangeGroupByFieldId?: (fieldId: string | undefined) => void;
+  timeBucket?: TimeBucket;
+  onChangeTimeBucket?: (bucket: TimeBucket) => void;
 }
 
 const OPERATOR_LABELS: Record<FilterOperator, string> = {
@@ -44,11 +48,14 @@ export function DynamicFilterBar({
   onChangeFilters,
   groupByFieldId,
   onChangeGroupByFieldId,
+  timeBucket,
+  onChangeTimeBucket,
 }: DynamicFilterBarProps) {
   const filterableFields = fields.filter((f) => f.filterable !== false);
   const groupableFields = fields.filter(
-    (f) => f.dataType === 'string' || f.dataType === 'date' || f.dataType === 'enum'
+    (f) => f.dataType === 'string' || f.dataType === 'date' || f.dataType === 'datetime' || f.dataType === 'enum'
   );
+  const groupField = fields.find((f) => f.id === groupByFieldId);
 
   const addFilter = () => {
     const firstField = filterableFields[0];
@@ -57,7 +64,7 @@ export function DynamicFilterBar({
     const defaultOp: FilterOperator =
       firstField.dataType === 'number'
         ? 'GREATER_THAN'
-        : firstField.dataType === 'date'
+        : isTimeField(firstField)
         ? 'EQUALS'
         : 'CONTAINS';
 
@@ -86,7 +93,7 @@ export function DynamicFilterBar({
           if (fieldDef?.dataType === 'number') {
             updated.operator = 'GREATER_THAN';
             updated.value = 0;
-          } else if (fieldDef?.dataType === 'date') {
+          } else if (isTimeField(fieldDef)) {
             updated.operator = 'EQUALS';
             updated.value = getPakistanCalendarDate(new Date());
           } else {
@@ -99,7 +106,7 @@ export function DynamicFilterBar({
     );
   };
 
-  const applyHorizonPreset = (preset: 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'MTD') => {
+  const applyHorizonPreset = (preset: 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'LAST_30' | 'MTD') => {
     const today = getPakistanCalendarDate(new Date());
     const dateField = fields.find((f) => f.dataType === 'date' || f.id.includes('date'));
     if (!dateField) return;
@@ -114,7 +121,7 @@ export function DynamicFilterBar({
         value: today,
       };
     } else if (preset === 'YESTERDAY') {
-      const y = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      const y = getPakistanCalendarDate(new Date(Date.now() - 86400000));
       clause = {
         id: `flt-preset-${Date.now()}`,
         fieldId: dateField.id,
@@ -122,7 +129,16 @@ export function DynamicFilterBar({
         value: y,
       };
     } else if (preset === 'LAST_7') {
-      const from = new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0];
+      const from = getPakistanCalendarDate(new Date(Date.now() - 6 * 86400000));
+      clause = {
+        id: `flt-preset-${Date.now()}`,
+        fieldId: dateField.id,
+        operator: 'BETWEEN',
+        value: from,
+        valueSecondary: today,
+      };
+    } else if (preset === 'LAST_30') {
+      const from = getPakistanCalendarDate(new Date(Date.now() - 29 * 86400000));
       clause = {
         id: `flt-preset-${Date.now()}`,
         fieldId: dateField.id,
@@ -190,6 +206,13 @@ export function DynamicFilterBar({
             </button>
             <button
               type="button"
+              onClick={() => applyHorizonPreset('LAST_30')}
+              className="px-2 py-1 rounded-md text-xs font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Last 30 Days
+            </button>
+            <button
+              type="button"
               onClick={() => applyHorizonPreset('MTD')}
               className="px-2 py-1 rounded-md text-xs font-medium bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -215,6 +238,20 @@ export function DynamicFilterBar({
                 </option>
               ))}
             </select>
+            {isTimeField(groupField) && onChangeTimeBucket && (
+              <select
+                value={timeBucket ?? 'DAY'}
+                onChange={(e) => onChangeTimeBucket(e.target.value as TimeBucket)}
+                className="text-xs bg-background border border-border rounded-lg px-3 py-1 text-foreground font-medium focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                aria-label="Time bucket"
+              >
+                {(Object.keys(TIME_BUCKET_LABELS) as TimeBucket[]).map((b) => (
+                  <option key={b} value={b}>
+                    {TIME_BUCKET_LABELS[b]}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         )}
       </div>
@@ -259,9 +296,11 @@ export function DynamicFilterBar({
                       <option value="EQUALS">= (exact value)</option>
                       <option value="BETWEEN">between</option>
                     </>
-                  ) : currentFieldDef?.dataType === 'date' ? (
+                  ) : isTimeField(currentFieldDef) ? (
                     <>
                       <option value="EQUALS">on date (=)</option>
+                      <option value="GREATER_EQUAL">on or after</option>
+                      <option value="LESS_EQUAL">on or before</option>
                       <option value="BETWEEN">between dates</option>
                     </>
                   ) : (
@@ -287,7 +326,7 @@ export function DynamicFilterBar({
                       </option>
                     ))}
                   </select>
-                ) : currentFieldDef?.dataType === 'date' ? (
+                ) : isTimeField(currentFieldDef) ? (
                   <input
                     type="date"
                     value={filter.value || ''}
@@ -317,7 +356,7 @@ export function DynamicFilterBar({
                 {filter.operator === 'BETWEEN' && (
                   <>
                     <span className="text-muted-foreground font-medium text-xs">and</span>
-                    {currentFieldDef?.dataType === 'date' ? (
+                    {isTimeField(currentFieldDef) ? (
                       <input
                         type="date"
                         value={filter.valueSecondary || ''}
