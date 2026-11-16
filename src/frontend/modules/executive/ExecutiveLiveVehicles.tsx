@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useDeferredValue, useMemo, useState } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { LayoutGrid, Table2, Truck } from 'lucide-react';
+import { Truck } from 'lucide-react';
 import type { MilkProcessLog } from '@backend/core/types';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { formatOperationalDate } from '@/lib/datetime-utils';
@@ -26,8 +26,6 @@ interface VehiclesResponse {
 
 /** All sources: cards of the last 7 days, or a report table for a chosen date range. Test photos are optional. */
 export function ExecutiveLiveVehicles({ showPhotos }: { showPhotos: boolean }) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const isReport = searchParams?.get('view')?.toUpperCase() === 'REPORT';
 
@@ -70,14 +68,6 @@ export function ExecutiveLiveVehicles({ showPhotos }: { showPhotos: boolean }) {
     setPage(1);
   };
 
-  const openTab = (report: boolean) => {
-    const params = new URLSearchParams(searchParams?.toString() || '');
-    if (report) params.set('view', 'REPORT');
-    else params.delete('view');
-    const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : (pathname ?? ''));
-  };
-
   // The Excel file of the cards view: the same last 7 days, with the vehicle search when one is typed.
   const lastSevenDaysParams = () => {
     const to = getPakistanCalendarDate(new Date());
@@ -86,11 +76,6 @@ export function ExecutiveLiveVehicles({ showPhotos }: { showPhotos: boolean }) {
     if (deferredSearch) p.set('f_vehicle', deferredSearch);
     return p;
   };
-
-  const tabClass = (active: boolean) =>
-    `min-h-9 px-4 py-2 text-xs font-semibold rounded-md transition flex items-center justify-center gap-2 flex-1 sm:flex-initial ${
-      active ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
-    }`;
 
   return (
     <div className="space-y-6">
@@ -102,26 +87,14 @@ export function ExecutiveLiveVehicles({ showPhotos }: { showPhotos: boolean }) {
           </div>
           <p className="text-xs text-muted-foreground mt-1 tabular-nums">
             {isReport
-              ? 'Choose your own dates. All sources.'
+              ? 'Dispatch beside plant, one row per portion'
               : fromDate && toDate
               ? `Dispatched ${formatOperationalDate(fromDate)} to ${formatOperationalDate(toDate)}, plus any still in the plant, all sources`
               : 'All sources'}
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         {!isReport && <VehicleExcelButton chooseSourceType getParams={lastSevenDaysParams} />}
-        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border w-full sm:w-fit" role="tablist" aria-label="Vehicle view">
-          <button type="button" role="tab" aria-selected={!isReport} onClick={() => openTab(false)} className={tabClass(!isReport)}>
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span>Vehicle Cards</span>
-          </button>
-          <button type="button" role="tab" aria-selected={isReport} onClick={() => openTab(true)} className={tabClass(isReport)}>
-            <Table2 className="w-3.5 h-3.5" />
-            <span>Report Table</span>
-          </button>
-        </div>
-        </div>
       </div>
 
       {isReport ? (

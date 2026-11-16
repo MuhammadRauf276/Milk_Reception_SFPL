@@ -53,6 +53,12 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
     return [{ id: 'home', label: 'Home', icon: LayoutDashboard, href: resolveRoleHome(currentUser.role) }];
   }, [currentUser, zmccId, delegationContext]);
 
+  // Every link in the menu, so a plain link can step aside for a sibling link of the same page.
+  const allHrefs = useMemo(
+    () => sections.flatMap((s) => [s.href, ...(s.children ?? []).map((c) => c.href)]).filter((h): h is string => Boolean(h)),
+    [sections]
+  );
+
   // Determine if a leaf is currently active based on current path and search params
   const isLeafActive = useCallback(
     (leafHref: string) => {
@@ -60,8 +66,21 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
       if (pathname !== leafPath) return false;
 
       const leafParams = new URLSearchParams(leafQueryStr || '');
-      // A plain leaf (no view) is not active while a sibling view of the same page is open.
-      if (leafPath === '/sources' && !leafParams.get('view') && searchParams?.get('view')) return false;
+      // A plain link (no query) is not active while a sibling link of the same page, whose query matches the
+      // address exactly, is open: only one menu item is highlighted.
+      if (!leafQueryStr) {
+        const siblingOpen = allHrefs.some((href) => {
+          const [path, query] = href.split('?');
+          if (path !== leafPath || !query) return false;
+          const params = new URLSearchParams(query);
+          let match = true;
+          params.forEach((val, key) => {
+            if ((searchParams?.get(key) ?? '').toLowerCase() !== val.toLowerCase()) match = false;
+          });
+          return match;
+        });
+        if (siblingOpen) return false;
+      }
 
       // Check each leaf query parameter against current search params
       let allMatch = true;
@@ -129,7 +148,7 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
 
       return allMatch;
     },
-    [pathname, searchParams]
+    [pathname, searchParams, allHrefs]
   );
 
   // Direct section match (for sections without children)
@@ -149,6 +168,11 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
     [sections, isSectionActive, isLeafActive]
   );
 
+  const autoExpandedSections = useMemo(
+    () => (sections.length <= 3 ? sections.map((s) => s.id) : []),
+    [sections]
+  );
+
   const handleOpenChange = (open: boolean) => {
     if (open) return;
     onClose();
@@ -160,10 +184,6 @@ export const HierarchicalNavDrawer: React.FC<HierarchicalNavDrawerProps> = ({
   const caption = delegationContext.isDelegated
     ? delegationContext.subordinateRoleLabel
     : formatRoleLabel(currentUser.role);
-  const autoExpandedSections = useMemo(
-    () => (sections.length <= 3 ? sections.map((s) => s.id) : []),
-    [sections]
-  );
   const footer = (
     <div className="min-w-0 text-xs">
       <p className="truncate font-medium text-foreground">{currentUser.name || 'Operator'}</p>

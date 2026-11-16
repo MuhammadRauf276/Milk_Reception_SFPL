@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ChevronDown, Eye, Truck } from 'lucide-react';
+import { ChevronDown, Eye } from 'lucide-react';
 import { Pagination, useListPageSize } from '@/components/ui/pagination';
 import { TableWrapper } from '@/components/ui/table-wrapper';
 import { toast } from '@/frontend/lib/appToast';
@@ -24,6 +24,7 @@ import { ZMCCManagerVisitDetailModal } from '@/frontend/modules/dashboard/zmcc/Z
 import { VisitPhotosSection } from './VisitPhotosSection';
 import { ErrorPopup } from '@/components/ui/error-popup';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { InfoTip } from '@/components/ui/info-tip';
 import { SOURCE_TYPE_LABELS, VehicleExcelButton } from './VehicleExcelButton';
 
 interface SourceOption {
@@ -196,17 +197,8 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
 
   return (
     <div className="space-y-4" role="region" aria-label="Vehicle report table">
-      <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/80">
-          <div className="flex items-center space-x-2">
-            <Truck className="w-5 h-5 text-muted-foreground" />
-            <h3 className="text-sm font-semibold text-foreground">Vehicle report</h3>
-          </div>
-          <span className="self-start sm:self-auto px-3 py-1 rounded-md text-xs tabular-nums font-semibold bg-blue-50 text-primary-hover border border-blue-200">
-            {totalRows.toLocaleString()} portions
-          </span>
-        </div>
-        <div className="flex flex-wrap items-end gap-3">
+      <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
+        <div className="grid grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-3">
           <label className="text-xs font-semibold text-secondary-foreground space-y-1">
             <span className="block">From</span>
             <input
@@ -217,7 +209,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
                 setFrom(e.target.value);
                 setPage(1);
               }}
-              className={inputClass}
+              className={`${inputClass} w-full`}
             />
           </label>
           <label className="text-xs font-semibold text-secondary-foreground space-y-1">
@@ -230,12 +222,12 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
                 setTo(e.target.value);
                 setPage(1);
               }}
-              className={inputClass}
+              className={`${inputClass} w-full`}
             />
           </label>
-          <div className="text-xs font-semibold text-secondary-foreground space-y-1">
+          <div className="col-span-2 lg:col-span-1 text-xs font-semibold text-secondary-foreground space-y-1">
             <span className="block">Dispatched from</span>
-            <div className="flex gap-1 p-1 rounded-lg bg-muted/60 border border-border" role="radiogroup" aria-label="Dispatched from">
+            <div className="flex gap-1 p-1 rounded-lg bg-muted/60 border border-border min-h-11" role="radiogroup" aria-label="Dispatched from">
               {SOURCE_TYPES.map((t) => (
                 <button
                   key={t}
@@ -243,7 +235,7 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
                   role="radio"
                   aria-checked={sourceType === t}
                   onClick={() => chooseSourceType(t)}
-                  className={`min-h-9 px-3 rounded-md text-xs font-semibold transition ${
+                  className={`flex-1 lg:flex-initial min-h-9 px-3 rounded-md text-xs font-semibold transition ${
                     sourceType === t ? 'bg-primary text-white shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
                   }`}
                 >
@@ -252,11 +244,11 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
               ))}
             </div>
           </div>
-          <div className="text-xs font-semibold text-secondary-foreground space-y-1">
+          <div className="col-span-2 lg:col-span-1 text-xs font-semibold text-secondary-foreground space-y-1">
             <span className="block">Source</span>
             <Popover>
               <PopoverTrigger asChild>
-                <button type="button" className={`${inputClass} inline-flex items-center justify-between gap-2 min-w-40`}>
+                <button type="button" className={`${inputClass} w-full lg:w-auto inline-flex items-center justify-between gap-2 min-w-44`}>
                   <span>{sourceIds.length === 0 ? 'All sources' : `${sourceIds.length} chosen`}</span>
                   <ChevronDown className="w-4 h-4 text-muted-foreground" />
                 </button>
@@ -283,8 +275,11 @@ export function VehicleReportTable({ showPhotos }: { showPhotos: boolean }) {
               </PopoverContent>
             </Popover>
           </div>
-          <p className="text-xs text-muted-foreground pb-3">Up to {REPORT_MAX_RANGE_DAYS} days at a time</p>
-          <div className="sm:ml-auto">
+          <div className="col-span-2 lg:col-span-1 lg:ml-auto flex items-center justify-between lg:justify-end gap-2">
+            <span className="px-3 py-1 rounded-md text-xs tabular-nums font-semibold bg-blue-50 text-primary-hover border border-blue-200">
+              {totalRows.toLocaleString()} portions
+            </span>
+            <InfoTip text={`Up to ${REPORT_MAX_RANGE_DAYS} days at a time. Type in a column's search box to narrow the rows. Excel uses the same filters.`} />
             <VehicleExcelButton getParams={() => rangeProblem ?? new URLSearchParams(filterParams)} />
           </div>
         </div>
