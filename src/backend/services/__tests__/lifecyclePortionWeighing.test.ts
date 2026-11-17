@@ -30,7 +30,7 @@ test('two accepted portions get one Unload and one Weight step each, filled as t
     portion(2, { unloading_start_timestamp: '2026-11-17T06:40:00.000Z' }),
   ]);
   const middle = lc.stages.slice(4, 8);
-  assert.deepEqual(middle.map((s) => s.label), ['Unload P-01', 'Weight 2 (After P-01)', 'Unload P-02', 'Weight 3 (Empty)']);
+  assert.deepEqual(middle.map((s) => s.label), ['Unload P-01', 'Weight 2 (After P-01)', 'Unload P-02', 'Weight 3 (After P-02)']);
   assert.deepEqual(middle.map((s) => s.status), ['COMPLETED', 'COMPLETED', 'CURRENT', 'UPCOMING']);
   assert.equal(middle[1].metricText, '22,000 KG');
   assert.equal(new Set(lc.stages.map((s) => s.key ?? s.id)).size, lc.stages.length, 'every step has its own key');
@@ -38,5 +38,5 @@ test('two accepted portions get one Unload and one Weight step each, filled as t
 
 test('a rejected portion is not unloaded or weighed', () => {
   const lc = deriveManagerLifecycle([portion(1), portion(2, { calculated_status: 'REJECTED' }), portion(3)]);
-  assert.deepEqual(lc.stages.slice(4, 8).map((s) => s.label), ['Unload P-01', 'Weight 2 (After P-01)', 'Unload P-03', 'Weight 3 (Empty)']);
+  assert.deepEqual(lc.stages.slice(4, 8).map((s) => s.label), ['Unload P-01', 'Weight 2 (After P-01)', 'Unload P-03', 'Weight 3 (After P-03)']);
 });

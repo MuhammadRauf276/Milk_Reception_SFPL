@@ -174,7 +174,7 @@ function perPortionUnloadAndWeightSteps(
     });
     const kg = p.portion_second_weight_kg ?? (last ? primary.second_weight_of_vehicle : null);
     const at = p.portion_second_weight_at ?? (last ? primary.second_weight_timestamp : null);
-    const label = last ? `Weight ${i + 2} (Empty)` : `Weight ${i + 2} (After ${name})`;
+    const label = `Weight ${i + 2} (After ${name})`;
     steps.push({
       id: 'SECOND_WEIGHT',
       key: `SECOND_WEIGHT:${name}`,
