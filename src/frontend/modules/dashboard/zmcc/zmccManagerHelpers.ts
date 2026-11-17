@@ -136,6 +136,59 @@ export function computeElapsedInPlant(gateEntryTimestamp?: string | null): strin
   return `${mins}m`;
 }
 
+const portionOrder = (p: MilkProcessLog) => Number(String(p.portion_number).replace(/\D/g, '')) || 0;
+
+/**
+ * The plant weighs the vehicle again after each accepted portion is unloaded (loaded, after P-01, after P-02, …,
+ * the last one empty). With two or more accepted portions the single Unload / Second Weight pair becomes one pair
+ * per portion, so a third or fourth weighing shows on the card as it happens. Null keeps the single pair.
+ */
+function perPortionUnloadAndWeightSteps(
+  portions: MilkProcessLog[],
+  hasFirstWeight: boolean,
+  hasSecondWeight: boolean,
+  primary: MilkProcessLog
+): LifecycleStageInfo[] | null {
+  const accepted = portions
+    .filter((p) => String(p.calculated_status || '').toUpperCase() === 'ACCEPTED')
+    .sort((a, b) => portionOrder(a) - portionOrder(b));
+  if (accepted.length < 2) return null;
+
+  const steps: LifecycleStageInfo[] = [];
+  let previousWeighed = hasFirstWeight;
+  accepted.forEach((p, i) => {
+    const last = i === accepted.length - 1;
+    const name = String(p.portion_number);
+    const weighed = p.portion_second_weight_kg != null || (last && hasSecondWeight);
+    const unloaded = weighed || Boolean(p.unloading_end_timestamp || p.reception_end_time);
+    const unloading = Boolean(p.unloading_start_timestamp || p.reception_start_time);
+    steps.push({
+      id: 'UNLOADING',
+      key: `UNLOADING:${name}`,
+      label: `Unload ${name}`,
+      shortLabel: `Unload ${name}`,
+      status: unloaded ? 'COMPLETED' : unloading || previousWeighed ? 'CURRENT' : 'UPCOMING',
+      detailText: p.silo_storage_id ? `Silo ${p.silo_storage_id}` : null,
+      eventTimestamp: p.unloading_start_timestamp ? formatOperationalDatetime(p.unloading_start_timestamp) : p.reception_start_time || null,
+      eventTimestampEnd: p.unloading_end_timestamp ? formatOperationalDatetime(p.unloading_end_timestamp) : p.reception_end_time || null,
+    });
+    const kg = p.portion_second_weight_kg ?? (last ? primary.second_weight_of_vehicle : null);
+    const at = p.portion_second_weight_at ?? (last ? primary.second_weight_timestamp : null);
+    const label = last ? `Weight ${i + 2} (Empty)` : `Weight ${i + 2} (After ${name})`;
+    steps.push({
+      id: 'SECOND_WEIGHT',
+      key: `SECOND_WEIGHT:${name}`,
+      label,
+      shortLabel: label,
+      status: weighed ? 'COMPLETED' : unloaded ? 'CURRENT' : 'UPCOMING',
+      metricText: kg != null ? `${kg.toLocaleString()} KG` : null,
+      eventTimestamp: at ? formatOperationalDatetime(at) : null,
+    });
+    previousWeighed = weighed;
+  });
+  return steps;
+}
+
 /**
  * Pure helper to derive the 7-stage manager lifecycle for a vehicle visit.
  * Plant QA complete: Every portion is definitive ACCEPTED or REJECTED (no HOLD, no PENDING).
@@ -299,6 +352,12 @@ export function deriveManagerLifecycle(portions: MilkProcessLog[]): ManagerLifec
         : primary.out_from_gate_time || null,
     },
   ];
+
+  const portionSteps = perPortionUnloadAndWeightSteps(portions, hasFirstWeight, hasSecondWeight, primary);
+  if (portionSteps) {
+    const at = stages.findIndex((s) => s.id === 'UNLOADING');
+    stages.splice(at, 2, ...portionSteps);
+  }
 
   // Determine current active stage
   let currentStageId: LifecycleStageId = 'DISPATCH';

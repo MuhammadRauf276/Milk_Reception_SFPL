@@ -1,30 +1,43 @@
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/backend/core/db';
 import { getPakistanDayWindow } from '@/backend/core/business-day';
-import { getBatchTankStocks } from '@/backend/services/zmccTankService';
 import { createTtlCache } from '@/backend/services/ttlCache';
+import { resolveApproverNames, type ApprovalWait } from '@/backend/services/tvBoardApprovals';
 
-/** Counts and quantities only, never lab values. */
-export interface TvZmccTester {
-  journeyId: string;
-  testerName: string;
+/** One step of a journey on the yard board. Quantities only, never lab values. */
+export type TvStepState = 'done' | 'current' | 'waiting' | 'rejected' | 'upcoming';
+
+export interface TvJourneyStep {
+  key: string;
+  label: string;
+  state: TvStepState;
+  /** ISO time the step happened. */
+  at?: string | null;
+  /** Main figure under the step, e.g. "3 / 7 shops" or "412 L @13 TS". */
+  metric?: string | null;
+  /** Second line, e.g. "Gross 420 L". */
+  note?: string | null;
+  /** Set while the step waits for someone's approval. */
+  approval?: ApprovalWait | null;
+}
+
+export interface TvZmccJourney {
+  id: string;
+  kind: 'MOT' | 'HC';
+  title: string;
   vehicleNumber: string;
-  routeName: string;
-  shopsDone: number;
-  shopsTotal: number;
-  collectedAt13Ts: number;
-  /** 0 Assigned, 1 Collecting, 2 Returning, 3 At ZMCC, 4 Lab, 5 In tank */
-  stepIndex: number;
+  subtitle: string;
+  finished: boolean;
+  /** Collected @13 TS (MOT) and received into the ZMCC tank @13 TS; null until known. */
+  collectedAt13Ts: number | null;
+  receivedAt13Ts: number | null;
+  steps: TvJourneyStep[];
 }
 
 export interface TvZmccSection {
   id: string;
   name: string;
-  steps: { collecting: number; arrived: number; lab: number; inTank: number; dispatched: number };
-  tank: { stockAt13Ts: number; stockGross: number; capacityLiters: number };
-  receivedToday: { at13Ts: number; gross: number };
-  dispatchedToday: { at13Ts: number; gross: number };
-  testers: { total: number; rows: TvZmccTester[] };
+  testers: { total: number; rows: TvZmccJourney[] };
+  hc: { total: number; rows: TvZmccJourney[] };
 }
 
 export interface TvZmccBoard {
@@ -32,23 +45,84 @@ export interface TvZmccBoard {
   zmccs: TvZmccSection[];
 }
 
-export const TV_ZMCC_MAX_TESTER_ROWS = 6;
+export const TV_ZMCC_MAX_ROWS = 6;
 const ACTIVE_JOURNEY = ['COLLECTING', 'RETURNING', 'ARRIVED'];
+/** An HC vehicle that has not left the gate stays on the board this long. */
+const HC_OPEN_DAYS = 3;
 
 const n = (v: unknown) => (v == null ? 0 : Number(v));
 const r2 = (v: number) => Number(v.toFixed(2));
+const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
+const lit = (v: number) => `${v.toLocaleString('en-US', { maximumFractionDigits: 0 })} L`;
 
-/** Position of a journey on the six-step tester stepper. */
-export function testerStepIndex(input: { status: string; hasArrival: boolean; hasLab: boolean; inTank: boolean }): number {
-  if (input.inTank) return 5;
-  if (input.hasLab) return 4;
-  if (input.hasArrival || input.status === 'ARRIVED') return 3;
-  if (input.status === 'RETURNING') return 2;
-  return 1;
+interface LabInfo {
+  status: string;
+  final_decision: string | null;
+  decision: string | null;
+  manager_review_status: string;
+  started_at: Date;
+  completed_at: Date | null;
+  close_requested_at: Date | null;
+  close_approved_at: Date | null;
+  journey_closed_at: Date | null;
+  tank_receipt: { at_13ts_liters: unknown; gross_liters: unknown; received_at: Date } | null;
+  _count: { portions: number };
 }
 
-export async function buildTvZmccBoard(now: Date = new Date()): Promise<TvZmccBoard> {
+const LAB_SELECT = {
+  status: true,
+  final_decision: true,
+  decision: true,
+  manager_review_status: true,
+  started_at: true,
+  completed_at: true,
+  close_requested_at: true,
+  close_approved_at: true,
+  journey_closed_at: true,
+  tank_receipt: { select: { at_13ts_liters: true, gross_liters: true, received_at: true } },
+  _count: { select: { portions: { where: { review_status: 'PENDING' } } } },
+} as const;
+
+const isRejected = (lab: LabInfo | null) => (lab?.final_decision ?? lab?.decision) === 'REJECTED';
+
+/** Lab and Receipt steps, shared by Mobile Tester and HC journeys. `reached` is true once the vehicle is at the ZMCC. */
+export function labAndReceiptSteps(lab: LabInfo | null, reached: boolean, zmccManager: ApprovalWait): TvJourneyStep[] {
+  const labWaiting = !!lab && (lab.manager_review_status === 'PENDING' || lab._count.portions > 0);
+  const labDone = !!lab && lab.status === 'COMPLETED' && !labWaiting;
+  const labStep: TvJourneyStep = {
+    key: 'lab',
+    label: 'Lab',
+    at: iso(lab?.completed_at ?? lab?.started_at),
+    state: !lab ? (reached ? 'current' : 'upcoming') : labWaiting ? 'waiting' : labDone ? (isRejected(lab) ? 'rejected' : 'done') : 'current',
+    metric: labDone ? (isRejected(lab) ? 'Rejected' : 'Accepted') : null,
+    approval: labWaiting ? zmccManager : null,
+  };
+
+  const receipt = lab?.tank_receipt ?? null;
+  const closeWaiting = !!lab?.close_requested_at && !lab.close_approved_at;
+  let receiptState: TvStepState = 'upcoming';
+  if (receipt) receiptState = 'done';
+  else if (closeWaiting) receiptState = 'waiting';
+  else if (labDone && isRejected(lab)) receiptState = 'rejected';
+  else if (lab?.journey_closed_at) receiptState = 'rejected';
+  else if (labDone) receiptState = 'current';
+  const receiptStep: TvJourneyStep = {
+    key: 'receipt',
+    label: 'Receipt',
+    state: receiptState,
+    at: iso(receipt?.received_at ?? lab?.journey_closed_at),
+    metric: receipt ? `${lit(n(receipt.at_13ts_liters))} @13 TS` : receiptState === 'rejected' ? 'Not received' : null,
+    note: receipt ? `Gross ${lit(n(receipt.gross_liters))}` : null,
+    approval: closeWaiting ? zmccManager : null,
+  };
+  return [labStep, receiptStep];
+}
+
+const stateFor = (done: boolean, current: boolean): TvStepState => (done ? 'done' : current ? 'current' : 'upcoming');
+
+export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: boolean } = {}): Promise<TvZmccBoard> {
   const day = getPakistanDayWindow();
+  const hcSince = new Date(day.start.getTime() - HC_OPEN_DAYS * 24 * 3600 * 1000);
 
   const zmccs = await prisma.procurementSource.findMany({
     where: { source_type: 'ZMCC', is_active: true },
@@ -58,78 +132,65 @@ export async function buildTvZmccBoard(now: Date = new Date()): Promise<TvZmccBo
   const zmccIds = zmccs.map((z) => z.id);
   if (zmccIds.length === 0) return { updatedAt: now.toISOString(), zmccs: [] };
 
-  const [tanks, journeys, hcWaiting, labGroups, receiptGroups, visitGroups, movements] = await Promise.all([
-    prisma.zmccTank.findMany({
-      where: { zmcc_id: { in: zmccIds }, is_active: true },
-      select: { id: true, zmcc_id: true, capacity_liters: true },
-    }),
+  const [journeys, hcArrivals] = await Promise.all([
     prisma.motJourney.findMany({
-      where: { zmcc_id: { in: zmccIds }, status: { in: ACTIVE_JOURNEY } },
+      where: {
+        zmcc_id: { in: zmccIds },
+        OR: [{ status: { in: ACTIVE_JOURNEY } }, { status: 'COMPLETED', ended_at: { gte: day.start } }],
+      },
       orderBy: { started_at: 'asc' },
       select: {
         id: true,
         zmcc_id: true,
         status: true,
+        assigned_at: true,
+        started_at: true,
+        ended_at: true,
         mot_profile: { select: { name: true } },
         mot_vehicle: { select: { vehicle_number: true } },
         route: { select: { name: true } },
-        mot_arrival: { select: { id: true, lab_session: { select: { id: true, tank_receipt: { select: { id: true } } } } } },
+        mot_arrival: { select: { arrival_timestamp: true, exit_timestamp: true, lab_session: { select: LAB_SELECT } } },
       },
     }),
-    prisma.zmccLocalSupplierArrival.groupBy({
-      by: ['zmcc_id'],
-      where: { zmcc_id: { in: zmccIds }, arrival_timestamp: { gte: day.start, lte: day.end }, lab_session: { is: null } },
-      _count: { _all: true },
-    }),
-    prisma.zmccLabSession.groupBy({
-      by: ['zmcc_id'],
-      // Being tested, or tested and accepted but not unloaded into the tank yet.
+    prisma.zmccLocalSupplierArrival.findMany({
       where: {
         zmcc_id: { in: zmccIds },
-        OR: [{ status: 'IN_PROGRESS' }, { status: 'COMPLETED', final_decision: 'ACCEPTED', tank_receipt: { is: null } }],
+        OR: [
+          { arrival_timestamp: { gte: day.start } },
+          { gate_exit_required: true, exit_timestamp: null, arrival_timestamp: { gte: hcSince } },
+        ],
       },
-      _count: { _all: true },
-    }),
-    prisma.zmccTankReceipt.groupBy({
-      by: ['zmcc_id'],
-      where: { zmcc_id: { in: zmccIds }, received_at: { gte: day.start, lte: day.end } },
-      _count: { _all: true },
-    }),
-    prisma.vehicleVisit.groupBy({
-      by: ['procurement_source_id'],
-      where: {
-        procurement_source_id: { in: zmccIds },
-        current_status: { notIn: ['DRAFT_DISPATCH', 'PENDING_APPROVAL', 'REOPENED', 'CANCELLED'] },
-        portions: { some: { dispatch_info: { is: { dispatch_timestamp: { gte: day.start, lte: day.end } } } } },
+      orderBy: { arrival_timestamp: 'asc' },
+      select: {
+        id: true,
+        zmcc_id: true,
+        vehicle_number: true,
+        zmcc_token: true,
+        arrival_timestamp: true,
+        gate_exit_required: true,
+        exit_timestamp: true,
+        local_supplier: { select: { name: true, approval_status: true } },
+        lab_session: { select: LAB_SELECT },
       },
-      _count: { _all: true },
     }),
-    prisma.$queryRaw<Array<{ zmcc_id: bigint; received_13: unknown; received_gross: unknown; issued_13: unknown; issued_gross: unknown }>>`
-      SELECT zmcc_id,
-        COALESCE(SUM(CASE WHEN transaction_type = 'RECEIPT' OR reference_type = 'SUPER_ADMIN_MANUAL_INTAKE' THEN at_13ts_liters ELSE 0 END), 0) AS received_13,
-        COALESCE(SUM(CASE WHEN transaction_type = 'RECEIPT' OR reference_type = 'SUPER_ADMIN_MANUAL_INTAKE' THEN quantity_liters ELSE 0 END), 0) AS received_gross,
-        COALESCE(SUM(CASE WHEN transaction_type = 'ISSUE' THEN at_13ts_liters ELSE 0 END), 0) AS issued_13,
-        COALESCE(SUM(CASE WHEN transaction_type = 'ISSUE' THEN quantity_liters ELSE 0 END), 0) AS issued_gross
-      FROM zmcc_tank_inventory_transaction
-      WHERE zmcc_id IN (${Prisma.join(zmccIds)}) AND operational_timestamp >= ${day.start}
-      GROUP BY zmcc_id
-    `,
   ]);
 
   const journeyIds = journeys.map((j) => j.id);
-  const [stopGroups, collectionGroups, stocks] = await Promise.all([
-    journeyIds.length
-      ? prisma.motJourneyStop.groupBy({ by: ['journey_id', 'status'], where: { journey_id: { in: journeyIds } }, _count: { _all: true } })
-      : Promise.resolve([]),
-    journeyIds.length
-      ? prisma.motShopCollection.groupBy({
+  const [stopGroups, collectionGroups, pendingCollections] = journeyIds.length
+    ? await Promise.all([
+        prisma.motJourneyStop.groupBy({ by: ['journey_id', 'status'], where: { journey_id: { in: journeyIds } }, _count: { _all: true } }),
+        prisma.motShopCollection.groupBy({
           by: ['journey_id'],
           where: { journey_id: { in: journeyIds }, final_decision: 'ACCEPTED' },
-          _sum: { at_13ts_liters: true },
-        })
-      : Promise.resolve([]),
-    getBatchTankStocks(tanks.map((t) => t.id)),
-  ]);
+          _sum: { at_13ts_liters: true, gross_liters: true },
+        }),
+        prisma.motShopCollection.groupBy({
+          by: ['journey_id'],
+          where: { journey_id: { in: journeyIds }, review_status: 'PENDING' },
+          _count: { _all: true },
+        }),
+      ])
+    : [[], [], []];
 
   const stopsByJourney = new Map<string, { done: number; total: number }>();
   for (const g of stopGroups) {
@@ -139,62 +200,104 @@ export async function buildTvZmccBoard(now: Date = new Date()): Promise<TvZmccBo
     if (g.status === 'COMPLETED') cur.done += g._count._all;
     stopsByJourney.set(key, cur);
   }
-  const collectedByJourney = new Map(collectionGroups.map((g) => [g.journey_id.toString(), n(g._sum.at_13ts_liters)]));
-  const hcByZmcc = new Map(hcWaiting.map((g) => [g.zmcc_id.toString(), g._count._all]));
-  const labByZmcc = new Map(labGroups.map((g) => [g.zmcc_id.toString(), g._count._all]));
-  const receiptByZmcc = new Map(receiptGroups.map((g) => [g.zmcc_id.toString(), g._count._all]));
-  const visitByZmcc = new Map(visitGroups.map((g) => [String(g.procurement_source_id), g._count._all]));
-  const moveByZmcc = new Map(movements.map((m) => [m.zmcc_id.toString(), m]));
+  const collectedByJourney = new Map(collectionGroups.map((g) => [g.journey_id.toString(), g._sum]));
+  const pendingByJourney = new Set(pendingCollections.map((g) => g.journey_id.toString()));
 
-  const sections: TvZmccSection[] = zmccs.map((z) => {
-    const key = z.id.toString();
-    const zTanks = tanks.filter((t) => t.zmcc_id === z.id);
-    const zJourneys = journeys.filter((j) => j.zmcc_id === z.id);
-    const move = moveByZmcc.get(key);
+  const names = opts.names ? await resolveApproverNames(zmccIds.map((id) => ({ role: 'ZMCC_MANAGER', sourceId: id }))) : null;
+  const managerOf = (zmccId: bigint): ApprovalWait => ({
+    role: 'ZMCC_MANAGER',
+    name: names?.get(`ZMCC_MANAGER:${zmccId}`) ?? null,
+  });
 
-    let collecting = 0;
-    let arrivedMot = 0;
-    const rows: TvZmccTester[] = zJourneys.map((j) => {
-      const lab = j.mot_arrival?.lab_session ?? null;
-      const stepIndex = testerStepIndex({
-        status: j.status,
-        hasArrival: !!j.mot_arrival,
-        hasLab: !!lab,
-        inTank: !!lab?.tank_receipt,
-      });
-      if (stepIndex <= 2) collecting += 1;
-      else if (stepIndex === 3) arrivedMot += 1;
-      const stops = stopsByJourney.get(j.id.toString()) ?? { done: 0, total: 0 };
-      return {
-        journeyId: j.id.toString(),
-        testerName: j.mot_profile.name,
-        vehicleNumber: j.mot_vehicle.vehicle_number,
-        routeName: j.route.name,
-        shopsDone: stops.done,
-        shopsTotal: stops.total,
-        collectedAt13Ts: r2(collectedByJourney.get(j.id.toString()) ?? 0),
-        stepIndex,
-      };
-    });
-
+  const motRow = (j: (typeof journeys)[number]): TvZmccJourney => {
+    const key = j.id.toString();
+    const arrival = j.mot_arrival;
+    const lab = (arrival?.lab_session ?? null) as LabInfo | null;
+    const stops = stopsByJourney.get(key) ?? { done: 0, total: 0 };
+    const sums = collectedByJourney.get(key);
+    const collected = sums ? r2(n(sums.at_13ts_liters)) : 0;
+    const returning = j.status === 'RETURNING' || !!arrival || j.status === 'ARRIVED' || j.status === 'COMPLETED';
+    const atZmcc = !!arrival || j.status === 'ARRIVED' || j.status === 'COMPLETED';
+    const collectWaiting = pendingByJourney.has(key);
+    const [labStep, receiptStep] = labAndReceiptSteps(lab, atZmcc, managerOf(j.zmcc_id));
+    const ended = j.status === 'COMPLETED';
+    const settled = receiptStep.state === 'done' || receiptStep.state === 'rejected';
+    const steps: TvJourneyStep[] = [
+      { key: 'assigned', label: 'Assigned', state: 'done', at: iso(j.assigned_at) },
+      {
+        key: 'collecting',
+        label: 'Collecting',
+        state: collectWaiting ? 'waiting' : stateFor(returning, true),
+        metric: `${stops.done} / ${stops.total} shops`,
+        approval: collectWaiting ? managerOf(j.zmcc_id) : null,
+      },
+      { key: 'returning', label: 'Returning', state: stateFor(atZmcc, returning) },
+      { key: 'arrived', label: 'At ZMCC', state: stateFor(!!lab, atZmcc), at: iso(arrival?.arrival_timestamp) },
+      labStep,
+      receiptStep,
+      {
+        key: 'end',
+        label: 'Journey end',
+        state: stateFor(ended, settled),
+        at: iso(j.ended_at ?? arrival?.exit_timestamp),
+      },
+    ];
     return {
-      id: key,
+      id: `mot-${key}`,
+      kind: 'MOT',
+      title: j.mot_profile.name,
+      vehicleNumber: j.mot_vehicle.vehicle_number,
+      subtitle: j.route.name,
+      finished: ended,
+      collectedAt13Ts: collected,
+      receivedAt13Ts: lab?.tank_receipt ? r2(n(lab.tank_receipt.at_13ts_liters)) : null,
+      steps,
+    };
+  };
+
+  const hcRow = (h: (typeof hcArrivals)[number]): TvZmccJourney => {
+    const lab = (h.lab_session ?? null) as LabInfo | null;
+    const supplierWaiting = h.local_supplier.approval_status === 'PENDING' || h.local_supplier.approval_status === 'PENDING_APPROVAL';
+    const [labStep, receiptStep] = labAndReceiptSteps(lab, true, managerOf(h.zmcc_id));
+    const exited = !!h.exit_timestamp;
+    const settled = receiptStep.state === 'done' || receiptStep.state === 'rejected';
+    const steps: TvJourneyStep[] = [
+      {
+        key: 'gate-in',
+        label: 'Gate entry',
+        state: supplierWaiting ? 'waiting' : 'done',
+        at: iso(h.arrival_timestamp),
+        approval: supplierWaiting ? managerOf(h.zmcc_id) : null,
+      },
+      labStep,
+      receiptStep,
+    ];
+    if (h.gate_exit_required || exited) {
+      steps.push({ key: 'gate-out', label: 'Gate exit', state: stateFor(exited, settled), at: iso(h.exit_timestamp) });
+    }
+    return {
+      id: `hc-${h.id}`,
+      kind: 'HC',
+      title: h.local_supplier.name,
+      vehicleNumber: h.vehicle_number,
+      subtitle: `Token ${h.zmcc_token}`,
+      finished: exited || (!h.gate_exit_required && settled),
+      collectedAt13Ts: null,
+      receivedAt13Ts: lab?.tank_receipt ? r2(n(lab.tank_receipt.at_13ts_liters)) : null,
+      steps,
+    };
+  };
+
+  // Working vehicles first, finished ones after; each group keeps its time order.
+  const byWork = (a: TvZmccJourney, b: TvZmccJourney) => Number(a.finished) - Number(b.finished);
+  const sections: TvZmccSection[] = zmccs.map((z) => {
+    const testers = journeys.filter((j) => j.zmcc_id === z.id).map(motRow).sort(byWork);
+    const hc = hcArrivals.filter((h) => h.zmcc_id === z.id).map(hcRow).sort(byWork);
+    return {
+      id: z.id.toString(),
       name: z.name,
-      steps: {
-        collecting,
-        arrived: arrivedMot + (hcByZmcc.get(key) ?? 0),
-        lab: labByZmcc.get(key) ?? 0,
-        inTank: receiptByZmcc.get(key) ?? 0,
-        dispatched: visitByZmcc.get(key) ?? 0,
-      },
-      tank: {
-        stockAt13Ts: r2(zTanks.reduce((s, t) => s + (stocks.commercial.get(t.id.toString()) ?? 0), 0)),
-        stockGross: r2(zTanks.reduce((s, t) => s + (stocks.physical.get(t.id.toString()) ?? 0), 0)),
-        capacityLiters: r2(zTanks.reduce((s, t) => s + n(t.capacity_liters), 0)),
-      },
-      receivedToday: { at13Ts: r2(n(move?.received_13)), gross: r2(n(move?.received_gross)) },
-      dispatchedToday: { at13Ts: r2(n(move?.issued_13)), gross: r2(n(move?.issued_gross)) },
-      testers: { total: rows.length, rows: rows.slice(0, TV_ZMCC_MAX_TESTER_ROWS) },
+      testers: { total: testers.length, rows: testers.slice(0, TV_ZMCC_MAX_ROWS) },
+      hc: { total: hc.length, rows: hc.slice(0, TV_ZMCC_MAX_ROWS) },
     };
   });
 
@@ -205,5 +308,5 @@ const cache = createTtlCache<TvZmccBoard>({ ttlMs: 20_000 });
 
 /** The board is the same for every signed-in viewer, so one computation serves all of them for 20 seconds. */
 export function getTvZmccBoard(): Promise<TvZmccBoard> {
-  return cache.get('board', () => buildTvZmccBoard());
+  return cache.get('board', () => buildTvZmccBoard(new Date(), { names: true }));
 }

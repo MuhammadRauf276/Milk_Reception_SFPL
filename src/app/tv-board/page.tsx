@@ -17,6 +17,8 @@ import { ShakarganjLogo, ShakarganjIcon } from '@/components/brand/ShakarganjLog
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
 import { ZmccBoardSection } from '@/frontend/modules/tv-board/ZmccBoardSections';
 import type { TvZmccBoard } from '@/backend/services/tvBoardZmccService';
+import type { TvVehicleApproval } from '@/backend/services/tvBoardApprovals';
+import { getRoleLabel } from '@/backend/core/roles/labels';
 
 function subscribeToClock(onTick: () => void) {
   const id = window.setInterval(onTick, 1000);
@@ -44,6 +46,7 @@ interface TvBoardVehicle {
   firstWeightKg: number | null;
   secondWeightKg: number | null;
   lifecycle: ManagerLifecycleSummary;
+  approval: TvVehicleApproval | null;
 }
 
 const NO_VEHICLES: TvBoardVehicle[] = [];
@@ -255,7 +258,15 @@ export default function PublicYardTVBoardPage() {
                         </div>
 
                         <div className="py-1">
-                          <ManagerLifecycleTracker lifecycle={lc} compact={true} />
+                          <ManagerLifecycleTracker
+                            lifecycle={lc}
+                            compact={true}
+                            approval={
+                              vehicle.approval
+                                ? { stageId: vehicle.approval.stageId, roleLabel: getRoleLabel(vehicle.approval.role), name: vehicle.approval.name }
+                                : null
+                            }
+                          />
                         </div>
                       </div>
                     );

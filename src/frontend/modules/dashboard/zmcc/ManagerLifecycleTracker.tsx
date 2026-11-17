@@ -1,24 +1,18 @@
 'use client';
 
 import React from 'react';
-import { HorizontalScrollRow } from '@/components/ui/horizontal-scroll-row';
-import { ManagerLifecycleSummary } from './zmccManagerTypes';
-import {
-  CheckCircle2,
-  Circle,
-  FlaskConical,
-  Scale,
-  Building2,
-  Truck,
-  ShieldCheck,
-} from 'lucide-react';
+import { StepRail, type StepRailApproval, type StepRailItem, type StepRailState } from '@/components/ui/step-rail';
+import { LifecycleStageId, LifecycleStageInfo, ManagerLifecycleSummary } from './zmccManagerTypes';
+import { CheckCircle2, Circle, FlaskConical, Scale, Building2, Truck, ShieldCheck, LogOut } from 'lucide-react';
 
 interface ManagerLifecycleTrackerProps {
   lifecycle: ManagerLifecycleSummary;
   compact?: boolean;
+  /** A stage waiting for someone's approval: that stage shows who it waits on. */
+  approval?: (StepRailApproval & { stageId: LifecycleStageId }) | null;
 }
 
-const STAGE_ICONS: Record<string, React.ElementType> = {
+const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   DISPATCH: Truck,
   GATE_ENTRY: ShieldCheck,
   PLANT_QA: FlaskConical,
@@ -26,122 +20,54 @@ const STAGE_ICONS: Record<string, React.ElementType> = {
   UNLOADING: Building2,
   SECOND_WEIGHT: Scale,
   FINAL_RECEIPT: CheckCircle2,
+  GATE_EXIT: LogOut,
 };
 
-export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = ({
-  lifecycle,
-  compact = false,
-}) => {
-  const stepWidth = compact ? 'w-29' : 'w-34';
-  const railInset = compact ? 'left-14.5 right-14.5' : 'left-17 right-17';
+const STATE: Record<LifecycleStageInfo['status'], StepRailState> = {
+  COMPLETED: 'done',
+  CURRENT: 'current',
+  UPCOMING: 'upcoming',
+  SKIPPED: 'upcoming',
+};
 
-  return (
-    <HorizontalScrollRow role="region" aria-label="Vehicle progress">
-      <div className="relative inline-flex min-w-max items-start gap-2 px-1 py-1">
-        {/* Continuous background connector line across all stage circles */}
-        <div className={`pointer-events-none absolute top-5 ${railInset} h-0.5 bg-border z-0`} />
+function qaTone(badge: ManagerLifecycleSummary['portionQA']['badgeType']): string {
+  if (badge === 'ALL_ACCEPTED') return 'bg-emerald-50 text-emerald-800';
+  if (badge === 'ALL_REJECTED' || badge === 'MIXED') return 'bg-rose-50 text-rose-800';
+  if (badge === 'HAS_HOLD') return 'bg-amber-50 text-amber-700';
+  return 'bg-muted text-secondary-foreground';
+}
 
-        {lifecycle.stages.map((stage) => {
-          const Icon = STAGE_ICONS[stage.id] || Circle;
-          const isCompleted = stage.status === 'COMPLETED';
-          const isCurrent = stage.status === 'CURRENT';
+export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = ({ lifecycle, compact = false, approval }) => {
+  const steps: StepRailItem[] = lifecycle.stages.map((stage) => {
+    const waits = approval && approval.stageId === stage.id && (stage.status !== 'UPCOMING' || stage.id === 'DISPATCH');
+    const lines: React.ReactNode[] = [];
+    if (stage.status === 'CURRENT' && !waits) {
+      lines.push(
+        <span className="mt-0.5 inline-block rounded border border-primary/20 bg-primary/10 px-2 py-0.5 font-semibold text-primary">Current</span>
+      );
+    }
+    if (stage.id === 'PLANT_QA' && stage.detailText) {
+      lines.push(
+        <span className={`mt-0.5 inline-block rounded px-2 py-0.5 font-semibold ${qaTone(lifecycle.portionQA.badgeType)}`}>{stage.detailText}</span>
+      );
+    }
+    if (stage.metricText) lines.push(<span className="font-semibold text-secondary-foreground">{stage.metricText}</span>);
+    if (stage.id === 'UNLOADING') {
+      if (stage.detailText) lines.push(<span className="text-secondary-foreground">{stage.detailText}</span>);
+      if (stage.eventTimestamp) lines.push(`Started: ${stage.eventTimestamp}`);
+      if (stage.eventTimestampEnd) lines.push(`Completed: ${stage.eventTimestampEnd}`);
+    } else if (stage.eventTimestamp) {
+      lines.push(stage.eventTimestamp);
+    }
+    return {
+      key: stage.key ?? stage.id,
+      label: compact ? stage.shortLabel : stage.label,
+      state: waits ? 'waiting' : STATE[stage.status],
+      icon: STAGE_ICONS[stage.id] || Circle,
+      lines,
+      approval: waits ? { roleLabel: approval.roleLabel, name: approval.name } : null,
+    };
+  });
 
-          let circleBg = 'bg-muted border-border-strong text-muted-foreground';
-          let labelColor = 'text-muted-foreground';
-
-          if (isCompleted) {
-            circleBg = 'bg-emerald-700 border-emerald-700 text-white shadow-xs';
-            labelColor = 'text-emerald-800 font-semibold';
-          } else if (isCurrent) {
-            circleBg = 'bg-primary border-primary text-white ring-4 ring-primary/15 shadow-sm';
-            labelColor = 'text-primary font-semibold';
-          }
-
-          return (
-            <div
-              key={stage.id}
-              className={`flex flex-col items-center text-center relative z-raised shrink-0 px-1 ${stepWidth}`}
-            >
-              {/* Step Circle Indicator */}
-              <div
-                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-[color,background-color,border-color,box-shadow,opacity,transform] ${circleBg}`}
-                title={`${stage.label}: ${stage.status}`}
-              >
-                {isCompleted ? (
-                  <CheckCircle2 className="w-4 h-4" />
-                ) : isCurrent ? (
-                  <div className="w-2.5 h-2.5 bg-card rounded-full" />
-                ) : (
-                  <Icon className="w-3.5 h-3.5" />
-                )}
-              </div>
-
-              {/* Stage Title */}
-              <span className={`text-xs mt-2 block leading-snug break-words ${labelColor}`}>
-                {compact ? stage.shortLabel : stage.label}
-              </span>
-
-              {/* Status Badge / Detail */}
-              {isCurrent && (
-                <span className="mt-1 px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary border border-primary/20 whitespace-nowrap">
-                  Current
-                </span>
-              )}
-
-              {/* Specific Stage Contexts */}
-              {stage.id === 'PLANT_QA' && stage.detailText && (
-                <span
-                  className={`mt-1 text-xs tabular-nums font-semibold px-2 py-0.5 rounded break-words ${
-                    lifecycle.portionQA.badgeType === 'ALL_ACCEPTED'
-                      ? 'bg-emerald-50 text-emerald-800'
-                      : lifecycle.portionQA.badgeType === 'ALL_REJECTED' || lifecycle.portionQA.badgeType === 'MIXED'
-                      ? 'bg-rose-50 text-rose-800'
-                      : lifecycle.portionQA.badgeType === 'HAS_HOLD'
-                      ? 'bg-amber-50 text-amber-700'
-                      : 'bg-muted text-secondary-foreground'
-                  }`}
-                >
-                  {stage.detailText}
-                </span>
-              )}
-
-              {stage.metricText && (
-                <span className="mt-0.5 text-xs tabular-nums font-semibold text-secondary-foreground break-words">
-                  {stage.metricText}
-                </span>
-              )}
-
-              {stage.id === 'UNLOADING' && stage.detailText && (
-                <span className="mt-0.5 text-xs tabular-nums text-secondary-foreground break-words">
-                  {stage.detailText}
-                </span>
-              )}
-
-              {/* Authoritative Milestone Event Date/Time */}
-              {stage.id === 'UNLOADING' ? (
-                <div className="mt-0.5 space-y-0.5">
-                  {stage.eventTimestamp && (
-                    <span className="text-xs tabular-nums text-muted-foreground block leading-snug">
-                      Started: {stage.eventTimestamp}
-                    </span>
-                  )}
-                  {stage.eventTimestampEnd && (
-                    <span className="text-xs tabular-nums text-muted-foreground block leading-snug">
-                      Completed: {stage.eventTimestampEnd}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                stage.eventTimestamp && (
-                  <span className="mt-0.5 text-xs tabular-nums text-muted-foreground block leading-snug">
-                    {stage.eventTimestamp}
-                  </span>
-                )
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </HorizontalScrollRow>
-  );
+  return <StepRail steps={steps} ariaLabel="Vehicle progress" stepClassName={compact ? 'min-w-29' : 'min-w-34'} />;
 };

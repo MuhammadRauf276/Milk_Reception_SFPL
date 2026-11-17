@@ -28,6 +28,8 @@ export type LifecycleStageStatus = 'COMPLETED' | 'CURRENT' | 'UPCOMING' | 'SKIPP
 
 export interface LifecycleStageInfo {
   id: LifecycleStageId;
+  /** Unique per step; a vehicle weighed after each portion has one Unload and one Weight step per portion. */
+  key?: string;
   label: string;
   shortLabel: string;
   status: LifecycleStageStatus;
