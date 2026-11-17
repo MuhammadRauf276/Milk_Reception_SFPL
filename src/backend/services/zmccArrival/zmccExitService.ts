@@ -482,7 +482,9 @@ function toQueueItem(s: SessionFull): ExitQueueItem {
       (outcome === 'PARTLY_RECEIVED' || outcome === 'ACCEPTED_NOT_RECEIVED') &&
       s.closed_reason !== 'CLOSED_WITHOUT_UNLOADING',
     unloaded: !!s.unloaded_at,
-    can_exit: hc && decided && !left && s.local_supplier_arrival?.gate_exit_required === true && !s.close_requested_at,
+    // A close request still waiting for the manager holds the vehicle; an approved one lets it leave.
+    can_exit:
+      hc && decided && !left && s.local_supplier_arrival?.gate_exit_required === true && !(s.close_requested_at && !s.close_approved_at),
     can_request_close: canRequestClose(s) === null,
     close_requested: !!s.close_requested_at && !s.close_approved_at,
     close_reason_code: s.exit_reason_code,
@@ -497,11 +499,12 @@ export async function listExitQueue(acting: ActingContext): Promise<ExitServiceR
   const rows = await prisma.zmccLabSession.findMany({
     where: {
       ...zmccFilter,
-      journey_closed_at: null,
       portions: { some: {} },
       OR: [
+        // An HC vehicle stays on the list until its exit is recorded, also after its lab session is closed
+        // (all portions weighed into the tank, or all rejected): the vehicle is still at the gate.
         { arrival_type: 'HC', local_supplier_arrival: { is: { exit_timestamp: null, gate_exit_required: true } } },
-        { unloaded_at: null, portions: { some: { final_decision: 'ACCEPTED' } } },
+        { journey_closed_at: null, unloaded_at: null, portions: { some: { final_decision: 'ACCEPTED' } } },
       ],
     },
     include: SESSION_INCLUDE,
