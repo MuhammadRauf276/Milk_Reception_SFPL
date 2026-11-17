@@ -748,7 +748,8 @@ export async function getArrivalsQueue(
     journey: { status: { in: ['ARRIVED', 'COMPLETED'] } },
     OR: [
       { lab_session: null },
-      { lab_session: { status: 'IN_PROGRESS' } },
+      // A session the manager closed (the vehicle left without giving milk) is no longer lab work.
+      { lab_session: { status: 'IN_PROGRESS', journey_closed_at: null } },
     ],
   };
 
@@ -759,7 +760,8 @@ export async function getArrivalsQueue(
     ...(effectiveZmccId ? { zmcc_id: effectiveZmccId } : {}),
     OR: [
       { lab_session: null },
-      { lab_session: { status: 'IN_PROGRESS' } },
+      // A session the manager closed (the vehicle left without giving milk) is no longer lab work.
+      { lab_session: { status: 'IN_PROGRESS', journey_closed_at: null } },
     ],
   };
 
