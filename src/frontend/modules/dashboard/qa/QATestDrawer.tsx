@@ -348,7 +348,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                     <div className="flex items-center space-x-2">
                       <ShieldCheck className="w-4 h-4 text-muted-foreground" />
                       <h4 className="text-xs font-semibold text-foreground">
-                        Tanker Seal Check
+                        Seal check
                       </h4>
                     </div>
                     {hasDispatchSeal ? (
@@ -634,7 +634,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                               <InfoTip
                                 label="Optional test info"
                                 className="-my-2"
-                                text="Not under SOP: Optional test, system rules not applied."
+                                text="Optional test. No SOP rules applied."
                               />
                             </div>
                           )}
@@ -645,7 +645,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                               <InfoTip
                                 label="Formula details"
                                 className="-my-2"
-                                text="Calculated automatically by Richmond formula."
+                                text="Auto-calculated (Richmond)."
                               />
                             </div>
                           )}
@@ -695,14 +695,14 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                             <PopoverTrigger asChild>
                               <button
                                 type="button"
-                                aria-label="Why the system rejects"
+                                aria-label="Why rejected"
                                 className="inline-flex h-5 w-5 items-center justify-center rounded-full text-rose-700 hover:bg-rose-50"
                               >
                                 <Info className="h-4 w-4" />
                               </button>
                             </PopoverTrigger>
                             <PopoverContent align="end" className="w-72 space-y-1.5 p-3 text-xs">
-                              <p className="font-semibold text-foreground">Why the system rejects</p>
+                              <p className="font-semibold text-foreground">Why rejected</p>
                               <ul className="list-disc space-y-1 pl-4 text-secondary-foreground">
                                 {systemRejectReasons.map((r) => (
                                   <li key={r}>{r}</li>
@@ -784,16 +784,16 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
                     return (
                       <div className="space-y-2 pt-2">
                         {hasUploadingPhoto && (
-                          <p className="text-xs font-semibold text-amber-800">Please wait for photo upload to finish…</p>
+                          <p className="text-xs font-semibold text-amber-800">Wait for photo upload</p>
                         )}
                         {personDecision === 'REJECT' && !hasAnyPerformedTest && (
                           <p className="text-xs font-semibold text-rose-700">
-                            Record at least one test measurement before saving Reject.
+                            Record a test before rejecting.
                           </p>
                         )}
                         {personDecision && remarksTooShort && (
                           <p className="text-xs font-semibold text-amber-800">
-                            Please write remarks (at least 3 letters).
+                            Add remarks (3 letters minimum).
                           </p>
                         )}
                         <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border pt-3">
@@ -911,7 +911,7 @@ export const QATestDrawer: React.FC<QATestDrawerProps> = ({
             } catch (err) {
               setPhotoUploadState((prev) => ({ ...prev, [photoKey]: { progress: 0, status: 'error' } }));
               console.error('Failed to upload photo:', err);
-              toast.error(`Photo for ${currentTest.testName} was not saved. Please take it again. ${err instanceof Error ? err.message : ''}`.trim());
+              toast.error(`Photo for ${currentTest.testName} was not saved. Retake it. ${err instanceof Error ? err.message : ''}`.trim());
             }
           }}
           onCancel={() => setCameraTest(null)}

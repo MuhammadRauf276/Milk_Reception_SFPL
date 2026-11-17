@@ -340,7 +340,7 @@ export function UserFormDrawer({ user, open, onClose, onSaved }: Props) {
         )}
 
         <div className="space-y-1 rounded-xl border border-border bg-card p-3 text-secondary-foreground">
-          <div className="text-xs font-semibold text-muted-foreground">Assignment Details</div>
+          <div className="text-xs font-semibold text-muted-foreground">Assignment</div>
           <div className="flex items-center justify-between">
             <span className="font-medium text-muted-foreground">Department:</span>
             <span className="font-semibold text-foreground">{policy.department}</span>

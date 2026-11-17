@@ -136,7 +136,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
       formDraft.clear();
       onChanged('Values saved. Nothing is in the tank yet. Tap "Unload to ZMCC tank" when the milk is poured.');
     } catch (err) {
-      setError(getErrorMessage(err) || 'Could not save. Please try again.');
+      setError(getErrorMessage(err) || 'Could not save. Try again.');
     }
   };
   const onUnload = async () => {
@@ -147,7 +147,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
       formDraft.clear();
       onChanged('Milk unloaded to the tank.');
     } catch (err) {
-      setError(getErrorMessage(err) || 'Could not unload. Please try again.');
+      setError(getErrorMessage(err) || 'Could not unload. Try again.');
     }
   };
 
@@ -227,12 +227,12 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
               )}
             </div>
           ))}
-          {weightsInvalid && <ZmccErrorBanner message="A weight is not less than the one before it. Please check." />}
+          {weightsInvalid && <ZmccErrorBanner message="Each weight must be less than the one before." />}
 
           {totalLiveNet !== null && !weightsInvalid && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs space-y-1.5">
               <div className="flex items-center justify-between font-semibold text-emerald-900 border-b border-emerald-200/60 pb-1">
-                <span>Net Milk Weight Summary</span>
+                <span>Net weight</span>
                 <span className="text-xs font-normal text-emerald-700">
                   {n + 1} weights verified
                 </span>
@@ -293,7 +293,7 @@ export const WeighingEntryDrawer: React.FC<Props> = ({ session, tanks, sources, 
           {totalLiveNet !== null && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs space-y-1.5">
               <div className="flex items-center justify-between font-semibold text-emerald-900 border-b border-emerald-200/60 pb-1">
-                <span>Direct Net Quantity Summary</span>
+                <span>Net quantity</span>
                 <span className="text-xs font-normal text-emerald-700">
                   Direct entry
                 </span>

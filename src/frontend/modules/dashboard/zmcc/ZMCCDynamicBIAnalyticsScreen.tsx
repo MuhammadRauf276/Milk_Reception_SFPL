@@ -151,11 +151,11 @@ export function ZMCCDynamicBIAnalyticsScreen({
     });
     if (facilityId) params.append('zmccId', facilityId);
     window.open(`/api/zmcc/reports/export?${params.toString()}`, '_blank');
-    toast.success('Downloading BI Analytics report (.xlsx)…');
+    toast.success('Downloading…');
   };
 
   if (analyticsQuery.isPending) {
-    return <PageLoader label="Calculating BI telemetry & trends…" className="py-24" />;
+    return <PageLoader label="Loading trends…" className="py-24" />;
   }
 
   if (analyticsQuery.isError) {
@@ -177,11 +177,11 @@ export function ZMCCDynamicBIAnalyticsScreen({
             <div className="flex items-center gap-2">
               <LineChart className="w-5 h-5 text-muted-foreground" />
               <h1 className="text-lg font-semibold text-foreground">
-                Business Intelligence & Statistical Analytics
+                Analytics
               </h1>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Volume, quality and loss trends
+              Volume, quality, loss
             </p>
           </div>
 
@@ -286,14 +286,14 @@ export function ZMCCDynamicBIAnalyticsScreen({
           tone="default"
         />
         <StatCard
-          label="Tier 1 Route Loss / Gain"
+          label="Route loss / gain"
           value={summaryKpis.tier1RouteDiffPct != null ? formatLossGainPercent(summaryKpis.tier1RouteDiffPct) : '—'}
           hint={summaryKpis.tier1RouteDiffLiters != null ? `Net ${formatLossGain(summaryKpis.tier1RouteDiffLiters)}` : 'No received journeys yet'}
           icon={Layers}
           tone={summaryKpis.tier1RouteDiffPct != null && summaryKpis.tier1RouteDiffPct < -1.0 ? 'danger' : 'default'}
         />
         <StatCard
-          label="Tier 2 Storage Loss / Gain"
+          label="Storage loss / gain"
           value={summaryKpis.tier2StorageDiffPct != null ? formatLossGainPercent(summaryKpis.tier2StorageDiffPct) : '—'}
           hint={summaryKpis.tier2StorageDiffLiters != null ? `Net ${formatLossGain(summaryKpis.tier2StorageDiffLiters)}` : 'Not enough data yet'}
           icon={Layers}
@@ -314,8 +314,8 @@ export function ZMCCDynamicBIAnalyticsScreen({
         <div className="lg:col-span-2 bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-4">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div>
-              <h2 className="text-sm font-semibold text-foreground">Intake Volume Trend & Shift Breakdown</h2>
-              <p className="text-xs text-muted-foreground">Daily intake, morning and evening</p>
+              <h2 className="text-sm font-semibold text-foreground">Intake by shift</h2>
+              <p className="text-xs text-muted-foreground">Daily intake</p>
             </div>
             <span className="text-xs text-muted-foreground font-semibold tabular-nums">
               {bi.timeHorizon.totalDays} Days Window
@@ -329,7 +329,7 @@ export function ZMCCDynamicBIAnalyticsScreen({
         <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-4 flex flex-col justify-between">
           <div className="border-b border-border pb-3">
             <h2 className="text-sm font-semibold text-foreground">Shift Contribution</h2>
-            <p className="text-xs text-muted-foreground">Intake ratio between reception shifts</p>
+            <p className="text-xs text-muted-foreground">Shift split</p>
           </div>
 
           <ShiftDistributionChart shiftComparison={shiftComparison} />
@@ -337,11 +337,11 @@ export function ZMCCDynamicBIAnalyticsScreen({
           <div className="p-3 bg-subtle rounded-lg text-xs space-y-1.5 border border-border">
             <span className="text-xs font-semibold text-muted-foreground block">Turnaround Performance</span>
             <div className="flex items-center justify-between text-secondary-foreground">
-              <span>Collection Execution Rate:</span>
+              <span>Collection rate:</span>
               <span className="font-semibold text-emerald-700">{summaryKpis.shopCollectionRatePct != null ? `${summaryKpis.shopCollectionRatePct}%` : '—'}</span>
             </div>
             <div className="flex items-center justify-between text-secondary-foreground">
-              <span>On-Time Arrival Rate:</span>
+              <span>On-time rate:</span>
               <span className="font-semibold text-foreground">{summaryKpis.onTimeArrivalRatePct != null ? `${summaryKpis.onTimeArrivalRatePct}%` : '—'}</span>
             </div>
           </div>
@@ -353,8 +353,8 @@ export function ZMCCDynamicBIAnalyticsScreen({
         {/* Quality Scatter Matrix */}
         <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-4">
           <div className="border-b border-border pb-3">
-            <h2 className="text-sm font-semibold text-foreground">Quality Composition Matrix (Fat vs SNF)</h2>
-            <p className="text-xs text-muted-foreground">Quality distribution against regulatory baseline standards</p>
+            <h2 className="text-sm font-semibold text-foreground">Fat vs SNF</h2>
+            <p className="text-xs text-muted-foreground">Quality against standards</p>
           </div>
 
           <QualityMatrixChart scatter={qualityScatter} />
@@ -363,8 +363,8 @@ export function ZMCCDynamicBIAnalyticsScreen({
         {/* Route Loss & Variance Diagnostics */}
         <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-4">
           <div className="border-b border-border pb-3">
-            <h2 className="text-sm font-semibold text-foreground">Route Intake Volume & Tier 1 Loss / Gain</h2>
-            <p className="text-xs text-muted-foreground">Volume contribution alongside shop-to-gate variance percentage</p>
+            <h2 className="text-sm font-semibold text-foreground">Route intake and loss</h2>
+            <p className="text-xs text-muted-foreground">Volume and shop-to-gate variance</p>
           </div>
 
           <RouteLossBarChart rankings={routeRankings} />
@@ -374,17 +374,17 @@ export function ZMCCDynamicBIAnalyticsScreen({
       {/* Hourly Reception Flow Heatmap */}
       <div className="bg-card p-5 rounded-2xl border border-border shadow-2xs space-y-3">
         <div className="border-b border-border pb-3">
-          <h2 className="text-sm font-semibold text-foreground">Hourly Reception Gate Throughput Flow</h2>
-          <p className="text-xs text-muted-foreground">24-hour distribution of intake volume to identify gate arrival bottlenecks</p>
+          <h2 className="text-sm font-semibold text-foreground">Hourly gate intake</h2>
+          <p className="text-xs text-muted-foreground">Hourly intake volume</p>
         </div>
 
         <HourlyHeatmapChart hourlyFlow={hourlyFlow} />
       </div>
 
-      {/* Route Performance League Table */}
+      {/* Route ranking */}
       <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs">
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Route Performance League Table</h2>
+          <h2 className="text-sm font-semibold text-foreground">Route ranking</h2>
           <span className="text-xs text-muted-foreground font-medium">{routeRankings.length} routes active</span>
         </div>
 

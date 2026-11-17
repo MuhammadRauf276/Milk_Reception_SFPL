@@ -64,13 +64,13 @@ export const ProductionStartUnloadingDrawer: React.FC<{
 
     const missingSilo = assignments.some((a) => !a.siloId);
     if (missingSilo) {
-      toast.showError('Destination Silo is required for every accepted portion before starting unloading.', 'Validation Error');
+      toast.showError('Pick a silo for each accepted portion.', 'Validation Error');
       return;
     }
 
     const targetPortionId = isPortionWise && activePortion ? activePortion.id : acceptedPortions[0]?.id;
     if (!targetPortionId) {
-      toast.showError('No accepted portion found to start unloading.', 'Error');
+      toast.showError('No accepted portion to unload.', 'Error');
       return;
     }
 
@@ -98,7 +98,7 @@ export const ProductionStartUnloadingDrawer: React.FC<{
       );
       onStarted();
     } catch (err) {
-      toast.showError(getErrorMessage(err) || 'Failed to start unloading', 'Unloading Error');
+      toast.showError(getErrorMessage(err) || 'Could not start unloading', 'Unloading failed');
     } finally {
       setActionLoading(false);
     }
@@ -113,11 +113,11 @@ export const ProductionStartUnloadingDrawer: React.FC<{
     <Drawer open onOpenChange={(o) => !o && onClose()}>
       <DrawerContent showClose={false}>
         <div className="overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 space-y-6 text-foreground">
-          <DrawerTitle className="sr-only">Start Silo Unloading</DrawerTitle>
+          <DrawerTitle className="sr-only">Start unloading</DrawerTitle>
           <div className="flex items-start justify-between gap-2 border-b border-border-strong pb-4">
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-base font-semibold text-foreground">Start Silo Unloading</h3>
+                <h3 className="text-base font-semibold text-foreground">Start unloading</h3>
                 {isPortionWise && (
                   <span className="px-2 py-0.5 rounded text-xs font-semibold bg-muted text-secondary-foreground border border-border">
                     Portion-Wise Loop
@@ -171,7 +171,7 @@ export const ProductionStartUnloadingDrawer: React.FC<{
 
           <div className="space-y-3">
             <h4 className="text-xs font-semibold text-foreground">
-              {isPortionWise ? 'Destination Silo Assignment' : 'Accepted Portions & Destination Silos'}
+              {isPortionWise ? 'Destination silo' : 'Accepted Portions & Destination Silos'}
             </h4>
             {portionsToAssign.map((p) => (
               <div key={p.id} className="bg-card border-border p-4 rounded-2xl border space-y-3">
@@ -235,8 +235,8 @@ export const ProductionStartUnloadingDrawer: React.FC<{
                 <Play className="w-4 h-4" />
                 <span>
                   {isPortionWise && activePortion
-                    ? `Start Silo Unloading (Portion #${activePortion.portion_number})`
-                    : 'Start Silo Unloading'}
+                    ? `Start unloading (Portion #${activePortion.portion_number})`
+                    : 'Start unloading'}
                 </span>
               </>
             )}

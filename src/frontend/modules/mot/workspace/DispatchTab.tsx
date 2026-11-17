@@ -72,7 +72,7 @@ export function DispatchTab({
     const selectedVehicleValue = dispatchVehicleId;
 
     if (!dispatchRouteId || !dispatchProfileId || !selectedVehicleValue) {
-      onError('Please select Route, Mobile Tester, and Vehicle.');
+      onError('Select route, Mobile Tester and vehicle.');
       return;
     }
     if (originSet === false) {
@@ -200,7 +200,7 @@ export function DispatchTab({
                 />
                 {profiles.length > 0 && profiles.every((p) => p.has_active_journey) && (
                   <p className="text-xs font-semibold text-amber-800 mt-1">
-                    All testers are currently busy on active journeys.
+                    All testers are busy.
                   </p>
                 )}
               </div>

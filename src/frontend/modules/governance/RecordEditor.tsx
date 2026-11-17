@@ -158,7 +158,7 @@ function EditForm({ section, onClose, onSaved }: { section: EditorSection; onClo
           ))}
         </div>
 
-        <FormField label="Reason for this correction" htmlFor="edit-reason" required hint="Saved in the audit log with your name.">
+        <FormField label="Reason" htmlFor="edit-reason" required hint="Saved with your name.">
           <textarea
             id="edit-reason"
             value={reason}
@@ -291,7 +291,7 @@ function PhotoForm({ photo, slot, onClose, onSaved }: { photo?: EditorPhoto; slo
             errorMessage={error ?? undefined}
           />
         )}
-        <FormField label="Reason for this correction" htmlFor="photo-reason" required hint={photo ? 'The old picture is kept and the change is saved in the audit log.' : 'Saved in the audit log with your name.'}>
+        <FormField label="Reason" htmlFor="photo-reason" required hint={photo ? 'The old picture is kept and the change is saved in the audit log.' : 'Saved with your name.'}>
           <textarea id="photo-reason" value={reason} rows={3} onChange={(e) => setReason(e.target.value)} className="w-full rounded-md border border-border bg-card p-3 text-sm text-foreground" />
         </FormField>
         <ErrorPopup message={error} />
@@ -364,7 +364,7 @@ export function RecordEditor() {
           >
             <option value="ALL">All stages</option>
             <option value="SHOP">1. Shop collection</option>
-            <option value="MC">2. ZMCC arrival and lab: Mobile Tester milk</option>
+            <option value="MC">2. ZMCC arrival and lab</option>
             <option value="HC">2. ZMCC arrival and lab: HC suppliers</option>
             <option value="DISPATCH">3. Dispatch</option>
             <option value="PLANT">4. Plant: gate, weighbridge, QA, unloading</option>

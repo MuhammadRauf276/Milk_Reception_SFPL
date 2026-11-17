@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { androidBridge, type NativeGpsStatus, type NativeOfflineSummary } from '../native/androidBridge';
 import { getFixAgeLabel } from '@/lib/gpsTracker';
+import { InfoTip } from '@/components/ui/info-tip';
 
 export interface MotNativeStatusBadgeProps {
   journeyId?: string | null;
@@ -118,7 +119,7 @@ export function MotNativeStatusBadge({ journeyId, online, onManualSync }: MotNat
       {/* Battery Optimization Warning (if not disabled) */}
       {isNative && !batteryIgnored && (
         <div className="flex items-center justify-between p-2 mt-1 rounded bg-amber-950/60 border border-amber-800/80 text-xs text-amber-200">
-          <span>Battery optimization may restrict GPS tracking when screen is locked.</span>
+          <span>Battery saver may stop GPS.<InfoTip text="Battery optimization may restrict GPS tracking while the screen is locked." /></span>
           <button
             type="button"
             onClick={handleBatteryWarningClick}

@@ -6,6 +6,7 @@ import { ZmccDrawer } from '@/frontend/modules/zmcc/shared/ZmccDrawer';
 import { correctedPortionFigures } from '@/backend/services/zmcc/labPortionCorrectionCalc';
 import { formatNumber } from '@/lib/format';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { InfoTip } from '@/components/ui/info-tip';
 
 type PortionRow = {
   id: string;
@@ -135,7 +136,7 @@ export function PortionCorrectionDrawer({ open, sessionId, subtitleLabel, onClos
       subtitle={subtitleLabel}
     >
       <p className="rounded-xl border border-border bg-card p-3 text-xs text-secondary-foreground">
-        The tank, receipt and route loss update with this correction. Every change is recorded.
+        Every change is recorded.<InfoTip text="The tank, receipt and route loss update with this correction." />
       </p>
 
       {loading ? <p className="text-xs text-muted-foreground">Loading portions…</p> : null}
@@ -153,7 +154,7 @@ export function PortionCorrectionDrawer({ open, sessionId, subtitleLabel, onClos
 
       {selected ? (
         <>
-          {isWaiting ? <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">This portion is waiting for a decision. Correct it after the decision.</p> : null}
+          {isWaiting ? <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">Waiting for a decision.<InfoTip text="Correct this portion after the decision." /></p> : null}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label htmlFor="correct-lr" className="mb-1 block text-xs font-semibold text-foreground">LR</label>

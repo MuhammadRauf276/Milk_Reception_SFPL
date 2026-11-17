@@ -4,6 +4,7 @@ import { formatTime } from '@/lib/format';
 import React from 'react';
 import { CheckCircle2, Clock } from 'lucide-react';
 import type { McArrivalRow } from './arrivalTypes';
+import { InfoTip } from '@/components/ui/info-tip';
 
 export const McSuccessCard: React.FC<{
   result: McArrivalRow;
@@ -40,24 +41,24 @@ export const McSuccessCard: React.FC<{
                   </div>
                   {result.zmcc_token?.includes('OFFLINE') && (
                     <div className="mt-1 text-xs font-medium text-amber-700 bg-amber-50 rounded px-2 py-0.5 border border-amber-200">
-                      Saved offline on device. Will sync automatically once connected.
+                      Saved offline. Will sync later.<InfoTip text="It syncs automatically once the phone is connected." />
                     </div>
                   )}
                 </div>
                 <div>
-                  <span className="text-xs font-semibold text-muted-foreground">Arrival Time</span>
+                  <span className="text-xs font-semibold text-muted-foreground">Arrival time</span>
                   <div className="text-xs font-semibold text-foreground mt-0.5">
                     {new Date(result.arrival_timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Karachi' })} PKT
                   </div>
                 </div>
                 <div>
-                  <span className="text-xs font-semibold text-muted-foreground">Journey Number</span>
+                  <span className="text-xs font-semibold text-muted-foreground">Journey number</span>
                   <div className="text-xs font-semibold text-foreground mt-0.5">
                     {result.journey?.journey_number || journeyNumber}
                   </div>
                 </div>
                 <div>
-                  <span className="text-xs font-semibold text-muted-foreground">Vehicle Number</span>
+                  <span className="text-xs font-semibold text-muted-foreground">Vehicle number</span>
                   <div className="text-xs font-semibold text-foreground mt-0.5">
                     {result.journey?.vehicle_number || '—'}
                   </div>
@@ -81,22 +82,22 @@ export const McSuccessCard: React.FC<{
                       <div className="text-sm font-semibold text-foreground">{result.journey.summary.assigned_shop_count}</div>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <div className="text-xs font-semibold text-emerald-700">Collected Shops</div>
+                      <div className="text-xs font-semibold text-emerald-700">Collected shops</div>
                       <div className="text-sm font-semibold text-emerald-800">{result.journey.summary.collected_shop_count}</div>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <div className="text-xs font-semibold text-amber-700">Skipped Shops</div>
+                      <div className="text-xs font-semibold text-amber-700">Skipped shops</div>
                       <div className="text-sm font-semibold text-amber-800">{result.journey.summary.skipped_shop_count}</div>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <div className="text-xs font-semibold text-blue-700">Pending Sync</div>
+                      <div className="text-xs font-semibold text-blue-700">Pending sync</div>
                       <div className="text-sm font-semibold text-blue-800">{result.journey.summary.pending_shop_count}</div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center">
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <div className="text-xs font-semibold text-muted-foreground">Gross Liters</div>
+                      <div className="text-xs font-semibold text-muted-foreground">Gross liters</div>
                       <div className="text-xs tabular-nums font-semibold text-foreground">
                         {Number(result.journey.summary.total_gross_liters).toFixed(2)} L
                       </div>

@@ -4,7 +4,7 @@
 > **Master UI/UX Specification & Front-End Design Standard**  
 > **File Location:** `docs/ui-guidelines.md`  
 > **Target Version:** SFPL Milk Reception Application 2.0  
-> **Last Updated:** October 2026  
+> **Last Updated:** 16 November 2026  
 > **Status:** **LOCKED & ENFORCED ACROSS ALL WORKSPACES**
 
 ---
@@ -40,6 +40,34 @@ The Shakarganj Raw Milk Reception platform is an industrial operational applicat
   - Active / Selected item: `border-primary ring-1 ring-primary bg-primary/5` (never a heavy solid color block).
   - Hover transition: `hover:bg-subtle hover:border-border-strong transition-all duration-150`.
 
+### 2A. Typography: one relative scale (added 16 Nov 2026)
+Sizes are `rem`, a percentage of the person's own browser font size, so text grows and shrinks when they change that setting or zoom. The page root is `font-size: 100%`. Never use pixel font sizes (`text-[13px]`): `npm run check:ui-text` fails them. Sizes are the same on every screen width (no `vw` scaling). Pixel values below are at the default 100% (16px).
+
+| Class | Size | Use for |
+|---|---|---|
+| `text-xs` | 75% (12px) | Captions, table headers, badges, hints, timestamps |
+| `text-sm` | 81.25% (13px) | Secondary text, form labels, table cells, buttons |
+| `text-base` | 87.5% (14px) | Body text. This is the default when no class is set |
+| `text-lg` | 100% (16px) | Card and section titles, dialog titles |
+| `text-xl` | 112.5% (18px) | Page titles (one per page) |
+| `text-2xl` | 125% (20px) | Large figures: KPI values |
+| `text-3xl` | 150% (24px) | Headline figures only, at most one or two per screen |
+
+Rules:
+- Use at most three sizes inside one card: title (`text-lg` or `text-sm font-medium`), value, caption (`text-xs`).
+- Weight shows importance before size does: `font-semibold` for titles and figures, `font-medium` for labels, normal for body. No `font-bold` on body text, no `font-black`.
+- Figures use `tabular-nums`. Codes (vehicle numbers, tokens, seals) use `font-mono`.
+- Minimum size is `text-xs`. Phones keep 16px inside inputs (globals.css) because iPhones zoom into smaller inputs.
+- Never set a large size to make something "stand out": use colour (red accent) or position instead.
+
+### 2B. Wording: short on screen, details behind the info icon (added 16 Nov 2026)
+- Headings and card titles: 1 to 4 words. Labels, table headers, tabs and buttons: 1 to 3 words. Buttons start with a verb ("Save", "Add shop").
+- Helper or subtitle lines: about 8 words at most. Anything that explains how or why goes in an `InfoTip` next to the heading or label. No paragraphs on screen.
+- Empty states: 2 to 6 words ("No vehicles yet"). Toasts and error popups: one short sentence that says what happened and what to do.
+- Sentence case. Keep names as they are: ZMCC, HC, Fat, LR, SNF, TS, @13 TS, Mobile Tester, PHE, MDO, QA.
+- No "Please", no exclamation marks, no jargon (Ad-Hoc, Authoritative, Canonical, Telemetry, Payload) and no hype words.
+- Enforced by `npm run check:ui-text`: on-screen text over 60 characters and popup text over 90 characters fail the check.
+
 ### B. Buttons & Touch Ergonomics
 - **Industrial Touch Targets:** All interactive controls (buttons, icon triggers, form inputs) must maintain a strict minimum touch target of `min-h-11` (44px) and `min-w-11` (44px) for reliable operation on mobile devices and touch monitors in the field.
 - **Button Variants:**
@@ -66,7 +94,7 @@ export function ActionDialog({ isOpen, onClose, title, children }: ActionDialogP
     return (
       <Modal open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <ModalContent className="max-w-2xl p-6 rounded-2xl">
-          <h3 className="text-base font-bold text-foreground mb-4">{title}</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-4">{title}</h3>
           {children}
         </ModalContent>
       </Modal>
@@ -75,9 +103,9 @@ export function ActionDialog({ isOpen, onClose, title, children }: ActionDialogP
 
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent className="max-h-[90dvh]">
         <div className="p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-4 overflow-y-auto">
-          <DrawerTitle className="text-base font-bold text-foreground">{title}</DrawerTitle>
+          <DrawerTitle className="text-lg font-semibold text-foreground">{title}</DrawerTitle>
           {children}
         </div>
       </DrawerContent>
@@ -102,7 +130,7 @@ All colors are mapped to CSS variables in `src/app/globals.css` and applied via 
 | **Exception / Warning** | `bg-amber-50` | `text-amber-800` | `border-amber-200 bg-amber-100` | Out-of-spec test requiring manager decision, SLA warning, missing photo. |
 | **Contractor Direct** | `bg-amber-50/70`| `text-amber-900` | `border-amber-300` | Third-party direct plant contractor deliveries and allocation tags. |
 | **Primary / Corporate** | `bg-primary` | `text-primary` | `border-primary` | SFPL corporate brand, primary submit actions, active navigation indicator. |
-| **ZMCC Regional** | `bg-violet-50` | `text-violet-800`| `border-violet-200` | ZMCC chilling centers, regional tanks, bulk tanker dispatches. |
+| **ZMCC Regional** | `bg-muted` | `text-foreground`| `border-border` | ZMCC chilling centers, regional tanks, bulk tanker dispatches (no violet: brand colours only). |
 | **Mobile Tester Field** | `bg-blue-50` | `text-blue-800` | `border-blue-200` | Village shop collection, route tracking, mobile tester operations. |
 | **Neutral Surface** | `bg-background` | `text-foreground`| `border-border` | Default page body, subtle dividers, cards, low-glare dark-shift surfaces. |
 

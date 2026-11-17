@@ -91,7 +91,7 @@ export function DynamicReportVisualizer({
   if (rows.length === 0) {
     return (
       <div className="bg-card border border-border p-12 text-center rounded-xl text-muted-foreground text-xs">
-        No data available to visualize. Adjust filters to populate the report.
+        No data. Adjust filters.
       </div>
     );
   }
@@ -321,8 +321,8 @@ export function DynamicReportVisualizer({
       {chartMode === 'SCATTER' && scatterData.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-            <span>X-Axis: Fat % (3.0% to 5.5%)</span>
-            <span>Y-Axis: SNF % (7.5% to 9.5%)</span>
+            <span>X: Fat %</span>
+            <span>Y: SNF %</span>
           </div>
 
           <div className="h-64 w-full relative bg-muted/20 border border-border rounded-2xl p-4 overflow-hidden">

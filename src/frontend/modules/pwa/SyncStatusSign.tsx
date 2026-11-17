@@ -205,7 +205,7 @@ export function SyncStatusSign({ className }: SyncStatusSignProps) {
               ) : (
                 <Wifi className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
               )}
-              <span>Offline Mode</span>
+              <span>Offline mode</span>
             </div>
             <p className="text-xs text-muted-foreground">
               {forced ? 'Saved on device · Sends when online' : 'Connected'}

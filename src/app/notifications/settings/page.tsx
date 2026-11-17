@@ -21,7 +21,7 @@ export default function NotificationSettingsPage() {
   if (loading || !user) return <PageLoader label="Verifying access…" className="min-h-dvh" />;
 
   return (
-    <StationShell currentUser={user} title="Notification Settings" mainClassName="max-w-3xl">
+    <StationShell currentUser={user} title="Notification settings" mainClassName="max-w-3xl">
       <NotificationDeviceSettings />
     </StationShell>
   );

@@ -162,7 +162,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-muted-foreground">Phones pick up a change the next time they load the shop form.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Phones update on next shop form load.</p>
             </div>
 
             <div>
@@ -199,7 +199,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
                 {save.isPending ? 'Saving…' : 'Save setting'}
               </button>
             ) : (
-              <p className="text-xs text-muted-foreground">Only the Super Admin can change this setting.</p>
+              <p className="text-xs text-muted-foreground">Super Admin only.</p>
             )}
           </>
         )}

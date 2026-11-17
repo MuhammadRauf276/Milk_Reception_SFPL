@@ -98,7 +98,7 @@ export function getDuplicateSealMessage(portions: PortionFormState[], index: num
   const mine = portions[index]?.sealNumber.trim().toUpperCase();
   if (!mine) return null;
   const other = portions.findIndex((p, i) => i !== index && p.sealNumber.trim().toUpperCase() === mine);
-  return other >= 0 ? `Seal number is already used on Portion ${portions[other].portionNumber}. Use a different one.` : null;
+  return other >= 0 ? `Seal already used on Portion ${portions[other].portionNumber}.` : null;
 }
 
 export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
@@ -215,7 +215,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                     <span className="text-foreground">{calcValues.ts !== null ? `${calcValues.ts.toFixed(2)}%` : '—'}</span>
                   </div>
                   <div className="bg-card border-border p-2 rounded-xl border">
-                    <span className="text-xs font-sans text-muted-foreground block">Gross Liters</span>
+                    <span className="text-xs font-sans text-muted-foreground block">Gross liters</span>
                     <span className="text-emerald-900 font-semibold">
                       {calcValues.grossLiters !== null
                         ? `${Math.round(calcValues.grossLiters).toLocaleString()} L`

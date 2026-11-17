@@ -138,25 +138,25 @@ const FirstWeightDrawer: React.FC<{
   const handleRecordFirstWeight = async () => {
     const grossVal = Number(grossInputKg);
     if (isNaN(grossVal) || grossVal <= 0) {
-      toast.showError('Please enter a valid first weight greater than 0 kg.', 'Invalid First Weight');
+      toast.showError('Enter a first weight above 0 kg.', 'Invalid weight');
       return;
     }
 
     if (!grossDateTimeInput) {
-      toast.showError('Please select a valid operational date & time for the first weight.', 'Missing Timestamp');
+      toast.showError('Select a valid date and time.', 'Missing time');
       return;
     }
 
     const isoGrossTs = datetimeLocalToIso(grossDateTimeInput);
     if (!isoGrossTs) {
-      toast.showError('Please select a valid operational date & time for the first weight.', 'Invalid Timestamp');
+      toast.showError('Select a valid date and time.', 'Invalid time');
       return;
     }
 
     const selectedOpDate = new Date(isoGrossTs);
     const now = new Date();
     if (selectedOpDate.getTime() > now.getTime() + 60000) {
-      toast.showError('First weight operational timestamp cannot be in the future.', 'Timestamp Error');
+      toast.showError('Time cannot be in the future.', 'Timestamp Error');
       return;
     }
 
@@ -190,11 +190,11 @@ const FirstWeightDrawer: React.FC<{
 
       toast.showSuccess(
         `First weight (${grossVal.toLocaleString()} kg) recorded for vehicle ${visit.vehicle_number}. Vehicle ready for unloading!`,
-        'First Weight Recorded'
+        'First weight saved'
       );
       await onRecorded();
     } catch (err) {
-      toast.showError(getErrorMessage(err) || 'Failed to record first weight', 'Weighbridge Error');
+      toast.showError(getErrorMessage(err) || 'Could not save first weight', 'Weighbridge error');
     } finally {
       setIsSubmitting(false);
     }
@@ -233,7 +233,7 @@ const FirstWeightDrawer: React.FC<{
             </div>
             <div>
               <span className="text-muted-foreground font-sans block text-xs">Weighment</span>
-              <span>Scale 1, loaded gross (W0)</span>
+              <span>Scale 1, gross (W0)</span>
             </div>
             <div>
               <span className="text-muted-foreground font-sans block text-xs">Waiting time</span>

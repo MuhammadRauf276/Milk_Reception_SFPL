@@ -234,7 +234,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
 
   const handleToggleProfileActive = (profile: MotProfileItem) => {
     if (profile.has_active_journey && profile.is_active) {
-      setError('Cannot deactivate an MC Profile with an active journey.');
+      setError('Active journey. Cannot deactivate.');
       return;
     }
     toggleActiveMutation.mutate({ kind: 'profiles', id: profile.id, is_active: !profile.is_active });
@@ -370,7 +370,7 @@ export const MotOperationsWorkspace: React.FC<MotOperationsWorkspaceProps> = ({
                 onClick={refreshData}
                 className="flex min-h-11 items-center space-x-1 px-3 rounded-xl border border-action/30 text-xs font-semibold text-action hover:bg-action-soft"
               >
-                <span>Refresh Journeys</span>
+                <span>Refresh journeys</span>
               </button>
             </div>
 

@@ -152,13 +152,13 @@ export function WarningLimitsGovernanceView() {
       <div className="rounded-2xl border border-border bg-white p-5 shadow-2xs space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-xs font-semibold text-muted-foreground">
-            Current month warnings by procurement source
+            Warnings this month by source
           </h3>
-          <span className="text-xs text-muted-foreground">Deduplicated per vehicle per source</span>
+          <span className="text-xs text-muted-foreground">One per vehicle per source</span>
         </div>
 
         {summary.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-2">No warning accumulations recorded for this month.</p>
+          <p className="text-xs text-muted-foreground py-2">No warnings this month</p>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3 text-xs">
             {summary.map((s) => {
@@ -263,7 +263,7 @@ export function WarningLimitsGovernanceView() {
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g. Approved by Head of QA for seasonal winter flush transition."
+                placeholder="e.g. Approved by Head of QA for winter flush."
                 className="w-full rounded-lg border border-border-strong p-3 text-xs text-foreground focus:border-primary focus:outline-none"
               />
             </div>

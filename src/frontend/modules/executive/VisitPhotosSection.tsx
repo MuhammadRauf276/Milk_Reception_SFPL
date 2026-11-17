@@ -84,7 +84,7 @@ export function VisitPhotosSection({ visitId }: { visitId: number }) {
     <div className="p-5 rounded-2xl bg-card border border-border space-y-4 shadow-2xs">
       <div className="flex items-center space-x-2 border-b border-border/60 pb-2">
         <Camera className="w-4 h-4 text-muted-foreground" />
-        <h3 className="text-xs font-semibold text-foreground">Attached Test Photos</h3>
+        <h3 className="text-xs font-semibold text-foreground">Test photos</h3>
       </div>
 
       {query.isPending ? (

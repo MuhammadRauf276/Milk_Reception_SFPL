@@ -77,13 +77,13 @@ export function DynamicReportGeneratorScreen({
   const handleRefreshViews = async () => {
     try {
       setIsRefreshingViews(true);
-      const res = await fetchJson<{ success: boolean; durationMs: number }>('/api/management/reports/views', {
+      await fetchJson<{ success: boolean; durationMs: number }>('/api/management/reports/views', {
         method: 'POST',
       });
-      toast.success(`Database views refreshed concurrently in ${res.durationMs || 10}ms.`);
+      toast.success(`Data refreshed.`);
       queryClient.invalidateQueries();
     } catch {
-      toast.error('Failed to refresh database views.');
+      toast.error('Refresh failed. Try again.');
     } finally {
       setIsRefreshingViews(false);
     }
@@ -275,9 +275,9 @@ export function DynamicReportGeneratorScreen({
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      toast.success(`Exported ${format} file successfully.`);
+      toast.success(`${format} exported.`);
     } catch (err) {
-      toast.error(err instanceof Error && err.message !== 'Export request failed' ? err.message : `Failed to export ${format} report.`);
+      toast.error(err instanceof Error && err.message !== 'Export request failed' ? err.message : `Could not export ${format}.`);
     } finally {
       setIsExporting(false);
     }
@@ -293,7 +293,7 @@ export function DynamicReportGeneratorScreen({
               <BarChart3 className="w-4 h-4 text-muted-foreground" /> Reports and analytics
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Build reports with your own columns and filters
+              Custom columns and filters
             </p>
           </div>
 
@@ -321,7 +321,7 @@ export function DynamicReportGeneratorScreen({
             { id: 'JOURNEY_RECONCILIATION', label: 'Journey Reconciliation' },
             { id: 'TANK_STORAGE', label: 'Tank storage' },
             { id: 'PLANT_TRANSIT', label: 'Plant Transit' },
-            { id: 'QUALITY_SCREENING', label: 'Quality Lab Screening' },
+            { id: 'QUALITY_SCREENING', label: 'Lab screening' },
             { id: 'VEHICLE_DISPATCH', label: 'Vehicles: dispatch vs plant' },
           ]).map((d) => (
             <button
@@ -511,7 +511,7 @@ export function DynamicReportGeneratorScreen({
               disabled={isRefreshingViews}
               onClick={handleRefreshViews}
               className="h-9 px-3 text-xs font-medium text-primary border-action/30 hover:bg-primary/5 shrink-0"
-              title="Concurrently refresh read-model materialized views"
+              title="Refresh data"
             >
               {isRefreshingViews ? (
                 <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin shrink-0" />

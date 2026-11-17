@@ -41,7 +41,7 @@ export function ReAuthModal() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password) {
-      setErrorMsg('Please enter both username and password.');
+      setErrorMsg('Enter username and password.');
       return;
     }
 
@@ -61,7 +61,7 @@ export function ReAuthModal() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed. Please verify your credentials.');
+        throw new Error(data.error || 'Sign-in failed. Check your details.');
       }
 
       // Success! Dispatch auth restored event
@@ -88,7 +88,7 @@ export function ReAuthModal() {
   return (
     <Modal
       title="Session Expired"
-      description="Re-authenticate to continue without losing your current form inputs"
+      description="Sign in again to keep your entries"
       onClose={handleClose}
       preventClose={submitting}
       size="sm"
@@ -99,9 +99,9 @@ export function ReAuthModal() {
             <Lock className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-foreground">Session Expired</h3>
+            <h3 className="text-base font-semibold text-foreground">Session expired</h3>
             <p className="text-xs text-muted-foreground">
-              Log in to continue without losing your entered data.
+              Log in to keep your entries.
             </p>
           </div>
         </div>

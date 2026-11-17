@@ -324,7 +324,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
   ];
 
   return (
-    <div className="space-y-6" role="region" aria-label="ZMCC Manager Reconciliation">
+    <div className="space-y-6" role="region" aria-label="Reconciliation">
       {/* Whole Loss / Gain card */}
       <WholeLossCard />
 
@@ -436,7 +436,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
             <input
               type="text"
               placeholder="Search"
-              aria-label="Search current page vehicle or token"
+              aria-label="Search vehicle or token"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-2 rounded-lg bg-subtle border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary min-h-11"
@@ -464,7 +464,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
       {!isLoading && !error && filteredItems.length === 0 && (
         <div className="p-10 rounded-xl bg-card border border-border/80 text-center space-y-2">
           <ArrowRightLeft className="w-8 h-8 text-neutral-300 mx-auto" />
-          <h4 className="text-sm font-semibold text-secondary-foreground">No Reconciliation Records Found</h4>
+          <h4 className="text-sm font-semibold text-secondary-foreground">No records yet</h4>
           <p className="text-xs text-muted-foreground">
             No records
           </p>
@@ -486,7 +486,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                   <div className="bg-card border-border p-3 rounded-lg border space-y-2">
                     <div className="flex items-center space-x-2 font-sans font-semibold text-foreground pb-1 border-b border-border">
                       <Warehouse className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Weighbridge & Destination Silo</span>
+                      <span>Weighbridge and silo</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 tabular-nums text-xs">
                       <div>
@@ -502,7 +502,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
                         </span>
                       </div>
                       <div>
-                        <span className="text-xs text-muted-foreground font-sans block">Net Milk Weight:</span>
+                        <span className="text-xs text-muted-foreground font-sans block">Net weight:</span>
                         <span className="font-semibold text-blue-900">
                           {item.netMilkWeightKg != null ? `${item.netMilkWeightKg.toLocaleString()} kg` : '—'}
                         </span>

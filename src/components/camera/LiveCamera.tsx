@@ -125,7 +125,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
       setPreviewUrl(URL.createObjectURL(res.blob));
       setPhase('review');
     } catch {
-      setErrorText('Could not take the photo. Please press Try again.');
+      setErrorText('Could not take the photo. Try again.');
       setPhase('error');
     }
   };
@@ -151,7 +151,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
       setPreviewUrl(URL.createObjectURL(res.blob));
       setPhase('review');
     } catch {
-      setErrorText('Could not process photo file. Please try again.');
+      setErrorText('Could not read the photo. Try again.');
       setPhase('error');
     }
   };
@@ -255,7 +255,7 @@ export const LiveCamera: React.FC<LiveCameraProps> = ({ stamp, onCapture, onCanc
             className="inline-flex h-14 min-w-55 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 text-lg font-semibold text-white shadow-lg disabled:opacity-60 hover:bg-emerald-600 transition-colors"
           >
             {phase === 'working' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
-            {phase === 'working' ? 'Please wait' : identityReady ? 'Take photo' : 'Loading your details…'}
+            {phase === 'working' ? 'Working' : identityReady ? 'Take photo' : 'Loading your details…'}
           </button>
         )}
         {phase === 'review' && result && (

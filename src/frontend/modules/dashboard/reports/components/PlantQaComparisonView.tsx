@@ -184,7 +184,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
             <FlaskConical className="w-4 h-4 text-muted-foreground" /> Plant QA vs. ZMCC Dispatch QA Audit
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Dispatch test values compared with plant results
+            Dispatch vs plant results
           </p>
         </div>
       </div>
@@ -228,7 +228,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search dispatch note, tanker, or ZMCC…"
+            placeholder="Search note, tanker or ZMCC…"
             className="w-full pl-8 pr-3 py-2 bg-background border border-border rounded-lg text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
           />
         </div>
@@ -243,7 +243,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
             <option value="ALL">All Dispatches</option>
             <option value="ACCEPTED">Accepted (Normal)</option>
             <option value="FLAGGED_LOSS">High Loss Alert (&gt; {LOSS_FLAG_PCT}%)</option>
-            <option value="FLAGGED_QA">QA Discrepancy Alert</option>
+            <option value="FLAGGED_QA">QA mismatch</option>
             <option value="IN_TRANSIT">In-Transit</option>
           </select>
         </div>
@@ -257,16 +257,16 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
               {/* Category Super Header */}
               <tr className="border-b border-border bg-muted/80 text-muted-foreground font-semibold text-xs text-center">
                 <th colSpan={4} className="py-2 px-3 border-r border-border text-left">
-                  Tanker & Journey Identifiers
+                  Tanker and journey
                 </th>
                 <th colSpan={3} className="py-2 px-3 border-r border-border bg-blue-50/50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300">
                   ZMCC Dispatch QA & Volume
                 </th>
                 <th colSpan={3} className="py-2 px-3 border-r border-border bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300">
-                  Central Plant Reception QA & Volume
+                  Plant QA and volume
                 </th>
                 <th colSpan={4} className="py-2 px-3 bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300">
-                  Transit Reconciliation & Test Deltas
+                  Transit and test gaps
                 </th>
               </tr>
 
@@ -275,7 +275,7 @@ export function PlantQaComparisonView({ targetZmccId }: PlantQaComparisonViewPro
                 <th className="py-2 px-3">Slip #</th>
                 <th className="py-2 px-3">Vehicle #</th>
                 <th className="py-2 px-3">Source ZMCC</th>
-                <th className="py-2 px-3 border-r border-border">Date & Time</th>
+                <th className="py-2 px-3 border-r border-border">Date and time</th>
 
                 {/* Dispatch */}
                 <th className="py-2 px-3 text-right bg-blue-50/20">Gross (L)</th>

@@ -225,7 +225,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
         <div className="relative sm:w-72">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search vehicle, token, operator…"
+            placeholder="Search vehicle or token…"
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -241,7 +241,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
         columns={columns}
         rows={paginatedItems}
         getRowId={(item) => String(item.id)}
-        emptyTitle="No Subordinate Events Found"
+        emptyTitle="No events yet"
         emptyDescription={
           searchQuery
             ? 'No weighbridge tickets or silo offloading events matched your search query.'

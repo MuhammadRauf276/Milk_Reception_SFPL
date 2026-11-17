@@ -227,7 +227,7 @@ export function ApprovalInbox({
             onClick={() => fetchInbox()}
             disabled={loading || refreshing}
             className="flex min-h-11 min-w-11 items-center justify-center text-action hover:text-action hover:bg-action-soft rounded-lg border border-action/30 transition disabled:opacity-50"
-            title="Refresh Queue"
+            title="Refresh"
             aria-label="Refresh Queue"
           >
             {refreshing ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : <Undo2 className="w-4 h-4" />}

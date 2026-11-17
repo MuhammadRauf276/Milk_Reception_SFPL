@@ -53,7 +53,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
                 Silo storage
               </h3>
               <p className="text-xs text-muted-foreground">
-                Reception silo stock at 13% total solids
+                Silo stock at 13% TS
               </p>
             </div>
           </div>
@@ -298,7 +298,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
                 </div>
                 {selectedSilo.composite_ts_percent !== null && (
                   <div className="flex items-center justify-between border-t border-border/60 pt-2">
-                    <span className="text-muted-foreground">Composite total solids (TS)</span>
+                    <span className="text-muted-foreground">Composite TS</span>
                     <span className="font-mono font-semibold text-foreground tabular-nums">
                       {selectedSilo.composite_ts_percent.toFixed(2)}%
                     </span>

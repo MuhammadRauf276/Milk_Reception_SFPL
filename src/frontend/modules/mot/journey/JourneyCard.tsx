@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Truck, CheckCircle2 } from 'lucide-react';
 import { HorizontalScrollRow } from '@/components/ui/horizontal-scroll-row';
 import type { CurrentJourney, StopDetail } from './types';
+import { InfoTip } from '@/components/ui/info-tip';
 
 interface Props {
   journey: CurrentJourney;
@@ -158,7 +159,7 @@ export function JourneyCard({
               <p className="text-xs text-emerald-800 mt-0.5">Token: {journey.arrival.zmcc_token}</p>
             )}
             <p className="text-xs text-secondary-foreground mt-0.5">
-              This journey stays open until the final receipt, or until the lab rejects all milk.
+              Open until final receipt.<InfoTip text="This journey stays open until the final receipt, or until the lab rejects all milk." />
             </p>
           </div>
         </div>
@@ -239,7 +240,7 @@ export function JourneyCard({
               onClick={() => onRecord(nextPendingStop)}
               className="min-h-11 w-full sm:w-auto px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl font-semibold text-xs shadow-2xs transition flex items-center justify-center space-x-1.5 focus:outline-hidden focus:ring-2 focus:ring-primary"
             >
-              <span>Record Collection</span>
+              <span>Record collection</span>
             </button>
           </div>
         </div>

@@ -72,7 +72,7 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
     <div className="space-y-2.5 rounded-xl border border-border bg-card p-3">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <span className="text-xs font-semibold text-foreground">Test Choices</span>
+          <span className="text-xs font-semibold text-foreground">Choices</span>
           <InfoTip text="Pick a preset or customize options with a 3-tier verdict (Pass, Warning, Fail)." />
         </div>
         <button
@@ -86,7 +86,7 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
           className="flex min-h-11 shrink-0 items-center gap-1 px-2 text-xs font-semibold text-blue-700 hover:text-blue-900"
         >
           <Plus className="h-3.5 w-3.5" />
-          <span>Add Choice</span>
+          <span>Add choice</span>
         </button>
       </div>
 
@@ -122,7 +122,7 @@ export function ChoiceEditor({ options, onChange }: { options: LabTestResultOpti
                 <input
                   type="text"
                   required
-                  placeholder="Display Label"
+                  placeholder="Display label"
                   aria-label={`Choice ${idx + 1} label`}
                   value={opt.label}
                   onChange={(e) => update(idx, { label: e.target.value })}

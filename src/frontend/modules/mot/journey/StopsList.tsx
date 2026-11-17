@@ -73,7 +73,7 @@ export function StopsList({ journey, deviceGps, onRecord, onRequestShop, locked 
                             className="inline-flex items-center gap-1 min-h-11 px-3 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary/90 transition shadow-2xs"
                           >
                             <Plus className="w-3.5 h-3.5" />
-                            <span>Request Shop</span>
+                            <span>Request shop</span>
                           </button>
                           )}
                         </div>

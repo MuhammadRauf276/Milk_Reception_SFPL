@@ -250,7 +250,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
     return (
       <div className="bg-card border-border p-6 rounded-2xl border text-center space-y-2">
         <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
-        <h4 className="text-sm font-semibold text-rose-900">Failed to Load Receipts & Reconciliation</h4>
+        <h4 className="text-sm font-semibold text-rose-900">Receipts did not load</h4>
         <p className="text-xs text-rose-700">{error}</p>
       </div>
     );
@@ -414,7 +414,7 @@ export const ContractorReceiptsReconciliation: React.FC<ContractorReceiptsReconc
           rows={filteredVisits}
           getRowId={(v) => String(v.visitId)}
           loading={isLoading}
-          emptyTitle="No Receipt Records"
+          emptyTitle="No receipts yet"
           emptyDescription="No records"
         />
       </div>

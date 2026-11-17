@@ -129,7 +129,7 @@ const ExitDrawer: React.FC<{ kind: 'exit' | 'close'; item: ExitQueueItem; onClos
       formDraft.clear();
       onDone(kind === 'exit' ? 'Exit recorded.' : 'Request sent to the ZMCC Manager.');
     } catch (err) {
-      setError(getErrorMessage(err) || 'Could not save. Please try again.');
+      setError(getErrorMessage(err) || 'Could not save. Try again.');
     }
   };
 

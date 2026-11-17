@@ -75,7 +75,7 @@ function ProductionDepartmentContent() {
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-primary">Supervisor view:</span>
                 <span className="text-muted-foreground">
-                  You are viewing Silo Unloading in hands-on operator mode.
+                  Hands-on operator mode.
                 </span>
               </div>
               <button

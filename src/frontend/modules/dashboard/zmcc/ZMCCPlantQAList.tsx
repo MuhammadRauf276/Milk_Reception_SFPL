@@ -91,7 +91,7 @@ export const ZMCCPlantQAList: React.FC<{
               <div className="bg-card border-border p-3 rounded-lg text-xs font-semibold flex items-start gap-2 border text-rose-900">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-700" />
                 <div>
-                  <span className="font-semibold text-xs block">Official Plant Rejection Reason:</span>
+                  <span className="font-semibold text-xs block">Rejection reason:</span>
                   <span>{item.rejectionReasons || '—'}</span>
                 </div>
               </div>
@@ -105,7 +105,7 @@ export const ZMCCPlantQAList: React.FC<{
                     <th className="py-2 px-3">Dispatch QA</th>
                     <th className="py-2 px-3">Plant QA</th>
                     <th className="py-2 px-3">Difference</th>
-                    <th className="py-2 px-3 font-sans">QA Event Date/Time</th>
+                    <th className="py-2 px-3 font-sans">QA time</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40 text-xs">

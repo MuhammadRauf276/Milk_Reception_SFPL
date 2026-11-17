@@ -192,11 +192,11 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
             type="text"
             readOnly
             value={calculatedValue != null ? `${calculatedValue.toFixed(2)} ${test.unit || '%'}` : ''}
-            placeholder="Auto-calculating (awaiting LR & Fat)…"
+            placeholder="Waiting for LR and Fat…"
             className="w-full min-w-0 min-h-12 rounded-xl border border-border bg-muted/40 p-3 text-base font-semibold text-foreground tabular-nums focus:outline-hidden"
           />
           <p className="text-xs text-secondary-foreground font-medium">
-            Calculated from LR and Fat
+            From LR and Fat
           </p>
         </div>
       ) : test.resultType === 'NUMERIC' ? (
@@ -222,13 +222,13 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
           />
           {isAppliedOnly && !hasValue && (
             <p className="text-xs text-muted-foreground font-medium">
-              Optional test: leave blank if not conducted
+              Optional. Leave blank if skipped.
             </p>
           )}
         </div>
       ) : Array.isArray(test.resultOptions) && test.resultOptions.length > 0 ? (
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-secondary-foreground block">Select Observation Result</label>
+          <label className="text-xs font-semibold text-secondary-foreground block">Select result</label>
           <div className="flex flex-wrap gap-2" role="group" aria-label={test.testName}>
             {test.resultOptions.map((opt) => {
               const isSelected = state.textValue === opt.value;
@@ -255,18 +255,18 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
           </div>
           {isAppliedOnly && !hasValue && (
             <p className="text-xs text-muted-foreground font-medium">
-              Optional test: leave blank if not conducted
+              Optional. Leave blank if skipped.
             </p>
           )}
         </div>
       ) : (
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-secondary-foreground block">Observation Notes / Findings</label>
+          <label className="text-xs font-semibold text-secondary-foreground block">Notes</label>
           <input
             type="text"
             value={state.textValue}
             onChange={(e) => onTextChange(test.id, e.target.value)}
-            placeholder="Enter observation notes / findings"
+            placeholder="Enter notes"
             className={cn(
               'w-full min-w-0 min-h-12 rounded-xl border bg-subtle p-3 text-base font-semibold focus:ring-2 focus:ring-primary focus:outline-hidden transition',
               isQualitativeFail ? 'border-rose-400 bg-rose-50/40 text-rose-950' : 'border-border'
@@ -274,7 +274,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
           />
           {isAppliedOnly && !hasValue && (
             <p className="text-xs text-muted-foreground font-medium">
-              Optional test: leave blank if not conducted
+              Optional. Leave blank if skipped.
             </p>
           )}
         </div>
@@ -294,7 +294,7 @@ export const QATestObservationCard: React.FC<QATestObservationCardProps> = ({
           variant="form"
           testType={isFAT ? 'FAT' : 'LR'}
           testName={test.testName}
-          stageName="Plant QA Reception"
+          stageName="Plant QA"
           tokenNo={tokenNumber}
           vehicleNo={vehicleNumber}
           currentPhotoUrl={photoUrl}

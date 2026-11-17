@@ -119,7 +119,7 @@ const COLUMNS: Column[] = [
   { id: 'gross', label: 'Gross L', numeric: true, render: (r) => <Compare dispatch={r.dispatchGrossLiters} plant={r.receivedGrossLiters} /> },
   { id: 'at13', label: '@13 TS L', numeric: true, render: (r) => <Compare dispatch={r.dispatch13Ts} plant={r.received13Ts} /> },
   { id: 'net', label: 'Net kg', numeric: true, render: (r) => showNumber(r.netWeight) },
-  { id: 'gateOut', label: 'Gate Exit', render: (r) => (r.gateOutAt ? formatOperationalDatetime(r.gateOutAt) : EMPTY) },
+  { id: 'gateOut', label: 'Gate exit', render: (r) => (r.gateOutAt ? formatOperationalDatetime(r.gateOutAt) : EMPTY) },
 ];
 
 /** The vehicle report for a chosen date range: one row per vehicle, dispatch to plant in one cell per measure. */

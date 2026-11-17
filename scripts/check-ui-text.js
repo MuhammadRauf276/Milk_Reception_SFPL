@@ -14,6 +14,10 @@ const path = require('path');
 
 const ROOT = path.join(process.cwd(), 'src');
 const EMOJI_OK = new Set(['app/super-admin/whatsapp/page.tsx', 'app/whatsapp-gateway/page.tsx', 'frontend/modules/super-admin/daily-report/SendReportModal.tsx']);
+/** On-screen text, labels and placeholders: anything longer belongs behind an InfoTip. */
+const MAX_SCREEN_TEXT = 60;
+/** Toasts and error popups: one short sentence. */
+const MAX_POPUP_TEXT = 90;
 const EMOJI = /[\u{1F300}-\u{1FAFF}☀-➿⬀-⯿]/u;
 
 const rules = [
@@ -35,9 +39,16 @@ const rules = [
   { name: 'old wording: MOT in visible text (use Mobile Tester)', test: (l) => />[^<{]*\bMOT\b[^<{]*</.test(l) || /\b(label|title|header|placeholder): *['"`][^'"`]*\bMOT\b/.test(l) },
   { name: 'hype word in visible text', test: (l) => />[^<{]*\b(Seamless|Enterprise|Comprehensive|Operational)\b[^<{]*</.test(l) },
   { name: 'jargon in text (say it plainly)', test: (l) => /(>|^\s*|text=")[^<{]*\b(Authoritative|immutable|canonical|strictly|Real-Time|Consolidated|Inter-facility)\b/i.test(l) && !/^\s*(\/\/|\*|import|const|let|type|if|return)/.test(l) && !/className=/.test(l.split(/\b(Authoritative|immutable|canonical|strictly|Real-Time|Consolidated|Inter-facility)\b/i)[0].slice(-1)) },
-  { name: 'long text (keep it under 25 words, or put it behind an InfoTip)', test: (l) => {
-    const m = l.match(/>([^<>{}]{150,})</) || l.match(/^\s*([A-Z][^<>{}=;]{150,})$/);
-    return !!m && m[1].trim().split(/\s+/).length > 25;
+  { name: `long text on screen (keep it under ${MAX_SCREEN_TEXT} characters; put the explanation behind an InfoTip)`, test: (l) => {
+    if (/InfoTip|aria-label=|text=\{?[`'"]/.test(l)) return false;
+    const node = l.match(/>([^<>{}]{2,})</) || l.match(/^\s*([A-Z][^<>{}=;:()]*[a-z.?!])\s*$/);
+    if (node && node[1].replace(/\s+/g, ' ').trim().length > MAX_SCREEN_TEXT) return true;
+    const prop = l.match(/(?:title|label|header|placeholder|description|hint|subtitle|emptyText|emptyLabel|helperText)(?:=|:\s*)(["'`])([^"'`]+)/);
+    return !!prop && !prop[2].includes('${') && prop[2].length > MAX_SCREEN_TEXT;
+  } },
+  { name: `long pop-up message (keep it under ${MAX_POPUP_TEXT} characters)`, test: (l) => {
+    const m = l.match(/(?:toast(?:\.[a-zA-Z]+)?|setError|setActionError|setNotice|setFormError)\((["'`])([^"'`]+)/);
+    return !!m && !m[2].includes('${') && m[2].length > MAX_POPUP_TEXT;
   } },
 ];
 

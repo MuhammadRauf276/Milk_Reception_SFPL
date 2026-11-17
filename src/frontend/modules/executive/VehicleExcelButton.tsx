@@ -199,7 +199,7 @@ export function VehicleExcelButton({ getParams, chooseSourceType = false }: Prop
               {EXPORT_GROUPS.map((g) => (
                 <Check key={g.key} checked={groups.includes(g.key)} onChange={() => setGroups((prev) => toggle(prev, g.key))} label={g.label} />
               ))}
-              <p className="text-xs text-muted-foreground pt-1">Date, vehicle, token, source and decision are always included.</p>
+              <p className="text-xs text-muted-foreground pt-1">Always includes date, vehicle, token, source, decision.</p>
             </Section>
           )}
 

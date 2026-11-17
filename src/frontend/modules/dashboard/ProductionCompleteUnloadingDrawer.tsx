@@ -68,7 +68,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
       );
       onCompleted();
     } catch (err) {
-      toast.showError(getErrorMessage(err) || 'Failed to complete unloading', 'Unloading Error');
+      toast.showError(getErrorMessage(err) || 'Could not complete unloading', 'Unloading failed');
     } finally {
       setActionLoading(false);
     }
@@ -78,11 +78,11 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
     <Drawer open onOpenChange={(o) => !o && onClose()}>
       <DrawerContent showClose={false}>
         <div className="overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 space-y-6 text-foreground">
-          <DrawerTitle className="sr-only">Complete Silo Unloading</DrawerTitle>
+          <DrawerTitle className="sr-only">Complete unloading</DrawerTitle>
           <div className="flex items-start justify-between gap-2 border-b border-border-strong pb-4">
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-base font-semibold text-foreground">Complete Silo Unloading</h3>
+                <h3 className="text-base font-semibold text-foreground">Complete unloading</h3>
                 {isPortionWise && (
                   <span className="px-2 py-0.5 rounded text-xs font-semibold bg-muted text-secondary-foreground border border-border">
                     Portion-Wise Loop
@@ -125,7 +125,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
 
           <div className="space-y-3">
             <h4 className="text-xs font-semibold text-foreground">
-              {isPortionWise ? 'Active Unloading Portion & Destination Silo' : 'Assigned Silo Allocation'}
+              {isPortionWise ? 'Active Unloading Portion & Destination Silo' : 'Assigned silos'}
             </h4>
             {portionsToDisplay.map((p) => (
               <div key={p.id} className="bg-card border-border p-4 rounded-2xl border flex items-center justify-between text-xs tabular-nums font-semibold">
@@ -172,7 +172,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
                 <span>
                   {isPortionWise && activePortion
                     ? `Confirm Portion #${activePortion.portion_number} Unloading Completion`
-                    : 'Confirm Unloading Completion'}
+                    : 'Confirm completion'}
                 </span>
               </>
             )}

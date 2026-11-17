@@ -122,7 +122,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
       <div className="flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-semibold text-foreground">Offloading queue</h1>
-          <InfoTip text="Unload milk into silos and watch capacity." />
+          <InfoTip text="Unload into silos" />
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold tabular-nums px-3 py-1 rounded-md bg-muted text-foreground border border-border">
@@ -214,7 +214,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
               <div className="flex items-center gap-2">
                 <Database className="w-4 h-4 text-muted-foreground" />
                 <h2 className="text-sm font-semibold text-foreground">Plant Silos</h2>
-                <InfoTip text="Live storage levels across all plant raw milk silos." />
+                <InfoTip text="Live silo levels." />
               </div>
               <span className="text-xs font-semibold tabular-nums text-muted-foreground">
                 {activeSilos.length} Silos

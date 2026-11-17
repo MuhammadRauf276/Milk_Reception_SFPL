@@ -172,12 +172,12 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
       <div className="space-y-4">
         {isLoading ? (
           <div className="bg-card border-border py-16 text-center text-xs font-semibold text-muted-foreground rounded-xl border shadow-xs">
-            Loading active pipeline visits…
+            Loading pipeline…
           </div>
         ) : filteredVisits.length === 0 ? (
           <div className="bg-card border-border py-16 px-4 rounded-xl border border-dashed text-center space-y-2 shadow-xs">
             <Truck className="w-10 h-10 text-neutral-300 mx-auto" />
-            <h4 className="text-sm font-semibold text-secondary-foreground">No Active Tankers in Pipeline</h4>
+            <h4 className="text-sm font-semibold text-secondary-foreground">No active tankers</h4>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
               No active tankers
             </p>
@@ -319,7 +319,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
 
               <div className="bg-card border-border p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div className="flex items-center space-x-2">
-                  <span className="text-muted-foreground font-semibold">Whole Vehicle Gross:</span>
+                  <span className="text-muted-foreground font-semibold">Vehicle gross:</span>
                   <span className="tabular-nums font-semibold text-foreground">
                     {v.grossLiters ? `${v.grossLiters.toLocaleString()} L` : '—'}
                   </span>
@@ -327,7 +327,7 @@ export const ContractorLivePipeline: React.FC<ContractorLivePipelineProps> = ({
 
                 {v.netWeightKg != null && (
                   <div className="flex items-center space-x-2">
-                    <span className="text-muted-foreground font-semibold">Scale Net Weight:</span>
+                    <span className="text-muted-foreground font-semibold">Scale net:</span>
                     <span className="tabular-nums font-semibold text-foreground">
                       {v.netWeightKg.toLocaleString()} kg
                     </span>

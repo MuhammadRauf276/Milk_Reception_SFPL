@@ -114,7 +114,7 @@ export function MilkSourcesPanel({
       primary: true,
       cell: (source) => <span className="font-mono font-semibold text-foreground">{source.erp_code}</span>,
     },
-    { key: 'name', header: 'Source Name', label: 'Source name', cell: (source) => <span className="font-semibold text-foreground">{source.name}</span> },
+    { key: 'name', header: 'Source name', label: 'Source name', cell: (source) => <span className="font-semibold text-foreground">{source.name}</span> },
     {
       key: 'zmccs',
       header: 'Assigned to ZMCCs',
@@ -206,7 +206,7 @@ export function MilkSourcesPanel({
           className="flex min-h-11 items-center justify-center space-x-1 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold transition shadow-2xs"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>Create Milk Source</span>
+          <span>Add source</span>
         </button>
       </div>
 
@@ -277,7 +277,7 @@ export function MilkSourcesPanel({
                         onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))}
                         className="w-4 h-4 rounded text-primary focus:ring-primary"
                       />
-                      <span className="font-semibold text-secondary-foreground">Source Active Status</span>
+                      <span className="font-semibold text-secondary-foreground">Active</span>
                     </label>
                   </div>
                 )}

@@ -20,7 +20,7 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
   if (!trends || trends.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-xs font-semibold text-muted-foreground bg-subtle rounded-xl border border-dashed border-border">
-        No trend records available for the selected period.
+        No trend data
       </div>
     );
   }
@@ -199,7 +199,7 @@ export function ShiftDistributionChart({
       <div className="flex items-center justify-between text-xs font-semibold text-secondary-foreground">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-neutral-400" />
-          <span>Morning Shift (04:00 - 13:00)</span>
+          <span>Morning (04:00-13:00)</span>
         </div>
         <div className="tabular-nums font-semibold">
           {shiftComparison.morningLiters.toLocaleString()} L ({shiftComparison.morningPct}%)
@@ -218,7 +218,7 @@ export function ShiftDistributionChart({
       <div className="flex items-center justify-between text-xs font-semibold text-secondary-foreground">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-          <span>Evening Shift (13:00 - 22:00)</span>
+          <span>Evening (13:00-22:00)</span>
         </div>
         <div className="tabular-nums font-semibold">
           {shiftComparison.eveningLiters.toLocaleString()} L ({shiftComparison.eveningPct}%)
@@ -238,7 +238,7 @@ export function QualityMatrixChart({ scatter }: { scatter: QualityScatterPoint[]
   if (!scatter || scatter.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-xs font-semibold text-muted-foreground bg-subtle rounded-xl border border-dashed border-border">
-        No quality test samples available.
+        No test samples
       </div>
     );
   }
@@ -376,7 +376,7 @@ export function QualityMatrixChart({ scatter }: { scatter: QualityScatterPoint[]
         </div>
       ) : (
         <div className="text-xs text-muted-foreground flex items-center justify-between">
-          <span>Hover a point to view batch parameters.</span>
+          <span>Hover a point</span>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Premium</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Standard</span>
@@ -396,7 +396,7 @@ export function RouteLossBarChart({ rankings }: { rankings: RoutePerformanceRank
   if (!rankings || rankings.length === 0) {
     return (
       <div className="h-48 flex items-center justify-center text-xs font-semibold text-muted-foreground bg-subtle rounded-xl border border-dashed border-border">
-        No route collection data available.
+        No collections
       </div>
     );
   }

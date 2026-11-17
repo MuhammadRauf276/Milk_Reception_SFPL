@@ -192,7 +192,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
   const decide = async (item: DispatchApprovalItem, verdict: 'OKAY' | 'NO') => {
     const text = remarks.trim();
     if (verdict === 'NO' && text.length < 3) {
-      setActionError('Please provide a substantive reason (at least 3 characters) for rejecting this dispatch.');
+      setActionError('Write a reason (3+ characters) to reject.');
       return;
     }
     setBusy(true);
@@ -386,7 +386,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
               {/* Quality Totals Header */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-card p-3 rounded-xl border border-border text-center">
                 <div>
-                  <span className="text-xs text-muted-foreground font-semibold">Total Litres</span>
+                  <span className="text-xs text-muted-foreground font-semibold">Total litres</span>
                   <p className="text-sm font-semibold tabular-nums text-foreground mt-0.5">
                     {selectedItem.totals.grossLiters.toLocaleString()} L
                   </p>
@@ -469,7 +469,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
 
                     {p.photos.length > 0 && (
                       <div className="pt-2 border-t border-border/60">
-                        <span className="text-xs font-semibold text-secondary-foreground block mb-1">Portion Evidence Photos</span>
+                        <span className="text-xs font-semibold text-secondary-foreground block mb-1">Photos</span>
                         <div className="flex flex-wrap gap-2">
                           {p.photos.map((ph) => (
                             <Photo key={ph.captureId} photo={ph} label={`Portion ${p.portionNumber} photo`} />
@@ -493,7 +493,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                   </div>
                 ) : (
                   <p className="text-xs text-amber-700 bg-card p-2 rounded-lg border border-border">
-                    No physical lab report photo was attached to this dispatch.
+                    No lab report photo.
                   </p>
                 )}
               </div>

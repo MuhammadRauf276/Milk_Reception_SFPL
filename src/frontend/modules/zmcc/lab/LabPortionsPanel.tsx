@@ -195,7 +195,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
   const handleModeSwitch = async (newMode: 'COMPOSITE' | 'PORTION_WISE') => {
     if (newMode === mode) return;
     if (isModeAndAddLocked) {
-      setError('Cannot switch test mode after vehicle decisions have been submitted.');
+      setError('Test mode is locked after decisions.');
       return;
     }
     if (newMode === 'COMPOSITE' && state && (state.portions.length > 1 || state.portions.some((p) => savedPortions[p.id]))) {
@@ -429,7 +429,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
       const uploading = Object.entries(photoUploadState).some(
         ([k, st]) => k.startsWith(`${p.id}:`) && st.status === 'uploading'
       );
-      if (uploading) return 'Please wait for photo upload to finish.';
+      if (uploading) return 'Wait for the photo upload.';
       const d = drafts[p.id] ?? emptyDraft();
       for (const t of sortedTests) {
         if (isCalculatedTest(t)) continue;
@@ -939,7 +939,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                             label="Manager remarks"
                             className="-my-2"
                             text={
-                              [p.reviewedAt ? formatDateTime(p.reviewedAt) : null, p.reviewRemarks ? `"${p.reviewRemarks}"` : 'Please re-test or revise decision.']
+                              [p.reviewedAt ? formatDateTime(p.reviewedAt) : null, p.reviewRemarks ? `"${p.reviewRemarks}"` : 'Re-test or revise.']
                                 .filter(Boolean)
                                 .join(' · ')
                             }
@@ -1489,7 +1489,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
 
                     {/* Decision Choice */}
                     <div>
-                      <p className="mb-1 text-xs font-semibold text-foreground">Your Decision</p>
+                      <p className="mb-1 text-xs font-semibold text-foreground">Your decision</p>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
@@ -1501,7 +1501,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                               : 'border-rose-300 bg-card text-rose-700 hover:bg-rose-50'
                           )}
                         >
-                          <span>Reject Portion</span>
+                          <span>Reject portion</span>
                         </button>
                         <button
                           type="button"
@@ -1513,7 +1513,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                               : 'border-emerald-300 bg-card text-emerald-700 hover:bg-emerald-50'
                           )}
                         >
-                          <span>Accept Portion</span>
+                          <span>Accept portion</span>
                         </button>
                       </div>
                     </div>
@@ -1591,7 +1591,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                         className="min-h-12 flex-1 bg-emerald-700 px-6 text-base font-semibold text-white hover:bg-emerald-800 sm:flex-initial"
                       >
                         <Check className="h-4 w-4" />
-                        <span>Save Portion</span>
+                        <span>Save portion</span>
                       </Button>
                     </div>
                   </>

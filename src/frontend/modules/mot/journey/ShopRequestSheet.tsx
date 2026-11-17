@@ -104,11 +104,11 @@ export function ShopRequestSheet({ routeId, routeName, deviceGps, gpsBadge, onCl
       return;
     }
     if (options.areas.length > 0 && !areaId) {
-      setError('Please choose the area.');
+      setError('Choose the area.');
       return;
     }
     if (options.chillers.length > 0 && !form.chiller_ownership_id) {
-      setError('Please choose the chiller ownership.');
+      setError('Choose the chiller owner.');
       return;
     }
 

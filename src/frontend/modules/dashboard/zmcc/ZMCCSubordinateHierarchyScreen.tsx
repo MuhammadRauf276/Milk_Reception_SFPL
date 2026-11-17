@@ -197,7 +197,7 @@ export function ZMCCSubordinateHierarchyScreen({
   const handleExportExcel = () => {
     const url = `/api/zmcc/reports/export?reportType=HIERARCHY${facilityId ? `&zmccId=${encodeURIComponent(facilityId)}` : ''}`;
     window.open(url, '_blank');
-    toast.success('Downloading hierarchy export (.xlsx)…');
+    toast.success('Downloading…');
   };
 
   // Filter routes and shops by search term
@@ -246,7 +246,7 @@ export function ZMCCSubordinateHierarchyScreen({
   }, [reportData, searchTerm]);
 
   if (hierarchyQuery.isPending) {
-    return <PageLoader label="Loading subordinate hierarchy…" className="py-24" />;
+    return <PageLoader label="Loading…" className="py-24" />;
   }
 
   if (hierarchyQuery.isError) {
@@ -258,7 +258,7 @@ export function ZMCCSubordinateHierarchyScreen({
   if (!reportData) {
     return (
       <div className="p-12 text-center bg-card rounded-xl border border-border text-xs text-muted-foreground">
-        No hierarchy records found for this facility.
+        No hierarchy yet
       </div>
     );
   }
@@ -277,7 +277,7 @@ export function ZMCCSubordinateHierarchyScreen({
             </h1>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Routes, areas, shops and receipts
+            Routes and shops
           </p>
         </div>
 
@@ -331,7 +331,7 @@ export function ZMCCSubordinateHierarchyScreen({
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search Route, Area, Shop or Phone…"
+            placeholder="Search route, shop or phone…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border bg-card focus:outline-hidden focus:border-primary min-h-11"
@@ -344,7 +344,7 @@ export function ZMCCSubordinateHierarchyScreen({
         <div className="space-y-4">
           {filteredRoutes.length === 0 ? (
             <div className="p-8 text-center bg-card rounded-2xl border border-border text-xs text-muted-foreground">
-              No routes or shops matching your search term.
+              No matches
             </div>
           ) : (
             filteredRoutes.map((route) => {
@@ -413,7 +413,7 @@ export function ZMCCSubordinateHierarchyScreen({
                   {isRouteOpen && (
                     <div className="p-4 space-y-3 bg-subtle/30">
                       {route.areas.length === 0 ? (
-                        <div className="text-xs text-muted-foreground p-3">No areas configured on this route.</div>
+                        <div className="text-xs text-muted-foreground p-3">No areas yet</div>
                       ) : (
                         route.areas.map((area) => {
                           const isAreaOpen = expandedAreas.has(area.id) || Boolean(searchTerm);

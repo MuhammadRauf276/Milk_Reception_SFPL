@@ -35,7 +35,7 @@ export function UserResetPasswordDrawer({ user, open, onClose, onSaved }: Props)
     if (busy) return;
     setError(null);
     if (!newPassword || newPassword.length < 8) return setError('Password must be at least 8 characters long.');
-    if (newPassword !== confirm) return setError('Passwords do not match. Please retype to confirm.');
+    if (newPassword !== confirm) return setError('Passwords do not match. Retype to confirm.');
     mutation.mutate();
   };
 

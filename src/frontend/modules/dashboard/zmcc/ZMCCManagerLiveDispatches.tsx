@@ -138,7 +138,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
   }
 
   return (
-    <div className="space-y-6" role="region" aria-label="ZMCC Manager Live Dispatches">
+    <div className="space-y-6" role="region" aria-label="Live dispatches">
       <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/80">
           <div className="flex items-center space-x-2">
@@ -244,7 +244,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
           <div className="w-12 h-12 rounded-full bg-muted text-muted-foreground flex items-center justify-center mx-auto border border-border">
             <Truck className="w-6 h-6" />
           </div>
-          <h4 className="text-sm font-semibold text-foreground">{serverPaging ? 'No Vehicles Found' : 'No Active Dispatches in Pipeline'}</h4>
+          <h4 className="text-sm font-semibold text-foreground">{serverPaging ? 'No vehicles yet' : 'No Active Dispatches in Pipeline'}</h4>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
             {searchQuery
               ? `No ${serverPaging ? 'vehicles' : 'active dispatches'} match search query "${searchQuery}".`

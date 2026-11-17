@@ -68,23 +68,32 @@
     'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular,
     Menlo, monospace;
 
-  /* ── Fluid Auto-Scaling Typography ───────────────────────
-     Scales smoothly between compact mobile (320px) and desktop (1440px+),
-     while keeping >= 12px (0.75rem) floor on text-xs so labels stay legible. */
-  --text-xs: clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem);
+  /* ── Typography scale (relative to the person's browser font setting) ──
+     All sizes are rem: a percentage of the browser's font size, so they grow and shrink with it.
+     The same on every screen width. Pixel sizes are at the default 100% (16px). See docs/ui-guidelines.md, 2A.
+       text-xs   75%     12px  captions, table headers, badges, hints
+       text-sm   81.25%  13px  secondary text, form labels, table cells
+       text-base 87.5%   14px  body text (the default)
+       text-lg   100%    16px  card and section titles
+       text-xl   112.5%  18px  page titles
+       text-2xl  125%    20px  large figures (KPI values)
+       text-3xl  150%    24px  headline figures only */
+  --text-xs: 0.75rem;
   --text-xs--line-height: 1.4;
-  --text-sm: clamp(0.8125rem, 0.78rem + 0.18vw, 0.875rem);
+  --text-sm: 0.8125rem;
   --text-sm--line-height: 1.45;
-  --text-base: clamp(0.875rem, 0.83rem + 0.25vw, 1rem);
+  --text-base: 0.875rem;
   --text-base--line-height: 1.5;
-  --text-lg: clamp(1rem, 0.93rem + 0.35vw, 1.125rem);
-  --text-lg--line-height: 1.45;
-  --text-xl: clamp(1.0625rem, 0.98rem + 0.45vw, 1.25rem);
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.125rem;
   --text-xl--line-height: 1.35;
-  --text-2xl: clamp(1.2rem, 1.08rem + 0.6vw, 1.5rem);
-  --text-2xl--line-height: 1.25;
-  --text-3xl: clamp(1.375rem, 1.2rem + 0.85vw, 1.875rem);
-  --text-3xl--line-height: 1.2;
+  --text-2xl: 1.25rem;
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 1.5rem;
+  --text-3xl--line-height: 1.25;
+  --text-4xl: 1.875rem;
+  --text-4xl--line-height: 1.2;
 
   /* ── Motion ─────────────────────────────────────────────
      One easing and a short duration scale keep motion consistent.
@@ -327,6 +336,9 @@
   }
 
   html {
+    /* 100% of the person's own browser font setting: every size below is in rem, so raising or lowering
+       that setting (or zooming) scales the whole app. Never set a pixel font size here. */
+    font-size: 100%;
     /* Phones: text stays the size the layout was built for, and the app's own pull-to-refresh replaces the browser's. */
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -397,6 +409,9 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    /* Text without a size class is body size (14px), not the browser's 16px. */
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
     margin: 0;
     padding: 0;
     overflow-x: clip;

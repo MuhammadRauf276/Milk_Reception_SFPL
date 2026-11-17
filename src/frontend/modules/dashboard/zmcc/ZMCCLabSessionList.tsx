@@ -53,7 +53,7 @@ const resultColumns: DataColumn<LabResultRow>[] = [
   },
   {
     key: 'rule',
-    header: 'Applied SOP Rule',
+    header: 'SOP rule',
     label: 'Applied SOP rule',
     cell: (r) => <span className="font-sans text-secondary-foreground text-xs">{r.applied_rule_version ? 'Custom SOP' : 'Standard'}</span>,
   },
@@ -211,7 +211,7 @@ export const ZMCCLabSessionList: React.FC<{
                 </span>
               ) : (
                 <span className="px-2 py-0.5 rounded text-xs font-semibold bg-muted text-secondary-foreground">
-                  No Tank Receipt
+                  No tank receipt
                 </span>
               )}
             </div>

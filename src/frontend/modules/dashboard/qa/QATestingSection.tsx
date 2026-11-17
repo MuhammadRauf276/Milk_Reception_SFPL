@@ -293,7 +293,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
       if (!isServerSubmitted && isSaved) {
         if (!pChoice) validationErr = 'Choose Accept or Reject.';
         else if (pChoice === 'REJECT' && !hasAnyPerformedTest) validationErr = 'Record at least one test measurement before rejecting.';
-        else if ((pChoice === 'REJECT' || mustRequestAvp || live.decision.remarksRequired) && pRemarks.trim().length < 3) validationErr = 'Please write remarks (at least 3 letters).';
+        else if ((pChoice === 'REJECT' || mustRequestAvp || live.decision.remarksRequired) && pRemarks.trim().length < 3) validationErr = 'Add remarks (3 letters minimum).';
       }
 
       return {
@@ -612,7 +612,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
             {hasEscalation && portions.some((p) => p.manager_review_status === 'PENDING') ? (
               <div className="px-4 py-2 rounded-lg bg-amber-100 border border-amber-300 text-amber-900 text-xs font-semibold flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-700" />
-                <span>Pending with AVP QA, vehicle on hold</span>
+                <span>With AVP QA. On hold.</span>
               </div>
             ) : hasEscalation && onRouteVehicle ? (
               <button
@@ -626,7 +626,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                 ) : (
                   <AlertTriangle className="w-4 h-4" />
                 )}
-                <span>Send request to AVP QA reception lab</span>
+                <span>Send to AVP QA</span>
               </button>
             ) : null}
 
@@ -709,7 +709,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                         text={
                           p.manager_review_reason
                             ? `"${cloakNote(p.manager_review_reason)}"`
-                            : 'Please re-test or revise decision.'
+                            : 'Re-test or revise decision.'
                         }
                       />
                     </div>
@@ -805,7 +805,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
                           <InfoTip
                             label="AVP QA remarks"
                             className="-my-2"
-                            text={p.manager_review_reason ? `"${cloakNote(p.manager_review_reason)}"` : 'Please re-test or revise decision.'}
+                            text={p.manager_review_reason ? `"${cloakNote(p.manager_review_reason)}"` : 'Re-test or revise decision.'}
                           />
                         </div>
                       )}
@@ -893,7 +893,7 @@ export const QATestingSection: React.FC<QATestingSectionProps> = ({
               <button
                 type="button"
                 onClick={() => setShowWhy((v) => !v)}
-                aria-label="Show what needs attention"
+                aria-label="Needs attention"
                 aria-expanded={showWhy}
                 className="flex min-h-14 min-w-14 shrink-0 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 text-amber-600 transition hover:bg-amber-100 active:scale-[0.97] active:bg-amber-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2"
               >

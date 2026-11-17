@@ -130,8 +130,8 @@ export const QALaboratoryWorkspace: React.FC<QALaboratoryWorkspaceProps> = ({
     return (
       <div className="w-full max-w-7xl mx-auto space-y-6 text-foreground">
         <PageHeader
-          title="My Sent Requests"
-          description="Vehicle exception requests sent to AVP QA"
+          title="My requests"
+          description="Sent to AVP QA"
         />
         <div className="bg-card rounded-2xl border border-border p-5 shadow-2xs animate-panel-in">
           <MySubmittedRequestsPanel />

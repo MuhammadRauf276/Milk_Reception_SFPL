@@ -24,7 +24,7 @@ export function ReceiptModal({
         <div className="bg-card border-border p-3 border rounded-xl text-emerald-950 flex items-start space-x-3">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
           <div>
-            <h4 className="text-xs font-semibold text-emerald-900">Collection Recorded Successfully</h4>
+            <h4 className="text-xs font-semibold text-emerald-900">Collection saved</h4>
             <p className="text-xs text-emerald-800 mt-0.5">
               {completedReceiptModal.shopName} · {completedReceiptModal.grossLiters.toFixed(1)} L (@13TS: {completedReceiptModal.at13tsLiters.toFixed(1)} L)
             </p>

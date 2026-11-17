@@ -117,7 +117,7 @@ export const LabPortionExceptionQueue: React.FC<LabPortionExceptionQueueProps> =
   const decide = async (item: LabPortionExceptionItem, verdict: 'OKAY' | 'NO') => {
     const text = (remarks[item.id] || '').trim();
     if (verdict === 'NO' && text.length < 3) {
-      setItemError((e) => ({ ...e, [item.id]: 'Please write a reason for NO.' }));
+      setItemError((e) => ({ ...e, [item.id]: 'Write a reason for NO.' }));
       return;
     }
     setBusyId(item.id);

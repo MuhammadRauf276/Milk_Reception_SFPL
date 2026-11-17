@@ -162,7 +162,7 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
           <h1 className="text-lg font-semibold text-foreground">
             Scale queue
           </h1>
-          <InfoTip text="Tankers waiting for each weighment." />
+          <InfoTip text="Waiting for weighment" />
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold tabular-nums px-3 py-1 rounded-md bg-muted text-foreground border border-border">
@@ -186,7 +186,7 @@ export const WeighbridgeUnifiedStation: React.FC<WeighbridgeUnifiedStationProps>
             setSearchQuery(e.target.value);
             setPage(1);
           }}
-          placeholder="Search tanker registration or token…"
+          placeholder="Search tanker or token…"
           className="w-full min-h-11 pl-9 pr-3 py-2 text-sm tabular-nums rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
         />
       </div>
@@ -401,12 +401,12 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeStep) {
-      toast.showWarning('No scale action is currently pending for this tanker.', 'Not on Scale');
+      toast.showWarning('No scale action pending.', 'Not on Scale');
       return;
     }
 
     if (!isValidNum) {
-      toast.showError('Please enter a valid weight scale reading greater than 0 kg.', 'Invalid Weight');
+      toast.showError('Enter a scale reading above 0 kg.', 'Invalid weight');
       return;
     }
 
@@ -414,14 +414,14 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
     if (!isGrossStep && activeStep.starting_weight_kg && enteredVal >= activeStep.starting_weight_kg) {
       toast.showError(
         `Scale reading (${enteredVal.toLocaleString()} kg) must be strictly less than the starting loaded weight (${activeStep.starting_weight_kg.toLocaleString()} kg).`,
-        'Weight Hierarchy Error'
+        'Weight order error'
       );
       return;
     }
 
     const isoTimestamp = datetimeLocalToIso(opDateTimeInput);
     if (!isoTimestamp) {
-      toast.showError('Please provide a valid operational date and time.', 'Missing Timestamp');
+      toast.showError('Select a valid date and time.', 'Missing time');
       return;
     }
 
@@ -460,7 +460,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
 
         toast.showSuccess(
           `Initial Loaded Gross (${enteredVal.toLocaleString()} kg) recorded and locked! Vehicle routed to Silo for Compartment #1.`,
-          'Gross Weight Locked'
+          'Gross weight locked'
         );
       } else {
         // Step 1..N: Record Intermediate Tare or Final Tare
@@ -482,7 +482,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
         if (data.isPortionCycle) {
           toast.showSuccess(
             `Compartment #${data.completedPortionNumber} Tare recorded (${enteredVal.toLocaleString()} kg)! Vehicle ready for Compartment #${data.nextPortionNumber}.`,
-            'Intermediate Weighment Locked'
+            'Weighment locked'
           );
         } else {
           toast.showSuccess(
@@ -496,7 +496,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
       weighDraft.clear();
       await onSuccess();
     } catch (err) {
-      toast.showError(getErrorMessage(err) || 'Failed to record weighment reading', 'Weighbridge Error');
+      toast.showError(getErrorMessage(err) || 'Could not save reading', 'Weighbridge error');
     } finally {
       setIsSubmitting(false);
     }
@@ -506,7 +506,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
     <Drawer open onOpenChange={(o) => !o && onClose()}>
       <DrawerContent showClose={false}>
         <div className="overflow-y-auto p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6 space-y-6 text-foreground max-w-4xl mx-auto w-full">
-          <DrawerTitle className="sr-only">Progressive Scale Weighing</DrawerTitle>
+          <DrawerTitle className="sr-only">Scale weighing</DrawerTitle>
 
           {/* Drawer Top Header */}
           <div className="flex items-start justify-between gap-3 pb-3 border-b border-border">
@@ -555,7 +555,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
             <div className="flex items-center justify-between p-3 bg-destructive/10 rounded-xl border border-destructive/20 text-xs text-destructive font-medium">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
-                <span className="font-semibold">All rejected by QA, send to security gate</span>
+                <span className="font-semibold">All rejected. Send to gate.</span>
               </div>
               <InfoTip
                 text={`All ${visit.portion_count} compartments rejected by QA. Direct vehicle to Security Gate for exit.`}
@@ -584,7 +584,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
                   Weighment progress ({visit.total_weighments} readings)
                 </h4>
                 <InfoTip
-                  text="Finished steps are locked. Later steps open after silo transfer."
+                  text="Done steps are locked."
                 />
               </div>
 

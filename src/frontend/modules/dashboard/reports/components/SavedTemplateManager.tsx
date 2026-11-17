@@ -100,7 +100,7 @@ export function SavedTemplateManager({
   const handleSaveCustomTemplate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTemplateName.trim()) {
-      toast.error('Please provide a name for this custom report template.');
+      toast.error('Enter a template name.');
       return;
     }
 
@@ -131,9 +131,9 @@ export function SavedTemplateManager({
       setIsSaveModalOpen(false);
       setNewTemplateName('');
       setNewTemplateDesc('');
-      toast.success(`Saved custom template "${newTemplate.name}"`);
+      toast.success(`Template saved`);
     } catch {
-      toast.error('Failed to save custom template to local storage.');
+      toast.error('Could not save template.');
     }
   };
 
@@ -141,9 +141,9 @@ export function SavedTemplateManager({
     try {
       writeStored(parseRawList(readStoredText()).filter((t) => !(typeof t === 'object' && t !== null && 'id' in t && t.id === templateId)));
       if (selectedTemplateId === templateId) setSelectedTemplateId('');
-      toast.success(`Removed template "${name}"`);
+      toast.success(`Removed "${name}"`);
     } catch {
-      toast.error('Failed to delete template.');
+      toast.error('Could not delete template.');
     }
   };
 
@@ -168,14 +168,14 @@ export function SavedTemplateManager({
               customTemplates.find((t) => t.id === id);
             if (match) {
               onApplyTemplate(match);
-              toast.success(`Applied template: ${match.name}`);
+              toast.success(`Template applied`);
             }
           }}
           className="text-xs bg-background border border-border rounded-lg px-3 py-2 font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer max-w-xs"
         >
-          <option value="">Custom Report (Ad-Hoc Layout)</option>
+          <option value="">Custom report</option>
           {domainSystemTemplates.length > 0 && (
-            <optgroup label="System Standard Presets">
+            <optgroup label="Presets">
               {domainSystemTemplates.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -184,7 +184,7 @@ export function SavedTemplateManager({
             </optgroup>
           )}
           {customTemplates.length > 0 && (
-            <optgroup label="My Saved Views">
+            <optgroup label="My views">
               {customTemplates.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -224,14 +224,14 @@ export function SavedTemplateManager({
       {isSaveModalOpen && (
         <Modal
           onClose={() => setIsSaveModalOpen(false)}
-          title="Save Custom Report View"
+          title="Save view"
           showHeader={false}
           className="max-w-md p-6 space-y-4"
         >
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
                 <Bookmark className="w-4 h-4 text-muted-foreground" />
-                <h3 className="text-base font-semibold text-foreground">Save Custom Report View</h3>
+                <h3 className="text-base font-semibold text-foreground">Save view</h3>
               </div>
               <Button variant="ghost" size="icon-sm" onClick={() => setIsSaveModalOpen(false)}>
                 <X className="w-4 h-4" />
@@ -248,7 +248,7 @@ export function SavedTemplateManager({
                   required
                   value={newTemplateName}
                   onChange={(e) => setNewTemplateName(e.target.value)}
-                  placeholder="e.g. Sahiwal Route Quality & Losses"
+                  placeholder="e.g. Sahiwal route losses"
                   className="w-full px-3 py-2 bg-background border border-border rounded-xl text-xs font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground"
                 />
               </div>
@@ -261,7 +261,7 @@ export function SavedTemplateManager({
                   rows={2}
                   value={newTemplateDesc}
                   onChange={(e) => setNewTemplateDesc(e.target.value)}
-                  placeholder="Explain what scenario this custom view audits…"
+                  placeholder="What this view checks"
                   className="w-full px-3 py-2 bg-background border border-border rounded-xl text-xs font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground"
                 />
               </div>

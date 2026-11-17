@@ -113,7 +113,7 @@ export function MySubmittedRequestsPanel({ onClose, className, embedded = false 
           {embedded ? (
             <h2 className="text-sm font-semibold text-foreground">Sent for approval</h2>
           ) : (
-            <h3 className="text-base font-semibold text-foreground">My Sent Requests</h3>
+            <h3 className="text-base font-semibold text-foreground">My requests</h3>
           )}
           <InfoTip label="About sent requests" className="-my-2" text="Vehicle and quality exception requests sent to your upper head." />
         </div>
@@ -137,7 +137,7 @@ export function MySubmittedRequestsPanel({ onClose, className, embedded = false 
         rows={filtered}
         getRowId={(item) => String(item.id)}
         loading={isLoading}
-        error={isError ? 'Could not load your submitted requests. Please try again.' : null}
+        error={isError ? 'Could not load requests. Try again.' : null}
         onRetry={() => void refetch()}
         noun="requests"
         emptyTitle="No requests found"

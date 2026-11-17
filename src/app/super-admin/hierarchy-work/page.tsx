@@ -157,7 +157,7 @@ export default function HierarchyWorkPage() {
           <div className="min-w-0 space-y-0.5">
             <span className="font-semibold text-foreground">Audit trail</span>
             <p>
-              Times a senior account acted for a lower role. Only senior management sees this.
+              Senior accounts acting for lower roles.
             </p>
           </div>
         </div>

@@ -305,7 +305,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
             type="text"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. Staff unavailable - direct intake by Super Admin"
+            placeholder="e.g. Staff unavailable, direct intake"
             className={fieldInputClass}
             disabled={mutation.isPending}
           />

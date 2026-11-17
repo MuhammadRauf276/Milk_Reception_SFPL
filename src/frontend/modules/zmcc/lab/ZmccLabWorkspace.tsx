@@ -295,7 +295,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
         return;
       }
     } catch {
-      toast.showError('Could not open this record. Please try again.');
+      toast.showError('Could not open record. Try again.');
       return;
     }
     setSelectedHistorySession(session);
@@ -330,7 +330,7 @@ export const ZmccLabWorkspace: React.FC<ZmccLabWorkspaceProps> = ({ currentUser,
       return;
     }
     if (correctionDecision === 'REJECTED' && !correctionRejectionReason.trim()) {
-      toast.showError('Rejection reason is mandatory when decision is REJECTED.');
+      toast.showError('Write a reason to reject.');
       return;
     }
 

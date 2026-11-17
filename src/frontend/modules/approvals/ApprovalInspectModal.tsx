@@ -71,7 +71,7 @@ export function ApprovalInspectModal({
       return;
     }
     if (verdict === 'NO' && decisionRemarks.trim().length < 5) {
-      setDecisionError('Please write a substantive rejection reason (at least 5 characters).');
+      setDecisionError('Give a rejection reason of 5+ characters.');
       return;
     }
 
@@ -170,7 +170,7 @@ export function ApprovalInspectModal({
                       )}
                     >
                       
-                      <span>Approve Request</span>
+                      <span>Approve</span>
                     </button>
 
                     <button
@@ -187,7 +187,7 @@ export function ApprovalInspectModal({
                       )}
                     >
                       
-                      <span>Reject Request</span>
+                      <span>Reject</span>
                     </button>
                   </div>
 
@@ -275,7 +275,7 @@ export function ApprovalInspectModal({
             ) : (
               <div className="flex items-center justify-between gap-3">
                 <div className="text-xs text-muted-foreground">
-                  Audit record only · Decisions cannot be modified.
+                  Read-only audit record
                 </div>
                 <button
                   type="button"
@@ -295,7 +295,7 @@ export function ApprovalInspectModal({
         <Modal
           key="photo-preview-modal"
           onClose={() => setPreviewPhotoUrl(null)}
-          title="Captured Evidence Photo"
+          title="Evidence photo"
           className="max-w-2xl p-4"
         >
           <div className="space-y-3">

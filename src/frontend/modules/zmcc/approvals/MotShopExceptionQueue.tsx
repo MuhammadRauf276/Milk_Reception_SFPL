@@ -121,7 +121,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
   const decide = async (item: MotShopExceptionItem, verdict: 'OKAY' | 'NO') => {
     const text = (remarks[item.id] || '').trim();
     if (verdict === 'NO' && text.length < 3) {
-      setItemError((e) => ({ ...e, [item.id]: 'Please write a reason for NO.' }));
+      setItemError((e) => ({ ...e, [item.id]: 'Write a reason for NO.' }));
       return;
     }
     setBusyId(item.id);
@@ -270,7 +270,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                     className="min-h-11 min-w-11 flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-action/30 bg-action-soft px-3 text-xs font-semibold text-action hover:bg-action-soft"
                   >
                     <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>View Inspection Details</span>
+                    <span>View inspection</span>
                   </button>
                 )}
               </div>
@@ -324,7 +324,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 {/* Summary Metrics */}
                 <div className="bg-card border-border border grid grid-cols-3 gap-2 rounded-xl p-3 text-center text-xs">
                   <div>
-                    <span className="block text-xs text-muted-foreground">Gross Quantity</span>
+                    <span className="block text-xs text-muted-foreground">Gross quantity</span>
                     <strong className="text-base text-foreground tabular-nums">{activeModalItem.grossLiters} L</strong>
                   </div>
                   <div>
@@ -376,7 +376,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 {/* Photo Evidence */}
                 {activeModalItem.photos.length > 0 && (
                   <div>
-                    <h4 className="mb-2 text-xs font-semibold text-foreground">Photo Evidence</h4>
+                    <h4 className="mb-2 text-xs font-semibold text-foreground">Photo evidence</h4>
                     <div className="grid grid-cols-2 gap-2">
                       {activeModalItem.photos.map((p) => (
                         <div key={p.captureId} className="bg-card border-border overflow-hidden rounded-xl border">
@@ -402,7 +402,7 @@ export const MotShopExceptionQueue: React.FC<MotShopExceptionQueueProps> = ({ ca
                 {/* Decided info if already decided */}
                 {activeModalItem.reviewStatus !== 'PENDING' && (
                   <div className="bg-card border-border rounded-xl border p-3 text-xs text-secondary-foreground">
-                    <p className="font-semibold text-foreground">Decision History</p>
+                    <p className="font-semibold text-foreground">Decision history</p>
                     <p className="mt-0.5">
                       Verdict: <strong>{activeModalItem.finalDecision}</strong>
                       {activeModalItem.reviewedAt && (

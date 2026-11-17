@@ -306,20 +306,20 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                   <div className="flex items-center justify-between font-sans pb-2 border-b border-border/60">
                     <span className="text-xs font-semibold text-foreground flex items-center gap-2">
                       <Scale className="w-3.5 h-3.5 text-emerald-800" />
-                      <span>Intake Quantity Performance</span>
+                      <span>Intake performance</span>
                     </span>
                     <span className="text-xs font-semibold text-muted-foreground">Dispatch vs Final Receipt</span>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
                     <div>
-                      <span className="text-xs font-sans text-muted-foreground block">Dispatch Gross Liters:</span>
+                      <span className="text-xs font-sans text-muted-foreground block">Dispatch gross L:</span>
                       <span className="font-semibold text-foreground">
                         {item.dispatchGrossLiters != null ? `${item.dispatchGrossLiters.toLocaleString()} L` : '—'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-xs font-sans text-muted-foreground block">Physical Received Liters:</span>
+                      <span className="text-xs font-sans text-muted-foreground block">Received L:</span>
                       <span className="font-semibold text-emerald-800">
                         {item.physicalReceivedLiters != null ? `${item.physicalReceivedLiters.toLocaleString()} L` : '—'}
                       </span>
@@ -375,26 +375,26 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                   <div className="flex items-center justify-between font-sans pb-2 border-b border-border/60">
                     <span className="text-xs font-semibold text-foreground flex items-center gap-2">
                       <Warehouse className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span>Weighbridge & Storage Allocation</span>
+                      <span>Weighbridge and silo</span>
                     </span>
-                    <span className="text-xs font-semibold text-muted-foreground">Official Scale Records</span>
+                    <span className="text-xs font-semibold text-muted-foreground">Scale records</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                     <div>
-                      <span className="text-xs font-sans text-muted-foreground block">First Weight (Loaded Vehicle):</span>
+                      <span className="text-xs font-sans text-muted-foreground block">First weight:</span>
                       <span className="font-semibold text-foreground">
                         {item.firstWeightKg != null ? `${item.firstWeightKg.toLocaleString()} kg` : '—'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-xs font-sans text-muted-foreground block">Second Weight (After Unloading):</span>
+                      <span className="text-xs font-sans text-muted-foreground block">Second weight:</span>
                       <span className="font-semibold text-foreground">
                         {item.secondWeightKg != null ? `${item.secondWeightKg.toLocaleString()} kg` : '—'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-xs font-sans text-muted-foreground block">Net Milk Weight:</span>
+                      <span className="text-xs font-sans text-muted-foreground block">Net weight:</span>
                       <span className="font-semibold text-primary">
                         {item.netMilkWeightKg != null ? `${item.netMilkWeightKg.toLocaleString()} kg` : '—'}
                       </span>
@@ -409,12 +409,12 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
                       </span>
                     </div>
                     <div>
-                      <span className="text-xs font-sans text-muted-foreground block">Final Receipt Date/Time:</span>
+                      <span className="text-xs font-sans text-muted-foreground block">Final receipt:</span>
                       <span className="font-semibold text-foreground">
                         {item.finalReceiptTimestamp
                           ? formatOperationalDatetime(item.finalReceiptTimestamp)
                           : item.isReceiptPending
-                          ? 'Pending Silo Receipt'
+                          ? 'Silo receipt pending'
                           : '—'}
                       </span>
                     </div>

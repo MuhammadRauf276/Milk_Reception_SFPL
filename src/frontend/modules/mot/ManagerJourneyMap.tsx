@@ -18,6 +18,7 @@ import { LiveMap, type LiveMapVehicle } from '@/frontend/modules/shared/map/Live
 import { buildJourneyOverlays } from '@/frontend/modules/shared/map/journeyOverlays';
 import { HorizontalScrollRow } from '@/components/ui/horizontal-scroll-row';
 import { formatLabel } from '@/lib/format';
+import { InfoTip } from '@/components/ui/info-tip';
 
 interface ManagerJourneyMapProps {
   currentUser: User | null;
@@ -170,9 +171,9 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
     return (
       <div className="bg-card border-border p-8 border rounded-2xl text-rose-800 text-center space-y-2">
         <AlertTriangle className="w-8 h-8 text-rose-600 mx-auto" />
-        <h3 className="text-base font-semibold">Access Denied</h3>
+        <h3 className="text-base font-semibold">No access</h3>
         <p className="text-xs">
-          Your role cannot open the journey map. Please ask your Zonal Manager.
+          Your role cannot open this map.<InfoTip text="Ask your Zonal Manager for access." />
         </p>
       </div>
     );
@@ -182,7 +183,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
     return (
       <div className="p-12 bg-card rounded-xl border border-border text-center space-y-3">
         <MapPin className="w-10 h-10 text-neutral-400 mx-auto" />
-        <h3 className="text-base font-semibold text-foreground">No Journey Selected</h3>
+        <h3 className="text-base font-semibold text-foreground">No journey selected</h3>
         <p className="text-xs text-muted-foreground max-w-sm mx-auto">
           Select a journey to see its trail and stops.
         </p>
@@ -232,7 +233,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
             onClick={() => fetchMapData(journeyId)}
             className="min-h-11 min-w-11 flex items-center space-x-1 px-3 py-1 bg-white border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
           >
-            <span>Refresh Map</span>
+            <span>Refresh map</span>
           </button>
           {onClose && (
             <button
@@ -274,17 +275,17 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
         <HorizontalScrollRow>
           <div className="flex items-stretch gap-3 min-w-max">
             <div className="min-w-33 flex-1 bg-card border-border p-3 rounded-xl border">
-              <span className="text-xs font-semibold text-muted-foreground block">Stops Visited</span>
+              <span className="text-xs font-semibold text-muted-foreground block">Stops visited</span>
               <span className="text-sm font-semibold text-foreground tabular-nums">
                 {totals.visited_stops} / {totals.total_stops}
               </span>
             </div>
             <div className="min-w-33 flex-1 bg-card border-border p-3 rounded-xl border">
-              <span className="text-xs font-semibold text-muted-foreground block">Pending Stops</span>
+              <span className="text-xs font-semibold text-muted-foreground block">Pending stops</span>
               <span className="text-sm font-semibold text-amber-600 tabular-nums">{totals.pending_stops}</span>
             </div>
             <div className="min-w-33 flex-1 bg-card border-border p-3 rounded-xl border">
-              <span className="text-xs font-semibold text-muted-foreground block">Total Gross Ltr</span>
+              <span className="text-xs font-semibold text-muted-foreground block">Gross litres</span>
               <span className="text-sm font-semibold text-emerald-700 tabular-nums">{totals.total_gross_liters} L</span>
             </div>
             <div className="min-w-33 flex-1 bg-card border-border p-3 rounded-xl border">
@@ -405,7 +406,7 @@ export const ManagerJourneyMap: React.FC<ManagerJourneyMapProps> = ({
                     </span>
                   </div>
                 ) : (
-                  <span className="text-xs text-amber-700 font-medium">Pending Collection</span>
+                  <span className="text-xs text-amber-700 font-medium">Pending collection</span>
                 )}
                 <span
                   className={`px-2 py-0.5 rounded-md text-xs font-semibold ${

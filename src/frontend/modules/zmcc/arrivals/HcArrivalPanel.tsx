@@ -9,6 +9,7 @@ import { ZmccDrawer, zmccInputClass, zmccLabelClass } from '../shared/ZmccDrawer
 import type { useHcArrivalForm } from './useHcArrivalForm';
 import type { HcSupplierRow } from './arrivalTypes';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { InfoTip } from '@/components/ui/info-tip';
 
 interface Props {
   form: ReturnType<typeof useHcArrivalForm>;
@@ -61,7 +62,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
                   ZMCC Token: <strong className="tabular-nums text-emerald-900 text-sm font-semibold">{localSupplierSuccessResult.zmcc_token}</strong>
                   {localSupplierSuccessResult.zmcc_token?.includes('OFFLINE') && (
                     <div className="mt-1 text-xs font-medium text-amber-700 bg-amber-50 rounded px-2 py-0.5 border border-amber-200">
-                      Saved offline on device. Will sync automatically once connected.
+                      Saved offline. Will sync later.<InfoTip text="It syncs automatically once the phone is connected." />
                     </div>
                   )}
                 </div>
@@ -130,7 +131,7 @@ export const HcArrivalPanel: React.FC<Props> = ({
                     className="min-h-11 px-2 text-xs font-semibold text-emerald-700 hover:underline flex items-center space-x-1 cursor-pointer"
                   >
                     <Plus className="w-3 h-3" />
-                    <span>Quick Add Supplier</span>
+                    <span>Quick add supplier</span>
                   </button>
                 </div>
                 <Combobox

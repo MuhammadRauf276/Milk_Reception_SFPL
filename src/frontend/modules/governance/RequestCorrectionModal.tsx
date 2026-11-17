@@ -65,11 +65,11 @@ export const RequestCorrectionModal: React.FC<RequestCorrectionModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedField) {
-      setError('Please select a field to correct.');
+      setError('Select a field to correct.');
       return;
     }
     if (!proposedValue.trim()) {
-      setError('Please enter the proposed corrected value.');
+      setError('Enter the corrected value.');
       return;
     }
     if (reason.trim().length < 5) {

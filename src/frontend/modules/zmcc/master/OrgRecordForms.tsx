@@ -72,7 +72,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
               {(modalType === 'CREATE_ROUTE' || modalType === 'EDIT_ROUTE') && (
                 <>
                   <div>
-                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Route Name</label>
+                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Route name</label>
                     <input
                       type="text"
                       required
@@ -115,7 +115,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                   {modalType === 'CREATE_AREA' && (
                     <>
                       <div>
-                        <label className="block text-xs font-semibold text-secondary-foreground mb-1">Parent Route</label>
+                        <label className="block text-xs font-semibold text-secondary-foreground mb-1">Parent route</label>
                         <Combobox
                           options={helperRoutes.map((r) => ({ value: r.id, label: `${r.name} · ${r.route_code}`, keywords: r.route_code }))}
                           value={String(formData.route_id || '')}
@@ -128,7 +128,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                     </>
                   )}
                   <div>
-                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Area Name</label>
+                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Area name</label>
                     <input
                       type="text"
                       required
@@ -158,7 +158,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                     </div>
                   )}
                   <div>
-                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Source Name</label>
+                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Source name</label>
                     <input
                       type="text"
                       required
@@ -176,7 +176,7 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
                 <>
                   {modalType === 'CREATE_CHILLER' && (
                     <div>
-                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Ownership Code</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Ownership code</label>
                       <input
                         type="text"
                         required

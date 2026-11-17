@@ -48,7 +48,7 @@ export function RequestCorrectionPanel({ embedded = false }: { embedded?: boolea
     <div className={embedded ? 'space-y-3' : 'mx-auto max-w-3xl space-y-4'}>
       {!embedded && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-secondary-foreground">Find the record, then say which value is wrong.</p>
+          <p className="text-sm text-secondary-foreground">Find the record, then pick the wrong value.</p>
           <MyCorrectionTicketsButton />
         </div>
       )}
@@ -64,7 +64,7 @@ export function RequestCorrectionPanel({ embedded = false }: { embedded?: boolea
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Token, journey, visit or vehicle number"
+            placeholder="Token, journey, visit or vehicle no."
             aria-label="Search your records"
           />
         </div>

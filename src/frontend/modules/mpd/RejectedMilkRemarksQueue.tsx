@@ -44,7 +44,7 @@ export const RejectedMilkRemarksQueue: React.FC<RejectedMilkRemarksQueueProps> =
   const save = async (item: QueueItem) => {
     const remarks = (drafts[item.entity_id] || '').trim();
     if (!remarks) {
-      setActionError('Please write your remarks first.');
+      setActionError('Write your remarks first.');
       return;
     }
     setSavingId(item.entity_id);

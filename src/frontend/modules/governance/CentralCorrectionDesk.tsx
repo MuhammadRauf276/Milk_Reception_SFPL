@@ -110,7 +110,7 @@ export const CentralCorrectionDesk: React.FC = () => {
   // Tab 1: Handle Reject Request
   const handleRejectRequest = async (id: string) => {
     if (rejectionReason.trim().length < 3) {
-      setActionError('Please provide a substantive rejection reason of at least 3 characters.');
+      setActionError('Give a rejection reason of 3+ characters.');
       return;
     }
     setProcessingId(id);
@@ -272,7 +272,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                   <option value="APPROVED">Approved</option>
                   <option value="REJECTED">Rejected</option>
                   <option value="APPLIED">Done</option>
-                  <option value="ALL">All Statuses</option>
+                  <option value="ALL">All statuses</option>
                 </select>
               </div>
 
@@ -284,7 +284,7 @@ export const CentralCorrectionDesk: React.FC = () => {
                   onChange={(e) => setModuleFilter(e.target.value)}
                   className="px-2 rounded-lg border border-border-strong bg-card font-medium text-foreground focus:outline-hidden min-h-11"
                 >
-                  <option value="ALL">All Modules</option>
+                  <option value="ALL">All areas</option>
                   <option value="MOT_SHOP_COLLECTION">Stage 1: Shop Collections</option>
                   <option value="ZMCC_LAB_SESSION">Stage 2: ZMCC Lab Sessions</option>
                   <option value="VEHICLE_VISIT">Stage 3 & 4: Vehicle Visits</option>
@@ -306,7 +306,7 @@ export const CentralCorrectionDesk: React.FC = () => {
           ) : filteredRequests.length === 0 ? (
             <div className="bg-card border-border p-12 text-center border rounded-2xl space-y-2">
               <FileCheck2 className="w-10 h-10 text-neutral-300 mx-auto" />
-              <h3 className="font-semibold text-foreground text-sm">No Correction Requests Found</h3>
+              <h3 className="font-semibold text-foreground text-sm">No requests</h3>
               <p className="text-muted-foreground text-xs">
                 {statusFilter === 'REQUESTED'
                   ? 'Nothing pending.'
@@ -501,7 +501,7 @@ export const CentralCorrectionDesk: React.FC = () => {
               onClick={() => router.push('/super-admin/audit')}
               className="text-xs font-semibold gap-2"
             >
-              <span>View Audit Trail</span>
+              <span>View history</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Button>
           </div>
@@ -529,12 +529,12 @@ export const CentralCorrectionDesk: React.FC = () => {
             {/* Requester Info Card */}
             <div className="bg-card border-border p-4 rounded-2xl border grid grid-cols-2 gap-2 text-secondary-foreground">
               <div>
-                <span className="text-xs font-semibold text-muted-foreground">Requested By</span>
+                <span className="text-xs font-semibold text-muted-foreground">Requested by</span>
                 <p className="font-semibold text-foreground">{selectedRequest?.requestedBy.name}</p>
                 <p className="text-xs text-muted-foreground">@{selectedRequest?.requestedBy.username}</p>
               </div>
               <div>
-                <span className="text-xs font-semibold text-muted-foreground">Request Timestamp</span>
+                <span className="text-xs font-semibold text-muted-foreground">Requested at</span>
                 <p className="font-semibold text-foreground">
                   {selectedRequest?.requestedAt && formatDateTime(selectedRequest.requestedAt)}
                 </p>
@@ -639,11 +639,11 @@ export const CentralCorrectionDesk: React.FC = () => {
         <Modal
           onClose={() => processingId !== rejectionModalId && setRejectionModalId(null)}
           preventClose={processingId === rejectionModalId}
-          title="Reject Correction Request"
+          title="Reject request"
           showHeader={false}
           className="max-w-md p-5 space-y-4 text-xs"
         >
-            <h3 className="font-semibold text-sm text-foreground">Reject Correction Request</h3>
+            <h3 className="font-semibold text-sm text-foreground">Reject request</h3>
             <textarea
               rows={3}
               value={rejectionReason}

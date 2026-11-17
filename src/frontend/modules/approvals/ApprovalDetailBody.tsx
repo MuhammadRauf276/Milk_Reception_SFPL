@@ -122,7 +122,7 @@ export function ApprovalDetailBody({
             <div className="bg-card border-border p-4 rounded-2xl border text-emerald-950 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
-                <p className="text-xs font-semibold">All recorded tests are within SOP limits</p>
+                <p className="text-xs font-semibold">All tests within SOP limits</p>
               </div>
             </div>
           )}
@@ -173,7 +173,7 @@ export function ApprovalDetailBody({
           <div className="bg-card border-border p-4 rounded-2xl border flex flex-col justify-between gap-2">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <span className="font-semibold text-xs text-secondary-foreground block">Operator Stated Verdict</span>
+                <span className="font-semibold text-xs text-secondary-foreground block">Operator verdict</span>
                 <span className="text-xs text-muted-foreground">
                   {failedTests.length > 0
                     ? 'Contradicts System Failure'
@@ -261,14 +261,14 @@ export function ApprovalDetailBody({
         <div className="p-4 border-t border-border bg-card space-y-4">
           {item.details.testValues && item.details.testValues.length > 0 && (
             <div>
-              <h4 className="font-semibold text-secondary-foreground mb-2">Complete Laboratory Results</h4>
+              <h4 className="font-semibold text-secondary-foreground mb-2">Lab results</h4>
               <TableWrapper className="border border-border rounded-lg">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead className="bg-subtle text-secondary-foreground font-semibold border-b border-border">
                     <tr>
-                      <th className="p-2">Test Name</th>
-                      <th className="p-2">Observed Value</th>
-                      <th className="p-2">Rule Bounds</th>
+                      <th className="p-2">Test</th>
+                      <th className="p-2">Value</th>
+                      <th className="p-2">Limits</th>
                       <th className="p-2 text-right">Result</th>
                     </tr>
                   </thead>
@@ -334,7 +334,7 @@ export function ApprovalDetailBody({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-secondary-foreground">
             <div className="bg-card border-border p-3 rounded-lg border space-y-1">
-              <p className="font-semibold text-foreground">Submitted By</p>
+              <p className="font-semibold text-foreground">Submitted by</p>
               <p>
                 Name: <strong>{item.submittedBy.name || '—'}</strong>
               </p>
@@ -352,7 +352,7 @@ export function ApprovalDetailBody({
               <div className="bg-card border-border p-3 rounded-lg border space-y-1">
                 <p className="font-semibold text-foreground flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span>Location Verified</span>
+                  <span>Location verified</span>
                 </p>
                 <p>
                   GPS captured at submission
@@ -371,7 +371,7 @@ export function ApprovalDetailBody({
         <div className="bg-card border-border p-4 rounded-2xl border text-amber-950 flex items-start gap-3">
           <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="space-y-1 text-xs">
-            <p className="font-semibold text-sm">Review Locked</p>
+            <p className="font-semibold text-sm">Review locked</p>
             <p>
               {item.disabledReason ||
                 'Another supervisor must review this item.'}

@@ -60,7 +60,7 @@ function ContractorDispatchContent() {
 
   if (loading) {
     return (
-      <PageLoader label="Loading Contractor Dispatch Station…" className="min-h-dvh" />
+      <PageLoader label="Loading dispatch…" className="min-h-dvh" />
     );
   }
 
@@ -110,7 +110,7 @@ function ContractorDispatchContent() {
 
 export default function ContractorDispatchPage() {
   return (
-    <Suspense fallback={<PageLoader label="Loading Contractor Dispatch Station…" className="min-h-dvh" />}>
+    <Suspense fallback={<PageLoader label="Loading dispatch…" className="min-h-dvh" />}>
       <ContractorDispatchContent />
     </Suspense>
   );

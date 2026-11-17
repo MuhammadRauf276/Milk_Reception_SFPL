@@ -778,7 +778,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       hasError = true;
     }
     if (!isContractorSource && !selectedMotProfileId && !driverName.trim()) {
-      setMotError('Please select a Mobile Tester escort or enter driver/escort name.');
+      setMotError('Select an escort or enter a name.');
       hasError = true;
     }
     if (isContractorSource && !driverName.trim()) {
@@ -786,7 +786,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       hasError = true;
     }
     if (hasError) {
-      toast.showError('Please provide vehicle number and escort/driver name before proceeding.', 'Required fields');
+      toast.showError('Enter vehicle number and escort name.', 'Required fields');
       return;
     }
     setVehicleNumberError(null);
@@ -903,7 +903,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     if (editingPortionIndex !== null) {
       const currentEditing = portions[editingPortionIndex];
       if (!currentEditing.isSaved) {
-        toast.showWarning('Please save or complete the current portion before adding a new one.', 'Save Active Portion');
+        toast.showWarning('Save the current portion first.', 'Save portion');
         return;
       }
     }
@@ -978,7 +978,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       return;
     }
     if (mode === 'COMPOSITE' && portions.length > 1) {
-      if (!(await confirmAction({ title: 'Switch to Composite mode?', description: 'All tests are recorded under Portion 1. Other portions will be removed.', confirmLabel: 'Switch mode', destructive: true }))) {
+      if (!(await confirmAction({ title: 'Switch to Composite mode?', description: 'Other portions will be removed.', confirmLabel: 'Switch mode', destructive: true }))) {
         return;
       }
       setPortions((prev) => prev.slice(0, 1));
@@ -1002,7 +1002,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     const qty = Number(target.quantity.value);
     const unitLabel = target.quantity.unit === 'LITER' ? 'L' : 'kg';
     if (!target.quantity.value || isNaN(qty) || qty <= 0) {
-      errors.quantity = `Please enter a valid portion quantity (${unitLabel} > 0).`;
+      errors.quantity = `Enter a valid portion quantity (${unitLabel} > 0).`;
       firstInvalidId = `portion-qty-input-${index}`;
     }
 
@@ -1028,7 +1028,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
     const hasErrors = !!errors.quantity || !!errors.seal || Object.keys(errors.tests).length > 0;
     if (hasErrors) {
       setPortionErrors((prev) => ({ ...prev, [index]: errors }));
-      toast.showError('Please fix the marked fields before saving.', 'Portion Check');
+      toast.showError('Fix the marked fields.', 'Portion check');
       if (firstInvalidId) {
         const el = document.getElementById(firstInvalidId);
         if (el) {
@@ -1234,14 +1234,14 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
     if (!vehicleNumber.trim()) {
       setVehicleNumberError('Vehicle Registration Number is required.');
-      toast.showError('Please enter a vehicle registration number.', 'Check the form');
+      toast.showError('Enter the vehicle number.', 'Check the form');
       document.getElementById('vehicle-number-input')?.focus();
       return;
     }
     const vehQtyNum = Number(vehicleQuantity.value);
     if (!vehicleQuantity.value || isNaN(vehQtyNum) || vehQtyNum <= 0) {
       setVehicleQuantityError('A valid whole-vehicle dispatch quantity (> 0) is required.');
-      toast.showError('Please enter the milk quantity of each portion.', 'Check the form');
+      toast.showError('Enter each portion quantity.', 'Check the form');
       return;
     }
     if (portions.length === 0) {
@@ -1249,14 +1249,14 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       return;
     }
     if (testMode === 'COMPOSITE' && portions.length !== 1) {
-      toast.showError('Composite test mode requires all tests recorded under One portion.', 'Check the form');
+      toast.showError('Composite mode needs one portion.', 'Check the form');
       return;
     }
     if (editingPortionIndex !== null) {
       if (!handleSavePortion(editingPortionIndex)) return;
     }
     if (portions.some((p, i) => !p.isSaved && i !== editingPortionIndex)) {
-      toast.showError('Please save every portion first.', 'Unsaved portions');
+      toast.showError('Save every portion first.', 'Unsaved portions');
       return;
     }
     // Duplicate seals (the server checks again).
@@ -1273,11 +1273,11 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         ? 'SEND_REQUEST'
         : 'SUBMIT';
     if (!effectiveSource?.id || !policy || !policyPoint) {
-      toast.showError('The form is still loading. Please wait a moment.', 'Please wait');
+      toast.showError('Form is still loading. Wait.', 'Loading');
       return;
     }
     if (effectiveAction === 'SEND_REQUEST' && (!decisionRemarks || decisionRemarks.trim().length < 3)) {
-      toast.showError(`Please write a short reason (at least 3 letters) to send request to ${approverLabel}.`, 'Reason needed');
+      toast.showError(`Write a reason (3+ letters) for ${approverLabel}.`, 'Reason needed');
       return;
     }
 
@@ -1340,12 +1340,12 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
 
       if (res.status === 409 && data.code === 'EXCEPTION_NEEDS_REQUEST') {
         setNeedsRequest((data.decision as DecisionResult) ?? preview.decision);
-        setSubmitError(`This cannot be submitted normally. Please send a request to the ${approverLabel}.`);
+        setSubmitError(`Send a request to the ${approverLabel}.`);
         return;
       }
       if (res.status === 409 && data.code === 'SEAL_DUPLICATE') {
         const sealNo = typeof data.sealNumber === 'string' ? data.sealNumber : '';
-        const msg = `Seal number ${sealNo} is already used. Please write a different seal number.`;
+        const msg = `Seal number ${sealNo} is already used. Use another.`;
         setSealServerError(msg);
         setSubmitError(msg);
         const idx = portions.findIndex((p) => p.sealNumber.trim().toUpperCase() === sealNo.trim().toUpperCase());
@@ -1556,7 +1556,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           {result.totals && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-left">
               <div className="bg-card border-border p-3 rounded-xl border">
-                <div className="text-xs font-semibold text-muted-foreground">Gross Litres</div>
+                <div className="text-xs font-semibold text-muted-foreground">Gross litres</div>
                 <div className="text-sm font-semibold text-foreground tabular-nums mt-0.5">{fmtL(result.totals.grossLiters)}</div>
               </div>
               <div className="bg-card border-border p-3 rounded-xl border">

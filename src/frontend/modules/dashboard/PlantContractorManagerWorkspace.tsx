@@ -59,7 +59,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
   const logsData = logsQuery.data;
   const logs = useMemo(() => logsData?.items ?? logsData?.logs ?? [], [logsData]);
   const loading = logsQuery.isPending;
-  const error = logsQuery.isError ? getErrorMessage(logsQuery.error) || 'Failed to load contractor operational logs' : null;
+  const error = logsQuery.isError ? getErrorMessage(logsQuery.error) || 'Logs did not load' : null;
   const totalPages = logsData?.pagination?.totalPages || logsData?.pagination?.total_pages || 1;
   const totalRecords = logsData?.pagination?.totalRecords || logsData?.pagination?.total_count || 0;
   const hasMore = Boolean(logsData?.pagination?.hasMore ?? logsData?.pagination?.has_more);
@@ -67,7 +67,7 @@ export const PlantContractorManagerWorkspace: React.FC<PlantContractorManagerWor
   const serverBusinessDate = logsData?.serverBusinessDate ?? '';
 
   const assignedSourceName = useMemo(() => {
-    return currentUser?.zone || currentUser?.department || 'Assigned Plant Contractor';
+    return currentUser?.zone || currentUser?.department || 'Plant contractor';
   }, [currentUser]);
 
   // Page change or manual reload.

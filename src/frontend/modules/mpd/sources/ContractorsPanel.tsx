@@ -108,7 +108,7 @@ export function ContractorsPanel({
   const columns: DataColumn<ContractorItem>[] = [
     {
       key: 'code',
-      header: 'Contractor Code',
+      header: 'Contractor code',
       label: 'Contractor code',
       primary: true,
       cell: (contractor) => <span className="font-mono font-semibold text-foreground">{contractor.code}</span>,
@@ -191,7 +191,7 @@ export function ContractorsPanel({
             className="flex min-h-11 items-center justify-center space-x-1 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold transition shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Register Direct Contractor</span>
+            <span>Add contractor</span>
           </button>
       </div>
 
@@ -272,9 +272,9 @@ export function ContractorsPanel({
         <Drawer open onOpenChange={(o) => !o && setIsAddingContractor(false)}>
           <DrawerContent showClose={false}>
             <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
-              <DrawerTitle className="sr-only">Register Direct Plant Contractor</DrawerTitle>
+              <DrawerTitle className="sr-only">Add contractor</DrawerTitle>
               <div className="flex items-center justify-between pb-3 border-b border-border">
-                <h3 className="text-sm font-semibold text-foreground">Register Direct Plant Contractor</h3>
+                <h3 className="text-sm font-semibold text-foreground">Add contractor</h3>
                 <button
                   type="button"
                   aria-label="Close"

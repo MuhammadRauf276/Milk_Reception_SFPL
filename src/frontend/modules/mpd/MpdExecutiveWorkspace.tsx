@@ -85,7 +85,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
         '/api/mpd/executive-overview',
         { cache: 'no-store', signal }
       );
-      if (!json.success) throw new Error(json.error || 'Failed to load MPD Executive Telemetry.');
+      if (!json.success) throw new Error(json.error || 'Could not load MPD data.');
       return json.data;
     },
     initialData,
@@ -166,7 +166,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
     },
     {
       id: 'QUALITY_FUNNEL',
-      label: 'Quality Screening',
+      label: 'Quality screening',
       icon: <Filter className="w-4 h-4" />,
     },
     {
@@ -176,7 +176,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
     },
     {
       id: 'GOVERNANCE',
-      label: 'Exception Desk',
+      label: 'Exception desk',
       icon: <ShieldAlert className="w-4 h-4" />,
       count:
         telemetry && Array.isArray(telemetry.governanceOverrides)
@@ -187,7 +187,7 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
       ? [
           {
             id: 'POLICIES' as const,
-            label: 'Testing Policies',
+            label: 'Test policies',
             icon: <Sliders className="w-4 h-4" />,
           },
         ]

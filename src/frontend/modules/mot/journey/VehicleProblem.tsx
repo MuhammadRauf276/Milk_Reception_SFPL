@@ -5,6 +5,7 @@ import { AlertTriangle, Truck } from 'lucide-react';
 import { toast } from '@/frontend/lib/appToast';
 import { Modal } from '@/components/ui/modal';
 import type { CurrentJourney } from './types';
+import { InfoTip } from '@/components/ui/info-tip';
 
 interface VehicleRequest {
   id: string;
@@ -96,7 +97,7 @@ export function VehicleProblem({ journey, vehicleRequests, coverHeaders, open, o
 
   const submit = async () => {
     if (reason.trim().length < 3) {
-      toast.error('Please write what happened to the vehicle.');
+      toast.error('Write what happened.');
       return;
     }
     setSending(true);
@@ -107,13 +108,13 @@ export function VehicleProblem({ journey, vehicleRequests, coverHeaders, open, o
         body: JSON.stringify({ reason: reason.trim() }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not send. Please try again.');
+      if (!res.ok) throw new Error(data.error || 'Could not send. Try again.');
       toast.success(data.message);
       onClose();
       setReason('');
       await reload();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Could not send. Please try again.');
+      toast.error(err instanceof Error ? err.message : 'Could not send. Try again.');
     } finally {
       setSending(false);
     }
@@ -127,7 +128,7 @@ export function VehicleProblem({ journey, vehicleRequests, coverHeaders, open, o
           <div>
             <p className="font-semibold">Waiting for the Zonal Manager</p>
             <p className="text-xs mt-0.5">
-              Request sent. Wait for the manager before collecting or returning to PHE. Your milk is safe.
+              Request sent. Wait for the manager.<InfoTip text="Wait for the manager before collecting or returning to PHE. Your milk is safe." />
             </p>
           </div>
         </div>
@@ -159,7 +160,7 @@ export function VehicleProblem({ journey, vehicleRequests, coverHeaders, open, o
         <Modal onClose={onClose} title="Vehicle problem" className="max-w-md" showClose dirty={reason.trim() !== ''} preventClose={sending}>
           <div className="p-4 space-y-3">
             <p className="text-xs text-secondary-foreground">
-              Use only if this vehicle cannot continue. Your milk and finished shops stay on this journey.
+              Use only if the vehicle cannot continue.<InfoTip text="Your milk and finished shops stay on this journey." />
             </p>
             <label htmlFor="vehicle-problem-reason" className="block text-xs font-semibold text-secondary-foreground">
               What happened to the vehicle? <span className="text-rose-600">*</span>

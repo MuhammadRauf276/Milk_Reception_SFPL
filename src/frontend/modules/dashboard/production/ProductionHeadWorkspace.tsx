@@ -52,7 +52,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
       setData(json);
     } catch (err: any) {
       console.error('Failed to load production head overview:', err);
-      setError(err.message || 'Failed to load production overview');
+      setError(err.message || 'Overview did not load');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -73,19 +73,19 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
     switch (currentTab) {
       case 'SILOS':
         return {
-          title: 'Plant Silo Inventory',
+          title: 'Plant silos',
           subtitle: 'Stock, @13% TS and capacity',
         };
       case 'HISTORY':
         return {
-          title: 'Subordinate Station Audits',
-          subtitle: 'Weighbridge scale weighments and silo offloading events',
+          title: 'Station audits',
+          subtitle: 'Weighments and unloadings',
         };
       case 'OVERVIEW':
       default:
         return {
           title: 'Live stations',
-          subtitle: 'Plant intake, scale work and silo bays',
+          subtitle: 'Intake, scale and silo bays',
         };
     }
   }, [currentTab]);
@@ -93,7 +93,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
   if (loading && !data) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40dvh]">
-        <PageLoader label="Loading Production Hub…" />
+        <PageLoader label="Loading…" />
       </div>
     );
   }
@@ -102,7 +102,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
     return (
       <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center space-y-3 max-w-lg mx-auto">
         <AlertCircle className="h-7 w-7 text-destructive mx-auto" />
-        <h3 className="text-base font-semibold text-foreground">Failed to Load Command Data</h3>
+        <h3 className="text-base font-semibold text-foreground">Data did not load</h3>
         <p className="text-xs text-muted-foreground">{error}</p>
         <Button onClick={() => fetchData()} size="sm" variant="outline" className="text-xs min-h-11 px-4">
           Try Again

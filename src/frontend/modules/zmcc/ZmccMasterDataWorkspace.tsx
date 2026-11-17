@@ -384,7 +384,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                       onClick={() => setIntakeTank(itemsFor('TANKS').find((t) => t.is_active) || null)}
                     >
                       <Milk aria-hidden />
-                      <span>Intake Milk Stock</span>
+                      <span>Intake milk stock</span>
                     </Button>
                   )}
                   {canAdd && (

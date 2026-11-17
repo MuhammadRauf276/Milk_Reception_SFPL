@@ -76,10 +76,10 @@ export function ZMCCPlantTransitHub({
         <div>
           <div className="flex items-center gap-2">
             <Truck className="w-5 h-5 text-muted-foreground" />
-            <h1 className="text-lg font-semibold text-foreground">Plant Dispatches & Transit Hub</h1>
+            <h1 className="text-lg font-semibold text-foreground">Plant transit</h1>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Tankers in transit and plant receipts
+            Tankers and receipts
           </p>
         </div>
       </div>

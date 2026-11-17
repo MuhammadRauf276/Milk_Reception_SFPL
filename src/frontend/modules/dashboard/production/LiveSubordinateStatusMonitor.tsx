@@ -18,7 +18,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
           <div className="flex items-center gap-2">
             <Scale className="h-5 w-5 text-blue-600 dark:text-muted-foreground" />
             <h3 className="font-semibold text-foreground text-sm sm:text-base">
-              Weighbridge Live Status
+              Weighbridge
             </h3>
           </div>
           <Badge
@@ -63,8 +63,8 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
         ) : (
           <div className="p-4 rounded-lg border border-border/60 bg-muted/30 text-center py-6">
             <CheckCircle2 className="h-6 w-6 text-emerald-500 mx-auto mb-2" />
-            <p className="text-sm font-medium text-foreground">Scale Platform Ready</p>
-            <p className="text-xs text-muted-foreground mt-0.5">No tanker currently on scale</p>
+            <p className="text-sm font-medium text-foreground">Scale ready</p>
+            <p className="text-xs text-muted-foreground mt-0.5">No tanker on scale</p>
           </div>
         )}
 
@@ -98,7 +98,7 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
           <div className="flex items-center gap-2">
             <Database className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             <h3 className="font-semibold text-foreground text-sm sm:text-base">
-              Reception Bays Live Status
+              Reception bays
             </h3>
           </div>
           <Badge
@@ -150,22 +150,22 @@ export const LiveSubordinateStatusMonitor: React.FC<LiveSubordinateStatusMonitor
         ) : (
           <div className="p-4 rounded-lg border border-border/60 bg-muted/30 text-center py-6">
             <CheckCircle2 className="h-6 w-6 text-emerald-500 mx-auto mb-2" />
-            <p className="text-sm font-medium text-foreground">Reception Bays Available</p>
-            <p className="text-xs text-muted-foreground mt-0.5">No tanker currently pumping into silos</p>
+            <p className="text-sm font-medium text-foreground">Bays available</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Nothing unloading</p>
           </div>
         )}
 
         {/* Reception Queue */}
         <div className="grid grid-cols-2 gap-3 pt-1">
           <div className="p-3 rounded-lg border bg-background/50">
-            <span className="text-xs text-muted-foreground">Waiting for Bay Allocation</span>
+            <span className="text-xs text-muted-foreground">Waiting for bay</span>
             <p className="text-xl font-semibold text-foreground mt-1">
               {reception.waitingForUnloadingCount}{' '}
               <span className="text-xs font-normal text-muted-foreground">ready</span>
             </p>
           </div>
           <div className="p-3 rounded-lg border bg-background/50">
-            <span className="text-xs text-muted-foreground">Avg Unload Duration</span>
+            <span className="text-xs text-muted-foreground">Avg unload time</span>
             <p className="text-xl font-semibold text-foreground mt-1">
               {reception.avgUnloadingMinutes != null ? `~${reception.avgUnloadingMinutes}` : '—'}{' '}
               <span className="text-xs font-normal text-muted-foreground">mins/truck</span>

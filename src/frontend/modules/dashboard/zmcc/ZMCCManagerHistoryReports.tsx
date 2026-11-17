@@ -152,18 +152,18 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
     {
       key: 'firstWeight',
       header: 'First Weight (Loaded Vehicle)',
-      label: 'First weight (loaded vehicle)',
+      label: 'First weight',
       cell: (item) => <span className="tabular-nums text-secondary-foreground">{item.firstWeightKg != null ? `${item.firstWeightKg.toLocaleString()} kg` : '—'}</span>,
     },
     {
       key: 'secondWeight',
       header: 'Second Weight (After Unloading)',
-      label: 'Second weight (after unloading)',
+      label: 'Second weight',
       cell: (item) => <span className="tabular-nums text-secondary-foreground">{item.secondWeightKg != null ? `${item.secondWeightKg.toLocaleString()} kg` : '—'}</span>,
     },
     {
       key: 'netWeight',
-      header: 'Net Milk Weight',
+      header: 'Net weight',
       label: 'Net milk weight',
       cell: (item) => <span className="tabular-nums font-semibold text-primary">{item.netMilkWeightKg != null ? `${item.netMilkWeightKg.toLocaleString()} kg` : '—'}</span>,
     },
@@ -182,8 +182,8 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
     { key: 'silo', header: 'Silo', label: 'Silo', cell: (item) => <span className="font-semibold text-foreground">{item.destinationSilo || '—'}</span> },
     {
       key: 'finalReceipt',
-      header: 'Final Receipt Date/Time',
-      label: 'Final receipt date/time',
+      header: 'Final receipt',
+      label: 'Final receipt',
       cell: (item) => <span className="font-sans text-secondary-foreground">{item.finalReceiptTimestamp ? formatOperationalDatetime(item.finalReceiptTimestamp) : '—'}</span>,
     },
     {
@@ -288,7 +288,7 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
           {/* Business Date Range Filter */}
           {onDateFilterChange && (
             <div className="flex items-center gap-2 text-xs flex-wrap">
-              <span className="font-semibold text-secondary-foreground text-xs">Business Date From:</span>
+              <span className="font-semibold text-secondary-foreground text-xs">From date:</span>
               <input
                 type="date"
                 value={currentFromDate}

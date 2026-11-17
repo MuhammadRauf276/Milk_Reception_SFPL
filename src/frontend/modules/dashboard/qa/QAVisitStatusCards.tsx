@@ -60,7 +60,7 @@ export const QAWaitingVisitCard: React.FC<{
         className="w-full min-h-12 py-3 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-semibold text-sm shadow-xs transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
       >
         <Play className="w-4 h-4 fill-current" />
-        <span>{isSubmitting ? 'Starting…' : 'Start QA Testing Session'}</span>
+        <span>{isSubmitting ? 'Starting…' : 'Start QA testing'}</span>
       </button>
     </div>
   </div>
@@ -79,7 +79,7 @@ export const QAHeldVisitCard: React.FC<{
           <ShieldAlert className="w-5 h-5" />
         </div>
         <div>
-          <h3 className="text-base font-semibold text-amber-950">QA Testing On Hold</h3>
+          <h3 className="text-base font-semibold text-amber-950">QA on hold</h3>
           <p className="text-xs text-amber-800 font-medium mt-0.5">
             Vehicle <strong className="tabular-nums text-amber-950">{visit.vehicle_number}</strong>
             {' · '}Token <strong className="tabular-nums text-amber-900">{visit.token_number || 'NO-TOKEN'}</strong>
@@ -121,7 +121,7 @@ export const QAHeldVisitCard: React.FC<{
         className="w-full min-h-12 py-3 px-4 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-semibold text-sm shadow-xs transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
       >
         <Play className="w-4 h-4 fill-current" />
-        <span>{isSubmitting ? 'Resuming…' : 'Resume Testing Session'}</span>
+        <span>{isSubmitting ? 'Resuming…' : 'Resume testing'}</span>
       </button>
     </div>
   </div>

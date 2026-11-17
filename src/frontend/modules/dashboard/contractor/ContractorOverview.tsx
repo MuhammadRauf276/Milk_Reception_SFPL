@@ -154,7 +154,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
     return (
       <div className="bg-card border-border p-6 rounded-2xl border text-center space-y-2">
         <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
-        <h4 className="text-sm font-semibold text-rose-900">Failed to Load Overview Data</h4>
+        <h4 className="text-sm font-semibold text-rose-900">Overview did not load</h4>
         <p className="text-xs text-rose-700">{error}</p>
       </div>
     );
@@ -230,7 +230,7 @@ export const ContractorOverview: React.FC<ContractorOverviewProps> = ({
         <div className="flex items-center justify-between border-b border-muted pb-3">
           <div className="flex items-center space-x-2">
             <Layers className="w-4 h-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold text-foreground">Recent Plant Dispatches</h3>
+            <h3 className="text-sm font-semibold text-foreground">Recent dispatches</h3>
           </div>
           <span className="text-xs text-muted-foreground tabular-nums font-semibold">
             {visits.length} {visits.length === 1 ? 'record' : 'records'}

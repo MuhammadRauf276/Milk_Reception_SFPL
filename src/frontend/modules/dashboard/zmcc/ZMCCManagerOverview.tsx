@@ -142,7 +142,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             <select
               value={dateRange}
               onChange={(e) => onDateRangeChange(e.target.value as OverviewDateRange)}
-              aria-label="Select overview period"
+              aria-label="Select period"
               className="px-3 py-2 text-xs font-semibold rounded-lg bg-subtle border border-border/80 text-foreground focus:ring-2 focus:ring-primary outline-hidden shadow-xs min-h-11"
             >
               <option value="TODAY">Today ({formatDate(displayCalendarDate)})</option>
@@ -156,7 +156,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11.5rem),1fr))] gap-3 stagger-children">
           <StatCard
-            label="Current tank stock (@13% TS)"
+            label="Tank stock (@13 TS)"
             icon={Milk}
             tone="info"
             value={zmccTankStock != null ? `${zmccTankStock.toLocaleString()} L` : '—'}
@@ -193,7 +193,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
           />
         </div>
 
-        <p className="pt-2 border-t border-border/80 text-xs text-muted-foreground">Completed receipts in this period</p>
+        <p className="pt-2 border-t border-border/80 text-xs text-muted-foreground">Receipts this period</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 tabular-nums">
           <div className="bg-card border-border p-4 rounded-2xl border space-y-2">
             <div className="flex items-center justify-between font-sans">

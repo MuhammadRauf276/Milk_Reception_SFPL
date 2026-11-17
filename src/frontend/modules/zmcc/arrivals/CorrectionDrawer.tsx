@@ -34,7 +34,7 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
           <form onSubmit={c.submit} className="space-y-4">
             {t.type === 'MC' ? (
               <div>
-                <label className={zmccLabelClass}>Raw Milk Token Number</label>
+                <label className={zmccLabelClass}>Token number</label>
                 <input
                   type="text"
                   value={c.token}
@@ -64,7 +64,7 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
                   />
                 </div>
                 <div>
-                  <label className={zmccLabelClass}>Raw Milk Token Number</label>
+                  <label className={zmccLabelClass}>Token number</label>
                   <input
                     type="text"
                     value={c.token}
@@ -81,7 +81,7 @@ export const CorrectionDrawer: React.FC<Props> = ({ c, localSuppliers }) => {
                   </div>
                 )}
                 <div>
-                  <label className={zmccLabelClass}>Vehicle Number</label>
+                  <label className={zmccLabelClass}>Vehicle number</label>
                   <input
                     type="text"
                     value={c.vehicle}

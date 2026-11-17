@@ -360,7 +360,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
   const handleAddPolicy = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLabTestId) {
-      toast.showError('Please select a test from the catalogue.');
+      toast.showError('Select a test from the list.');
       return;
     }
 
@@ -491,7 +491,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
             className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition shadow-2xs min-h-11"
           >
             <Plus className="w-4 h-4" />
-            <span>Assign Test</span>
+            <span>Assign test</span>
           </button>
         </div>
       </div>
@@ -556,7 +556,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
               onChange={(e) => setShowActiveOnly(e.target.checked)}
               className="rounded border-border-strong text-primary focus:ring-primary"
             />
-            <span>Active Tests Only</span>
+            <span>Active only</span>
           </label>
         </div>
       </div>
@@ -567,7 +567,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
         ) : filteredPolicies.length === 0 ? (
           <div className="p-12 text-center">
             <FlaskConical className="w-8 h-8 mx-auto text-neutral-300 mb-2" />
-            <h3 className="text-sm font-semibold text-secondary-foreground">No Policy Assignments</h3>
+            <h3 className="text-sm font-semibold text-secondary-foreground">No policies yet</h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
               No tests are currently assigned to {activeMetadata.label}. Click &quot;Assign Test&quot; above to configure testing requirements and acceptance criteria.
             </p>
@@ -582,8 +582,8 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                   <th className="py-3 px-4">Test Code & Name</th>
                   <th className="py-3 px-4">Type / Unit</th>
                   <th className="py-3 px-4">Requirement</th>
-                  <th className="py-3 px-4">Quality Acceptance Criteria</th>
-                  <th className="py-3 px-4">Policy Status</th>
+                  <th className="py-3 px-4">Acceptance criteria</th>
+                  <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -677,7 +677,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                             type="button"
                             onClick={() => handleOpenCriteriaModal(policy)}
                             className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-muted transition min-h-11 min-w-11"
-                            title="Edit Quality Acceptance Criteria"
+                            title="Edit criteria"
                           >
                             <Sliders className="w-3.5 h-3.5" />
                           </button>
@@ -791,7 +791,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-secondary-foreground mb-1">Display Order</label>
+                  <label className="block font-semibold text-secondary-foreground mb-1">Display order</label>
                   <input
                     type="number"
                     value={modalDisplayOrder}
@@ -809,7 +809,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                       onChange={(e) => setModalIsRequired(e.target.checked)}
                       className="rounded text-primary focus:ring-primary"
                     />
-                    <span className="font-semibold text-foreground">Required Test</span>
+                    <span className="font-semibold text-foreground">Required test</span>
                   </label>
                 </div>
               </div>
@@ -817,7 +817,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
               <div className="bg-card border-border p-4 rounded-2xl border space-y-3">
                 <div className="flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-semibold text-foreground">Direct Quality Acceptance Criteria</span>
+                  <span className="font-semibold text-foreground">Acceptance criteria</span>
                 </div>
 
                 {selectedTestObj && isNumericTestType(selectedTestObj.resultType) ? (
@@ -827,7 +827,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <span className="text-xs text-muted-foreground block mb-0.5">Min Value</span>
+                        <span className="text-xs text-muted-foreground block mb-0.5">Min value</span>
                         <input
                           type="number"
                           step="any"
@@ -838,7 +838,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                         />
                       </div>
                       <div>
-                        <span className="text-xs text-muted-foreground block mb-0.5">Max Value</span>
+                        <span className="text-xs text-muted-foreground block mb-0.5">Max value</span>
                         <input
                           type="number"
                           step="any"
@@ -950,7 +950,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <span className="text-xs text-muted-foreground block mb-0.5">Min Value</span>
+                      <span className="text-xs text-muted-foreground block mb-0.5">Min value</span>
                       <input
                         type="number"
                         step="any"
@@ -961,7 +961,7 @@ export const MilkTestPolicyWorkspace: React.FC<MilkTestPolicyWorkspaceProps> = (
                       />
                     </div>
                     <div>
-                      <span className="text-xs text-muted-foreground block mb-0.5">Max Value</span>
+                      <span className="text-xs text-muted-foreground block mb-0.5">Max value</span>
                       <input
                         type="number"
                         step="any"

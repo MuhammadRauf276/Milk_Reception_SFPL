@@ -8,7 +8,7 @@ const COMMAND_ROLES = ['HEAD_OF_MPD', 'EXECUTIVE_MANAGEMENT', 'SUPER_ADMIN', 'DA
 
 export default function CommandCenterPage() {
   return (
-    <ManagementShell title="Command Center" allowedRoles={COMMAND_ROLES}>
+    <ManagementShell title="Command center" allowedRoles={COMMAND_ROLES}>
       {(user) => <MpdExecutiveWorkspace currentUser={user} />}
     </ManagementShell>
   );

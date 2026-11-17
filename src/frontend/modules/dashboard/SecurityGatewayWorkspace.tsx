@@ -229,15 +229,15 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
       );
 
       activeEntryOpIdRef.current = null;
-      const successMsgText = `Gate Entry recorded. Token ${data.visit?.token_number || tokenNumber} issued successfully.`;
+      const successMsgText = `Entry recorded. Token ${data.visit?.token_number || tokenNumber}.`;
       entryDraft.clear();
-      toast.showSuccess(successMsgText, 'Gate Entry Recorded');
+      toast.showSuccess(successMsgText, 'Entry recorded');
       setTokenNumber(suggestTokenNumber());
       setSelectedEntryVisitId(null);
       fetchSecurityData();
     } catch (err) {
       setMsg({ text: getErrorMessage(err), isError: true });
-      toast.showError(getErrorMessage(err) || 'Failed to record gate entry', 'Gate Entry Error');
+      toast.showError(getErrorMessage(err) || 'Could not record entry', 'Entry failed');
     } finally {
       setIsSubmitting(false);
     }
@@ -271,16 +271,16 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
       );
 
       activeExitOpIdRef.current = null;
-      const successMsgText = `Gate Exit completed successfully for vehicle ${selectedExitVisit.vehicle_number}.`;
+      const successMsgText = `Exit recorded for ${selectedExitVisit.vehicle_number}.`;
       exitDraft.clear();
-      toast.showSuccess(successMsgText, 'Gate Exit Completed');
+      toast.showSuccess(successMsgText, 'Exit recorded');
       setSelectedExitVisitId(null);
       setTankerWashed(null);
       setExitOpTimestamp(toDatetimeLocalInput(new Date()));
       fetchSecurityData();
     } catch (err) {
       setMsg({ text: getErrorMessage(err), isError: true });
-      toast.showError(getErrorMessage(err) || 'Failed to record gate exit', 'Gate Exit Error');
+      toast.showError(getErrorMessage(err) || 'Could not record exit', 'Exit failed');
     } finally {
       setIsSubmitting(false);
     }
@@ -328,7 +328,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 type="text"
                 value={entrySearchQuery}
                 onChange={(e) => handleEntrySearch(e.target.value)}
-                placeholder="Search vehicle number…"
+                placeholder="Search vehicle…"
                 className="w-full min-h-11 pl-9 pr-3 py-2 text-xs tabular-nums font-semibold rounded-xl border border-input bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 focus:border-primary"
               />
             </div>
@@ -628,7 +628,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                 {selectedExitVisit.is_all_rejected && (
                   <div className="bg-card border-border p-4 rounded-2xl border text-rose-800 text-xs font-semibold flex items-center space-x-2">
                     <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0" />
-                    <p>All rejected. Direct return exit.</p>
+                    <p>All rejected. Return exit.</p>
                   </div>
                 )}
 

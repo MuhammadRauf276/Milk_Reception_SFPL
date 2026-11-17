@@ -73,12 +73,12 @@ export function ZmccManagerExitPanel() {
 
 export function ZmccManagerSnapshot() {
   const { overview, queryError, decide, actionError, refetch } = useManagerOverview();
-  if (queryError) return <ErrorState description={queryError.message || 'Unable to load manager snapshot.'} onRetry={() => void refetch()} />;
-  if (!overview) return <div className="bg-card border-border rounded-2xl border p-4 text-xs text-muted-foreground">Loading assigned ZMCC snapshot…</div>;
+  if (queryError) return <ErrorState description={queryError.message || 'Snapshot did not load.'} onRetry={() => void refetch()} />;
+  if (!overview) return <div className="bg-card border-border rounded-2xl border p-4 text-xs text-muted-foreground">Loading…</div>;
   const cards = [
     ['Expected', overview.pipeline.expected], ['Arrived', overview.pipeline.arrived], ['Testing', overview.pipeline.testing], ['Accepted', overview.pipeline.accepted], ['Rejected', overview.pipeline.rejected], ['Dispatched', overview.pipeline.dispatched],
   ];
-  return <section className="space-y-3" aria-label="Assigned ZMCC operational snapshot">
+  return <section className="space-y-3" aria-label="ZMCC snapshot">
     <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-2">{cards.map(([label, value]) => <div key={String(label)} className="bg-card border-border rounded-xl border p-3"><p className="text-xs font-semibold text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold text-foreground tabular-nums">{value}</p></div>)}</div>
     <div className="grid gap-3 lg:grid-cols-2"><div className="bg-card border-border rounded-2xl border p-4 text-xs"><p className="font-semibold text-foreground">Tank and dispatch</p><p className="mt-2">Tank: <strong>{overview.tank.at13TsLiters != null ? `${overview.tank.at13TsLiters.toLocaleString()} L @13 TS` : '—'}</strong> <span className="text-muted-foreground">(Gross {overview.tank.grossLiters.toLocaleString()} L)</span> · On the way: <strong>{overview.dispatch.ready}</strong></p><p className="mt-1">At plant: <strong>{overview.dispatch.activeAtPlant}</strong> · To review: <strong>{overview.exceptions.pendingManagerReview}</strong></p></div><div className="bg-card border-border rounded-2xl border p-4 text-xs"><p className="font-semibold text-foreground">Active Mobile Tester work</p>{overview.activeStations.length ? overview.activeStations.map((item) => <p key={item.id} className="mt-2">{item.label} · {item.station} · {item.waitingMinutes}m</p>) : <p className="mt-2 text-muted-foreground">None</p>}</div></div>
     <ErrorPopup message={actionError} />

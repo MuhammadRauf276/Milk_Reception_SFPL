@@ -55,7 +55,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-blue-600"></span>
-                  Vehicle On Scale
+                  Vehicle on scale
                 </span>
                 <span className="text-muted-foreground flex items-center gap-1 tabular-nums font-medium">
                   <Clock className="h-3 w-3" />
@@ -88,9 +88,9 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
             <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-center space-y-1">
               <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
                 <CheckCircle2 className="h-4 w-4" />
-                <span>Scale Platform Clear</span>
+                <span>Scale clear</span>
               </div>
-              <p className="text-xs text-muted-foreground">Ready for next arriving tanker</p>
+              <p className="text-xs text-muted-foreground">Ready for next tanker</p>
             </div>
           )}
 
@@ -138,7 +138,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
             href="/department/weighbridge"
             className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-lg border border-input bg-background hover:bg-muted/70 px-4 text-xs font-semibold text-foreground transition-colors shadow-2xs"
           >
-            <span>Open Weighbridge Station</span>
+            <span>Open weighbridge</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -157,7 +157,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
                 <h3 className="font-semibold text-foreground text-sm sm:text-base leading-tight">
                   Silo Reception
                 </h3>
-                <p className="text-xs text-muted-foreground">Direct Tanker Offloading Bays</p>
+                <p className="text-xs text-muted-foreground">Direct bays</p>
               </div>
             </div>
             <Badge
@@ -214,9 +214,9 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
             <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-center space-y-1">
               <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
                 <CheckCircle2 className="h-4 w-4" />
-                <span>All Unloading Bays Clear</span>
+                <span>Bays clear</span>
               </div>
-              <p className="text-xs text-muted-foreground">Ready for next QA-cleared tanker</p>
+              <p className="text-xs text-muted-foreground">Ready for next tanker</p>
             </div>
           )}
 
@@ -264,7 +264,7 @@ export const TeamStationActionCards: React.FC<TeamStationActionCardsProps> = ({ 
             href="/department/production"
             className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-lg border border-input bg-background hover:bg-muted/70 px-4 text-xs font-semibold text-foreground transition-colors shadow-2xs"
           >
-            <span>Open Silo Reception Station</span>
+            <span>Open silo station</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>

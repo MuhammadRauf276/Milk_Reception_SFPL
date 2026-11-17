@@ -253,7 +253,7 @@ export function DynamicReportTable({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={fields.length} className="py-12 text-center text-muted-foreground text-xs">
-                  No records matching the selected dynamic filters and criteria.
+                  No matching records
                 </td>
               </tr>
             ) : groupedData ? (

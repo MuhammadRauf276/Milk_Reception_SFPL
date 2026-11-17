@@ -271,7 +271,7 @@ export function ZMCCComprehensiveReportsScreen({
     });
     if (facilityId) params.append('zmccId', facilityId);
     window.open(`/api/zmcc/reports/export?${params.toString()}`, '_blank');
-    toast.success('Downloading report (.xlsx)…');
+    toast.success('Downloading…');
   };
 
   const handlePrint = () => {
@@ -371,12 +371,12 @@ export function ZMCCComprehensiveReportsScreen({
       {activeView === 'ROUTE_COLLECTIONS' && (
         <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs space-y-3">
           {routeLedgerQuery.isPending ? (
-            <PageLoader label="Loading route collection ledger…" className="py-16" />
+            <PageLoader label="Loading collections…" className="py-16" />
           ) : routeLedgerQuery.isError ? (
             <ErrorState description={getErrorMessage(routeLedgerQuery.error)} onRetry={() => void routeLedgerQuery.refetch()} className="m-4" />
           ) : (routeLedgerQuery.data?.rows.length || 0) === 0 ? (
             <div className="p-12 text-center text-xs font-semibold text-muted-foreground">
-              No route collections found for the selected date range.
+              No collections in this range
             </div>
           ) : (
             <DataTable paginate={false}
@@ -393,12 +393,12 @@ export function ZMCCComprehensiveReportsScreen({
       {activeView === 'HC_SUPPLIERS' && (
         <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs space-y-3">
           {hcLedgerQuery.isPending ? (
-            <PageLoader label="Loading HC supplier ledger…" className="py-16" />
+            <PageLoader label="Loading suppliers…" className="py-16" />
           ) : hcLedgerQuery.isError ? (
             <ErrorState description={getErrorMessage(hcLedgerQuery.error)} onRetry={() => void hcLedgerQuery.refetch()} className="m-4" />
           ) : (hcLedgerQuery.data?.rows.length || 0) === 0 ? (
             <div className="p-12 text-center text-xs font-semibold text-muted-foreground">
-              No supplier arrival records found for the selected date range.
+              No arrivals in this range
             </div>
           ) : (
             <DataTable paginate={false}
@@ -415,12 +415,12 @@ export function ZMCCComprehensiveReportsScreen({
       {activeView === 'TANK_STORAGE' && (
         <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs space-y-3">
           {tankStorageQuery.isPending ? (
-            <PageLoader label="Loading tank storage and chilling summary…" className="py-16" />
+            <PageLoader label="Loading tanks…" className="py-16" />
           ) : tankStorageQuery.isError ? (
             <ErrorState description={getErrorMessage(tankStorageQuery.error)} onRetry={() => void tankStorageQuery.refetch()} className="m-4" />
           ) : (tankStorageQuery.data?.rows.length || 0) === 0 ? (
             <div className="p-12 text-center text-xs font-semibold text-muted-foreground">
-              No tanks registered at this facility.
+              No tanks yet
             </div>
           ) : (
             <DataTable paginate={false}

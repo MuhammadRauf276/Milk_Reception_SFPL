@@ -132,33 +132,33 @@ const SecondWeightDrawer: React.FC<{
   const handleRecordSecondWeight = async () => {
     const tareVal = Number(tareInputKg);
     if (isNaN(tareVal) || tareVal <= 0) {
-      toast.showError('Please enter a valid second weight greater than 0 kg.', 'Invalid Second Weight');
+      toast.showError('Enter a second weight above 0 kg.', 'Invalid weight');
       return;
     }
 
     if (tareVal >= visit.gross_weight_kg) {
       toast.showError(
         `Second weight (${tareVal.toLocaleString()} kg) must be strictly less than First weight (${visit.gross_weight_kg.toLocaleString()} kg).`,
-        'Weight Hierarchy Error'
+        'Weight order error'
       );
       return;
     }
 
     if (!tareDateTimeInput) {
-      toast.showError('Please select a valid operational date & time for the second weight.', 'Missing Timestamp');
+      toast.showError('Select a valid date and time.', 'Missing time');
       return;
     }
 
     const isoTareTs = datetimeLocalToIso(tareDateTimeInput);
     if (!isoTareTs) {
-      toast.showError('Please select a valid operational date & time for the second weight.', 'Invalid Timestamp');
+      toast.showError('Select a valid date and time.', 'Invalid time');
       return;
     }
 
     const selectedOpDate = new Date(isoTareTs);
     const now = new Date();
     if (selectedOpDate.getTime() > now.getTime() + 60000) {
-      toast.showError('Second weight operational timestamp cannot be in the future.', 'Timestamp Error');
+      toast.showError('Time cannot be in the future.', 'Timestamp Error');
       return;
     }
 
@@ -195,20 +195,20 @@ const SecondWeightDrawer: React.FC<{
       if (data.isPortionCycle) {
         toast.showSuccess(
           data.message || `Portion #${data.completedPortionNumber} weighed! Vehicle ready for Portion #${data.nextPortionNumber}.`,
-          'Portion Tare Recorded'
+          'Tare saved'
         );
       } else if (data.pendingInventoryReceipt) {
-        toast.showWarning('Second weight recorded. Plant LR missing. Silo Receipt pending.', 'Silo Receipt Pending');
+        toast.showWarning('Saved. Plant LR and silo receipt pending.', 'Silo receipt pending');
       } else {
         toast.showSuccess(
           data.message || `Second weight (${tareVal.toLocaleString()} kg) recorded & Final Silo Receipt posted!`,
-          'Silo Receipt Finalized'
+          'Silo receipt final'
         );
       }
 
       await onRecorded();
     } catch (err) {
-      toast.showError(getErrorMessage(err) || 'Failed to record second weight', 'Weighbridge Error');
+      toast.showError(getErrorMessage(err) || 'Could not save second weight', 'Weighbridge error');
     } finally {
       setIsSubmitting(false);
     }

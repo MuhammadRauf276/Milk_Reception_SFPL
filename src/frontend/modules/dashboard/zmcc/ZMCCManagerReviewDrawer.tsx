@@ -35,7 +35,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
     e.preventDefault();
 
     if (!reviewReason.trim() || reviewReason.trim().length < 3) {
-      setReviewError('Please enter a brief review reason (at least 3 characters).');
+      setReviewError('Enter a review reason (3 characters minimum).');
       return;
     }
 
@@ -63,7 +63,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
           : `Decision (${reviewDecision}) saved for ${vehicleLabel}.`
       );
     } catch (err) {
-      setReviewError(getErrorMessage(err) || 'Failed to submit manager decision.');
+      setReviewError(getErrorMessage(err) || 'Decision not saved. Try again.');
     } finally {
       setReviewSubmitting(false);
     }
@@ -181,7 +181,7 @@ export const ZMCCManagerReviewDrawer: React.FC<{
               <textarea
                 value={reviewReason}
                 onChange={(e) => setReviewReason(e.target.value)}
-                placeholder="Enter substantive justification…"
+                placeholder="Enter reason…"
                 rows={3}
                 required
                 className="w-full p-3 text-base sm:text-xs font-medium rounded-lg bg-subtle border border-border text-foreground focus:ring-2 focus:ring-primary outline-hidden min-h-11"

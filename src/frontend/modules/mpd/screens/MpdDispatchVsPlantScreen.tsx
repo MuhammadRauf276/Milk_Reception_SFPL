@@ -134,7 +134,7 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId }) => {
           <span className="block">To</span>
           <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className="block rounded-lg border border-border bg-background px-2 py-2 text-xs" />
         </label>
-        <p className="text-xs text-muted-foreground pb-2">ZMCC tankers sent to the plant, and what the plant received.</p>
+        <p className="text-xs text-muted-foreground pb-2">Tankers sent versus received.</p>
       </div>
 
       <ErrorPopup message={query.error ? getErrorMessage(query.error) : null} onRetry={() => void query.refetch()} />
@@ -166,12 +166,12 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId }) => {
                 <span>Plant weight</span>
               </div>
               <p className="text-sm font-semibold tabular-nums text-foreground">{formatMetric(t.plantNetKg, ' kg')}</p>
-              <p className="text-xs text-secondary-foreground">Net weight at the plant weighbridge for the received tankers.</p>
+              <p className="text-xs text-secondary-foreground">Plant weighbridge net for received tankers.</p>
             </div>
           </div>
 
           <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-foreground">Test-wise comparison (average per tanker)</h3>
+            <h3 className="text-xs font-semibold text-foreground">Test comparison (average per tanker)</h3>
             <DataTable
               columns={testColumns}
               rows={report.tests}
@@ -207,7 +207,7 @@ export const MpdDispatchVsPlantScreen: React.FC<Props> = ({ zmccId }) => {
                       ))}
                     </div>
                     {r.tests.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No test results were recorded for this tanker.</p>
+                      <p className="text-xs text-muted-foreground">No test results for this tanker</p>
                     ) : (
                       <table className="w-full text-xs">
                         <tbody>

@@ -241,7 +241,7 @@ export const SmsOutboxView: React.FC<SmsOutboxViewProps> = () => {
           <Link
             href="/whatsapp-gateway"
             className="flex items-center space-x-1 px-3 py-2 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 text-xs font-semibold hover:bg-emerald-100 shadow-2xs transition"
-            title="Scan QR Code to link WhatsApp for automated sending"
+            title="Scan to link WhatsApp"
           >
             <QrCode className="w-3.5 h-3.5 text-emerald-600" />
             <span>Link WhatsApp (QR Code)</span>

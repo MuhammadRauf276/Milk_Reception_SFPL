@@ -66,7 +66,7 @@ export function SourceCreateDrawer({ onClose, onSaved }: { onClose: () => void; 
   };
 
   return (
-    <FormDrawer open onClose={onClose} busy={busy} error={error} title="Add Procurement Source">
+    <FormDrawer open onClose={onClose} busy={busy} error={error} title="Add source">
       <form onSubmit={submit} className="space-y-3.5">
         <div>
           <label htmlFor="src-code" className={fieldLabelClass}>Source Code *</label>
@@ -200,16 +200,16 @@ export function SourceEditDrawer({ source, onClose, onSaved }: { source: Source;
 
   const readOnly = 'h-11 w-full cursor-not-allowed rounded-lg border border-border bg-muted px-3 text-sm tabular-nums text-muted-foreground';
   return (
-    <FormDrawer open onClose={onClose} busy={busy} error={error} title="Edit Procurement Source">
+    <FormDrawer open onClose={onClose} busy={busy} error={error} title="Edit source">
       <form onSubmit={submit} className="space-y-3.5">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className={fieldLabelClass}>Source Code</label>
+            <label className={fieldLabelClass}>Source code</label>
             <input type="text" disabled value={source.code} className={readOnly} />
             <p className="mt-1 text-xs text-muted-foreground">Code cannot be changed.</p>
           </div>
           <div>
-            <label className={fieldLabelClass}>Source Type</label>
+            <label className={fieldLabelClass}>Source type</label>
             <input type="text" disabled value={source.sourceType} className={readOnly} />
             <p className="mt-1 text-xs text-muted-foreground">Type cannot be changed.</p>
           </div>
@@ -306,12 +306,12 @@ export function SourceStatusDrawer({
         </p>
         {!targetStatus ? (
           <div className="space-y-1 rounded-lg border border-border bg-card p-3 text-xs font-medium text-amber-900">
-            <p className="font-semibold">Deactivation Effects & Guards:</p>
+            <p className="font-semibold">Deactivation rules</p>
             <ul className="list-inside list-disc space-y-0.5 text-amber-800">
-              <li>Will be excluded from active operational dispatch selectors.</li>
-              <li>Cannot be deactivated if active users are currently assigned.</li>
-              <li>Cannot be deactivated if incomplete vehicle visits are in progress.</li>
-              <li>Remains visible to Super Admins with Inactive status.</li>
+              <li>Hidden from dispatch lists.</li>
+              <li>Blocked while users are assigned.</li>
+              <li>Blocked during open vehicle visits.</li>
+              <li>Still visible to Super Admin as Inactive.</li>
             </ul>
           </div>
         ) : (

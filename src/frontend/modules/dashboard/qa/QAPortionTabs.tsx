@@ -41,7 +41,7 @@ export const QAPortionTabs: React.FC<QAPortionTabsProps> = ({
           disabled={isAddingPortion || isSubmitting}
           onClick={onAddPortion}
           className="flex items-center space-x-1.5 px-4 rounded-lg border border-dashed border-primary text-primary hover:bg-primary/5 transition text-xs font-semibold shadow-2xs disabled:opacity-50 min-h-11"
-          title="Add another test portion"
+          title="Add portion"
         >
           {isAddingPortion ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />

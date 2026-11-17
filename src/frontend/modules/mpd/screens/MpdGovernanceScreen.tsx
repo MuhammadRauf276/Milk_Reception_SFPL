@@ -99,7 +99,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
     },
     {
       key: 'overruledBy',
-      header: 'Overruled By',
+      header: 'Overruled by',
       label: 'Overruled by',
       cell: (o) => (
         <div>
@@ -232,7 +232,7 @@ export const MpdGovernanceScreen: React.FC<MpdGovernanceScreenProps> = ({
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <UserCheck className="w-4 h-4 text-muted-foreground" />
-            <div className="flex items-center gap-2"><h2 className="text-xs font-semibold text-foreground">Overrides Log</h2><InfoTip text="Audit records of all operational manager overrides and deviations." /></div>
+            <div className="flex items-center gap-2"><h2 className="text-xs font-semibold text-foreground">Overrides log</h2><InfoTip text="Audit records of all operational manager overrides and deviations." /></div>
           </div>
           <span className="text-xs tabular-nums font-medium text-muted-foreground">
             {filteredOverrides.length} record(s)

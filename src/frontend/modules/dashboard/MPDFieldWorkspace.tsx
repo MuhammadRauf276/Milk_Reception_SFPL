@@ -117,7 +117,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
       fetchJson<{ dispatches?: DispatchRecord[]; pagination?: PaginationMeta }>(
         queryUrl,
         { signal },
-        'Failed to fetch dispatches'
+        'Dispatches did not load'
       ),
     enabled: shouldLoad,
     placeholderData: keepPreviousData,
@@ -142,7 +142,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
 
   const handleApplyCustomDate = () => {
     if (fromDate && toDate && fromDate > toDate) {
-      setDateError('From Date cannot be after To Date');
+      setDateError('From date is after To date');
       return;
     }
     setDateError(null);

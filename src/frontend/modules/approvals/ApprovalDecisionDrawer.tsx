@@ -57,7 +57,7 @@ export function ApprovalDecisionDrawer({
       return;
     }
     if (verdict === 'NO' && decisionRemarks.trim().length < 5) {
-      setDecisionError('Please write a substantive rejection reason (at least 5 characters).');
+      setDecisionError('Give a rejection reason of 5+ characters.');
       return;
     }
 
@@ -118,7 +118,7 @@ export function ApprovalDecisionDrawer({
                 <span>Self-Approval Compliance Review</span>
               </p>
               <p>
-                Approving your own request needs a reason of at least 20 characters.
+                Own request needs a 20-character reason.
                 
               </p>
             </div>

@@ -53,7 +53,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
 
     const teamSection: RoleNavSection = {
       id: 'team-stations',
-      label: 'Team Stations',
+      label: 'Team stations',
       icon: Users,
       children: teamStations,
     };

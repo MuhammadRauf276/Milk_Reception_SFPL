@@ -48,7 +48,7 @@ export function ZmccTankOuttakeDrawer({ tank, onClose, onSaved }: Props) {
     setError(null);
     if (gross <= 0) return setError('Gross volume must be greater than 0 Liters.');
     if (tooMuch) return setError(`Only ${stock.toFixed(2)} L is in this tank.`);
-    if (reason.trim().length < 3) return setError('Please write why this milk is taken out.');
+    if (reason.trim().length < 3) return setError('Write why this milk is taken out.');
     mutation.mutate(
       { tank_id: tank.id, gross_liters: gross, reason: reason.trim() },
       {

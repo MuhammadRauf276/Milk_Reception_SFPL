@@ -61,7 +61,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
     const clean = customEmail.trim().toLowerCase();
     if (!clean) return;
     if (!clean.includes('@') || !clean.includes('.')) {
-      toast.error('Please enter a valid email address.');
+      toast.error('Enter a valid email address.');
       return;
     }
     if (!selectedEmails.includes(clean)) {
@@ -72,7 +72,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
 
   const handleDirectSend = async () => {
     if (selectedEmails.length === 0) {
-      toast.error('Please select at least one recipient email.');
+      toast.error('Select at least one recipient.');
       return;
     }
 
@@ -99,7 +99,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
 
   const handleOpenGmail = () => {
     if (selectedEmails.length === 0) {
-      toast.error('Please select at least one recipient email.');
+      toast.error('Select at least one recipient.');
       return;
     }
     const to = encodeURIComponent(selectedEmails.join(', '));
@@ -132,7 +132,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
             </div>
             <div>
               <h2 className="text-sm font-semibold text-foreground">Send Daily Report to Executives</h2>
-              <p className="text-xs text-muted-foreground">Dispatch report summary via Email, Gmail, or WhatsApp</p>
+              <p className="text-xs text-muted-foreground">Send by email or WhatsApp</p>
             </div>
           </div>
           <button
@@ -148,7 +148,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
         <div className="flex-1 space-y-4 overflow-y-auto p-5 text-xs">
           {/* Recipient Selection */}
           <div>
-            <label className="mb-2 block font-semibold text-foreground">Select Recipients</label>
+            <label className="mb-2 block font-semibold text-foreground">Recipients</label>
             <div className="flex flex-wrap gap-2">
               {PRESET_STAKEHOLDERS.map((s) => {
                 const active = selectedEmails.includes(s.email);
@@ -177,7 +177,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
               type="email"
               value={customEmail}
               onChange={(e) => setCustomEmail(e.target.value)}
-              placeholder="Add another email address (e.g. director@shakarganj.com.pk)…"
+              placeholder="Add another email address…"
               className="h-9 flex-1 rounded-lg border border-border px-3 text-xs placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <button
@@ -215,14 +215,14 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
               rows={2}
               value={executiveNote}
               onChange={(e) => setExecutiveNote(e.target.value)}
-              placeholder="e.g. Route 2 delayed 30 minutes by fog"
+              placeholder="e.g. Route 2 delayed by fog"
               className="w-full resize-none rounded-lg border border-border p-2 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
           {/* Live Preview of Email Body */}
           <div>
-            <label className="mb-1 block font-semibold text-foreground">Dispatch Summary Preview</label>
+            <label className="mb-1 block font-semibold text-foreground">Preview</label>
             <pre className="max-h-44 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-subtle p-3 font-mono text-xs text-secondary-foreground leading-relaxed">
               {summaryText}
             </pre>
@@ -270,7 +270,7 @@ ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-i
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-primary-hover disabled:opacity-50 transition"
             >
               {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-              <span>Send Email</span>
+              <span>Send email</span>
             </button>
           </div>
         </div>

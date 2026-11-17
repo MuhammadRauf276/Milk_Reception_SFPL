@@ -24,7 +24,7 @@ export default function GlobalError({
       title="Something went wrong"
       description={
         <>
-          <p>This view failed to load. Your session and saved data are unaffected.</p>
+          <p>This view failed to load. Your data is safe.</p>
           {error.digest ? <p className="mt-2 font-mono text-xs">Ref: {error.digest}</p> : null}
         </>
       }

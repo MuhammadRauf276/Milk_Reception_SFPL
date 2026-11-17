@@ -318,7 +318,7 @@ export function DeviceSetupScreen() {
           {confirmRemove ? (
             <div className="space-y-3 rounded-md border-2 border-border bg-card p-3 text-rose-900">
               <p className="text-base font-semibold">Remove the key from this phone?</p>
-              <p className="text-base">The phone stops sending by itself until a new key is saved. Work waiting on this phone is kept.</p>
+              <p className="text-base">Sending stops until a new key is saved.<InfoTip text="Work waiting on this phone is kept." /></p>
               <Button variant="destructive" className={BIG_BTN} disabled={busy} onClick={removeKey}>
                 <Trash2 aria-hidden /> Yes, remove key
               </Button>

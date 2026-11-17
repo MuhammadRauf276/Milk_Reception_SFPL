@@ -234,7 +234,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                 />
               </div>
               <div>
-                <span className="mb-2 block font-semibold text-secondary-foreground">Entry Requirement</span>
+                <span className="mb-2 block font-semibold text-secondary-foreground">Entry requirement</span>
                 <Seg
                   label="Entry requirement"
                   value={required ? 'c' : 'o'}
@@ -248,8 +248,8 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
             </div>
             <div className="flex items-center justify-between gap-3 border-t border-border/80 pt-3">
               <div>
-                <div className="font-semibold text-foreground">Photo Evidence Required</div>
-                <div className="text-xs text-muted-foreground">Chemist must photograph physical tester reading</div>
+                <div className="font-semibold text-foreground">Photo evidence required</div>
+                <div className="text-xs text-muted-foreground">Chemist photographs the tester reading</div>
               </div>
               <button
                 type="button"
@@ -293,7 +293,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
           ) : (
             <>
               <div>
-                <span className="mb-2 block font-semibold text-secondary-foreground">Rule Enforcement Severity</span>
+                <span className="mb-2 block font-semibold text-secondary-foreground">Severity</span>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
                     type="button"
@@ -316,7 +316,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                       ruleCategory === 'MONITORING' ? 'border-amber-600 bg-amber-500 text-foreground' : 'border-border-strong bg-card text-foreground hover:bg-amber-50/40'
                     }`}
                   >
-                    <div className="text-sm font-semibold">Warning Only</div>
+                    <div className="text-sm font-semibold">Warning only</div>
                     <div className={`mt-0.5 text-xs ${ruleCategory === 'MONITORING' ? 'text-foreground' : 'text-muted-foreground'}`}>
                       Yellow Alert Notice (Does Not Block Intake)
                     </div>
@@ -392,7 +392,7 @@ export function RuleEditorDrawer({ item, stage, stageLabel, isGlobalStage, onClo
                 </div>
               ) : (
                 <div className="space-y-2 pt-2">
-                  <label className="block font-semibold text-secondary-foreground">Standard Acceptable Option</label>
+                  <label className="block font-semibold text-secondary-foreground">Acceptable option</label>
                   {acceptableOptions.length <= 8 ? (
                     <div role="group" aria-label="Standard acceptable option" className="grid gap-2 sm:grid-cols-2">
                       {acceptableOptions.map((o) => (

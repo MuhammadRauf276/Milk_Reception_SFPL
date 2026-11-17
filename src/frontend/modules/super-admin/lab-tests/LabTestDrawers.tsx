@@ -353,7 +353,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
     if (category === 'MONITORING') {
       return {
         verdict: 'MONITORING',
-        label: 'Monitoring Norm',
+        label: 'Monitoring norm',
         color: 'bg-subtle text-foreground border-border',
         detail: 'Compulsory observation for yield & pricing. Never rejects milk.',
       };
@@ -390,7 +390,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
         if (inLowWarn || inHighWarn) {
           return {
             verdict: 'WARNING',
-            label: 'Warning Hold',
+            label: 'Warning hold',
             color: 'bg-amber-50 text-amber-900 border-amber-200',
             detail: 'Reading is in tolerance margin. Review required.',
           };
@@ -399,7 +399,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
 
       return {
         verdict: 'FAIL',
-        label: 'Rejection Limit',
+        label: 'Rejection limit',
         color: 'bg-rose-50 text-rose-900 border-rose-200',
         detail: `Reading violates specification threshold (${computedSopRules.rejectText}).`,
       };
@@ -425,14 +425,14 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
       if (out === 'WARNING') {
         return {
           verdict: 'WARNING',
-          label: 'Warning Hold',
+          label: 'Warning hold',
           color: 'bg-amber-50 text-amber-900 border-amber-200',
           detail: `"${match.label || match.value}" triggers tolerance hold.`,
         };
       }
       return {
         verdict: 'FAIL',
-        label: 'Rejection Limit',
+        label: 'Rejection limit',
         color: 'bg-rose-50 text-rose-900 border-rose-200',
         detail: `"${match.label || match.value}" violates acceptance criteria.`,
       };
@@ -930,11 +930,11 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
                 onChange={(e) => setPhotoRequired(e.target.checked)}
                 className="size-5 rounded border-border-strong text-primary focus:ring-primary"
               />
-              <span>Require camera photo evidence for this test</span>
+              <span>Require photo evidence</span>
             </label>
           ) : (
             <div className="space-y-1">
-              <span className="text-xs font-medium text-foreground">Require camera photo evidence for this test</span>
+              <span className="text-xs font-medium text-foreground">Require photo evidence</span>
               {photoStagesQuery.isPending ? (
                 <p className="text-xs text-muted-foreground">Loading stages…</p>
               ) : photoStagesQuery.isError ? (
@@ -942,7 +942,7 @@ export function LabTestFormDrawer({ test, nextDisplayOrder, initialStage, onClos
               ) : photoStagesQuery.data.calculated ? (
                 <p className="text-xs text-muted-foreground">Calculated automatically, no photo</p>
               ) : photoStages.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Turn the test on for a stage in the Master matrix to set its photo rule.</p>
+                <p className="text-xs text-muted-foreground">Turn the test on for a stage first.</p>
               ) : (
                 photoStages.map((s) => (
                   <label key={s.point} className="flex min-h-11 cursor-pointer select-none items-center gap-2 text-xs font-medium text-foreground">

@@ -57,7 +57,7 @@ export function ZmccExitOutcomes({ left, pending, canDecide, busy, onDecide }: {
           <div className="flex items-center gap-1 text-secondary-foreground"><span>{row.requestedBy ?? '—'}</span>
             <InfoTip text={[row.reasonCode ? REASON_LABELS[row.reasonCode] ?? row.reasonCode : null, row.remarks, row.requestedAt ? formatDateTime(row.requestedAt) : null].filter(Boolean).join(' · ') || 'No details'} /></div>
           {canDecide ? <div className="space-y-1">
-            <input value={remarks[row.sessionId] ?? ''} onChange={(e) => setRemarks((c) => ({ ...c, [row.sessionId]: e.target.value }))} placeholder="Remarks (min 3 letters)" aria-label="Decision remarks" className="min-h-11 w-full rounded border border-border-strong px-2" />
+            <input value={remarks[row.sessionId] ?? ''} onChange={(e) => setRemarks((c) => ({ ...c, [row.sessionId]: e.target.value }))} placeholder="Remarks" aria-label="Decision remarks" className="min-h-11 w-full rounded border border-border-strong px-2" />
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="default" size="sm" loading={busy} loadingText="Approving…" disabled={busy || (remarks[row.sessionId] ?? '').trim().length < 3} onClick={() => onDecide?.(row.sessionId, 'APPROVE', (remarks[row.sessionId] ?? '').trim())}>Approve</Button>
               <Button type="button" variant="secondary" size="sm" loading={busy} loadingText="Rejecting…" disabled={busy || (remarks[row.sessionId] ?? '').trim().length < 3} onClick={() => onDecide?.(row.sessionId, 'REJECT', (remarks[row.sessionId] ?? '').trim())}>Reject</Button>

@@ -96,7 +96,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
     placeholderData: keepPreviousData,
   });
   const labSessions = useMemo(() => labQuery.data?.items ?? [], [labQuery.data]);
-  const labError = labQuery.isError ? getErrorMessage(labQuery.error) || 'Failed to fetch ZMCC lab sessions.' : null;
+  const labError = labQuery.isError ? getErrorMessage(labQuery.error) || 'Lab sessions did not load.' : null;
   const labLoading = viewMode === 'ZMCC_LAB' && labQuery.isPending;
   const fetchLabSessions = () => queryClient.invalidateQueries({ queryKey: ['zmcc-manager', 'lab-history'] });
 
@@ -204,7 +204,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
         {viewMode === 'ZMCC_LAB' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 tabular-nums">
             <div className="bg-card border-border p-3 rounded-lg border">
-              <span className="text-xs font-sans text-muted-foreground block font-semibold">Total Lab Sessions</span>
+              <span className="text-xs font-sans text-muted-foreground block font-semibold">Lab sessions</span>
               <span className="text-lg font-semibold text-foreground">
                 {labLoading ? '—' : labSessions.length}
               </span>
@@ -222,7 +222,7 @@ export const ZMCCManagerQualityRejections: React.FC<ZMCCManagerQualityRejections
               </span>
             </div>
             <div className="bg-card border-border p-3 rounded-lg border">
-              <span className="text-xs font-sans text-amber-700 block font-semibold">Pending Manager Review</span>
+              <span className="text-xs font-sans text-amber-700 block font-semibold">Awaiting review</span>
               <span className="text-lg font-semibold text-amber-800">
                 {labLoading
                   ? '—'

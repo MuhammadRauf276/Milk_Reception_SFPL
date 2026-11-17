@@ -154,7 +154,7 @@ const routeColumns: DataColumn<MotRouteTelemetry>[] = [
   { key: 'vehicle', header: 'Vehicle', label: 'Vehicle', cell: (r) => <span className="tabular-nums font-semibold text-foreground">{r.vehicleNumber ?? NO_DATA}</span> },
   {
     key: 'shops',
-    header: 'Shop Progress',
+    header: 'Shop progress',
     label: 'Shop progress',
     align: 'center',
     cell: (r) => (
@@ -170,7 +170,7 @@ const routeColumns: DataColumn<MotRouteTelemetry>[] = [
   },
   {
     key: 'volume',
-    header: 'Collected Volume',
+    header: 'Collected volume',
     label: 'Collected volume',
     align: 'right',
     cell: (r) => <span className="tabular-nums font-semibold text-foreground">{r.grossLiters.toLocaleString()} L</span>,

@@ -173,7 +173,7 @@ export function DynamicFilterBar({
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
             <Filter className="w-4 h-4 text-muted-foreground" />
-            <span>Ad-Hoc Query Filters</span>
+            <span>Filters</span>
             {filters.length > 0 && (
               <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-semibold">
                 {filters.length} active
@@ -203,7 +203,7 @@ export function DynamicFilterBar({
               onChange={(e) => onChangeGroupByFieldId(e.target.value || undefined)}
               className="text-xs bg-background border border-border rounded-lg px-3 py-1 text-foreground font-medium focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
             >
-              <option value="">No Grouping (Flat Records)</option>
+              <option value="">No grouping</option>
               {groupableFields.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.label}

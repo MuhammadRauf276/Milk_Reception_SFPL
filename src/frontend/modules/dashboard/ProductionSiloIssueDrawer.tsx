@@ -54,7 +54,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
   const handleRecordSiloIssue = async () => {
     const quantityNum = Number(issueQuantityLiters);
     if (isNaN(quantityNum) || quantityNum <= 0) {
-      toast.showError('Issue quantity must be a positive number greater than 0 Liters.', 'Validation Error');
+      toast.showError('Enter a quantity above 0 L.', 'Validation Error');
       return;
     }
 
@@ -86,7 +86,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
       if (res.ok) {
         toast.showSuccess(
           `Milk issue of ${quantityNum.toLocaleString()} L recorded from ${silo.silo_code}.`,
-          'Silo Issue Recorded'
+          'Issue recorded'
         );
         issueDraft.clear();
         setIssueQuantityLiters('');
@@ -94,10 +94,10 @@ export const ProductionSiloIssueDrawer: React.FC<{
         queryClient.invalidateQueries({ queryKey: ['production', 'silo-issue-history'] });
         onRecorded();
       } else {
-        toast.showError(data.error || 'Failed to record silo milk issue', 'Silo Issue Error');
+        toast.showError(data.error || 'Could not record issue', 'Issue failed');
       }
     } catch (_err) {
-      toast.showError('Network error recording silo milk issue', 'Network Error');
+      toast.showError('Network error. Try again.', 'Network Error');
     } finally {
       setActionLoading(false);
     }
@@ -110,10 +110,10 @@ export const ProductionSiloIssueDrawer: React.FC<{
     <Drawer open onOpenChange={(o) => !o && onClose()}>
       <DrawerContent showClose={false}>
         <div className="overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 space-y-6 text-foreground">
-          <DrawerTitle className="sr-only">Record Outbound Milk Issue</DrawerTitle>
+          <DrawerTitle className="sr-only">Record issue</DrawerTitle>
           <div className="flex items-start justify-between gap-2 border-b border-border-strong pb-4">
             <div>
-              <h3 className="text-base font-semibold text-foreground">Record Outbound Milk Issue</h3>
+              <h3 className="text-base font-semibold text-foreground">Record issue</h3>
               <p className="text-xs text-secondary-foreground font-semibold mt-0.5">
                 Silo: <strong className="tabular-nums text-foreground">{silo.silo_code}</strong> ({silo.silo_name})
               </p>
@@ -145,7 +145,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
               </span>
             </div>
             <div>
-              <span className="text-muted-foreground font-sans block text-xs">After-Issue Stock Preview</span>
+              <span className="text-muted-foreground font-sans block text-xs">Stock after issue</span>
               <span className={`text-base font-semibold ${isOverIssue ? 'text-rose-600' : 'text-emerald-800'}`}>
                 {previewRemaining.toLocaleString()} L
               </span>
@@ -174,13 +174,13 @@ export const ProductionSiloIssueDrawer: React.FC<{
                   type="text"
                   value={issuePurpose}
                   onChange={(e) => setIssuePurpose(e.target.value)}
-                  placeholder="e.g. UHT Milk, Pasteurized Milk"
+                  placeholder="e.g. UHT milk"
                   className={inputClass}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-foreground">Flow Meter Reference</label>
+                <label className="block text-xs font-semibold text-foreground">Flow meter ref</label>
                 <input
                   type="text"
                   value={issueFlowMeterRef}

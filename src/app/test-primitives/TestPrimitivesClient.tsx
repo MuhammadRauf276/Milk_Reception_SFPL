@@ -66,7 +66,7 @@ export default function TestPrimitivesClient() {
           forceOpenDesktop
         >
           <div data-testid="disclosure-content">
-            Detailed SOP testing guidelines and audit compliance rules for milk reception.
+            SOP testing and audit rules.
           </div>
         </CollapsibleDisclosure>
       </section>

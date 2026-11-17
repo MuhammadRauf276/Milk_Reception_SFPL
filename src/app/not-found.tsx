@@ -8,7 +8,7 @@ export default function NotFound() {
     <StatusScreen
       icon={<FileQuestion />}
       title="Page not found"
-      description="The page you're looking for doesn't exist or has moved."
+      description="This page does not exist or has moved."
     >
       <Button asChild>
         <Link href="/">Go to my workspace</Link>

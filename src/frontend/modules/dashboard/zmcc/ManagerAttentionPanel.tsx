@@ -37,7 +37,7 @@ export const ManagerAttentionPanel: React.FC<ManagerAttentionPanelProps> = ({
         <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center mx-auto border border-emerald-200">
           <CheckCircle2 className="w-5 h-5" />
         </div>
-        <h4 className="text-sm font-semibold text-foreground">No Items Need Attention</h4>
+        <h4 className="text-sm font-semibold text-foreground">Nothing needs attention</h4>
         <p className="text-xs text-muted-foreground max-w-md mx-auto">
           All on track
         </p>

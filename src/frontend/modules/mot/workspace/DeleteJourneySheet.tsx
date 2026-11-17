@@ -34,7 +34,7 @@ export function DeleteJourneySheet({ journey, onClose, onDone }: Props) {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (reason.trim().length < 3) {
-      setError('Write why this journey is being removed (at least 3 characters).');
+      setError('Write why it is removed (3+ characters).');
       return;
     }
     setError(null);

@@ -272,7 +272,7 @@ export function DailyReportDashboard() {
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
-            <p className="text-sm text-muted-foreground">Mobile Tester collections, ZMCC lab portions, plant QA, exceptions and losses</p>
+            <p className="text-sm text-muted-foreground">Mobile Tester, ZMCC lab, plant QA and losses</p>
             <InfoTip text="Covers the selected Pakistan date. Plant vehicles can instead be counted on the business day, 08:00 to 08:00." />
           </div>
         </div>

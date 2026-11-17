@@ -36,7 +36,7 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
   const railInset = compact ? 'left-14.5 right-14.5' : 'left-17 right-17';
 
   return (
-    <HorizontalScrollRow role="region" aria-label="Vehicle Lifecycle Progression">
+    <HorizontalScrollRow role="region" aria-label="Vehicle progress">
       <div className="relative inline-flex min-w-max items-start gap-2 px-1 py-1">
         {/* Continuous background connector line across all stage circles */}
         <div className={`pointer-events-none absolute top-5 ${railInset} h-0.5 bg-border z-0`} />

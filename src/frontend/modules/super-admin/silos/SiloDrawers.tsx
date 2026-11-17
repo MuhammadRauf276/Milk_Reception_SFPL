@@ -156,7 +156,7 @@ export function SiloDeactivateDrawer({ silo, onClose, onSaved }: { silo: Silo; o
   const busy = mutation.isPending;
 
   return (
-    <FormDrawer open onClose={onClose} busy={busy} error={error} title="Deactivate Silo Storage">
+    <FormDrawer open onClose={onClose} busy={busy} error={error} title="Deactivate silo">
       <div className="flex items-center gap-3 text-rose-700">
         <div className="shrink-0 rounded-xl bg-rose-100 p-3">
           <AlertTriangle className="h-5 w-5 text-rose-700" />
@@ -166,8 +166,8 @@ export function SiloDeactivateDrawer({ silo, onClose, onSaved }: { silo: Silo; o
         </p>
       </div>
       <ul className="list-disc space-y-1 rounded-xl border border-border bg-card p-3 pl-7 text-amber-900">
-        <li>The silo will be removed from operational selection immediately.</li>
-        <li>Deactivation is blocked if the silo contains milk stock or active unloadings.</li>
+        <li>Removed from selection at once.</li>
+        <li>Blocked if it holds milk or active unloadings.</li>
       </ul>
       <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
         <Button type="button" variant="secondary" className="h-11 px-4" disabled={busy} onClick={onClose}>

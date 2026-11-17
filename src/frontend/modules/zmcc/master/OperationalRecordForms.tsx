@@ -22,7 +22,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Shop Name</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Shop name</label>
                       <input
                         type="text"
                         required
@@ -49,7 +49,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Phone Number</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Phone number</label>
                       <input
                         type="text"
                         required
@@ -87,7 +87,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Collection Area</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Collection area</label>
                       <Combobox
                         options={helperAreas
                           .filter((a) => !formData.route_id || a.route_id === formData.route_id)
@@ -119,7 +119,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
 
                   <div className="grid grid-cols-1 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Chiller Ownership</label>
+                      <label className="block text-xs font-semibold text-secondary-foreground mb-1">Chiller ownership</label>
                       <Combobox
                         options={helperChillers.map((co) => ({ value: co.id, label: co.name }))}
                         value={String(formData.chiller_ownership_id || '')}
@@ -160,7 +160,7 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                       />
                     </div>
                   </div>
-                  <InfoTip text="Latitude and longitude must both be provided, or both omitted." />
+                  <InfoTip text="Enter both latitude and longitude, or neither." />
                 </div>
               )}
 

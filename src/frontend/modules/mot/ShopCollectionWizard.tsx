@@ -358,7 +358,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                 {livePreview && parseFloat(quantity) > 0 && (
                   <div className="bg-card border-border grid grid-cols-2 gap-2 rounded-xl border p-3">
                     <div>
-                      <p className="text-xs font-semibold text-muted-foreground">Gross Liters</p>
+                      <p className="text-xs font-semibold text-muted-foreground">Gross liters</p>
                       <p className="text-base font-semibold tabular-nums text-foreground">{livePreview.grossLiters} L</p>
                       <p className="text-xs text-secondary-foreground">Density: {livePreview.density}</p>
                     </div>
@@ -455,7 +455,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
             {livePreview && (
               <div className="bg-card border-border grid grid-cols-2 gap-2 rounded-xl border p-3">
                 <div>
-                  <span className="text-xs font-semibold text-muted-foreground">Gross Quantity</span>
+                  <span className="text-xs font-semibold text-muted-foreground">Gross quantity</span>
                   <p className="text-lg font-semibold tabular-nums text-foreground">{livePreview.grossLiters} L</p>
                   <p className="text-xs text-secondary-foreground">Density: {livePreview.density}</p>
                 </div>

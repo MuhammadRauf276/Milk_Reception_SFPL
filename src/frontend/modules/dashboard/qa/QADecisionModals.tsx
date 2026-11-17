@@ -78,7 +78,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     <Play className="w-5 h-5 fill-current" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-base text-foreground">Start QA Testing Session</h3>
+                    <h3 className="font-semibold text-base text-foreground">Start QA testing</h3>
                     <p className="text-xs text-secondary-foreground font-semibold">
                       Vehicle: <strong className="tabular-nums">{targetWaitingVisit?.vehicle_number || 'Selected'}</strong>
                     </p>
@@ -125,7 +125,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     <Play className="w-5 h-5 fill-current" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-base text-foreground">Resume QA Testing Session</h3>
+                    <h3 className="font-semibold text-base text-foreground">Resume QA testing</h3>
                     <p className="text-xs text-secondary-foreground font-semibold">
                       Vehicle: <strong className="tabular-nums">{targetHeldVisit?.vehicle_number || 'Selected'}</strong>
                     </p>
@@ -172,7 +172,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     <AlertTriangle className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-base text-foreground">Place Portion On Hold</h3>
+                    <h3 className="font-semibold text-base text-foreground">Hold portion</h3>
                     <p className="text-xs text-secondary-foreground font-semibold">
                       Portion #{currentPortion?.portion_number} of {visitDetail?.vehicle_number || 'Vehicle'}
                     </p>
@@ -186,7 +186,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   <textarea
                     value={holdReason}
                     onChange={(e) => onHoldReasonChange?.(e.target.value)}
-                    placeholder="Reason for placing testing on hold"
+                    placeholder="Hold reason"
                     rows={2}
                     className="w-full min-w-0 resize-y break-words p-3 text-xs font-semibold rounded-lg border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-amber-600 min-h-11"
                     required
@@ -234,7 +234,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                   </div>
                   <div>
                     <h3 className="font-semibold text-base text-foreground">
-                      {hasFailedTests ? 'Confirm Exception Decision' : 'Accept Portion for Reception'}
+                      {hasFailedTests ? 'Confirm exception' : 'Accept Portion for Reception'}
                     </h3>
                     <p className="text-xs text-secondary-foreground font-semibold">
                       Portion #{currentPortion?.portion_number} of {visitDetail?.vehicle_number}
@@ -247,7 +247,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
+                        <p className="font-semibold text-sm text-amber-950">Confirm your decision</p>
                         <p className="mt-1 font-normal text-amber-900">
                           A test failed or a compulsory photo is missing. Your decision goes to <strong>AVP, Quality Assurance (QA Head)</strong> for final decision.
                         </p>
@@ -316,7 +316,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                       ? 'Submitting…'
                       : hasFailedTests
                       ? 'Confirm & Send to AVP-QA (QA Head)'
-                      : 'Confirm Portion Acceptance'}
+                      : 'Confirm accept'}
                   </button>
                 </div>
               </form>
@@ -341,7 +341,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-semibold text-sm text-amber-950">Are you sure with your decision?</p>
+                        <p className="font-semibold text-sm text-amber-950">Confirm your decision</p>
                         <p className="mt-1 font-normal text-amber-900">
                           All tests passed. Your rejection goes to <strong>AVP, Quality Assurance (QA Head)</strong> for final decision.
                         </p>
@@ -416,7 +416,7 @@ export const QADecisionModals: React.FC<QADecisionModalsProps> = ({
                       ? 'Rejecting…'
                       : !hasFailedTests
                       ? 'Confirm & Send to AVP-QA (QA Head)'
-                      : 'Confirm Portion Rejection'}
+                      : 'Confirm reject'}
                   </button>
                 </div>
               </form>

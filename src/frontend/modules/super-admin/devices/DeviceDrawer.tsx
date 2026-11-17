@@ -218,7 +218,7 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
                 value={formLabel}
                 onChange={(e) => setFormLabel(e.target.value)}
                 maxLength={150}
-                placeholder="For example: Gujrat Mobile Tester phone 1"
+                placeholder="e.g. Gujrat Mobile Tester phone 1"
               />
             </label>
             <label className="block space-y-1 font-medium">
@@ -269,7 +269,7 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
 
         {dialog.kind === 'release' ? (
           <>
-            <p>This phone will have no user and stop working until it is set up again. Continue?</p>
+            <p>Phone loses its user until set up again. Continue?</p>
             <Button className={BTN} disabled={busy} onClick={() => exec(() => patch(dialog.device.id, { action: 'release' }))}>
               Yes, release phone
             </Button>
@@ -278,7 +278,7 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
 
         {dialog.kind === 'block' ? (
           <>
-            <p>A blocked phone cannot send or log in. Tell us why.</p>
+            <p>Say why this phone is blocked.</p>
             <textarea
               className={`${FIELD} min-h-24 py-2`}
               value={formReason}
@@ -299,7 +299,7 @@ export function DeviceDrawer({ dialog, onClose, onShowKey }: Props) {
 
         {dialog.kind === 'key' ? (
           <>
-            <p>This makes a new key. The old key stops working. The new key is shown only once.</p>
+            <p>New key replaces the old one. Shown once.</p>
             <Button
               className={BTN}
               disabled={busy}

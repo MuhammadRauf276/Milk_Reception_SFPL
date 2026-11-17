@@ -179,7 +179,7 @@ export default function SuperAdminZmccTanksPage() {
     if (!formName.trim()) return setFormError('Tank Name is required.');
     const capNum = parseFloat(formCapacity);
     if (isNaN(capNum) || capNum <= 0) return setFormError('Capacity must be a positive number.');
-    if (!formZmccId) return setFormError('Please select a ZMCC.');
+    if (!formZmccId) return setFormError('Select a ZMCC.');
 
     createMutation.mutate({
       zmcc_id: formZmccId,
@@ -271,7 +271,7 @@ export default function SuperAdminZmccTanksPage() {
       cell: (t) => (
         <div className="flex flex-wrap items-center justify-end gap-2">
           {t.is_active && (
-            <Button size="sm" onClick={() => setIntakeTank(t)} title="Add manual milk stock (gross and @13% TS)">
+            <Button size="sm" onClick={() => setIntakeTank(t)} title="Add manual stock (gross and @13 TS)">
               <Milk />
               Intake
             </Button>

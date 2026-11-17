@@ -88,7 +88,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const assignedSourceName =
     currentUser?.procurement_source?.name ||
     currentUser?.zone ||
-    'Assigned ZMCC Source';
+    'Assigned ZMCC';
 
   const openDrawer = useCallback(() => {
     setIsDrawerOpen(true);
@@ -192,7 +192,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   });
   const liveLogs = useMemo(() => liveQuery.data?.items ?? liveQuery.data?.logs ?? [], [liveQuery.data]);
   const liveLoading = liveQuery.isPending;
-  const liveError = liveQuery.isError ? getErrorMessage(liveQuery.error) || 'Failed to load live pipeline logs' : null;
+  const liveError = liveQuery.isError ? getErrorMessage(liveQuery.error) || 'Pipeline did not load' : null;
   const liveActiveInPlantCount =
     typeof liveQuery.data?.summary?.activeInPlantVisits === 'number'
       ? liveQuery.data.summary.activeInPlantVisits
@@ -215,7 +215,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
   const reportingLogs = useMemo(() => reportingData?.items ?? reportingData?.logs ?? [], [reportingData]);
   const reportingLoading = reportingQuery.isPending;
   const reportingError = reportingQuery.isError
-    ? getErrorMessage(reportingQuery.error) || 'Failed to load reporting logs'
+    ? getErrorMessage(reportingQuery.error) || 'Reports did not load'
     : null;
   const reportingTotalPages = reportingData?.pagination?.totalPages || reportingData?.pagination?.total_pages || 1;
   const reportingTotalRecords = reportingData?.pagination?.totalRecords || reportingData?.pagination?.total_count || 0;

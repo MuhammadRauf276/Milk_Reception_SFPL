@@ -181,11 +181,11 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
   const receiptStatusText = isCompletedReceipt
     ? 'Completed'
     : isReceiptPending
-    ? 'Pending Final Receipt'
+    ? 'Final receipt pending'
     : 'In Progress';
 
   return (
-    <Modal onClose={onClose} title="Dispatch visit details" closeOnOutsideClick className="max-w-4xl max-h-[90dvh] overflow-hidden flex flex-col">
+    <Modal onClose={onClose} title="Visit details" closeOnOutsideClick className="max-w-4xl max-h-[90dvh] overflow-hidden flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-subtle">
           <div className="flex items-center space-x-3">
@@ -291,7 +291,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
               <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
-                  Gate Entry Time
+                  Gate entry
                 </span>
                 <span className="text-xs font-semibold text-foreground">
                   {log.gate_entry_timestamp ? formatOperationalDatetime(log.gate_entry_timestamp) : 'Pending'}
@@ -300,7 +300,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
               <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
-                  Gate Exit Time
+                  Gate exit
                 </span>
                 <span className="text-xs font-semibold text-foreground">
                   {log.gate_exit_timestamp ? formatOperationalDatetime(log.gate_exit_timestamp) : 'Pending'}
@@ -309,7 +309,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
               <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
-                  Dispatch Gross Liters
+                  Dispatch gross L
                 </span>
                 <span className="text-sm font-semibold text-foreground">
                   {log.vehicle_dispatch_gross_liters != null ? `${log.vehicle_dispatch_gross_liters.toLocaleString()} L` : 'Not recorded'}
@@ -363,7 +363,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
               <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
-                  Net Milk Weight
+                  Net weight
                 </span>
                 <span className="text-sm font-semibold text-primary">
                   {log.computed_net_milk_weight != null
@@ -417,12 +417,12 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
             )}
           </div>
 
-          {/* 3. Portion Quality Results */}
+          {/* 3. Portion quality */}
           <div className="p-5 rounded-2xl bg-card border border-border space-y-4 shadow-2xs">
             <div className="flex items-center space-x-2 border-b border-border/60 pb-2">
               <FlaskConical className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-xs font-semibold text-foreground">
-                Portion Quality Results
+                Portion quality
               </h3>
             </div>
 
@@ -592,7 +592,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
               <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
-                  Final Receipt Time
+                  Final receipt
                 </span>
                 <span className="text-xs font-semibold text-emerald-800">
                   {log.final_receipt_timestamp

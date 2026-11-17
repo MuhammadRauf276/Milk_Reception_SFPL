@@ -66,7 +66,7 @@ function PlantContractorManagerContent() {
 
   if (loading) {
     return (
-      <PageLoader label="Loading Plant Contractor Manager Station…" className="min-h-dvh" />
+      <PageLoader label="Loading manager view…" className="min-h-dvh" />
     );
   }
 
@@ -117,7 +117,7 @@ export default function PlantContractorManagerPage() {
   return (
     <Suspense
       fallback={
-        <PageLoader label="Loading Plant Contractor Manager Station…" className="min-h-dvh" />
+        <PageLoader label="Loading manager view…" className="min-h-dvh" />
       }
     >
       <PlantContractorManagerContent />

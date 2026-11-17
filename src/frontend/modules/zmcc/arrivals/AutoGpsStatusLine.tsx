@@ -4,6 +4,7 @@ import React from 'react';
 import { MapPin } from 'lucide-react';
 import type { GpsState } from './arrivalTypes';
 import type { AutoGpsStatus } from './useGpsCapture';
+import { InfoTip } from '@/components/ui/info-tip';
 
 interface Props {
   label: string;
@@ -51,7 +52,7 @@ export function AutoGpsStatusLine({ label, gps, status, onRetry }: Props) {
       )}
       {status === 'NONE' && (
         <p className="mt-1 text-xs text-muted-foreground">
-          No location found. Turn on Location on this phone. You can still save the arrival.
+          No location. Turn on Location.<InfoTip text="You can still save the arrival." />
         </p>
       )}
     </div>

@@ -74,12 +74,12 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
   const loading = historyQuery.isFetching;
   const totalPages = historyQuery.data?.pagination?.totalPages ?? 1;
   const totalRecords = historyQuery.data?.pagination?.totalRecords ?? 0;
-  const error = formError ?? (historyQuery.isError ? getErrorMessage(historyQuery.error) || 'Failed to load historical contractor records' : null);
+  const error = formError ?? (historyQuery.isError ? getErrorMessage(historyQuery.error) || 'History did not load' : null);
 
   const handleApplyFilter = (e: React.FormEvent) => {
     e.preventDefault();
     if (fromDate && toDate && fromDate > toDate) {
-      setError('From Date cannot be after To Date.');
+      setError('From date is after To date.');
       return;
     }
     setError(null);
@@ -138,7 +138,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
         <div className="tabular-nums text-foreground text-xs">
           <span className="font-semibold">{v.reportingDate || '—'}</span>
           <span className="block text-xs text-muted-foreground font-normal">
-            {v.finalReceiptExists ? 'Final Receipt Date' : 'Dispatch Date'}
+            {v.finalReceiptExists ? 'Final receipt date' : 'Dispatch Date'}
           </span>
         </div>
       ),
@@ -399,7 +399,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
         <div className="flex items-center justify-between border-b border-muted pb-3">
           <div className="flex items-center space-x-2">
             <History className="w-4 h-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold text-foreground">Historical Dispatches & Receipts</h3>
+            <h3 className="text-sm font-semibold text-foreground">History</h3>
           </div>
           <span className="text-xs text-muted-foreground tabular-nums font-semibold">
             {filteredVisits.length} {filteredVisits.length === 1 ? 'record' : 'records'}
@@ -411,7 +411,7 @@ export const ContractorHistoryReports: React.FC<ContractorHistoryReportsProps> =
           rows={filteredVisits}
           getRowId={(v) => String(v.visitId)}
           loading={loading}
-          emptyTitle="No Historical Records Found"
+          emptyTitle="No history yet"
           emptyDescription="No records"
           footer={
             totalPages > 1 && filteredVisits.length > 0 ? (

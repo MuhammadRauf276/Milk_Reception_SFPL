@@ -54,7 +54,7 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
             <span className="text-xs font-normal text-muted-foreground">vehicles</span>
           </div>
           <p className="text-xs text-muted-foreground mt-1 break-words">
-            Inside factory security boundary
+            Inside factory
           </p>
         </div>
       </div>

@@ -184,7 +184,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                       </p>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-xs text-muted-foreground font-semibold">Gross Liters</span>
+                      <span className="text-xs text-muted-foreground font-semibold">Gross liters</span>
                       <p className="text-xs font-semibold tabular-nums text-foreground">
                         {corrPreview ? `${corrPreview.grossLiters.toFixed(2)} L` : (selectedHistorySession.gross_liters != null ? `${Number(selectedHistorySession.gross_liters).toFixed(2)} L` : '—')}
                       </p>
@@ -196,7 +196,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                       </p>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-xs text-muted-foreground font-semibold">Total Solids</span>
+                      <span className="text-xs text-muted-foreground font-semibold">Total solids</span>
                       <p className="text-xs font-semibold tabular-nums text-foreground">
                         {corrPreview ? `${corrPreview.ts.toFixed(2)}%` : (selectedHistorySession.ts != null ? `${Number(selectedHistorySession.ts).toFixed(2)}%` : '—')}
                       </p>
