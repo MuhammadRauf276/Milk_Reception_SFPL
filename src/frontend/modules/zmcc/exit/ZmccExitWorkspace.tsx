@@ -24,6 +24,7 @@ const REASONS: Array<{ value: string; label: string }> = [
   { value: 'SENT_BACK', label: 'Sent back' },
   { value: 'TANK_FULL', label: 'Tank full' },
   { value: 'VEHICLE_PROBLEM', label: 'Vehicle problem' },
+  { value: 'NO_MILK_GIVEN', label: 'Did not give milk' },
   { value: 'OTHER', label: 'Other' },
 ];
 
@@ -32,6 +33,7 @@ const OUTCOME_LABEL: Record<string, string> = {
   REJECTED: 'Rejected by Lab',
   PARTLY_RECEIVED: 'Partly Unloaded',
   ACCEPTED_NOT_RECEIVED: 'Lab Passed (Not Unloaded)',
+  NOT_RECEIVED: 'Left without milk',
 };
 
 type Dialog = { kind: 'exit' | 'close'; item: ExitQueueItem } | null;

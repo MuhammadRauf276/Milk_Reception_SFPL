@@ -64,7 +64,7 @@ export async function listZmccExitOutcomes(zmccId?: bigint, now: Date = new Date
   } as const;
   const [leftSessions, pendingSessions] = await Promise.all([
     prisma.zmccLabSession.findMany({
-      where: { ...zmccWhere, exit_outcome: { in: ['PARTLY_RECEIVED', 'ACCEPTED_NOT_RECEIVED'] }, updated_at: { gte: since } },
+      where: { ...zmccWhere, exit_outcome: { in: ['PARTLY_RECEIVED', 'ACCEPTED_NOT_RECEIVED', 'NOT_RECEIVED'] }, updated_at: { gte: since } },
       include,
       orderBy: { updated_at: 'desc' },
       take: 200,

@@ -25,6 +25,25 @@ test('every HC vehicle still inside with a decided lab test is on the Gate exit 
   for (const row of expected) assert.ok(listed.has(row.id), `HC arrival ${row.id} (session closed: ${row.closed}) is missing from Gate exit`);
 });
 
+test('an HC vehicle whose lab test is still running can ask to leave without giving milk', async () => {
+  const res = await listExitQueue(SYSTEM);
+  const byArrival = new Map(res.data!.items.filter((i) => i.hc_arrival_id).map((i) => [i.hc_arrival_id, i]));
+  const running = await prisma.$queryRawUnsafe<Array<{ id: string }>>(`
+    SELECT h.id::text AS id FROM zmcc_local_supplier_arrival h
+    JOIN zmcc_lab_session l ON l.local_supplier_arrival_id = h.id
+    WHERE h.gate_exit_required AND h.exit_timestamp IS NULL AND l.status = 'IN_PROGRESS'
+      AND l.journey_closed_at IS NULL AND l.close_requested_at IS NULL
+    ORDER BY l.created_at LIMIT 200`);
+  for (const r of running) {
+    const item = byArrival.get(r.id);
+    assert.ok(item, `HC arrival ${r.id} with a running lab test is missing from Vehicle exit`);
+    assert.equal(item.can_request_close, true);
+    assert.equal(item.can_exit, false, 'it cannot leave before the manager approves');
+    assert.equal(item.preview_outcome, 'NOT_RECEIVED');
+    assert.equal(item.needs_reason, true);
+  }
+});
+
 test.after(async () => {
   await prisma.$disconnect();
 });

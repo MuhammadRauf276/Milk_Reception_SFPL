@@ -3931,6 +3931,8 @@ export async function submitPortionDecision(
           id: true,
           zmcc_id: true,
           status: true,
+          journey_closed_at: true,
+          closed_reason: true,
           arrival_type: true,
           local_supplier_arrival_id: true,
           mot_arrival: {
@@ -3951,6 +3953,9 @@ export async function submitPortionDecision(
     return { status: 403, error: 'Forbidden. Lab session belongs to another ZMCC.' };
   }
   if (portion.lab_session.status !== 'IN_PROGRESS') return { status: 409, error: 'This lab session is already finished.' };
+  if (portion.lab_session.journey_closed_at || portion.lab_session.closed_reason) {
+    return { status: 409, error: 'This vehicle was closed by the manager. No more tests.' };
+  }
   if (portion.status !== 'TESTING' || portion.final_decision !== 'PENDING' || portion.review_status === 'PENDING') {
     return { status: 409, error: 'This portion already has a decision. Reload.' };
   }

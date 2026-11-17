@@ -89,12 +89,16 @@ const isRejected = (lab: LabInfo | null) => (lab?.final_decision ?? lab?.decisio
 export function labAndReceiptSteps(lab: LabInfo | null, reached: boolean, zmccManager: ApprovalWait): TvJourneyStep[] {
   const labWaiting = !!lab && (lab.manager_review_status === 'PENDING' || lab._count.portions > 0);
   const labDone = !!lab && lab.status === 'COMPLETED' && !labWaiting;
+  // The manager let the vehicle leave before the lab finished (it did not give milk).
+  const labStopped = !!lab && !!lab.journey_closed_at && lab.status !== 'COMPLETED';
   const labStep: TvJourneyStep = {
     key: 'lab',
     label: 'Lab',
     at: iso(lab?.completed_at ?? lab?.started_at),
-    state: !lab ? (reached ? 'current' : 'upcoming') : labWaiting ? 'waiting' : labDone ? (isRejected(lab) ? 'rejected' : 'done') : 'current',
-    metric: labDone ? (isRejected(lab) ? 'Rejected' : 'Accepted') : null,
+    state: !lab
+      ? reached ? 'current' : 'upcoming'
+      : labStopped ? 'rejected' : labWaiting ? 'waiting' : labDone ? (isRejected(lab) ? 'rejected' : 'done') : 'current',
+    metric: labStopped ? 'Stopped' : labDone ? (isRejected(lab) ? 'Rejected' : 'Accepted') : null,
     approval: labWaiting ? zmccManager : null,
   };
 

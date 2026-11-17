@@ -30,6 +30,7 @@ export const EXIT_REASON_CODES = [
   'SENT_BACK',
   'TANK_FULL',
   'VEHICLE_PROBLEM',
+  'NO_MILK_GIVEN',
   'OTHER',
 ] as const;
 export type ExitReasonCode = (typeof EXIT_REASON_CODES)[number];
@@ -39,6 +40,7 @@ export const EXIT_REASON_LABELS: Record<ExitReasonCode, string> = {
   SENT_BACK: 'Sent back',
   TANK_FULL: 'Tank full',
   VEHICLE_PROBLEM: 'Vehicle problem',
+  NO_MILK_GIVEN: 'Did not give milk',
   OTHER: 'Other',
 };
 
@@ -105,6 +107,19 @@ function labDecided(s: SessionFull): boolean {
     s.portions.every((p) => ['ACCEPTED', 'REJECTED'].includes(p.final_decision) && p.review_status !== 'PENDING')
   );
 }
+
+type ExitOutcome = ReturnType<typeof computeExitOutcome> | 'NOT_RECEIVED';
+
+/** Outcome if the vehicle leaves now. Milk the lab has not finished deciding never reached the tank: NOT_RECEIVED. */
+function exitOutcomeOf(s: SessionFull): ExitOutcome {
+  return labDecided(s) ? computeExitOutcome(s.portions) : 'NOT_RECEIVED';
+}
+
+/** Outcomes where milk that came in did not go into the tank, so the exit needs a reason. */
+const MILK_NOT_TAKEN = new Set<string>(['PARTLY_RECEIVED', 'ACCEPTED_NOT_RECEIVED', 'NOT_RECEIVED']);
+
+/** The ZMCC Manager approved leaving without unloading. */
+const closeApproved = (s: SessionFull) => s.closed_reason === 'CLOSED_WITHOUT_UNLOADING' && !!s.close_approved_at;
 
 function vehicleOf(s: SessionFull): string {
   return (
@@ -177,15 +192,15 @@ export async function recordHcGateExit(
         }
         throw new ExitError(409, 'The exit is already recorded for this vehicle.');
       }
-      if (!labDecided(session)) {
-        throw new ExitError(409, 'The lab has not finished all portions yet. The vehicle cannot leave.');
+      if (!labDecided(session) && !closeApproved(session)) {
+        throw new ExitError(409, 'The lab has not finished. Ask the manager to approve the exit first.');
       }
       if (exitDate.getTime() < arrival.arrival_timestamp.getTime()) {
         throw new ExitError(400, 'The exit time cannot be before the arrival time.');
       }
 
-      const outcome = computeExitOutcome(session.portions);
-      const missing = outcome === 'PARTLY_RECEIVED' || outcome === 'ACCEPTED_NOT_RECEIVED';
+      const outcome = exitOutcomeOf(session);
+      const missing = MILK_NOT_TAKEN.has(outcome);
       let reasonCode: string | null = null;
       let remarks: string | null = null;
       if (missing) {
@@ -269,6 +284,15 @@ export async function recordHcGateExit(
 function canRequestClose(s: SessionFull): string | null {
   if (s.unloaded_at) return 'This vehicle is already unloaded.';
   if (s.journey_closed_at || s.closed_reason) return 'This vehicle visit is already closed.';
+  if (s.local_supplier_arrival?.exit_timestamp) return 'This vehicle has already left.';
+  if (isHcSession(s.arrival_type)) {
+    // An HC supplier may leave without giving milk, before the lab finishes or after it, once the manager approves.
+    if (s.close_requested_at && !s.close_approved_at) return 'A close request is already waiting for the manager.';
+    if (labDecided(s) && !s.portions.some((p) => p.final_decision === 'ACCEPTED')) {
+      return 'All milk was rejected. The vehicle can leave through Gate exit.';
+    }
+    return null;
+  }
   if (!labDecided(s)) return 'The lab has not finished all portions yet.';
   if (!s.portions.some((p) => p.final_decision === 'ACCEPTED')) return 'There is no accepted milk. Nothing to close.';
   if (s.close_requested_at && !s.close_approved_at) return 'A close request is already waiting for the manager.';
@@ -398,7 +422,7 @@ export async function decideCloseWithoutUnloading(
         return { session_id: sessionId.toString(), approved: false };
       }
 
-      const outcome = computeExitOutcome(s.portions);
+      const outcome = exitOutcomeOf(s);
       await tx.zmccLabSession.update({
         where: { id: sessionId },
         data: {
@@ -464,7 +488,7 @@ export type ExitQueueItem = {
 };
 
 function toQueueItem(s: SessionFull): ExitQueueItem {
-  const outcome = computeExitOutcome(s.portions);
+  const outcome = exitOutcomeOf(s);
   const hc = isHcSession(s.arrival_type);
   const decided = labDecided(s);
   const left = !!s.local_supplier_arrival?.exit_timestamp;
@@ -479,12 +503,15 @@ function toQueueItem(s: SessionFull): ExitQueueItem {
     exit_outcome: s.exit_outcome,
     preview_outcome: outcome,
     needs_reason:
-      (outcome === 'PARTLY_RECEIVED' || outcome === 'ACCEPTED_NOT_RECEIVED') &&
-      s.closed_reason !== 'CLOSED_WITHOUT_UNLOADING',
+      MILK_NOT_TAKEN.has(outcome) && s.closed_reason !== 'CLOSED_WITHOUT_UNLOADING',
     unloaded: !!s.unloaded_at,
     // A close request still waiting for the manager holds the vehicle; an approved one lets it leave.
     can_exit:
-      hc && decided && !left && s.local_supplier_arrival?.gate_exit_required === true && !(s.close_requested_at && !s.close_approved_at),
+      hc &&
+      (decided || closeApproved(s)) &&
+      !left &&
+      s.local_supplier_arrival?.gate_exit_required === true &&
+      !(s.close_requested_at && !s.close_approved_at),
     can_request_close: canRequestClose(s) === null,
     close_requested: !!s.close_requested_at && !s.close_approved_at,
     close_reason_code: s.exit_reason_code,
@@ -499,11 +526,11 @@ export async function listExitQueue(acting: ActingContext): Promise<ExitServiceR
   const rows = await prisma.zmccLabSession.findMany({
     where: {
       ...zmccFilter,
-      portions: { some: {} },
       OR: [
-        // An HC vehicle stays on the list until its exit is recorded, also after its lab session is closed
-        // (all portions weighed into the tank, or all rejected): the vehicle is still at the gate.
+        // An HC vehicle stays on the list until its exit is recorded: while its lab test runs (it may ask to leave
+        // without giving milk) and after its session is closed (milk in the tank, or all rejected).
         { arrival_type: 'HC', local_supplier_arrival: { is: { exit_timestamp: null, gate_exit_required: true } } },
+        // Mobile Tester vehicles: only to close without unloading accepted milk.
         { journey_closed_at: null, unloaded_at: null, portions: { some: { final_decision: 'ACCEPTED' } } },
       ],
     },
