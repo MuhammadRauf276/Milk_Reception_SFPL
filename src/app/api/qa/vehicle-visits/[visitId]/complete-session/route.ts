@@ -7,6 +7,7 @@ import { parseStrictDateOnly } from '@/lib/datetime-utils';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
 import { createNotificationsForEvent } from '@/backend/services/notificationService';
 import { getErrorMessage } from '@/lib/errors';
+import { clearDraftsForScope, type DraftDb } from '@/backend/services/formDraftService';
 
 export async function POST(
   req: Request,
@@ -278,6 +279,9 @@ export async function POST(
     if ('error' in result) {
       return NextResponse.json({ error: result.error }, { status: result.status || 400 });
     }
+
+    // QA for this vehicle is done: nobody's Plant QA draft for any of its portions is needed any more.
+    await clearDraftsForScope(prisma as unknown as DraftDb, ['PLANT_QA'], visitId).catch(() => 0);
 
     return NextResponse.json(result);
   } catch (error) {
