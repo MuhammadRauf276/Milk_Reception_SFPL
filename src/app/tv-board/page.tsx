@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useCallback, useSyncExternalStore, useState }
 import { isZmccFieldOfficer } from '@core/roles/hierarchy';
 import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
-import { Tv, LogIn, CheckCircle2, Scale, Building2, FlaskConical, Clock } from 'lucide-react';
+import { Tv, LogIn, CheckCircle2, Scale, Building2, FlaskConical, Clock, Truck } from 'lucide-react';
 import { ManagerLifecycleTracker } from '@/frontend/modules/dashboard/zmcc/ManagerLifecycleTracker';
 import type { ManagerLifecycleSummary } from '@/frontend/modules/dashboard/zmcc/zmccManagerTypes';
 import { Header } from '@/frontend/modules/shared/Header';
@@ -15,6 +15,8 @@ import Link from 'next/link';
 import { PageTransition } from '@/components/motion/page-transition';
 import { ShakarganjLogo, ShakarganjIcon } from '@/components/brand/ShakarganjLogo';
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
+import { ZmccBoardSection } from '@/frontend/modules/tv-board/ZmccBoardSections';
+import type { TvZmccBoard } from '@/backend/services/tvBoardZmccService';
 
 function subscribeToClock(onTick: () => void) {
   const id = window.setInterval(onTick, 1000);
@@ -45,17 +47,36 @@ interface TvBoardVehicle {
 }
 
 const NO_VEHICLES: TvBoardVehicle[] = [];
+const REFRESH_MS = 30_000;
+
+const pakistanTime = (ms: number) =>
+  new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Karachi' });
+
+const STATIONS = [
+  { icon: Scale, station: 'Station 1', name: 'Weighbridge', state: 'Ready' },
+  { icon: Building2, station: 'Station 2', name: 'Unloading bays', state: 'Ready' },
+  { icon: FlaskConical, station: 'Station 3', name: 'QA lab', state: 'Active' },
+];
 
 export default function PublicYardTVBoardPage() {
   const boardQuery = useQuery({
     queryKey: ['tv-board'],
     queryFn: ({ signal }) =>
       fetchJson<{ vehicles?: TvBoardVehicle[] }>('/api/tv-board', { signal }),
-    refetchInterval: 60_000,
+    refetchInterval: REFRESH_MS,
   });
   const activeVehicles = boardQuery.data?.vehicles ?? NO_VEHICLES;
   const currentMinute = useCurrentMinute();
   const { currentUser: user } = useCurrentUser();
+  const zmccQuery = useQuery({
+    queryKey: ['tv-board', 'zmcc'],
+    queryFn: ({ signal }) => fetchJson<TvZmccBoard>('/api/tv-board/zmcc', { signal }),
+    refetchInterval: REFRESH_MS,
+    enabled: !!user,
+    retry: false,
+  });
+  const zmccSections = zmccQuery.data?.zmccs ?? [];
+  const updatedAt = Math.max(boardQuery.dataUpdatedAt, zmccQuery.dataUpdatedAt);
   // The wall display stays open without a login; these field roles have no use for it.
   const barredHome = user?.role === 'MOT' ? '/mot' : user && isZmccFieldOfficer(user.role) ? '/phe' : null;
   useEffect(() => {
@@ -126,144 +147,134 @@ export default function PublicYardTVBoardPage() {
         </header>
       )}
 
-      <main className="flex-1 p-4 sm:p-6 flex flex-col justify-between max-w-7xl w-full mx-auto">
+      <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
         <PageTransition>
-          <div>
-            <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-2xs mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-6">
+            <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center space-x-3">
                 <div className="p-2.5 bg-primary text-white rounded-xl shadow-2xs shrink-0">
                   <Tv className="w-6 h-6" />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <h1 className="text-base sm:text-lg font-semibold text-foreground">
-                    Yard Status Board
-                  </h1>
-                  <InfoTip text="Live industrial plant yard and tanker queue display." />
+                  <h1 className="text-xl font-semibold text-foreground">Yard board</h1>
+                  <InfoTip text="Live yard and ZMCC display. It refreshes every 30 seconds." />
                 </div>
               </div>
 
-              <div className="flex items-center space-x-3 shrink-0">
-                <div className="px-3.5 py-1.5 rounded-xl bg-muted border border-border tabular-nums text-xs sm:text-sm font-semibold text-foreground">
-                  {currentMinute === null
-                    ? '—'
-                    : new Date(currentMinute * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              <div className="flex items-center gap-3 shrink-0">
+                {updatedAt > 0 && (
+                  <span className="text-xs tabular-nums text-muted-foreground">Updated {pakistanTime(updatedAt)}</span>
+                )}
+                <div className="px-3.5 py-1.5 rounded-xl bg-muted border border-border tabular-nums text-sm font-semibold text-foreground">
+                  {currentMinute === null ? '—' : pakistanTime(currentMinute * 60000)}
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-4">
-              {activeVehicles.length === 0 ? (
-                <div className="col-span-full space-y-4">
-                  <div className="p-10 text-center border border-border rounded-xl bg-card text-muted-foreground shadow-2xs">
-                    <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200">
-                      <CheckCircle2 className="w-6 h-6" />
-                    </div>
-                    <h2 className="text-base font-semibold text-foreground">Yard clear</h2>
-                    <p className="text-xs text-muted-foreground mt-1">No tankers dispatched to the plant</p>
-                  </div>
+            <section className="space-y-3" aria-label="Dispatch to plant">
+              <div className="flex items-center gap-2">
+                <Truck className="h-5 w-5 text-primary" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-foreground">Dispatch to plant</h2>
+                <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-secondary-foreground">
+                  {activeVehicles.length}
+                </span>
+              </div>
 
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3">
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card p-4">
-                      <div className="flex items-center space-x-3">
-                        <Scale className="w-5 h-5 text-primary" />
-                        <div>
-                          <span className="block text-xs text-muted-foreground font-semibold">Station 1</span>
-                          <span className="text-xs font-semibold text-foreground">Weighbridge</span>
-                        </div>
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-4">
+                {activeVehicles.length === 0 ? (
+                  <div className="col-span-full space-y-4">
+                    <div className="p-8 text-center border border-border rounded-2xl bg-card shadow-2xs">
+                      <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
+                        <CheckCircle2 className="w-6 h-6" />
                       </div>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        Ready
-                      </span>
+                      <h3 className="text-lg font-semibold text-foreground">Yard clear</h3>
+                      <p className="text-xs text-muted-foreground mt-1">No tankers on the way</p>
                     </div>
 
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card p-4">
-                      <div className="flex items-center space-x-3">
-                        <Building2 className="w-5 h-5 text-primary" />
-                        <div>
-                          <span className="block text-xs text-muted-foreground font-semibold">Station 2</span>
-                          <span className="text-xs font-semibold text-foreground">Unloading bays</span>
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3">
+                      {STATIONS.map(({ icon: Icon, station, name, state }) => (
+                        <div key={station} className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card p-4 shadow-2xs">
+                          <div className="flex items-center gap-3">
+                            <Icon className="w-5 h-5 text-muted-foreground" />
+                            <div>
+                              <span className="block text-xs text-muted-foreground">{station}</span>
+                              <span className="text-sm font-semibold text-foreground">{name}</span>
+                            </div>
+                          </div>
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {state}
+                          </span>
                         </div>
-                      </div>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        Ready
-                      </span>
-                    </div>
-
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card p-4">
-                      <div className="flex items-center space-x-3">
-                        <FlaskConical className="w-5 h-5 text-primary" />
-                        <div>
-                          <span className="block text-xs text-muted-foreground font-semibold">Station 3</span>
-                          <span className="text-xs font-semibold text-foreground">QA Laboratory</span>
-                        </div>
-                      </div>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        Active
-                      </span>
+                      ))}
                     </div>
                   </div>
-                </div>
-              ) : (
-                activeVehicles.map((vehicle, idx) => {
-                  const isNext = idx === 0;
-                  const lc = vehicle.lifecycle;
+                ) : (
+                  activeVehicles.map((vehicle, idx) => {
+                    const isNext = idx === 0;
+                    const lc = vehicle.lifecycle;
 
-                  return (
-                    <div
-                      key={`tv-vehicle-${vehicle.visitId}`}
-                      className={`p-5 rounded-xl border transition-all flex flex-col justify-between space-y-3.5 shadow-2xs ${
-                        isNext
-                          ? 'bg-primary/5 border-primary ring-1 ring-primary'
-                          : 'bg-card border-border/80 hover:border-primary/40'
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-1.5">
+                    return (
+                      <div
+                        key={`tv-vehicle-${vehicle.visitId}`}
+                        className={`p-5 rounded-2xl border transition-all flex flex-col justify-between space-y-3.5 shadow-2xs ${
+                          isNext
+                            ? 'bg-primary/5 border-primary ring-1 ring-primary'
+                            : 'bg-card border-border hover:border-border-strong'
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-xs font-semibold tabular-nums shadow-2xs ${
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-semibold tabular-nums ${
                               isNext ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground border border-border'
                             }`}
                           >
-                            {isNext ? 'NEXT IN LINE' : `POSITION #${idx + 1}`}
+                            {isNext ? 'Next in line' : `Position ${idx + 1}`}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 tabular-nums text-xs font-semibold text-emerald-800">
+                            {vehicle.portionCount} {vehicle.portionCount > 1 ? 'portions' : 'portion'}
                           </span>
                         </div>
-                        <span className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 tabular-nums text-xs font-semibold text-emerald-800">
-                          {vehicle.portionCount} Portion{vehicle.portionCount > 1 ? 's' : ''}
-                        </span>
-                      </div>
 
-                      <div>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <h2 className="min-w-0 break-all text-xl sm:text-2xl font-semibold tabular-nums text-foreground">
-                            {vehicle.vehicleNumber}
-                          </h2>
-                          {lc.elapsedInPlant && (
-                            <div className="flex items-center space-x-1 text-xs tabular-nums font-semibold text-muted-foreground">
-                              <Clock className="w-3 h-3 text-muted-foreground" />
-                              <span>{lc.elapsedInPlant}</span>
-                            </div>
-                          )}
+                        <div>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h3 className="min-w-0 break-all text-2xl font-semibold font-mono tabular-nums text-foreground">
+                              {vehicle.vehicleNumber}
+                            </h3>
+                            {lc.elapsedInPlant && (
+                              <div className="flex items-center space-x-1 text-xs tabular-nums font-semibold text-muted-foreground">
+                                <Clock className="w-3 h-3" />
+                                <span>{lc.elapsedInPlant}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                            <span>Token <strong className="font-semibold text-foreground">{vehicle.tokenNumber || 'Pending'}</strong></span>
+                            <span>·</span>
+                            <span className="min-w-0 break-words">From <strong className="font-semibold text-foreground">{vehicle.sourceName}</strong></span>
+                          </div>
                         </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs font-semibold text-muted-foreground">
-                          <span>Token: <strong className="text-foreground">{vehicle.tokenNumber || 'PENDING'}</strong></span>
-                          <span>·</span>
-                          <span className="min-w-0 break-words">Source: <strong className="text-foreground">{vehicle.sourceName}</strong></span>
+
+                        <div className="py-1">
+                          <ManagerLifecycleTracker lifecycle={lc} compact={true} />
                         </div>
                       </div>
+                    );
+                  })
+                )}
+              </div>
+            </section>
 
-                      <div className="py-1">
-                        <ManagerLifecycleTracker lifecycle={lc} compact={true} />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          <div className="mt-8 pt-4 border-t border-border flex items-center justify-between text-xs font-semibold text-muted-foreground">
-            <span>Sync: 60s</span>
-            <span>Plant intake active</span>
+            {user ? (
+              zmccSections.map((z) => <ZmccBoardSection key={z.id} zmcc={z} />)
+            ) : (
+              <p className="flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card p-4 text-sm text-muted-foreground">
+                <span>Sign in to see ZMCC sections</span>
+                <Link href="/login" className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-primary shadow-2xs transition hover:bg-muted">
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Operator login</span>
+                </Link>
+              </p>
+            )}
           </div>
         </PageTransition>
       </main>
