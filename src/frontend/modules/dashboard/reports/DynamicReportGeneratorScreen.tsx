@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { fetchJson } from '@/lib/query/fetchJson';
 import type { User } from '@core/types';
 import type {
@@ -24,8 +24,6 @@ import {
   FileSpreadsheet,
   FileText,
   Printer,
-  Database,
-  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useListPageSize } from '@/components/ui/pagination';
@@ -69,25 +67,8 @@ export function DynamicReportGeneratorScreen({
   const pageSize = pickedPageSize ?? listPageSize;
   const [viewMode, setViewMode] = useState<ViewMode>('GRID');
   const [isExporting, setIsExporting] = useState<boolean>(false);
-  const [isRefreshingViews, setIsRefreshingViews] = useState<boolean>(false);
 
-  const queryClient = useQueryClient();
   const isHeadOfMpd = currentUser?.role === 'HEAD_OF_MPD' || currentUser?.role === 'SUPER_ADMIN';
-
-  const handleRefreshViews = async () => {
-    try {
-      setIsRefreshingViews(true);
-      await fetchJson<{ success: boolean; durationMs: number }>('/api/management/reports/views', {
-        method: 'POST',
-      });
-      toast.success(`Data refreshed.`);
-      queryClient.invalidateQueries();
-    } catch {
-      toast.error('Refresh failed. Try again.');
-    } finally {
-      setIsRefreshingViews(false);
-    }
-  };
 
   // 1. Fetch domain metadata & field definitions
   const metaQuery = useQuery({
@@ -505,21 +486,6 @@ export function DynamicReportGeneratorScreen({
               Print
             </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isRefreshingViews}
-              onClick={handleRefreshViews}
-              className="h-9 px-3 text-xs font-medium text-primary border-action/30 hover:bg-primary/5 shrink-0"
-              title="Refresh data"
-            >
-              {isRefreshingViews ? (
-                <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin shrink-0" />
-              ) : (
-                <Database className="w-3.5 h-3.5 mr-1 shrink-0" />
-              )}
-              {isRefreshingViews ? 'Refreshing…' : 'Refresh Views'}
-            </Button>
           </div>
         </div>
       </div>

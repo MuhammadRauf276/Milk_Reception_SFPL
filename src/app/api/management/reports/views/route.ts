@@ -7,7 +7,6 @@ import {
   getLiveHcSupplierInwardFeed,
   getDailyProcurementRollup,
   getPlantTransitReconciliation,
-  refreshProcurementMaterializedViews,
 } from '@/backend/services/cqrsViewService';
 
 const ALLOWED_ROLES = [
@@ -90,28 +89,5 @@ export async function GET(req: Request) {
   } catch (err: any) {
     console.error('Error querying CQRS database view:', err);
     return NextResponse.json({ error: err.message || 'Internal server error querying view.' }, { status: 500 });
-  }
-}
-
-export async function POST(req: Request) {
-  const current = await getCurrentUser(req);
-  if (!current) {
-    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: BigInt(current.id) },
-  });
-
-  if (!user || !ALLOWED_ROLES.includes(user.role)) {
-    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
-  }
-
-  try {
-    const result = await refreshProcurementMaterializedViews();
-    return NextResponse.json(result);
-  } catch (err: any) {
-    console.error('Error refreshing materialized views:', err);
-    return NextResponse.json({ error: err.message || 'Failed to refresh materialized views.' }, { status: 500 });
   }
 }

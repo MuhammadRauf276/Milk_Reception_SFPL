@@ -17,23 +17,7 @@ async function runTests() {
   );
   console.log('Sample HC Supplier rows:', hcRows);
 
-  console.log('\n--- 3. Testing Daily Procurement Rollup (Materialized View) ---');
-  const rollupRows = await prisma.$queryRawUnsafe(
-    'SELECT zmcc_name, operational_date, route_name, journey_count, total_shop_collections, total_gross_liters, avg_fat_percentage, avg_lr_reading, avg_snf_percentage, total_at_13ts_liters FROM mv_daily_procurement_rollup LIMIT 5'
-  );
-  console.log('Sample Daily Rollup rows:', rollupRows);
-
-  console.log('\n--- 4. Testing Plant Transit Reconciliation (Materialized View) ---');
-  const transitRows = await prisma.$queryRawUnsafe(
-    'SELECT visit_number, vehicle_number, zmcc_name, dispatch_gross_liters, sent_gross_liters, received_gross_liters, gross_variance_liters FROM mv_plant_transit_reconciliation LIMIT 3'
-  );
-  console.log('Sample Plant Transit Reconciliation rows:', transitRows);
-
-  console.log('\n--- 5. Testing Non-blocking CONCURRENT Refresh ---');
-  const start = Date.now();
-  await prisma.$executeRawUnsafe('REFRESH MATERIALIZED VIEW CONCURRENTLY mv_daily_procurement_rollup;');
-  await prisma.$executeRawUnsafe('REFRESH MATERIALIZED VIEW CONCURRENTLY mv_plant_transit_reconciliation;');
-  console.log(`Concurrent refresh completed in ${Date.now() - start}ms!`);
+  // The two materialized views were removed on 17 Nov 2026 (never read by the app; reports use live queries).
 }
 
 runTests()

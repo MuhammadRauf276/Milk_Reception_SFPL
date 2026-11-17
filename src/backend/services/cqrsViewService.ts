@@ -403,26 +403,3 @@ export async function getPlantTransitReconciliation(
 
   return { items, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }
-
-// ============================================================================
-// 4. NON-BLOCKING MATERIALIZED VIEW REFRESH
-// ============================================================================
-
-/**
- * Concurrent non-blocking refresh of analytical materialized views.
- * Readers continue querying the current snapshot with 0ms interruption.
- */
-export async function refreshProcurementMaterializedViews(): Promise<{
-  success: boolean;
-  refreshedAt: string;
-  durationMs: number;
-}> {
-  const start = Date.now();
-  await prisma.$executeRawUnsafe(`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_daily_procurement_rollup;`);
-  await prisma.$executeRawUnsafe(`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_plant_transit_reconciliation;`);
-  return {
-    success: true,
-    refreshedAt: new Date().toISOString(),
-    durationMs: Date.now() - start,
-  };
-}
