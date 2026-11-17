@@ -19,7 +19,7 @@ import { ErrorPopup } from '@/components/ui/error-popup';
 const MIN_REASON = 5;
 
 const shown = (f: EditorField) => {
-  if (f.value === null || f.value === '') return '—';
+  if (f.value === null || f.value === '') return f.notEntered ? 'Not entered' : '—';
   return f.type === 'datetime' ? String(f.value).replace('T', ' ') : String(f.value);
 };
 
@@ -128,7 +128,7 @@ function EditForm({ section, onClose, onSaved }: { section: EditorSection; onClo
       <div className="flex-1 space-y-4 overflow-y-auto p-5">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {section.fields.map((f) => (
-            <FormField key={f.field} label={f.label} htmlFor={`edit-${f.field}`} hint={f.lockedReason ?? undefined}>
+            <FormField key={f.field} label={f.label} htmlFor={`edit-${f.field}`} hint={f.lockedReason ?? (f.notEntered ? 'Not entered' : undefined)}>
               {f.type === 'select' ? (
                 <select
                   id={`edit-${f.field}`}

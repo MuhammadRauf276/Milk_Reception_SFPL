@@ -3,7 +3,8 @@
 import { prisma } from '@/backend/core/db';
 import { writeAuditLog, auditActorFromUser } from '@/backend/core/audit';
 import type { User } from '@/backend/core/types';
-import { Prisma } from '@prisma/client';
+import { isDirectEditAuthority } from '@/backend/core/roles/capabilities';
+import { Prisma, type LabTest } from '@prisma/client';
 import { z } from 'zod';
 import {
   buildDispatchDecision,
@@ -27,6 +28,16 @@ const schema = z.object({
     .min(1, 'Change at least one test.'),
 });
 
+/** A saved dispatch test result, or one the Super Admin is filling in for the first time (no row yet, `id` null). */
+interface SavedTest {
+  id: bigint | null;
+  test_id: bigint;
+  numeric_value: Prisma.Decimal | null;
+  text_value: string | null;
+  performance_status: string;
+  lab_test: LabTest | null;
+}
+
 export async function correctDispatchPortionTests(user: User, payload: unknown): Promise<CorrectionResponse> {
   try {
     const { visitId: visitIdStr, portionId: portionIdStr, reason, results } = schema.parse(payload);
@@ -41,10 +52,18 @@ export async function correctDispatchPortionTests(user: User, payload: unknown):
     const portion = visit.portions.find((p) => p.id === portionId);
     if (!portion) return { status: 404, body: { error: 'Portion not found on this dispatch.' } };
 
+    // Only the Super Admin can fill in a test that was assigned to the dispatch but never entered.
+    const assigned = isDirectEditAuthority(user.role)
+      ? await prisma.labTestAssignment.findMany({ where: { visit_id: visitId, workflow: 'DISPATCH' }, include: { lab_test: true } })
+      : [];
     const changes = results
       .map((item) => {
-        const saved = portion.dispatch_lab_results.find((r) => r.test_id.toString() === item.test_id);
-        if (!saved) throw new Error(`Test ${item.test_id} is not part of this portion.`);
+        let saved: SavedTest | undefined = portion.dispatch_lab_results.find((r) => r.test_id.toString() === item.test_id);
+        if (!saved) {
+          const a = assigned.find((x) => x.test_id.toString() === item.test_id);
+          if (!a) throw new Error(`Test ${item.test_id} is not part of this portion.`);
+          saved = { id: null, test_id: a.test_id, numeric_value: null, text_value: null, performance_status: 'PERFORMED', lab_test: a.lab_test };
+        }
         if (saved.lab_test?.resultType === 'CALCULATED') throw new Error(`${saved.lab_test.testName} is calculated and cannot be typed in.`);
         return { saved, numeric: item.numeric_value ?? null, text: item.text_value ?? null };
       })
@@ -81,14 +100,23 @@ export async function correctDispatchPortionTests(user: User, payload: unknown):
       const judged = rebuilt?.details.portions.find((p) => p.portionNumber === portion.portion_number)?.tests;
       for (const c of changes) {
         const outcome = judged?.find((t) => t.labTestId === c.saved.test_id.toString())?.outcome;
-        await tx.dispatchLabResult.update({
-          where: { id: c.saved.id },
-          data: {
-            numeric_value: c.numeric !== null ? new Prisma.Decimal(c.numeric) : null,
-            text_value: c.text,
-            ...(outcome === 'FAIL' ? { is_passed: false } : outcome === 'PASS' || outcome === 'WARN' ? { is_passed: true } : {}),
-          },
-        });
+        const data = {
+          numeric_value: c.numeric !== null ? new Prisma.Decimal(c.numeric) : null,
+          text_value: c.text,
+          ...(outcome === 'FAIL' ? { is_passed: false } : outcome === 'PASS' || outcome === 'WARN' ? { is_passed: true } : {}),
+        };
+        if (c.saved.id === null) {
+          await tx.dispatchLabResult.create({
+            data: { ...data, visit_id: visitId, portion_id: portionId, test_id: c.saved.test_id, performance_status: 'PERFORMED', sample_timestamp: new Date(), result_timestamp: new Date(), tested_by: BigInt(user.id) },
+          });
+        } else {
+          // A test that was marked not performed becomes performed, by the Super Admin.
+          const nowPerformed = c.saved.performance_status !== 'PERFORMED';
+          await tx.dispatchLabResult.update({
+            where: { id: c.saved.id },
+            data: { ...data, ...(nowPerformed ? { performance_status: 'PERFORMED', not_performed_reason: null, tested_by: BigInt(user.id), result_timestamp: new Date() } : {}) },
+          });
+        }
       }
       if (rebuilt) {
         await tx.vehicleVisit.update({
@@ -112,16 +140,18 @@ export async function correctDispatchPortionTests(user: User, payload: unknown):
       });
     };
 
-    const isQuality = (r: (typeof changes)[number]['saved']) =>
+    const isQuality = (r: SavedTest) =>
       isPlantLrTest(r.lab_test?.testCode, r.lab_test?.testName, r.lab_test?.systemRole) ||
       isPlantFatTest(r.lab_test?.testCode, r.lab_test?.testName, r.lab_test?.systemRole);
 
     if (changes.some((c) => isQuality(c.saved))) {
       const valueOf = (p: (typeof visit.portions)[number], test: typeof isPlantLrTest, corrected: boolean) => {
         const row = p.dispatch_lab_results.find((r) => test(r.lab_test?.testCode, r.lab_test?.testName, r.lab_test?.systemRole));
+        // A value filled in for a test that had no row yet counts too.
+        const filledIn = corrected && p.id === portionId ? changes.find((x) => test(x.saved.lab_test?.testCode, x.saved.lab_test?.testName, x.saved.lab_test?.systemRole)) : undefined;
+        if (filledIn) return filledIn.numeric;
         if (!row) return null;
-        const c = corrected && p.id === portionId ? byTest.get(row.test_id.toString()) : undefined;
-        return c ? c.numeric : row.numeric_value !== null ? Number(row.numeric_value) : null;
+        return row.numeric_value !== null ? Number(row.numeric_value) : null;
       };
       const totalsOf = (corrected: boolean) =>
         computeDispatchTotals(

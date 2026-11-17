@@ -18,19 +18,94 @@ const pkInput = (d: Date | null | undefined) => (d ? isoToPakistanInput(d.toISOS
 
 const SESSION_INCLUDE = {
   portions: { orderBy: { portion_number: 'asc' }, include: { results: { include: { lab_test: true } } } },
-  results: { orderBy: { display_order_snapshot: 'asc' } },
+  results: { orderBy: { display_order_snapshot: 'asc' }, include: { lab_test: true } },
 } satisfies Prisma.ZmccLabSessionInclude;
 
 type LabSessionRow = Prisma.ZmccLabSessionGetPayload<{ include: typeof SESSION_INCLUDE }>;
 
 const WAITING_LOCK = 'Waiting for a decision. Only the Super Admin can correct it now.';
 
-function labSections(session: LabSessionRow | null | undefined, open: boolean): EditorSection[] {
+type TestMeta = { testCode: string; testName: string; resultType: string; systemRole: string | null };
+type StoredPortionTest = { labTestId: string; testName: string; value: number | null; textValue: string | null; testMode?: string };
+
+const NOT_ENTERED_TYPE = (resultType: string | null | undefined, hasNumber: boolean): 'number' | 'text' => (hasNumber || resultType === 'NUMERIC' ? 'number' : 'text');
+
+/**
+ * Super Admin view of a ZMCC lab portion's tests: every test the portion was assigned that is not calculated, with an
+ * empty "Not entered" field for each one that has no value. LR and Fat keep their own fields.
+ */
+function superAdminLabTestFields(session: LabSessionRow, p: LabSessionRow['portions'][number], meta: Map<string, TestMeta>): EditorField[] {
+  const details = ((p.decision_details as { tests?: StoredPortionTest[] } | null)?.tests ?? []).filter((t) => t.testMode !== 'AUTO' && t.testMode !== 'OFF');
+  const rowOf = new Map(p.results.map((r) => [r.test_id.toString(), r]));
+  const candidates: Array<{ id: string; name: string; resultType: string | null; meta: TestMeta | undefined; detail?: StoredPortionTest }> = [];
+  const seen = new Set<string>();
+  const add = (c: (typeof candidates)[number]) => {
+    if (seen.has(c.id)) return;
+    seen.add(c.id);
+    candidates.push(c);
+  };
+  for (const t of details) add({ id: t.labTestId, name: t.testName, resultType: meta.get(t.labTestId)?.resultType ?? null, meta: meta.get(t.labTestId), detail: t });
+  for (const r of [...p.results].sort((a, b) => a.display_order_snapshot - b.display_order_snapshot)) {
+    add({ id: r.test_id.toString(), name: r.test_name_snapshot, resultType: r.result_type_snapshot, meta: r.lab_test ?? undefined });
+  }
+  for (const r of session.results) {
+    add({ id: r.test_id.toString(), name: r.test_name_snapshot, resultType: r.result_type_snapshot, meta: r.lab_test ?? undefined });
+  }
+  return candidates
+    .filter((c) => c.resultType !== 'CALCULATED' && !(c.meta && (isPlantLrTest(c.meta.testCode, c.meta.testName, c.meta.systemRole) || isPlantFatTest(c.meta.testCode, c.meta.testName, c.meta.systemRole))))
+    .map((c) => {
+      const row = rowOf.get(c.id);
+      const numeric = row?.numeric_value != null ? Number(row.numeric_value) : c.detail?.value ?? null;
+      const text = row?.text_value ?? c.detail?.textValue ?? null;
+      const value = numeric !== null ? numeric : text !== null && text !== '' ? text : null;
+      return {
+        field: `result_${c.id}`,
+        label: c.name,
+        value,
+        type: NOT_ENTERED_TYPE(c.resultType, numeric !== null),
+        ...(value === null ? { notEntered: true } : {}),
+      };
+    });
+}
+
+/**
+ * Super Admin view of a visit portion's tests (plant QA or dispatch), in the assigned order. A test with no result row,
+ * or marked not performed, shows as an empty "Not entered" field.
+ */
+function superAdminVisitTestFields(
+  rows: Array<{ test_id: bigint; performance_status: string; numeric_value: Prisma.Decimal | null; text_value: string | null; lab_test?: { testName: string; resultType: string } | null }>,
+  assigned: Array<{ test_id: bigint; test_name_snapshot: string; result_type_snapshot: string }>
+): EditorField[] {
+  const rowOf = new Map(rows.map((r) => [r.test_id.toString(), r]));
+  const fields: EditorField[] = [];
+  const seen = new Set<string>();
+  const field = (id: bigint, label: string, resultType: string, row: (typeof rows)[number] | undefined): EditorField => {
+    const performed = row && row.performance_status === 'PERFORMED' ? row : undefined;
+    const numeric = performed?.numeric_value != null ? Number(performed.numeric_value) : null;
+    const text = performed?.text_value ?? null;
+    const value = numeric !== null ? numeric : text !== null && text !== '' ? text : null;
+    return { field: `result_${id}`, label, value, type: NOT_ENTERED_TYPE(resultType, numeric !== null), ...(value === null ? { notEntered: true } : {}) };
+  };
+  for (const a of assigned) {
+    seen.add(a.test_id.toString());
+    if (a.result_type_snapshot === 'CALCULATED') continue;
+    fields.push(field(a.test_id, a.test_name_snapshot, a.result_type_snapshot, rowOf.get(a.test_id.toString())));
+  }
+  for (const r of rows) {
+    if (seen.has(r.test_id.toString()) || r.performance_status !== 'PERFORMED' || r.lab_test?.resultType === 'CALCULATED') continue;
+    fields.push(field(r.test_id, r.lab_test?.testName || 'Test', r.lab_test?.resultType ?? 'TEXT', r));
+  }
+  return fields;
+}
+
+function labSections(session: LabSessionRow | null | undefined, open: boolean, meta: Map<string, TestMeta> = new Map()): EditorSection[] {
   if (!session) return [];
   if (session.portions.length > 0) {
     return session.portions.map((p) => {
       // LR and Fat have their own fields; calculated tests follow from them.
-      const testFields: EditorField[] = p.results
+      const testFields: EditorField[] = open
+        ? superAdminLabTestFields(session, p, meta)
+        : p.results
         .filter(
           (r) =>
             r.result_type_snapshot !== 'CALCULATED' &&
@@ -121,6 +196,11 @@ function exitSection(kind: 'MC' | 'HC', a: { id: bigint; zmcc_token: string; exi
 }
 
 /** Names and types of the tests stored inside decision records, to tell typed tests from LR, Fat and calculated ones. */
+/** The test IDs stored in the decision records of these lab sessions' portions. */
+const portionTestIds = (sessions: Array<LabSessionRow | null | undefined>): string[] => [
+  ...new Set(sessions.flatMap((x) => (x ? x.portions.flatMap((p) => ((p.decision_details as { tests?: StoredPortionTest[] } | null)?.tests ?? []).map((t) => t.labTestId)) : []))),
+];
+
 async function labTestMeta(ids: string[]) {
   if (ids.length === 0) return new Map<string, { testCode: string; testName: string; resultType: string; systemRole: string | null }>();
   const rows = await prisma.labTest.findMany({ where: { id: { in: ids.map((i) => BigInt(i)) } }, select: { id: true, testCode: true, testName: true, resultType: true, systemRole: true } });
@@ -145,6 +225,7 @@ async function journeyGroups(where: Prisma.MotJourneyWhereInput, open: boolean, 
     take,
   });
   const meta = await labTestMeta([...new Set(journeys.flatMap((j) => j.collections.flatMap((c) => shopTests(c.decision_details).map((t) => t.labTestId))))]);
+  const labMeta = open ? await labTestMeta(portionTestIds(journeys.map((j) => j.mot_arrival?.lab_session))) : new Map<string, TestMeta>();
   return journeys.map((j) => {
     const arrival = j.mot_arrival;
     const sections: EditorSection[] = j.collections.map((c) => ({
@@ -183,7 +264,7 @@ async function journeyGroups(where: Prisma.MotJourneyWhereInput, open: boolean, 
           { field: 'arrival_timestamp', label: 'Arrival time', value: pkInput(arrival.arrival_timestamp), type: 'datetime' },
         ],
       });
-      sections.push(...labSections(arrival.lab_session, open), ...exitSection('MC', arrival));
+      sections.push(...labSections(arrival.lab_session, open, labMeta), ...exitSection('MC', arrival));
     }
     return { key: `journey-${j.id}`, title: `Journey ${j.journey_number}`, subtitle: j.route?.name || 'Mobile Tester route', sections };
   });
@@ -196,6 +277,7 @@ async function supplierGroups(where: Prisma.ZmccLocalSupplierArrivalWhereInput, 
     orderBy: { id: 'desc' },
     take,
   });
+  const labMeta = open ? await labTestMeta(portionTestIds(arrivals.map((a) => a.lab_session))) : new Map<string, TestMeta>();
   return arrivals.map((a) => ({
     key: `hc-${a.id}`,
     title: `Supplier arrival ${a.zmcc_token}`,
@@ -215,7 +297,7 @@ async function supplierGroups(where: Prisma.ZmccLocalSupplierArrivalWhereInput, 
           { field: 'arrival_timestamp', label: 'Arrival time', value: pkInput(a.arrival_timestamp), type: 'datetime' as const },
         ],
       },
-      ...labSections(a.lab_session, open),
+      ...labSections(a.lab_session, open, labMeta),
       ...exitSection('HC', a),
     ],
   }));
@@ -243,6 +325,12 @@ async function visitGroups(where: Prisma.VehicleVisitWhereInput, superAdmin: boo
     orderBy: { id: 'desc' },
     take,
   });
+  const assignments = superAdmin && visits.length
+    ? await prisma.labTestAssignment.findMany({
+        where: { visit_id: { in: visits.map((v) => v.id) } },
+        orderBy: [{ display_order_snapshot: 'asc' }, { test_name_snapshot: 'asc' }],
+      })
+    : [];
   const siloOptions = superAdmin
     ? (await prisma.silo.findMany({ where: { is_active: true }, select: { id: true, silo_code: true, silo_name: true }, orderBy: { silo_code: 'asc' } })).map((s) => ({ value: s.id.toString(), label: `${s.silo_code} · ${s.silo_name}` }))
     : [];
@@ -272,7 +360,9 @@ async function visitGroups(where: Prisma.VehicleVisitWhereInput, superAdmin: boo
       },
     ];
     for (const p of v.portions) {
-      const fields: EditorField[] = p.dispatch_lab_results
+      const fields: EditorField[] = superAdmin
+        ? superAdminVisitTestFields(p.dispatch_lab_results, assignments.filter((a) => a.visit_id === v.id && a.workflow === 'DISPATCH'))
+        : p.dispatch_lab_results
         .filter((r) => r.performance_status === 'PERFORMED' && r.lab_test?.resultType !== 'CALCULATED')
         .map((r) => ({
           field: `result_${r.test_id}`,
@@ -345,7 +435,9 @@ async function visitGroups(where: Prisma.VehicleVisitWhereInput, superAdmin: boo
       });
     }
     for (const p of v.portions) {
-      const fields: EditorField[] = p.plant_lab_results
+      const fields: EditorField[] = superAdmin
+        ? superAdminVisitTestFields(p.plant_lab_results, assignments.filter((a) => a.visit_id === v.id && a.workflow === 'PLANT_QA'))
+        : p.plant_lab_results
         .filter((r) => r.performance_status === 'PERFORMED' && r.lab_test?.resultType !== 'CALCULATED')
         .map((r) => ({
           field: `result_${r.test_id}`,

@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@core/db';
 import { writeAuditLog } from '@/backend/core/audit';
+import { toJsonInput } from '@/lib/json';
 import { isCorrectionAuthority, isDirectEditAuthority } from '@/backend/core/roles/capabilities';
 import { getTankPhysicalStock } from '@/backend/services/zmccTankService';
 import { computeAndStoreAreaLossTx } from '@/backend/services/lossCalculationService';
@@ -8,6 +9,7 @@ import { createNotificationsForEvent } from '@/backend/services/notificationServ
 import { resolveZmccLabAuth } from '@/backend/services/zmccLabService';
 import { planTankCorrectionRows } from '@/backend/services/tankCorrectionLedger';
 import { auditActorOf, loadLabPolicy } from '@/backend/services/zmcc/labPortionReviewService';
+import { isPlantFatTest, isPlantLrTest } from '@/backend/services/vehicleQuantityService';
 import { buildLabPortionDecision, type LabPortionDecisionDetails } from '@/backend/services/zmcc/labPortionDecision';
 import { correctedPortionFigures, receiptTotals } from '@/backend/services/zmcc/labPortionCorrectionCalc';
 import type { PersonDecision } from '@/types/stage1-decision';
@@ -25,6 +27,18 @@ export interface CorrectLabPortionPayload {
   /** Tests other than LR and Fat, which have their own fields. */
   results?: Array<{ test_id: string | number; numeric_value?: number | null; text_value?: string | null }>;
   idempotency_key?: string;
+}
+
+/** A saved lab result, or one the Super Admin is filling in for the first time (no row yet, `id` null). */
+interface SavedLabResult {
+  id: bigint | null;
+  test_id: bigint;
+  numeric_value: Prisma.Decimal | null;
+  text_value: string | null;
+  result_type_snapshot: string;
+  test_name_snapshot: string;
+  /** The row to create, when there is none yet. */
+  create?: Omit<Prisma.ZmccLabResultUncheckedCreateInput, 'numeric_value' | 'text_value' | 'is_passed' | 'evaluation_status'>;
 }
 
 class CorrectionRefused extends Error {
@@ -127,31 +141,73 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
       const timesChanged = firstAt?.getTime() !== portion.first_weight_at?.getTime() || secondAt?.getTime() !== portion.second_weight_at?.getTime();
       const weightsChanged = weightsGiven && (firstKg !== toNumber(portion.first_weight_kg) || secondKg !== toNumber(portion.second_weight_kg));
       const newNet = weightsGiven ? Number((firstKg! - secondKg!).toFixed(3)) : netInput ?? oldNet;
-      if (newLr === null || newFat === null) throw new CorrectionRefused(400, 'Enter both LR and Fat.');
       if (netInput !== undefined && oldNet === null) throw new CorrectionRefused(400, 'This portion has not been weighed yet.');
       const savedResults = await tx.zmccLabResult.findMany({ where: { portion_id: portionId } });
-      const resultChanges = (Array.isArray(payload?.results) ? payload.results : []).map((item) => {
-        const saved = savedResults.find((r) => r.test_id.toString() === String(item.test_id));
-        if (!saved) throw new CorrectionRefused(400, `Test ${item.test_id} is not part of this portion.`);
+      const superAdmin = isDirectEditAuthority(auth.role);
+      const detailTests = (portion.decision_details as unknown as LabPortionDecisionDetails | null)?.tests ?? [];
+      const sessionRows = superAdmin ? await tx.zmccLabResult.findMany({ where: { session_id: session.id } }) : [];
+      const resultChanges: Array<{ saved: SavedLabResult; numeric: number | null; text: string | null }> = [];
+      for (const item of Array.isArray(payload?.results) ? payload.results : []) {
+        const testIdText = String(item.test_id);
+        let saved: SavedLabResult | undefined = savedResults.find((r) => r.test_id.toString() === testIdText);
+        if (!saved) {
+          // Only the Super Admin can fill in a test this portion was assigned but never entered.
+          const detailIndex = detailTests.findIndex((t) => t.labTestId === testIdText);
+          const snapshot = sessionRows.find((r) => r.test_id.toString() === testIdText);
+          if (!superAdmin || (detailIndex < 0 && !snapshot) || !/^\d{1,18}$/.test(testIdText)) throw new CorrectionRefused(400, `Test ${item.test_id} is not part of this portion.`);
+          const master = await tx.labTest.findUnique({ where: { id: BigInt(testIdText) } });
+          if (!master) throw new CorrectionRefused(400, `Test ${item.test_id} is not part of this portion.`);
+          if (master.resultType === 'CALCULATED') throw new CorrectionRefused(400, `${master.testName} is calculated and cannot be typed in.`);
+          if (isPlantLrTest(master.testCode, master.testName, master.systemRole) || isPlantFatTest(master.testCode, master.testName, master.systemRole)) {
+            throw new CorrectionRefused(400, 'LR and Fat have their own fields.');
+          }
+          const detail = detailIndex >= 0 ? detailTests[detailIndex] : undefined;
+          saved = {
+            id: null,
+            test_id: master.id,
+            numeric_value: detail?.value != null ? new Prisma.Decimal(detail.value) : null,
+            text_value: detail?.textValue ?? null,
+            result_type_snapshot: master.resultType,
+            test_name_snapshot: master.testName,
+            create: {
+              session_id: session.id,
+              portion_id: portionId,
+              test_id: master.id,
+              test_code_snapshot: master.testCode,
+              test_name_snapshot: master.testName,
+              result_type_snapshot: master.resultType,
+              unit_snapshot: master.unit,
+              is_required_snapshot: detail ? detail.testMode === 'COMPULSORY' : snapshot?.is_required_snapshot ?? master.isRequired,
+              display_order_snapshot: detailIndex >= 0 ? detailIndex : snapshot?.display_order_snapshot ?? master.displayOrder,
+              result_options_snapshot: master.resultOptions != null ? toJsonInput(master.resultOptions) : undefined,
+            },
+          };
+        }
         if (saved.result_type_snapshot === 'CALCULATED') throw new CorrectionRefused(400, `${saved.test_name_snapshot} is calculated and cannot be typed in.`);
-        return { saved, numeric: item.numeric_value ?? null, text: item.text_value ?? null };
-      }).filter((c) => (c.saved.numeric_value !== null ? Number(c.saved.numeric_value) : null) !== c.numeric || (c.saved.text_value ?? null) !== c.text);
+        const change = { saved, numeric: item.numeric_value ?? null, text: item.text_value ?? null };
+        if ((saved.numeric_value !== null ? Number(saved.numeric_value) : null) !== change.numeric || (saved.text_value ?? null) !== change.text) resultChanges.push(change);
+      }
       const changedById = new Map(resultChanges.map((c) => [c.saved.test_id.toString(), c]));
       if (newLr === oldLr && newFat === oldFat && newNet === oldNet && resultChanges.length === 0 && !timesChanged && !weightsChanged) throw new CorrectionRefused(400, 'Nothing was changed.');
+      // The Super Admin can fill in tests on a portion whose LR or Fat was never recorded; the figures then stay as they are.
+      const figuresMissing = newLr === null || newFat === null;
+      if (figuresMissing && !(superAdmin && newLr === oldLr && newFat === oldFat && newNet === oldNet && !timesChanged && !weightsChanged)) {
+        throw new CorrectionRefused(400, 'Enter both LR and Fat.');
+      }
       // The paper receipt already states this quantity, so the system must not move away from it.
       if (newNet !== oldNet && session.local_supplier_rmr?.status === 'ACTIVE') {
         throw new CorrectionRefused(409, 'A receipt was already issued for this milk, so its net weight cannot be changed. LR and Fat can still be corrected.');
       }
 
-      const figures = correctedPortionFigures({ netWeightKg: newNet, lr: newLr, fat: newFat });
-      if (!figures) throw new CorrectionRefused(400, 'These LR and Fat values cannot be used.');
+      const figures = figuresMissing ? null : correctedPortionFigures({ netWeightKg: newNet, lr: newLr, fat: newFat });
+      if (!figuresMissing && !figures) throw new CorrectionRefused(400, 'These LR and Fat values cannot be used.');
 
       const receipt = session.tank_receipt;
-      const inTank = !!receipt && portion.status === 'WEIGHED' && portion.final_decision === 'ACCEPTED';
+      const inTank = !!figures && !!receipt && portion.status === 'WEIGHED' && portion.final_decision === 'ACCEPTED';
       const oldGross = toNumber(portion.gross_liters) ?? 0;
       const oldAt13 = toNumber(portion.at_13ts_liters) ?? 0;
-      const deltaGross = inTank ? Number(((figures.grossLiters ?? 0) - oldGross).toFixed(2)) : 0;
-      const deltaAt13 = inTank ? Number(((figures.at13tsLiters ?? 0) - oldAt13).toFixed(2)) : 0;
+      const deltaGross = inTank ? Number(((figures?.grossLiters ?? 0) - oldGross).toFixed(2)) : 0;
+      const deltaAt13 = inTank ? Number(((figures?.at13tsLiters ?? 0) - oldAt13).toFixed(2)) : 0;
 
       if (inTank && receipt) {
         const locked: Array<{ capacity_liters: Prisma.Decimal }> = await tx.$queryRaw`
@@ -199,17 +255,21 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
       await tx.zmccLabPortion.update({
         where: { id: portionId },
         data: {
-          lr: new Prisma.Decimal(newLr.toFixed(2)),
-          fat: new Prisma.Decimal(newFat.toFixed(2)),
-          density: new Prisma.Decimal(figures.density.toFixed(4)),
-          snf: new Prisma.Decimal(figures.snf.toFixed(3)),
-          ts: new Prisma.Decimal(figures.ts.toFixed(3)),
+          ...(figures && newLr !== null && newFat !== null
+            ? {
+                lr: new Prisma.Decimal(newLr.toFixed(2)),
+                fat: new Prisma.Decimal(newFat.toFixed(2)),
+                density: new Prisma.Decimal(figures.density.toFixed(4)),
+                snf: new Prisma.Decimal(figures.snf.toFixed(3)),
+                ts: new Prisma.Decimal(figures.ts.toFixed(3)),
+              }
+            : {}),
           system_outcome: systemOutcome,
           ...(waitingForDecision && rejudged ? { exception_reasons: rejudged as unknown as Prisma.InputJsonValue } : {}),
           ...(weightsChanged ? { first_weight_kg: new Prisma.Decimal(firstKg!.toFixed(3)), second_weight_kg: new Prisma.Decimal(secondKg!.toFixed(3)) } : {}),
           ...(timesChanged ? { first_weight_at: firstAt, second_weight_at: secondAt } : {}),
           ...(newDetails ? { decision_details: newDetails as unknown as Prisma.InputJsonValue } : {}),
-          ...(figures.grossLiters !== null
+          ...(figures && figures.grossLiters !== null
             ? {
                 gross_liters: new Prisma.Decimal(figures.grossLiters.toFixed(3)),
                 at_13ts_liters: new Prisma.Decimal(figures.at13tsLiters!.toFixed(3)),
@@ -227,14 +287,23 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
 
       for (const c of resultChanges) {
         const outcome = newDetails?.tests?.find((t) => t.labTestId === c.saved.test_id.toString())?.outcome;
-        await tx.zmccLabResult.update({
-          where: { id: c.saved.id },
-          data: {
-            numeric_value: c.numeric !== null ? new Prisma.Decimal(c.numeric) : null,
-            text_value: c.text,
-            ...(outcome === 'FAIL' ? { is_passed: false } : outcome === 'PASS' || outcome === 'WARN' ? { is_passed: true } : {}),
-          },
-        });
+        const values = {
+          numeric_value: c.numeric !== null ? new Prisma.Decimal(c.numeric) : null,
+          text_value: c.text,
+          ...(outcome === 'FAIL' ? { is_passed: false } : outcome === 'PASS' || outcome === 'WARN' ? { is_passed: true } : {}),
+        };
+        if (c.saved.id === null && c.saved.create) {
+          await tx.zmccLabResult.create({
+            data: {
+              ...c.saved.create,
+              ...values,
+              evaluation_status: outcome === 'FAIL' ? 'OUT_OF_SPEC' : outcome === 'WARN' ? 'WARNING' : outcome === 'PASS' ? 'PASS' : null,
+              recorded_at: now,
+            },
+          });
+        } else if (c.saved.id !== null) {
+          await tx.zmccLabResult.update({ where: { id: c.saved.id }, data: values });
+        }
       }
 
       const correctionNumber = session.correction_count + 1;
@@ -333,8 +402,8 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
           lr: newLr,
           fat: newFat,
           net_weight_kg: newNet,
-          gross_liters: figures.grossLiters,
-          at_13ts_liters: figures.at13tsLiters,
+          gross_liters: figures?.grossLiters ?? null,
+          at_13ts_liters: figures?.at13tsLiters ?? null,
           system_outcome: systemOutcome,
           correction_number: correctionNumber,
         },
@@ -358,8 +427,8 @@ export async function correctLabPortion(reqOrUser: Parameters<typeof resolveZmcc
         lr: newLr,
         fat: newFat,
         netWeightKg: newNet,
-        grossLiters: figures.grossLiters,
-        at13tsLiters: figures.at13tsLiters,
+        grossLiters: figures?.grossLiters ?? null,
+        at13tsLiters: figures?.at13tsLiters ?? null,
         changedTank: inTank,
         outsideLimits: nowOutside,
       };

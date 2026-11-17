@@ -116,11 +116,12 @@ export async function correctPlantQaResults(
       for (const item of validated.results) {
         const tid = String(item.test_id).trim();
         const existing = existingResultMap.get(tid);
-        if (!existing) {
+        // Only the Super Admin can fill in a test that was assigned but never entered.
+        if (!existing && !(isDirectEditAuthority(dbUser.role) && assignedMap.has(tid))) {
           throw new Error(`BAD_REQUEST:Test ID ${tid} does not belong to portion.`);
         }
         const assignedDef = assignedMap.get(tid);
-        const resType = assignedDef?.result_type_snapshot || existing.lab_test?.resultType;
+        const resType = assignedDef?.result_type_snapshot || existing?.lab_test?.resultType;
         if (resType === 'CALCULATED') {
           throw new Error(`BAD_REQUEST:Test ID ${tid} is a CALCULATED test and cannot be directly corrected.`);
         }
@@ -130,7 +131,13 @@ export async function correctPlantQaResults(
       let hasRealChanges = false;
       for (const item of validated.results) {
         const tid = String(item.test_id).trim();
-        const existing = existingResultMap.get(tid)!;
+        const existing = existingResultMap.get(tid);
+        if (!existing) {
+          const hasValue = (item.numeric_value ?? null) !== null || (item.text_value ?? '').trim() !== '';
+          if (!hasValue || item.performance_status === 'NOT_PERFORMED') throw new Error(`BAD_REQUEST:Enter a value for test ID ${tid}.`);
+          hasRealChanges = true;
+          break;
+        }
         const oldNum = existing.numeric_value !== null ? Number(existing.numeric_value) : null;
         const newNum = item.numeric_value !== undefined && item.numeric_value !== null ? Number(item.numeric_value) : null;
         const oldTxt = existing.text_value ?? null;
@@ -166,19 +173,19 @@ export async function correctPlantQaResults(
 
       for (const item of validated.results) {
         const testIdBigInt = BigInt(String(item.test_id));
-        const existingResult = existingResultMap.get(testIdBigInt.toString())!;
+        const existingResult = existingResultMap.get(testIdBigInt.toString());
 
         oldResultsEvidence.push({
           test_id: testIdBigInt.toString(),
-          numeric_value: existingResult.numeric_value ? Number(existingResult.numeric_value) : null,
-          text_value: existingResult.text_value,
-          performance_status: existingResult.performance_status,
-          not_performed_reason: existingResult.not_performed_reason,
-          evaluation_status: existingResult.evaluation_status,
-          is_passed: existingResult.is_passed,
-          applied_rule_id: existingResult.applied_rule_id ? existingResult.applied_rule_id.toString() : null,
-          applied_rule_version: existingResult.applied_rule_version,
-          tested_by: existingResult.tested_by ? existingResult.tested_by.toString() : null,
+          numeric_value: existingResult?.numeric_value ? Number(existingResult.numeric_value) : null,
+          text_value: existingResult?.text_value ?? null,
+          performance_status: existingResult?.performance_status ?? null,
+          not_performed_reason: existingResult?.not_performed_reason ?? null,
+          evaluation_status: existingResult?.evaluation_status ?? null,
+          is_passed: existingResult?.is_passed ?? null,
+          applied_rule_id: existingResult?.applied_rule_id ? existingResult.applied_rule_id.toString() : null,
+          applied_rule_version: existingResult?.applied_rule_version ?? null,
+          tested_by: existingResult?.tested_by ? existingResult.tested_by.toString() : null,
         });
 
         const activeRule = activeRulesMap.get(String(testIdBigInt)) || null;
@@ -194,18 +201,15 @@ export async function correctPlantQaResults(
             }
           : QualityRuleService.evaluateQualityResult({
               testId: testIdBigInt,
-              resultType: assignedDef?.result_type_snapshot || (existingResult.numeric_value !== null ? 'NUMERIC' : 'QUALITATIVE'),
+              resultType: assignedDef?.result_type_snapshot || (existingResult?.numeric_value != null ? 'NUMERIC' : 'QUALITATIVE'),
               numericValue: item.numeric_value ?? null,
               textValue: item.text_value ?? null,
               rule: activeRule,
-              resultOptions: assignedDef?.result_options_snapshot || existingResult.lab_test?.resultOptions,
+              resultOptions: assignedDef?.result_options_snapshot || existingResult?.lab_test?.resultOptions,
               testingPoint: 'PLANT_QA',
             });
 
-        // Update PlantLabResult keeping original tested_by immutable
-        await tx.plantLabResult.update({
-          where: { id: existingResult.id },
-          data: {
+        const resultData = {
             numeric_value:
               !isNotPerformed && item.numeric_value !== null && item.numeric_value !== undefined
                 ? new Prisma.Decimal(item.numeric_value)
@@ -219,14 +223,33 @@ export async function correctPlantQaResults(
             result_timestamp: authoritativeTs,
             applied_rule_id: evalRes.appliedRuleId ?? null,
             applied_rule_version: evalRes.appliedRuleVersion ?? null,
-          },
-        });
+        };
+        if (!existingResult) {
+          // A test that was assigned but never entered: the Super Admin's value creates the result.
+          await tx.plantLabResult.create({
+            data: {
+              ...resultData,
+              visit_id: visitId,
+              portion_id: portion.id,
+              test_id: testIdBigInt,
+              sample_timestamp: new Date(),
+              result_timestamp: new Date(),
+              tested_by: dbUser.id,
+            },
+          });
+        } else {
+          // Keeps the original tested_by, unless the test was not performed and now is.
+          await tx.plantLabResult.update({
+            where: { id: existingResult.id },
+            data: { ...resultData, ...(existingResult.performance_status === 'NOT_PERFORMED' && !isNotPerformed ? { tested_by: dbUser.id, result_timestamp: new Date() } : {}) },
+          });
+        }
 
         correctionsMade.push({
           test_id: testIdBigInt.toString(),
-          old_numeric: existingResult.numeric_value ? Number(existingResult.numeric_value) : null,
+          old_numeric: existingResult?.numeric_value ? Number(existingResult.numeric_value) : null,
           new_numeric: item.numeric_value ?? null,
-          old_text: existingResult.text_value,
+          old_text: existingResult?.text_value ?? null,
           new_text: item.text_value ?? null,
           evaluation_status: evalRes.evaluationStatus,
           is_passed: evalRes.isPassed,

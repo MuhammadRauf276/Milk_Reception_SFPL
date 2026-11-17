@@ -22,6 +22,8 @@ export interface EditorField {
   options?: Array<{ value: string; label: string }>;
   /** Why this one field cannot be changed, when it cannot. */
   lockedReason?: string | null;
+  /** A test assigned to this record that has no value yet. The Super Admin can fill it in. */
+  notEntered?: boolean;
 }
 
 export interface EditorPhoto {
