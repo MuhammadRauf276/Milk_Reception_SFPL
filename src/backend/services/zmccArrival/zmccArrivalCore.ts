@@ -2323,9 +2323,11 @@ export async function getVehiclesInsideZmcc(
     }
   }
 
+  // A Mobile Tester vehicle has no gate exit: it is inside until its journey closes (milk received into the
+  // tank, or the journey closed without unloading). Only HC vehicles leave through a recorded gate exit.
   const motWhere: Prisma.ZmccMotArrivalWhereInput = {
-    gate_exit_required: true,
     exit_timestamp: null,
+    journey: { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
     ...(targetZmccId ? { zmcc_id: targetZmccId } : {}),
   };
 
