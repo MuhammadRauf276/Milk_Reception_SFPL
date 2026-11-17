@@ -69,6 +69,26 @@ try {
     if (rows.length) console.table(rows.slice(0, 50));
     if (rows.length > 50) console.log(`... and ${rows.length - 50} more`);
   }
+
+  // Key health: every id counter (sequence) must be ahead of the highest id in its table, or the next insert fails
+  // with "duplicate key". Gaps in ids are normal and are not listed.
+  const { rows: seqs } = await client.query(`
+    SELECT d.refobjid::regclass::text AS tbl, a.attname AS col, d.objid::regclass::text AS seq
+    FROM pg_depend d
+    JOIN pg_class sc ON sc.oid = d.objid AND sc.relkind = 'S'
+    JOIN pg_class tc ON tc.oid = d.refobjid AND tc.relnamespace = 'public'::regnamespace
+    JOIN pg_attribute a ON a.attrelid = d.refobjid AND a.attnum = d.refobjsubid
+    WHERE d.deptype IN ('a', 'i') AND d.classid = 'pg_class'::regclass
+    ORDER BY 1`);
+  const behind = [];
+  for (const s of seqs) {
+    const { rows: [m] } = await client.query(`SELECT COALESCE(MAX("${s.col}"), 0)::text AS max_id, COUNT(*)::int AS row_count FROM ${s.tbl}`);
+    const { rows: [q] } = await client.query(`SELECT last_value::text AS last_value, is_called FROM ${s.seq}`);
+    const nextId = BigInt(q.last_value) + (q.is_called ? 1n : 0n);
+    if (nextId <= BigInt(m.max_id)) behind.push({ table: s.tbl, max_id: m.max_id, next_id: nextId.toString(), rows: m.row_count });
+  }
+  console.log(`\n== Id counters behind their table (next insert would fail): ${behind.length} of ${seqs.length} table(s)`);
+  if (behind.length) console.table(behind);
   await client.query('ROLLBACK');
 } finally {
   await client.end();
