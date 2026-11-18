@@ -1,9 +1,11 @@
 module.exports = {
   apps: [
     {
-      name: "milk-app",
+      // Same name and arguments as the process running on the production VM (pm2 describe mpd-app),
+      // so "pm2 start ecosystem.config.js" restarts it instead of starting a second copy on port 3000.
+      name: "mpd-app",
       script: "node_modules/next/dist/bin/next",
-      args: "start -H 0.0.0.0 -p 3000",
+      args: "start -p 3000",
       instances: 1,
       autorestart: true,
       watch: false,

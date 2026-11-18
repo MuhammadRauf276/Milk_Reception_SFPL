@@ -56,7 +56,7 @@ If you ever need to check the server status in PowerShell at `PS C:\app`:
 | Action | Command |
 | :--- | :--- |
 | **Check service status** | `pm2 status` |
-| **View live logs** | `pm2 logs milk-app --lines 30` |
+| **View live logs** | `pm2 logs mpd-app --lines 30` |
 | **Restart all services** | `pm2 restart ecosystem.config.js` |
 | **Restart WhatsApp only** | `pm2 restart whatsapp-gateway` |
 | **Restore after reboot** | `pm2 resurrect` |
