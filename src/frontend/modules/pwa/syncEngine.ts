@@ -37,6 +37,7 @@ import {
   type SendQueuedBatchesResult,
   type SyncAuthMode,
   type SyncQueueStore,
+  isBackgroundKind,
 } from './syncQueueCore';
 import {
   getActiveOwnerUserId,
@@ -459,7 +460,10 @@ async function runUnlocked(): Promise<SyncRunSummary> {
   try {
     // Old app versions kept refused diary items as 'needs office help': clear them.
     if ((await purgeRejectedBackground(store())) > 0) notifyChanged();
-    const pending = await nextBatch(store(), { limit: 1, mode: hasKey ? 'DEVICE' : 'SESSION', ownerUserId: owner });
+    // Only the person's own saved work is announced; background diary entries sync quietly.
+    const pending = (await nextBatch(store(), { mode: hasKey ? 'DEVICE' : 'SESSION', ownerUserId: owner })).filter(
+      (r) => !isBackgroundKind(r.item.kind)
+    );
     if (pending.length > 0 && typeof window !== 'undefined') {
       announced = true;
       window.dispatchEvent(new CustomEvent('milk-sync-state', { detail: { syncing: true } }));

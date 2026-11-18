@@ -13,6 +13,7 @@ import {
 import { reviewMotShopException } from '@/backend/services/mot/motShopReviewService';
 import { reviewPortionException } from '@/backend/services/zmcc/labPortionReviewService';
 import { decideDispatchApproval } from '@/backend/services/dispatch/dispatchDecisionService';
+import { decideCloseWithoutUnloading } from '@/backend/services/zmccArrival/zmccExitService';
 import {
   clearHandledNotifications,
   emitSelfApprovalReviewNotification,
@@ -28,6 +29,7 @@ const EVENTS_BY_APPROVAL_TYPE: Partial<Record<ApprovalType, string[]>> = {
   STAGE_2_SESSION_EXCEPTION: ['ZMCC_LAB_EXCEPTION_PENDING'],
   STAGE_2_PORTION_EXCEPTION: ['ZMCC_LAB_EXCEPTION_PENDING'],
   STAGE_2_NEW_HC: ['NEW_HC_PENDING', 'HC_APPROVAL_PENDING'],
+  STAGE_2_CLOSE_REQUEST: ['ZMCC_CLOSE_REQUEST_PENDING'],
   STAGE_3_ZMCC_DISPATCH_EXCEPTION: ['DISPATCH_APPROVAL_PENDING'],
   STAGE_3_CONTRACTOR_DISPATCH_EXCEPTION: ['DISPATCH_APPROVAL_PENDING'],
   STAGE_4_PORTION_EXCEPTION: ['PLANT_QA_EXCEPTION_PENDING'],
@@ -198,6 +200,17 @@ export async function POST(
       zmccId = disp.procurement_source_id;
     }
     dbVersion = disp.dispatch_version;
+  } else if (approvalType === 'STAGE_2_CLOSE_REQUEST') {
+    const cs = await prisma.zmccLabSession.findUnique({ where: { id: numericId } });
+    if (!cs) return NextResponse.json({ error: 'Lab session not found.' }, { status: 404 });
+    submitterUserId = cs.close_requested_by_user_id;
+    const requester = cs.close_requested_by_user_id
+      ? await prisma.user.findUnique({ where: { id: cs.close_requested_by_user_id } })
+      : null;
+    submitterRole = requester?.role || 'PHE_OPERATOR';
+    zmccId = cs.zmcc_id;
+    dbVersion = cs.close_requested_at ? cs.close_requested_at.getTime() : -1;
+    alreadyDecided = !cs.close_requested_at || !!cs.close_approved_at || !!cs.journey_closed_at;
   } else if (approvalType === 'STAGE_4_PORTION_EXCEPTION') {
     const p = await prisma.visitPortion.findUnique({
       where: { id: numericId },
@@ -306,6 +319,13 @@ export async function POST(
       if (res.error) {
         return NextResponse.json({ error: res.error, code: res.code }, { status: res.status });
       }
+    } else if (approvalType === 'STAGE_2_CLOSE_REQUEST') {
+      // The same decision the ZMCC Manager overview makes.
+      const res = await decideCloseWithoutUnloading(ctx, numericId, {
+        decision: verdict === 'OKAY' ? 'APPROVE' : 'REJECT',
+        remarks,
+      });
+      if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
     } else if (approvalType === 'STAGE_4_PORTION_EXCEPTION') {
       await prisma.$transaction(async (tx) => {
         const existingPortion = await tx.visitPortion.findUnique({

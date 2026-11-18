@@ -1160,14 +1160,40 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
       .map((x) => exceptionReasonText(x)),
   ];
 
-  /** Uploads the pictures that are waiting. A picture stays in the queue until its upload works. */
-  const runUploads = async (queue: PendingUpload[]) => {
+  /**
+   * Uploads the pictures that are waiting. Each one is tried three times (a weak signal often fails once); one that
+   * still fails stays in the queue for "Try again". retry keeps the totals from the first run.
+   */
+  const runUploads = async (queue: PendingUpload[], retry = false) => {
     if (queue.length === 0) return;
     setUploading(true);
-    setUploadStats({ total: queue.length, completed: 0 });
     const failed: PendingUpload[] = [];
+    let total = queue.length;
     let completedCount = 0;
+    if (retry) {
+      total = uploadStats.total;
+      completedCount = uploadStats.completed;
+    }
+    setUploadStats({ total, completed: completedCount });
     for (const item of queue) {
+      let sent = false;
+      for (let attempt = 0; attempt < 3 && !sent; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 1500 * attempt));
+        sent = await uploadOne(item);
+      }
+      if (sent) {
+        completedCount++;
+        setUploadStats({ total, completed: completedCount });
+      } else {
+        failed.push(item);
+      }
+    }
+    setUploadQueue(failed);
+    setUploading(false);
+  };
+
+  /** One picture to /api/photos; true when the server kept it. */
+  const uploadOne = async (item: PendingUpload): Promise<boolean> => {
       try {
         const form = new FormData();
         form.append('file', item.photo.blob, `${item.photo.captureId}.jpg`);
@@ -1193,15 +1219,10 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
           })
         );
         const r = await fetch('/api/photos', { method: 'POST', body: form });
-        if (!r.ok) throw new Error('upload failed');
-        completedCount++;
-        setUploadStats({ total: queue.length, completed: completedCount });
+        return r.ok;
       } catch {
-        failed.push(item);
+        return false;
       }
-    }
-    setUploadQueue(failed);
-    setUploading(false);
   };
 
   const buildPayloadPortions = (isoDispatchTimestamp: string | undefined) =>
@@ -1586,6 +1607,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               total={uploadStats.total}
               completed={uploadStats.completed}
               isUploading={uploading}
+              onRetry={() => void runUploads(uploadQueue, true)}
             />
           )}
 
@@ -1595,6 +1617,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
               variant="default"
               size="lg"
               onClick={startNextDispatch}
+              disabled={uploading}
               className="w-full"
             >
               <Undo2 className="w-4 h-4" />

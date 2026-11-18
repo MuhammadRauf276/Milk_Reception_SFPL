@@ -39,6 +39,22 @@ let probeIntervalId: ReturnType<typeof setInterval> | null = null;
 let isProbing = false;
 let consecutiveFailures = 0;
 
+/** A busy server can answer slowly without being down: allow this long before a check counts as failed. */
+const PROBE_TIMEOUT_MS = 10_000;
+/** Failed checks in a row before the screen says the connection is lost; one slow answer shows nothing. */
+const FAILURES_BEFORE_BANNER = 2;
+
+/** Records a failed check, but keeps the screen calm until it has failed FAILURES_BEFORE_BANNER times in a row. */
+function reportFailure(status: NetworkHealthStatus, latencyMs: number | null) {
+  consecutiveFailures++;
+  if (consecutiveFailures < FAILURES_BEFORE_BANNER && currentSnapshot.status === 'ONLINE') {
+    currentSnapshot = { ...currentSnapshot, lastCheckedAt: Date.now(), latencyMs };
+    return currentSnapshot.status;
+  }
+  updateSnapshot({ status, lastCheckedAt: Date.now(), latencyMs });
+  return status;
+}
+
 function notifyListeners() {
   listeners.forEach((listener) => listener());
   if (typeof window !== 'undefined') {
@@ -102,7 +118,7 @@ export async function probeBackendHealth(): Promise<NetworkHealthStatus> {
 
   const startTime = performance.now();
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 3500);
+  const timeoutId = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
 
   try {
     const res = await fetch('/api/health', {
@@ -125,26 +141,17 @@ export async function probeBackendHealth(): Promise<NetworkHealthStatus> {
       return 'ONLINE';
     } else {
       const data = await res.json().catch(() => ({}));
-      consecutiveFailures++;
       const isDbDown = res.status === 503 || (data && (data as { database?: string }).database === 'disconnected');
-      const status: NetworkHealthStatus = isDbDown ? 'DATABASE_UNAVAILABLE' : 'API_UNREACHABLE';
-      updateSnapshot({
-        status,
-        lastCheckedAt: Date.now(),
-        latencyMs: elapsed,
-      });
-      return status;
+      return reportFailure(isDbDown ? 'DATABASE_UNAVAILABLE' : 'API_UNREACHABLE', elapsed);
     }
   } catch (_err) {
     clearTimeout(timeoutId);
-    consecutiveFailures++;
-    const newStatus = navigator.onLine ? 'API_UNREACHABLE' : 'OFFLINE';
-    updateSnapshot({
-      status: newStatus,
-      lastCheckedAt: Date.now(),
-      latencyMs: null,
-    });
-    return newStatus;
+    if (!navigator.onLine) {
+      consecutiveFailures++;
+      updateSnapshot({ status: 'OFFLINE', lastCheckedAt: Date.now(), latencyMs: null });
+      return 'OFFLINE';
+    }
+    return reportFailure('API_UNREACHABLE', null);
   } finally {
     isProbing = false;
   }

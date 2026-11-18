@@ -25,6 +25,7 @@ export type ApprovalType =
   | 'STAGE_2_SESSION_EXCEPTION'
   | 'STAGE_2_PORTION_EXCEPTION'
   | 'STAGE_2_NEW_HC'
+  | 'STAGE_2_CLOSE_REQUEST'
   | 'STAGE_3_ZMCC_DISPATCH_EXCEPTION'
   | 'STAGE_3_CONTRACTOR_DISPATCH_EXCEPTION'
   | 'STAGE_4_PORTION_EXCEPTION'
@@ -87,6 +88,14 @@ export const APPROVAL_TYPE_DEFINITIONS: Record<ApprovalType, ApprovalTypeDefinit
     defaultApproverRole: 'ZMCC_MANAGER',
     scopeKind: 'ZMCC',
     autoApproveRoles: ['ZMCC_MANAGER', 'HEAD_OF_MPD', 'SUPER_ADMIN'],
+  },
+  // A vehicle leaves the ZMCC without its milk going into the tank (did not give milk, left before unloading).
+  STAGE_2_CLOSE_REQUEST: {
+    type: 'STAGE_2_CLOSE_REQUEST',
+    stage: 'STAGE_2',
+    label: 'Leave without unloading',
+    defaultApproverRole: 'ZMCC_MANAGER',
+    scopeKind: 'ZMCC',
   },
   STAGE_3_ZMCC_DISPATCH_EXCEPTION: {
     type: 'STAGE_3_ZMCC_DISPATCH_EXCEPTION',

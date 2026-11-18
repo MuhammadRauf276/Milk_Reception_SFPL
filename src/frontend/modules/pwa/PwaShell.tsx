@@ -97,8 +97,16 @@ export function PwaShell() {
   }, [userId]);
 
   useEffect(() => {
-    const sync = (event: Event) =>
-      setSyncing(Boolean((event as CustomEvent<{ syncing?: boolean }>).detail?.syncing));
+    // A quick sync pass shows nothing: the banner appears only if syncing takes longer than 1.5 s,
+    // so a passing sync never flashes on screen.
+    let showTimer: ReturnType<typeof setTimeout> | null = null;
+    const sync = (event: Event) => {
+      const on = Boolean((event as CustomEvent<{ syncing?: boolean }>).detail?.syncing);
+      if (showTimer) clearTimeout(showTimer);
+      showTimer = null;
+      if (on) showTimer = setTimeout(() => setSyncing(true), 1500);
+      else setSyncing(false);
+    };
     const expired = () => dispatchAuthBanner({ type: 'EXPIRED', online: navigator.onLine });
     const signedIn = () => dispatchAuthBanner({ type: 'SIGNED_IN' });
     // Connection is back: clear the message only if the session turns out to be valid.
@@ -111,6 +119,9 @@ export function PwaShell() {
     };
 
     window.addEventListener('milk-sync-state', sync);
+    const clearShowTimer = () => {
+      if (showTimer) clearTimeout(showTimer);
+    };
     window.addEventListener('milk-auth-expired', expired);
     window.addEventListener('milk-auth-restored', signedIn);
     window.addEventListener('online', backOnline);
@@ -185,6 +196,7 @@ export function PwaShell() {
     window.addEventListener('milk-user-logged-out', handleLoggedOut);
 
     return () => {
+      clearShowTimer();
       window.removeEventListener('milk-sync-state', sync);
       window.removeEventListener('milk-auth-expired', expired);
       window.removeEventListener('milk-auth-restored', signedIn);

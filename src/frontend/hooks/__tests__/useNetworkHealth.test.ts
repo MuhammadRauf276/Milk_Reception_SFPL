@@ -83,3 +83,25 @@ test('NetworkHealth: probeBackendHealth returns ONLINE in SSR/Node environment w
   const res = await probeBackendHealth();
   assert.equal(res, 'ONLINE', 'In server/Node environment, probeBackendHealth safely defaults to ONLINE');
 });
+
+test('NetworkHealth: one slow or failed check shows nothing; two in a row show the banner', async () => {
+  const g = globalThis as unknown as Record<string, unknown>;
+  const hadWindow = 'window' in g;
+  const realFetch = g.fetch;
+  g.window = { dispatchEvent: () => true };
+  Object.defineProperty(globalThis.navigator, 'onLine', { value: true, configurable: true });
+  try {
+    g.fetch = () => Promise.resolve(new Response('{}', { status: 200 }));
+    assert.equal(await probeBackendHealth(), 'ONLINE', 'starts online');
+    g.fetch = () => Promise.reject(new Error('slow server'));
+    assert.equal(await probeBackendHealth(), 'ONLINE', 'first failure keeps the screen calm');
+    assert.equal(await probeBackendHealth(), 'API_UNREACHABLE', 'second failure in a row shows the banner');
+    g.fetch = () => Promise.resolve(new Response('{}', { status: 200 }));
+    assert.equal(await probeBackendHealth(), 'ONLINE', 'a good answer clears it');
+    g.fetch = () => Promise.reject(new Error('slow server'));
+    assert.equal(await probeBackendHealth(), 'ONLINE', 'the count starts again after a good answer');
+  } finally {
+    g.fetch = realFetch;
+    if (!hadWindow) delete g.window;
+  }
+});

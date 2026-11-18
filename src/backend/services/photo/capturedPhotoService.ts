@@ -142,6 +142,13 @@ export async function resolveEntityRef(
       break;
     }
     case 'dispatch_info': {
+      // The dispatch form sends the visit's id for the hand-written lab report (as the storage path, the
+      // "add missing photo" flow and Inspect all read it). A dispatch_info row id is only the old fallback.
+      const v = await db.vehicleVisit.findUnique({ where, select: { procurement_source_id: true } });
+      if (v) {
+        sourceId = pick(v, 'procurement_source_id');
+        break;
+      }
       const r = await db.dispatchInfo.findUnique({ where, select: { portion: { select: visitSource } } });
       if (!r) return null;
       sourceId = pick(r, 'portion', 'visit', 'procurement_source_id');

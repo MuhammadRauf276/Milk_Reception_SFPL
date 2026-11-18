@@ -6,7 +6,7 @@ export const revalidate = 0;
 
 /**
  * Health check endpoint for client-side API reachability and database availability probing.
- * Tests DB connectivity with a strict 2.5-second timeout boundary.
+ * Tests DB connectivity with an 8-second timeout (a busy server is slow, not down; the client allows 10 s).
  *
  * NOTE / DOCUMENTED DRIVER LIMITATION:
  * Promise.race() does NOT cancel the underlying Prisma query or close its PostgreSQL socket
@@ -26,7 +26,7 @@ export async function GET() {
     let timer: NodeJS.Timeout | undefined;
     try {
       const timeoutPromise = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('TIMEOUT')), 2500);
+        timer = setTimeout(() => reject(new Error('TIMEOUT')), 8000);
       });
 
       // Guard raw query with local error capture and safe detached catch
@@ -41,7 +41,7 @@ export async function GET() {
       return {
         ok: false,
         reason: isTimeout ? 'timeout' : 'unavailable',
-        error: isTimeout ? 'Database check timed out after 2.5s' : 'Database connection failed',
+        error: isTimeout ? 'Database check timed out after 8s' : 'Database connection failed',
       };
     } finally {
       if (timer) {

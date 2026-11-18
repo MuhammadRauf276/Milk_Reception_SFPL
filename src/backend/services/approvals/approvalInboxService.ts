@@ -14,6 +14,7 @@ import {
 } from '@/backend/services/escalation/approvalMatrix';
 import { exceptionReasonText, reasonCodes, reasonLabels, testNameLookup } from '@/lib/exceptionReasons';
 import { getEffectivePolicy } from '@/backend/services/testPointPolicyService';
+import { EXIT_REASON_LABELS } from '@/backend/services/zmccArrival/zmccExitService';
 
 export type SlaStatus = 'NORMAL' | 'WARNING' | 'BREACHED';
 
@@ -1015,6 +1016,101 @@ export async function getApprovalInbox(
               : null,
         });
       }
+    }
+  }
+
+  // Stage 2: a vehicle asked to leave without its milk going into the tank (same decision as the ZMCC Manager overview)
+  if (
+    (isZmccScoped || isMpdHead || isSuperOrAuditor) &&
+    (stageFilter === 'ALL' || stageFilter === 'STAGE_2') &&
+    (!typeFilter || typeFilter === 'STAGE_2_CLOSE_REQUEST')
+  ) {
+    const closeWhere: Prisma.ZmccLabSessionWhereInput =
+      statusFilter === 'DECIDED'
+        ? { close_approved_at: { not: null } }
+        : statusFilter === 'PENDING'
+          ? { close_requested_at: { not: null }, close_approved_at: null, journey_closed_at: null }
+          : { close_requested_at: { not: null } };
+    if (isZmccScoped && actorSourceId) closeWhere.zmcc_id = actorSourceId;
+    const closeSessions = await prisma.zmccLabSession.findMany({
+      where: closeWhere,
+      include: {
+        zmcc: { select: { name: true } },
+        mot_arrival: {
+          select: {
+            zmcc_token: true,
+            journey: { select: { mot_vehicle: { select: { vehicle_number: true } }, route: { select: { name: true } } } },
+          },
+        },
+        local_supplier_arrival: { select: { zmcc_token: true, vehicle_number: true, local_supplier: { select: { name: true } } } },
+      },
+      orderBy: statusFilter === 'DECIDED' ? { close_approved_at: 'desc' } : { close_requested_at: 'asc' },
+      take: limit,
+    });
+    const peopleIds = Array.from(
+      new Set(
+        closeSessions
+          .flatMap((cs) => [cs.close_requested_by_user_id, cs.close_approved_by_user_id])
+          .filter((x): x is bigint => x !== null)
+      )
+    );
+    const people = peopleIds.length
+      ? await prisma.user.findMany({ where: { id: { in: peopleIds } }, select: { id: true, full_name: true, username: true, role: true } })
+      : [];
+    const personOf = new Map(people.map((p) => [p.id.toString(), p]));
+    for (const cs of closeSessions) {
+      const requestedAt = cs.close_requested_at ?? cs.created_at;
+      const { waitingMinutes, slaStatus } = calculateSla(requestedAt);
+      const requester = cs.close_requested_by_user_id ? personOf.get(cs.close_requested_by_user_id.toString()) : undefined;
+      const approver = cs.close_approved_by_user_id ? personOf.get(cs.close_approved_by_user_id.toString()) : undefined;
+      const hc = cs.local_supplier_arrival;
+      const vehicle = hc?.vehicle_number ?? cs.mot_arrival?.journey?.mot_vehicle?.vehicle_number ?? `#${cs.id}`;
+      const token = hc?.zmcc_token ?? cs.mot_arrival?.zmcc_token ?? `#${cs.id}`;
+      const from = hc?.local_supplier?.name ?? cs.mot_arrival?.journey?.route?.name ?? '';
+      const reasonLabel = cs.exit_reason_code
+        ? (EXIT_REASON_LABELS as Record<string, string>)[cs.exit_reason_code] ?? cs.exit_reason_code
+        : 'Leave without unloading';
+      items.push({
+        id: `close_${cs.id}`,
+        stage: 'STAGE_2',
+        approvalType: 'STAGE_2_CLOSE_REQUEST',
+        referenceNumber: token,
+        sourceId: cs.zmcc_id.toString(),
+        sourceName: cs.zmcc?.name || 'ZMCC',
+        zmccId: cs.zmcc_id.toString(),
+        submittedBy: {
+          id: cs.close_requested_by_user_id?.toString() || '',
+          name: requester?.full_name || requester?.username || 'PHE Operator',
+          role: requester?.role || 'PHE_OPERATOR',
+          performedAsRole: null,
+          isDelegated: false,
+        },
+        submittedAt: requestedAt.toISOString(),
+        waitingMinutes,
+        slaStatus,
+        reasonChips: [reasonLabel],
+        canDecide: false,
+        disabledReason: null,
+        details: {
+          entityTitle: `Leave without unloading: ${vehicle}`,
+          sourceName: cs.zmcc?.name || 'ZMCC',
+          sourceType: 'ZMCC',
+          metadata: {
+            vehicle,
+            token,
+            from,
+            type: hc ? 'HC' : 'Mobile Tester',
+            reason: reasonLabel,
+            remarks: cs.exit_remarks,
+          },
+        },
+        version: requestedAt.getTime(),
+        status: cs.close_approved_at ? 'APPROVED' : 'PENDING',
+        decision:
+          cs.close_approved_at && approver
+            ? { decidedBy: approver.full_name || approver.username, decidedAt: cs.close_approved_at.toISOString(), verdict: 'OKAY', remarks: null }
+            : null,
+      });
     }
   }
 

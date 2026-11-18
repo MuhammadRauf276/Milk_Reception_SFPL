@@ -285,6 +285,8 @@ export interface BatchUploadProgressProps {
   completed: number;
   currentLabel?: string;
   isUploading: boolean;
+  /** Shown when some pictures did not upload: sends the waiting ones again. */
+  onRetry?: () => void;
   className?: string;
 }
 
@@ -296,10 +298,12 @@ export function BatchUploadProgress({
   completed,
   currentLabel,
   isUploading,
+  onRetry,
   className,
 }: BatchUploadProgressProps) {
   if (total <= 0) return null;
   const isDone = completed >= total && !isUploading;
+  const failed = !isUploading && completed < total;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
@@ -326,7 +330,7 @@ export function BatchUploadProgress({
               ? 'All pictures uploaded successfully'
               : isUploading
               ? currentLabel || `Uploading picture ${Math.min(completed + 1, total)} of ${total}…`
-              : `${total - completed} picture(s) waiting to upload`}
+              : `${total - completed} picture(s) did not upload`}
           </span>
         </div>
         <span className="font-mono font-semibold tabular-nums text-foreground">
@@ -342,6 +346,15 @@ export function BatchUploadProgress({
           status={isDone ? 'success' : isUploading ? 'uploading' : 'idle'}
         />
       </div>
+      {failed && onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-border-strong bg-card px-3 text-sm font-semibold text-foreground hover:bg-muted"
+        >
+          Try again
+        </button>
+      ) : null}
     </div>
   );
 }
