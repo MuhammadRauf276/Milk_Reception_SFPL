@@ -114,7 +114,15 @@ export const LossFilterBar: React.FC<LossFilterBarProps> = ({
 
   const zmccs = options?.zmccs ?? [];
   const contractors = options?.contractors ?? [];
-  const testers = options?.mobileTesters ?? [];
+  const allTesters = options?.mobileTesters ?? [];
+  // With ZMCCs chosen, only their Mobile Testers are offered.
+  const testers = filters.zmccIds.length ? allTesters.filter((t) => filters.zmccIds.includes(t.zmccId)) : allTesters;
+  /** A new ZMCC choice drops a chosen tester who works for another ZMCC. */
+  const withZmccs = (zmccIds: string[]): LossFilters => {
+    const tester = allTesters.find((t) => t.id === filters.motProfileId);
+    const keep = !tester || zmccIds.length === 0 || zmccIds.includes(tester.zmccId);
+    return { ...filters, zmccIds, motProfileId: keep ? filters.motProfileId : '' };
+  };
   const testerOptions = [
     { value: '', label: 'Mobile Tester: All' },
     ...testers.map((t) => ({ value: t.id, label: t.name, keywords: `${t.code} ${t.zmccName}` })),
@@ -150,7 +158,7 @@ export const LossFilterBar: React.FC<LossFilterBarProps> = ({
       chips.push({
         key: `z${id}`,
         text: zmccs.find((z) => z.id === id)?.name ?? `ZMCC ${id}`,
-        remove: () => onChange({ ...filters, zmccIds: filters.zmccIds.filter((x) => x !== id) }),
+        remove: () => onChange(withZmccs(filters.zmccIds.filter((x) => x !== id))),
       })
     );
   }
@@ -166,7 +174,7 @@ export const LossFilterBar: React.FC<LossFilterBarProps> = ({
   if (filters.motProfileId) {
     chips.push({
       key: 'm',
-      text: testers.find((t) => t.id === filters.motProfileId)?.name ?? 'Mobile Tester',
+      text: allTesters.find((t) => t.id === filters.motProfileId)?.name ?? 'Mobile Tester',
       remove: () => onChange({ ...filters, motProfileId: '' }),
     });
   }
@@ -221,7 +229,7 @@ export const LossFilterBar: React.FC<LossFilterBarProps> = ({
             label="ZMCC"
             items={zmccs.map((z) => ({ id: z.id, label: z.name, keywords: z.code }))}
             value={filters.zmccIds}
-            onChange={(zmccIds) => onChange({ ...filters, zmccIds })}
+            onChange={(zmccIds) => onChange(withZmccs(zmccIds))}
           />
         ) : null}
         {showContractor ? (
