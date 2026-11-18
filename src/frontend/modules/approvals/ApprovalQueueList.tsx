@@ -118,7 +118,7 @@ export function ApprovalQueueList({
       </div>
 
       {/* Main Content Area */}
-      <div className="scrollbar-thin overscroll-contain flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
+      <div className="scrollbar-thin lg:overscroll-contain flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
         {loading && !refreshing ? (
           <SkeletonList count={4} />
         ) : error ? (

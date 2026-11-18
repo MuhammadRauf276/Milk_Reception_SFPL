@@ -347,7 +347,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
         triggerButtonRef={hamburgerButtonRef}
       />
 
-      <main className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 w-full max-w-[100rem] mx-auto">
+      <main className="flex-1 p-4 sm:p-6 space-y-5 sm:space-y-6 w-full max-w-[100rem] mx-auto">
         <PageTransition>
           {/* 1. OVERVIEW */}
           {activeTab === 'OVERVIEW' && (

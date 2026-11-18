@@ -219,13 +219,13 @@ export const MpdExecutiveWorkspace: React.FC<MpdExecutiveWorkspaceProps> = ({ cu
             {/* Multi-Facility ZMCC Selector for Scoped Views */}
       {['HIERARCHY', 'MOT_JOURNEYS', 'REPORTS', 'DISPATCH_VS_PLANT', 'ANALYTICS'].includes(activeTab) && (
         <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-3 rounded-xl shadow-xs animate-panel-in">
-          <div className="flex items-center gap-2">
+          <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
             <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
-            <span className="text-xs font-semibold text-secondary-foreground">ZMCC scope</span>
+            <span className="shrink-0 text-xs font-semibold text-secondary-foreground">ZMCC scope</span>
             <select
               value={selectedZmccId}
               onChange={(e) => setSelectedZmccId(e.target.value)}
-              className="text-xs bg-background border border-border rounded-lg px-3 py-2 font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              className="min-w-0 flex-1 text-xs bg-background border border-border rounded-lg px-3 py-2 font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer sm:flex-none"
             >
               <option value="">All ZMCCs</option>
               {telemetry?.zmccCenters?.map((zmcc) => (

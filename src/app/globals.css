@@ -220,24 +220,21 @@
   overscroll-behavior-x: contain;
 }
 
+/* Momentum scrolling only. It used to also stop vertical scroll chaining, which on the shared table wrapper (a
+   sideways scroller) swallowed every vertical swipe that started on a table, so phones could not scroll the page.
+   Panes that must keep the scroll to themselves add overscroll-contain. */
 @utility touch-scroll {
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
 }
 
-.overflow-x-auto {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
-}
-
-.overflow-y-auto {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-}
-
+/* No overscroll-behavior here on purpose. On Android Chrome a box with overflow auto that has nothing to scroll
+   (for example a page's main area that simply grows) still catches the finger, and "contain" then stops the
+   swipe from scrolling the page: the screen looked frozen with only the header and menu responding. Real scroll
+   panes that must not pass the scroll on (drawers, pop-ups, long lists) say so with overscroll-contain. */
+.overflow-x-auto,
+.overflow-y-auto,
 .overflow-auto {
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
 }
 
 @utility scrollbar-thin {
@@ -544,6 +541,23 @@
   }
   html body:has([data-app-sidebar]) .hide-with-sidebar {
     display: none;
+  }
+}
+
+/* Phones: a row with a dropdown or text box (icon + label + field) may shrink to the screen, and the field
+   shrinks inside it. Without this a long option text made the whole card wider than the phone. */
+@media (max-width: 639px) {
+  :where(.flex, .inline-flex) > :where(:has(> select), :has(> input:not([type='checkbox']):not([type='radio']))) {
+    min-width: 0;
+    max-width: 100%;
+  }
+  :where(.flex, .inline-flex) > :where(select, input:not([type='checkbox']):not([type='radio'])) {
+    min-width: 0;
+  }
+  /* Boxes inside rows and grids may shrink below their content's natural width, so one long label or option
+     cannot push a card past the screen edge. Zero specificity: any explicit min-w-* (scroll rows) still wins. */
+  :where(.flex, .inline-flex, .grid) > :where(div, form, section, label, fieldset, nav, ul) {
+    min-width: 0;
   }
 }
 

@@ -152,11 +152,11 @@ export function SavedTemplateManager({
   const datePreset = dateSettingsForTemplate(activeFilters, dateFieldId, getPakistanCalendarDate(new Date())).datePreset;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
       {/* Templates Dropdown */}
-      <div className="relative flex items-center gap-2">
+      <div className="relative flex w-full min-w-0 items-center gap-2 sm:w-auto">
         <Bookmark className="w-4 h-4 text-muted-foreground shrink-0" />
-        <span className="text-xs font-semibold text-foreground">Report Template:</span>
+        <span className="shrink-0 text-xs font-semibold text-foreground">Report Template:</span>
         <select
           value={selectedTemplateId}
           onChange={(e) => {
@@ -171,7 +171,7 @@ export function SavedTemplateManager({
               toast.success(`Template applied`);
             }
           }}
-          className="text-xs bg-background border border-border rounded-lg px-3 py-2 font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer max-w-xs"
+          className="text-xs bg-background border border-border rounded-lg px-3 py-2 font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer min-w-0 flex-1 max-w-full sm:flex-none sm:max-w-xs"
         >
           <option value="">Custom report</option>
           {domainSystemTemplates.length > 0 && (
