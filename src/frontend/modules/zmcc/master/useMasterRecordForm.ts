@@ -59,7 +59,7 @@ export function useMasterRecordForm({ activeTab, isSuperAdmin, selectedZmccId, c
       setFormData({ name: item.name ?? '', origin: item.origin ?? '', destination: item.destination ?? '' });
       setModalType('EDIT_ROUTE');
     } else if (activeTab === 'AREAS') {
-      setFormData({ name: item.name ?? '', route_id: item.route_id ?? '' });
+      setFormData({ name: item.name ?? '' });
       setModalType('EDIT_AREA');
     } else if (activeTab === 'MILK_SOURCES') {
       setFormData({ name: item.name ?? '', erp_code: item.erp_code ?? '' });
@@ -102,9 +102,9 @@ export function useMasterRecordForm({ activeTab, isSuperAdmin, selectedZmccId, c
     e.preventDefault();
     setModalError(null);
     if (
-      ((modalType === 'CREATE_AREA' || modalType === 'EDIT_AREA') && !formData.route_id) ||
+      (modalType === 'CREATE_AREA' && !formData.name) ||
       ((modalType === 'CREATE_SHOP' || modalType === 'EDIT_SHOP') &&
-        (!formData.area_id || !formData.chiller_ownership_id))
+        (!formData.area_id || !formData.route_id || !formData.chiller_ownership_id))
     ) {
       setModalError('Please fill in all required fields.');
       return;
@@ -134,9 +134,10 @@ export function useMasterRecordForm({ activeTab, isSuperAdmin, selectedZmccId, c
         };
       } else if (modalType === 'CREATE_AREA') {
         url = '/api/zmcc/areas';
+        // An area belongs to the ZMCC; station users always get their own ZMCC on the server.
         body = {
           name: formData.name,
-          route_id: formData.route_id,
+          zmcc_id: selectedZmccId || undefined,
         };
       } else if (modalType === 'EDIT_AREA') {
         url = `/api/zmcc/areas/${activeRecord?.id}`;
@@ -171,6 +172,7 @@ export function useMasterRecordForm({ activeTab, isSuperAdmin, selectedZmccId, c
           phone_number: formData.phone_number,
           cnic: formData.cnic,
           area_id: formData.area_id,
+          route_id: formData.route_id,
           chiller_ownership_id: formData.chiller_ownership_id,
           extra_route_ids: (formData.extra_route_ids ?? []).filter((id) => id !== String(formData.route_id ?? '')),
           latitude: formData.latitude !== '' && formData.latitude != null ? Number(formData.latitude) : null,
@@ -185,6 +187,7 @@ export function useMasterRecordForm({ activeTab, isSuperAdmin, selectedZmccId, c
           phone_number: formData.phone_number,
           cnic: formData.cnic,
           area_id: formData.area_id,
+          route_id: formData.route_id,
           chiller_ownership_id: formData.chiller_ownership_id,
           extra_route_ids: (formData.extra_route_ids ?? []).filter((id) => id !== String(formData.route_id ?? '')),
           latitude: formData.latitude !== '' && formData.latitude != null ? Number(formData.latitude) : null,

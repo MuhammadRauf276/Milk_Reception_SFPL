@@ -19,6 +19,7 @@ const SERIES = {
   HC_SUPPLIER_CODE: { table: 'zmcc_local_supplier', column: 'local_supplier_code' },
   SHOP_CODE: { table: 'zmcc_shop', column: 'shop_code' },
   ROUTE_CODE: { table: 'zmcc_route', column: 'route_code' },
+  AREA_CODE: { table: 'zmcc_area', column: 'area_code' },
 } as const;
 
 export type NumberSeries = keyof typeof SERIES;

@@ -22,10 +22,22 @@ export async function GET(req: Request) {
     }
 
     const [areas, chillers, routes] = await Promise.all([
+      // Areas belong to the ZMCC. The areas this route already passes through come first.
       prisma.zmccArea.findMany({
-        where: { route_id: BigInt(routeParam), is_active: true },
+        where: { zmcc_id: route.zmcc_id, is_active: true },
         orderBy: { name: 'asc' },
-        select: { id: true, name: true, area_code: true },
+        select: {
+          id: true,
+          name: true,
+          area_code: true,
+          _count: {
+            select: {
+              shops: {
+                where: { OR: [{ route_id: BigInt(routeParam) }, { route_links: { some: { route_id: BigInt(routeParam) } } }] },
+              },
+            },
+          },
+        },
       }),
       prisma.chillerOwnership.findMany({
         where: { is_active: true },
@@ -40,7 +52,9 @@ export async function GET(req: Request) {
     ]);
 
     return NextResponse.json({
-      areas: areas.map((a) => ({ id: a.id.toString(), name: a.name, area_code: a.area_code })),
+      areas: [...areas]
+        .sort((a, b) => Number(b._count.shops > 0) - Number(a._count.shops > 0))
+        .map((a) => ({ id: a.id.toString(), name: a.name, area_code: a.area_code })),
       chillers: chillers.map((c) => ({ id: c.id.toString(), name: c.name })),
       routes: routes.map((r) => ({ id: r.id.toString(), name: r.name, route_code: r.route_code })),
     });

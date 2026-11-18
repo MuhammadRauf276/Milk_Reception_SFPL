@@ -72,14 +72,14 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                     </div>
                   </div>
 
-                  {/* Dependent Route & Area Selection */}
+                  {/* Area (where the shop is) and home route (how it is reached) are chosen separately */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-secondary-foreground mb-1">Home route</label>
                       <Combobox
                         options={helperRoutes.map((r) => ({ value: r.id, label: `${r.name} · ${r.route_code}`, keywords: r.route_code }))}
                         value={String(formData.route_id || '')}
-                        onValueChange={(v) => setFormData({ ...formData, route_id: v, area_id: '', extra_route_ids: (formData.extra_route_ids ?? []).filter((id) => id !== v) })}
+                        onValueChange={(v) => setFormData({ ...formData, route_id: v, extra_route_ids: (formData.extra_route_ids ?? []).filter((id) => id !== v) })}
                         placeholder="Select route"
                         searchPlaceholder="Search route"
                         className="min-h-11 w-full text-xs font-semibold"
@@ -89,14 +89,9 @@ export const OperationalRecordForms: React.FC<MasterFormProps> = ({
                     <div>
                       <label className="block text-xs font-semibold text-secondary-foreground mb-1">Collection area</label>
                       <Combobox
-                        options={helperAreas
-                          .filter((a) => !formData.route_id || a.route_id === formData.route_id)
-                          .map((a) => ({ value: a.id, label: `${a.name} · ${a.area_code}`, keywords: a.area_code }))}
+                        options={helperAreas.map((a) => ({ value: a.id, label: `${a.name} · ${a.area_code}`, keywords: a.area_code }))}
                         value={String(formData.area_id || '')}
-                        onValueChange={(v) => {
-                          const selectedArea = helperAreas.find((a) => a.id === v);
-                          setFormData({ ...formData, area_id: v, route_id: selectedArea ? selectedArea.route_id : formData.route_id });
-                        }}
+                        onValueChange={(v) => setFormData({ ...formData, area_id: v })}
                         placeholder="Select area"
                         searchPlaceholder="Search area"
                         className="min-h-11 w-full text-xs font-semibold"

@@ -292,13 +292,13 @@ export async function getZmccHierarchyReport(
           where: { zmcc_id: { in: facilityIds } },
           orderBy: { route_code: 'asc' },
           include: {
-            areas: {
-              orderBy: { area_code: 'asc' },
+            // Shops whose home route is this one; each is shown under its own area (a place in the ZMCC).
+            home_shops: {
+              orderBy: { shop_code: 'asc' },
               include: {
-                shops: {
-                  orderBy: { shop_code: 'asc' },
-                  include: { chiller_ownership: { select: { name: true } }, route_links: { select: { route_id: true } } },
-                },
+                chiller_ownership: { select: { name: true } },
+                route_links: { select: { route_id: true } },
+                area: { select: { id: true, area_code: true, name: true, is_active: true } },
               },
             },
             // Shops whose home route is another one but that are also listed on this route.
@@ -396,6 +396,7 @@ export async function getZmccHierarchyReport(
     let facTodayAt13Ts = 0;
     let facMissingAt13Ts = 0;
 
+    const facAreaIds = new Set<string>();
     const routeNodes: ZmccRouteHierarchyNode[] = routes.map((r) => {
       let routeLiters = 0;
       let routeFatSum = 0;
@@ -404,7 +405,7 @@ export async function getZmccHierarchyReport(
       let routeActiveShops = 0;
       let routeGpsVerified = 0;
 
-      type AreaShop = (typeof r.areas)[number]['shops'][number];
+      type AreaShop = (typeof r.home_shops)[number];
       const buildAreaNode = (
         a: { id: bigint; area_code: string; name: string; is_active: boolean },
         areaShops: AreaShop[]
@@ -477,16 +478,21 @@ export async function getZmccHierarchyReport(
         };
       };
 
-      const areaNodes: ZmccAreaHierarchyNode[] = r.areas.map((a) => buildAreaNode(a, a.shops));
-      // Shops linked from other routes appear under their own area, once.
-      const linkedByArea = new Map<string, { area: { id: bigint; area_code: string; name: string; is_active: boolean }; shops: AreaShop[] }>();
-      for (const link of r.shop_links) {
-        const key = link.shop.area_id.toString();
-        const group = linkedByArea.get(key) ?? { area: link.shop.area, shops: [] };
-        group.shops.push(link.shop);
-        linkedByArea.set(key, group);
+      // Every shop on this route (home route or extra route) under its own area, each shop once.
+      const byArea = new Map<string, { area: { id: bigint; area_code: string; name: string; is_active: boolean }; shops: AreaShop[] }>();
+      const onRoute = new Set<string>();
+      for (const shop of [...r.home_shops, ...r.shop_links.map((l) => l.shop)]) {
+        if (onRoute.has(shop.id.toString())) continue;
+        onRoute.add(shop.id.toString());
+        const key = shop.area_id.toString();
+        const group = byArea.get(key) ?? { area: shop.area, shops: [] };
+        group.shops.push(shop);
+        byArea.set(key, group);
+        facAreaIds.add(key);
       }
-      for (const group of linkedByArea.values()) areaNodes.push(buildAreaNode(group.area, group.shops));
+      const areaNodes: ZmccAreaHierarchyNode[] = [...byArea.values()]
+        .sort((x, y) => x.area.area_code.localeCompare(y.area.area_code))
+        .map((g) => buildAreaNode(g.area, g.shops));
       facTodayLiters += routeLiters;
 
       const journey = routeJourneyMap.get(r.id.toString());
@@ -573,7 +579,7 @@ export async function getZmccHierarchyReport(
       },
       summary: {
         totalRoutes: routes.length,
-        totalAreas: routes.reduce((acc, r) => acc + r.areas.length, 0),
+        totalAreas: facAreaIds.size,
         totalShops: facTotalShops,
         activeShops: facActiveShops,
         dormantShops: facTotalShops - facActiveShops,

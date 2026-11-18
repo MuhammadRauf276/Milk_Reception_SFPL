@@ -354,7 +354,7 @@ export const ZmccMasterDataWorkspace: React.FC<ZmccMasterDataWorkspaceProps> = (
                         className="min-h-11 w-48 text-xs font-semibold"
                       />
                       <Combobox
-                        options={[{ value: '', label: 'All areas' }, ...helperAreas.filter((a) => !routeFilter || a.route_id === routeFilter).map((a) => ({ value: a.id, label: `${a.name} · ${a.area_code}`, keywords: a.area_code }))]}
+                        options={[{ value: '', label: 'All areas' }, ...helperAreas.filter((a) => !routeFilter || a.routes.some((r) => r.id === routeFilter)).map((a) => ({ value: a.id, label: `${a.name} · ${a.area_code}`, keywords: a.area_code }))]}
                         value={areaFilter}
                         onValueChange={setAreaFilter}
                         placeholder="All areas"

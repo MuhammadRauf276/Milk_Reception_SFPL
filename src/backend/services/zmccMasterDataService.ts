@@ -355,11 +355,23 @@ export async function listRoutes(
       zmcc: { select: { id: true, code: true, name: true, is_active: true } },
       creator: { select: { id: true, username: true, full_name: true } },
       updater: { select: { id: true, username: true, full_name: true } },
-      _count: { select: { areas: true } },
     },
   });
 
   const routeIds = routes.map((r) => r.id);
+  // Areas a route passes through: the areas of its shops (home route or extra route), read live.
+  const routeShopAreas = routeIds.length === 0 ? [] : await prisma.zmccShop.findMany({
+    where: { is_active: true, OR: [{ route_id: { in: routeIds } }, { route_links: { some: { route_id: { in: routeIds } } } }] },
+    select: { area_id: true, route_id: true, route_links: { select: { route_id: true } } },
+  });
+  const areasByRoute = new Map<string, Set<string>>();
+  for (const sh of routeShopAreas) {
+    for (const rid of [sh.route_id, ...sh.route_links.map((l) => l.route_id)]) {
+      const key = rid.toString();
+      if (!areasByRoute.has(key)) areasByRoute.set(key, new Set());
+      areasByRoute.get(key)!.add(sh.area_id.toString());
+    }
+  }
   const [homeShopCounts, linkedShopCounts] = routeIds.length === 0 ? [[], []] : await Promise.all([
     prisma.zmccShop.groupBy({ by: ['route_id'], where: { route_id: { in: routeIds }, is_active: true }, _count: { _all: true } }),
     prisma.zmccRouteShop.groupBy({ by: ['route_id'], where: { route_id: { in: routeIds }, shop: { is_active: true } }, _count: { _all: true } }),
@@ -394,7 +406,7 @@ export async function listRoutes(
     updater_name: r.updater ? r.updater.full_name || r.updater.username : null,
     created_at: r.created_at.toISOString(),
     updated_at: r.updated_at.toISOString(),
-    area_count: r._count.areas,
+    area_count: areasByRoute.get(r.id.toString())?.size ?? 0,
     shop_count: shopCountByRoute.get(r.id.toString()) ?? 0,
   }));
 }
@@ -534,14 +546,16 @@ export async function createRoute(
       },
     });
 
+    // An area belongs to the ZMCC: reuse the area with this name if the ZMCC has it, else add it.
     let createdArea = null;
     if (initialAreaName) {
-      const areaCode = `AR-${finalRouteCode}-01`;
-      createdArea = await tx.zmccArea.create({
+      const existingArea = await tx.zmccArea.findFirst({
+        where: { zmcc_id: zmccId, name: { equals: initialAreaName, mode: 'insensitive' } },
+      });
+      createdArea = existingArea ?? await tx.zmccArea.create({
         data: {
-          area_code: areaCode,
+          area_code: await nextSeriesNumber(tx, 'AREA_CODE', `AR-${zmcc.code || 'ZMCC'}-`, 3),
           name: initialAreaName,
-          route_id: created.id,
           zmcc_id: zmccId,
           is_active: initialIsActive,
           approval_status: initialApprovalStatus,
@@ -623,20 +637,7 @@ export async function approveRoute(auth: ZmccAuthContext, routeId: bigint): Prom
       },
     });
 
-    // Also activate pending areas under this route
-    await tx.zmccArea.updateMany({
-      where: { route_id: routeId, approval_status: 'PENDING_APPROVAL' },
-      data: {
-        approval_status: 'ACTIVE',
-        is_active: true,
-        approved_by: auth.actorUserId,
-        approved_at: new Date(),
-        approved_as_role: auth.acting.actingAs,
-        approved_is_delegated: auth.acting.isDelegated,
-        rejection_reason: null,
-        updated_by: auth.actorUserId,
-      },
-    });
+    // Areas belong to the ZMCC, not to a route: a pending area is approved on its own.
 
     await writeAuditLog(tx, {
       tableName: 'zmcc_route',
@@ -704,20 +705,6 @@ export async function rejectRoute(auth: ZmccAuthContext, routeId: bigint, reason
       },
     });
 
-    await tx.zmccArea.updateMany({
-      where: { route_id: routeId, approval_status: 'PENDING_APPROVAL' },
-      data: {
-        approval_status: 'REJECTED',
-        is_active: false,
-        rejection_reason: cleanReason,
-        approved_by: auth.actorUserId,
-        approved_at: new Date(),
-        approved_as_role: auth.acting.actingAs,
-        approved_is_delegated: auth.acting.isDelegated,
-        updated_by: auth.actorUserId,
-      },
-    });
-
     await writeAuditLog(tx, {
       tableName: 'zmcc_route',
       recordId: routeId,
@@ -764,7 +751,6 @@ export async function listPendingRoutes(auth: ZmccAuthContext) {
     include: {
       zmcc: { select: { id: true, code: true, name: true } },
       creator: { select: { id: true, username: true, full_name: true } },
-      areas: { select: { id: true, name: true, area_code: true } },
     },
   });
 
@@ -782,7 +768,6 @@ export async function listPendingRoutes(auth: ZmccAuthContext) {
     created_by: r.created_by.toString(),
     creator_name: r.creator ? (r.creator.full_name || r.creator.username) : 'System',
     created_at: r.created_at.toISOString(),
-    areas: r.areas.map((a) => ({ id: a.id.toString(), name: a.name, area_code: a.area_code })),
   }));
 }
 
@@ -839,17 +824,7 @@ export async function updateRoute(
       }
       action = 'ZMCC_ROUTE_ACTIVATED';
     } else if (!targetActive && existing.is_active) {
-      // Deactivation: block if active areas or shops exist
-      const activeAreasCount = await prisma.zmccArea.count({
-        where: { route_id: routeId, is_active: true },
-      });
-      if (activeAreasCount > 0) {
-        return {
-          status: 409,
-          error: `Cannot deactivate route: ${activeAreasCount} active area(s) exist under this route. Deactivate areas first.`,
-        };
-      }
-
+      // Deactivation: block while active shops are on this route (areas belong to the ZMCC, not the route)
       const activeShopsCount = await prisma.zmccShop.count({
         where: { ...shopsOnRouteWhere(routeId), is_active: true },
       });
@@ -929,7 +904,9 @@ export async function listAreas(
   }
 
   if (filters?.route_id) {
-    where.route_id = BigInt(filters.route_id);
+    // Areas this route passes through: areas of the shops on it (home or extra route).
+    const routeId = BigInt(filters.route_id);
+    where.shops = { some: { OR: [{ route_id: routeId }, { route_links: { some: { route_id: routeId } } }] } };
   }
 
   // PHE requires areas only as active selectable dropdown options
@@ -952,25 +929,21 @@ export async function listAreas(
     where,
     orderBy: { area_code: 'asc' },
     include: {
-      route: { select: { id: true, route_code: true, name: true, is_active: true } },
+      zmcc: { select: { id: true, code: true, name: true } },
       creator: { select: { id: true, username: true, full_name: true } },
       updater: { select: { id: true, username: true, full_name: true } },
       _count: { select: { shops: true } },
     },
   });
+  const routesByArea = await routesThroughAreas(areas.map((a) => a.id));
 
   return areas.map((a) => ({
     id: a.id.toString(),
     area_code: a.area_code,
     name: a.name,
-    route_id: a.route_id.toString(),
     zmcc_id: a.zmcc_id.toString(),
-    route: {
-      id: a.route.id.toString(),
-      route_code: a.route.route_code,
-      name: a.route.name,
-      is_active: a.route.is_active,
-    },
+    zmcc: { id: a.zmcc.id.toString(), code: a.zmcc.code, name: a.zmcc.name },
+    routes: routesByArea.get(a.id.toString()) ?? [],
     is_active: a.is_active,
     approval_status: a.approval_status,
     rejection_reason: a.rejection_reason,
@@ -986,11 +959,37 @@ export async function listAreas(
   }));
 }
 
+/** Routes passing through each area: the home and extra routes of its shops, read live (not stored). */
+export async function routesThroughAreas(
+  areaIds: bigint[]
+): Promise<Map<string, Array<{ id: string; route_code: string; name: string }>>> {
+  const out = new Map<string, Array<{ id: string; route_code: string; name: string }>>();
+  if (areaIds.length === 0) return out;
+  const shops = await prisma.zmccShop.findMany({
+    where: { area_id: { in: areaIds } },
+    select: {
+      area_id: true,
+      route: { select: { id: true, route_code: true, name: true } },
+      route_links: { select: { route: { select: { id: true, route_code: true, name: true } } } },
+    },
+  });
+  for (const sh of shops) {
+    const key = sh.area_id.toString();
+    const list = out.get(key) ?? [];
+    for (const r of [sh.route, ...sh.route_links.map((l) => l.route)]) {
+      if (!list.some((x) => x.id === r.id.toString())) list.push({ id: r.id.toString(), route_code: r.route_code, name: r.name });
+    }
+    out.set(key, list);
+  }
+  for (const list of out.values()) list.sort((a, b) => a.route_code.localeCompare(b.route_code));
+  return out;
+}
+
 export async function getAreaById(auth: ZmccAuthContext, areaId: bigint) {
   const area = await prisma.zmccArea.findUnique({
     where: { id: areaId },
     include: {
-      route: { select: { id: true, route_code: true, name: true, is_active: true } },
+      zmcc: { select: { id: true, code: true, name: true } },
       creator: { select: { id: true, username: true, full_name: true } },
       updater: { select: { id: true, username: true, full_name: true } },
     },
@@ -1013,14 +1012,9 @@ export async function getAreaById(auth: ZmccAuthContext, areaId: bigint) {
     id: area.id.toString(),
     area_code: area.area_code,
     name: area.name,
-    route_id: area.route_id.toString(),
     zmcc_id: area.zmcc_id.toString(),
-    route: {
-      id: area.route.id.toString(),
-      route_code: area.route.route_code,
-      name: area.route.name,
-      is_active: area.route.is_active,
-    },
+    zmcc: { id: area.zmcc.id.toString(), code: area.zmcc.code, name: area.zmcc.name },
+    routes: (await routesThroughAreas([area.id])).get(area.id.toString()) ?? [],
     is_active: area.is_active,
     approval_status: area.approval_status,
     rejection_reason: area.rejection_reason,
@@ -1040,71 +1034,41 @@ export async function createArea(
   body: {
     area_code?: string;
     name: string;
-    route_id: string;
+    /** The area's ZMCC. Station users always use their own ZMCC. */
+    zmcc_id?: string;
   }
 ): Promise<ServiceResult<unknown>> {
   const area_code = body.area_code?.trim();
   const name = body.name?.trim();
+  if (!name) return { status: 400, error: 'Area name is required.' };
 
-  if (!name || !body.route_id) {
-    return { status: 400, error: 'Area name and route selection are required.' };
+  let zmccId: bigint;
+  if (auth.isSuperAdmin || auth.isSystemScope) {
+    if (!body.zmcc_id || !/^\d+$/.test(String(body.zmcc_id))) return { status: 400, error: 'Choose the ZMCC.' };
+    zmccId = BigInt(body.zmcc_id);
+  } else {
+    zmccId = requireZmccScope(auth);
   }
+  const zmcc = await prisma.procurementSource.findUnique({ where: { id: zmccId } });
+  if (!zmcc || zmcc.source_type !== 'ZMCC') return { status: 400, error: 'Selected ZMCC not found.' };
+  if (!zmcc.is_active) return { status: 409, error: 'Cannot create area under an inactive ZMCC.' };
 
-  const routeId = BigInt(body.route_id);
-  const route = await prisma.zmccRoute.findUnique({
-    where: { id: routeId },
-    include: { zmcc: true },
+  if (area_code) {
+    const existingCode = await prisma.zmccArea.findUnique({ where: { area_code } });
+    if (existingCode) return { status: 409, error: `Area code "${area_code}" already exists.` };
+  }
+  // The same place must not be added twice in one ZMCC, whatever the letter case.
+  const existingName = await prisma.zmccArea.findFirst({
+    where: { zmcc_id: zmccId, name: { equals: name, mode: 'insensitive' } },
   });
-
-  if (!route) {
-    return { status: 400, error: 'Selected route not found.' };
-  }
-
-  if (route.zmcc.source_type !== 'ZMCC') {
-    return { status: 400, error: 'Target procurement source is not a valid ZMCC.' };
-  }
-
-  // Cross-ZMCC boundary check
-  if (!auth.isSuperAdmin && route.zmcc_id !== auth.effectiveZmccId) {
-    return { status: 403, error: 'Forbidden. You cannot create areas on routes outside your assigned ZMCC.' };
-  }
-
-  // Active check on parent route & ZMCC
-  if (!route.is_active) {
-    return { status: 409, error: 'Cannot create area under an inactive route.' };
-  }
-  if (!route.zmcc.is_active) {
-    return { status: 409, error: 'Cannot create area under an inactive ZMCC.' };
-  }
-
-  const effectiveZmccId = route.zmcc_id;
-
-  let finalAreaCode = area_code;
-  if (!finalAreaCode) {
-    const areaCount = await prisma.zmccArea.count({ where: { route_id: routeId } });
-    finalAreaCode = `AR-${route.route_code}-${String(areaCount + 1).padStart(2, '0')}`;
-  }
-
-  // Check unique constraints
-  const existingCode = await prisma.zmccArea.findUnique({ where: { area_code: finalAreaCode } });
-  if (existingCode) {
-    return { status: 409, error: `Area code "${finalAreaCode}" already exists.` };
-  }
-
-  const existingName = await prisma.zmccArea.findUnique({
-    where: { route_id_name: { route_id: routeId, name } },
-  });
-  if (existingName) {
-    return { status: 409, error: `Area name "${name}" already exists on this route.` };
-  }
+  if (existingName) return { status: 409, error: `Area "${existingName.name}" already exists in this ZMCC.` };
 
   return await prisma.$transaction(async (tx) => {
     const created = await tx.zmccArea.create({
       data: {
-        area_code: finalAreaCode,
+        area_code: area_code || (await nextSeriesNumber(tx, 'AREA_CODE', `AR-${zmcc.code || 'ZMCC'}-`, 3)),
         name,
-        route_id: routeId,
-        zmcc_id: effectiveZmccId,
+        zmcc_id: zmccId,
         is_active: true,
         created_by: auth.actorUserId,
       },
@@ -1119,7 +1083,6 @@ export async function createArea(
         id: created.id.toString(),
         area_code: created.area_code,
         name: created.name,
-        route_id: created.route_id.toString(),
         zmcc_id: created.zmcc_id.toString(),
         is_active: true,
       },
@@ -1132,7 +1095,6 @@ export async function createArea(
         id: created.id.toString(),
         area_code: created.area_code,
         name: created.name,
-        route_id: created.route_id.toString(),
         zmcc_id: created.zmcc_id.toString(),
         is_active: created.is_active,
       },
@@ -1150,7 +1112,7 @@ export async function updateArea(
 ): Promise<ServiceResult<unknown>> {
   const existing = await prisma.zmccArea.findUnique({
     where: { id: areaId },
-    include: { route: { include: { zmcc: true } } },
+    include: { zmcc: true },
   });
 
   if (!existing) {
@@ -1167,11 +1129,11 @@ export async function updateArea(
   }
 
   if (name !== existing.name) {
-    const dup = await prisma.zmccArea.findUnique({
-      where: { route_id_name: { route_id: existing.route_id, name } },
+    const dup = await prisma.zmccArea.findFirst({
+      where: { zmcc_id: existing.zmcc_id, name: { equals: name, mode: 'insensitive' }, NOT: { id: areaId } },
     });
-    if (dup && dup.id !== areaId) {
-      return { status: 409, error: `Area name "${name}" already exists on this route.` };
+    if (dup) {
+      return { status: 409, error: `Area "${dup.name}" already exists in this ZMCC.` };
     }
   }
 
@@ -1181,11 +1143,8 @@ export async function updateArea(
   if (body.is_active !== undefined) {
     targetActive = body.is_active;
     if (targetActive && !existing.is_active) {
-      // Activation: parent route and ZMCC must be active
-      if (!existing.route.is_active) {
-        return { status: 409, error: 'Cannot activate area: parent route is inactive.' };
-      }
-      if (!existing.route.zmcc.is_active) {
+      // Activation: the ZMCC must be active
+      if (!existing.zmcc.is_active) {
         return { status: 409, error: 'Cannot activate area: parent ZMCC is inactive.' };
       }
       action = 'ZMCC_AREA_ACTIVATED';
@@ -1235,7 +1194,6 @@ export async function updateArea(
         id: updated.id.toString(),
         area_code: updated.area_code,
         name: updated.name,
-        route_id: updated.route_id.toString(),
         zmcc_id: updated.zmcc_id.toString(),
         is_active: updated.is_active,
       },
@@ -1732,7 +1690,8 @@ export async function listShopsPage(
       orderBy: { shop_code: 'asc' },
       ...(paginated ? { skip: (page - 1) * pageSize, take: pageSize } : {}),
       include: {
-        area: { select: { id: true, area_code: true, name: true, is_active: true, route: { select: { name: true } } } },
+        area: { select: { id: true, area_code: true, name: true, is_active: true } },
+        route: { select: { name: true } },
         chiller_ownership: { select: { id: true, ownership_code: true, name: true, is_active: true } },
         creator: { select: { id: true, username: true, full_name: true } },
         updater: { select: { id: true, username: true, full_name: true } },
@@ -1751,7 +1710,7 @@ export async function listShopsPage(
     cnic: s.cnic,
     area_id: s.area_id.toString(),
     route_id: s.route_id.toString(),
-    route_name: s.area.route.name,
+    route_name: s.route.name,
     extra_route_ids: s.route_links.filter((l) => l.route_id !== s.route_id).map((l) => l.route_id.toString()),
     extra_routes: s.route_links.filter((l) => l.route_id !== s.route_id).map((l) => ({ id: l.route.id.toString(), route_code: l.route.route_code, name: l.route.name })),
     zmcc_id: s.zmcc_id.toString(),
@@ -1796,13 +1755,8 @@ export async function getShopById(auth: ZmccAuthContext, shopId: bigint) {
   const shop = await prisma.zmccShop.findUnique({
     where: { id: shopId },
     include: {
-      area: {
-        include: {
-          route: {
-            include: { zmcc: true },
-          },
-        },
-      },
+      area: true,
+      route: true,
       chiller_ownership: true,
       creator: { select: { id: true, username: true, full_name: true } },
       updater: { select: { id: true, username: true, full_name: true } },
@@ -1845,10 +1799,10 @@ export async function getShopById(auth: ZmccAuthContext, shopId: bigint) {
       is_active: shop.area.is_active,
     },
     route: {
-      id: shop.area.route.id.toString(),
-      route_code: shop.area.route.route_code,
-      name: shop.area.route.name,
-      is_active: shop.area.route.is_active,
+      id: shop.route.id.toString(),
+      route_code: shop.route.route_code,
+      name: shop.route.name,
+      is_active: shop.route.is_active,
     },
     chiller_ownership: {
       id: shop.chiller_ownership.id.toString(),
@@ -1909,6 +1863,18 @@ async function addShopToActiveJourneysTx(
   }
 }
 
+/** The shop's home route: an active route of the shop's own ZMCC. */
+async function homeRouteFor(
+  routeIdRaw: string | undefined,
+  zmccId: bigint
+): Promise<{ ok: true; id: bigint } | { ok: false; status: number; error: string }> {
+  if (!routeIdRaw || !/^\d+$/.test(String(routeIdRaw))) return { ok: false, status: 400, error: 'Choose the route.' };
+  const route = await prisma.zmccRoute.findUnique({ where: { id: BigInt(routeIdRaw) } });
+  if (!route || route.zmcc_id !== zmccId) return { ok: false, status: 400, error: 'The route must be in the same ZMCC as the area.' };
+  if (!route.is_active) return { ok: false, status: 409, error: 'Cannot use an inactive route.' };
+  return { ok: true, id: route.id };
+}
+
 export async function createShop(
   auth: ZmccAuthContext,
   body: {
@@ -1918,10 +1884,12 @@ export async function createShop(
     phone_number: string;
     cnic: string;
     area_id: string;
+    /** Home route. The area is only where the shop is; it does not decide the route. */
+    route_id: string;
     chiller_ownership_id: string;
     latitude?: number | null;
     longitude?: number | null;
-    /** Routes the shop is also listed on, besides its home route (the route of its area). */
+    /** Routes the shop is also listed on, besides its home route. */
     extra_route_ids?: string[];
   }
 ): Promise<ServiceResult<unknown>> {
@@ -1935,8 +1903,8 @@ export async function createShop(
     return { status: 400, error: 'Shop name, owner name, phone number, and CNIC are required.' };
   }
 
-  if (!body.area_id || !body.chiller_ownership_id) {
-    return { status: 400, error: 'Area and Chiller Ownership selections are required.' };
+  if (!body.area_id || !body.route_id || !body.chiller_ownership_id) {
+    return { status: 400, error: 'Area, route and chiller ownership are required.' };
   }
 
   // Phone & CNIC validation
@@ -1956,38 +1924,32 @@ export async function createShop(
   const areaId = BigInt(body.area_id);
   const chillerOwnershipId = BigInt(body.chiller_ownership_id);
 
-  // Validate Area and its Route + ZMCC
-  const area = await prisma.zmccArea.findUnique({
-    where: { id: areaId },
-    include: {
-      route: { include: { zmcc: true } },
-    },
-  });
+  // The area (where the shop is) and the home route (how it is reached) must be in the same ZMCC.
+  const area = await prisma.zmccArea.findUnique({ where: { id: areaId }, include: { zmcc: true } });
   if (!area) {
     return { status: 400, error: 'Selected area not found.' };
   }
 
   const effectiveZmccId = area.zmcc_id;
-  const routeId = area.route_id;
 
   // Scoped user cross-ZMCC check
   if (!auth.isSuperAdmin && effectiveZmccId !== auth.effectiveZmccId) {
     return { status: 403, error: 'Forbidden. You cannot create shops outside your assigned ZMCC.' };
   }
 
-  // Hierarchy active checks
-  if (!area.zmcc_id || !area.route.zmcc.is_active) {
+  if (!area.zmcc.is_active) {
     return { status: 409, error: 'Cannot create shop: parent ZMCC is inactive.' };
   }
-  if (area.route.zmcc.source_type !== 'ZMCC') {
+  if (area.zmcc.source_type !== 'ZMCC') {
     return { status: 400, error: 'Target procurement source is not a valid ZMCC.' };
-  }
-  if (!area.route.is_active) {
-    return { status: 409, error: 'Cannot create shop: parent Route is inactive.' };
   }
   if (!area.is_active) {
     return { status: 409, error: 'Cannot create shop: parent Area is inactive.' };
   }
+
+  const homeRoute = await homeRouteFor(body.route_id, effectiveZmccId);
+  if (!homeRoute.ok) return { status: homeRoute.status, error: homeRoute.error };
+  const routeId = homeRoute.id;
 
   const extraRoutes = await resolveExtraRoutes(prisma, body.extra_route_ids, routeId, effectiveZmccId);
   if (!extraRoutes.ok) return { status: 400, error: extraRoutes.error };
@@ -2090,18 +2052,20 @@ export async function updateShop(
     phone_number?: string;
     cnic?: string;
     area_id?: string;
+    /** When given, the new home route (same ZMCC). */
+    route_id?: string;
     chiller_ownership_id?: string;
     latitude?: number | null;
     longitude?: number | null;
     is_active?: boolean;
-    /** When given, replaces the shop's extra routes (the home route is the route of its area). */
+    /** When given, replaces the shop's extra routes (besides its home route). */
     extra_route_ids?: string[];
   }
 ): Promise<ServiceResult<unknown>> {
   const existing = await prisma.zmccShop.findUnique({
     where: { id: shopId },
     include: {
-      area: { include: { route: { include: { zmcc: true } } } },
+      area: { include: { zmcc: true } },
       chiller_ownership: true,
       route_links: { select: { route_id: true } },
     },
@@ -2137,38 +2101,26 @@ export async function updateShop(
 
   if (body.area_id && BigInt(body.area_id) !== existing.area_id) {
     targetAreaId = BigInt(body.area_id);
-    const newArea = await prisma.zmccArea.findUnique({
-      where: { id: targetAreaId },
-      include: { route: { include: { zmcc: true } } },
-    });
+    const newArea = await prisma.zmccArea.findUnique({ where: { id: targetAreaId }, include: { zmcc: true } });
     if (!newArea) {
       return { status: 400, error: 'New area not found.' };
     }
-    // Hierarchy consistency check
-    if (!newArea.route || !newArea.route.zmcc || newArea.route.zmcc_id !== newArea.zmcc_id) {
-      return { status: 400, error: 'Cannot transfer shop: Area route and ZMCC hierarchy is inconsistent.' };
-    }
-    // Area must be in same ZMCC
+    // Moving the shop to another area changes only where it is, never its routes.
     if (newArea.zmcc_id !== existing.zmcc_id) {
       return { status: 409, error: 'Cannot transfer shop to an area in another ZMCC.' };
     }
-    // Source type must be ZMCC
-    if (newArea.route.zmcc.source_type !== 'ZMCC') {
-      return { status: 400, error: 'Cannot transfer shop: Target procurement source is not a valid ZMCC.' };
-    }
-    // Parent ZMCC must be active
-    if (!newArea.route.zmcc.is_active) {
+    if (!newArea.zmcc.is_active) {
       return { status: 409, error: 'Cannot transfer shop: Parent ZMCC is inactive.' };
     }
-    // Parent Route must be active
-    if (!newArea.route.is_active) {
-      return { status: 409, error: 'Cannot transfer shop: Parent Route is inactive.' };
-    }
-    // Area must be active
     if (!newArea.is_active) {
       return { status: 409, error: 'Cannot assign shop to an inactive area.' };
     }
-    targetRouteId = newArea.route_id;
+  }
+
+  if (body.route_id && body.route_id !== existing.route_id.toString()) {
+    const homeRoute = await homeRouteFor(body.route_id, existing.zmcc_id);
+    if (!homeRoute.ok) return { status: homeRoute.status, error: homeRoute.error };
+    targetRouteId = homeRoute.id;
   }
 
   // Name uniqueness check if name or area changed
@@ -2213,17 +2165,15 @@ export async function updateShop(
     targetActive = body.is_active;
     if (targetActive && !existing.is_active) {
       // Must verify all parents are active before reactivating
-      const activeArea = await prisma.zmccArea.findUnique({
-        where: { id: targetAreaId },
-        include: { route: { include: { zmcc: true } } },
-      });
+      const activeArea = await prisma.zmccArea.findUnique({ where: { id: targetAreaId }, include: { zmcc: true } });
+      const homeRoute = await prisma.zmccRoute.findUnique({ where: { id: targetRouteId } });
       if (!activeArea || !activeArea.is_active) {
         return { status: 409, error: 'Cannot activate shop: parent area is inactive.' };
       }
-      if (!activeArea.route.is_active) {
-        return { status: 409, error: 'Cannot activate shop: parent route is inactive.' };
+      if (!homeRoute?.is_active) {
+        return { status: 409, error: 'Cannot activate shop: its home route is inactive.' };
       }
-      if (!activeArea.route.zmcc.is_active) {
+      if (!activeArea.zmcc.is_active) {
         return { status: 409, error: 'Cannot activate shop: parent ZMCC is inactive.' };
       }
 
@@ -2375,60 +2325,50 @@ export async function requestNewShop(
   let targetAreaId: bigint | null = null;
   let targetRouteId: bigint | null = null;
 
+  // Area (where the shop is) and route (how it is reached) are chosen separately; both must be in one ZMCC.
   if (body.area_id) {
-    const area = await prisma.zmccArea.findUnique({
-      where: { id: BigInt(body.area_id) },
-      include: { route: true },
-    });
+    const area = await prisma.zmccArea.findUnique({ where: { id: BigInt(body.area_id) } });
     if (!area) return { status: 400, error: 'Selected area not found.' };
-    targetAreaId = area.id;
-    targetRouteId = area.route_id;
     if (!auth.isSuperAdmin && area.zmcc_id !== effectiveZmccId) {
       return { status: 403, error: 'Forbidden. Selected area belongs to a different ZMCC.' };
     }
+    targetAreaId = area.id;
     effectiveZmccId = area.zmcc_id;
-  } else if (body.route_id) {
-    const route = await prisma.zmccRoute.findUnique({
-      where: { id: BigInt(body.route_id) },
-      include: { areas: { where: { is_active: true } } },
-    });
+  }
+  if (body.route_id) {
+    const route = await prisma.zmccRoute.findUnique({ where: { id: BigInt(body.route_id) } });
     if (!route) return { status: 400, error: 'Selected route not found.' };
-    targetRouteId = route.id;
     if (!auth.isSuperAdmin && route.zmcc_id !== effectiveZmccId) {
       return { status: 403, error: 'Forbidden. Selected route belongs to a different ZMCC.' };
     }
+    if (targetAreaId && effectiveZmccId && route.zmcc_id !== effectiveZmccId) {
+      return { status: 400, error: 'The route and the area must be in the same ZMCC.' };
+    }
+    targetRouteId = route.id;
     effectiveZmccId = route.zmcc_id;
-    if (route.areas.length > 0) {
-      targetAreaId = route.areas[0].id;
-    } else {
-      let anyArea = await prisma.zmccArea.findFirst({ where: { route_id: route.id } });
-      if (!anyArea) {
-        anyArea = await prisma.zmccArea.create({
-          data: {
-            area_code: `AR-${route.route_code}-01`,
-            name: `${route.name} General`,
-            route_id: route.id,
-            zmcc_id: effectiveZmccId!,
-            is_active: true,
-            approval_status: 'ACTIVE',
-            created_by: auth.actorUserId,
-          },
-        });
-      }
-      targetAreaId = anyArea.id;
-    }
-  } else {
-    if (!effectiveZmccId) {
-      return { status: 400, error: 'Route or Area must be selected.' };
-    }
-    const defaultArea = await prisma.zmccArea.findFirst({
-      where: { zmcc_id: effectiveZmccId, is_active: true },
+  }
+  if (!effectiveZmccId) {
+    return { status: 400, error: 'Route or Area must be selected.' };
+  }
+  // Older phones send only one of the two: take the other from the shops already there.
+  if (!targetRouteId && targetAreaId) {
+    const neighbour = await prisma.zmccShop.findFirst({ where: { area_id: targetAreaId }, select: { route_id: true } });
+    if (!neighbour) return { status: 400, error: 'Choose the route for this shop.' };
+    targetRouteId = neighbour.route_id;
+  }
+  if (!targetAreaId && targetRouteId) {
+    const neighbour = await prisma.zmccShop.findFirst({
+      where: { route_id: targetRouteId, area: { is_active: true } },
+      select: { area_id: true },
     });
-    if (!defaultArea) {
-      return { status: 400, error: 'No active areas available in this ZMCC. Please create an area first.' };
-    }
-    targetAreaId = defaultArea.id;
-    targetRouteId = defaultArea.route_id;
+    const area = neighbour
+      ? { id: neighbour.area_id }
+      : await prisma.zmccArea.findFirst({ where: { zmcc_id: effectiveZmccId, is_active: true }, orderBy: { id: 'asc' } });
+    if (!area) return { status: 400, error: 'No active areas available in this ZMCC. Please create an area first.' };
+    targetAreaId = area.id;
+  }
+  if (!targetAreaId || !targetRouteId) {
+    return { status: 400, error: 'Route or Area must be selected.' };
   }
 
   // Validate or resolve Chiller Ownership
@@ -2541,11 +2481,7 @@ export async function approveShop(auth: ZmccAuthContext, shopId: bigint): Promis
 
   const existing = await prisma.zmccShop.findUnique({
     where: { id: shopId },
-    include: {
-      area: {
-        include: { route: true },
-      },
-    },
+    include: { area: true },
   });
   if (!existing) {
     return { status: 404, error: 'Shop not found.' };
@@ -2695,11 +2631,8 @@ export async function listPendingShops(auth: ZmccAuthContext) {
     where,
     orderBy: { created_at: 'desc' },
     include: {
-      area: {
-        include: {
-          route: { select: { id: true, route_code: true, name: true } },
-        },
-      },
+      area: true,
+      route: { select: { id: true, route_code: true, name: true } },
       creator: { select: { id: true, username: true, full_name: true } },
       route_links: { select: { route: { select: { route_code: true, name: true } } } },
     },
@@ -2723,8 +2656,8 @@ export async function listPendingShops(auth: ZmccAuthContext) {
     geotag_status: s.geotag_status,
     area_name: s.area.name,
     area_code: s.area.area_code,
-    route_name: s.area.route.name,
-    route_code: s.area.route.route_code,
+    route_name: s.route.name,
+    route_code: s.route.route_code,
     extra_route_names: s.route_links.map((l) => l.route.name),
     creator_name: s.creator.full_name || s.creator.username,
     created_at: s.created_at.toISOString(),

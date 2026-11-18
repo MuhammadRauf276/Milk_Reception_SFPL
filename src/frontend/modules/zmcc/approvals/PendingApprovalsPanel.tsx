@@ -42,7 +42,7 @@ export interface PendingRouteItem {
   created_by: string;
   creator_name: string;
   created_at: string;
-  areas: Array<{ id: string; name: string; area_code: string }>;
+  areas?: Array<{ id: string; name: string; area_code: string }>;
 }
 
 export interface PendingShopItem {
@@ -320,7 +320,7 @@ export const PendingApprovalsPanel: React.FC<PendingApprovalsPanelProps> = ({
                     <div className="text-xs text-secondary-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span>Origin: <strong className="text-foreground">{r.origin}</strong></span>
                       <span>Destination: <strong className="text-foreground">{r.destination}</strong></span>
-                      {r.areas.length > 0 && (
+                      {r.areas && r.areas.length > 0 && (
                         <span>
                           Initial Area:{' '}
                           <strong className="text-foreground">{r.areas[0].name}</strong>

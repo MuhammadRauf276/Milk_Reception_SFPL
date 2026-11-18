@@ -2,10 +2,10 @@
 
 import { typePakistaniCnic, typePakistaniMobile } from '@/lib/pakistani-identity';
 import React from 'react';
-import { Combobox } from '@/components/ui/combobox';
+import { InfoTip } from '@/components/ui/info-tip';
 import type { MasterFormProps } from './masterFormProps';
 
-export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData, setFormData, activeRecord, helperRoutes }) => (
+export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData, setFormData, activeRecord }) => (
   <>
               {/* HC Supplier Form */}
               {(modalType === 'CREATE_LOCAL_SUPPLIER' || modalType === 'EDIT_LOCAL_SUPPLIER') && (
@@ -112,23 +112,11 @@ export const OrgRecordForms: React.FC<MasterFormProps> = ({ modalType, formData,
               {/* Area Form */}
               {(modalType === 'CREATE_AREA' || modalType === 'EDIT_AREA') && (
                 <>
-                  {modalType === 'CREATE_AREA' && (
-                    <>
-                      <div>
-                        <label className="block text-xs font-semibold text-secondary-foreground mb-1">Parent route</label>
-                        <Combobox
-                          options={helperRoutes.map((r) => ({ value: r.id, label: `${r.name} · ${r.route_code}`, keywords: r.route_code }))}
-                          value={String(formData.route_id || '')}
-                          onValueChange={(v) => setFormData({ ...formData, route_id: v })}
-                          placeholder="Select an active route"
-                          searchPlaceholder="Search route"
-                          className="min-h-11 w-full text-xs font-semibold"
-                        />
-                      </div>
-                    </>
-                  )}
                   <div>
-                    <label className="block text-xs font-semibold text-secondary-foreground mb-1">Area name</label>
+                    <label className="mb-1 flex items-center gap-1 text-xs font-semibold text-secondary-foreground">
+                      Area name
+                      <InfoTip label="About areas" text="A village or place in this ZMCC. Shops in it can be on any route." />
+                    </label>
                     <input
                       type="text"
                       required

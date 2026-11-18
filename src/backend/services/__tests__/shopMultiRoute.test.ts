@@ -14,16 +14,15 @@ function superAdmin(userId: bigint): ZmccAuthContext {
 }
 
 async function pickRoutes() {
-  const area = await prisma.zmccArea.findFirst({
-    where: { is_active: true, route: { is_active: true, zmcc: { is_active: true, source_type: 'ZMCC' } } },
-    include: { route: true },
-  });
+  const area = await prisma.zmccArea.findFirst({ where: { is_active: true, zmcc: { is_active: true, source_type: 'ZMCC' } } });
   if (!area) return null;
-  const extra = await prisma.zmccRoute.findFirst({ where: { is_active: true, zmcc_id: area.zmcc_id, id: { not: area.route_id } } });
+  const home = await prisma.zmccRoute.findFirst({ where: { is_active: true, zmcc_id: area.zmcc_id }, orderBy: { id: 'asc' } });
+  if (!home) return null;
+  const extra = await prisma.zmccRoute.findFirst({ where: { is_active: true, zmcc_id: area.zmcc_id, id: { not: home.id } } });
   const foreign = await prisma.zmccRoute.findFirst({ where: { is_active: true, zmcc_id: { not: area.zmcc_id } } });
   const user = await prisma.user.findFirstOrThrow({ select: { id: true } });
   const chiller = await prisma.chillerOwnership.findFirstOrThrow({ where: { is_active: true } });
-  return { area, extra, foreign, userId: user.id, chillerId: chiller.id };
+  return { area, home, extra, foreign, userId: user.id, chillerId: chiller.id };
 }
 
 const body = (ctx: NonNullable<Awaited<ReturnType<typeof pickRoutes>>>, extra: string[]) => ({
@@ -33,6 +32,7 @@ const body = (ctx: NonNullable<Awaited<ReturnType<typeof pickRoutes>>>, extra: s
   phone_number: '03001234567',
   cnic: '35201-1234567-1',
   area_id: ctx.area.id.toString(),
+  route_id: ctx.home.id.toString(),
   chiller_ownership_id: ctx.chillerId.toString(),
   extra_route_ids: extra,
 });
@@ -41,7 +41,7 @@ test('a shop on a home route and one extra route is listed once on each route', 
   const ctx = await pickRoutes();
   if (!ctx || !ctx.extra) return t.skip('needs two active routes in one ZMCC');
   const auth = superAdmin(ctx.userId);
-  const home = ctx.area.route_id;
+  const home = ctx.home.id;
   const extra = ctx.extra.id;
 
   // The home route is passed too: it must never be stored twice.
@@ -87,6 +87,22 @@ test('a route of another ZMCC is refused', async (t) => {
   assert.equal(refused.status, 400);
   assert.match(String(refused.error), /ZMCC/);
   assert.equal(await prisma.zmccShop.count({ where: { shop_code: `${shopCode}-X` } }), before);
+});
+
+test('the area is only where the shop is: a home route of another ZMCC is refused, and moving area keeps the routes', async (t) => {
+  const ctx = await pickRoutes();
+  if (!ctx || !ctx.foreign || !shopId) return t.skip('needs the shop from the first test and routes in two ZMCCs');
+  const auth = superAdmin(ctx.userId);
+  const refused = await updateShop(auth, shopId, { route_id: ctx.foreign.id.toString() });
+  assert.equal(refused.status, 400);
+  const otherArea = await prisma.zmccArea.findFirst({ where: { zmcc_id: ctx.area.zmcc_id, is_active: true, id: { not: ctx.area.id } } });
+  if (!otherArea) return;
+  const before = await prisma.zmccShop.findUniqueOrThrow({ where: { id: shopId } });
+  const moved = await updateShop(auth, shopId, { area_id: otherArea.id.toString() });
+  assert.equal(moved.status, 200, JSON.stringify(moved));
+  const after = await prisma.zmccShop.findUniqueOrThrow({ where: { id: shopId } });
+  assert.equal(after.area_id, otherArea.id);
+  assert.equal(after.route_id, before.route_id, 'moving to another area does not change the home route');
 });
 
 test('collections stay on the route that was driven', async () => {

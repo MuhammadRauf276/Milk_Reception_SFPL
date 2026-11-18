@@ -63,13 +63,10 @@ const areaCols: MasterCol<AreaItem>[] = [
   { header: 'Area Code', tdClass: 'tabular-nums font-semibold text-foreground', cell: (a) => a.area_code },
   { header: 'Area Name', tdClass: 'font-semibold text-foreground', cell: (a) => a.name },
   {
-    header: 'Route',
+    header: 'Routes',
     tdClass: 'text-secondary-foreground',
-    cell: (a) => (
-      <>
-        {a.route.name} <span className="text-xs tabular-nums text-muted-foreground">({a.route.route_code})</span>
-      </>
-    ),
+    // Routes through the area: the routes of its shops, worked out live.
+    cell: (a) => (a.routes.length === 0 ? <span className="text-muted-foreground">-</span> : a.routes.map((r) => r.name).join(', ')),
   },
   { header: 'Shops', align: 'center', tdClass: 'font-semibold tabular-nums', cell: (a) => a.shop_count || 0 },
   status<AreaItem>(),

@@ -73,9 +73,10 @@ export interface AreaItem {
   id: string;
   area_code: string;
   name: string;
-  route_id: string;
   zmcc_id: string;
-  route: { id: string; route_code: string; name: string; is_active: boolean };
+  zmcc?: { id: string; code: string; name: string };
+  /** Routes through this area: the routes of its shops, worked out live. */
+  routes: Array<{ id: string; route_code: string; name: string }>;
   is_active: boolean;
   creator_name: string;
   updater_name: string | null;

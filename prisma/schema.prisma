@@ -469,6 +469,7 @@ model ProcurementSource {
   visits                       VehicleVisit[]                   @relation("VisitSource")
   quantity_policy_snapshots    DispatchQuantityPolicySnapshot[] @relation("SourcePolicySnapshots")
   zmcc_routes                  ZmccRoute[]                      @relation("ZmccRoutes")
+  zmcc_areas                   ZmccArea[]                       @relation("ZmccAreas")
   zmcc_milk_sources            ZmccMilkSource[]                 @relation("ZmccMilkSources")
   mot_profiles                 MotProfile[]                     @relation("ZmccMotProfiles")
   mot_vehicles                 MotVehicle[]                     @relation("ZmccMotVehicles")
@@ -989,7 +990,7 @@ model ZmccRoute {
   zmcc            ProcurementSource   @relation("ZmccRoutes", fields: [zmcc_id], references: [id], onDelete: Restrict)
   creator         User                @relation("ZmccRouteCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
   updater         User?               @relation("ZmccRouteUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
-  areas           ZmccArea[]
+  home_shops      ZmccShop[]          @relation("ZmccShopHomeRoute")
   mot_journeys    MotJourney[]
   mot_collections MotShopCollection[] @relation("ZmccRouteMotCollections")
   shop_links      ZmccRouteShop[]
@@ -1004,7 +1005,7 @@ model ZmccArea {
   id                    BigInt    @id @default(autoincrement())
   area_code             String    @unique @map("area_code") @db.VarChar(50)
   name                  String    @map("name") @db.VarChar(150)
-  route_id              BigInt    @map("route_id")
+  /// An area is a place inside a ZMCC; the routes through it are read from its shops' routes.
   zmcc_id               BigInt    @map("zmcc_id")
   is_active             Boolean   @default(true) @map("is_active")
   approval_status       String    @default("ACTIVE") @map("approval_status") @db.VarChar(50)
@@ -1021,14 +1022,13 @@ model ZmccArea {
   updated_at            DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
-  route   ZmccRoute  @relation(fields: [route_id, zmcc_id], references: [id, zmcc_id], onDelete: Restrict)
-  creator User       @relation("ZmccAreaCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
-  updater User?      @relation("ZmccAreaUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
+  zmcc    ProcurementSource @relation("ZmccAreas", fields: [zmcc_id], references: [id], onDelete: Restrict)
+  creator User              @relation("ZmccAreaCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
+  updater User?             @relation("ZmccAreaUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
   shops   ZmccShop[]
 
-  @@unique([route_id, name])
-  @@unique([id, route_id, zmcc_id])
-  @@index([route_id])
+  @@unique([zmcc_id, name])
+  @@unique([id, zmcc_id])
   @@index([zmcc_id])
   @@map("zmcc_area")
 }
@@ -1110,7 +1110,9 @@ model ZmccShop {
   updated_at                     DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
-  area              ZmccArea            @relation(fields: [area_id, route_id, zmcc_id], references: [id, route_id, zmcc_id], onDelete: Restrict)
+  area              ZmccArea            @relation(fields: [area_id, zmcc_id], references: [id, zmcc_id], onDelete: Restrict)
+  /// Home route; extra routes are in route_links.
+  route             ZmccRoute           @relation("ZmccShopHomeRoute", fields: [route_id, zmcc_id], references: [id, zmcc_id], onDelete: Restrict)
   chiller_ownership ChillerOwnership    @relation(fields: [chiller_ownership_id], references: [id], onDelete: Restrict)
   creator           User                @relation("ZmccShopCreatedBy", fields: [created_by], references: [id], onDelete: Restrict)
   updater           User?               @relation("ZmccShopUpdatedBy", fields: [updated_by], references: [id], onDelete: Restrict)
