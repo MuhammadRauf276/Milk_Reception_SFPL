@@ -790,6 +790,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         children: MPD_VIEW_LINKS,
       },
       {
+        id: 'mpd-fleet',
+        label: 'Fleet',
+        icon: Truck,
+        href: '/super-admin/fleet',
+      },
+      {
         id: 'tv-board',
         label: 'Yard Board',
         icon: Tv,

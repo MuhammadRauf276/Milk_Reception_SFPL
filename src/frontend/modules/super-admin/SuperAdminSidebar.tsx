@@ -8,7 +8,7 @@ import {
 import { User } from '@core/types';
 import { Sheet } from '@/components/ui/sheet';
 import { NavPanel, formatRoleLabel } from '@/frontend/modules/shared/navigation/NavPanel';
-import type { RoleNavSection } from '@/frontend/modules/shared/navigation/roleNavConfig';
+import { getRoleNavSections, type RoleNavSection } from '@/frontend/modules/shared/navigation/roleNavConfig';
 import { DATA_EXECUTIVE_NAV_ITEMS, SUPER_ADMIN_NAV_ITEMS, toSection } from '@/frontend/modules/shared/navigation/adminNav';
 import { canSeeTestPolicies, isTestPolicyPath } from '@/lib/test-policy-access';
 import { getTeamStationsForRole } from '@/frontend/modules/shared/delegation/stations';
@@ -42,6 +42,8 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
 
   const sections = useMemo<RoleNavSection[]>(() => {
     const role = currentUser?.role;
+    // Other roles allowed on an admin page (for example the MPD Head on Fleet) keep their own menu.
+    if (role !== 'SUPER_ADMIN' && role !== 'DATA_EXECUTIVE') return getRoleNavSections(currentUser ?? null, currentSourceId);
     const isDataExec = role === 'DATA_EXECUTIVE';
     const items = (isDataExec ? DATA_EXECUTIVE_NAV_ITEMS : SUPER_ADMIN_NAV_ITEMS).filter((item) => canSeeTestPolicies(role) || !isTestPolicyPath(item.href));
     const baseSections: RoleNavSection[] = items.map(toSection);
@@ -65,7 +67,7 @@ export const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({
       return next;
     }
     return [...baseSections, teamSection];
-  }, [currentUser?.role, currentSourceId]);
+  }, [currentUser, currentSourceId]);
 
   const isActive = useCallback(
     (href: string) => {

@@ -110,13 +110,14 @@ export const MOT_ACTION_ROLES: Record<MotAction, { roles: readonly string[]; del
   ASSIGN_DISPATCH: { roles: ['MDO'], delegation: 'ancestors' },
   CANCEL_JOURNEY: { roles: ['ZMCC_MANAGER'], delegation: 'ancestors' },
   WRITE_PROFILE: { roles: ['ZMCC_MANAGER', 'DATA_EXECUTIVE'], delegation: 'ancestors' },
-  WRITE_VEHICLE: { roles: ['DATA_EXECUTIVE', 'SUPER_ADMIN'], delegation: 'none' },
-  READ_FLEET: { roles: ['DATA_EXECUTIVE', 'SUPER_ADMIN'], delegation: 'none' },
+  // Fleet (add, change, move vehicles between ZMCCs): Super Admin, Data Executive and the MPD Head.
+  WRITE_VEHICLE: { roles: ['DATA_EXECUTIVE', 'SUPER_ADMIN', 'HEAD_OF_MPD'], delegation: 'none' },
+  READ_FLEET: { roles: ['DATA_EXECUTIVE', 'SUPER_ADMIN', 'HEAD_OF_MPD'], delegation: 'none' },
   SUBMIT_COLLECTION: { roles: ['MOT'], delegation: 'ancestors' },
   SKIP_STOP: { roles: ['MOT'], delegation: 'ancestors' },
   READ_CURRENT_JOURNEY: { roles: ['MOT'], delegation: 'ancestors' },
   UPLOAD_GPS: { roles: ['MOT'], delegation: 'none' },
-  TRANSFER_VEHICLE: { roles: ['DATA_EXECUTIVE'], delegation: 'none' },
+  TRANSFER_VEHICLE: { roles: ['DATA_EXECUTIVE', 'HEAD_OF_MPD'], delegation: 'none' },
   // CORRECT is non-delegable: Data Executive + Super Admin only (isCorrectionAuthority).
   CORRECT_COLLECTION: { roles: ['DATA_EXECUTIVE', 'SUPER_ADMIN'], delegation: 'none' },
   RETURN_TO_PHE: { roles: ['MOT'], delegation: 'ancestors' },
@@ -135,13 +136,13 @@ const MOT_FORBIDDEN_MESSAGE: Record<MotAction, string> = {
   ASSIGN_DISPATCH: 'Forbidden. Only an MDO or a Zonal Manager can send out an MOT.',
   CANCEL_JOURNEY: 'Forbidden. Only a Zonal Manager can cancel a journey.',
   WRITE_PROFILE: 'Forbidden. Only a Zonal Manager can change MOT profiles.',
-  WRITE_VEHICLE: 'Forbidden. Only the Data Executive or Super Admin can change MC vehicles.',
+  WRITE_VEHICLE: 'Forbidden. Only the MPD Head, Data Executive or Super Admin can change MC vehicles.',
   SUBMIT_COLLECTION: 'Forbidden. Only an MOT (or a manager covering MOT work) can save shop milk.',
   SKIP_STOP: 'Forbidden. Only an MOT (or a manager covering MOT work) can skip a shop.',
   READ_CURRENT_JOURNEY: 'Forbidden. This screen is for MOT work.',
   UPLOAD_GPS: 'Forbidden. Only the MOT on the journey can send GPS.',
-  READ_FLEET: 'Forbidden. Only Data Executive or Super Admin can see the whole fleet.',
-  TRANSFER_VEHICLE: 'Forbidden. Only Data Executive or Super Admin can move a vehicle to another ZMCC.',
+  READ_FLEET: 'Forbidden. Only the MPD Head, Data Executive or Super Admin can see the whole fleet.',
+  TRANSFER_VEHICLE: 'Forbidden. Only the MPD Head, Data Executive or Super Admin can move a vehicle to another ZMCC.',
   CORRECT_COLLECTION: 'Forbidden. Only Data Executive or Super Admin may correct collections.',
   RETURN_TO_PHE: 'Forbidden. Only an MOT (or a manager covering MOT work) can return the journey to PHE.',
   RESUME_COLLECTION: 'Forbidden. Only an MOT (or a manager covering MOT work) can resume collection.',
@@ -1273,12 +1274,11 @@ export async function transferMotVehicle(
   vehicleId: string,
   targetZmccId: string
 ): Promise<ServiceResult<Record<string, unknown>>> {
-  // Authorize strictly for SUPER_ADMIN and DATA_EXECUTIVE.
-  // Reject ZMCC_MANAGER, PHE_OPERATOR, and all other non-central roles with 403 Forbidden.
-  if (auth.role !== 'SUPER_ADMIN' && auth.role !== 'DATA_EXECUTIVE') {
+  // Central roles only: Super Admin, Data Executive and the MPD Head. ZMCC roles cannot move vehicles between ZMCCs.
+  if (auth.role !== 'SUPER_ADMIN' && auth.role !== 'DATA_EXECUTIVE' && auth.role !== 'HEAD_OF_MPD') {
     return {
       status: 403,
-      error: 'Forbidden. Cross-ZMCC vehicle transfer is restricted to Super Admin and Data Executive.',
+      error: 'Forbidden. Only the MPD Head, Data Executive or Super Admin can move a vehicle to another ZMCC.',
     };
   }
 
