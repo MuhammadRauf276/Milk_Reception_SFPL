@@ -73,7 +73,7 @@ export function JourneyDetailSheet({ journey, onClose }: { journey: JourneyItem;
                         </div>
                       </div>
                       <div className="p-2 bg-card rounded-lg border border-border">
-                        <div className="text-xs font-semibold text-muted-foreground">@13TS L</div>
+                        <div className="text-xs font-semibold text-muted-foreground">@13 TS L</div>
                         <div className="text-xs tabular-nums font-semibold text-foreground">
                           {journey.summary.total_at_13ts_liters.toFixed(2)} L
                         </div>

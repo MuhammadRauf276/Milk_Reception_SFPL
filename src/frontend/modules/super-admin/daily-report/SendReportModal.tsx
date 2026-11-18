@@ -42,11 +42,11 @@ export const SendReportModal: React.FC<SendReportModalProps> = ({ isOpen, onClos
 
 ⚖️ *Exceptions & Loss Performance:* // ui-text-ignore
 • Exceptions Handled: // ui-text-ignore ${kpis.exceptions.totalHandled} (${kpis.exceptions.approvedCount} approved · ${kpis.exceptions.rejectedCount} rejected)
-• MOT Loss / Gain (@13% TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.mot)}
-• Area Loss / Gain (@13% TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.area)}
-• Transit Loss / Gain (@13% TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.transitNet)}
-• Whole Loss / Gain (@13% TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.whole)}
-• Contractor Transit Loss / Gain (@13% TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.contractorTransit)}
+• MOT Loss / Gain (@13 TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.mot)}
+• Area Loss / Gain (@13 TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.area)}
+• Transit Loss / Gain (@13 TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.transitNet)}
+• Whole Loss / Gain (@13 TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.whole)}
+• Contractor Transit Loss / Gain (@13 TS): // ui-text-ignore ${lossPct(kpis.losses.levels?.contractorTransit)}
 ${executiveNote ? `\n📝 *Executive Note:* ${executiveNote}` : ''} // ui-text-ignore
 🔗 View & Export Complete Excel at: // ui-text-ignore /super-admin/daily-report?date=${reportData.date}`;
 

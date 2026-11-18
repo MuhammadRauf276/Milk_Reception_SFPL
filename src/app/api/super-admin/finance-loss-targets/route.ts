@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       newValues: { metric: row.metric, target_percent: target, effective_from: now.toISOString(), reason },
       actor: auditActorFromUser(current),
     });
-    await createNotificationsForEvent(tx, { eventKey: 'FINANCE_TARGET_CHANGED', sourceId: row.id.toString(), title: 'MTD 13TS loss target changed', body: `The active target is now ${target}%.`, deepLink: '/super-admin/reports', dedupeSuffix: row.id.toString() });
+    await createNotificationsForEvent(tx, { eventKey: 'FINANCE_TARGET_CHANGED', sourceId: row.id.toString(), title: 'MTD @13 TS loss target changed', body: `The active target is now ${target}%.`, deepLink: '/super-admin/reports', dedupeSuffix: row.id.toString() });
     return row;
   });
   return NextResponse.json(serialize(created), { status: 201 });

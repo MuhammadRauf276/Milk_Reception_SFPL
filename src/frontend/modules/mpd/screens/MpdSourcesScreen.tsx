@@ -199,7 +199,7 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
                     <div>
                       <div className="text-xs text-muted-foreground font-medium">Received today</div>
                       <div className="tabular-nums font-semibold text-foreground text-sm">
-                        {z.intakeAt13tsLiters.toLocaleString()} L
+                        {z.intakeAt13tsLiters.toLocaleString()} L<span className="ml-1 text-xs font-semibold text-muted-foreground">@13 TS</span>
                       </div>
                       <div className="tabular-nums text-xs text-muted-foreground">Gross {z.intakeLiters.toLocaleString()} L</div>
                       {z.intakeMissing13tsCount > 0 ? <div className="text-xs text-amber-700">{z.intakeMissing13tsCount} without tests</div> : null}
@@ -214,10 +214,10 @@ export const MpdSourcesScreen: React.FC<MpdSourcesScreenProps> = ({
 
                   <div className="mt-3">
                     <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-secondary-foreground font-medium">Tank stock (@13% TS)</span>
+                      <span className="text-secondary-foreground font-medium">Tank stock (@13 TS)</span>
                       <span className="tabular-nums font-semibold text-foreground">
                         {z.siloStockAt13tsLiters != null
-                          ? `${z.siloStockAt13tsLiters.toLocaleString()} L @13% TS`
+                          ? `${z.siloStockAt13tsLiters.toLocaleString()} L @13 TS`
                           : '—'}
                         {' '}
                         <span className="font-normal text-muted-foreground">

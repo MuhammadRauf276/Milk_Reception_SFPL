@@ -131,8 +131,8 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
     },
     {
       key: 'ts13',
-      header: '@13% TS (L)',
-      label: '@13% TS (L)',
+      header: '@13 TS (L)',
+      label: '@13 TS (L)',
       align: 'right',
       cell: (tx) => {
         const isIn = isPositiveType(tx.transaction_type);
@@ -209,7 +209,7 @@ export function ZmccTankLedgerDrawer({ tank, onClose }: Props) {
               </span>
             </div>
             <div className="bg-card p-2 rounded-lg border border-border">
-              <span className="text-xs text-muted-foreground font-medium block">Commercial @13% TS</span>
+              <span className="text-xs text-muted-foreground font-medium block">Commercial @13 TS</span>
               <span className="font-mono font-semibold text-foreground tabular-nums">
                 {data?.tank.current_commercial_stock_at_13ts !== null && data?.tank.current_commercial_stock_at_13ts !== undefined
                   ? `${Number(data.tank.current_commercial_stock_at_13ts).toLocaleString()} L`

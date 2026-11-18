@@ -74,7 +74,7 @@ export const ProductionHeadWorkspace: React.FC<ProductionHeadWorkspaceProps> = (
       case 'SILOS':
         return {
           title: 'Plant silos',
-          subtitle: 'Stock, @13% TS and capacity',
+          subtitle: 'Stock, @13 TS and capacity',
         };
       case 'HISTORY':
         return {

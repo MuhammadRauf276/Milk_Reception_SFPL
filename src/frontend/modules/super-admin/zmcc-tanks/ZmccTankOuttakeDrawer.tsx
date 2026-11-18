@@ -14,7 +14,7 @@ interface Props {
   onSaved: (message: string) => void;
 }
 
-/** Super Admin takes milk out of a tank. @13% TS leaves in proportion to what is in the tank. */
+/** Super Admin takes milk out of a tank. @13 TS leaves in proportion to what is in the tank. */
 export function ZmccTankOuttakeDrawer({ tank, onClose, onSaved }: Props) {
   const [grossLiters, setGrossLiters] = useState('');
   const [reason, setReason] = useState('');
@@ -83,7 +83,7 @@ export function ZmccTankOuttakeDrawer({ tank, onClose, onSaved }: Props) {
           <p className="font-semibold tabular-nums">{stock.toLocaleString('en-US', { minimumFractionDigits: 2 })} L</p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">In tank (@13% TS)</p>
+          <p className="text-xs text-muted-foreground">In tank (@13 TS)</p>
           <p className="font-semibold tabular-nums">{stockAt13 != null ? `${stockAt13.toLocaleString('en-US', { minimumFractionDigits: 2 })} L` : '—'}</p>
         </div>
       </div>
@@ -105,7 +105,7 @@ export function ZmccTankOuttakeDrawer({ tank, onClose, onSaved }: Props) {
       </div>
       {gross > 0 && !tooMuch && (
         <p className="text-sm text-secondary-foreground">
-          @13% TS going out: <strong className="tabular-nums">{at13Out != null ? `${at13Out.toFixed(2)} L` : '—'}</strong>. Left in tank:{' '}
+          @13 TS going out: <strong className="tabular-nums">{at13Out != null ? `${at13Out.toFixed(2)} L` : '—'}</strong>. Left in tank:{' '}
           <strong className="tabular-nums">{(stock - gross).toFixed(2)} L</strong> gross.
         </p>
       )}

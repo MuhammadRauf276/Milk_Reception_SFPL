@@ -56,7 +56,7 @@ export function MpdReconciliationOverview() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="bg-card border-border rounded-2xl border p-4">
-              <p className="text-xs font-semibold text-muted-foreground">Loss / Gain @13% TS</p>
+              <p className="text-xs font-semibold text-muted-foreground">Loss / Gain @13 TS</p>
               <p className={`mt-1 text-lg font-semibold ${lossGainClass(report.summary.at13tsNetLiters)}`}>
                 {formatLossGain(report.summary.at13tsNetLiters)}
               </p>
@@ -82,7 +82,7 @@ export function MpdReconciliationOverview() {
             <div className="bg-card border-border rounded-2xl border p-4">
               <p className="text-xs font-semibold text-muted-foreground">Unresolved exposure</p>
               <p className="mt-1 text-lg font-semibold">
-                {report.summary.unresolvedJourneys} journeys · {number(report.summary.unresolvedOriginAt13tsLiters)} L
+                {report.summary.unresolvedJourneys} journeys · {number(report.summary.unresolvedOriginAt13tsLiters)} L @13 TS
               </p>
             </div>
           </div>

@@ -663,7 +663,7 @@ export function computeCompletedReceiptQuantityComparison(
     sumFinalReceived += g.physicalReceivedLiters;
   }
 
-  // Check 13% TS complete population
+  // Check @13 TS complete population
   let sumDispatch13Ts = 0;
   let sumPlant13Ts = 0;
   let all13TsPresent = true;
@@ -743,7 +743,7 @@ export function computeManagerOverview(
     }
   }
 
-  // E. Paired Quantity and 13% TS Comparison (Across EXACT same receiptPeriodGroups)
+  // E. Paired Quantity and @13 TS Comparison (Across EXACT same receiptPeriodGroups)
   const paired = computeCompletedReceiptQuantityComparison(receiptPeriodGroups);
 
   return {
@@ -976,7 +976,7 @@ export function deriveVehicleReconciliationItems(
 
     const grossVariancePercentText = grossVariancePercent != null ? formatLossGainPercent(grossVariancePercent) : '—';
 
-    // Canonical @13TS Variance & Percent
+    // Canonical @13 TS Variance & Percent
     const at13TsVarianceLiters = primary.at_13ts_variance_liters != null ? Number(primary.at_13ts_variance_liters) : null;
     const at13TsVariancePercent = primary.at_13ts_variance_percent != null ? Number(primary.at_13ts_variance_percent) : null;
 
@@ -1545,7 +1545,7 @@ export function filterHistoryTransactionItems(
 
 /**
  * Generates CSV content from filtered HistoryTransactionItem records.
- * Strictly adheres to authoritative fields (no computed plant liters fallback, no fake 13% TS).
+ * Strictly adheres to authoritative fields (no computed plant liters fallback, no fake @13 TS).
  */
 export function generateHistoryCsv(items: HistoryTransactionItem[], _sourceName: string): string {
   const headers = [
@@ -1556,12 +1556,12 @@ export function generateHistoryCsv(items: HistoryTransactionItem[], _sourceName:
     'Portion Count',
     'Portion QA Summary',
     'Dispatch Gross Liters',
-    'Dispatch @13TS Liters',
+    'Dispatch @13 TS Liters',
     'First Weight (kg)',
     'Second Weight (kg)',
     'Net Milk Weight (kg)',
     'Physical Received Liters',
-    'Plant Received @13TS Liters',
+    'Plant Received @13 TS Liters',
     'Destination Silo',
     'Final Receipt Date/Time',
   ];

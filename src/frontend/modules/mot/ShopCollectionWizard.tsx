@@ -363,7 +363,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                       <p className="text-xs text-secondary-foreground">Density: {livePreview.density}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-emerald-800">At 13 TS Liters</p>
+                      <p className="text-xs font-semibold text-emerald-800">@13 TS Liters</p>
                       <p className="text-base font-semibold tabular-nums text-emerald-700">{livePreview.at13TsLiters} L</p>
                       <p className="text-xs text-secondary-foreground">
                         SNF {livePreview.snf}% · TS {livePreview.totalSolids}%
@@ -460,7 +460,7 @@ export function ShopCollectionWizard(props: ShopCollectionWizardProps) {
                   <p className="text-xs text-secondary-foreground">Density: {livePreview.density}</p>
                 </div>
                 <div>
-                  <span className="text-xs font-semibold text-emerald-800">At 13 TS Quantity</span>
+                  <span className="text-xs font-semibold text-emerald-800">@13 TS Quantity</span>
                   <p className="text-lg font-semibold tabular-nums text-emerald-700">{livePreview.at13TsLiters} L</p>
                   <p className="text-xs text-secondary-foreground">
                     SNF: {livePreview.snf}% · TS: {livePreview.totalSolids}%

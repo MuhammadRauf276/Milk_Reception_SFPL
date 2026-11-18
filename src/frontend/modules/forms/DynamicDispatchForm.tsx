@@ -1568,7 +1568,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
                 <div className="text-sm font-semibold text-foreground tabular-nums mt-0.5">{fmt2(result.totals.weightedFat)}%</div>
               </div>
               <div className="bg-card border-border p-3 rounded-xl border">
-                <div className="text-xs font-semibold text-muted-foreground">L @ 13 TS</div>
+                <div className="text-xs font-semibold text-muted-foreground">L @13 TS</div>
                 <div className="text-sm font-semibold text-foreground tabular-nums mt-0.5">{fmtL(result.totals.weightedTs13)}</div>
               </div>
             </div>

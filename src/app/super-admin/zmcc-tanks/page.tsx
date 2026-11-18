@@ -239,8 +239,8 @@ export default function SuperAdminZmccTanksPage() {
     },
     {
       key: 'ts13',
-      header: 'Stock @13% TS',
-      label: 'Stock @13% TS',
+      header: 'Stock @13 TS',
+      label: 'Stock @13 TS',
       align: 'right',
       cell: (t) => (
         <span className="font-mono font-semibold tabular-nums text-foreground">
@@ -352,13 +352,13 @@ export default function SuperAdminZmccTanksPage() {
 
         <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-semibold">
-            <span>Commercial @13% TS stock</span>
+            <span>Commercial @13 TS stock</span>
             <Layers className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="font-mono text-2xl font-semibold text-foreground tabular-nums mt-1">
             {stats.total13Ts.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
           </div>
-          <div className="text-xs text-muted-foreground mt-0.5">Standardized 13% TS</div>
+          <div className="text-xs text-muted-foreground mt-0.5">Standardized @13 TS</div>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-4 shadow-2xs">

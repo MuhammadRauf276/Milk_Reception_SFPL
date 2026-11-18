@@ -199,7 +199,7 @@ export async function getTankPhysicalStock(
   }
 
   /**
-   * Physical and @13TS stock of several tanks from one scan of the ledger (the two batch functions above read it twice).
+   * Physical and @13 TS stock of several tanks from one scan of the ledger (the two batch functions above read it twice).
    */
   export async function getBatchTankStocks(
     tankIds: bigint[]
@@ -248,8 +248,8 @@ export async function getTankPhysicalStock(
   }
 
   /**
-   * Batch calculates current commercial stock (@13TS Liters) across multiple tanks.
-   * Returns a Map of tankId string -> commercial stock number (@13TS).
+   * Batch calculates current commercial stock (@13 TS Liters) across multiple tanks.
+   * Returns a Map of tankId string -> commercial stock number (@13 TS).
    */
   export async function getBatchTankCommercialStock(
     tankIds: bigint[],
@@ -281,8 +281,8 @@ export async function getTankPhysicalStock(
   }
 
   /**
-   * Calculates current commercial stock (@13TS Liters) of a tank strictly from immutable ledger transactions.
-   * Current Tank Commercial Stock (@13TS) = SUM(RECEIPT) + SUM(ADJUSTMENT_IN) - SUM(ISSUE) - SUM(ADJUSTMENT_OUT)
+   * Calculates current commercial stock (@13 TS Liters) of a tank strictly from immutable ledger transactions.
+   * Current Tank Commercial Stock (@13 TS) = SUM(RECEIPT) + SUM(ADJUSTMENT_IN) - SUM(ISSUE) - SUM(ADJUSTMENT_OUT)
    *
    * FAILS TRUTHFULLY WHEN INCOMPLETE:
    * If ANY applicable transaction row required for the balance has NULL at_13ts_liters,
@@ -1000,7 +1000,7 @@ export interface IntakeZmccTankStockPayload {
 /**
  * Super Admin manual milk intake into a ZMCC Tank.
  * Designed for scenarios where field staff (MOT / collection / supplier attendants) are unavailable for several days.
- * Strictly checks capacity, records an ADJUSTMENT_IN transaction with both gross liters and @13% TS liters,
+ * Strictly checks capacity, records an ADJUSTMENT_IN transaction with both gross liters and @13 TS liters,
  * and maintains immutable ledger transparency and audit logs.
  */
 export async function intakeZmccTankStock(
@@ -1045,13 +1045,13 @@ export async function intakeZmccTankStock(
     } else {
       return {
         status: 400,
-        error: 'Either @13% TS liters or quality parameters (Fat and LR) must be provided to determine commercial volume.',
+        error: 'Either @13 TS liters or quality parameters (Fat and LR) must be provided to determine commercial volume.',
       };
     }
   }
 
   if (finalAt13tsLiters <= 0 || isNaN(finalAt13tsLiters)) {
-    return { status: 400, error: 'Invalid calculated or provided @13% TS liters.' };
+    return { status: 400, error: 'Invalid calculated or provided @13 TS liters.' };
   }
 
   const rawClientKey = (payload.client_event_id || (payload as any).idempotencyKey || (payload as any).clientOperationId || '').trim();
@@ -1160,7 +1160,7 @@ export async function intakeZmccTankStock(
   }
 }
 
-/** Super Admin takes milk out of a tank. @13% TS leaves in proportion to what is in the tank. */
+/** Super Admin takes milk out of a tank. @13 TS leaves in proportion to what is in the tank. */
 export async function outtakeZmccTankStock(
   reqOrUser: ZmccAuthInput,
   tankIdParam: string | number | bigint,
@@ -1623,7 +1623,7 @@ export async function receiveHistoricalSession(
 // ============================================================================
 // ZMCC weighing per VEHICLE (lab session), then ONE "Unload to ZMCC tank" action.
 // Done by MDO / PHE Operator (and superiors). Saving weights books nothing into the tank.
-// Operator-facing views never carry litres, 13 TS, LR, SNF or TS.
+// Operator-facing views never carry litres, @13 TS, LR, SNF or TS.
 // ============================================================================
 
 export const WEIGHING_ROLES = ['MDO', 'PHE_OPERATOR'] as const;
@@ -2218,9 +2218,9 @@ export async function unloadSessionToTank(
         if (m.grossLiters <= 0) {
           throw new WeighingError(400, `Portion ${p.portion_number}: the quantity is too small. Please check it.`);
         }
-        // Without TS the milk would enter the tank with gross litres but no @13% TS litres.
+        // Without TS the milk would enter the tank with gross litres but no @13 TS litres.
         if (m.at13tsLiters <= 0) {
-          throw new WeighingError(400, `Portion ${p.portion_number} has no Fat and LR result, so @13% TS cannot be worked out.`);
+          throw new WeighingError(400, `Portion ${p.portion_number} has no Fat and LR result, so @13 TS cannot be worked out.`);
         }
         return {
           portion: p,

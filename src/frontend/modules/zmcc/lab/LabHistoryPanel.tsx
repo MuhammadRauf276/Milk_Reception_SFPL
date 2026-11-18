@@ -25,7 +25,7 @@ export interface LabHistoryPanelProps {
   canDirectCorrect: boolean;
   /** Roles below Data Executive raise a correction ticket instead of correcting. */
   canRequestCorrection: boolean;
-  /** Lab attendant never sees litres or 13TS figures. */
+  /** Lab attendant never sees litres or @13 TS figures. */
   showLitres: boolean;
   openCorrection: (session: LabSession) => void;
   openRequestCorrection: (session: LabSession) => void;
@@ -131,8 +131,8 @@ export const LabHistoryPanel: React.FC<LabHistoryPanelProps> = ({
           },
           {
             key: 'ts13',
-            header: '@13% TS Liters',
-            label: '@13% TS Liters',
+            header: '@13 TS Liters',
+            label: '@13 TS Liters',
             cell: (item: LabSession) => (
               <span className="tabular-nums font-semibold text-emerald-700">
                 {item.at_13ts_liters != null ? `${Number(item.at_13ts_liters).toFixed(2)} L` : '—'}

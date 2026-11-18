@@ -254,7 +254,7 @@ export const ZMCCManagerWorkspace: React.FC<ZMCCManagerWorkspaceProps> = ({
         | null;
       const tanks = Array.isArray(td) ? td : td?.tanks || td?.items;
       if (Array.isArray(tanks) && tanks.length > 0) {
-        // Sum @13% TS across all tanks; one unknown tank makes the total unknown.
+        // Sum @13 TS across all tanks; one unknown tank makes the total unknown.
         let sum = 0;
         let known = true;
         for (const t of tanks as Array<Record<string, unknown>>) {

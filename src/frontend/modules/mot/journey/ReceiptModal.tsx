@@ -26,7 +26,7 @@ export function ReceiptModal({
           <div>
             <h4 className="text-xs font-semibold text-emerald-900">Collection saved</h4>
             <p className="text-xs text-emerald-800 mt-0.5">
-              {completedReceiptModal.shopName} · {completedReceiptModal.grossLiters.toFixed(1)} L (@13TS: {completedReceiptModal.at13tsLiters.toFixed(1)} L)
+              {completedReceiptModal.shopName} · {completedReceiptModal.grossLiters.toFixed(1)} L (@13 TS: {completedReceiptModal.at13tsLiters.toFixed(1)} L)
             </p>
           </div>
         </div>

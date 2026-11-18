@@ -199,12 +199,12 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
             <div className="flex items-center justify-between font-sans">
               <span className="text-xs font-semibold text-foreground flex items-center gap-2">
                 <FlaskConical className="w-4 h-4 text-muted-foreground" />
-                <span>Volume @13% TS</span>
+                <span>Volume @13 TS</span>
               </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
               <div>
-                <span className="text-xs text-muted-foreground font-sans block">Dispatch @13% TS</span>
+                <span className="text-xs text-muted-foreground font-sans block">Dispatch @13 TS</span>
                 <span className="font-semibold text-foreground">
                   {metrics.totalDispatch13TsLiters != null
                     ? `${metrics.totalDispatch13TsLiters.toLocaleString()} L`
@@ -212,7 +212,7 @@ export const ZMCCManagerOverview: React.FC<ZMCCManagerOverviewProps> = ({
                 </span>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground font-sans block">Plant @13% TS</span>
+                <span className="text-xs text-muted-foreground font-sans block">Plant @13 TS</span>
                 <span className="font-semibold text-foreground">
                   {metrics.totalPlant13TsLiters != null
                     ? `${metrics.totalPlant13TsLiters.toLocaleString()} L`

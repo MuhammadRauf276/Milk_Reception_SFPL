@@ -46,7 +46,7 @@ export const MOT_COLLECTIONS_FIELDS: ReportFieldDefinition[] = [
   { id: 'mot_name', label: 'MOT Driver', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
   { id: 'vehicle_number', label: 'MOT Vehicle', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: false, sortable: true, filterable: true },
   { id: 'gross_liters', label: 'Gross Liters', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] },
-  { id: 'at_13ts_liters', label: '13% TS Liters', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
+  { id: 'at_13ts_liters', label: '@13 TS Liters', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
   { id: 'fat', label: 'Fat %', category: 'QUALITY', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
   { id: 'lr', label: 'LR', category: 'QUALITY', dataType: 'number', format: 'number', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
   { id: 'snf', label: 'SNF %', category: 'QUALITY', dataType: 'number', format: 'percent', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['AVG', 'MIN', 'MAX'] },
@@ -116,7 +116,7 @@ export const PLANT_TRANSIT_FIELDS: ReportFieldDefinition[] = [
   { id: 'vehicle_number', label: 'Tanker Vehicle', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
   { id: 'contractor_name', label: 'ZMCC', category: 'OPERATIONAL', dataType: 'string', format: 'text', defaultSelected: true, sortable: true, filterable: true },
   { id: 'dispatched_liters', label: 'Dispatched Gross (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
-  { id: 'dispatched_13ts_liters', label: 'Dispatched 13% TS (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
+  { id: 'dispatched_13ts_liters', label: 'Dispatched @13 TS (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
   { id: 'plant_received_liters', label: 'Plant Received (L)', category: 'VOLUMES', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'] },
   // Signed difference = plant received minus dispatched: negative is a loss, positive a gain.
   { id: 'transit_diff_liters', label: 'Loss / Gain (L)', category: 'LOSS_FINANCIAL', dataType: 'number', format: 'liters', align: 'right', defaultSelected: true, sortable: true, filterable: true, aggregations: ['SUM', 'AVG'], lossGain: 'net' },
@@ -190,8 +190,8 @@ export const VEHICLE_DISPATCH_FIELDS: ReportFieldDefinition[] = [
   vehicleField('dispatch_quantity_unit', 'Quantity Unit', 'VOLUMES', 'string', 'text'),
   vehicleField('dispatch_gross_liters', 'Dispatched Gross (L)', 'VOLUMES', 'number', 'liters', { defaultSelected: true, aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
   vehicleField('received_gross_liters', 'Plant Received (L)', 'VOLUMES', 'number', 'liters', { defaultSelected: true, aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
-  vehicleField('dispatch_at_13ts_liters', 'Dispatched 13% TS (L)', 'VOLUMES', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
-  vehicleField('received_at_13ts_liters', 'Received 13% TS (L)', 'VOLUMES', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('dispatch_at_13ts_liters', 'Dispatched @13 TS (L)', 'VOLUMES', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
+  vehicleField('received_at_13ts_liters', 'Received @13 TS (L)', 'VOLUMES', 'number', 'liters', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
   vehicleField('gross_weight_kg', 'Gross Weight (kg)', 'VOLUMES', 'number', 'number', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
   vehicleField('tare_weight_kg', 'Tare Weight (kg)', 'VOLUMES', 'number', 'number', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
   vehicleField('net_weight_kg', 'Net Weight (kg)', 'VOLUMES', 'number', 'number', { aggregations: ['SUM', 'AVG', 'MIN', 'MAX'] }),
@@ -250,7 +250,7 @@ export const SYSTEM_DEFAULT_TEMPLATES: SavedReportTemplate[] = [
   {
     id: 'sys-preset-route-quality',
     name: 'Daily Route Milk Quality',
-    description: 'Comprehensive route collections with shop-level Fat, LR, SNF, and At 13% TS volumes.',
+    description: 'Comprehensive route collections with shop-level Fat, LR, SNF, and @13 TS volumes.',
     domain: 'MOT_COLLECTIONS',
     selectedFieldIds: ['collection_number', 'operational_date', 'route_name', 'shop_name', 'gross_liters', 'at_13ts_liters', 'fat', 'lr', 'snf', 'final_decision'],
     filters: [],
@@ -1684,11 +1684,11 @@ function computeDynamicSummaryKpis(totalCount: number, totals: DomainKpiTotals):
     });
   }
 
-  // 13% TS
+  // @13 TS
   if (totals.at13tsLiters != null) {
     kpis.push({
       id: 'kpi-13ts',
-      label: 'Standardized 13% TS',
+      label: 'Standardized @13 TS',
       value: Number(totals.at13tsLiters.toFixed(2)),
       unit: 'L',
       format: 'liters',

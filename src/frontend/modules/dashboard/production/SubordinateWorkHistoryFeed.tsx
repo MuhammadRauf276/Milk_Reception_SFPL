@@ -157,7 +157,7 @@ export const SubordinateWorkHistoryFeed: React.FC<SubordinateWorkHistoryFeedProp
           )}
           {item.details.volumeAt13TsLiters !== undefined && (
             <div className="text-xs text-primary font-semibold">
-              {item.details.volumeAt13TsLiters.toLocaleString()} L @13% TS
+              {item.details.volumeAt13TsLiters.toLocaleString()} L @13 TS
             </div>
           )}
           {item.details.siloNumber && <div className="text-xs text-muted-foreground">{item.details.siloNumber}</div>}

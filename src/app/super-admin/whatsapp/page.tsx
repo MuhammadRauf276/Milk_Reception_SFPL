@@ -90,7 +90,7 @@ export default function SuperAdminWhatsAppPage() {
   const [pickedShopId, setPickedShopId] = useState<string>('');
 
   const [messageText, setMessageText] = useState<string>(
-    '*Shakarganj Milk Reception Receipt*\n*Shop:* Bismillah Dairy Collection Center\n*RMR No:* 005102 | *Journey:* #JRN-HAS-20261007-001\n*Vehicle:* LES-19-4821 | *Mobile Tester:* Muhammad Tariq\n*Gross Qty:* 210.00 L\n*LR:* 29.0 | *Fat:* 4.1%\n*SNF:* 8.52% | *Total Solids:* 12.60%\n*@13% TS:* 203.86 L\n*Status:* Verified & Dispatched via Super Admin\n_Shakarganj Food Products Ltd, Field Reception_'
+    '*Shakarganj Milk Reception Receipt*\n*Shop:* Bismillah Dairy Collection Center\n*RMR No:* 005102 | *Journey:* #JRN-HAS-20261007-001\n*Vehicle:* LES-19-4821 | *Mobile Tester:* Muhammad Tariq\n*Gross Qty:* 210.00 L\n*LR:* 29.0 | *Fat:* 4.1%\n*SNF:* 8.52% | *Total Solids:* 12.60%\n*@13 TS:* 203.86 L\n*Status:* Verified & Dispatched via Super Admin\n_Shakarganj Food Products Ltd, Field Reception_'
   );
 
   const [isSending, setIsSending] = useState<boolean>(false);
@@ -164,7 +164,7 @@ export default function SuperAdminWhatsAppPage() {
 
     if (type === 'RECEIPT') {
       setMessageText(
-        `*Shakarganj Milk Reception Receipt*\n*Shop:* ${sName}\n*RMR No:* 005102 | *Journey:* #JRN-HAS-20261007-001\n*Vehicle:* LES-19-4821 | *Mobile Tester:* Muhammad Tariq\n*Gross Qty:* 210.00 L\n*LR:* 29.0 | *Fat:* 4.1%\n*SNF:* 8.52% | *Total Solids:* 12.60%\n*@13% TS:* 203.86 L\n*Status:* Verified & Dispatched Automatically\n_Shakarganj Food Products Ltd, Field Reception_`
+        `*Shakarganj Milk Reception Receipt*\n*Shop:* ${sName}\n*RMR No:* 005102 | *Journey:* #JRN-HAS-20261007-001\n*Vehicle:* LES-19-4821 | *Mobile Tester:* Muhammad Tariq\n*Gross Qty:* 210.00 L\n*LR:* 29.0 | *Fat:* 4.1%\n*SNF:* 8.52% | *Total Solids:* 12.60%\n*@13 TS:* 203.86 L\n*Status:* Verified & Dispatched Automatically\n_Shakarganj Food Products Ltd, Field Reception_`
       );
     } else if (type === 'RATE') {
       setMessageText(

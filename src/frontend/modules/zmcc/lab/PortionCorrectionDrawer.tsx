@@ -172,7 +172,7 @@ export function PortionCorrectionDrawer({ open, sessionId, subtitleLabel, onClos
 
           <div className="grid grid-cols-2 gap-2">
             <Figure label="Litres" before={selected.grossLiters} after={preview?.grossLiters ?? null} unit="L" />
-            <Figure label="@13% TS" before={selected.at13tsLiters} after={preview?.at13tsLiters ?? null} unit="L" />
+            <Figure label="@13 TS" before={selected.at13tsLiters} after={preview?.at13tsLiters ?? null} unit="L" />
           </div>
 
           <div>

@@ -57,8 +57,8 @@ export default function SuperAdminSilosPage() {
     { key: 'capacity', header: 'Capacity', label: 'Capacity', cell: (s) => <span className="font-mono tabular-nums text-muted-foreground">{s.capacityLiters.toLocaleString()} L</span> },
     {
       key: 'stock13',
-      header: 'Stock @13% TS',
-      label: 'Stock @13% TS',
+      header: 'Stock @13 TS',
+      label: 'Stock @13 TS',
       cell: (s) => (
         <span className="font-mono font-semibold tabular-nums text-foreground">
           {s.currentStockAt13Ts !== null && s.currentStockAt13Ts !== undefined ? `${s.currentStockAt13Ts.toLocaleString()} L` : '—'}

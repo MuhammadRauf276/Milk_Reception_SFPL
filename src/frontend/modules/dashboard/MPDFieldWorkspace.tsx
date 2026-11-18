@@ -374,7 +374,7 @@ export const MPDFieldWorkspace: React.FC<MPDFieldWorkspaceProps> = ({
                   )}
                   {openLog.vehicle_dispatch_at_13ts_liters != null && (
                     <div>
-                      <dt className="text-xs text-muted-foreground">Litres at 13% TS</dt>
+                      <dt className="text-xs text-muted-foreground">Litres @13 TS</dt>
                       <dd className="font-medium tabular-nums">{Number(openLog.vehicle_dispatch_at_13ts_liters).toLocaleString()} L</dd>
                     </div>
                   )}

@@ -46,7 +46,7 @@ const FILTER_OPTIONS: { id: ReceiptsPerformanceFilter; label: string }[] = [
   { id: 'COMPLETED', label: 'Completed Receipts' },
   { id: 'RECEIPT_PENDING', label: 'Receipt Pending' },
   { id: 'HAS_QUANTITY_DIFF', label: 'Quantity Differences' },
-  { id: 'HAS_TS_DIFF', label: '13% TS Differences' },
+  { id: 'HAS_TS_DIFF', label: '@13 TS Differences' },
 ];
 
 export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerformanceProps> = ({
@@ -301,7 +301,7 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
 
               {/* Two-Column Grid: Quantity Performance vs Weighbridge & Storage */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 tabular-nums text-xs">
-                {/* Column A: Quantity & 13% TS Performance */}
+                {/* Column A: Quantity & @13 TS Performance */}
                 <div className="bg-card border-border p-4 rounded-lg border space-y-2">
                   <div className="flex items-center justify-between font-sans pb-2 border-b border-border/60">
                     <span className="text-xs font-semibold text-foreground flex items-center gap-2">
@@ -342,19 +342,19 @@ export const ZMCCManagerReceiptsPerformance: React.FC<ZMCCManagerReceiptsPerform
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-border/40 text-xs">
                     <div>
-                      <span className="text-xs font-sans text-muted-foreground block">Dispatch Liters @ 13% TS:</span>
+                      <span className="text-xs font-sans text-muted-foreground block">Dispatch Liters @13 TS:</span>
                       <span className="font-semibold text-foreground">
                         {item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : '—'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-xs font-sans text-muted-foreground block">Final Liters @ 13% TS:</span>
+                      <span className="text-xs font-sans text-muted-foreground block">Final Liters @13 TS:</span>
                       <span className="font-semibold text-foreground">
                         {item.plant13TsLiters != null ? `${item.plant13TsLiters.toLocaleString()} L` : '—'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-xs font-sans text-muted-foreground block">Diff @ 13% TS:</span>
+                      <span className="text-xs font-sans text-muted-foreground block">Diff @13 TS:</span>
                       <span
                         className={`font-semibold ${
                           item.tsDifferenceLiters == null

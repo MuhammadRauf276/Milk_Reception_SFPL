@@ -155,7 +155,7 @@ export interface SiloStockSummaryState {
 }
 
 /**
- * Calculates current stock summary for a plant silo: physical liters, @13TS commercial liters, and composite TS %.
+ * Calculates current stock summary for a plant silo: physical liters, @13 TS commercial liters, and composite TS %.
  * Purely derived from immutable silo inventory ledger transactions.
  */
 export async function getSiloStockSummary(

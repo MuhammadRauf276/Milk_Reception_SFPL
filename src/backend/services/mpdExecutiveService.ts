@@ -125,7 +125,7 @@ export interface MpdExecutiveTelemetry {
     intakeMissing13tsCount: number;
     /** Current physical stock across the ZMCC's active tanks (inventory ledger). */
     siloStockLiters: number;
-    /** Current commercial stock @13TS across the ZMCC's active tanks. */
+    /** Current commercial stock @13 TS across the ZMCC's active tanks. */
     siloStockAt13tsLiters: number;
     siloCapacityPercent: number | null;
     avgFatPercent: number | null;

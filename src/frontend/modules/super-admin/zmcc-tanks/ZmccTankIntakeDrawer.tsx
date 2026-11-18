@@ -92,7 +92,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
       return;
     }
     if (final13Ts <= 0) {
-      setError('Could not work out @13% TS. Check Fat % and LR, or enter it.');
+      setError('Could not work out @13 TS. Check Fat % and LR, or enter it.');
       return;
     }
 
@@ -110,7 +110,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
       {
         onSuccess: () => {
           formDraft.clear();
-          onSaved(`Added ${numGross.toLocaleString('en-US', { minimumFractionDigits: 2 })} L (${final13Ts.toLocaleString('en-US', { minimumFractionDigits: 2 })} L @13% TS) to tank "${tank.tank_code}".`);
+          onSaved(`Added ${numGross.toLocaleString('en-US', { minimumFractionDigits: 2 })} L (${final13Ts.toLocaleString('en-US', { minimumFractionDigits: 2 })} L @13 TS) to tank "${tank.tank_code}".`);
           onClose();
         },
         onError: (err) => {
@@ -170,7 +170,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
 
           {tank.current_commercial_stock_at_13ts !== undefined && tank.current_commercial_stock_at_13ts !== null && (
             <div className="text-xs text-secondary-foreground bg-card px-3 py-2 rounded-lg border border-border flex justify-between items-center">
-              <span>Current commercial stock (@13% TS):</span>
+              <span>Current commercial stock (@13 TS):</span>
               <span className="font-semibold tabular-nums text-foreground">{Number(tank.current_commercial_stock_at_13ts).toLocaleString()} L</span>
             </div>
           )}
@@ -207,7 +207,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
               <FlaskConical className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span>Milk Quality &amp; @13% TS Basis</span>
+              <span>Milk Quality &amp; @13 TS Basis</span>
             </div>
             <label className="flex items-center gap-2 text-xs font-medium text-secondary-foreground cursor-pointer self-start sm:self-auto">
               <input
@@ -216,7 +216,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
                 onChange={(e) => setUseCustom13Ts(e.target.checked)}
                 className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
               />
-              <span>Manual @13% TS override</span>
+              <span>Manual @13 TS override</span>
             </label>
           </div>
 
@@ -260,7 +260,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
           {useCustom13Ts ? (
             <div className="pt-1">
               <label htmlFor="intake-custom-13ts" className={fieldLabelClass}>
-                Standardized @13% TS Volume (Liters) *
+                Standardized @13 TS Volume (Liters) *
               </label>
               <input
                 id="intake-custom-13ts"
@@ -285,7 +285,7 @@ export function ZmccTankIntakeDrawer({ tank, onClose, onSaved }: Props) {
               <div className="border-t border-border pt-2 flex justify-between items-center font-semibold text-foreground">
                 <span className="flex items-center gap-1">
                   <Calculator className="h-3.5 w-3.5 text-muted-foreground" />
-                  Calculated @13% TS Volume:
+                  Calculated @13 TS Volume:
                 </span>
                 <span className="text-primary tabular-nums text-xs">
                   {calculated13Ts.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L

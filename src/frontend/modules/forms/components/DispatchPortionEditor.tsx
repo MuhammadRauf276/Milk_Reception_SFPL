@@ -223,7 +223,7 @@ export const DispatchPortionEditor: React.FC<DispatchPortionEditorProps> = ({
                     </span>
                   </div>
                   <div className="bg-card border-border p-2 rounded-xl border">
-                    <span className="text-xs font-sans text-muted-foreground block">Liters @ 13% TS</span>
+                    <span className="text-xs font-sans text-muted-foreground block">Liters @13 TS</span>
                     <span className="text-emerald-900 font-semibold">
                       {calcValues.at13TsLiters !== null
                         ? `${Math.round(calcValues.at13TsLiters).toLocaleString()} L`

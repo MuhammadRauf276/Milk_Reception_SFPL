@@ -194,7 +194,7 @@ export interface DispatchTotals {
   grossLiters: number;
   weightedLr: number;
   weightedFat: number;
-  /** @13TS litres of the whole vehicle, from gross litres and the quantity-weighted LR and Fat. */
+  /** @13 TS litres of the whole vehicle, from gross litres and the quantity-weighted LR and Fat. */
   weightedTs13: number;
   /** TS % from the weighted LR and Fat. */
   weightedTs: number;
@@ -515,7 +515,7 @@ export async function zmccTankRemainingLiters(zmccId: bigint, tx?: Tx): Promise<
 export const TANK_DISPATCH_BLOCKED_ACTION = 'ZMCC_TANK_DISPATCH_BLOCKED';
 
 /**
- * Whether a dispatch fits the tank at @13 TS: up to the book stock plus the testing allowance, a percent of the
+ * Whether a dispatch fits the tank @13 TS: up to the book stock plus the testing allowance, a percent of the
  * dispatch's own @13 TS litres. Pure, so the rule is tested on its own.
  */
 export function tankDispatchAllowance(bookAt13ts: number, dispatchAt13ts: number, variancePercent: number): { ok: boolean; limit: number } {
@@ -529,7 +529,7 @@ async function getTankAt13tsBook(tankId: bigint, tx?: Tx): Promise<number> {
   return book.stockAt13Ts ?? book.partialStockAt13Ts ?? 0;
 }
 
-/** Idempotent ISSUE from the ZMCC tank for a dispatched vehicle (gross + @13TS litres). Returns @13 TS litres left. */
+/** Idempotent ISSUE from the ZMCC tank for a dispatched vehicle (gross + @13 TS litres). Returns @13 TS litres left. */
 export async function issueDispatchFromZmccTankTx(
   tx: Tx,
   i: { zmccId: bigint; visitId: bigint; visitNumber: string; vehicleNumber: string; grossLiters: number; at13tsLiters: number; at: Date; userId: bigint }
@@ -538,7 +538,7 @@ export async function issueDispatchFromZmccTankTx(
     throw new DispatchFlowError(400, 'INVALID_GROSS_LITERS', 'Gross litres must be more than zero for a ZMCC dispatch.');
   }
   if (!(i.at13tsLiters > 0)) {
-    throw new DispatchFlowError(400, 'INVALID_COMMERCIAL_AT_13TS', 'LR and Fat are needed to work out @13TS litres for a ZMCC dispatch.');
+    throw new DispatchFlowError(400, 'INVALID_COMMERCIAL_AT_13TS', 'LR and Fat are needed to work out @13 TS litres for a ZMCC dispatch.');
   }
   const tankId = await activeTankId(tx, i.zmccId);
   const locked: Array<{ id: bigint; is_active: boolean }> = await tx.$queryRaw`
@@ -576,7 +576,7 @@ export async function issueDispatchFromZmccTankTx(
       throw new DispatchFlowError(
         400,
         'INSUFFICIENT_TANK_STOCK',
-        `Not enough milk in the tank at @13 TS (${fmt(stock13)} L in the tank, ${fmt(i.at13tsLiters)} L in this dispatch, ${variancePercent}% testing allowance).`
+        `Not enough milk in the tank @13 TS (${fmt(stock13)} L in the tank, ${fmt(i.at13tsLiters)} L in this dispatch, ${variancePercent}% testing allowance).`
       );
     }
     await tx.zmccTankInventoryTransaction.create({

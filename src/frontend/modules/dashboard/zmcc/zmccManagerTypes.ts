@@ -299,7 +299,7 @@ export interface ReceiptPerformanceItem {
   quantityDifferenceText: string;
   hasQuantityDifference: boolean;
 
-  // 13% TS
+  // @13 TS
   dispatch13TsLiters: number | null;
   plant13TsLiters: number | null;
   tsDifferenceLiters: number | null;

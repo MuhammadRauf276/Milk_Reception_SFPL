@@ -59,7 +59,7 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
             </div>
             <div className="mt-4">
               <div className="text-2xl font-semibold tabular-nums text-foreground">
-                {qualityFunnel.zmccGateRejectedAt13tsLiters.toLocaleString()} L
+                {qualityFunnel.zmccGateRejectedAt13tsLiters.toLocaleString()} L @13 TS
               </div>
               <div className="text-xs text-muted-foreground tabular-nums">
                 Gross {qualityFunnel.zmccGateRejectedLiters.toLocaleString()} L
@@ -86,7 +86,7 @@ export const MpdQualityScreen: React.FC<MpdQualityScreenProps> = ({ qualityFunne
             </div>
             <div className="mt-4">
               <div className="text-2xl font-semibold tabular-nums text-foreground">
-                {qualityFunnel.plantGateRejectedAt13tsLiters.toLocaleString()} L
+                {qualityFunnel.plantGateRejectedAt13tsLiters.toLocaleString()} L @13 TS
               </div>
               <div className="text-xs text-muted-foreground tabular-nums">
                 Gross {qualityFunnel.plantGateRejectedLiters.toLocaleString()} L

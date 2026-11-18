@@ -74,7 +74,7 @@ const tankerColumns: DataColumn<InTransitTankerTelemetry>[] = [
     cell: (t) => (
       <div>
         <div className="tabular-nums font-semibold text-foreground">{t.grossLiters.toLocaleString()} L</div>
-        <div className="text-muted-foreground tabular-nums text-xs">{formatMetric(t.at13tsLiters, ' L')} @13%TS</div>
+        <div className="text-muted-foreground tabular-nums text-xs">{formatMetric(t.at13tsLiters, ' L')} @13 TS</div>
       </div>
     ),
   },

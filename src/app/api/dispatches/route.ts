@@ -684,7 +684,7 @@ async function submitToVisit(req: Request): Promise<Response> {
       vehicleGrossLiters = canonicalMetrics.grossLiters;
       vehicleSnf = canonicalMetrics.snf;
       vehicleTs = canonicalMetrics.ts;
-      // Weighted 13% TS (proportional to portion net weights). Never trust client-sent 13% TS totals.
+      // Weighted @13 TS (proportional to portion net weights). Never trust client-sent @13 TS totals.
       vehicleAt13tsLiters = totals.weightedTs13 > 0 ? totals.weightedTs13 : canonicalMetrics.at13tsLiters;
       vehicleCalculationVersion = canonicalMetrics.calculationVersion;
     }
@@ -694,7 +694,7 @@ async function submitToVisit(req: Request): Promise<Response> {
       if (authoritativeVehicleLr === null || authoritativeVehicleFat === null) {
         return NextResponse.json(
           {
-            error: 'Authoritative whole-vehicle/composite LR and Fat are required for ZMCC dispatch to establish physical Gross Liters and commercial @13TS.',
+            error: 'Authoritative whole-vehicle/composite LR and Fat are required for ZMCC dispatch to establish physical Gross Liters and commercial @13 TS.',
             code: 'MISSING_AUTHORITATIVE_VEHICLE_QUALITY',
           },
           { status: 400 }
@@ -712,7 +712,7 @@ async function submitToVisit(req: Request): Promise<Response> {
       if (vehicleAt13tsLiters === null || isNaN(vehicleAt13tsLiters) || vehicleAt13tsLiters <= 0) {
         return NextResponse.json(
           {
-            error: 'Failed to derive canonical @13TS Liters for ZMCC tank issue from measured vehicle quantity and quality.',
+            error: 'Failed to derive canonical @13 TS Liters for ZMCC tank issue from measured vehicle quantity and quality.',
             code: 'INVALID_COMMERCIAL_AT_13TS',
           },
           { status: 400 }

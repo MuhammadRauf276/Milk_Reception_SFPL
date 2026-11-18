@@ -137,14 +137,14 @@ const areaColumns: Array<DataColumn<AreaLossRow>> = [
 
 const transitZmccColumns: Array<DataColumn<TransitZmccRow>> = [
   { key: 'zmcc', header: 'ZMCC', primary: true, cell: (z) => <span className="font-medium">{z.zmccName}</span> },
-  { key: 'net', header: 'Transit', align: 'right', cell: (z) => <Signed value={z.net.at13ts.signed} /> },
-  { key: 'atZmcc', header: 'At ZMCC (tank)', align: 'right', cell: (z) => <Signed value={z.atZmcc.at13ts.signed} /> },
-  { key: 'onRoad', header: 'Tanker trip', align: 'right', cell: (z) => <Signed value={z.onRoad.at13ts.signed} /> },
+  { key: 'net', header: 'Transit @13 TS', align: 'right', cell: (z) => <Signed value={z.net.at13ts.signed} /> },
+  { key: 'atZmcc', header: 'At ZMCC (tank) @13 TS', align: 'right', cell: (z) => <Signed value={z.atZmcc.at13ts.signed} /> },
+  { key: 'onRoad', header: 'Tanker trip @13 TS', align: 'right', cell: (z) => <Signed value={z.onRoad.at13ts.signed} /> },
   { key: 'gross', header: 'Gross', align: 'right', cell: (z) => <Signed value={z.net.gross.signed} /> },
   { key: 'dispatched', header: 'Dispatched @13 TS', align: 'right', cell: (z) => litres(z.flows.dispatched.at13ts) },
   {
     key: 'inFlight',
-    header: 'In flight',
+    header: 'In flight @13 TS',
     align: 'right',
     cell: (z) => (z.inFlight.tankers > 0 ? `${z.inFlight.tankers} tankers, ${formatLitres(z.inFlight.at13ts)}` : '—'),
   },
@@ -192,10 +192,10 @@ const wholeZmccColumns: Array<DataColumn<WholeZmccRow>> = [
   { key: 'net', header: 'Net @13 TS', align: 'right', cell: (z) => <Signed value={z.net.at13ts.signed} /> },
   { key: 'gross', header: 'Gross', align: 'right', cell: (z) => <Signed value={z.net.gross.signed} /> },
   { key: 'bought', header: 'Bought @13 TS', align: 'right', cell: (z) => litres(z.lines.bought.at13ts) },
-  { key: 'tanks', header: 'In tanks', align: 'right', cell: (z) => litres(z.lines.stockChange.at13ts) },
-  { key: 'road', header: 'In tankers', align: 'right', cell: (z) => litres(z.lines.onRoad.at13ts) },
-  { key: 'plant', header: 'Plant received', align: 'right', cell: (z) => litres(z.lines.plantReceived.at13ts) },
-  { key: 'admin', header: 'Admin', align: 'right', cell: (z) => litres(z.lines.adminAdjustment.at13ts) },
+  { key: 'tanks', header: 'In tanks @13 TS', align: 'right', cell: (z) => litres(z.lines.stockChange.at13ts) },
+  { key: 'road', header: 'In tankers @13 TS', align: 'right', cell: (z) => litres(z.lines.onRoad.at13ts) },
+  { key: 'plant', header: 'Plant received @13 TS', align: 'right', cell: (z) => litres(z.lines.plantReceived.at13ts) },
+  { key: 'admin', header: 'Admin @13 TS', align: 'right', cell: (z) => litres(z.lines.adminAdjustment.at13ts) },
 ];
 
 /* -------------------------------- Contractor ----------------------------- */

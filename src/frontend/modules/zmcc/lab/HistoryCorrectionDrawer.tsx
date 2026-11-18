@@ -202,7 +202,7 @@ export const HistoryCorrectionDrawer: React.FC<HistoryCorrectionDrawerProps> = (
                       </p>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <span className="text-xs text-muted-foreground font-semibold">@13TS Liters</span>
+                      <span className="text-xs text-muted-foreground font-semibold">@13 TS Liters</span>
                       <p className="text-xs font-semibold tabular-nums text-emerald-700">
                         {corrPreview ? `${corrPreview.at13tsLiters.toFixed(2)} L` : (selectedHistorySession.at_13ts_liters != null ? `${Number(selectedHistorySession.at_13ts_liters).toFixed(2)} L` : '—')}
                       </p>

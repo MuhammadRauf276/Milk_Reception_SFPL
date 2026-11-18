@@ -257,7 +257,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
             </div>
 
             <div className="bg-card border-border p-3 rounded-xl border space-y-0.5 min-w-0">
-              <span className="text-xs font-semibold text-emerald-950 block min-w-0">L @ 13 TS</span>
+              <span className="text-xs font-semibold text-emerald-950 block min-w-0">L @13 TS</span>
               <span className="text-base font-semibold text-emerald-900 tabular-nums block min-w-0">
                 {safeTotals.formattedTotalLitersAt13TS || '—'}
               </span>
@@ -309,7 +309,7 @@ export const DispatchSummaryPanel: React.FC<DispatchSummaryPanelProps> = ({
                       </span>
                     </div>
                     <div className="text-secondary-foreground min-w-0">
-                      <span className="font-sans text-muted-foreground block min-w-0">@13TS</span>
+                      <span className="font-sans text-muted-foreground block min-w-0">@13 TS</span>
                       <span className="font-semibold text-emerald-800 block min-w-0">
                         {calc?.at13TsLiters != null ? `${calc.at13TsLiters.toFixed(1)} L` : '—'}
                       </span>

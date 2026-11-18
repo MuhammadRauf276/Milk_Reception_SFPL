@@ -92,7 +92,7 @@ export function ReturnToPheModal({ journey, isOpen, onClose, onConfirm, isSubmit
             <span className="font-semibold text-secondary-foreground">Total Milk Collected:</span>
             <div className="text-right">
               <div className="font-semibold text-foreground tabular-nums">{totalGross.toFixed(1)} L</div>
-              <div className="text-xs text-muted-foreground tabular-nums font-medium">({totalAt13ts.toFixed(1)} L @13TS)</div>
+              <div className="text-xs text-muted-foreground tabular-nums font-medium">({totalAt13ts.toFixed(1)} L @13 TS)</div>
             </div>
           </div>
         </div>

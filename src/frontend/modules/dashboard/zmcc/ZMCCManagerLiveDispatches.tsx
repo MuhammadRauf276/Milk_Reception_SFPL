@@ -321,7 +321,7 @@ export const ZMCCManagerLiveDispatches: React.FC<ZMCCManagerLiveDispatchesProps>
                           <span className="text-xs text-muted-foreground block">Dispatch (@13 TS):</span>
                           <span className="font-semibold text-foreground">
                             {group.totalDispatch13TsLiters != null
-                              ? `${group.totalDispatch13TsLiters.toLocaleString()} L @13% TS`
+                              ? `${group.totalDispatch13TsLiters.toLocaleString()} L @13 TS`
                               : '—'}
                           </span>
                         </div>

@@ -103,7 +103,7 @@ export const McSuccessCard: React.FC<{
                       </div>
                     </div>
                     <div className="bg-card border-border p-2 rounded-lg border">
-                      <div className="text-xs font-semibold text-muted-foreground">@13TS Liters</div>
+                      <div className="text-xs font-semibold text-muted-foreground">@13 TS Liters</div>
                       <div className="text-xs tabular-nums font-semibold text-foreground">
                         {Number(result.journey.summary.total_at_13ts_liters).toFixed(2)} L
                       </div>

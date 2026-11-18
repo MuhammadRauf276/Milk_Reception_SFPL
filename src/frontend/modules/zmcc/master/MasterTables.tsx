@@ -104,7 +104,7 @@ const tankCols: MasterCol<TankItem>[] = [
   { header: 'Capacity (L)', align: 'right', tdClass: 'tabular-nums font-semibold', cell: (t) => `${Number(t.capacity_liters).toFixed(2)} L` },
   { header: 'Current Stock (L)', align: 'right', tdClass: 'tabular-nums font-semibold text-blue-700', cell: (t) => `${Number(t.current_stock).toFixed(2)} L` },
   {
-    header: 'Stock @13% TS (L)',
+    header: 'Stock @13 TS (L)',
     align: 'right',
     tdClass: 'tabular-nums font-semibold text-primary',
     cell: (t) => t.current_commercial_stock_at_13ts !== null && t.current_commercial_stock_at_13ts !== undefined
@@ -155,7 +155,7 @@ export const MasterTables: React.FC<Props> = (p) => {
                   variant="outline"
                   size="icon-sm"
                   onClick={() => p.onIntakeTank!(tank)}
-                  title="Intake Milk Stock (@13% TS and Gross Liters)"
+                  title="Intake Milk Stock (@13 TS and Gross Liters)"
                   aria-label="Intake Milk Stock"
                 >
                   <Milk aria-hidden />

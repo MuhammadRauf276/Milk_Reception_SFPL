@@ -78,7 +78,7 @@ export function buildReceipt(args: {
         : `92${digits}`
     : '';
 
-  const receiptMsg = `*SFPL Milk Collection Receipt*\nShop: ${shopDisplayName}\nJourney: #${journey.journey_number}\nVehicle: ${journey.mot_vehicle?.vehicle_number || 'SFPL-MOT'}\nGross: ${preview.grossLiters.toFixed(2)} L\nLR: ${lr.toFixed(1)} | Fat: ${fat.toFixed(1)}%\nSNF: ${preview.snf.toFixed(2)}% | Total Solids: ${preview.totalSolids.toFixed(2)}%\n@13TS: ${preview.at13TsLiters.toFixed(2)} L\nStatus: ${decisionWord(finalDecision)}\nTime: ${new Date().toLocaleTimeString()} PKT`;
+  const receiptMsg = `*SFPL Milk Collection Receipt*\nShop: ${shopDisplayName}\nJourney: #${journey.journey_number}\nVehicle: ${journey.mot_vehicle?.vehicle_number || 'SFPL-MOT'}\nGross: ${preview.grossLiters.toFixed(2)} L\nLR: ${lr.toFixed(1)} | Fat: ${fat.toFixed(1)}%\nSNF: ${preview.snf.toFixed(2)}% | Total Solids: ${preview.totalSolids.toFixed(2)}%\n@13 TS: ${preview.at13TsLiters.toFixed(2)} L\nStatus: ${decisionWord(finalDecision)}\nTime: ${new Date().toLocaleTimeString()} PKT`;
 
   return {
     shopName: shopDisplayName,

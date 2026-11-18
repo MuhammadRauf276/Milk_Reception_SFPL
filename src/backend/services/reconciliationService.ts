@@ -138,7 +138,7 @@ export interface DualReconciliationCalculationResult {
 }
 
 /**
- * Calculates signed Gross & @13TS volumetric dual reconciliation.
+ * Calculates signed Gross & @13 TS volumetric dual reconciliation.
  *
  * Signed meaning:
  *   negative = loss (received < sent)
@@ -147,7 +147,7 @@ export interface DualReconciliationCalculationResult {
  *
  * Rules:
  * 1. Physical Truth: Gross Liters = Net KG / Plant Density.
- * 2. Commercial Truth: @13TS Liters = Gross Liters * TS / 13.
+ * 2. Commercial Truth: @13 TS Liters = Gross Liters * TS / 13.
  * 3. Authoritative Received Quantities: receivedGrossLiters and receivedAt13tsLiters are strictly
  *    positive finite numbers representing the audited Plant Final receipt.
  * 4. gross_variance_liters = received_gross_liters - sent_gross_liters
@@ -179,7 +179,7 @@ export function calculateDualReconciliation(input: DualReconciliationInput): Dua
     receivedAt13tsLiters <= 0
   ) {
     throw new Error(
-      `Authoritative received @13TS Liters must be a positive finite number (received: ${receivedAt13tsLiters}).`
+      `Authoritative received @13 TS Liters must be a positive finite number (received: ${receivedAt13tsLiters}).`
     );
   }
 

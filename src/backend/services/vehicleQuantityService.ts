@@ -123,7 +123,7 @@ export function isPlantFatTest(testCode?: string | null, _testName?: string | nu
  * 3. Only ACCEPTED portions participate. Rejected, HOLD, or undecided portions contribute nothing.
  * 4. Internal calculation basis uses simple arithmetic mean of genuinely PERFORMED Plant LR and Plant Fat.
  * 5. No portion-weight allocation or supplier declared quantity weighting is allowed.
- * 6. Derived fields (Density, SNF, TS, Ratio, Physical Liters, @13TS) are recalculated strictly
+ * 6. Derived fields (Density, SNF, TS, Ratio, Physical Liters, @13 TS) are recalculated strictly
  *    from the average LR/Fat using canonical helpers from milkFormulas.ts.
  * 7. Pure function: performs zero database mutations, zero UI side-effects, and accepts zero fake defaults.
  */
@@ -377,7 +377,7 @@ export function calculateVehicleReceivedQuantity(input: VehicleCalculationInput)
     return {
       isCalculable: false,
       reason: 'INVALID_AT13_TS_LITERS',
-      message: `Failed to calculate valid final @13TS liters (${finalAt13TSLiters}) from Physical Liters ${finalPhysicalLiters} L.`,
+      message: `Failed to calculate valid final @13 TS liters (${finalAt13TSLiters}) from Physical Liters ${finalPhysicalLiters} L.`,
     };
   }
 

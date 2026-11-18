@@ -17,7 +17,7 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      {/* 1. Today's Intake (@13% TS) */}
+      {/* 1. Today's Intake (@13 TS) */}
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-4 shadow-2xs flex flex-col justify-between">
         <div className="flex items-center justify-between text-muted-foreground mb-2">
           <span className="text-xs font-semibold text-muted-foreground">
@@ -30,7 +30,7 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
         <div>
           <div className="text-xl sm:text-2xl font-semibold text-foreground tabular-nums">
             {kpis.totalIntake13TsLitersToday.toLocaleString()}{' '}
-            <span className="text-xs font-normal text-muted-foreground">L @13% TS</span>
+            <span className="text-xs font-normal text-muted-foreground">L @13 TS</span>
           </div>
           <p className="text-xs text-muted-foreground mt-1 break-words">
             {kpis.totalIntakeGrossLitersToday.toLocaleString()} L gross · {kpis.totalIntakeNetKgToday.toLocaleString()} kg net
@@ -100,7 +100,7 @@ export const ProductionHeadKpiCards: React.FC<ProductionHeadKpiCardsProps> = ({
         <div>
           <div className="text-xl sm:text-2xl font-semibold text-foreground tabular-nums">
             {kpis.currentSiloStock13TsLiters.toLocaleString()}{' '}
-            <span className="text-xs font-normal text-muted-foreground">L @13% TS</span>
+            <span className="text-xs font-normal text-muted-foreground">L @13 TS</span>
           </div>
           <p className="text-xs text-muted-foreground mt-1 break-words">
             {kpis.siloUtilizationPercent}% of {kpis.totalSiloCapacityLiters.toLocaleString()} L capacity

@@ -87,7 +87,7 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, lo
                                   <div className="mt-2 space-y-2">
                                     <div className="bg-card border-border p-2 rounded-lg border text-xs tabular-nums font-semibold text-emerald-950 flex flex-wrap gap-x-3 gap-y-1">
                                       <span>Gross: {Number(stop.collection.gross_liters).toFixed(2)} L</span>
-                                      <span>@13TS: {Number(stop.collection.at_13ts_liters).toFixed(2)} L</span>
+                                      <span>@13 TS: {Number(stop.collection.at_13ts_liters).toFixed(2)} L</span>
                                       <span>LR: {stop.collection.lr}</span>
                                       <span>Fat: {stop.collection.fat}%</span>
                                     </div>
@@ -100,7 +100,7 @@ export const StopRow = React.memo(function StopRow({ stop, journey, onRecord, lo
                                         : digits.startsWith('0')
                                           ? `92${digits.slice(1)}`
                                           : `92${digits}`;
-                                      const msg = `*SFPL Milk Collection Receipt*\nShop: ${shopName}\nJourney: #${journey.journey_number || '101'}\nVehicle: ${journey.mot_vehicle?.vehicle_number || 'SFPL-MC'}\nGross: ${Number(stop.collection.gross_liters).toFixed(2)} L\nLR: ${stop.collection.lr} | Fat: ${stop.collection.fat}%\n@13TS: ${Number(stop.collection.at_13ts_liters).toFixed(2)} L\nStatus: ${decisionWord(stop.collection.final_decision)}`;
+                                      const msg = `*SFPL Milk Collection Receipt*\nShop: ${shopName}\nJourney: #${journey.journey_number || '101'}\nVehicle: ${journey.mot_vehicle?.vehicle_number || 'SFPL-MC'}\nGross: ${Number(stop.collection.gross_liters).toFixed(2)} L\nLR: ${stop.collection.lr} | Fat: ${stop.collection.fat}%\n@13 TS: ${Number(stop.collection.at_13ts_liters).toFixed(2)} L\nStatus: ${decisionWord(stop.collection.final_decision)}`;
                                       return (
                                         <a
                                           href={`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`}

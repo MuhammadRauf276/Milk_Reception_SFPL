@@ -23,7 +23,7 @@ const num = (n: number, digits = 2) => n.toLocaleString(undefined, { maximumFrac
 
 interface QuantityStatProps {
   label: string;
-  /** Litres at 13 % TS. Main figure. Null or undefined shows a dash, never gross. */
+  /** Litres @13 TS. Main figure. Null or undefined shows a dash, never gross. */
   at13ts: number | null | undefined;
   /** Gross litres, shown small under the main figure. */
   gross?: number | null;
@@ -34,6 +34,8 @@ interface QuantityStatProps {
   /** Replaces the main figure (for a signed loss/gain text). Colour comes from tone. */
   valueText?: React.ReactNode;
   hint?: React.ReactNode;
+  /** Tag beside the main figure so people see which basis it is. Null hides it. */
+  basis?: string | null;
   icon?: React.ComponentType<{ className?: string }>;
   tone?: Tone;
   className?: string;
@@ -51,11 +53,13 @@ export function QuantityStat({
   missingAt13tsCount,
   valueText,
   hint,
+  basis = '@13 TS',
   icon: Icon,
   tone = 'default',
   className,
 }: QuantityStatProps) {
-  const main = valueText ?? (at13ts != null && Number.isFinite(at13ts) ? `${num(at13ts)} L` : '—');
+  const hasValue = valueText != null ? valueText !== '—' : at13ts != null && Number.isFinite(at13ts);
+  const main = valueText ?? (hasValue ? `${num(at13ts as number)} L` : '—');
   const second: string[] = [];
   if (gross != null && Number.isFinite(gross)) second.push(`Gross ${num(gross)} L`);
   if (kg != null && Number.isFinite(kg)) second.push(`${num(kg)} kg`);
@@ -66,7 +70,10 @@ export function QuantityStat({
         <p className="min-w-0 text-sm font-medium text-muted-foreground">{label}</p>
         {Icon ? <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', ICON_TONES[tone])} /> : null}
       </div>
-      <p className={cn('mt-auto pt-2 text-lg font-semibold tabular-nums break-words @[10rem]:text-xl @[13rem]:text-2xl', VALUE_TONES[tone])}>{main}</p>
+      <p className={cn('mt-auto pt-2 text-lg font-semibold tabular-nums break-words @[10rem]:text-xl @[13rem]:text-2xl', VALUE_TONES[tone])}>
+        {main}
+        {hasValue && basis ? <span className="ml-1.5 align-middle text-xs font-semibold text-muted-foreground">{basis}</span> : null}
+      </p>
       {second.length > 0 ? <p className="mt-1 min-w-0 text-xs text-muted-foreground tabular-nums break-words">{second.join(' · ')}</p> : null}
       {missing > 0 ? <p className="mt-0.5 text-xs text-amber-700">{missing} without tests</p> : null}
       {hint ? <div className="mt-1 min-w-0 text-xs text-muted-foreground break-words">{hint}</div> : null}

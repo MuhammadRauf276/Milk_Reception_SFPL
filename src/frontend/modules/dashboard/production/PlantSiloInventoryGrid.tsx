@@ -53,14 +53,14 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
                 Silo storage
               </h3>
               <p className="text-xs text-muted-foreground">
-                Silo stock at 13% TS
+                Silo stock @13 TS
               </p>
             </div>
           </div>
           <div className="text-right sm:text-right">
             <div className="font-mono text-lg sm:text-xl font-semibold text-foreground tabular-nums">
               {totalStock13Ts != null ? totalStock13Ts.toLocaleString() : '—'}{' '}
-              <span className="text-xs font-normal text-muted-foreground">L @13% TS</span>
+              <span className="text-xs font-normal text-muted-foreground">L @13 TS</span>
             </div>
             <p className="text-xs text-muted-foreground tabular-nums">
               {totalPhysical.toLocaleString()} L physical · {overallUtil}% of {totalCapacity.toLocaleString()} L
@@ -189,7 +189,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
                 </Badge>
               </div>
 
-              {/* Primary @13% TS Metric */}
+              {/* Primary @13 TS Metric */}
               <div className="flex items-baseline justify-between pt-0.5">
                 <div className="font-mono text-xl font-semibold text-foreground tabular-nums">
                   {silo.current_stock_at_13ts !== null
@@ -197,7 +197,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
                     : silo.current_stock_liters > 0
                     ? `${silo.current_stock_liters.toLocaleString()} (est)`
                     : '0'}{' '}
-                  <span className="text-xs font-normal text-muted-foreground">L @13% TS</span>
+                  <span className="text-xs font-normal text-muted-foreground">L @13 TS</span>
                 </div>
                 {silo.composite_ts_percent !== null && (
                   <span className="text-xs font-mono font-semibold text-muted-foreground">
@@ -273,7 +273,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
               {/* Stock telemetry summary */}
               <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Volume at 13% TS</span>
+                  <span className="text-muted-foreground">Volume @13 TS</span>
                   <span className="font-mono font-semibold text-base text-foreground tabular-nums">
                     {selectedSilo.current_stock_at_13ts != null ? `${selectedSilo.current_stock_at_13ts.toLocaleString()} L` : '—'}
                   </span>

@@ -121,7 +121,7 @@ test('role-visibility: isBlindOperationalRole detects field operators who must r
   }
 });
 
-test('serializeTank: enforces role-based volume masking and 13 TS visibility', async () => {
+test('serializeTank: enforces role-based volume masking and @13 TS visibility', async () => {
   const { serializeTank } = await import('@/backend/services/zmccTankService');
 
   const mockTank = {
@@ -145,7 +145,7 @@ test('serializeTank: enforces role-based volume masking and 13 TS visibility', a
   // Case 1: Blind Operational Role (ZMCC_LAB_ATTENDANT)
   const labSerialized = serializeTank(mockTank as any, stockSummary, 'ZMCC_LAB_ATTENDANT');
   assert.equal(labSerialized.current_stock, null, 'Operational role must not see gross liters');
-  assert.equal(labSerialized.current_stock_at_13ts, null, 'Operational role must not see 13 TS liters');
+  assert.equal(labSerialized.current_stock_at_13ts, null, 'Operational role must not see @13 TS liters');
   assert.equal(labSerialized.capacity_liters, null, 'Operational role must not see capacity');
 
   // Case 2: Blind Field Role (PHE_OPERATOR)
@@ -156,19 +156,19 @@ test('serializeTank: enforces role-based volume masking and 13 TS visibility', a
   // Case 3: Authorized ZMCC Manager
   const zmccMgrSerialized = serializeTank(mockTank as any, stockSummary, 'ZMCC_MANAGER');
   assert.equal(zmccMgrSerialized.current_stock, 12000, 'ZMCC Manager sees physical stock');
-  assert.equal(zmccMgrSerialized.current_stock_at_13ts, 11067.69, 'ZMCC Manager sees 13 TS liters');
+  assert.equal(zmccMgrSerialized.current_stock_at_13ts, 11067.69, 'ZMCC Manager sees @13 TS liters');
 
   // Case 4: Authorized MPD Head
   const mpdHeadSerialized = serializeTank(mockTank as any, stockSummary, 'HEAD_OF_MPD');
-  assert.equal(mpdHeadSerialized.current_stock_at_13ts, 11067.69, 'MPD Head sees 13 TS liters');
+  assert.equal(mpdHeadSerialized.current_stock_at_13ts, 11067.69, 'MPD Head sees @13 TS liters');
 
-  // Case 5: Plant Role (PRODUCTION_HEAD - not in ZMCC 13TS authorization)
+  // Case 5: Plant Role (PRODUCTION_HEAD - not in ZMCC @13 TS authorization)
   const prodHeadSerialized = serializeTank(mockTank as any, stockSummary, 'PRODUCTION_HEAD');
-  assert.equal(prodHeadSerialized.current_stock_at_13ts, null, 'Production Head cannot see ZMCC 13 TS liters');
+  assert.equal(prodHeadSerialized.current_stock_at_13ts, null, 'Production Head cannot see ZMCC @13 TS liters');
 
   // Case 6: Super Admin (all visible)
   const adminSerialized = serializeTank(mockTank as any, stockSummary, 'SUPER_ADMIN');
-  assert.equal(adminSerialized.current_stock_at_13ts, 11067.69, 'Super Admin sees 13 TS liters');
+  assert.equal(adminSerialized.current_stock_at_13ts, 11067.69, 'Super Admin sees @13 TS liters');
 });
 
 test('lossCalculation: Tier 2 and Tier 4 mathematically account for Super Admin direct intake with zero phantom gain', async () => {
@@ -180,7 +180,7 @@ test('lossCalculation: Tier 2 and Tier 4 mathematically account for Super Admin 
   } = await import('@/backend/services/lossCalculationService');
 
   // Scenario 1: Super Admin direct intake when field staff are absent
-  // 5,000 L Gross (4,500 L @13% TS) added to tank
+  // 5,000 L Gross (4,500 L @13 TS) added to tank
   const t2SoloAdmin = calculateTier2ZmccLoss({
     motInwardGrossLiters: 0,
     localInwardGrossLiters: 0,

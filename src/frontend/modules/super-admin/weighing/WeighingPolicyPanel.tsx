@@ -167,7 +167,7 @@ export const WeighingPolicyPanel: React.FC<{ canEdit: boolean }> = ({ canEdit })
 
             <div>
               <label htmlFor="tank-variance" className="mb-1 flex items-center text-xs font-semibold text-secondary-foreground">
-                Tank variance (% at 13 TS)
+                Tank variance (% @13 TS)
                 <InfoTip text="ZMCC dispatch is checked against the tank's @13 TS stock, not gross litres, because pipe-flush water raises gross but not milk solids. A dispatch may go above the @13 TS stock by this percent of its own @13 TS litres, to allow for normal Fat and LR test differences. 0 to 5." />
               </label>
               <input

@@ -1,6 +1,6 @@
 import { prisma } from '@core/db';
 
-/** Senior management report: what each ZMCC tanker sent versus what the plant received (volume, weight, 13 TS, tests). */
+/** Senior management report: what each ZMCC tanker sent versus what the plant received (volume, weight, @13 TS, tests). */
 
 export interface TestPair {
   testId: string;

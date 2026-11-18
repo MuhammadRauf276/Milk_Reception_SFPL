@@ -117,7 +117,7 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
           );
         })}
 
-        {/* Line overlay: 13% TS Liters */}
+        {/* Line overlay: @13 TS Liters */}
         <polyline
           fill="none"
           stroke="#10b981"
@@ -155,7 +155,7 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
             <div className="text-xs text-muted-foreground">
               Total: <span className="font-semibold text-white">{trends[hoveredIndex].grossLiters.toLocaleString()} L</span>
               {' · '}
-              13% TS: <span className="font-semibold text-emerald-400">{trends[hoveredIndex].at13TsLiters.toLocaleString()} L</span>
+              @13 TS: <span className="font-semibold text-emerald-400">{trends[hoveredIndex].at13TsLiters.toLocaleString()} L</span>
             </div>
           </div>
           <div className="text-right text-xs text-neutral-300">
@@ -178,7 +178,7 @@ export function IntakeTrendChart({ trends }: { trends: DailyIntakeTrendPoint[] }
         <div className="flex items-center gap-2">
           <span className="w-4 h-0.5 bg-emerald-500 inline-block" />
           <span className="w-2 h-2 rounded-full bg-emerald-500 -ml-2.5 inline-block" />
-          <span className="ml-1">13% TS Standardized</span>
+          <span className="ml-1">@13 TS Standardized</span>
         </div>
       </div>
     </div>

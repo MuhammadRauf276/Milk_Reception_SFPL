@@ -954,7 +954,7 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
     'Mobile Tester',
     'Milk Source',
     'Gross Liters',
-    '13% TS Liters',
+    '@13 TS Liters',
     'LR',
     'Fat %',
     'SNF %',

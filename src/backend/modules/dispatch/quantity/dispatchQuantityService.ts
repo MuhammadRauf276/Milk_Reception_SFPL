@@ -540,7 +540,7 @@ export interface DispatchSafeSummaryTotals {
 /**
  * Pure production helper: Computes safe aggregate totals across all portions.
  * - Total Gross Liters: Sum of portion gross liters ONLY when every portion has a valid numeric Gross Liters.
- * - Total Liters @ 13% TS: Sum of portion liters @ 13% TS ONLY when every portion has a valid numeric Liters @ 13% TS.
+ * - Total Liters @13 TS: Sum of portion liters @13 TS ONLY when every portion has a valid numeric Liters @13 TS.
  * - If any portion is unavailable, the respective total is strictly unavailable (null).
  * - Never computes averages (no average LR, Fat, Density, SNF, TS, Ratio).
  */

@@ -206,15 +206,15 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
     },
     {
       key: 'dispatch13',
-      header: 'Dispatch @13TS',
-      label: 'Dispatch @13TS',
+      header: 'Dispatch @13 TS',
+      label: 'Dispatch @13 TS',
       align: 'right',
       cell: (item) => <span className="tabular-nums text-foreground">{item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : 'Unavailable'}</span>,
     },
     {
       key: 'plant13',
-      header: 'Plant @13TS',
-      label: 'Plant @13TS',
+      header: 'Plant @13 TS',
+      label: 'Plant @13 TS',
       align: 'right',
       cell: (item) => (
         <span className="tabular-nums font-semibold">
@@ -232,8 +232,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
     },
     {
       key: 'delta13',
-      header: 'Loss / Gain @13TS',
-      label: 'Loss / Gain @13TS',
+      header: 'Loss / Gain @13 TS',
+      label: 'Loss / Gain @13 TS',
       align: 'right',
       cell: (item) => (
         <span className="tabular-nums font-semibold">
@@ -247,8 +247,8 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
     },
     {
       key: 'delta13Pct',
-      header: 'Loss / Gain @13TS %',
-      label: 'Loss / Gain @13TS %',
+      header: 'Loss / Gain @13 TS %',
+      label: 'Loss / Gain @13 TS %',
       align: 'right',
       cell: (item) => (
         <span className="tabular-nums font-semibold">
@@ -394,7 +394,7 @@ export const ZMCCManagerReconciliation: React.FC<ZMCCManagerReconciliationProps>
             </span>
           </div>
           <div className="bg-card border-border p-3 rounded-lg border">
-            <span className="text-xs font-sans text-blue-700 block font-semibold">13% TS Delta on Page</span>
+            <span className="text-xs font-sans text-blue-700 block font-semibold">@13 TS Delta on Page</span>
             <span className="text-lg font-semibold text-blue-900">
               {showKpiPlaceholders ? '—' : summary.tsDiffCount}
             </span>

@@ -319,7 +319,7 @@ export const DispatchApprovalQueue: React.FC<DispatchApprovalQueueProps> = ({
                       </p>
                     </div>
                     <div>
-                      <span className="text-xs text-muted-foreground font-semibold">13 TS</span>
+                      <span className="text-xs text-muted-foreground font-semibold">@13 TS</span>
                       <p className="text-xs font-semibold tabular-nums text-foreground mt-0.5">
                         {item.totals.weightedTs13 ? Number(item.totals.weightedTs13).toFixed(1) : '—'}
                       </p>

@@ -5,7 +5,7 @@ import { getDispatchVsPlantReport } from '@/backend/services/management/dispatch
 
 const ALLOWED_ROLES = ['HEAD_OF_MPD', 'SUPER_ADMIN', 'EXECUTIVE_MANAGEMENT', 'DATA_EXECUTIVE', 'ZMCC_MANAGER', 'QA_HEAD'];
 
-/** Read-only: what each ZMCC tanker sent vs what the plant received (volume, weight, 13 TS, test-wise). */
+/** Read-only: what each ZMCC tanker sent vs what the plant received (volume, weight, @13 TS, test-wise). */
 export async function GET(req: Request) {
   const current = await getCurrentUser(req);
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });

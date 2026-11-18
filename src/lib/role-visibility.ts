@@ -1,5 +1,5 @@
 /**
- * Authoritative Role-Based Visibility Policies for Milk Volume & Commercial 13 TS Metrics
+ * Authoritative Role-Based Visibility Policies for Milk Volume & Commercial @13 TS Metrics
  * Ensures strict operational double-blind segregation and managerial transparency.
  */
 
@@ -30,7 +30,7 @@ export const BLIND_OPERATIONAL_ROLES = [
 ] as const;
 
 /**
- * Returns true if the user role is authorized to view ZMCC tank/tanker 13 TS liters.
+ * Returns true if the user role is authorized to view ZMCC tank/tanker @13 TS liters.
  */
 export function canViewZmcc13TsLiters(role?: string | null): boolean {
   if (!role || typeof role !== 'string') return false;
@@ -38,7 +38,7 @@ export function canViewZmcc13TsLiters(role?: string | null): boolean {
 }
 
 /**
- * Returns true if the user role is authorized to view Plant silo/tanker 13 TS liters.
+ * Returns true if the user role is authorized to view Plant silo/tanker @13 TS liters.
  */
 export function canViewPlant13TsLiters(role?: string | null): boolean {
   if (!role || typeof role !== 'string') return false;

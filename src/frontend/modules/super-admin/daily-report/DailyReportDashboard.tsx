@@ -355,6 +355,7 @@ export function DailyReportDashboard() {
           <div className="mt-2 flex items-baseline gap-2">
             <span className="font-mono text-xl font-semibold tabular-nums text-foreground">
               {kpis ? `${formatNumber(kpis.mot.totalAt13tsLiters)} L` : '—'}
+              {kpis ? <span className="ml-1 text-xs font-semibold text-muted-foreground">@13 TS</span> : null}
             </span>
             <span className="text-xs text-muted-foreground">
               ({kpis ? kpis.mot.totalCollections : '—'} shops)
@@ -400,6 +401,7 @@ export function DailyReportDashboard() {
           <div className="mt-2 flex items-baseline gap-2">
             <span className="font-mono text-xl font-semibold tabular-nums text-foreground">
               {kpis ? `${formatNumber(kpis.zmcc.totalAt13tsLiters)} L` : '—'}
+              {kpis ? <span className="ml-1 text-xs font-semibold text-muted-foreground">@13 TS</span> : null}
             </span>
             <span className="text-xs text-muted-foreground">
               ({kpis ? kpis.zmcc.totalPortions : '—'} portions)
@@ -443,6 +445,7 @@ export function DailyReportDashboard() {
           <div className="mt-2 flex items-baseline gap-2">
             <span className="font-mono text-xl font-semibold tabular-nums text-foreground">
               {kpis ? `${formatNumber(kpis.plantQa.totalAt13tsLiters)} L` : '—'}
+              {kpis ? <span className="ml-1 text-xs font-semibold text-muted-foreground">@13 TS</span> : null}
             </span>
             <span className="text-xs text-muted-foreground">
               ({kpis ? kpis.plantQa.totalTankers : '—'} tankers)
@@ -500,6 +503,7 @@ export function DailyReportDashboard() {
             </span>
           </div>
           <p className="mt-2 text-xs font-medium text-muted-foreground">
+            <span className="font-semibold">Loss / gain @13 TS: </span>
             {([['MOT', kpis?.losses.levels?.mot], ['Area', kpis?.losses.levels?.area], ['Transit', kpis?.losses.levels?.transitNet], ['Whole', kpis?.losses.levels?.whole], ['Contractor', kpis?.losses.levels?.contractorTransit]] as const).map(([name, fig], i) => (
               <span key={name}>
                 {i > 0 ? ' · ' : ''}

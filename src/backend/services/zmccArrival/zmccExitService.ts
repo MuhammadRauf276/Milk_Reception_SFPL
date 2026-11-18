@@ -15,7 +15,7 @@ import { computeExitOutcome, isHcSession } from '@/backend/services/zmccTankServ
 /**
  * HC gate exit (PHE Operator, last step) and "Close without unloading" (MC and HC):
  * PHE Operator requests, ZMCC Manager approves. MC has no gate exit.
- * Nothing returned here carries litres, 13 TS, LR, SNF or TS.
+ * Nothing returned here carries litres, @13 TS, LR, SNF or TS.
  */
 
 export interface ExitServiceResult<T> {

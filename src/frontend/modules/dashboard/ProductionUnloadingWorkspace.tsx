@@ -240,7 +240,7 @@ export const ProductionUnloadingWorkspace: React.FC<ProductionUnloadingWorkspace
                         <span className="font-semibold tabular-nums text-foreground">{silo.silo_code}</span>
                         {stock13Ts != null ? (
                           <span className="tabular-nums font-semibold text-xs text-foreground">
-                            {stock13Ts.toLocaleString()} L @13% TS {pct != null && <span className="text-muted-foreground font-normal text-xs">({pct}%)</span>}
+                            {stock13Ts.toLocaleString()} L @13 TS {pct != null && <span className="text-muted-foreground font-normal text-xs">({pct}%)</span>}
                           </span>
                         ) : stock != null ? (
                           <span className="tabular-nums font-semibold text-xs text-foreground">

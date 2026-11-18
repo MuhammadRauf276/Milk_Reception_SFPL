@@ -136,7 +136,7 @@ export function JourneyCard({
             </span>
           </div>
           <div className="min-w-24 flex-1 bg-card border-border p-2.5 sm:p-3 rounded-xl border">
-            <span className="text-xs font-semibold text-emerald-800 block">@13TS (L)</span>
+            <span className="text-xs font-semibold text-emerald-800 block">@13 TS (L)</span>
             <span className="font-semibold text-xs sm:text-sm text-emerald-950 tabular-nums">
               {totalAt13ts.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L
             </span>

@@ -267,11 +267,11 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
               <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
-                  Dispatch Quantity (@13% TS)
+                  Dispatch Quantity (@13 TS)
                 </span>
                 <span className="text-sm font-semibold text-primary">
                   {log.vehicle_dispatch_at_13ts_liters != null
-                    ? `${Number(log.vehicle_dispatch_at_13ts_liters).toLocaleString()} L @13% TS`
+                    ? `${Number(log.vehicle_dispatch_at_13ts_liters).toLocaleString()} L @13 TS`
                     : log.vehicle_dispatch_quantity_value != null
                     ? `${log.vehicle_dispatch_quantity_value.toLocaleString()} ${log.vehicle_dispatch_quantity_unit || ''}`
                     : log.vehicle_dispatch_gross_liters != null
@@ -374,11 +374,11 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
 
               <div className="bg-card border-border/60 p-3 rounded-lg border">
                 <span className="text-xs font-sans font-semibold text-muted-foreground block">
-                  Received Quantity (@13% TS)
+                  Received Quantity (@13 TS)
                 </span>
                 <span className="text-sm font-semibold text-emerald-800">
                   {log.plant_final_at_13ts_liters != null
-                    ? `${Number(log.plant_final_at_13ts_liters).toLocaleString()} L @13% TS`
+                    ? `${Number(log.plant_final_at_13ts_liters).toLocaleString()} L @13 TS`
                     : log.authoritative_final_liters != null
                     ? `${log.authoritative_final_liters.toLocaleString()} L`
                     : log.final_receipt_exists

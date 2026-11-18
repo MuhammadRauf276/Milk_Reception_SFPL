@@ -123,11 +123,11 @@ export const ProductionQueueList: React.FC<{
                     {(v.total_accepted_at13_ts_liters !== null || v.total_accepted_physical_liters !== null) && (
                       <div className="min-w-0">
                         <span className="font-sans block text-xs opacity-75">
-                          {v.total_accepted_at13_ts_liters !== null ? 'Volume (@13% TS)' : 'Expected volume'}
+                          {v.total_accepted_at13_ts_liters !== null ? 'Volume (@13 TS)' : 'Expected volume'}
                         </span>
                         <span className="block">
                           {v.total_accepted_at13_ts_liters !== null
-                            ? `~${v.total_accepted_at13_ts_liters.toLocaleString()} L @13% TS`
+                            ? `~${v.total_accepted_at13_ts_liters.toLocaleString()} L @13 TS`
                             : `~${v.total_accepted_physical_liters!.toLocaleString()} L`}
                         </span>
                       </div>
@@ -171,11 +171,11 @@ export const ProductionQueueList: React.FC<{
                     {(v.total_accepted_at13_ts_liters !== null || v.total_accepted_physical_liters !== null) && (
                       <div className="min-w-0">
                         <span className="font-sans block text-xs opacity-75">
-                          {v.total_accepted_at13_ts_liters !== null ? 'Volume (@13% TS)' : 'Unloading volume'}
+                          {v.total_accepted_at13_ts_liters !== null ? 'Volume (@13 TS)' : 'Unloading volume'}
                         </span>
                         <span className="block">
                           {v.total_accepted_at13_ts_liters !== null
-                            ? `~${v.total_accepted_at13_ts_liters.toLocaleString()} L @13% TS`
+                            ? `~${v.total_accepted_at13_ts_liters.toLocaleString()} L @13 TS`
                             : `~${v.total_accepted_physical_liters!.toLocaleString()} L`}
                         </span>
                       </div>
@@ -221,7 +221,7 @@ export const ProductionQueueList: React.FC<{
 
                 <div className={statsClass(isSelected)}>
                   <div className="min-w-0">
-                    <span className="font-sans block text-xs opacity-75">{silo.current_stock_at_13ts != null ? 'Stock (@13% TS)' : silo.current_stock_liters != null ? 'Physical stock' : 'State'}</span>
+                    <span className="font-sans block text-xs opacity-75">{silo.current_stock_at_13ts != null ? 'Stock (@13 TS)' : silo.current_stock_liters != null ? 'Physical stock' : 'State'}</span>
                     <span className="text-sm font-semibold block">
                       {silo.current_stock_at_13ts != null
                         ? `${silo.current_stock_at_13ts.toLocaleString()} L`

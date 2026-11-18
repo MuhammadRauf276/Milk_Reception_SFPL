@@ -145,8 +145,8 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
     },
     {
       key: 'dispatch13',
-      header: 'Dispatch @13TS',
-      label: 'Dispatch @13TS',
+      header: 'Dispatch @13 TS',
+      label: 'Dispatch @13 TS',
       cell: (item) => <span className="tabular-nums font-semibold text-blue-900">{item.dispatch13TsLiters != null ? `${item.dispatch13TsLiters.toLocaleString()} L` : '—'}</span>,
     },
     {
@@ -175,8 +175,8 @@ export const ZMCCManagerHistoryReports: React.FC<ZMCCManagerHistoryReportsProps>
     },
     {
       key: 'received13',
-      header: 'Received @13TS',
-      label: 'Received @13TS',
+      header: 'Received @13 TS',
+      label: 'Received @13 TS',
       cell: (item) => <span className="tabular-nums font-semibold text-emerald-900">{item.plant13TsLiters != null ? `${item.plant13TsLiters.toLocaleString()} L` : '—'}</span>,
     },
     { key: 'silo', header: 'Silo', label: 'Silo', cell: (item) => <span className="font-semibold text-foreground">{item.destinationSilo || '—'}</span> },
