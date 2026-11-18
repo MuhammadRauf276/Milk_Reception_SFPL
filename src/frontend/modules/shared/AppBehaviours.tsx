@@ -47,9 +47,45 @@ function DraftSavedNotice() {
   );
 }
 
+/** Anything open right now that is allowed to lock the page (a dialog, a menu or a dropdown list). */
+const OPEN_LAYER =
+  '[role="dialog"][data-state="open"],[role="alertdialog"][data-state="open"],[role="menu"][data-state="open"],[role="listbox"][data-state="open"],[data-radix-popper-content-wrapper]';
+
+/**
+ * Safety net: a pop-up that closes while the page changes can leave the page locked (no scrolling, no taps) after
+ * it is gone, so the screen looks frozen. When the page is locked but nothing that may lock it is open for a
+ * moment, the lock is released.
+ */
+function StuckScrollLockGuard() {
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const locked = () =>
+      document.body.hasAttribute('data-scroll-locked') || document.body.style.pointerEvents === 'none';
+    const release = () => {
+      timer = null;
+      if (!locked() || document.querySelector(OPEN_LAYER)) return;
+      document.body.removeAttribute('data-scroll-locked');
+      if (document.body.style.pointerEvents === 'none') document.body.style.pointerEvents = '';
+    };
+    const check = () => {
+      if (timer) clearTimeout(timer);
+      timer = locked() ? setTimeout(release, 900) : null;
+    };
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-scroll-locked', 'style'], childList: true });
+    check();
+    return () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+  return null;
+}
+
 export function AppBehaviours() {
   return (
     <>
+      <StuckScrollLockGuard />
       <GlobalPullToRefresh />
       <DraftSavedNotice />
     </>

@@ -15,26 +15,39 @@ export interface SheetProps {
   children: React.ReactNode;
 }
 
-/** Slide-over panel (navigation drawer, detail panels) on the shared `z-modal` layer. */
+/**
+ * Slide-over panel (navigation drawer, detail panels) on the shared `z-modal` layer.
+ *
+ * Non-modal on purpose: a modal Radix dialog locks page scrolling and blocks touches on the page until its closing
+ * animation reports it has finished. On a busy phone, closing the drawer as a menu link changes the page could
+ * leave the whole screen frozen with only the drawer responding. Our own backdrop closes the drawer on a tap and
+ * stops touches reaching the page while it is open; Escape still closes it.
+ */
 export function Sheet({ open, onOpenChange, title, side = 'left', className, children }: SheetProps) {
   const reduceMotion = useReducedMotion();
   const offset = side === 'left' ? '-100%' : '100%';
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={false}>
       <AnimatePresence>
         {open ? (
           <DialogPrimitive.Portal forceMount>
-            <DialogPrimitive.Overlay asChild forceMount>
-              <motion.div
-                className="fixed inset-0 z-modal bg-neutral-950/40 backdrop-blur-[2px]"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-              />
-            </DialogPrimitive.Overlay>
-            <DialogPrimitive.Content asChild forceMount aria-describedby={undefined}>
+            <motion.div
+              aria-hidden="true"
+              className="fixed inset-0 z-modal touch-none bg-neutral-950/40 backdrop-blur-[2px]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, pointerEvents: 'none' }}
+              transition={{ duration: 0.18 }}
+              onClick={() => onOpenChange(false)}
+            />
+            <DialogPrimitive.Content
+              asChild
+              forceMount
+              aria-describedby={undefined}
+              // The backdrop above handles taps outside; Radix must not also close on the same tap.
+              onInteractOutside={(e) => e.preventDefault()}
+            >
               <motion.div
                 className={cn(
                   'scrollbar-thin overscroll-contain fixed inset-y-0 z-modal flex w-80 max-w-[88vw] flex-col overflow-y-auto overflow-x-hidden bg-card shadow-xl outline-hidden touch-scroll pt-safe pb-[max(0.75rem,env(safe-area-inset-bottom))]',

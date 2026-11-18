@@ -26,7 +26,7 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
   if (!cached || Date.now() - cached.at > CACHE_MS) {
-    const [tests, assignments, policies, routes, testers, vehicles, shops, suppliers, areas, build] = await Promise.all([
+    const [tests, assignments, policies, routes, testers, vehicles, shops, suppliers, areas, sources, build] = await Promise.all([
       prisma.labTest.aggregate({ _max: { updatedAt: true }, _count: true }),
       prisma.milkTestPolicyAssignment.aggregate({ _max: { updated_at: true }, _count: true }),
       prisma.testPointPolicy.aggregate({ _max: { id: true }, _count: true }),
@@ -36,6 +36,8 @@ export async function GET(req: Request) {
       prisma.zmccShop.aggregate({ _max: { updated_at: true }, _count: true }),
       prisma.zmccLocalSupplier.aggregate({ _max: { updated_at: true }, _count: true }),
       prisma.zmccArea.aggregate({ _max: { updated_at: true }, _count: true }),
+      // ZMCCs and contractors: a new location or status reaches open screens without a reload.
+      prisma.procurementSource.aggregate({ _max: { updated_at: true }, _count: true }),
       readBuildId(),
     ]);
     const stamp = [
@@ -57,6 +59,8 @@ export async function GET(req: Request) {
       suppliers._count,
       time(areas._max.updated_at),
       areas._count,
+      time(sources._max.updated_at),
+      sources._count,
     ].join('.');
     cached = { at: Date.now(), build, stamp };
   }

@@ -75,10 +75,7 @@ export function DispatchTab({
       onError('Select route, Mobile Tester and vehicle.');
       return;
     }
-    if (originSet === false) {
-      onError('This ZMCC has no location yet. Ask the Super Admin to add it under Procurement Sources.');
-      return;
-    }
+    // A missing location is only shown as a warning here: the server reads the ZMCC fresh and decides.
     onError(null);
 
     const idempotencyKey =
@@ -266,7 +263,7 @@ export function DispatchTab({
 
             <button
               type="submit"
-              disabled={!canAssignAndDispatch || actionLoading || originSet === false || !dispatchRouteId || !dispatchProfileId || !dispatchVehicleId}
+              disabled={!canAssignAndDispatch || actionLoading || !dispatchRouteId || !dispatchProfileId || !dispatchVehicleId}
               className="w-full min-h-14 flex items-center justify-center space-x-2 px-4 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="w-3.5 h-3.5" />

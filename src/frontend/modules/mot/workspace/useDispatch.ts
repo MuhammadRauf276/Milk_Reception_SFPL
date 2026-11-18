@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchJson } from '@/lib/query/fetchJson';
 import type { StationPosition } from '@/lib/gps';
 import { isValidPosition } from '@/lib/coordinates';
 import type { ZmccSource } from './types';
@@ -33,9 +35,23 @@ export function useDispatchGps(opts: {
   fallbackStation?: StationPosition | null;
   dispatchTabActive: boolean;
 }) {
-  const { sources, effectiveZmccId, fallbackStation } = opts;
-  const picked = sources.find((s) => s.id === effectiveZmccId) ?? null;
-  const station: StationPosition | null = picked ?? fallbackStation ?? null;
+  const { sources, effectiveZmccId, fallbackStation, dispatchTabActive } = opts;
+  // Read the ZMCC's location fresh from the server while dispatching, so a location the Super Admin just added
+  // counts at once (a list loaded earlier, or the signed-in user's own record, can be minutes old).
+  const fresh = useQuery({
+    queryKey: ['dispatch', 'zmcc-location'],
+    queryFn: ({ signal }) => fetchJson<{ zmccs?: ZmccSource[] }>('/api/zmcc/sources', { signal }),
+    enabled: dispatchTabActive,
+    staleTime: 30_000,
+  });
+  const freshList = fresh.data?.zmccs ?? [];
+  const ownId = fallbackStation && 'id' in fallbackStation ? String((fallbackStation as { id?: unknown }).id ?? '') : '';
+  const targetId = effectiveZmccId ?? (freshList.length === 1 ? freshList[0].id : ownId || null);
+  const picked =
+    freshList.find((s) => s.id === targetId) ?? sources.find((s) => s.id === targetId) ?? null;
+  // The user's own ZMCC only stands in when it is the ZMCC being dispatched.
+  const own = fallbackStation && (!targetId || ownId === targetId) ? fallbackStation : null;
+  const station: StationPosition | null = picked ?? own ?? null;
   return {
     origin: station,
     originSet: station ? isValidPosition(station.latitude, station.longitude) : null,
