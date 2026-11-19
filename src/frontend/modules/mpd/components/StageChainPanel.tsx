@@ -17,6 +17,7 @@ import type {
   StageZmccRow,
 } from '@/backend/modules/management-reporting/stageChainContracts';
 import { Signed, formatLitres } from './LossLevelCards';
+import { OneStageDailyChart, STAGE_COLORS, StageChartsBoard } from './StageCharts';
 import { lossQueryParams, type LossFilters } from '../lossFilters';
 
 type StageKey = 'ALL' | 'SHOPS' | 'INTAKE' | 'SLIP' | 'PLANT';
@@ -335,7 +336,10 @@ export function StageChainPanel({ filters }: { filters: LossFilters }) {
 
       {report ? (
         stage === 'ALL' ? (
-          <Chain report={report} />
+          <>
+            <Chain report={report} />
+            <StageChartsBoard report={report} />
+          </>
         ) : (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <StageCard
@@ -346,6 +350,13 @@ export function StageChainPanel({ filters }: { filters: LossFilters }) {
               days={report.days}
               tsValue={stageValue(stage, report.total).ts}
             />
+            <div className="sm:col-span-2">
+              <OneStageDailyChart
+                title={`${STAGES.find((x) => x.value === stage)!.label} per day`}
+                color={stage === 'SHOPS' ? STAGE_COLORS.shops : stage === 'INTAKE' ? STAGE_COLORS.intake : stage === 'SLIP' ? STAGE_COLORS.slip : STAGE_COLORS.plant}
+                points={report.daily.map((d) => ({ day: d.day, ...dayValue(stage, d).pair }))}
+              />
+            </div>
           </div>
         )
       ) : (
