@@ -149,9 +149,8 @@ export function computePortionLiveDecision(input: {
   if (missingPhotos.length > 0) {
     extraReasons.push('PICTURE_MISSING');
   }
-  if (personDecision === 'REJECT' && missingCompulsory.length > 0 && ruleFailures.length === 0) {
-    extraReasons.push('MISSING_FIELD');
-  }
+  // A missing required test makes the system say reject (the shared rule counts it); rejecting then agrees with the
+  // system and is decided here, the same as on the server.
 
   const decision = evaluateDecision({
     ruleFailures,

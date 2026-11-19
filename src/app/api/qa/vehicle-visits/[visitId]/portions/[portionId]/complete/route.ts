@@ -457,8 +457,10 @@ export async function POST(
       const ruleFailReasons: string[] = [];
       const exceptionReasonsList: string[] = [];
 
+      // A missing required test makes the system recommend rejection, like a failed test. It is a reason to show,
+      // not an exception by itself: a QAE who rejects agrees with the system and decides; accepting is a mismatch.
       if (hasMissingRequiredTest) {
-        exceptionReasonsList.push('MISSING_FIELD');
+        ruleFailReasons.push('MISSING_FIELD');
       }
       if (sealMismatchException) {
         exceptionReasonsList.push('SEAL_MISMATCH');

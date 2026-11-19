@@ -198,3 +198,12 @@ export const DISPATCH_APPROVAL_READ_ROLES = ['ZMCC_MANAGER', 'CONTRACTOR_MANAGER
 export function canDecideDispatch(actorRole: string, sourceType: 'ZMCC' | 'CONTRACTOR'): boolean {
   return canActAs(actorRole, dispatchApproverRoleFor(sourceType));
 }
+
+/**
+ * Whether a dispatch waits for the Zonal / Contractor Manager. A clear dispatch (the decision rule says PROCEED or
+ * REJECT) goes straight through even when the person cannot approve; only the rule's SEND_TO_APPROVER for someone who
+ * cannot decide, or the person's own choice to send a request, waits.
+ */
+export function dispatchNeedsApproval(i: { action: string | null | undefined; route: string; canDirectlyApprove: boolean }): boolean {
+  return i.action === 'SEND_REQUEST' || (i.route === 'SEND_TO_APPROVER' && !i.canDirectlyApprove);
+}

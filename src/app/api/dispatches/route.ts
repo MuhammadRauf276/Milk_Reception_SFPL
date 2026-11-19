@@ -37,8 +37,7 @@ import {
   dispatchPointFor,
   dispatchApproverRoleFor,
   canDecideDispatch,
-  type DispatchSourceFailure,
-} from '@/backend/services/dispatchScope';
+  type DispatchSourceFailure, dispatchNeedsApproval } from '@/backend/services/dispatchScope';
 import { writeAuditLog } from '@/backend/core/audit';
 import { alreadyDecidedMessage, clearDraftsForScope, DISPATCH_DRAFT_TYPES, type DraftDb } from '@/backend/services/formDraftService';
 import { pickVehicleLrFat } from '@/backend/services/dispatch/vehicleQuality';
@@ -738,7 +737,16 @@ async function submitToVisit(req: Request): Promise<Response> {
       userRole === 'DATA_EXECUTIVE' ||
       canActAs(userRole, approverRole);
 
-    const isSendRequest = validated.action === 'SEND_REQUEST' || !canDirectlyApprove;
+    // A clear dispatch (system result and the person's decision agree, nothing missing) goes straight through, also
+    // when the person cannot approve. Only the decision rule's SEND_TO_APPROVER, or the person's own choice to send a
+    // request, waits for the Zonal / Contractor Manager.
+    const isSendRequest = dispatchNeedsApproval({ action: validated.action, route: decision.route, canDirectlyApprove });
+    if (isSendRequest && (validated.decisionRemarks ?? '').trim().length < 3) {
+      return NextResponse.json(
+        { error: 'Write remarks (at least 3 characters) when sending a request to the approver.', code: 'REMARKS_REQUIRED', decision },
+        { status: 400 }
+      );
+    }
     let nextStatus: string;
     let approvalStatus: string;
 
