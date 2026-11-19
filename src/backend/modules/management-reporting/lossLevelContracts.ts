@@ -6,7 +6,7 @@ import type { LossFigure, LossPair } from '@/lib/lossGain';
  */
 export type { LossFigure, LossPair };
 
-export const LOSS_PRESETS = ['TODAY', 'YESTERDAY', 'LAST_7', 'LAST_30', 'MTD'] as const;
+export const LOSS_PRESETS = ['TODAY', 'YESTERDAY', 'LAST_7', 'LAST_30', 'MTD', 'LAST_MONTH', 'QTD', 'YTD'] as const;
 export type LossPreset = (typeof LOSS_PRESETS)[number];
 
 export interface LossFiltersEcho {

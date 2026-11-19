@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { parseDateBasis } from '@/backend/core/business-day';
 import { getCurrentUser } from '@/backend/core/auth';
 import { prisma } from '@/backend/core/db';
 import { parseLossQuery, resolveLossRange } from '@/backend/services/lossCalculationService';
@@ -16,7 +17,8 @@ export async function GET(req: Request) {
   const user = await prisma.user.findUnique({ where: { id: BigInt(current.id) } });
   if (!user || !ALLOWED_ROLES.includes(user.role)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
 
-  const parsed = parseLossQuery(new URL(req.url).searchParams, {
+  const searchParams = new URL(req.url).searchParams;
+  const parsed = parseLossQuery(searchParams, {
     role: user.role,
     managerZmccId: user.procurement_source_id,
     defaultPreset: 'LAST_30',
@@ -29,6 +31,7 @@ export async function GET(req: Request) {
       from: range.from,
       to: range.to,
       zmccIds: (parsed.filters.zmccIds ?? []).map(String),
+      basis: parseDateBasis(searchParams.get('basis')),
     });
     return NextResponse.json({ report }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error: unknown) {

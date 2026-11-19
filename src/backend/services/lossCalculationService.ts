@@ -563,6 +563,9 @@ export const LOSS_PRESET_LABELS: Record<LossPreset, string> = {
   LAST_7: 'Last 7 days',
   LAST_30: 'Last 30 days',
   MTD: 'Month to date',
+  LAST_MONTH: 'Last month',
+  QTD: 'Quarter to date',
+  YTD: 'Year to date',
 };
 
 /** The Pakistan days a preset covers, in the same shape as resolvePeriodDateRange plus the day strings. */
@@ -579,6 +582,16 @@ export function resolveLossPresetRange(preset: LossPreset, now: Date = new Date(
     from = shiftDay(today, -29);
   } else if (preset === 'MTD') {
     from = `${today.slice(0, 7)}-01`;
+  } else if (preset === 'LAST_MONTH') {
+    const firstThisMonth = `${today.slice(0, 7)}-01`;
+    to = shiftDay(firstThisMonth, -1);
+    from = `${to.slice(0, 7)}-01`;
+  } else if (preset === 'QTD') {
+    const month = Number(today.slice(5, 7));
+    const quarterStart = month - ((month - 1) % 3);
+    from = `${today.slice(0, 4)}-${String(quarterStart).padStart(2, '0')}-01`;
+  } else if (preset === 'YTD') {
+    from = `${today.slice(0, 4)}-01-01`;
   }
   const first = getPakistanDayWindow(from);
   const last = getPakistanDayWindow(to);

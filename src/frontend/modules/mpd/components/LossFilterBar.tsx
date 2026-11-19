@@ -16,6 +16,9 @@ const PRESETS: Array<{ value: LossPreset; label: string }> = [
   { value: 'LAST_7', label: 'Last 7' },
   { value: 'LAST_30', label: 'Last 30' },
   { value: 'MTD', label: 'This month' },
+  { value: 'LAST_MONTH', label: 'Last month' },
+  { value: 'QTD', label: 'This quarter' },
+  { value: 'YTD', label: 'This year' },
 ];
 
 interface PickItem {
@@ -199,8 +202,24 @@ export const LossFilterBar: React.FC<LossFilterBarProps> = ({
             </button>
           ))}
         </div>
+        <div role="group" aria-label="Date basis" className="flex shrink-0 gap-1 rounded-xl border border-border bg-muted p-1">
+          {(['calendar', 'business'] as const).map((b) => (
+            <button
+              key={b}
+              type="button"
+              onClick={() => onChange({ ...filters, basis: b })}
+              aria-pressed={filters.basis === b}
+              className={cn(
+                'min-h-11 shrink-0 rounded-lg px-3 text-xs font-semibold transition-colors',
+                filters.basis === b ? 'bg-card text-foreground shadow-2xs' : 'text-secondary-foreground hover:text-foreground'
+              )}
+            >
+              {b === 'calendar' ? 'Calendar day' : 'Business day'}
+            </button>
+          ))}
+        </div>
         {rangeLabel ? <span className="text-xs text-muted-foreground">{rangeLabel}</span> : null}
-        <InfoTip text={`Dates are Pakistan days. A custom range can be up to ${MAX_LOSS_DAYS} days. The link keeps your choice.`} label="Filter help" />
+        <InfoTip text={`Calendar day runs midnight to midnight; business day runs 08:00 to 08:00 at the plant. Dates are Pakistan days. A custom range can be up to ${MAX_LOSS_DAYS} days. The link keeps your choice.`} label="Filter help" />
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">

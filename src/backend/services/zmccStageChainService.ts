@@ -13,7 +13,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@core/db';
 import { pkLocal } from '@/backend/core/sqlTime';
-import type { StageChainReport, StageCycle, StagePair, StageZmccRow } from '@/backend/modules/management-reporting/stageChainContracts';
+import type { StageChainReport, StageCycle, StageDay, StagePair, StageTotal, StageZmccRow } from '@/backend/modules/management-reporting/stageChainContracts';
 
 export interface StageLedgerRow {
   tankId: string;
@@ -135,18 +135,23 @@ export function buildTankCycles(rows: StageLedgerRow[]): Array<WorkCycle & { zmc
   return out;
 }
 
+export type IntakeByKind = { mot: StagePair; hc: StagePair; other: StagePair };
+
+/**
+ * One ZMCC's row. Each stage counts on its own day (shops on theirs, intake on the day it was received); the loss
+ * between stages comes from the tank fills dispatched in the period.
+ */
 function summarize(
   zmccId: string,
   zmccName: string,
   shops: StagePair,
+  intakeOwnDay: IntakeByKind,
   cycles: Array<WorkCycle & { zmccId: string }>
 ): StageZmccRow {
-  let mot = pair(), hc = pair(), other = pair(), slip = pair(), plant = pair(), roadP = pair();
+  const { mot, hc, other } = intakeOwnDay;
+  let slip = pair(), plant = pair(), roadP = pair();
   let true13 = 0, slipOver = 0, pending = 0, slipHigh = 0;
   for (const c of cycles) {
-    mot = add(mot, c.mot);
-    hc = add(hc, c.hc);
-    other = add(other, c.other);
     slip = add(slip, c.dispatchSlip);
     true13 += c.dispatchTrue13ts;
     slipOver += c.slipOver13ts;
@@ -181,6 +186,7 @@ function summarize(
     },
     cycleCount: cycles.length,
     slipHighCycles: slipHigh,
+    daily: [],
     cycles: cycles.map((c) => ({
       day: c.day,
       tankCode: c.tankCode,
@@ -199,20 +205,85 @@ function summarize(
   };
 }
 
-export async function getZmccStageChain(input: { from: string; to: string; zmccIds?: string[] }): Promise<StageChainReport> {
+const shiftDay = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+const dayCount = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1;
+
+/** Day totals of a set of cycles and shop days, every day of the range present (empty days are zero). */
+function dailySeries(
+  from: string,
+  to: string,
+  cycles: Array<WorkCycle & { zmccId: string }>,
+  shopDays: Map<string, StagePair>,
+  intakeDays: Map<string, StagePair>
+): StageDay[] {
+  const byDay = new Map<string, Array<WorkCycle & { zmccId: string }>>();
+  for (const c of cycles) byDay.set(c.day, [...(byDay.get(c.day) ?? []), c]);
+  const out: StageDay[] = [];
+  for (let d = from; d <= to; d = shiftDay(d, 1)) {
+    const intake = intakeDays.get(d) ?? pair();
+    let slip = pair(), plant = pair(), road = pair(), over = 0;
+    for (const c of byDay.get(d) ?? []) {
+      slip = add(slip, c.dispatchSlip);
+      over += c.slipOver13ts;
+      if (c.plant && c.road) {
+        plant = add(plant, c.plant);
+        road = add(road, c.road);
+      }
+    }
+    out.push({
+      day: d,
+      shops: round(shopDays.get(d) ?? pair()),
+      intake: round(intake),
+      dispatchSlip: round(slip),
+      plant: round(plant),
+      slipOver13ts: r2(over)!,
+      road: round(road),
+      ts: { intake: r2(tsOf(intake)), slip: r2(tsOf(slip)), plant: r2(tsOf(plant)) },
+    });
+  }
+  return out;
+}
+
+export async function getZmccStageChain(input: {
+  from: string;
+  to: string;
+  zmccIds?: string[];
+  basis?: 'calendar' | 'business';
+}): Promise<StageChainReport> {
+  const basis = input.basis === 'business' ? 'business' : 'calendar';
+  const days = dayCount(input.from, input.to);
+  const prevTo = shiftDay(input.from, -1);
+  const prevFrom = shiftDay(input.from, -days);
   const ids = (input.zmccIds ?? []).filter((id) => /^\d{1,18}$/.test(id)).map((id) => BigInt(id));
   const zmccs = await prisma.procurementSource.findMany({
     where: { source_type: 'ZMCC', ...(ids.length ? { id: { in: ids } } : {}) },
     select: { id: true, name: true },
     orderBy: { name: 'asc' },
   });
-  if (zmccs.length === 0) return { from: input.from, to: input.to, zmccs: [], total: emptyTotal() };
+  if (zmccs.length === 0) {
+    return {
+      from: input.from,
+      to: input.to,
+      basis,
+      days,
+      zmccs: [],
+      total: emptyTotal(),
+      daily: dailySeries(input.from, input.to, [], new Map(), new Map()),
+      previous: { from: prevFrom, to: prevTo, total: emptyTotal() },
+    };
+  }
   const zmccIdList = zmccs.map((z) => z.id);
+
+  // A business day runs 08:00 to 08:00: a time before 08:00 belongs to the day before.
+  const dayOf = (col: string) =>
+    basis === 'business'
+      ? Prisma.sql`to_char(${pkLocal(col)} - interval '8 hours', 'YYYY-MM-DD')`
+      : Prisma.sql`to_char(${pkLocal(col)}, 'YYYY-MM-DD')`;
 
   // The whole ledger of these tanks (a cycle's opening needs what came before the period).
   const raw = await prisma.$queryRaw<Array<Record<string, unknown>>>`
     SELECT x.tank_id::text AS tank_id, tk.tank_code, tk.zmcc_id::text AS zmcc_id, x.transaction_type::text AS type,
-           x.reference_type, to_char(${pkLocal('x.operational_timestamp')}, 'YYYY-MM-DD') AS day,
+           x.reference_type, ${dayOf('x.operational_timestamp')} AS day,
            x.quantity_liters::float8 AS quantity_liters, x.at_13ts_liters::float8 AS at13,
            tr.gross_liters::float8 AS r_l, tr.ts::float8 AS r_ts, tr.arrival_type AS r_kind,
            v.id::text AS visit_id, v.visit_number, v.vehicle_number,
@@ -253,27 +324,88 @@ export async function getZmccStageChain(input: { from: string; to: string; zmccI
     plantTs: num(r.p_ts),
   }));
 
-  const shopRows = await prisma.$queryRaw<Array<{ zmcc_id: string; l: number | null; a13: number | null }>>`
-    SELECT zmcc_id::text AS zmcc_id, SUM(gross_liters)::float8 AS l, SUM(at_13ts_liters)::float8 AS a13
+  // Shops by day: the journey date for calendar days; the collection time for business days.
+  const shopDay = basis === 'business' ? dayOf('device_collected_at') : Prisma.sql`to_char(operational_date, 'YYYY-MM-DD')`;
+  const shopRows = await prisma.$queryRaw<Array<{ zmcc_id: string; day: string; l: number | null; a13: number | null }>>`
+    SELECT zmcc_id::text AS zmcc_id, ${shopDay} AS day, SUM(gross_liters)::float8 AS l, SUM(at_13ts_liters)::float8 AS a13
     FROM mot_shop_collection
     WHERE zmcc_id IN (${Prisma.join(zmccIdList)}) AND final_decision = 'ACCEPTED'
-      AND operational_date BETWEEN ${input.from}::date AND ${input.to}::date
-    GROUP BY zmcc_id`;
-  const shopsBy = new Map(shopRows.map((s) => [s.zmcc_id, pair(Number(s.l ?? 0), Number(s.a13 ?? 0))]));
+      AND operational_date BETWEEN ${shiftDay(prevFrom, -1)}::date AND ${shiftDay(input.to, 1)}::date
+    GROUP BY 1, 2`;
+  const shopsByZmccDay = new Map<string, Map<string, StagePair>>();
+  for (const sr of shopRows) {
+    const m = shopsByZmccDay.get(sr.zmcc_id) ?? new Map<string, StagePair>();
+    m.set(sr.day, add(m.get(sr.day) ?? pair(), pair(Number(sr.l ?? 0), Number(sr.a13 ?? 0))));
+    shopsByZmccDay.set(sr.zmcc_id, m);
+  }
+  const shopsIn = (zmccId: string, from: string, to: string) => {
+    let total = pair();
+    for (const [d, v] of shopsByZmccDay.get(zmccId) ?? []) if (d >= from && d <= to) total = add(total, v);
+    return total;
+  };
 
-  const allCycles = buildTankCycles(rows).filter((c) => c.day >= input.from && c.day <= input.to);
-  const result = zmccs.map((z) =>
-    summarize(z.id.toString(), z.name, shopsBy.get(z.id.toString()) ?? pair(), allCycles.filter((c) => c.zmccId === z.id.toString()))
-  );
-  const withData = result.filter((r) => r.cycleCount > 0 || r.shops.liters > 0);
-  return { from: input.from, to: input.to, zmccs: withData, total: totalOf(withData) };
+  const receipts = new Map<string, Map<string, IntakeByKind>>();
+  for (const r of rows) {
+    if (r.type !== 'RECEIPT') continue;
+    const liters = r.receiptLiters ?? r.quantityLiters;
+    const at13 = r.receiptLiters != null && r.receiptTs != null ? (r.receiptLiters * r.receiptTs) / 13 : (r.at13tsLiters ?? 0);
+    const byDay = receipts.get(r.zmccId) ?? new Map<string, IntakeByKind>();
+    const k = byDay.get(r.day) ?? { mot: pair(), hc: pair(), other: pair() };
+    const kind = r.receiptKind === 'HC' ? 'hc' : r.receiptKind === 'MOT' || r.receiptKind === 'MC' ? 'mot' : 'other';
+    k[kind] = add(k[kind], pair(liters, at13));
+    byDay.set(r.day, k);
+    receipts.set(r.zmccId, byDay);
+  }
+  const intakeIn = (zmccId: string, from: string, to: string): IntakeByKind => {
+    const out: IntakeByKind = { mot: pair(), hc: pair(), other: pair() };
+    for (const [d, k] of receipts.get(zmccId) ?? []) {
+      if (d < from || d > to) continue;
+      out.mot = add(out.mot, k.mot);
+      out.hc = add(out.hc, k.hc);
+      out.other = add(out.other, k.other);
+    }
+    return out;
+  };
+  const intakeDaysOf = (zmccIds: string[]) => {
+    const m = new Map<string, StagePair>();
+    for (const id of zmccIds) for (const [d, k] of receipts.get(id) ?? []) m.set(d, add(m.get(d) ?? pair(), add(add(k.mot, k.hc), k.other)));
+    return m;
+  };
+
+  const cycles = buildTankCycles(rows);
+  const inRange = (from: string, to: string) => cycles.filter((c) => c.day >= from && c.day <= to);
+  const build = (from: string, to: string, withDaily: boolean) =>
+    zmccs
+      .map((z) => {
+        const id = z.id.toString();
+        const zc = inRange(from, to).filter((c) => c.zmccId === id);
+        const row = summarize(id, z.name, shopsIn(id, from, to), intakeIn(id, from, to), zc);
+        if (withDaily) row.daily = dailySeries(from, to, zc, shopsByZmccDay.get(id) ?? new Map(), intakeDaysOf([id]));
+        return row;
+      })
+      .filter((r) => r.cycleCount > 0 || r.shops.liters > 0 || r.receivedMot.liters + r.receivedHc.liters + r.receivedOther.liters > 0);
+
+  const current = build(input.from, input.to, true);
+  const previous = build(prevFrom, prevTo, false);
+  const allShopDays = new Map<string, StagePair>();
+  for (const m of shopsByZmccDay.values()) for (const [d, v] of m) allShopDays.set(d, add(allShopDays.get(d) ?? pair(), v));
+  return {
+    from: input.from,
+    to: input.to,
+    basis,
+    days,
+    zmccs: current,
+    total: totalOf(current),
+    daily: dailySeries(input.from, input.to, inRange(input.from, input.to), allShopDays, intakeDaysOf(zmccs.map((z) => z.id.toString()))),
+    previous: { from: prevFrom, to: prevTo, total: totalOf(previous) },
+  };
 }
 
-function emptyTotal(): StageChainReport['total'] {
+function emptyTotal(): StageTotal {
   return totalOf([]);
 }
 
-function totalOf(rows: StageZmccRow[]): StageChainReport['total'] {
+function totalOf(rows: StageZmccRow[]): StageTotal {
   const sum = (pick: (r: StageZmccRow) => StagePair) => round(rows.reduce((acc, r) => add(acc, pick(r)), pair()));
   const receivedMot = sum((r) => r.receivedMot);
   const receivedHc = sum((r) => r.receivedHc);

@@ -15,6 +15,8 @@ export interface LossFilters {
   zmccIds: string[];
   contractorIds: string[];
   motProfileId: string;
+  /** Calendar day (midnight to midnight) or business day (08:00 to 08:00). */
+  basis: 'calendar' | 'business';
 }
 
 export const DEFAULT_LOSS_FILTERS: LossFilters = {
@@ -24,6 +26,7 @@ export const DEFAULT_LOSS_FILTERS: LossFilters = {
   zmccIds: [],
   contractorIds: [],
   motProfileId: '',
+  basis: 'calendar',
 };
 
 const isDay = (s: string | null | undefined): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -60,6 +63,7 @@ export function readLossFilters(params: URLSearchParams | { get(name: string): s
     zmccIds: csv(params.get('zmccIds')),
     contractorIds: csv(params.get('contractorIds')),
     motProfileId: params.get('motProfileId') ?? '',
+    basis: params.get('basis') === 'business' ? 'business' : 'calendar',
   };
 }
 
@@ -77,10 +81,11 @@ export function lossQueryParams(f: LossFilters, withLists = true): URLSearchPara
     if (f.contractorIds.length) q.set('contractorIds', f.contractorIds.join(','));
     if (f.motProfileId) q.set('motProfileId', f.motProfileId);
   }
+  if (f.basis === 'business') q.set('basis', 'business');
   return q;
 }
 
-const FILTER_KEYS = ['preset', 'from', 'to', 'zmccIds', 'contractorIds', 'motProfileId'] as const;
+const FILTER_KEYS = ['preset', 'from', 'to', 'zmccIds', 'contractorIds', 'motProfileId', 'basis'] as const;
 
 /** The filters live in the page address, so a link can be shared and a reload keeps the choice. */
 export function useLossFilters(): { filters: LossFilters; setFilters: (next: LossFilters) => void } {
@@ -94,7 +99,7 @@ export function useLossFilters(): { filters: LossFilters; setFilters: (next: Los
       const q = new URLSearchParams(key);
       FILTER_KEYS.forEach((k) => q.delete(k));
       const isDefault =
-        !next.from && !next.to && next.preset === DEFAULT_LOSS_PRESET && !next.zmccIds.length && !next.contractorIds.length && !next.motProfileId;
+        !next.from && !next.to && next.preset === DEFAULT_LOSS_PRESET && !next.zmccIds.length && !next.contractorIds.length && !next.motProfileId && next.basis === 'calendar';
       if (!isDefault) lossQueryParams(next).forEach((v, k) => q.set(k, v));
       const qs = q.toString();
       // The native history API updates the address and useSearchParams at once, with no server round trip, so a

@@ -2,33 +2,89 @@
 
 import React, { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Download, Loader2 } from 'lucide-react';
 import { fetchJson } from '@/lib/fetch-json';
 import { InfoTip } from '@/components/ui/info-tip';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { SegmentedTabs } from '@/components/ui/segmented-tabs';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
-import type { StageChainReport, StageCycle, StagePair, StageZmccRow } from '@/backend/modules/management-reporting/stageChainContracts';
+import type {
+  StageChainReport,
+  StageCycle,
+  StageDay,
+  StagePair,
+  StageTotal,
+  StageZmccRow,
+} from '@/backend/modules/management-reporting/stageChainContracts';
 import { Signed, formatLitres } from './LossLevelCards';
 import { lossQueryParams, type LossFilters } from '../lossFilters';
 
+type StageKey = 'ALL' | 'SHOPS' | 'INTAKE' | 'SLIP' | 'PLANT';
+type ViewKey = 'ZMCC' | 'DAY';
+
+const STAGES: Array<{ value: StageKey; label: string }> = [
+  { value: 'ALL', label: 'All stages' },
+  { value: 'SHOPS', label: 'Shops' },
+  { value: 'INTAKE', label: 'ZMCC intake' },
+  { value: 'SLIP', label: 'Dispatch slip' },
+  { value: 'PLANT', label: 'Plant' },
+];
+const VIEWS: Array<{ value: ViewKey; label: string }> = [
+  { value: 'ZMCC', label: 'By ZMCC' },
+  { value: 'DAY', label: 'By day' },
+];
+
 const INFO = {
-  shops: 'Milk the Mobile Testers collected from shops (accepted), by journey date.',
+  shops: 'Milk the Mobile Testers collected from shops (accepted).',
   intake: 'Milk that went into the ZMCC tanks: from Mobile Testers and HC suppliers, with the ZMCC lab tests.',
   slip: 'What the dispatch slips say left the ZMCC (litres and @13 TS from the dispatch test).',
   plant: 'What the plant received: weighbridge net weight with the plant test. Tankers not yet received are left out.',
   motTrip: 'Received at the ZMCC from Mobile Testers minus collected from shops.',
-  slipOver: 'Dispatch slip @13 TS minus the same litres at the quality of the milk in the tank. Plus means the slip claims more solids than the milk had. This is a recording difference, not milk.',
+  slipOver: 'Dispatch slip @13 TS minus the same litres at the quality of the milk in the tank. Plus means the slip claims more solids than the milk had. A recording difference, not milk.',
   road: 'Plant received minus what really left the ZMCC (the dispatched litres at the tank milk quality). The real loss or gain on the road.',
   whole: 'Shops and HC to plant: the Mobile Tester trip plus the road. The slip difference is not part of it.',
   ts: 'Milk quality (TS = Fat + SNF). Intake and plant should agree; a higher slip TS means the dispatch test is written high.',
+  lpd: 'LPD: litres per day, the period total divided by its days.',
+  compare: 'Change against the same number of days just before this period.',
 };
 
 const L = (n: number | null | undefined) => <span className="tabular-nums">{formatLitres(n)}</span>;
 const ts = (n: number | null | undefined) => (n == null ? '—' : n.toFixed(2));
+const intakeOf = (r: Pick<StageTotal, 'receivedMot' | 'receivedHc' | 'receivedOther'>): StagePair => ({
+  liters: r.receivedMot.liters + r.receivedHc.liters + r.receivedOther.liters,
+  at13ts: r.receivedMot.at13ts + r.receivedHc.at13ts + r.receivedOther.at13ts,
+});
 
-function Stage({ label, info, value, tsValue }: { label: string; info: string; value: StagePair; tsValue?: number | null }) {
+/** The one figure each stage stands for. */
+function stageValue(stage: Exclude<StageKey, 'ALL'>, r: StageTotal): { pair: StagePair; ts: number | null } {
+  if (stage === 'SHOPS') return { pair: r.shops, ts: r.shops.liters > 0 ? (r.shops.at13ts * 13) / r.shops.liters : null };
+  if (stage === 'INTAKE') return { pair: intakeOf(r), ts: r.ts.intake };
+  if (stage === 'SLIP') return { pair: r.dispatchSlip, ts: r.ts.slip };
+  return { pair: r.plant, ts: r.ts.plant };
+}
+
+function dayValue(stage: Exclude<StageKey, 'ALL'>, d: StageDay): { pair: StagePair; ts: number | null } {
+  if (stage === 'SHOPS') return { pair: d.shops, ts: d.shops.liters > 0 ? (d.shops.at13ts * 13) / d.shops.liters : null };
+  if (stage === 'INTAKE') return { pair: d.intake, ts: d.ts.intake };
+  if (stage === 'SLIP') return { pair: d.dispatchSlip, ts: d.ts.slip };
+  return { pair: d.plant, ts: d.ts.plant };
+}
+
+function Change({ now, before }: { now: number; before: number }) {
+  if (!before) return <span className="text-muted-foreground">—</span>;
+  const pct = ((now - before) / Math.abs(before)) * 100;
+  if (Math.abs(pct) < 0.05) return <span className="text-muted-foreground">0%</span>;
   return (
-    <div className="min-w-0 flex-1 rounded-xl border border-border bg-card p-3">
+    <span className={`tabular-nums ${pct > 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+      {pct > 0 ? '▲' : '▼'} {Math.abs(pct).toFixed(1)}%
+    </span>
+  );
+}
+
+function StageCard(props: { label: string; info: string; value: StagePair; before: StagePair; days: number; tsValue?: number | null }) {
+  const { label, info, value, before, days, tsValue } = props;
+  return (
+    <div className="min-w-0 flex-1 rounded-2xl border border-border bg-card p-3 shadow-2xs">
       <p className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
         {label}
         <InfoTip text={info} className="-my-2" />
@@ -37,11 +93,15 @@ function Stage({ label, info, value, tsValue }: { label: string; info: string; v
       <p className="text-xs text-muted-foreground tabular-nums">
         @13 TS · {formatLitres(value.liters)} litres{tsValue != null ? ` · TS ${ts(tsValue)}` : ''}
       </p>
+      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs tabular-nums">
+        <span className="text-secondary-foreground">LPD {formatLitres(days > 0 ? value.liters / days : null)}</span>
+        <Change now={value.liters} before={before.liters} />
+      </p>
     </div>
   );
 }
 
-function Step({ label, info, value, tone }: { label: string; info: string; value: number | null | undefined; tone?: 'neutral' }) {
+function Step({ label, info, value, neutral }: { label: string; info: string; value: number | null | undefined; neutral?: boolean }) {
   return (
     <div className="flex min-w-0 shrink-0 flex-col items-center justify-center px-1 text-center">
       <ArrowRight className="hidden h-4 w-4 text-muted-foreground xl:block" aria-hidden="true" />
@@ -50,7 +110,7 @@ function Step({ label, info, value, tone }: { label: string; info: string; value
         <InfoTip text={info} className="-my-2" />
       </p>
       <p className="text-xs font-semibold">
-        {tone === 'neutral' ? (
+        {neutral ? (
           <span className="tabular-nums text-amber-700">{value == null ? '—' : `${value > 0 ? '+' : ''}${formatLitres(value)}`}</span>
         ) : (
           <Signed value={value} />
@@ -60,23 +120,27 @@ function Step({ label, info, value, tone }: { label: string; info: string; value
   );
 }
 
-function Chain({ row }: { row: StageChainReport['total'] }) {
-  const intake: StagePair = {
-    liters: row.receivedMot.liters + row.receivedHc.liters + row.receivedOther.liters,
-    at13ts: row.receivedMot.at13ts + row.receivedHc.at13ts + row.receivedOther.at13ts,
+function Chain({ report }: { report: StageChainReport }) {
+  const row = report.total;
+  const prev = report.previous.total;
+  const cards: Record<Exclude<StageKey, 'ALL'>, React.ReactNode> = {
+    SHOPS: <StageCard label="Shops" info={INFO.shops} value={row.shops} before={prev.shops} days={report.days} />,
+    INTAKE: <StageCard label="ZMCC intake" info={INFO.intake} value={intakeOf(row)} before={intakeOf(prev)} days={report.days} tsValue={row.ts.intake} />,
+    SLIP: <StageCard label="Dispatch slip" info={INFO.slip} value={row.dispatchSlip} before={prev.dispatchSlip} days={report.days} tsValue={row.ts.slip} />,
+    PLANT: <StageCard label="Plant" info={INFO.plant} value={row.plant} before={prev.plant} days={report.days} tsValue={row.ts.plant} />,
   };
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-2 xl:flex-row xl:items-stretch">
-        <Stage label="Shops" info={INFO.shops} value={row.shops} />
+        {cards.SHOPS}
         <Step label="Tester trip" info={INFO.motTrip} value={row.loss.motTrip.at13ts} />
-        <Stage label="ZMCC intake" info={INFO.intake} value={intake} tsValue={row.ts.intake} />
-        <Step label="Slip over" info={INFO.slipOver} value={row.loss.slipOver13ts} tone="neutral" />
-        <Stage label="Dispatch slip" info={INFO.slip} value={row.dispatchSlip} tsValue={row.ts.slip} />
+        {cards.INTAKE}
+        <Step label="Slip over" info={INFO.slipOver} value={row.loss.slipOver13ts} neutral />
+        {cards.SLIP}
         <Step label="Road" info={INFO.road} value={row.loss.road.at13ts} />
-        <Stage label="Plant" info={INFO.plant} value={row.plant} tsValue={row.ts.plant} />
+        {cards.PLANT}
       </div>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl border border-border bg-subtle px-3 py-2 text-xs">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-2xl border border-border bg-subtle px-3 py-2 text-xs">
         <span className="flex items-center gap-1">
           <span className="font-semibold">Whole loss / gain</span>
           <InfoTip text={INFO.whole} className="-my-2" />
@@ -84,6 +148,10 @@ function Chain({ row }: { row: StageChainReport['total'] }) {
         </span>
         <span className="text-muted-foreground">
           Litres: <Signed value={row.loss.whole.liters} />
+        </span>
+        <span className="flex items-center gap-1 text-muted-foreground">
+          Before: <Signed value={prev.loss.whole.at13ts} />
+          <InfoTip text={`${INFO.compare} ${report.previous.from} to ${report.previous.to}.`} className="-my-2" />
         </span>
         <span className="text-muted-foreground tabular-nums">
           Slip TS above tank milk: {row.slipHighCycles} of {row.cycleCount} dispatches
@@ -97,7 +165,7 @@ function Chain({ row }: { row: StageChainReport['total'] }) {
 const cycleColumns: Array<DataColumn<StageCycle>> = [
   { key: 'day', header: 'Day', primary: true, cell: (c) => <span className="tabular-nums">{c.day.slice(5)}</span> },
   { key: 'tankers', header: 'Tanker', cardAlways: true, cell: (c) => c.tankers.map((t) => t.vehicleNumber ?? t.visitNumber).join(' + ') },
-  { key: 'intake', header: 'Intake', align: 'right', cell: (c) => L(c.intake.liters) },
+  { key: 'intake', header: 'Intake', label: 'Intake', align: 'right', cell: (c) => L(c.intake.liters) },
   { key: 'slip', header: 'Dispatched', align: 'right', cell: (c) => L(c.dispatchSlip.liters) },
   { key: 'plant', header: 'Plant', align: 'right', cell: (c) => (c.plant ? L(c.plant.liters) : <span className="text-muted-foreground">Pending</span>) },
   { key: 'left', header: 'Left in tank', align: 'right', cell: (c) => L(c.leftInTank.liters) },
@@ -121,9 +189,35 @@ const cycleColumns: Array<DataColumn<StageCycle>> = [
   { key: 'road', header: 'Road @13 TS', align: 'right', cell: (c) => (c.road ? <Signed value={c.road.at13ts} /> : '—') },
 ];
 
+function allDayColumns(): Array<DataColumn<StageDay>> {
+  return [
+    { key: 'day', header: 'Day', primary: true, cell: (d) => <span className="tabular-nums">{d.day}</span> },
+    { key: 'shops', header: 'Shops @13 TS', align: 'right', cell: (d) => L(d.shops.at13ts) },
+    { key: 'intake', header: 'Intake @13 TS', align: 'right', cell: (d) => L(d.intake.at13ts) },
+    { key: 'slip', header: 'Slip @13 TS', align: 'right', cell: (d) => L(d.dispatchSlip.at13ts) },
+    { key: 'plant', header: 'Plant @13 TS', align: 'right', cell: (d) => L(d.plant.at13ts) },
+    { key: 'ts', header: 'TS in / slip / plant', align: 'right', cell: (d) => <span className="tabular-nums">{ts(d.ts.intake)} / {ts(d.ts.slip)} / {ts(d.ts.plant)}</span> },
+    { key: 'over', header: 'Slip over', align: 'right', cell: (d) => <span className="tabular-nums text-amber-700">{d.slipOver13ts ? `${d.slipOver13ts > 0 ? '+' : ''}${formatLitres(d.slipOver13ts)}` : '—'}</span> },
+    { key: 'road', header: 'Road', align: 'right', cell: (d) => (d.plant.liters ? <Signed value={d.road.at13ts} /> : '—') },
+  ];
+}
+
+function oneStageDayColumns(stage: Exclude<StageKey, 'ALL'>): Array<DataColumn<StageDay>> {
+  return [
+    { key: 'day', header: 'Day', primary: true, cell: (d) => <span className="tabular-nums">{d.day}</span> },
+    { key: 'l', header: 'Litres', align: 'right', cell: (d) => L(dayValue(stage, d).pair.liters) },
+    { key: 'a13', header: '@13 TS', align: 'right', cell: (d) => L(dayValue(stage, d).pair.at13ts) },
+    { key: 'ts', header: 'TS', align: 'right', cell: (d) => <span className="tabular-nums">{ts(dayValue(stage, d).ts)}</span> },
+  ];
+}
+
 export function StageChainPanel({ filters }: { filters: LossFilters }) {
   const qs = lossQueryParams(filters).toString();
+  const [stage, setStage] = useState<StageKey>('ALL');
+  const [view, setView] = useState<ViewKey>('ZMCC');
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const query = useQuery<StageChainReport>({
     queryKey: ['loss', 'stages', qs],
     queryFn: ({ signal }) =>
@@ -135,6 +229,7 @@ export function StageChainPanel({ filters }: { filters: LossFilters }) {
     placeholderData: keepPreviousData,
   });
   const report = query.data;
+  const days = report?.days ?? 1;
   const toggle = (id: string) =>
     setOpen((prev) => {
       const next = new Set(prev);
@@ -143,56 +238,153 @@ export function StageChainPanel({ filters }: { filters: LossFilters }) {
       return next;
     });
 
-  const zmccColumns: Array<DataColumn<StageZmccRow>> = [
+  const exportExcel = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const res = await fetch(`/api/management/reports/loss-reconciliation/stages/export?${qs}`);
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || 'The Excel file could not be made.');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `milk-stages-${report?.from ?? ''}-to-${report?.to ?? ''}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : 'The Excel file could not be made.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const allZmccColumns: Array<DataColumn<StageZmccRow>> = [
     { key: 'zmcc', header: 'ZMCC', primary: true, cell: (z) => <span className="font-medium">{z.zmccName}</span> },
     { key: 'shops', header: 'Shops @13 TS', align: 'right', cell: (z) => L(z.shops.at13ts) },
-    { key: 'intake', header: 'Intake @13 TS', align: 'right', cell: (z) => L(z.receivedMot.at13ts + z.receivedHc.at13ts + z.receivedOther.at13ts) },
+    { key: 'intake', header: 'Intake @13 TS', align: 'right', cell: (z) => L(intakeOf(z).at13ts) },
     { key: 'slip', header: 'Slip @13 TS', align: 'right', cell: (z) => L(z.dispatchSlip.at13ts) },
     { key: 'plant', header: 'Plant @13 TS', align: 'right', cell: (z) => L(z.plant.at13ts) },
+    { key: 'lpd', header: 'Intake LPD', align: 'right', cell: (z) => L(intakeOf(z).liters / days) },
     { key: 'ts', header: 'TS in / slip / plant', align: 'right', cell: (z) => <span className="tabular-nums">{ts(z.ts.intake)} / {ts(z.ts.slip)} / {ts(z.ts.plant)}</span> },
     { key: 'trip', header: 'Tester trip', align: 'right', cell: (z) => <Signed value={z.loss.motTrip.at13ts} /> },
     { key: 'over', header: 'Slip over', align: 'right', cell: (z) => <span className="tabular-nums text-amber-700">{z.loss.slipOver13ts > 0 ? '+' : ''}{formatLitres(z.loss.slipOver13ts)}</span> },
     { key: 'road', header: 'Road', align: 'right', cell: (z) => <Signed value={z.loss.road.at13ts} /> },
     { key: 'whole', header: 'Whole', align: 'right', cell: (z) => <Signed value={z.loss.whole.at13ts} /> },
-    {
-      key: 'inspect',
-      header: '',
-      actions: true,
-      cell: (z) => (
-        <button
-          type="button"
-          onClick={() => toggle(z.zmccId)}
-          aria-expanded={open.has(z.zmccId)}
-          className="min-h-11 rounded-lg border border-border px-3 text-xs font-semibold text-secondary-foreground hover:bg-muted"
-        >
-          {open.has(z.zmccId) ? 'Close' : 'Inspect'}
-        </button>
-      ),
-    },
   ];
+  const oneZmccColumns = (s: Exclude<StageKey, 'ALL'>): Array<DataColumn<StageZmccRow>> => [
+    { key: 'zmcc', header: 'ZMCC', primary: true, cell: (z) => <span className="font-medium">{z.zmccName}</span> },
+    { key: 'l', header: 'Litres', align: 'right', cell: (z) => L(stageValue(s, z).pair.liters) },
+    { key: 'a13', header: '@13 TS', align: 'right', cell: (z) => L(stageValue(s, z).pair.at13ts) },
+    { key: 'ts', header: 'TS', align: 'right', cell: (z) => <span className="tabular-nums">{ts(stageValue(s, z).ts)}</span> },
+    { key: 'lpd', header: 'LPD', align: 'right', cell: (z) => L(stageValue(s, z).pair.liters / days) },
+  ];
+  const inspect: DataColumn<StageZmccRow> = {
+    key: 'inspect',
+    header: '',
+    actions: true,
+    cell: (z) => (
+      <button
+        type="button"
+        onClick={() => toggle(z.zmccId)}
+        aria-expanded={open.has(z.zmccId)}
+        className="min-h-11 rounded-lg border border-border px-3 text-xs font-semibold text-secondary-foreground hover:bg-muted"
+      >
+        {open.has(z.zmccId) ? 'Close' : 'Inspect'}
+      </button>
+    ),
+  };
+  const zmccColumns = [...(stage === 'ALL' ? allZmccColumns : oneZmccColumns(stage)), inspect];
+  const dayColumns = stage === 'ALL' ? allDayColumns() : oneStageDayColumns(stage);
+  // A day is listed when the chosen stage (or, for all stages, any stage) has milk that day.
+  const hasMilk = (d: StageDay) =>
+    stage === 'ALL' ? !!(d.shops.liters || d.intake.liters || d.dispatchSlip.liters || d.plant.liters) : dayValue(stage, d).pair.liters > 0;
 
   return (
     <div className={`space-y-3 ${query.isFetching ? 'opacity-60' : ''}`}>
       <ErrorPopup message={query.isError ? query.error.message || 'Stage by stage figures could not be loaded.' : null} onRetry={() => void query.refetch()} />
-      {report ? <Chain row={report.total} /> : <div className="h-36 animate-pulse rounded-2xl bg-muted" />}
-      <DataTable
-        columns={zmccColumns}
-        rows={report?.zmccs ?? []}
-        getRowId={(z) => z.zmccId}
-        loading={query.isPending}
-        noun="ZMCCs"
-        emptyTitle="No ZMCC milk in this period"
-        renderExpanded={(z) =>
-          open.has(z.zmccId) ? (
-            <div className="space-y-2 p-2">
-              <p className="text-xs text-muted-foreground tabular-nums">
-                Tank at start {formatLitres(z.tankStart.liters)} · at end {formatLitres(z.tankEnd.liters)} · each row is one tank fill and its dispatch
-              </p>
-              <DataTable columns={cycleColumns} rows={z.cycles} getRowId={(c) => `${c.tankCode}-${c.day}-${c.tankers.map((t) => t.visitId).join('-')}`} noun="dispatches" pageSize={15} />
-            </div>
-          ) : null
-        }
-      />
+      <ErrorPopup message={exportError} onClear={() => setExportError(null)} />
+
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0 max-w-full">
+          <SegmentedTabs tabs={STAGES} value={stage} onValueChange={setStage} label="Stage" mobileOnly={false} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <SegmentedTabs tabs={VIEWS} value={view} onValueChange={setView} label="View" mobileOnly={false} />
+          <button
+            type="button"
+            onClick={() => void exportExcel()}
+            disabled={exporting || !report}
+            className="flex min-h-11 items-center gap-1.5 rounded-lg bg-emerald-700 px-3 text-xs font-semibold text-white transition-colors hover:bg-emerald-800 disabled:opacity-50"
+          >
+            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Download className="h-3.5 w-3.5" aria-hidden="true" />}
+            Excel
+          </button>
+        </div>
+      </div>
+
+      {report ? (
+        <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground tabular-nums">
+          <span>
+            {report.from} to {report.to} · {report.days} {report.days === 1 ? 'day' : 'days'} · {report.basis === 'business' ? 'Business day (08:00 to 08:00)' : 'Calendar day'}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            LPD <InfoTip text={INFO.lpd} className="-my-2" />
+          </span>
+        </p>
+      ) : null}
+
+      {report ? (
+        stage === 'ALL' ? (
+          <Chain report={report} />
+        ) : (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <StageCard
+              label={STAGES.find((x) => x.value === stage)!.label}
+              info={INFO[stage === 'SHOPS' ? 'shops' : stage === 'INTAKE' ? 'intake' : stage === 'SLIP' ? 'slip' : 'plant']}
+              value={stageValue(stage, report.total).pair}
+              before={stageValue(stage, report.previous.total).pair}
+              days={report.days}
+              tsValue={stageValue(stage, report.total).ts}
+            />
+          </div>
+        )
+      ) : (
+        <div className="h-36 animate-pulse rounded-2xl bg-muted" />
+      )}
+
+      {view === 'ZMCC' ? (
+        <DataTable
+          columns={zmccColumns}
+          rows={report?.zmccs ?? []}
+          getRowId={(z) => z.zmccId}
+          loading={query.isPending}
+          noun="ZMCCs"
+          emptyTitle="No ZMCC milk in this period"
+          renderExpanded={(z) =>
+            open.has(z.zmccId) ? (
+              <div className="space-y-2 p-2">
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  Tank at start {formatLitres(z.tankStart.liters)} · at end {formatLitres(z.tankEnd.liters)} · each row is one tank fill and its dispatch
+                </p>
+                <DataTable columns={cycleColumns} rows={z.cycles} getRowId={(c) => `${c.tankCode}-${c.day}-${c.tankers.map((t) => t.visitId).join('-')}`} noun="dispatches" pageSize={15} />
+                <p className="pt-1 text-xs font-semibold text-foreground">By day</p>
+                <DataTable columns={dayColumns} rows={z.daily.filter(hasMilk)} getRowId={(d) => d.day} noun="days" pageSize={15} />
+              </div>
+            ) : null
+          }
+        />
+      ) : (
+        <DataTable
+          columns={dayColumns}
+          rows={(report?.daily ?? []).filter(hasMilk)}
+          getRowId={(d) => d.day}
+          loading={query.isPending}
+          noun="days"
+          emptyTitle="No milk in this period"
+          paginate
+          pageSize={31}
+        />
+      )}
     </div>
   );
 }

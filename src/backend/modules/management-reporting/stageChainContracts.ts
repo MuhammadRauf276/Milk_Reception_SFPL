@@ -62,11 +62,34 @@ export interface StageZmccRow {
   /** Cycles where the dispatch slip TS is above the tank milk's TS. */
   slipHighCycles: number;
   cycles: StageCycle[];
+  daily: StageDay[];
 }
+
+/** One day of a stage chain: by the day of the dispatch (shops by their own day). */
+export interface StageDay {
+  day: string;
+  shops: StagePair;
+  intake: StagePair;
+  dispatchSlip: StagePair;
+  plant: StagePair;
+  slipOver13ts: number;
+  road: StagePair;
+  ts: { intake: number | null; slip: number | null; plant: number | null };
+}
+
+export type StageTotal = Omit<StageZmccRow, 'zmccId' | 'zmccName' | 'cycles' | 'tankStart' | 'tankEnd' | 'daily'>;
 
 export interface StageChainReport {
   from: string;
   to: string;
+  /** Calendar day (midnight to midnight) or business day (08:00 to 08:00). */
+  basis: 'calendar' | 'business';
+  /** Days in the period: LPD = a total divided by this. */
+  days: number;
   zmccs: StageZmccRow[];
-  total: Omit<StageZmccRow, 'zmccId' | 'zmccName' | 'cycles' | 'tankStart' | 'tankEnd'>;
+  total: StageTotal;
+  /** Every day of the period, all ZMCCs together. */
+  daily: StageDay[];
+  /** The same number of days just before this period, for comparison. */
+  previous: { from: string; to: string; total: StageTotal };
 }
