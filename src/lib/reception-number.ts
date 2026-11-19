@@ -1,5 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { getPakistanCalendarDate } from '@/backend/core/business-day';
+import { storedNowSql } from '@/backend/core/sqlTime';
+
+const STORED_NOW = Prisma.raw(storedNowSql());
 
 /**
  * Generates a human-facing, concurrency-safe Milk Reception Number in format MR-YYYYMM-NNNN.
@@ -18,9 +21,9 @@ export async function generateReceptionNumber(
 
   const [counter] = await tx.$queryRaw<Array<{ last_seq: number }>>`
     INSERT INTO monthly_reception_counter (year_month, last_seq, updated_at)
-    VALUES (${yearMonth}, 1, (NOW() AT TIME ZONE 'UTC'))
+    VALUES (${yearMonth}, 1, ${STORED_NOW})
     ON CONFLICT (year_month) DO UPDATE
-    SET last_seq = monthly_reception_counter.last_seq + 1, updated_at = (NOW() AT TIME ZONE 'UTC')
+    SET last_seq = monthly_reception_counter.last_seq + 1, updated_at = ${STORED_NOW}
     RETURNING last_seq;
   `;
 

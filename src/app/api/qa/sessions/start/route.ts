@@ -6,6 +6,7 @@ import { canActAs } from '@/backend/core/roles/hierarchy';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { getOrAssignPlantQATests } from '@/backend/services/labTestAssignmentService';
 import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
+import { checkEnteredTime } from '@/backend/services/outageWindowService';
 
 const startSessionSchema = z.object({
   visitId: z.string().min(1, 'Visit ID is required'),
@@ -62,6 +63,10 @@ export async function POST(req: Request) {
       if (!chronoVal.isValid) {
         throw new Error(chronoVal.error);
       }
+      // Older than 3 days needs an outage window for this station (and is then listed as entered late).
+      const lateCheck = await checkEnteredTime(chronoVal.date ?? new Date(), { plant: 'QA' }, { db: tx });
+      if ('error' in lateCheck) throw new Error(lateCheck.error);
+      await lateCheck.record({ step: 'QA start', recordTable: 'vehicle_visit', recordId: visitId, actor: dbUser }, tx);
 
       // Check if session already exists
       if (visit.qa_session) {

@@ -54,6 +54,7 @@ import {
   type DispatchTestMode,
   type DispatchPortionInput,
 } from '@/backend/services/dispatch/dispatchDecisionService';
+import { checkEnteredTime } from '@/backend/services/outageWindowService';
 
 function dispatchSourceFailureResponse(code: DispatchSourceFailure) {
   if (isScopeFailure(code)) return scopeFailureResponse(code);
@@ -487,6 +488,16 @@ async function submitToVisit(req: Request): Promise<Response> {
     if (!sourceCheck.ok) return dispatchSourceFailureResponse(sourceCheck.code);
     const resolvedSourceId: bigint = sourceCheck.sourceId;
     const sourceType = sourceCheck.sourceType;
+
+    // Older than 3 days needs an outage window for this station (and is then listed as entered late).
+    const dispatchTimes = validated.portions
+      .map((p) => new Date(p.dispatchTimestamp || validated.operationalDate || ''))
+      .filter((d) => !isNaN(d.getTime()));
+    const earliestDispatch = dispatchTimes.length ? new Date(Math.min(...dispatchTimes.map((d) => d.getTime()))) : (chronoVal.date ?? new Date());
+    const lateCheck = await checkEnteredTime(earliestDispatch, { zmccId: resolvedSourceId });
+    if ('error' in lateCheck) {
+      return NextResponse.json({ error: lateCheck.error }, { status: 400 });
+    }
 
     // Validate Raw Milk Dispatch Note against operational policy
     const rawDispatchNoteInput = validated.rawMilkDispatchNoteNumber || validated.raw_milk_dispatch_note_number || jsonString(body, 'rawMilkDispatchNoteNumber') || jsonString(body, 'raw_milk_dispatch_note_number');
@@ -1084,6 +1095,8 @@ async function submitToVisit(req: Request): Promise<Response> {
         },
         actor: auditActorOf(acting),
       });
+
+      await lateCheck.record({ step: 'Dispatch', recordTable: 'vehicle_visit', recordId: visit.id, actor: auditActorOf(acting) }, tx);
 
       return { visit, createdPortions, tankRemainingLiters, receptionNumber };
     }, { timeout: 20000, maxWait: 10000 });

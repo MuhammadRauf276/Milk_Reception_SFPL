@@ -39,6 +39,7 @@ export const VALID_APP_ROUTES: ReadonlySet<string> = new Set([
   '/super-admin/mot-operations',
   '/super-admin/notification-devices',
   '/super-admin/operations',
+  '/super-admin/outage-windows',
   '/super-admin/photos',
   '/super-admin/procurement-sources',
   '/super-admin/qa-warnings',

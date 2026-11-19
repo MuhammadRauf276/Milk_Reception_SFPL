@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { DataTable, type DataColumn } from '@/components/ui/data-table';
 import { InfoTip } from '@/components/ui/info-tip';
 import { ZmccDrawer } from '@/frontend/modules/zmcc/shared/ZmccDrawer';
+import { LateEntryTag } from '@/frontend/modules/shared/outage/LateEntryTag';
 
 interface ReceiptRow {
   session_id: string;
@@ -180,6 +181,7 @@ export function HcReceiptsPanel() {
       >
         {row && open && (
           <div className="space-y-4 text-sm">
+            <LateEntryTag table="zmcc_local_supplier_arrival" id={row.arrival_id} />
             <dl className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-x-4 gap-y-2">
               <div>
                 <dt className="text-xs text-muted-foreground">Token</dt>

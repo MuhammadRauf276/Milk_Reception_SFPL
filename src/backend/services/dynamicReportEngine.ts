@@ -30,6 +30,7 @@ import {
   pickDateFieldId,
   buildDateClause,
 } from '@/frontend/modules/dashboard/reports/dynamicReportTypes';
+import { pkLocalSql, storedInstantParamSql } from '@/backend/core/sqlTime';
 
 // ============================================================================
 // 1. FIELD CATALOGS BY DOMAIN
@@ -845,7 +846,7 @@ export async function executeDynamicReportQuery(
     const params: SqlParam[] = [];
     // The dispatch time range always comes first: it is the indexed condition.
     params.push(`${dateRange.from}T00:00:00.000+05:00`, `${addDays(dateRange.to, 1)}T00:00:00.000+05:00`);
-    conditions.push("dispatched_at >= ($1::timestamptz AT TIME ZONE 'UTC')", "dispatched_at < ($2::timestamptz AT TIME ZONE 'UTC')");
+    conditions.push(`dispatched_at >= ${storedInstantParamSql('$1')}`, `dispatched_at < ${storedInstantParamSql('$2')}`);
     if (effectiveZmccId) {
       params.push(effectiveZmccId);
       conditions.push(`source_id = $${params.length}`);
@@ -1321,8 +1322,8 @@ interface TransitRecord {
   at_13ts_variance_percent: unknown;
 }
 
-/** A timestamp stored as UTC (no zone) shown as Pakistan local time. */
-const karachiTime = (col: string) => `((${col}) AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi')`;
+/** A stored timestamp shown as Pakistan local time. */
+const karachiTime = pkLocalSql;
 
 const TRANSIT_SPECS: Record<string, SqlColumn> = {
   dispatch_note_number: { kind: 'string', expr: `COALESCE(visit_number, 'DSP-' || visit_id::text)` },

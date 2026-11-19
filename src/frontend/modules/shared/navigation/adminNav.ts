@@ -18,6 +18,7 @@ import {
   FileSpreadsheet,
   Building2,
   Camera,
+  CloudOff,
 } from 'lucide-react';
 import type { RoleNavSection } from './roleNavConfig';
 
@@ -80,6 +81,7 @@ export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/super-admin/silos', label: 'Silos', icon: Database },
   { href: '/super-admin/zmcc-tanks', label: 'ZMCC Tanks', icon: Building2 },
   { href: '/super-admin/weighing-policy', label: 'Weighing Policy', icon: Scale },
+  { href: '/super-admin/outage-windows', label: 'Outage Windows', icon: CloudOff },
   { href: '/super-admin/test-policies', label: 'Lab Policies', icon: FlaskConical },
   {
     href: '/super-admin/reports',

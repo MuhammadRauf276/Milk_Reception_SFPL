@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { canActAs } from '@/backend/core/roles/hierarchy';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
+import { checkEnteredTime } from '@/backend/services/outageWindowService';
 
 const resumeSessionSchema = z.object({
   visitId: z.string().min(1, 'Visit ID is required'),
@@ -98,6 +99,10 @@ export async function POST(req: Request) {
       if (!chronoVal.isValid) {
         throw new RouteError(chronoVal.error, 400);
       }
+      // Older than 3 days needs an outage window for this station (and is then listed as entered late).
+      const lateCheck = await checkEnteredTime(chronoVal.date ?? new Date(), { plant: 'QA' }, { db: tx });
+      if ('error' in lateCheck) throw new RouteError(lateCheck.error, 400);
+      await lateCheck.record({ step: 'QA resume', recordTable: 'vehicle_visit', recordId: visitId, actor: dbUser }, tx);
 
       // Update session status back to IN_PROGRESS
       const updatedSession = await tx.qATestingSession.update({

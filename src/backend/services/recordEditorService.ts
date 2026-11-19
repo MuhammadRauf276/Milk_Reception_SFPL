@@ -4,6 +4,7 @@ import { prisma } from '@/backend/core/db';
 import { Prisma } from '@prisma/client';
 import { isPlantFatTest, isPlantLrTest } from '@/backend/services/vehicleQuantityService';
 import { isoToPakistanInput, type EditorEntity, type EditorField, type EditorGroup, type EditorPhotoSlot, type EditorSection } from '@/lib/recordEditor';
+import { pkLocal } from '@/backend/core/sqlTime';
 
 const MAX_PER_KIND = 5;
 const UNIT_OPTIONS = [
@@ -609,7 +610,7 @@ export async function listRecordGroups(f: RecordListFilters): Promise<{ groups: 
       WHERE v.current_status <> 'DRAFT_DISPATCH' AND NOT (v.current_status = 'CANCELLED' AND v.vehicle_number = 'DRAFT') ${plantWhere} ${match}`);
   }
 
-  const dateFilter = f.date ? Prisma.sql`AND (t.ts AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi')::date = ${f.date}::date` : Prisma.empty;
+  const dateFilter = f.date ? Prisma.sql`AND ${pkLocal('t.ts')}::date = ${f.date}::date` : Prisma.empty;
   const userFilter = f.enteredBy ? Prisma.sql`AND t.entered_by ILIKE ${`%${f.enteredBy}%`}` : Prisma.empty;
   const rows = await prisma.$queryRaw<ListRow[]>`
     SELECT t.kind, t.id, t.ts, t.entered_by, (COUNT(*) OVER ())::int AS total

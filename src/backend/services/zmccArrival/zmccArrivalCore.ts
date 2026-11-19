@@ -31,6 +31,7 @@ import { paperLinkedIdentity } from '@/backend/modules/paper-references';
 import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
 import { getErrorCode, getErrorMessage, getErrorName } from '@/lib/errors';
 import { advancePastPredecessors, FUTURE_TIME_MESSAGE, withinFutureAllowance } from '../chronology-validator';
+import { checkEnteredTime } from '@/backend/services/outageWindowService';
 
 export interface ZmccArrivalAuthContext {
   user: User;
@@ -795,6 +796,12 @@ export async function submitMotArrival(
   arrivalDate = advancePastPredecessors(arrivalDate, [journey.started_at, ...journey.stops.map((stop) => stop.collection?.device_collected_at)]);
 
 
+  // Older than 3 days needs an outage window for this ZMCC (and is then listed as entered late).
+  const lateCheck = await checkEnteredTime(arrivalDate, { zmccId: journey.zmcc_id });
+  if ('error' in lateCheck) {
+    return { status: 400, error: lateCheck.error };
+  }
+
   const pktDateStr = getPakistanCalendarDate(arrivalDate);
   const dateCode = pktDateStr.replace(/-/g, '');
   const arrivalDatePkt = new Date(`${pktDateStr}T00:00:00.000Z`);
@@ -962,6 +969,8 @@ export async function submitMotArrival(
         },
         actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
+
+      await lateCheck.record({ step: 'MC arrival', recordTable: 'zmcc_mot_arrival', recordId: arrival.id, actor: { userId: auth.actorUserId, actorRole: auth.role } }, tx);
 
       return {
         ...arrival,
@@ -1758,6 +1767,12 @@ export async function submitLocalSupplierArrival(
     return { status: 400, error: getErrorMessage(err) || 'Invalid Raw Milk Token number.' };
   }
 
+  // Older than 3 days needs an outage window for this ZMCC (and is then listed as entered late).
+  const lateCheck = await checkEnteredTime(arrivalDate, { zmccId: targetZmccId });
+  if ('error' in lateCheck) {
+    return { status: 400, error: lateCheck.error };
+  }
+
   const pktDateStr = getPakistanCalendarDate(arrivalDate);
   const dateCode = pktDateStr.replace(/-/g, '');
   const arrivalDatePkt = new Date(`${pktDateStr}T00:00:00.000Z`);
@@ -1824,6 +1839,7 @@ export async function submitLocalSupplierArrival(
         actor: { userId: auth.actorUserId, actorRole: auth.role },
       });
 
+      await lateCheck.record({ step: 'HC arrival', recordTable: 'zmcc_local_supplier_arrival', recordId: arrival.id, actor: { userId: auth.actorUserId, actorRole: auth.role } }, tx);
       return arrival;
     });
 

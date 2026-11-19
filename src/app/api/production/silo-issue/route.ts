@@ -5,6 +5,7 @@ import { recordSiloIssueTransaction } from '@/backend/services/siloInventoryServ
 import { validatePositiveDecimal } from '@/lib/validation-helpers';
 import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
 import { getErrorMessage } from '@/lib/errors';
+import { checkEnteredTime, noteLateEntry } from '@/backend/services/outageWindowService';
 
 export async function POST(req: Request) {
   const authUser = await getCurrentUser(req);
@@ -56,6 +57,12 @@ export async function POST(req: Request) {
     }
     const opTimestamp = chronoVal.date || serverNow;
 
+    // Older than 3 days needs an outage window for production (and is then listed as entered late).
+    const lateCheck = await checkEnteredTime(opTimestamp, { plant: 'PRODUCTION' });
+    if ('error' in lateCheck) {
+      return NextResponse.json({ error: lateCheck.error }, { status: 400 });
+    }
+
     const purpose = body.purpose ? String(body.purpose).trim() : 'Production Issue';
     const flowMeterReference = body.flowMeterReference ? String(body.flowMeterReference).trim() : null;
     const clientRequestId = body.clientRequestId ? String(body.clientRequestId).trim() : null;
@@ -70,6 +77,7 @@ export async function POST(req: Request) {
       flow_meter_reference: flowMeterReference,
       idempotency_key: idempotencyKey,
     });
+    await noteLateEntry(lateCheck, { step: 'Silo issue', recordTable: 'silo_transaction', recordId: result.transaction.id, actor: dbUser });
 
     return NextResponse.json({
       success: true,

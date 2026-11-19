@@ -12,6 +12,7 @@ import {
 } from '@/backend/services/lossCalculationService';
 import { computeExitOutcome, isHcSession } from '@/backend/services/zmccTankService';
 import { FUTURE_TIME_MESSAGE, withinFutureAllowance } from '@/backend/services/chronology-validator';
+import { checkEnteredTime } from '@/backend/services/outageWindowService';
 
 /**
  * HC gate exit (PHE Operator, last step) and "Close without unloading" (MC and HC):
@@ -170,6 +171,10 @@ export async function recordHcGateExit(
       const arrival = await tx.zmccLocalSupplierArrival.findUnique({ where: { id: arrivalId } });
       if (!arrival) throw new ExitError(404, 'HC arrival not found.');
       scopeCheck(acting, arrival.zmcc_id);
+      // Older than 3 days needs an outage window for this ZMCC (and is then listed as entered late).
+      const lateCheck = await checkEnteredTime(exitDate, { zmccId: arrival.zmcc_id }, { db: tx });
+      if ('error' in lateCheck) throw new ExitError(400, lateCheck.error);
+      await lateCheck.record({ step: 'HC gate exit', recordTable: 'zmcc_local_supplier_arrival', recordId: arrivalId, actor: acting }, tx);
       const session = await tx.zmccLabSession.findUnique({
         where: { local_supplier_arrival_id: arrivalId },
         include: SESSION_INCLUDE,

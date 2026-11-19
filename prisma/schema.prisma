@@ -2322,3 +2322,27 @@ model FormDraft {
   @@index([updated_at])
   @@map("form_draft")
 }
+
+/// An outage window the Super Admin opens after the site was down: inside it, users may enter times older than the
+/// normal 3-day limit for the stations it covers, until the catch-up deadline. Only the Super Admin's decision is
+/// kept here; which entries used it is in audit_log (table_name 'outage_window', action 'LATE_ENTRY').
+model OutageWindow {
+  id             BigInt    @id @default(autoincrement())
+  starts_at      DateTime  @map("starts_at") @db.Timestamp(6)
+  ends_at        DateTime  @map("ends_at") @db.Timestamp(6)
+  all_stations   Boolean   @default(false) @map("all_stations")
+  /// Plant stations covered: GATE, WEIGHBRIDGE, QA, PRODUCTION.
+  plant_stations String[]  @default([]) @map("plant_stations")
+  /// ZMCCs covered (procurement_source ids).
+  zmcc_ids       BigInt[]  @default([]) @map("zmcc_ids")
+  reason         String    @map("reason") @db.Text
+  catch_up_until DateTime  @map("catch_up_until") @db.Timestamp(6)
+  closed_at      DateTime? @map("closed_at") @db.Timestamp(6)
+  closed_by      BigInt?   @map("closed_by")
+  created_by     BigInt    @map("created_by")
+  created_at     DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at     DateTime  @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@index([catch_up_until])
+  @@map("outage_window")
+}

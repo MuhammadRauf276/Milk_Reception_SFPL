@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { withReportTimeout } from '@/backend/core/reportQuery';
+import { pkLocal } from '@/backend/core/sqlTime';
 
 /**
  * Database-side sums for the ZMCC analytics report. The report used to read every collection row of the date range
@@ -75,7 +76,7 @@ export interface HcDayHour {
   count: number;
 }
 
-const PK_HOUR = Prisma.sql`EXTRACT(HOUR FROM ((c.device_collected_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Karachi'))::int`;
+const PK_HOUR = Prisma.sql`EXTRACT(HOUR FROM ${pkLocal('c.device_collected_at')})::int`;
 
 function shiftCondition(shift: string | undefined): Prisma.Sql {
   if (shift === 'MORNING') return Prisma.sql`AND ${PK_HOUR} < 13`;
@@ -167,8 +168,8 @@ export async function loadCollectionAggregates(scope: CollectionScope): Promise<
 export async function loadHcReceiptAggregates(params: { windowStart: Date; windowEnd: Date; zmccId?: bigint }): Promise<HcDayHour[]> {
   return withReportTimeout((tx) =>
     tx.$queryRaw<HcDayHour[]>`
-      SELECT to_char((t.received_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD') AS date,
-             EXTRACT(HOUR FROM ((t.received_at AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Karachi'))::int AS hour,
+      SELECT to_char(${pkLocal('t.received_at')}, 'YYYY-MM-DD') AS date,
+             EXTRACT(HOUR FROM ${pkLocal('t.received_at')})::int AS hour,
              COALESCE(SUM(t.gross_liters), 0)::float8 AS liters,
              COALESCE(SUM(t.at_13ts_liters), 0)::float8 AS "at13ts",
              COALESCE(SUM(t.fat * t.gross_liters), 0)::float8 AS "fatWeighted",

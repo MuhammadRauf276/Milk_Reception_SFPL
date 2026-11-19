@@ -14,6 +14,7 @@ import {
   handleConcurrentReplayOrConflict,
 } from '@/backend/services/operationIdempotencyService';
 import { Prisma } from '@prisma/client';
+import { checkEnteredTime } from '@/backend/services/outageWindowService';
 
 const SECURITY_SCOPE = { kind: 'DEPARTMENT', departmentId: 'Security' } as const;
 
@@ -182,6 +183,10 @@ export async function POST(req: Request) {
       if (!chronoVal.isValid) {
         throw new Error(chronoVal.error);
       }
+      // Older than 3 days needs an outage window for this station (and is then listed as entered late).
+      const lateCheck = await checkEnteredTime(chronoVal.date ?? new Date(), { plant: 'GATE' }, { db: tx });
+      if ('error' in lateCheck) throw new Error(lateCheck.error);
+      await lateCheck.record({ step: 'Gate exit', recordTable: 'vehicle_visit', recordId: visitId, actor: dbUser }, tx);
 
       const verifiedOpTimestamp = chronoVal.date || serverNow;
 

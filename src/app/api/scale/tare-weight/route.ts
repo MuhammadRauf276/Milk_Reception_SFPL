@@ -13,6 +13,7 @@ import {
   checkOperationReplay,
   handleConcurrentReplayOrConflict,
 } from '@/backend/services/operationIdempotencyService';
+import { checkEnteredTime } from '@/backend/services/outageWindowService';
 
 const WEIGHBRIDGE_SCOPE = {
   kind: 'DEPARTMENT',
@@ -222,6 +223,10 @@ export async function POST(req: Request) {
           await tx.vehicleVisit.update({ where: { id: visitId }, data: { current_status: 'READY_FOR_TARE' } });
           throw new Error(chronoVal.error);
         }
+        // Older than 3 days needs an outage window for this station (and is then listed as entered late).
+        const lateCheck = await checkEnteredTime(chronoVal.date ?? new Date(), { plant: 'WEIGHBRIDGE' }, { db: tx });
+        if ('error' in lateCheck) throw new Error(lateCheck.error);
+        await lateCheck.record({ step: 'Second weight', recordTable: 'vehicle_visit', recordId: visitId, actor: dbUser }, tx);
         const opTimestamp = chronoVal.date || serverNow;
 
         // 1. Update active portion with second weight and net weight
@@ -440,6 +445,10 @@ export async function POST(req: Request) {
         await tx.vehicleVisit.update({ where: { id: visitId }, data: { current_status: 'READY_FOR_TARE' } });
         throw new Error(chronoVal.error);
       }
+      // Older than 3 days needs an outage window for this station (and is then listed as entered late).
+      const lateCheck = await checkEnteredTime(chronoVal.date ?? new Date(), { plant: 'WEIGHBRIDGE' }, { db: tx });
+      if ('error' in lateCheck) throw new Error(lateCheck.error);
+      await lateCheck.record({ step: 'Second weight', recordTable: 'vehicle_visit', recordId: visitId, actor: dbUser }, tx);
       const opTimestamp = chronoVal.date || serverNow;
 
       const netWeightKg = grossWeightKg - tareWeightKg;

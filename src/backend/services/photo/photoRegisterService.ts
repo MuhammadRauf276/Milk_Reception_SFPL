@@ -2,6 +2,7 @@
 // its record was submitted. Stage, source and record come from the storage path (see photoStoragePath.ts).
 import { prisma } from '@/backend/core/db';
 import { Prisma } from '@prisma/client';
+import { pkLocal } from '@/backend/core/sqlTime';
 
 export type PhotoRecordStatus = 'SUBMITTED' | 'NOT_SUBMITTED' | 'NOT_FOUND';
 
@@ -69,7 +70,7 @@ const STATUS_SQL = Prisma.sql`
 
 export async function listPhotoRegister(f: PhotoRegisterFilters): Promise<{ rows: PhotoRegisterRow[]; total: number; counts: Record<PhotoRecordStatus, number> }> {
   const where: Prisma.Sql[] = [Prisma.sql`TRUE`];
-  if (f.date) where.push(Prisma.sql`(p.device_captured_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Karachi')::date = ${f.date}::date`);
+  if (f.date) where.push(Prisma.sql`${pkLocal('p.device_captured_at')}::date = ${f.date}::date`);
   if (f.stage) where.push(Prisma.sql`p.testing_point = ${f.stage}`);
   if (f.takenBy) where.push(Prisma.sql`(u.full_name ILIKE ${`%${f.takenBy}%`} OR u.username ILIKE ${`%${f.takenBy}%`} OR u.employee_code ILIKE ${`%${f.takenBy}%`})`);
 

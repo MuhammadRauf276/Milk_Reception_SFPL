@@ -27,6 +27,7 @@ import {
   checkOperationReplay,
   handleConcurrentReplayOrConflict,
 } from '@/backend/services/operationIdempotencyService';
+import { checkEnteredTime } from '@/backend/services/outageWindowService';
 
 class RouteError extends Error {
   statusCode: number;
@@ -344,6 +345,10 @@ export async function POST(
       if (!chronoVal.isValid) {
         throw new RouteError(chronoVal.error, 400);
       }
+      // Older than 3 days needs an outage window for this station (and is then listed as entered late).
+      const lateCheck = await checkEnteredTime(chronoVal.date ?? new Date(), { plant: 'QA' }, { db: tx });
+      if ('error' in lateCheck) throw new RouteError(lateCheck.error, 400);
+      await lateCheck.record({ step: 'QA decision', recordTable: 'vehicle_visit', recordId: visitId, actor: dbUser }, tx);
 
       // 3. Resolve active LabTestRules for PLANT_QA at targetOpTs
       const activeRulesMap = await QualityRuleService.resolveActiveRulesForTestingPoint(

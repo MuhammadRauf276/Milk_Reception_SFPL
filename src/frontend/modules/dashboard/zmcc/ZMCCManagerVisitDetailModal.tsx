@@ -15,6 +15,7 @@ import {
 import { Modal } from '@/components/ui/modal';
 import { TableWrapper } from '@/components/ui/table-wrapper';
 import { dispatchResultText } from '@/frontend/lib/dispatchResultText';
+import { LateEntryTag } from '@/frontend/modules/shared/outage/LateEntryTag';
 
 interface ZMCCManagerVisitDetailModalProps {
   isOpen: boolean;
@@ -197,6 +198,7 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
                 <h2 id="modal-title" className="text-base font-semibold text-foreground">
                   Visit: {log.vehicle_number}
                 </h2>
+                <LateEntryTag table="vehicle_visit" id={String(log.id)} />
               </div>
               <p className="text-xs text-secondary-foreground font-medium">
                 {log.token_number ? <><span className="font-mono font-semibold text-foreground">Token {log.token_number}</span> · </> : ''}

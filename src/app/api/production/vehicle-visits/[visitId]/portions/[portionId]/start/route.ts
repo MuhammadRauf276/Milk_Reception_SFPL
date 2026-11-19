@@ -8,6 +8,7 @@ import { FUTURE_TIME_MESSAGE, validateOperationalTimestamp, withinFutureAllowanc
 import { formatOperationalDatetime } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
+import { checkEnteredTime, noteLateEntry } from '@/backend/services/outageWindowService';
 
 export async function POST(
   req: NextRequest,
@@ -59,7 +60,14 @@ export async function POST(
       opTimestamp = allowed;
     }
 
+    // Older than 3 days needs an outage window for production (and is then listed as entered late).
+    const lateCheck = await checkEnteredTime(opTimestamp, { plant: 'PRODUCTION' });
+    if ('error' in lateCheck) {
+      return NextResponse.json({ error: lateCheck.error }, { status: 400 });
+    }
+
     await prisma.$transaction(async (tx) => {
+      await noteLateEntry(lateCheck, { step: 'Unloading start', recordTable: 'vehicle_visit', recordId: visitId, actor: dbUser });
       // 1. Load vehicle visit with weight ticket
       const visit = await tx.vehicleVisit.findUnique({
         where: { id: visitId },
