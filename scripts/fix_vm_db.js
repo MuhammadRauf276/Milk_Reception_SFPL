@@ -11,6 +11,9 @@ async function main() {
   const client = new Client({ connectionString: dbUrl });
   try {
     await client.connect();
+    // Times are kept as UTC (and, after the time-zone migration, as timestamptz). A UTC session makes NOW() and column
+    // defaults right in both states; with the database zone (Asia/Karachi) they would be 5 hours ahead before the switch.
+    await client.query("SET TIME ZONE 'UTC'");
     console.log('✓ Connected to PostgreSQL database successfully.');
 
     // 1. Clean up any broken/failed migration records in _prisma_migrations table
@@ -45,8 +48,8 @@ async function main() {
         "is_active" BOOLEAN NOT NULL DEFAULT true,
         "created_by" BIGINT,
         "updated_by" BIGINT,
-        "created_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updated_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
       -- Ensure mot_profile table exists
@@ -61,8 +64,8 @@ async function main() {
         "is_active" BOOLEAN NOT NULL DEFAULT true,
         "created_by" BIGINT,
         "updated_by" BIGINT,
-        "created_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updated_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
       -- Ensure operation_idempotency_record table exists (Phase 3 server idempotency)
@@ -75,7 +78,7 @@ async function main() {
         "request_payload" JSONB,
         "response_payload" JSONB NOT NULL,
         "status_code" INTEGER NOT NULL DEFAULT 200,
-        "created_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "payload_hash" VARCHAR(64)
       );
     `);
@@ -102,23 +105,23 @@ async function main() {
       ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "approval_status" VARCHAR(50) DEFAULT 'PENDING';
       ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "approver_role" VARCHAR(50);
       ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "approver_user_id" BIGINT;
-      ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "approved_at" TIMESTAMP(6);
+      ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "approved_at" TIMESTAMPTZ(6);
       ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "approval_remarks" TEXT;
       ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "source_change_authorized_by" BIGINT;
       ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "last_corrected_by_user_id" BIGINT;
-      ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "last_corrected_at" TIMESTAMP(6);
+      ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "last_corrected_at" TIMESTAMPTZ(6);
       ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "version" INTEGER DEFAULT 1;
       ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "dispatch_submitted_by" BIGINT;
       ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "dispatch_submitted_is_delegated" BOOLEAN DEFAULT false;
-      ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "dispatch_submitted_at" TIMESTAMP(6);
+      ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "dispatch_submitted_at" TIMESTAMPTZ(6);
       ALTER TABLE IF EXISTS "vehicle_visit" ADD COLUMN IF NOT EXISTS "dispatch_version" INTEGER DEFAULT 0;
 
       -- visit_portion table (Phase 4.1 / 4.4 per-portion weighing & idempotency)
       ALTER TABLE IF EXISTS "visit_portion" ADD COLUMN IF NOT EXISTS "first_weight_kg" DECIMAL(12,3);
-      ALTER TABLE IF EXISTS "visit_portion" ADD COLUMN IF NOT EXISTS "first_weight_at" TIMESTAMP(6);
+      ALTER TABLE IF EXISTS "visit_portion" ADD COLUMN IF NOT EXISTS "first_weight_at" TIMESTAMPTZ(6);
       ALTER TABLE IF EXISTS "visit_portion" ADD COLUMN IF NOT EXISTS "first_weight_by_user_id" BIGINT;
       ALTER TABLE IF EXISTS "visit_portion" ADD COLUMN IF NOT EXISTS "second_weight_kg" DECIMAL(12,3);
-      ALTER TABLE IF EXISTS "visit_portion" ADD COLUMN IF NOT EXISTS "second_weight_at" TIMESTAMP(6);
+      ALTER TABLE IF EXISTS "visit_portion" ADD COLUMN IF NOT EXISTS "second_weight_at" TIMESTAMPTZ(6);
       ALTER TABLE IF EXISTS "visit_portion" ADD COLUMN IF NOT EXISTS "second_weight_by_user_id" BIGINT;
       ALTER TABLE IF EXISTS "visit_portion" ADD COLUMN IF NOT EXISTS "net_weight_kg" DECIMAL(12,3);
       ALTER TABLE IF EXISTS "visit_portion" ADD COLUMN IF NOT EXISTS "creation_client_event_id" VARCHAR(255);
