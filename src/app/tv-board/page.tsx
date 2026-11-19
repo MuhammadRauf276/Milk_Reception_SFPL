@@ -215,8 +215,10 @@ export default function PublicYardTVBoardPage() {
                   </div>
                 ) : (
                   activeVehicles.map((vehicle, idx) => {
-                    const isNext = idx === 0;
                     const lc = vehicle.lifecycle;
+                    const leftPlant = lc.stages.some((s) => s.id === 'GATE_EXIT' && s.status === 'COMPLETED');
+                    const done = leftPlant || lc.isComplete;
+                    const isNext = idx === 0 && !done;
 
                     return (
                       <div
@@ -233,7 +235,7 @@ export default function PublicYardTVBoardPage() {
                               isNext ? 'bg-primary text-white' : 'bg-muted text-secondary-foreground border border-border'
                             }`}
                           >
-                            {isNext ? 'Next in line' : `Position ${idx + 1}`}
+                            {leftPlant ? 'Left plant' : done ? 'Received' : isNext ? 'Next in line' : `Position ${idx + 1}`}
                           </span>
                           <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 tabular-nums text-xs font-semibold text-emerald-800">
                             {vehicle.portionCount} {vehicle.portionCount > 1 ? 'portions' : 'portion'}

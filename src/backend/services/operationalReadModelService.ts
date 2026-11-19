@@ -33,6 +33,8 @@ export interface OperationalLogFilters {
   dateBasis?: 'dispatch' | 'reporting';
   /** With a dispatch date range: also keep vehicles still inside the plant, however long ago they were dispatched. */
   includeStillInPlant?: boolean;
+  /** Live mode only: also keep vehicles that left the gate at or after this time. */
+  keepExitedSince?: Date;
 }
 
 /** Entered the gate, has not left it, and the visit is still open. */
@@ -845,13 +847,17 @@ export async function getPaginatedOperationalLogs(
 
   if (mode === 'live') {
     // Mode LIVE: Active in-flight pipeline only. Gate exit has not occurred.
-    conditions.push({ current_status: { notIn: ['COMPLETED', 'CANCELLED'] } });
-    conditions.push({
-      OR: [
-        { gate_log: null },
-        { gate_log: { exit_timestamp: null } },
+    const inFlight: Prisma.VehicleVisitWhereInput = {
+      AND: [
+        { current_status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+        { OR: [{ gate_log: null }, { gate_log: { exit_timestamp: null } }] },
       ],
-    });
+    };
+    conditions.push(
+      filters?.keepExitedSince
+        ? { OR: [inFlight, { current_status: { not: 'CANCELLED' }, gate_log: { is: { exit_timestamp: { gte: filters.keepExitedSince } } } }] }
+        : inFlight
+    );
   } else if (mode === 'recent') {
     // Mode RECENT: Default to last 7 calendar days in PKT if no date specified.
     if (effectiveFromDate === undefined && effectiveToDate === undefined) {

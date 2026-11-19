@@ -27,6 +27,8 @@ export interface TvZmccJourney {
   vehicleNumber: string;
   subtitle: string;
   finished: boolean;
+  /** When it finished (journey end, gate exit, or receipt when no gate exit is needed). */
+  finishedAt: string | null;
   /** Collected @13 TS (MOT) and received into the ZMCC tank @13 TS; null until known. */
   collectedAt13Ts: number | null;
   receivedAt13Ts: number | null;
@@ -49,6 +51,22 @@ export const TV_ZMCC_MAX_ROWS = 6;
 const ACTIVE_JOURNEY = ['COLLECTING', 'RETURNING', 'ARRIVED'];
 /** An HC vehicle that has not left the gate stays on the board this long. */
 const HC_OPEN_DAYS = 3;
+/** A finished card (journey ended, vehicle left the gate) stays on the yard board this long, then drops off. */
+export const TV_FINISHED_KEEP_MS = 4 * 60 * 60 * 1000;
+
+/** A received vehicle that never gets a gate exit leaves the board this long after its receipt. */
+const NO_EXIT_KEEP_MS = 24 * 60 * 60 * 1000;
+
+/** Plant yard board: still shown when not left the gate yet (a received one at most a day), or left within the last few hours. */
+export function staysOnTvBoard(
+  p: { gate_exit_timestamp?: string | null; final_receipt_timestamp?: string | null } | undefined,
+  now: number
+): boolean {
+  if (!p) return true;
+  if (p.gate_exit_timestamp) return now - new Date(p.gate_exit_timestamp).getTime() <= TV_FINISHED_KEEP_MS;
+  if (p.final_receipt_timestamp) return now - new Date(p.final_receipt_timestamp).getTime() <= NO_EXIT_KEEP_MS;
+  return true;
+}
 
 const n = (v: unknown) => (v == null ? 0 : Number(v));
 const r2 = (v: number) => Number(v.toFixed(2));
@@ -127,6 +145,7 @@ const stateFor = (done: boolean, current: boolean): TvStepState => (done ? 'done
 export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: boolean } = {}): Promise<TvZmccBoard> {
   const day = getPakistanDayWindow();
   const hcSince = new Date(day.start.getTime() - HC_OPEN_DAYS * 24 * 3600 * 1000);
+  const keepSince = new Date(now.getTime() - TV_FINISHED_KEEP_MS);
 
   const zmccs = await prisma.procurementSource.findMany({
     where: { source_type: 'ZMCC', is_active: true },
@@ -140,7 +159,7 @@ export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: b
     prisma.motJourney.findMany({
       where: {
         zmcc_id: { in: zmccIds },
-        OR: [{ status: { in: ACTIVE_JOURNEY } }, { status: 'COMPLETED', ended_at: { gte: day.start } }],
+        OR: [{ status: { in: ACTIVE_JOURNEY } }, { status: 'COMPLETED', ended_at: { gte: keepSince } }],
       },
       orderBy: { started_at: 'asc' },
       select: {
@@ -160,8 +179,8 @@ export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: b
       where: {
         zmcc_id: { in: zmccIds },
         OR: [
-          { arrival_timestamp: { gte: day.start } },
-          { gate_exit_required: true, exit_timestamp: null, arrival_timestamp: { gte: hcSince } },
+          { exit_timestamp: { gte: keepSince } },
+          { exit_timestamp: null, arrival_timestamp: { gte: hcSince } },
         ],
       },
       orderBy: { arrival_timestamp: 'asc' },
@@ -253,6 +272,7 @@ export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: b
       vehicleNumber: j.mot_vehicle.vehicle_number,
       subtitle: j.route.name,
       finished: ended,
+      finishedAt: ended ? iso(j.ended_at ?? arrival?.exit_timestamp) : null,
       collectedAt13Ts: collected,
       receivedAt13Ts: lab?.tank_receipt ? r2(n(lab.tank_receipt.at_13ts_liters)) : null,
       steps,
@@ -265,6 +285,7 @@ export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: b
     const [labStep, receiptStep] = labAndReceiptSteps(lab, true, managerOf(h.zmcc_id));
     const exited = !!h.exit_timestamp;
     const settled = receiptStep.state === 'done' || receiptStep.state === 'rejected';
+    const finished = exited || (!h.gate_exit_required && settled);
     const steps: TvJourneyStep[] = [
       {
         key: 'gate-in',
@@ -285,7 +306,12 @@ export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: b
       title: h.local_supplier.name,
       vehicleNumber: h.vehicle_number,
       subtitle: `Token ${h.zmcc_token}`,
-      finished: exited || (!h.gate_exit_required && settled),
+      finished,
+      finishedAt: !finished
+        ? null
+        : exited
+          ? iso(h.exit_timestamp)
+          : iso(lab?.tank_receipt?.received_at ?? lab?.journey_closed_at ?? lab?.completed_at ?? h.arrival_timestamp),
       collectedAt13Ts: null,
       receivedAt13Ts: lab?.tank_receipt ? r2(n(lab.tank_receipt.at_13ts_liters)) : null,
       steps,
@@ -294,9 +320,11 @@ export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: b
 
   // Working vehicles first, finished ones after; each group keeps its time order.
   const byWork = (a: TvZmccJourney, b: TvZmccJourney) => Number(a.finished) - Number(b.finished);
+  // A finished card stays for TV_FINISHED_KEEP_MS after it finished, then leaves the board.
+  const onBoard = (r: TvZmccJourney) => !r.finished || !r.finishedAt || new Date(r.finishedAt) >= keepSince;
   const sections: TvZmccSection[] = zmccs.map((z) => {
-    const testers = journeys.filter((j) => j.zmcc_id === z.id).map(motRow).sort(byWork);
-    const hc = hcArrivals.filter((h) => h.zmcc_id === z.id).map(hcRow).sort(byWork);
+    const testers = journeys.filter((j) => j.zmcc_id === z.id).map(motRow).filter(onBoard).sort(byWork);
+    const hc = hcArrivals.filter((h) => h.zmcc_id === z.id).map(hcRow).filter(onBoard).sort(byWork);
     return {
       id: z.id.toString(),
       name: z.name,

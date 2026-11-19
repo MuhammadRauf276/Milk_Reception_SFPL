@@ -4,20 +4,30 @@ import { getCurrentUser } from '@/backend/core/auth';
 import { getPaginatedOperationalLogs } from '@/backend/services/operationalReadModelService';
 import { approverKey, resolveApproverNames, type TvVehicleApproval } from '@/backend/services/tvBoardApprovals';
 import { buildVehicleVisitGroups } from '@/frontend/modules/dashboard/zmcc/zmccManagerHelpers';
+import { staysOnTvBoard, TV_FINISHED_KEEP_MS } from '@/backend/services/tvBoardZmccService';
 
 export const dynamic = 'force-dynamic';
 
+const tvDoneRank = (g: { lifecycle: { isComplete: boolean }; portions: Array<{ gate_exit_timestamp?: string | null }> }) =>
+  g.portions[0]?.gate_exit_timestamp ? 2 : g.lifecycle.isComplete ? 1 : 0;
+
 /**
- * Public yard display: every vehicle dispatched to the plant that has not completed,
- * with its stage progress. Only lifecycle and quantity summaries are exposed (no lab values).
+ * Public yard display: every vehicle dispatched to the plant until it has left the gate,
+ * then for a few more hours so the Gate exit step shows; with its stage progress. Only lifecycle and quantity summaries are exposed (no lab values).
  * A vehicle waiting for an approval names the approver's role; signed-in viewers also see the name.
  */
 export async function GET(req: Request) {
   const user = await getCurrentUser(req).catch(() => null);
-  const { items } = await getPaginatedOperationalLogs({ mode: 'live', pageSize: 100 }, null, { kind: 'ALL' });
+  const now = Date.now();
+  const { items } = await getPaginatedOperationalLogs(
+    { mode: 'live', pageSize: 100, keepExitedSince: new Date(now - TV_FINISHED_KEEP_MS) },
+    null,
+    { kind: 'ALL' }
+  );
   const groups = buildVehicleVisitGroups(items)
-    .filter((g) => !g.lifecycle.isComplete)
-    .sort((a, b) => a.visitId - b.visitId);
+    .filter((g) => staysOnTvBoard(g.portions[0], now))
+    // Vehicles still in the queue first, then received ones, then those that left; each in dispatch order.
+    .sort((a, b) => tvDoneRank(a) - tvDoneRank(b) || a.visitId - b.visitId);
 
   const visitIds = groups.map((g) => BigInt(g.visitId));
   const waits = visitIds.length
