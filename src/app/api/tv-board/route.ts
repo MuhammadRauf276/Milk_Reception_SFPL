@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     ? await prisma.vehicleVisit.findMany({
         where: {
           id: { in: visitIds },
-          OR: [{ approval_status: 'PENDING' }, { portions: { some: { manager_review_status: 'PENDING' } } }],
+          OR: [{ approval_status: { in: ['PENDING', 'APPROVED'] } }, { portions: { some: { manager_review_status: 'PENDING' } } }],
         },
         select: {
           id: true,
@@ -34,8 +34,20 @@ export async function GET(req: Request) {
         },
       })
     : [];
+  // A dispatch the ZMCC Manager already approved shows "Approved"; it is not waiting on anyone.
+  const approvedDispatch = new Set(waits.filter((v) => v.approval_status === 'APPROVED').map((v) => v.id.toString()));
+  const pendingPortions = new Set(
+    (visitIds.length
+      ? await prisma.visitPortion.findMany({
+          where: { visit_id: { in: visitIds }, manager_review_status: 'PENDING' },
+          select: { visit_id: true },
+        })
+      : []
+    ).map((p) => p.visit_id.toString())
+  );
   const approvals = new Map<string, TvVehicleApproval>();
   for (const v of waits) {
+    if (v.approval_status !== 'PENDING' && !pendingPortions.has(v.id.toString())) continue;
     approvals.set(
       v.id.toString(),
       v.approval_status === 'PENDING'
@@ -43,11 +55,12 @@ export async function GET(req: Request) {
         : { stageId: 'PLANT_QA', role: 'QA_HEAD', name: null }
     );
   }
-  if (user && waits.length) {
+  const waiting = waits.filter((v) => approvals.has(v.id.toString()));
+  if (user && waiting.length) {
     const names = await resolveApproverNames(
-      waits.map((v) => ({ role: approvals.get(v.id.toString())!.role, sourceId: v.procurement_source_id }))
+      waiting.map((v) => ({ role: approvals.get(v.id.toString())!.role, sourceId: v.procurement_source_id }))
     );
-    for (const v of waits) {
+    for (const v of waiting) {
       const a = approvals.get(v.id.toString())!;
       a.name = names.get(approverKey(a.role, v.procurement_source_id)) ?? null;
     }
@@ -60,6 +73,7 @@ export async function GET(req: Request) {
     sourceName: g.sourceName,
     portionCount: g.portions.length,
     dispatch13TsLiters: g.totalDispatch13TsLiters,
+    plant13TsLiters: g.plant13TsLiters,
     dispatchGrossLiters: g.totalDispatchGrossLiters,
     dispatchQuantityValue: g.vehicleDispatchQuantityValue,
     dispatchQuantityUnit: g.vehicleDispatchQuantityUnit,
@@ -67,6 +81,7 @@ export async function GET(req: Request) {
     secondWeightKg: g.secondWeightKg,
     lifecycle: g.lifecycle,
     approval: approvals.get(String(g.visitId)) ?? null,
+    dispatchApproved: approvedDispatch.has(String(g.visitId)),
   }));
   // Names are for signed-in viewers only, so their copy is never stored by a shared cache.
   return NextResponse.json(

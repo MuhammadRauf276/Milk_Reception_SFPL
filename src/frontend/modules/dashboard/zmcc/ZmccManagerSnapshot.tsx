@@ -56,17 +56,16 @@ function useManagerOverview() {
   return { overview, queryError, decide, actionError, queryClient, refetch };
 }
 
+/** Overview: close requests are shown here but decided only in the Approval Inbox, so there is one place to decide. */
 export function ZmccManagerExitPanel() {
-  const { overview, queryError, decide, actionError } = useManagerOverview();
+  const { overview, queryError } = useManagerOverview();
+  const zmccId = useSearchParams().get('zmccId');
   if (queryError || !overview) return null;
   return <section className="space-y-3" aria-label="ZMCC exit outcomes">
-    <ErrorPopup message={actionError} />
     <ZmccExitOutcomes
       left={overview.exits.leftWithoutFullUnloading}
       pending={overview.exits.pendingCloseRequests}
-      canDecide
-      busy={decide.isPending}
-      onDecide={(sessionId, decision, remarks) => decide.mutate({ sessionId, decision, remarks })}
+      decideHref={`/mpd/zmcc-manager?tab=APPROVALS${zmccId ? `&zmccId=${encodeURIComponent(zmccId)}` : ''}`}
     />
   </section>;
 }

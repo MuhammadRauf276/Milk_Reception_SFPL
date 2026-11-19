@@ -10,6 +10,8 @@ interface ManagerLifecycleTrackerProps {
   compact?: boolean;
   /** A stage waiting for someone's approval: that stage shows who it waits on. */
   approval?: (StepRailApproval & { stageId: LifecycleStageId }) | null;
+  /** The dispatch approval was given: the dispatch step shows "Approved". */
+  dispatchApproved?: boolean;
 }
 
 const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -37,11 +39,20 @@ function qaTone(badge: ManagerLifecycleSummary['portionQA']['badgeType']): strin
   return 'bg-muted text-secondary-foreground';
 }
 
-export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = ({ lifecycle, compact = false, approval }) => {
-  const steps: StepRailItem[] = lifecycle.stages.map((stage) => {
+export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = ({ lifecycle, compact = false, approval, dispatchApproved = false }) => {
+  // A step waiting for an approval holds the vehicle there: later steps are not current yet.
+  const waitIndex = approval ? lifecycle.stages.findIndex((s) => s.id === approval.stageId) : -1;
+  const steps: StepRailItem[] = lifecycle.stages.map((stage, index) => {
     const waits = approval && approval.stageId === stage.id && (stage.status !== 'UPCOMING' || stage.id === 'DISPATCH');
+    const heldBack = waitIndex >= 0 && index > waitIndex && stage.status === 'CURRENT';
+    const status = heldBack ? 'UPCOMING' : stage.status;
     const lines: React.ReactNode[] = [];
-    if (stage.status === 'CURRENT' && !waits) {
+    if (stage.id === 'DISPATCH' && dispatchApproved && !waits) {
+      lines.push(
+        <span className="mt-0.5 inline-block rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800">Approved</span>
+      );
+    }
+    if (status === 'CURRENT' && !waits) {
       lines.push(
         <span className="mt-0.5 inline-block rounded border border-primary/20 bg-primary/10 px-2 py-0.5 font-semibold text-primary">Current</span>
       );
@@ -62,7 +73,7 @@ export const ManagerLifecycleTracker: React.FC<ManagerLifecycleTrackerProps> = (
     return {
       key: stage.key ?? stage.id,
       label: compact ? stage.shortLabel : stage.label,
-      state: waits ? 'waiting' : STATE[stage.status],
+      state: waits ? 'waiting' : STATE[status],
       icon: STAGE_ICONS[stage.id] || Circle,
       lines,
       approval: waits ? { roleLabel: approval.roleLabel, name: approval.name } : null,

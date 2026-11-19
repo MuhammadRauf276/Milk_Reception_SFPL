@@ -15,7 +15,7 @@ import Link from 'next/link';
 import { PageTransition } from '@/components/motion/page-transition';
 import { ShakarganjLogo, ShakarganjIcon } from '@/components/brand/ShakarganjLogo';
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
-import { ZmccBoardSection } from '@/frontend/modules/tv-board/ZmccBoardSections';
+import { Figure, lit, ZmccBoardSection } from '@/frontend/modules/tv-board/ZmccBoardSections';
 import type { TvZmccBoard } from '@/backend/services/tvBoardZmccService';
 import type { TvVehicleApproval } from '@/backend/services/tvBoardApprovals';
 import { getRoleLabel } from '@/backend/core/roles/labels';
@@ -40,6 +40,7 @@ interface TvBoardVehicle {
   sourceName: string;
   portionCount: number;
   dispatch13TsLiters: number | null;
+  plant13TsLiters: number | null;
   dispatchGrossLiters: number | null;
   dispatchQuantityValue: number | null;
   dispatchQuantityUnit: string | null;
@@ -47,6 +48,7 @@ interface TvBoardVehicle {
   secondWeightKg: number | null;
   lifecycle: ManagerLifecycleSummary;
   approval: TvVehicleApproval | null;
+  dispatchApproved: boolean;
 }
 
 const NO_VEHICLES: TvBoardVehicle[] = [];
@@ -257,10 +259,16 @@ export default function PublicYardTVBoardPage() {
                           </div>
                         </div>
 
+                        <div className="flex flex-wrap gap-x-5 gap-y-1">
+                          <Figure label="Dispatch @13 TS" value={vehicle.dispatch13TsLiters != null ? lit(vehicle.dispatch13TsLiters) : '—'} />
+                          <Figure label="Received @13 TS" value={vehicle.plant13TsLiters != null ? lit(vehicle.plant13TsLiters) : '—'} />
+                        </div>
+
                         <div className="py-1">
                           <ManagerLifecycleTracker
                             lifecycle={lc}
                             compact={true}
+                            dispatchApproved={vehicle.dispatchApproved}
                             approval={
                               vehicle.approval
                                 ? { stageId: vehicle.approval.stageId, roleLabel: getRoleLabel(vehicle.approval.role), name: vehicle.approval.name }

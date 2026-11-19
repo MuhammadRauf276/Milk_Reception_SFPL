@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { InfoTip } from '@/components/ui/info-tip';
 import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { formatDateTime } from '@/lib/format';
+import Link from 'next/link';
 
 export type ExitOutcomeRow = {
   sessionId: string;
@@ -36,10 +37,12 @@ function qty(row: ExitOutcomeRow) {
 }
 
 /** ZMCC manager view: vehicles that left without full unloading, plus pending close-without-unloading requests. */
-export function ZmccExitOutcomes({ left, pending, canDecide, busy, onDecide }: {
+export function ZmccExitOutcomes({ left, pending, canDecide, busy, onDecide, decideHref }: {
   left: ExitOutcomeRow[];
   pending: ExitOutcomeRow[];
   canDecide?: boolean;
+  /** Where these requests are decided (the Approval Inbox), when they are not decided here. */
+  decideHref?: string;
   busy?: boolean;
   onDecide?: (sessionId: string, decision: 'APPROVE' | 'REJECT', remarks: string) => void;
 }) {
@@ -49,7 +52,14 @@ export function ZmccExitOutcomes({ left, pending, canDecide, busy, onDecide }: {
 
   return <div className="grid gap-3 lg:grid-cols-2">
     <div className="bg-card border-border rounded-2xl border p-4 text-xs">
-      <p className="font-semibold text-foreground">Close requests ({pending.length})</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-semibold text-foreground">Close requests ({pending.length})</p>
+        {decideHref && pending.length ? (
+          <Link href={decideHref} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 font-semibold text-primary hover:bg-muted">
+            Decide in Approval Inbox
+          </Link>
+        ) : null}
+      </div>
       {pending.length ? <>
         {pagedPending.pageRows.map((row) => <div key={row.sessionId} className="mt-2 space-y-1 border-t pt-2">
           <p className="font-medium">{row.arrivalLabel === 'MC' ? 'Mobile Tester' : row.arrivalLabel} · {row.reference}{row.vehicleNumber ? ` · ${row.vehicleNumber}` : ''}</p>

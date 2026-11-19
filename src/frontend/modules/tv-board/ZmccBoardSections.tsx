@@ -5,7 +5,6 @@ import { Warehouse, Users, Truck, MapPinned, Navigation, Building2, FlaskConical
 import { StepRail, type StepRailItem } from '@/components/ui/step-rail';
 import { InfoTip } from '@/components/ui/info-tip';
 import { getRoleLabel } from '@/backend/core/roles/labels';
-import { formatLossGain, lossGainClass } from '@/lib/lossGain';
 import type { TvZmccJourney, TvZmccSection } from '@/backend/services/tvBoardZmccService';
 
 const STEP_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -30,7 +29,7 @@ const pkTime = (isoText: string) => {
   return `${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: PK })}, ${time}`;
 };
 
-const lit = (v: number) => `${v.toLocaleString('en-US', { maximumFractionDigits: 0 })} L`;
+export const lit = (v: number) => `${v.toLocaleString('en-US', { maximumFractionDigits: 0 })} L`;
 
 function toRail(j: TvZmccJourney): StepRailItem[] {
   return j.steps.map((s) => ({
@@ -47,7 +46,7 @@ function toRail(j: TvZmccJourney): StepRailItem[] {
   }));
 }
 
-function Figure({ label, value, className }: { label: string; value: string; className?: string }) {
+export function Figure({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
     <div className="min-w-0">
       <p className={`text-sm font-semibold tabular-nums ${className ?? 'text-foreground'}`}>{value}</p>
@@ -57,7 +56,6 @@ function Figure({ label, value, className }: { label: string; value: string; cla
 }
 
 function JourneyRow({ j }: { j: TvZmccJourney }) {
-  const diff = j.collectedAt13Ts != null && j.receivedAt13Ts != null ? j.receivedAt13Ts - j.collectedAt13Ts : null;
   return (
     <li className={`space-y-2 rounded-xl border bg-card p-3 ${j.finished ? 'border-border opacity-80' : 'border-border shadow-2xs'}`}>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -75,7 +73,6 @@ function JourneyRow({ j }: { j: TvZmccJourney }) {
         <div className="flex flex-wrap gap-x-5 gap-y-1">
           {j.kind === 'MOT' ? <Figure label="Collected @13 TS" value={lit(j.collectedAt13Ts ?? 0)} /> : null}
           <Figure label="Received @13 TS" value={j.receivedAt13Ts != null ? lit(j.receivedAt13Ts) : '—'} />
-          {diff != null ? <Figure label="Difference" value={formatLossGain(diff, ' L', 0)} className={lossGainClass(diff)} /> : null}
         </div>
       </div>
       <StepRail steps={toRail(j)} size="sm" ariaLabel={`${j.title} progress`} stepClassName="min-w-24" />

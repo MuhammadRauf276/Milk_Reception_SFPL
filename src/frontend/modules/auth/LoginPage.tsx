@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useSyncExternalStore } from 'react';
 import { ShieldCheck, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -11,12 +11,16 @@ import { BrandMark } from '@/frontend/modules/shared/navigation/NavPanel';
 import { resolveRoleHome } from '@/lib/role-routing';
 import { ErrorPopup } from '@/components/ui/error-popup';
 
+const noopSubscribe = () => () => {};
+
 export const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Sign in works only once the page script runs; before that a tap would send the form as a plain page request.
+  const pageReady = useSyncExternalStore(noopSubscribe, () => true, () => false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,7 +95,8 @@ export const LoginPage: React.FC = () => {
             <ErrorPopup message={errorMsg} />
           </AnimatePresence>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          {/* method="post": even if the script has not loaded, the password never goes into the address bar. */}
+          <form method="post" onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username-input">Username</Label>
               <Input
@@ -150,6 +155,7 @@ export const LoginPage: React.FC = () => {
               type="submit"
               variant="default"
               size="lg"
+              disabled={!pageReady}
               loading={isSubmitting}
               loadingText="Signing in…"
               className="w-full font-semibold"

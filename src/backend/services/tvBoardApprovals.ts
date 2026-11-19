@@ -32,7 +32,8 @@ export async function resolveApproverNames(requests: Array<{ role: string; sourc
   for (const u of users) {
     const key = SOURCE_SCOPED.has(u.role) ? `${u.role}:${u.procurement_source_id ?? ''}` : u.role;
     const list = grouped.get(key) ?? [];
-    list.push(u.full_name || u.username);
+    const name = u.full_name || u.username;
+    if (!list.includes(name)) list.push(name);
     grouped.set(key, list);
   }
   for (const r of requests) {
