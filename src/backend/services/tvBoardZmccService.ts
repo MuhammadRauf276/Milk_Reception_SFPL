@@ -27,7 +27,7 @@ export interface TvZmccJourney {
   vehicleNumber: string;
   subtitle: string;
   finished: boolean;
-  /** When it finished (journey end, gate exit, or receipt when no gate exit is needed). */
+  /** When it finished: journey end (Mobile Tester) or gate exit (HC). */
   finishedAt: string | null;
   /** Collected @13 TS (MOT) and received into the ZMCC tank @13 TS; null until known. */
   collectedAt13Ts: number | null;
@@ -190,7 +190,6 @@ export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: b
         vehicle_number: true,
         zmcc_token: true,
         arrival_timestamp: true,
-        gate_exit_required: true,
         exit_timestamp: true,
         local_supplier: { select: { name: true, approval_status: true } },
         lab_session: { select: LAB_SELECT },
@@ -285,7 +284,8 @@ export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: b
     const [labStep, receiptStep] = labAndReceiptSteps(lab, true, managerOf(h.zmcc_id));
     const exited = !!h.exit_timestamp;
     const settled = receiptStep.state === 'done' || receiptStep.state === 'rejected';
-    const finished = exited || (!h.gate_exit_required && settled);
+    // An HC vehicle always leaves through a recorded gate exit; it is finished only once it has left.
+    const finished = exited;
     const steps: TvJourneyStep[] = [
       {
         key: 'gate-in',
@@ -297,9 +297,7 @@ export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: b
       labStep,
       receiptStep,
     ];
-    if (h.gate_exit_required || exited) {
-      steps.push({ key: 'gate-out', label: 'Gate exit', state: stateFor(exited, settled), at: iso(h.exit_timestamp) });
-    }
+    steps.push({ key: 'gate-out', label: 'Gate exit', state: stateFor(exited, settled), at: iso(h.exit_timestamp) });
     return {
       id: `hc-${h.id}`,
       kind: 'HC',
@@ -307,11 +305,7 @@ export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: b
       vehicleNumber: h.vehicle_number,
       subtitle: `Token ${h.zmcc_token}`,
       finished,
-      finishedAt: !finished
-        ? null
-        : exited
-          ? iso(h.exit_timestamp)
-          : iso(lab?.tank_receipt?.received_at ?? lab?.journey_closed_at ?? lab?.completed_at ?? h.arrival_timestamp),
+      finishedAt: iso(h.exit_timestamp),
       collectedAt13Ts: null,
       receivedAt13Ts: lab?.tank_receipt ? r2(n(lab.tank_receipt.at_13ts_liters)) : null,
       steps,

@@ -66,6 +66,7 @@ test('board lists live and today\'s journeys per ZMCC, without lab values', asyn
       assert.ok(row.steps.some((s) => s.key === 'receipt'), 'every journey has a Receipt step');
     }
     for (const row of section.testers.rows) assert.equal(row.steps.at(-1)?.key, 'end');
+    for (const row of section.hc.rows) assert.equal(row.steps.at(-1)?.key, 'gate-out', 'every HC vehicle leaves through a gate exit');
   }
   assert.ok(!JSON.stringify(board).match(/\b(fat|lr|snf|density)\b/i), 'no lab values exposed');
 });

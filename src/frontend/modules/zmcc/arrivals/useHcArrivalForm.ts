@@ -106,7 +106,7 @@ export function useHcArrivalForm(onRecorded: () => void) {
         manager_correction_count: 0,
         last_corrected_by_user_id: null,
         last_corrected_at: null,
-        gate_exit_required: false,
+        gate_exit_required: true,
         exit_timestamp: null,
         exit_recorded_by_user_id: null,
         exit_client_event_id: null,
