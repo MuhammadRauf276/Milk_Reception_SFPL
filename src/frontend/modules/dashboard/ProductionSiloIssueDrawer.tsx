@@ -10,6 +10,7 @@ import { fetchJson } from '@/lib/query/fetchJson';
 import { useToast } from '@/frontend/context/ToastContext';
 import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { newClientRequestId, type SiloIssueHistoryDef, type SiloOption } from './productionTypes';
+import { serverNow } from '@/lib/serverClock';
 
 /** Bottom sheet: record an outbound milk issue from a silo and review its recent issues. */
 export const ProductionSiloIssueDrawer: React.FC<{
@@ -22,7 +23,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
   const [issueQuantityLiters, setIssueQuantityLiters] = useState<string>('');
   const [issuePurpose, setIssuePurpose] = useState<string>('UHT Milk');
   const [issueFlowMeterRef, setIssueFlowMeterRef] = useState<string>('');
-  const [issueOpTimestamp, setIssueOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
+  const [issueOpTimestamp, setIssueOpTimestamp] = useState<string>(() => toDatetimeLocalInput(serverNow()));
   const [actionLoading, setActionLoading] = useState(false);
 
   // What was typed stays on this device until the issue is recorded.
@@ -198,7 +199,7 @@ export const ProductionSiloIssueDrawer: React.FC<{
               <input
                 type="datetime-local"
                 value={issueOpTimestamp}
-                max={toDatetimeLocalInput(new Date())}
+                max={toDatetimeLocalInput(serverNow())}
                 onChange={(e) => setIssueOpTimestamp(e.target.value)}
                 className={`${inputClass} tabular-nums`}
               />

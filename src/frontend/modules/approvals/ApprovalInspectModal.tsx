@@ -263,13 +263,6 @@ export function ApprovalInspectModal({
                       {item.disabledReason || 'Another supervisor must review this item.'}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="min-h-11 px-4 py-2 text-xs font-semibold bg-secondary hover:bg-muted text-secondary-foreground rounded-lg transition"
-                  >
-                    Close
-                  </button>
                 </div>
               )
             ) : (

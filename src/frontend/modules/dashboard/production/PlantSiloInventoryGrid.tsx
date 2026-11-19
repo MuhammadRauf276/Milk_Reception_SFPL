@@ -262,6 +262,7 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
                 <button
                   type="button"
                   onClick={() => setSelectedSilo(null)}
+                  aria-label="Close"
                   className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
@@ -321,16 +322,6 @@ export const PlantSiloInventoryGrid: React.FC<PlantSiloInventoryGridProps> = ({ 
                     <span className="font-mono font-semibold">{selectedSilo.activePumpingVehicle}</span>
                   </div>
                 )}
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedSilo(null)}
-                  className="w-full min-h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition-colors"
-                >
-                  Close
-                </button>
               </div>
             </div>
           </DrawerContent>

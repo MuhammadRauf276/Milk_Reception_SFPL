@@ -16,6 +16,7 @@ import { formatTime } from '@/lib/format';
 import { Pager, pageCount, paginate } from './components/Pager';
 import { formatDuration, type FirstWeightVisit } from './weighbridgeTypes';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { serverNow } from '@/lib/serverClock';
 
 /** First (loaded) weight: queue of QA-approved vehicles plus a bottom-sheet to record the weighment. */
 export const WeighbridgeFirstWeightPanel: React.FC = () => {
@@ -132,7 +133,7 @@ const FirstWeightDrawer: React.FC<{
 }> = ({ visit, onClose, onRecorded }) => {
   const toast = useToast();
   const [grossInputKg, setGrossInputKg] = useState<string>('');
-  const [grossDateTimeInput, setGrossDateTimeInput] = useState<string>(toDatetimeLocalInput(new Date()));
+  const [grossDateTimeInput, setGrossDateTimeInput] = useState<string>(toDatetimeLocalInput(serverNow()));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleRecordFirstWeight = async () => {
@@ -154,9 +155,10 @@ const FirstWeightDrawer: React.FC<{
     }
 
     const selectedOpDate = new Date(isoGrossTs);
-    const now = new Date();
-    if (selectedOpDate.getTime() > now.getTime() + 60000) {
-      toast.showError('Time cannot be in the future.', 'Timestamp Error');
+    // Same rule as the server: up to 10 minutes ahead of the server clock counts as now.
+    const now = serverNow();
+    if (selectedOpDate.getTime() > now.getTime() + 10 * 60 * 1000) {
+      toast.showError('The time is ahead of the server clock. Check the time.', 'Timestamp Error');
       return;
     }
 
@@ -164,7 +166,7 @@ const FirstWeightDrawer: React.FC<{
     if (visit.min_allowed_timestamp) {
       const minAllowed = new Date(visit.min_allowed_timestamp);
       if (selectedOpDate.getTime() < minAllowed.getTime() - 5000) {
-        effectiveGrossTs = new Date().toISOString();
+        effectiveGrossTs = serverNow().toISOString();
         if (new Date(effectiveGrossTs) < minAllowed) {
           effectiveGrossTs = minAllowed.toISOString();
         }
@@ -271,7 +273,7 @@ const FirstWeightDrawer: React.FC<{
                 type="datetime-local"
                 value={grossDateTimeInput}
                 min={visit.min_allowed_timestamp ? toDatetimeLocalInput(visit.min_allowed_timestamp) : undefined}
-                max={toDatetimeLocalInput(new Date())}
+                max={toDatetimeLocalInput(serverNow())}
                 onChange={(e) => setGrossDateTimeInput(e.target.value)}
                 className="w-full min-h-12 px-4 py-3 text-sm tabular-nums rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
               />

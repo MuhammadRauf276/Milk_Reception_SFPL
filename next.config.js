@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const os = require('os');
 
+// The app runs on Pakistan time whatever the machine is set to (the VM once ran on a USA zone).
+// Times are still saved as UTC; this only fixes dates and months worked out on the server.
+process.env.TZ = process.env.TZ || 'Asia/Karachi';
+
 const localIps = Object.values(os.networkInterfaces())
   .flat()
   .filter((net) => net && net.family === 'IPv4' && !net.internal)

@@ -16,12 +16,13 @@ import {
   type McArrivalRow,
   type PolicyMode,
 } from './arrivalTypes';
+import { serverNow } from '@/lib/serverClock';
 
 export function useMcArrivalForm(policyMode: PolicyMode, onRecorded: () => void) {
   const [selectedJourney, setSelectedJourney] = useState<ArrivingJourney | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [rawMilkTokenNumber, setRawMilkTokenNumber] = useState('');
-  const [arrivalTimestamp, setArrivalTimestamp] = useState(() => toDatetimeLocalInput(new Date()));
+  const [arrivalTimestamp, setArrivalTimestamp] = useState(() => toDatetimeLocalInput(serverNow()));
   const [gps, setGps] = useState<GpsState>(EMPTY_GPS);
   const [eventId, setEventId] = useState(() => generateClientEventId('mot-arr'));
   const [submitting, setSubmitting] = useState(false);
@@ -39,7 +40,7 @@ export function useMcArrivalForm(policyMode: PolicyMode, onRecorded: () => void)
   const reset = useCallback(() => {
     setSelectedJourney(null);
     setRawMilkTokenNumber('');
-    setArrivalTimestamp(toDatetimeLocalInput(new Date()));
+    setArrivalTimestamp(toDatetimeLocalInput(serverNow()));
     setGps(EMPTY_GPS);
     setEventId(generateClientEventId('mot-arr'));
     setError(null);

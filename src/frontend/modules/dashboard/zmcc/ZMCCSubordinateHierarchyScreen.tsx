@@ -495,7 +495,8 @@ export function ZMCCSubordinateHierarchyScreen({
               <button
                 type="button"
                 onClick={() => setSelectedShop(null)}
-                className="p-1 rounded-md text-muted-foreground hover:text-foreground"
+                aria-label="Close"
+                className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
               ><X className="w-4 h-4" /></button>
             </div>
 
@@ -525,16 +526,6 @@ export function ZMCCSubordinateHierarchyScreen({
                 <span>Fat: {selectedShop.todayFat ? `${selectedShop.todayFat}%` : '—'}</span>
                 <span>LR: {selectedShop.todayLr || '—'}</span>
               </div>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => setSelectedShop(null)}
-                className="min-h-11 px-4 py-2 bg-subtle hover:bg-muted text-xs font-semibold rounded-lg text-foreground"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>

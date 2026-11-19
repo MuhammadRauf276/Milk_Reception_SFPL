@@ -11,6 +11,7 @@ import {
   computeAndStoreAreaLossTx,
 } from '@/backend/services/lossCalculationService';
 import { computeExitOutcome, isHcSession } from '@/backend/services/zmccTankService';
+import { FUTURE_TIME_MESSAGE, withinFutureAllowance } from '@/backend/services/chronology-validator';
 
 /**
  * HC gate exit (PHE Operator, last step) and "Close without unloading" (MC and HC):
@@ -159,9 +160,10 @@ export async function recordHcGateExit(
     const arrivalId = parseId(arrivalIdParam, 'arrival id');
     const eventRaw = payload?.client_event_id || payload?.exit_client_event_id;
     const clientEventId = typeof eventRaw === 'string' && eventRaw.trim() ? eventRaw.trim() : null;
-    const exitDate = payload?.exit_timestamp ? new Date(payload.exit_timestamp) : new Date();
-    if (isNaN(exitDate.getTime())) throw new ExitError(400, 'Invalid exit time.');
-    if (exitDate.getTime() > Date.now() + 5 * 60 * 1000) throw new ExitError(400, 'The exit time cannot be in the future.');
+    const enteredExit = payload?.exit_timestamp ? new Date(payload.exit_timestamp) : new Date();
+    if (isNaN(enteredExit.getTime())) throw new ExitError(400, 'Invalid exit time.');
+    const exitDate = withinFutureAllowance(enteredExit);
+    if (!exitDate) throw new ExitError(400, FUTURE_TIME_MESSAGE);
 
     const data = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM zmcc_local_supplier_arrival WHERE id = ${arrivalId} FOR UPDATE`;

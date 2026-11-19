@@ -10,6 +10,7 @@ import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
 import { apiClient } from '@/frontend/lib/apiClient';
 import type { UnloadingVisitDef } from './productionTypes';
+import { serverNow } from '@/lib/serverClock';
 
 /** Bottom sheet: review the silo allocation and confirm unloading completion. */
 export const ProductionCompleteUnloadingDrawer: React.FC<{
@@ -18,7 +19,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
   onCompleted: () => void;
 }> = ({ visit, onClose, onCompleted }) => {
   const toast = useToast();
-  const [completeOpTimestamp, setCompleteOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
+  const [completeOpTimestamp, setCompleteOpTimestamp] = useState<string>(() => toDatetimeLocalInput(serverNow()));
   const [actionLoading, setActionLoading] = useState(false);
   const formDraft = useLocalFormDraft({
     formKey: `unload-complete:${visit.id}`,
@@ -152,7 +153,7 @@ export const ProductionCompleteUnloadingDrawer: React.FC<{
               type="datetime-local"
               value={completeOpTimestamp}
               min={minTimestamp ? toDatetimeLocalInput(minTimestamp) : undefined}
-              max={toDatetimeLocalInput(new Date())}
+              max={toDatetimeLocalInput(serverNow())}
               onChange={(e) => setCompleteOpTimestamp(e.target.value)}
               className="w-full min-h-11 px-4 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
             />

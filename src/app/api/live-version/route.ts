@@ -64,5 +64,9 @@ export async function GET(req: Request) {
     ].join('.');
     cached = { at: Date.now(), build, stamp };
   }
-  return NextResponse.json({ build: cached.build, stamp: cached.stamp }, { headers: { 'Cache-Control': 'no-store' } });
+  // serverTime is read fresh on every call (not cached): devices use it to fill time boxes with the server's clock.
+  return NextResponse.json(
+    { build: cached.build, stamp: cached.stamp, serverTime: Date.now() },
+    { headers: { 'Cache-Control': 'no-store' } }
+  );
 }

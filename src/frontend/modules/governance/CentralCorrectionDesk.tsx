@@ -594,14 +594,6 @@ export const CentralCorrectionDesk: React.FC = () => {
           </div>
 
           <div className="p-4 border-t border-border flex items-center justify-end space-x-2 bg-subtle">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setIsReviewDrawerOpen(false)}
-              className="text-xs font-semibold"
-            >
-              Close
-            </Button>
             {(selectedRequest?.status === 'REQUESTED' || selectedRequest?.status === 'APPROVED') && (
               <>
                 {selectedRequest.status === 'REQUESTED' && (

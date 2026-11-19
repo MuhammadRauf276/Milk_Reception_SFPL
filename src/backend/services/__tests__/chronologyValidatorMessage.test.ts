@@ -24,7 +24,7 @@ test('a future time is still refused', () => {
   const future = new Date(Date.now() + 3_600_000).toISOString();
   const result = check(future);
   assert.equal(result.isValid, false);
-  assert.match(String(result.error), /future/);
+  assert.match(String(result.error), /ahead of the server clock/);
 });
 
 test('a stale arrival time moves up to the latest recorded event instead of blocking', () => {

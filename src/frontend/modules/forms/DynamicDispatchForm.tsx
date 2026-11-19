@@ -66,6 +66,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import { stampEmployeeCode, stampRoleLabel } from '@/lib/photo/stampIdentity';
 import { ErrorPopup } from '@/components/ui/error-popup';
+import { serverNow } from '@/lib/serverClock';
 
 export type { QuantityUnitType, MeasurementBasisType, QuantityState, LabTestDef, TestResultState, PortionFormState };
 
@@ -332,7 +333,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
   // Vehicle Header Fields
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [vehicleNumberError, setVehicleNumberError] = useState<string | null>(null);
-  const [dispatchOpDatetime, setDispatchOpDatetime] = useState<string>(toDatetimeLocalInput(new Date()));
+  const [dispatchOpDatetime, setDispatchOpDatetime] = useState<string>(toDatetimeLocalInput(serverNow()));
   const [rawMilkDispatchNoteNumber, setRawMilkDispatchNoteNumber] = useState<string>('');
 
   // ZMCC & Contractor Resource States
@@ -1319,7 +1320,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
         if (!finalVehicleLr && auto.lr) finalVehicleLr = auto.lr;
         if (!finalVehicleFat && auto.fat) finalVehicleFat = auto.fat;
       }
-      const effectiveDispatchDate = isoDispatchTimestamp || new Date().toISOString();
+      const effectiveDispatchDate = isoDispatchTimestamp || serverNow().toISOString();
       const remarks = decisionRemarks.trim() || null;
 
       const res = await fetch('/api/dispatches', {
@@ -1723,7 +1724,7 @@ export const DynamicDispatchForm: React.FC<DynamicDispatchFormProps> = ({ curren
             vehicleNumberError={vehicleNumberError}
             dispatchOpDatetime={dispatchOpDatetime}
             onDispatchOpDatetimeChange={(val) => setDispatchOpDatetime(val)}
-            maxDatetime={toDatetimeLocalInput(new Date())}
+            maxDatetime={toDatetimeLocalInput(serverNow())}
             isPolicyReady={isPolicyReady}
             vehicleQuantity={vehicleQuantity}
             onVehicleQuantityValueChange={handleVehicleQuantityValueChange}

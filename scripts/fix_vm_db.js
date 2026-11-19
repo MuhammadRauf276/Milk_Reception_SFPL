@@ -232,8 +232,9 @@ async function main() {
         u.id,
         true,
         u.id,
-        NOW(),
-        NOW()
+        -- The app keeps UTC in these columns; NOW() alone would store Pakistan time.
+        (NOW() AT TIME ZONE 'UTC'),
+        (NOW() AT TIME ZONE 'UTC')
       FROM users u
       WHERE u.role IN ('MOT', 'MOT_OPERATOR')
         AND u.is_active = true

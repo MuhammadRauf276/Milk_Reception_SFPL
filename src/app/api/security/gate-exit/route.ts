@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@core/db';
 import { z } from 'zod';
-import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
+import { FUTURE_TIME_MESSAGE, validateOperationalTimestamp, withinFutureAllowance } from '@/backend/services/chronology-validator';
 import { getOperationalBusinessDate } from '@/backend/core/business-day';
 import { parseStrictDateOnly } from '@/lib/datetime-utils';
 import { requireCapability } from '@/backend/modules/access-control/serverGuard';
@@ -69,14 +69,15 @@ export async function POST(req: Request) {
     const validated = gateExitSchema.parse(body);
     const visitId = BigInt(validated.visitId);
     const serverNow = new Date();
-    const opTimestamp = validated.exitTimestamp ? new Date(validated.exitTimestamp) : serverNow;
+    const enteredExit = validated.exitTimestamp ? new Date(validated.exitTimestamp) : serverNow;
 
-    if (isNaN(opTimestamp.getTime())) {
+    if (isNaN(enteredExit.getTime())) {
       return NextResponse.json({ error: 'Invalid gate exit operational timestamp format.' }, { status: 400 });
     }
 
-    if (opTimestamp.getTime() > serverNow.getTime()) {
-      return NextResponse.json({ error: 'Gate exit operational timestamp cannot be in the future.' }, { status: 400 });
+    const opTimestamp = withinFutureAllowance(enteredExit, serverNow);
+    if (!opTimestamp) {
+      return NextResponse.json({ error: FUTURE_TIME_MESSAGE }, { status: 400 });
     }
 
     idempotencyKey = (

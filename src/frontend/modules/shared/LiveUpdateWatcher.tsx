@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useCurrentUser } from '@/frontend/hooks/useCurrentUser';
+import { learnServerTime } from '@/lib/serverClock';
 
 const POLL_MS = 15_000;
 
@@ -26,9 +27,11 @@ export function LiveUpdateWatcher() {
     const check = async () => {
       if (document.visibilityState === 'hidden' || navigator.onLine === false) return;
       try {
+        const sentAt = Date.now();
         const res = await fetch('/api/live-version', { credentials: 'same-origin' });
         if (!res.ok) return;
-        const next = (await res.json()) as { build: string; stamp: string };
+        const next = (await res.json()) as { build: string; stamp: string; serverTime?: number };
+        if (typeof next.serverTime === 'number') learnServerTime(next.serverTime, sentAt, Date.now());
         const previous = seen.current;
         seen.current = next;
         if (!previous) return;

@@ -17,6 +17,7 @@ import {
 } from './vehicleQuantityService';
 import { calculateDualReconciliation } from './reconciliationService';
 import { checkAndTriggerTransitLossAlertTx } from './lossCalculationService';
+import { FUTURE_TIME_MESSAGE, withinFutureAllowance } from '@/backend/services/chronology-validator';
 
 export interface RecordTransactionParams {
   silo_id: bigint | string;
@@ -1101,9 +1102,11 @@ export async function recordSiloTransaction(params: RecordTransactionParams) {
 
   // Validation 2: Future Timestamp Protection
   const serverNow = new Date();
-  if (params.operational_timestamp.getTime() > serverNow.getTime()) {
-    throw new Error('Operational timestamp cannot be in the future.');
+  const allowedOpTime = withinFutureAllowance(params.operational_timestamp, serverNow);
+  if (!allowedOpTime) {
+    throw new Error(FUTURE_TIME_MESSAGE);
   }
+  params.operational_timestamp = allowedOpTime;
 
   // Active production transactions modifying physical stock REQUIRE authoritative quantity_liters
   if (params.quantity_liters === undefined || params.quantity_liters === null) {
@@ -1200,9 +1203,11 @@ export async function recordSiloIssueTransaction(params: RecordSiloIssueParams) 
 
   // Validation 2: Future Timestamp Protection
   const serverNow = new Date();
-  if (params.operational_timestamp.getTime() > serverNow.getTime()) {
-    throw new Error('Operational timestamp cannot be in the future.');
+  const allowedOpTime = withinFutureAllowance(params.operational_timestamp, serverNow);
+  if (!allowedOpTime) {
+    throw new Error(FUTURE_TIME_MESSAGE);
   }
+  params.operational_timestamp = allowedOpTime;
 
   return await prisma.$transaction(async (tx) => {
     // Check idempotency if key provided

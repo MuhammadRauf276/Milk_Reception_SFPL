@@ -10,6 +10,7 @@ import { toDatetimeLocalInput, datetimeLocalToIso } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
 import { apiClient } from '@/frontend/lib/apiClient';
 import type { ReadyVisitDef, SiloOption } from './productionTypes';
+import { serverNow } from '@/lib/serverClock';
 
 /** Bottom sheet: assign a destination silo to each accepted portion and start unloading. */
 export const ProductionStartUnloadingDrawer: React.FC<{
@@ -42,7 +43,7 @@ export const ProductionStartUnloadingDrawer: React.FC<{
     return map;
   });
 
-  const [startOpTimestamp, setStartOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
+  const [startOpTimestamp, setStartOpTimestamp] = useState<string>(() => toDatetimeLocalInput(serverNow()));
   const [actionLoading, setActionLoading] = useState(false);
   const formDraft = useLocalFormDraft({
     formKey: `unload-start:${visit.id}`,
@@ -216,7 +217,7 @@ export const ProductionStartUnloadingDrawer: React.FC<{
               type="datetime-local"
               value={startOpTimestamp}
               min={minTimestamp ? toDatetimeLocalInput(minTimestamp) : undefined}
-              max={toDatetimeLocalInput(new Date())}
+              max={toDatetimeLocalInput(serverNow())}
               onChange={(e) => setStartOpTimestamp(e.target.value)}
               className="w-full min-h-11 px-4 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
             />

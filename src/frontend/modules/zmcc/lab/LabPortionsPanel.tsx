@@ -1614,15 +1614,7 @@ export const LabPortionsPanel: React.FC<LabPortionsPanelProps> = ({
                 {mode === 'COMPOSITE' ? 'Composite' : `Portion-wise (${state?.portions.length ?? 0})`}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setDecideOpen(false)}
-              disabled={busy === 'submit-all'}
-              aria-label="Close"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground disabled:opacity-50"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            {/* The drawer's own ✕ closes it (and is off while saving). */}
           </div>
 
           <div className="space-y-4 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">

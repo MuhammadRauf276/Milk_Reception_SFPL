@@ -8,6 +8,7 @@ import { apiClient, apiRequest } from '@/frontend/lib/apiClient';
 import type { QAVisitDetailState } from './useQAVisitDetail';
 import type { TestInputState, VisitDetail } from './qaTypes';
 import { confirmAction } from '@/components/ui/confirm-dialog';
+import { serverNow } from '@/lib/serverClock';
 
 export type QAActionModal = 'START' | 'RESUME' | 'ACCEPT' | 'HOLD' | 'REJECT';
 type QATab = 'WAITING' | 'IN_TESTING' | 'ON_HOLD';
@@ -59,7 +60,7 @@ export function useQAActions({
   const [rejectionRemarks, setRejectionRemarks] = useState('');
   const [exceptionReason, setExceptionReason] = useState('');
   const [holdReason, setHoldReason] = useState('');
-  const [qaOpTimestamp, setQaOpTimestamp] = useState<string>(toDatetimeLocalInput(new Date()));
+  const [qaOpTimestamp, setQaOpTimestamp] = useState<string>(toDatetimeLocalInput(serverNow()));
   const [activeActionModal, setActiveActionModal] = useState<QAActionModal | null>(null);
   const [actionVisitId, setActionVisitId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,7 +80,7 @@ export function useQAActions({
     setRejectionReason('');
     setRejectionRemarks('');
     setExceptionReason('');
-    setQaOpTimestamp(toDatetimeLocalInput(new Date()));
+    setQaOpTimestamp(toDatetimeLocalInput(serverNow()));
   };
 
   const reportError = (err: unknown, title: string) => toast.showError(getErrorMessage(err), title);

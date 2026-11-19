@@ -38,6 +38,7 @@ import {
   WeighbridgeFilter,
   formatDuration,
 } from './weighbridgeTypes';
+import { serverNow } from '@/lib/serverClock';
 
 interface WeighbridgeUnifiedStationProps {
   activeTab?: WeighbridgeFilter;
@@ -363,12 +364,12 @@ interface DrawerProps {
 const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onSuccess }) => {
   const toast = useToast();
   const [activeInputKg, setActiveInputKg] = useState<string>('');
-  const [opDateTimeInput, setOpDateTimeInput] = useState<string>(toDatetimeLocalInput(new Date()));
+  const [opDateTimeInput, setOpDateTimeInput] = useState<string>(toDatetimeLocalInput(serverNow()));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (visit?.id) {
-      setOpDateTimeInput(toDatetimeLocalInput(new Date()));
+      setOpDateTimeInput(toDatetimeLocalInput(serverNow()));
     }
   }, [visit?.id]);
   const activeWeighOpIdRef = useRef<string | null>(null);
@@ -427,7 +428,7 @@ const ProgressiveWeighmentDrawer: React.FC<DrawerProps> = ({ visit, onClose, onS
 
     let effectiveTimestamp = isoTimestamp;
     if (activeStep.min_allowed_timestamp && new Date(isoTimestamp) < new Date(activeStep.min_allowed_timestamp)) {
-      effectiveTimestamp = new Date().toISOString();
+      effectiveTimestamp = serverNow().toISOString();
       if (new Date(effectiveTimestamp) < new Date(activeStep.min_allowed_timestamp)) {
         effectiveTimestamp = new Date(activeStep.min_allowed_timestamp).toISOString();
       }

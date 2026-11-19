@@ -10,6 +10,21 @@
 
 import { formatOperationalDatetime } from '@/lib/datetime-utils';
 
+/** A time up to this far ahead of the server clock is a phone clock running fast: it counts as now. */
+export const FUTURE_ALLOWANCE_MS = 10 * 60 * 1000;
+export const FUTURE_TIME_MESSAGE = 'The time is ahead of the server clock. Check the time.';
+
+/**
+ * The one future-time rule for every step. Null when the time is clearly in the future (a wrong hour or date);
+ * otherwise the time itself, pulled back to the server's now when it is only slightly ahead.
+ */
+export function withinFutureAllowance(date: Date, now: Date = new Date()): Date | null {
+  const t = date.getTime();
+  const n = now.getTime();
+  if (t > n + FUTURE_ALLOWANCE_MS) return null;
+  return t > n ? new Date(n) : date;
+}
+
 export interface ChronologyResult {
   isValid: boolean;
   error?: string;
@@ -32,15 +47,13 @@ export function validateOperationalTimestamp(
   }
 
   const serverNow = new Date();
-  const CLOCK_SKEW_TOLERANCE_MS = 2 * 60 * 1000; // 2 minutes grace period for mobile device clock jitter
 
-  // Rule 1: eventTimestamp <= serverNow + skew tolerance (Future beyond 2 minutes rejected)
-  if (opDate.getTime() > serverNow.getTime() + CLOCK_SKEW_TOLERANCE_MS) {
-    return { isValid: false, error: `${eventName} date & time cannot be in the future.` };
+  // Rule 1: not clearly in the future (a phone a few minutes fast counts as now).
+  const allowed = withinFutureAllowance(opDate, serverNow);
+  if (!allowed) {
+    return { isValid: false, error: `${eventName}: ${FUTURE_TIME_MESSAGE}` };
   }
-
-  // If timestamp is slightly ahead of server due to clock drift (within 2-minute tolerance), clamp to serverNow
-  let effectiveDate = opDate.getTime() > serverNow.getTime() ? serverNow : opDate;
+  let effectiveDate = allowed;
 
   // Rule 2: If eventTimestamp is earlier than predecessor (e.g. user stayed on screen for a long time before submitting),
   // auto-advance effectiveDate to serverNow (or predecessorTimestamp) so user is never blocked by idle screen stay.

@@ -4,7 +4,7 @@ import { getCurrentUser } from '@core/auth';
 import { getSiloProvisionalAvailableCapacity } from '@/backend/services/siloInventoryService';
 import { calculatePhysicalLiters } from '@/backend/utils/milkFormulas';
 import { isPlantLrTest } from '@/backend/services/vehicleQuantityService';
-import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
+import { FUTURE_TIME_MESSAGE, validateOperationalTimestamp, withinFutureAllowance } from '@/backend/services/chronology-validator';
 import { formatOperationalDatetime } from '@/lib/datetime-utils';
 import { getErrorMessage } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
@@ -52,9 +52,11 @@ export async function POST(
       if (isNaN(opTimestamp.getTime())) {
         return NextResponse.json({ error: 'Invalid operational timestamp format' }, { status: 400 });
       }
-      if (opTimestamp.getTime() > serverNow.getTime()) {
-        return NextResponse.json({ error: 'Start timestamp cannot be in the future' }, { status: 400 });
+      const allowed = withinFutureAllowance(opTimestamp, serverNow);
+      if (!allowed) {
+        return NextResponse.json({ error: FUTURE_TIME_MESSAGE }, { status: 400 });
       }
+      opTimestamp = allowed;
     }
 
     await prisma.$transaction(async (tx) => {

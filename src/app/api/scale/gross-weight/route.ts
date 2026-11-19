@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@core/db';
 import { validatePositiveDecimal } from '@/lib/validation-helpers';
-import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
+import { FUTURE_TIME_MESSAGE, validateOperationalTimestamp, withinFutureAllowance } from '@/backend/services/chronology-validator';
 import { requireCapability } from '@/backend/modules/access-control/serverGuard';
 import { getErrorIssues, getErrorMessage, getErrorName } from '@/lib/errors';
 import { getOperationalBusinessDate } from '@/backend/core/business-day';
@@ -162,14 +162,16 @@ export async function POST(req: Request) {
       }
 
       // Validate operator-selected gross operational timestamp vs server bounds
-      const opTimestamp = body.grossTimestamp ? new Date(body.grossTimestamp as string) : serverNow;
-      if (isNaN(opTimestamp.getTime())) {
+      const enteredGross = body.grossTimestamp ? new Date(body.grossTimestamp as string) : serverNow;
+      if (isNaN(enteredGross.getTime())) {
         throw new Error('Invalid gross weight timestamp format.');
       }
 
-      if (opTimestamp.getTime() > serverNow.getTime()) {
-        throw new Error('Gross weight operational timestamp cannot be in the future.');
+      const allowedGross = withinFutureAllowance(enteredGross, serverNow);
+      if (!allowedGross) {
+        throw new Error(FUTURE_TIME_MESSAGE);
       }
+      const opTimestamp = allowedGross;
 
       // Calculate lower bound timestamp (latest of dispatch, gate entry, QA completion)
       const lowerBounds: number[] = [];

@@ -8,6 +8,7 @@ import { isForcedOffline } from '@/frontend/hooks/useOnlineStatus';
 import { enqueueSyncItem } from '@/frontend/modules/pwa/syncEngine';
 import { getActiveOwnerUserId } from '@/frontend/modules/pwa/deviceIdentity';
 import { EMPTY_GPS, generateClientEventId, type GpsState, type HcArrivalRow } from './arrivalTypes';
+import { serverNow } from '@/lib/serverClock';
 
 export function useHcArrivalForm(onRecorded: () => void) {
   const [formOpen, setFormOpen] = useState(false);
@@ -15,7 +16,7 @@ export function useHcArrivalForm(onRecorded: () => void) {
   const [selectedLocalSupplierId, setSelectedLocalSupplierId] = useState('');
   const [rawMilkTokenNumber, setRawMilkTokenNumber] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
-  const [arrivalTimestamp, setArrivalTimestamp] = useState(() => toDatetimeLocalInput(new Date()));
+  const [arrivalTimestamp, setArrivalTimestamp] = useState(() => toDatetimeLocalInput(serverNow()));
   const [gps, setGps] = useState<GpsState>(EMPTY_GPS);
   const [eventId, setEventId] = useState(() => generateClientEventId('ls-arr'));
   const [submitting, setSubmitting] = useState(false);
@@ -37,7 +38,7 @@ export function useHcArrivalForm(onRecorded: () => void) {
     setSupplierSearchTerm('');
     setRawMilkTokenNumber('');
     setVehicleNumber('');
-    setArrivalTimestamp(toDatetimeLocalInput(new Date()));
+    setArrivalTimestamp(toDatetimeLocalInput(serverNow()));
     setGps(EMPTY_GPS);
     setEventId(generateClientEventId('ls-arr'));
     setError(null);

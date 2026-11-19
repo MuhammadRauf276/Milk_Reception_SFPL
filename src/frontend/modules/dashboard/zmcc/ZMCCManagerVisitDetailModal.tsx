@@ -610,13 +610,6 @@ export const ZMCCManagerVisitDetailModal: React.FC<ZMCCManagerVisitDetailModalPr
             <ShieldCheck className="w-4 h-4 text-muted-foreground" />
             <span>Station: {assignedSourceName || log.zonal_contractor_name || 'Assigned Station'}</span>
           </div>
-
-          <button
-            onClick={onClose}
-            className="min-h-11 min-w-20 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-[color,background-color,border-color,box-shadow,opacity,transform] shadow-2xs flex items-center justify-center focus:outline-hidden focus:ring-2 focus:ring-primary"
-          >
-            Close
-          </button>
         </div>
       </Modal>
   );

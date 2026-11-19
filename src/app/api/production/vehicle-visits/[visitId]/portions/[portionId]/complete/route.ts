@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@core/db';
 import { getCurrentUser } from '@core/auth';
-import { validateOperationalTimestamp } from '@/backend/services/chronology-validator';
+import { FUTURE_TIME_MESSAGE, validateOperationalTimestamp, withinFutureAllowance } from '@/backend/services/chronology-validator';
 import { getErrorMessage } from '@/lib/errors';
 import { writeAuditLog, auditActorFromUser } from '@core/audit';
 
@@ -48,9 +48,11 @@ export async function POST(
       if (isNaN(opTimestamp.getTime())) {
         return NextResponse.json({ error: 'Invalid operational timestamp format' }, { status: 400 });
       }
-      if (opTimestamp.getTime() > serverNow.getTime()) {
-        return NextResponse.json({ error: 'Completion timestamp cannot be in the future' }, { status: 400 });
+      const allowed = withinFutureAllowance(opTimestamp, serverNow);
+      if (!allowed) {
+        return NextResponse.json({ error: FUTURE_TIME_MESSAGE }, { status: 400 });
       }
+      opTimestamp = allowed;
     }
 
     const result = await prisma.$transaction(async (tx) => {

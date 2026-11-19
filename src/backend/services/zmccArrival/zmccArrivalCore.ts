@@ -30,7 +30,7 @@ import { PaperReferenceService, PaperValidationError } from '@/backend/services/
 import { paperLinkedIdentity } from '@/backend/modules/paper-references';
 import { normalizePakistaniCnic, normalizePakistaniMobile } from '@/lib/pakistani-identity';
 import { getErrorCode, getErrorMessage, getErrorName } from '@/lib/errors';
-import { advancePastPredecessors } from '../chronology-validator';
+import { advancePastPredecessors, FUTURE_TIME_MESSAGE, withinFutureAllowance } from '../chronology-validator';
 
 export interface ZmccArrivalAuthContext {
   user: User;
@@ -687,9 +687,12 @@ export async function submitMotArrival(
   }
 
   const now = new Date();
-  if (arrivalDate.getTime() > now.getTime() + 5 * 60 * 1000) {
-    return { status: 400, error: 'Arrival time cannot be in the future. Check the time and this device clock.' };
+  const allowedArrival = withinFutureAllowance(arrivalDate, now);
+  if (!allowedArrival) {
+    return { status: 400, error: FUTURE_TIME_MESSAGE };
   }
+  // A phone a few minutes fast: the arrival counts as now.
+  arrivalDate = allowedArrival;
 
   const gpsValidation = validateGpsCoords(payload.phe_latitude, payload.phe_longitude, payload.phe_gps_accuracy);
   if (gpsValidation.error) {
@@ -1125,9 +1128,8 @@ export async function correctMotArrival(
     if (isNaN(parsedTime.getTime())) {
       return { status: 400, error: 'Invalid arrival_timestamp format.' };
     }
-    const now = new Date();
-    if (parsedTime.getTime() > now.getTime() + 5 * 60 * 1000) {
-      return { status: 400, error: 'Arrival time cannot be in the future. Check the time and this device clock.' };
+    if (!withinFutureAllowance(parsedTime)) {
+      return { status: 400, error: FUTURE_TIME_MESSAGE };
     }
     if (parsedTime.getTime() < new Date(arrival.journey.started_at).getTime()) {
       return {
@@ -1588,15 +1590,18 @@ export async function submitLocalSupplierArrival(
     return { status: 400, error: 'client_event_id is required.' };
   }
 
-  const arrivalDate = payload.arrival_timestamp ? new Date(payload.arrival_timestamp) : new Date();
+  let arrivalDate = payload.arrival_timestamp ? new Date(payload.arrival_timestamp) : new Date();
   if (isNaN(arrivalDate.getTime())) {
     return { status: 400, error: 'Enter a valid arrival time.' };
   }
 
   const now = new Date();
-  if (arrivalDate.getTime() > now.getTime() + 5 * 60 * 1000) {
-    return { status: 400, error: 'Arrival time cannot be in the future. Check the time and this device clock.' };
+  const allowedArrival = withinFutureAllowance(arrivalDate, now);
+  if (!allowedArrival) {
+    return { status: 400, error: FUTURE_TIME_MESSAGE };
   }
+  // A phone a few minutes fast: the arrival counts as now.
+  arrivalDate = allowedArrival;
 
   const gpsValidation = validateGpsCoords(payload.phe_latitude, payload.phe_longitude, payload.phe_gps_accuracy);
   if (gpsValidation.error) {
@@ -1998,9 +2003,8 @@ export async function correctLocalSupplierArrival(
     if (isNaN(parsedTime.getTime())) {
       return { status: 400, error: 'Invalid arrival_timestamp format.' };
     }
-    const now = new Date();
-    if (parsedTime.getTime() > now.getTime() + 5 * 60 * 1000) {
-      return { status: 400, error: 'Arrival time cannot be in the future. Check the time and this device clock.' };
+    if (!withinFutureAllowance(parsedTime)) {
+      return { status: 400, error: FUTURE_TIME_MESSAGE };
     }
     if (arrival.exit_timestamp && parsedTime.getTime() > new Date(arrival.exit_timestamp).getTime()) {
       return {

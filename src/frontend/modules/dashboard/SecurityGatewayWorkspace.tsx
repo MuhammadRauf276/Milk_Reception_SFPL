@@ -22,6 +22,7 @@ import { Pagination, usePagedRows } from '@/components/ui/pagination';
 import { formatTime } from '@/lib/format';
 import { onActivateKey } from '@/lib/a11y';
 import { getErrorMessage } from '@/lib/errors';
+import { serverNow } from '@/lib/serverClock';
 
 interface DispatchedVisit {
   id: string;
@@ -109,8 +110,8 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
 
   // Entry & Exit Form state
   const [tokenNumber, setTokenNumber] = useState(suggestTokenNumber);
-  const [entryOpTimestamp, setEntryOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
-  const [exitOpTimestamp, setExitOpTimestamp] = useState<string>(() => toDatetimeLocalInput(new Date()));
+  const [entryOpTimestamp, setEntryOpTimestamp] = useState<string>(() => toDatetimeLocalInput(serverNow()));
+  const [exitOpTimestamp, setExitOpTimestamp] = useState<string>(() => toDatetimeLocalInput(serverNow()));
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -138,13 +139,13 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
   // Keep operational timestamps current when selecting visits so idle screen stays don't submit stale times
   useEffect(() => {
     if (selectedEntryVisitId) {
-      setEntryOpTimestamp(toDatetimeLocalInput(new Date()));
+      setEntryOpTimestamp(toDatetimeLocalInput(serverNow()));
     }
   }, [selectedEntryVisitId]);
 
   useEffect(() => {
     if (selectedExitVisitId) {
-      setExitOpTimestamp(toDatetimeLocalInput(new Date()));
+      setExitOpTimestamp(toDatetimeLocalInput(serverNow()));
     }
   }, [selectedExitVisitId]);
 
@@ -276,7 +277,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
       toast.showSuccess(successMsgText, 'Exit recorded');
       setSelectedExitVisitId(null);
       setTankerWashed(null);
-      setExitOpTimestamp(toDatetimeLocalInput(new Date()));
+      setExitOpTimestamp(toDatetimeLocalInput(serverNow()));
       fetchSecurityData();
     } catch (err) {
       setMsg({ text: getErrorMessage(err), isError: true });
@@ -445,7 +446,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                       type="datetime-local"
                       value={entryOpTimestamp}
                       min={selectedEntryVisit.dispatch_timestamp ? toDatetimeLocalInput(selectedEntryVisit.dispatch_timestamp) : undefined}
-                      max={toDatetimeLocalInput(new Date())}
+                      max={toDatetimeLocalInput(serverNow())}
                       onChange={(e) => setEntryOpTimestamp(e.target.value)}
                       className="w-full min-h-11 px-4 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:ring-2 focus:ring-primary outline-hidden"
                       required
@@ -698,7 +699,7 @@ export const SecurityGatewayWorkspace: React.FC<SecurityGatewayWorkspaceProps> =
                     <input
                       type="datetime-local"
                       value={exitOpTimestamp}
-                      max={toDatetimeLocalInput(new Date())}
+                      max={toDatetimeLocalInput(serverNow())}
                       onChange={(e) => setExitOpTimestamp(e.target.value)}
                       className="w-full min-h-11 px-4 py-2 text-xs tabular-nums font-semibold rounded-xl border border-border-strong bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary"
                       required
