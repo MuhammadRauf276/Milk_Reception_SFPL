@@ -9,11 +9,28 @@ export interface StagePair {
   at13ts: number;
 }
 
+/** One tanker of a tank fill: what the ZMCC dispatch says and what the plant measured. */
+export interface StageTanker {
+  visitId: string;
+  visitNumber: string | null;
+  vehicleNumber: string | null;
+  dispatch: StagePair;
+  /** The dispatched litres at the quality of the milk that was in the tank. */
+  dispatchTrue13ts: number;
+  /** Null until the plant receipt exists. */
+  plant: StagePair | null;
+  ts: { dispatch: number | null; plant: number | null };
+  /** Dispatch @13 TS minus dispatchTrue13ts. */
+  overstated13ts: number;
+  /** Plant minus the true dispatch (litres: plant minus dispatched). */
+  road: StagePair | null;
+}
+
 /** One tank cycle: the milk taken in since the last dispatch, and the dispatch(es) that followed. */
 export interface StageCycle {
   day: string;
   tankCode: string;
-  tankers: Array<{ visitId: string; visitNumber: string | null; vehicleNumber: string | null }>;
+  tankers: StageTanker[];
   opening: StagePair;
   intake: StagePair;
   adjustments: StagePair;
@@ -96,4 +113,51 @@ export interface StageChainReport {
   daily: StageDay[];
   /** The same number of days just before this period, for comparison. */
   previous: { from: string; to: string; total: StageTotal };
+}
+
+/* ------------------------------ Drill-down ------------------------------ */
+
+export type StageDrillLevel = 'TESTER' | 'ROUTE' | 'HC';
+
+/** A Mobile Tester or a route: what was collected from shops vs what reached the ZMCC tank, by journey date. */
+export interface StageMotRow {
+  id: string;
+  name: string;
+  code: string | null;
+  zmccName: string;
+  journeys: number;
+  /** Journeys not yet arrived at the ZMCC: their milk is left out of the trip. */
+  notArrived: number;
+  shops: number;
+  rejectedShops: number;
+  collected: StagePair;
+  received: StagePair;
+  ts: { collected: number | null; received: number | null };
+  /** Received minus collected, for journeys that arrived. */
+  trip: StagePair;
+}
+
+/** An HC supplier: arrivals and what went into the ZMCC tank. */
+export interface StageHcRow {
+  id: string;
+  name: string;
+  code: string | null;
+  zmccName: string;
+  arrivals: number;
+  accepted: number;
+  rejected: number;
+  /** Left without full unloading (partly or not received). */
+  leftEarly: number;
+  received: StagePair;
+  ts: number | null;
+}
+
+export interface StageDrillReport {
+  level: StageDrillLevel;
+  from: string;
+  to: string;
+  days: number;
+  testers?: StageMotRow[];
+  routes?: StageMotRow[];
+  hcSuppliers?: StageHcRow[];
 }

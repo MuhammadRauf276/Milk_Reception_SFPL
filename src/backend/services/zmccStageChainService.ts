@@ -69,6 +69,11 @@ export function buildTankCycles(rows: StageLedgerRow[]): Array<WorkCycle & { zmc
     cur.dispatchTrue13ts = tankTs != null ? (cur.dispatchSlip.liters * tankTs) / 13 : cur.dispatchSlip.at13ts;
     cur.slipOver13ts = cur.dispatchSlip.at13ts - cur.dispatchTrue13ts;
     cur.road = cur.plant ? pair(cur.plant.liters - cur.dispatchSlip.liters, cur.plant.at13ts - cur.dispatchTrue13ts) : null;
+    for (const t of cur.tankers) {
+      t.dispatchTrue13ts = tankTs != null ? (t.dispatch.liters * tankTs) / 13 : t.dispatch.at13ts;
+      t.overstated13ts = t.dispatch.at13ts - t.dispatchTrue13ts;
+      t.road = t.plant ? pair(t.plant.liters - t.dispatch.liters, t.plant.at13ts - t.dispatchTrue13ts) : null;
+    }
     out.push(cur);
   };
 
@@ -115,13 +120,26 @@ export function buildTankCycles(rows: StageLedgerRow[]): Array<WorkCycle & { zmc
       cur.dispatchSlip = add(cur.dispatchSlip, pair(liters, at13));
       s.liters -= liters;
       s.at13ts -= at13;
+      let tankerPlant: StagePair | null = null;
       if (r.plantNetKg != null && r.plantLr != null && r.plantTs != null && r.plantNetKg > 0) {
         const pl = r.plantNetKg / (1 + r.plantLr / 1000);
-        cur.plant = add(cur.plant ?? pair(), pair(pl, (pl * r.plantTs) / 13));
+        tankerPlant = pair(pl, (pl * r.plantTs) / 13);
+        cur.plant = add(cur.plant ?? pair(), tankerPlant);
       } else {
         cur.plantComplete = false;
       }
-      cur.tankers.push({ visitId: r.visitId ?? '', visitNumber: r.visitNumber, vehicleNumber: r.vehicleNumber });
+      const tankerDispatch = pair(liters, at13);
+      cur.tankers.push({
+        visitId: r.visitId ?? '',
+        visitNumber: r.visitNumber,
+        vehicleNumber: r.vehicleNumber,
+        dispatch: tankerDispatch,
+        dispatchTrue13ts: 0,
+        plant: tankerPlant,
+        ts: { dispatch: tsOf(tankerDispatch), plant: tankerPlant ? tsOf(tankerPlant) : null },
+        overstated13ts: 0,
+        road: null,
+      });
       cur.day = r.day;
     } else if (!isCorrectionRow(r.referenceType)) {
       const sign = r.type === 'ADJUSTMENT_IN' ? 1 : -1;
@@ -190,7 +208,15 @@ function summarize(
     cycles: cycles.map((c) => ({
       day: c.day,
       tankCode: c.tankCode,
-      tankers: c.tankers,
+      tankers: c.tankers.map((t) => ({
+        ...t,
+        dispatch: round(t.dispatch),
+        dispatchTrue13ts: r2(t.dispatchTrue13ts)!,
+        plant: t.plant ? round(t.plant) : null,
+        ts: { dispatch: r2(t.ts.dispatch), plant: r2(t.ts.plant) },
+        overstated13ts: r2(t.overstated13ts)!,
+        road: t.road ? round(t.road) : null,
+      })),
       opening: round(c.opening),
       intake: round(c.intake),
       adjustments: round(c.adjustments),

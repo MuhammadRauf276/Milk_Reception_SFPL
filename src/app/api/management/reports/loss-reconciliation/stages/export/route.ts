@@ -5,6 +5,7 @@ import { prisma } from '@/backend/core/db';
 import { parseLossQuery, resolveLossRange } from '@/backend/services/lossCalculationService';
 import { getZmccStageChain } from '@/backend/services/zmccStageChainService';
 import { generateStageChainExcel } from '@/backend/services/stageChainExcel';
+import { getStageDrill } from '@/backend/services/zmccStageDrillService';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,9 +25,20 @@ export async function GET(req: Request) {
   try {
     const range = resolveLossRange(parsed.filters);
     const zmccIds = (parsed.filters.zmccIds ?? []).map(String);
-    const report = await getZmccStageChain({ from: range.from, to: range.to, zmccIds, basis: parseDateBasis(searchParams.get('basis')) });
+    const basis = parseDateBasis(searchParams.get('basis'));
+    const args = { from: range.from, to: range.to, zmccIds, basis };
+    const [report, testers, routes, hc] = await Promise.all([
+      getZmccStageChain(args),
+      getStageDrill({ ...args, level: 'TESTER' }),
+      getStageDrill({ ...args, level: 'ROUTE' }),
+      getStageDrill({ ...args, level: 'HC' }),
+    ]);
     const filterText = zmccIds.length ? report.zmccs.map((z) => z.zmccName).join(', ') || 'Chosen ZMCCs' : 'All ZMCCs';
-    const buffer = await generateStageChainExcel(report, filterText);
+    const buffer = await generateStageChainExcel(report, filterText, {
+      testers: testers.testers ?? [],
+      routes: routes.routes ?? [],
+      hcSuppliers: hc.hcSuppliers ?? [],
+    });
     return new Response(new Uint8Array(buffer), {
       status: 200,
       headers: {

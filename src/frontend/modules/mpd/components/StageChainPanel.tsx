@@ -13,17 +13,21 @@ import type {
   StageChainReport,
   StageCycle,
   StageDay,
+  StageDrillReport,
+  StageHcRow,
+  StageMotRow,
   StagePair,
+  StageTanker,
   StageTotal,
   StageZmccRow,
 } from '@/backend/modules/management-reporting/stageChainContracts';
 import { Signed, formatLitres } from './LossLevelCards';
-import { OneStageChart, STAGE_COLORS, StageChartsBoard, bucketDays, type ChartBucket, type ChartUnit } from './StageCharts';
+import { OneStageChart, RankedBarsChart, STAGE_COLORS, StageChartsBoard, bucketDays, type ChartBucket, type ChartUnit } from './StageCharts';
 import { StageChartFilters } from './StageChartFilters';
 import { lossQueryParams, type LossFilters } from '../lossFilters';
 
 type StageKey = 'ALL' | 'SHOPS' | 'INTAKE' | 'DISPATCH' | 'PLANT';
-type ViewKey = 'ZMCC' | 'DAY';
+type ViewKey = 'ZMCC' | 'DAY' | 'TESTER' | 'ROUTE' | 'HC' | 'TANKER';
 
 const STAGES: Array<{ value: StageKey; label: string }> = [
   { value: 'ALL', label: 'All stages' },
@@ -33,8 +37,125 @@ const STAGES: Array<{ value: StageKey; label: string }> = [
   { value: 'PLANT', label: 'Plant' },
 ];
 const VIEWS: Array<{ value: ViewKey; label: string }> = [
-  { value: 'ZMCC', label: 'By ZMCC' },
-  { value: 'DAY', label: 'By day' },
+  { value: 'ZMCC', label: 'ZMCC' },
+  { value: 'DAY', label: 'Day' },
+  { value: 'TESTER', label: 'Mobile Tester' },
+  { value: 'ROUTE', label: 'Route' },
+  { value: 'HC', label: 'HC supplier' },
+  { value: 'TANKER', label: 'Tanker' },
+];
+
+/** The days a clicked chart period covers: one day, its week (Monday to Sunday) or its month. */
+function periodRange(dayKey: string, bucket: ChartBucket): { from: string; to: string } {
+  if (bucket === 'DAY') return { from: dayKey, to: dayKey };
+  const start = Date.parse(`${dayKey}T00:00:00Z`);
+  if (bucket === 'WEEK') return { from: dayKey, to: new Date(start + 6 * 86400000).toISOString().slice(0, 10) };
+  const d = new Date(start);
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
+  return { from: dayKey, to: last.toISOString().slice(0, 10) };
+}
+
+const pct = (part: number, whole: number) => (whole ? (part / whole) * 100 : 0);
+const pctText = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
+
+function motColumns(kind: 'TESTER' | 'ROUTE'): Array<DataColumn<StageMotRow>> {
+  return [
+    {
+      key: 'name',
+      header: kind === 'TESTER' ? 'Mobile Tester' : 'Route',
+      primary: true,
+      cell: (r) => (
+        <span className="font-medium">
+          {r.name}
+          {r.code ? <span className="ml-1 text-xs font-normal text-muted-foreground">{r.code}</span> : null}
+        </span>
+      ),
+    },
+    { key: 'zmcc', header: 'ZMCC', cardAlways: true, cell: (r) => r.zmccName },
+    {
+      key: 'journeys',
+      header: 'Journeys',
+      align: 'right',
+      cell: (r) => (
+        <span className="tabular-nums">
+          {r.journeys}
+          {r.notArrived ? <span className="text-orange-700"> · {r.notArrived} on the way</span> : null}
+        </span>
+      ),
+    },
+    {
+      key: 'shops',
+      header: 'Shops',
+      align: 'right',
+      cell: (r) => (
+        <span className="tabular-nums">
+          {r.shops}
+          {r.rejectedShops ? <span className="text-rose-700"> · {r.rejectedShops} rejected</span> : null}
+        </span>
+      ),
+    },
+    { key: 'col', header: 'Collected @13 TS', align: 'right', cell: (r) => L(r.collected.at13ts) },
+    { key: 'rec', header: 'Received @13 TS', align: 'right', cell: (r) => L(r.received.at13ts) },
+    { key: 'ts', header: 'TS shops / received', align: 'right', cell: (r) => <span className="tabular-nums">{ts(r.ts.collected)} / {ts(r.ts.received)}</span> },
+    { key: 'trip', header: 'Trip @13 TS', align: 'right', cell: (r) => <Signed value={r.trip.at13ts} /> },
+    {
+      key: 'pct',
+      header: 'Trip %',
+      align: 'right',
+      cell: (r) =>
+        r.received.at13ts ? (
+          <span className={`tabular-nums ${r.trip.at13ts < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{pctText(pct(r.trip.at13ts, r.received.at13ts - r.trip.at13ts))}</span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+  ];
+}
+
+const hcColumns: Array<DataColumn<StageHcRow>> = [
+  {
+    key: 'name',
+    header: 'HC supplier',
+    primary: true,
+    cell: (r) => (
+      <span className="font-medium">
+        {r.name}
+        {r.code ? <span className="ml-1 text-xs font-normal text-muted-foreground">{r.code}</span> : null}
+      </span>
+    ),
+  },
+  { key: 'zmcc', header: 'ZMCC', cardAlways: true, cell: (r) => r.zmccName },
+  { key: 'arrivals', header: 'Arrivals', align: 'right', cell: (r) => <span className="tabular-nums">{r.arrivals}</span> },
+  { key: 'accepted', header: 'Accepted', align: 'right', cell: (r) => <span className="tabular-nums">{r.accepted}</span> },
+  { key: 'rejected', header: 'Rejected', align: 'right', cell: (r) => <span className={`tabular-nums ${r.rejected ? 'text-rose-700' : ''}`}>{r.rejected}</span> },
+  { key: 'left', header: 'Left early', align: 'right', cell: (r) => <span className={`tabular-nums ${r.leftEarly ? 'text-orange-700' : ''}`}>{r.leftEarly}</span> },
+  { key: 'l', header: 'Received litres', align: 'right', cell: (r) => L(r.received.liters) },
+  { key: 'a13', header: 'Received @13 TS', align: 'right', cell: (r) => L(r.received.at13ts) },
+  { key: 'ts', header: 'TS', align: 'right', cell: (r) => <span className="tabular-nums">{ts(r.ts)}</span> },
+];
+
+type TankerRow = StageTanker & { day: string; zmccName: string; tankTs: number | null };
+const tankerColumns: Array<DataColumn<TankerRow>> = [
+  { key: 'tanker', header: 'Tanker', primary: true, cell: (t) => <span className="font-medium">{t.vehicleNumber ?? '—'}</span> },
+  { key: 'day', header: 'Day', cardAlways: true, cell: (t) => <span className="tabular-nums">{t.day}</span> },
+  { key: 'visit', header: 'Visit', cell: (t) => <span className="tabular-nums">{t.visitNumber ?? '—'}</span> },
+  { key: 'zmcc', header: 'ZMCC', cell: (t) => t.zmccName },
+  { key: 'dl', header: 'Dispatched', align: 'right', cell: (t) => L(t.dispatch.liters) },
+  { key: 'd13', header: 'Dispatch @13 TS', align: 'right', cell: (t) => L(t.dispatch.at13ts) },
+  { key: 'pl', header: 'Plant litres', align: 'right', cell: (t) => (t.plant ? L(t.plant.liters) : <span className="text-muted-foreground">Pending</span>) },
+  {
+    key: 'ts',
+    header: 'TS tank / dispatch / plant',
+    align: 'right',
+    cell: (t) => (
+      <span className="tabular-nums">
+        {ts(t.tankTs)} / <span className={t.ts.dispatch != null && t.tankTs != null && t.ts.dispatch > t.tankTs + 0.02 ? 'font-semibold text-orange-700' : ''}>{ts(t.ts.dispatch)}</span> / {ts(t.ts.plant)}
+      </span>
+    ),
+  },
+  { key: 'over', header: 'Overstated', align: 'right', cell: (t) => <Over v={t.overstated13ts} /> },
+  { key: 'roadL', header: 'Road litres', align: 'right', cell: (t) => (t.road ? <Signed value={t.road.liters} /> : '—') },
+  { key: 'road', header: 'Road @13 TS', align: 'right', cell: (t) => (t.road ? <Signed value={t.road.at13ts} /> : '—') },
 ];
 
 const INFO = {
@@ -271,6 +392,7 @@ export function StageChainPanel({
   const [unit, setUnit] = useState<ChartUnit>('at13');
   const [bucket, setBucket] = useState<ChartBucket>('DAY');
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const [history, setHistory] = useState<LossFilters[]>([]);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const query = useQuery<StageChainReport>({
@@ -285,6 +407,35 @@ export function StageChainPanel({
   });
   const report = query.data;
   const days = report?.days ?? 1;
+  const drillLevel = view === 'TESTER' || view === 'ROUTE' || view === 'HC' ? view : null;
+  const drillQuery = useQuery<StageDrillReport>({
+    queryKey: ['loss', 'stages', 'drill', drillLevel, qs],
+    queryFn: ({ signal }) =>
+      fetchJson<{ drill: StageDrillReport }>(
+        `/api/management/reports/loss-reconciliation/stages/drill?level=${drillLevel}&${qs}`,
+        { headers: { Accept: 'application/json' }, signal },
+        'These figures could not be loaded.'
+      ).then((b) => b.drill),
+    enabled: drillLevel != null,
+    placeholderData: keepPreviousData,
+  });
+  const drill = drillLevel && drillQuery.data?.level === drillLevel ? drillQuery.data : undefined;
+  // A click on a chart narrows the whole view; Back returns to the view before it.
+  const narrow = (next: LossFilters) => {
+    setHistory((h) => [...h, filters].slice(-10));
+    onFiltersChange(next);
+  };
+  const pickPeriod = (dayKey: string) => narrow({ ...filters, ...periodRange(dayKey, bucket) });
+  const pickZmcc = (id: string) => narrow({ ...filters, zmccIds: [id] });
+  const back = () => {
+    const prev = history[history.length - 1];
+    if (!prev) return;
+    setHistory((h) => h.slice(0, -1));
+    onFiltersChange(prev);
+  };
+  const tankerRows: TankerRow[] = (report?.zmccs ?? []).flatMap((z) =>
+    z.cycles.flatMap((c) => c.tankers.map((t) => ({ ...t, day: c.day, zmccName: z.zmccName, tankTs: c.ts.tank })))
+  );
   const toggle = (id: string) =>
     setOpen((prev) => {
       const next = new Set(prev);
@@ -425,19 +576,21 @@ export function StageChainPanel({
         bucket={bucket}
         onBucket={setBucket}
         rangeText={report ? `${report.from} to ${report.to} · ${report.days} d` : undefined}
+        onBack={history.length ? back : undefined}
       />
 
       {report ? (
         stage === 'ALL' ? (
-          <StageChartsBoard report={report} unit={unit} bucket={bucket} />
+          <StageChartsBoard report={report} unit={unit} bucket={bucket} onPick={pickPeriod} onPickZmcc={zmccLocked ? undefined : pickZmcc} />
         ) : (
           <OneStageChart
             title={STAGES.find((x) => x.value === stage)!.label}
             color={STAGE_COLOR[stage]}
             unit={unit}
+            onPick={pickPeriod}
             points={bucketDays(report.daily, bucket).map((d) => {
               const p = dayValue(stage, d).pair;
-              return { label: d.label, value: unit === 'at13' ? p.at13ts : p.liters };
+              return { day: d.day, label: d.label, value: unit === 'at13' ? p.at13ts : p.liters };
             })}
           />
         )
@@ -464,7 +617,7 @@ export function StageChainPanel({
             ) : null
           }
         />
-      ) : (
+      ) : view === 'DAY' ? (
         <DataTable
           columns={dayColumns}
           rows={(report?.daily ?? []).filter(hasMilk)}
@@ -475,6 +628,87 @@ export function StageChainPanel({
           paginate
           pageSize={31}
         />
+      ) : view === 'TANKER' ? (
+        <div className="space-y-3">
+          <RankedBarsChart
+            title="Road loss / gain by tanker"
+            info="@13 TS: plant received minus what really left the ZMCC, per tanker received at the plant. Worst first."
+            signed
+            format={(v) => formatLitres(v)}
+            rows={tankerRows
+              .filter((t) => t.road)
+              .sort((a, b) => a.road!.at13ts - b.road!.at13ts)
+              .map((t) => ({
+                id: t.visitId,
+                name: `${t.vehicleNumber ?? '—'} · ${t.day.slice(5)}`,
+                value: t.road!.at13ts,
+                tip: [
+                  { label: 'Visit', value: t.visitNumber ?? '—' },
+                  { label: 'Road litres', value: formatLitres(t.road!.liters) },
+                  { label: 'Dispatch overstated', value: formatLitres(t.overstated13ts) },
+                ],
+              }))}
+          />
+          <DataTable columns={tankerColumns} rows={tankerRows} getRowId={(t) => t.visitId || `${t.day}-${t.vehicleNumber}`} loading={query.isPending} noun="tankers" emptyTitle="No tankers in this period" paginate pageSize={20} />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <ErrorPopup message={drillQuery.isError ? drillQuery.error.message || 'These figures could not be loaded.' : null} onRetry={() => void drillQuery.refetch()} />
+          {view === 'HC' ? (
+            <>
+              <RankedBarsChart
+                title="Milk by HC supplier"
+                info="@13 TS received into ZMCC tanks from each HC supplier, by arrival day."
+                color={STAGE_COLORS.hc}
+                format={(v) => formatLitres(v)}
+                rows={(drill?.hcSuppliers ?? []).map((r) => ({
+                  id: r.id,
+                  name: r.name,
+                  value: r.received.at13ts,
+                  tip: [
+                    { label: 'Arrivals', value: String(r.arrivals) },
+                    { label: 'Rejected', value: String(r.rejected) },
+                    { label: 'TS', value: ts(r.ts) },
+                  ],
+                }))}
+              />
+              <DataTable columns={hcColumns} rows={drill?.hcSuppliers ?? []} getRowId={(r) => r.id} loading={drillQuery.isPending} noun="HC suppliers" emptyTitle="No HC milk in this period" paginate pageSize={20} />
+            </>
+          ) : (
+            <>
+              <RankedBarsChart
+                title={view === 'TESTER' ? 'Trip loss / gain by Mobile Tester' : 'Trip loss / gain by route'}
+                info="Received at the ZMCC minus collected from shops, as a share of what was collected (@13 TS), by journey date. Journeys still on the way are left out. Worst first."
+                signed
+                percent
+                format={(v) => pctText(v)}
+                rows={((view === 'TESTER' ? drill?.testers : drill?.routes) ?? [])
+                  .filter((r) => r.received.at13ts > 0)
+                  .map((r) => ({
+                    id: r.id,
+                    name: r.name,
+                    value: pct(r.trip.at13ts, r.received.at13ts - r.trip.at13ts),
+                    tip: [
+                      { label: 'Collected', value: formatLitres(r.collected.at13ts) },
+                      { label: 'Received', value: formatLitres(r.received.at13ts) },
+                      { label: 'Trip', value: formatLitres(r.trip.at13ts) },
+                    ],
+                  }))
+                  .sort((a, b) => a.value - b.value)}
+              />
+              <DataTable
+                columns={motColumns(view === 'TESTER' ? 'TESTER' : 'ROUTE')}
+                rows={(view === 'TESTER' ? drill?.testers : drill?.routes) ?? []}
+                getRowId={(r) => r.id}
+                loading={drillQuery.isPending}
+                noun={view === 'TESTER' ? 'Mobile Testers' : 'routes'}
+                emptyTitle="No journeys in this period"
+                paginate
+                pageSize={20}
+              />
+            </>
+          )}
+        </div>
       )}
     </div>
   );

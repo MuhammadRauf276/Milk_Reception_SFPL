@@ -3,7 +3,7 @@
  * Sheets: Summary, Per ZMCC, Per day, ZMCC per day, Tank fills. Same header look as the Loss / Gain export.
  */
 import ExcelJS from 'exceljs';
-import type { StageChainReport, StagePair, StageTotal } from '@/backend/modules/management-reporting/stageChainContracts';
+import type { StageChainReport, StageHcRow, StageMotRow, StagePair, StageTotal } from '@/backend/modules/management-reporting/stageChainContracts';
 
 type Col = { header: string; key: string; width: number; fmt?: string };
 type Row = Record<string, string | number | boolean | null | undefined>;
@@ -47,7 +47,11 @@ const intakeOf = (r: Pick<StageTotal, 'receivedMot' | 'receivedHc' | 'receivedOt
 const tsOf = (p: StagePair) => (p.liters > 0 ? (p.at13ts * 13) / p.liters : null);
 const pct = (now: number, before: number) => (before ? ((now - before) / Math.abs(before)) * 100 : null);
 
-export async function generateStageChainExcel(report: StageChainReport, filterText: string): Promise<Buffer> {
+export async function generateStageChainExcel(
+  report: StageChainReport,
+  filterText: string,
+  drill?: { testers: StageMotRow[]; routes: StageMotRow[]; hcSuppliers: StageHcRow[] }
+): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Milk Reception & Process Management';
   wb.created = new Date();
@@ -213,6 +217,92 @@ export async function generateStageChainExcel(report: StageChainReport, filterTe
     ],
     fills
   );
+
+  // Each tanker on its own row.
+  const tankers: Row[] = report.zmccs.flatMap((z) =>
+    z.cycles.flatMap((c) =>
+      c.tankers.map((t) => ({
+        zmcc: z.zmccName, day: c.day, tanker: t.vehicleNumber ?? '', visit: t.visitNumber ?? '',
+        dL: t.dispatch.liters, d13: t.dispatch.at13ts, true13: t.dispatchTrue13ts,
+        pL: t.plant?.liters ?? null, p13: t.plant?.at13ts ?? null,
+        tsTank: c.ts.tank, tsD: t.ts.dispatch, tsP: t.ts.plant,
+        over: t.overstated13ts, roadL: t.road?.liters ?? null, road: t.road?.at13ts ?? null,
+      }))
+    )
+  );
+  sheet(
+    wb,
+    'Tankers',
+    title,
+    [
+      { header: 'ZMCC', key: 'zmcc', width: 20 },
+      { header: 'Day', key: 'day', width: 12 },
+      { header: 'Tanker', key: 'tanker', width: 14 },
+      { header: 'Visit', key: 'visit', width: 20 },
+      { header: 'Dispatch litres', key: 'dL', width: 14, fmt: L2 },
+      { header: 'Dispatch @13 TS', key: 'd13', width: 14, fmt: L2 },
+      { header: 'True @13 TS (tank quality)', key: 'true13', width: 15, fmt: L2 },
+      { header: 'Plant litres', key: 'pL', width: 13, fmt: L2 },
+      { header: 'Plant @13 TS', key: 'p13', width: 13, fmt: L2 },
+      { header: 'TS tank', key: 'tsTank', width: 9, fmt: TS },
+      { header: 'TS dispatch', key: 'tsD', width: 10, fmt: TS },
+      { header: 'TS plant', key: 'tsP', width: 9, fmt: TS },
+      { header: 'Dispatch overstated @13 TS', key: 'over', width: 16, fmt: L2 },
+      { header: 'Road litres', key: 'roadL', width: 12, fmt: L2 },
+      { header: 'Road @13 TS', key: 'road', width: 12, fmt: L2 },
+    ],
+    tankers
+  );
+
+  if (drill) {
+    const motCols = (first: string): Col[] => [
+      { header: first, key: 'name', width: 26 },
+      { header: 'Code', key: 'code', width: 14 },
+      { header: 'ZMCC', key: 'zmcc', width: 18 },
+      { header: 'Journeys', key: 'journeys', width: 10 },
+      { header: 'Not yet at ZMCC', key: 'open', width: 12 },
+      { header: 'Shops', key: 'shops', width: 8 },
+      { header: 'Rejected shops', key: 'rejected', width: 10 },
+      { header: 'Collected litres', key: 'cL', width: 14, fmt: L2 },
+      { header: 'Collected @13 TS', key: 'c13', width: 14, fmt: L2 },
+      { header: 'Received litres', key: 'rL', width: 14, fmt: L2 },
+      { header: 'Received @13 TS', key: 'r13', width: 14, fmt: L2 },
+      { header: 'TS shops', key: 'tsC', width: 9, fmt: TS },
+      { header: 'TS received', key: 'tsR', width: 10, fmt: TS },
+      { header: 'Trip litres (arrived journeys)', key: 'tL', width: 14, fmt: L2 },
+      { header: 'Trip @13 TS', key: 't13', width: 12, fmt: L2 },
+      { header: 'Trip %', key: 'tPct', width: 9, fmt: '0.00' },
+    ];
+    const motRow = (r: StageMotRow): Row => ({
+      name: r.name, code: r.code ?? '', zmcc: r.zmccName, journeys: r.journeys, open: r.notArrived, shops: r.shops, rejected: r.rejectedShops,
+      cL: r.collected.liters, c13: r.collected.at13ts, rL: r.received.liters, r13: r.received.at13ts,
+      tsC: r.ts.collected, tsR: r.ts.received, tL: r.trip.liters, t13: r.trip.at13ts,
+      tPct: r.received.at13ts && r.received.at13ts - r.trip.at13ts ? (r.trip.at13ts / (r.received.at13ts - r.trip.at13ts)) * 100 : null,
+    });
+    sheet(wb, 'Mobile Testers', `${title} · by journey date`, motCols('Mobile Tester'), drill.testers.map(motRow));
+    sheet(wb, 'Routes', `${title} · by journey date`, motCols('Route'), drill.routes.map(motRow));
+    sheet(
+      wb,
+      'HC suppliers',
+      title,
+      [
+        { header: 'HC supplier', key: 'name', width: 30 },
+        { header: 'Code', key: 'code', width: 14 },
+        { header: 'ZMCC', key: 'zmcc', width: 18 },
+        { header: 'Arrivals', key: 'arrivals', width: 10 },
+        { header: 'Accepted', key: 'accepted', width: 10 },
+        { header: 'Rejected', key: 'rejected', width: 10 },
+        { header: 'Left early', key: 'left', width: 10 },
+        { header: 'Received litres', key: 'rL', width: 14, fmt: L2 },
+        { header: 'Received @13 TS', key: 'r13', width: 14, fmt: L2 },
+        { header: 'TS', key: 'ts', width: 8, fmt: TS },
+      ],
+      drill.hcSuppliers.map((r) => ({
+        name: r.name, code: r.code ?? '', zmcc: r.zmccName, arrivals: r.arrivals, accepted: r.accepted, rejected: r.rejected,
+        left: r.leftEarly, rL: r.received.liters, r13: r.received.at13ts, ts: r.ts,
+      }))
+    );
+  }
 
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

@@ -125,7 +125,9 @@ export function ChartCard({
   className?: string;
 }) {
   return (
-    <section className={`min-w-0 rounded-2xl border border-border/60 bg-card p-4 shadow-[0_2px_12px_rgba(15,23,42,0.06)] ${className ?? ''}`}>
+    <section
+      className={`min-w-0 rounded-2xl border border-border/60 bg-card p-4 shadow-[0_2px_12px_rgba(15,23,42,0.06)] [&_svg:focus]:outline-none [&_svg:focus-visible]:outline-2 [&_svg:focus-visible]:outline-primary [&_.recharts-wrapper:focus]:outline-none ${className ?? ''}`}
+    >
       <div className="mb-3 flex items-start justify-between gap-2">
         <h4 className="flex items-center gap-1 text-sm font-semibold text-foreground">
           {title}
@@ -165,11 +167,18 @@ function TooltipBox({ title, rows }: { title: string; rows: Array<{ label: strin
 }
 
 type TipProps = TooltipContentProps<TooltipValueType, string | number>;
+/** Called with the clicked period (its first day key). */
+export type PickPeriod = (dayKey: string) => void;
+const clickIndex = (state: unknown): number | null => {
+  const i = (state as { activeTooltipIndex?: number | string | null } | null)?.activeTooltipIndex;
+  const n = i == null ? NaN : Number(i);
+  return Number.isFinite(n) ? n : null;
+};
 const axisProps = { tick: { fontSize: 11, fill: STAGE_COLORS.axis }, tickLine: false, axisLine: { stroke: STAGE_COLORS.grid } } as const;
 const timeAxis = { ...axisProps, dataKey: 'label', interval: 'preserveStartEnd' as const, minTickGap: 28 };
 const withZero = [(min: number) => Math.min(0, min), (max: number) => Math.max(0, max)] as [(n: number) => number, (n: number) => number];
 // Room past the longest bar so its value label never runs into the axis labels.
-const withZeroRoom = [(min: number) => Math.min(0, min * 1.35), (max: number) => Math.max(0, max * 1.35)] as [(n: number) => number, (n: number) => number];
+const withZeroRoom = [(min: number) => Math.min(0, min * 1.6), (max: number) => Math.max(0, max * 1.6)] as [(n: number) => number, (n: number) => number];
 
 
 /** A value just past the far end of a horizontal bar: left of a loss bar, right of a gain bar. */
@@ -307,8 +316,9 @@ export function LossBreakdownChart({ report, unit }: { report: StageChainReport;
 
 /* --------------------- 3. Intake (MC, HC) vs dispatch -------------------- */
 
-export function IntakeDispatchChart({ points, unit }: { points: BucketPoint[]; unit: ChartUnit }) {
+export function IntakeDispatchChart({ points, unit, onPick }: { points: BucketPoint[]; unit: ChartUnit; onPick?: PickPeriod }) {
   const data = points.map((d) => ({
+    day: d.day,
     label: d.label,
     mc: pick(d.intakeMc, unit),
     hc: pick(d.intakeHc, unit),
@@ -331,7 +341,15 @@ export function IntakeDispatchChart({ points, unit }: { points: BucketPoint[]; u
     >
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <LineChart
+            data={data}
+            margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+            style={onPick ? { cursor: 'pointer' } : undefined}
+            onClick={(st: unknown) => {
+              const i = clickIndex(st);
+              if (onPick && i != null && data[i]) onPick(data[i].day);
+            }}
+          >
             <CartesianGrid vertical={false} stroke={STAGE_COLORS.grid} />
             <XAxis {...timeAxis} />
             <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={compact} />
@@ -368,13 +386,13 @@ export function IntakeDispatchChart({ points, unit }: { points: BucketPoint[]; u
 
 /* ------------------------- 4. Road loss per period ----------------------- */
 
-export function RoadChart({ points, unit }: { points: BucketPoint[]; unit: ChartUnit }) {
+export function RoadChart({ points, unit, onPick }: { points: BucketPoint[]; unit: ChartUnit; onPick?: PickPeriod }) {
   const data = points
     .filter((d) => d.plant.liters > 0)
     .map((d) => {
       const value = pick(d.road, unit);
       const sent = pick(d.plant, unit) - value;
-      return { label: d.label, value, pct: sent ? (value / sent) * 100 : 0 };
+      return { day: d.day, label: d.label, value, pct: sent ? (value / sent) * 100 : 0 };
     });
   return (
     <ChartCard
@@ -390,7 +408,16 @@ export function RoadChart({ points, unit }: { points: BucketPoint[]; unit: Chart
           <p className="flex h-full items-center justify-center text-xs text-muted-foreground">No plant receipts in these days</p>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="30%">
+            <BarChart
+              data={data}
+              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+              barCategoryGap="30%"
+              style={onPick ? { cursor: 'pointer' } : undefined}
+              onClick={(st: unknown) => {
+                const i = clickIndex(st);
+                if (onPick && i != null && data[i]) onPick(data[i].day);
+              }}
+            >
               <CartesianGrid vertical={false} stroke={STAGE_COLORS.grid} />
               <XAxis {...timeAxis} />
               <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={compact} domain={withZero} />
@@ -425,10 +452,10 @@ export function RoadChart({ points, unit }: { points: BucketPoint[]; unit: Chart
 
 /* ------------------------------ 5. TS lines ------------------------------ */
 
-export function TsChart({ points }: { points: BucketPoint[] }) {
+export function TsChart({ points, onPick }: { points: BucketPoint[]; onPick?: PickPeriod }) {
   const data = points
     .filter((d) => d.ts.intake != null || d.ts.slip != null || d.ts.plant != null)
-    .map((d) => ({ label: d.label, intake: d.ts.intake, dispatch: d.ts.slip, plant: d.ts.plant }));
+    .map((d) => ({ day: d.day, label: d.label, intake: d.ts.intake, dispatch: d.ts.slip, plant: d.ts.plant }));
   const values = data.flatMap((d) => [d.intake, d.dispatch, d.plant]).filter((v): v is number => v != null);
   const lo = values.length ? Math.floor((Math.min(...values) - 0.1) * 10) / 10 : 12;
   const hi = values.length ? Math.ceil((Math.max(...values) + 0.1) * 10) / 10 : 14;
@@ -448,7 +475,15 @@ export function TsChart({ points }: { points: BucketPoint[] }) {
           <p className="flex h-full items-center justify-center text-xs text-muted-foreground">No tests in these days</p>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <LineChart
+              data={data}
+              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+              style={onPick ? { cursor: 'pointer' } : undefined}
+              onClick={(st: unknown) => {
+                const i = clickIndex(st);
+                if (onPick && i != null && data[i]) onPick(data[i].day);
+              }}
+            >
               <CartesianGrid vertical={false} stroke={STAGE_COLORS.grid} />
               <XAxis {...timeAxis} />
               <YAxis {...axisProps} axisLine={false} width={44} domain={[lo, hi]} tickFormatter={(v: number) => fmt(v, 1)} />
@@ -482,17 +517,17 @@ export function TsChart({ points }: { points: BucketPoint[] }) {
 
 /* --------------------------- 6. ZMCC ranking ----------------------------- */
 
-export function ZmccRankingChart({ zmccs, unit }: { zmccs: StageZmccRow[]; unit: ChartUnit }) {
+export function ZmccRankingChart({ zmccs, unit, onPickZmcc }: { zmccs: StageZmccRow[]; unit: ChartUnit; onPickZmcc?: (id: string) => void }) {
   const data = zmccs
     .map((z) => {
       const base = pick(intakeOf(z), unit);
       const whole = pick(z.loss.whole, unit);
       const in13 = intakeOf(z).at13ts;
-      return { name: z.zmccName, value: base ? (whole / base) * 100 : 0, amount: whole, over: in13 ? (z.loss.slipOver13ts / in13) * 100 : 0 };
+      return { id: z.zmccId, name: z.zmccName, value: base ? (whole / base) * 100 : 0, amount: whole, over: in13 ? (z.loss.slipOver13ts / in13) * 100 : 0 };
     })
     .sort((a, b) => a.value - b.value);
   return (
-    <ChartCard title="Whole loss / gain by ZMCC" info={`Whole loss or gain (shops and HC to plant) as a share of the ZMCC's intake, ${unitText(unit)}. Worst first.`}>
+    <ChartCard title="Whole loss / gain by ZMCC" info={`Whole loss or gain (shops and HC to plant) as a share of the ZMCC's intake, ${unitText(unit)}. Worst first. Click a ZMCC to show only it.`}>
       <div style={{ height: Math.max(140, data.length * 44 + 40) }}>
         {data.length === 0 ? (
           <p className="flex h-full items-center justify-center text-xs text-muted-foreground">No ZMCC milk in these days</p>
@@ -519,7 +554,17 @@ export function ZmccRankingChart({ zmccs, unit }: { zmccs: StageZmccRow[]; unit:
                   ) : null;
                 }}
               />
-              <Bar dataKey="value" radius={4} maxBarSize={18} label={endLabel((v) => `${fmt(v, 1)}%`)}>
+              <Bar
+                dataKey="value"
+                radius={4}
+                maxBarSize={18}
+                label={endLabel((v) => `${fmt(v, 1)}%`)}
+                style={onPickZmcc ? { cursor: 'pointer' } : undefined}
+                onClick={(entry: unknown) => {
+                  const id = (entry as { payload?: { id?: string } } | null)?.payload?.id;
+                  if (onPickZmcc && id) onPickZmcc(id);
+                }}
+              >
                 {data.map((d) => (
                   <Cell key={d.name} fill={d.value < 0 ? STAGE_COLORS.loss : STAGE_COLORS.gain} />
                 ))}
@@ -543,7 +588,7 @@ const STEPS = [
   { max: Infinity, color: '#1f9d55', label: 'Gain 0.5% or more' },
 ];
 
-export function RoadCalendar({ days, unit }: { days: StageDay[]; unit: ChartUnit }) {
+export function RoadCalendar({ days, unit, onPick }: { days: StageDay[]; unit: ChartUnit; onPick?: PickPeriod }) {
   const [hover, setHover] = React.useState<{ day: string; pct: number | null; road: number } | null>(null);
   if (days.length === 0) return null;
   const first = new Date(`${days[0].day}T00:00:00Z`);
@@ -570,6 +615,7 @@ export function RoadCalendar({ days, unit }: { days: StageDay[]; unit: ChartUnit
                 className="h-3.5 w-3.5 rounded-[3px] outline-offset-1 focus-visible:outline-2 focus-visible:outline-primary"
                 style={{ backgroundColor: colorOf(c.pct) }}
                 aria-label={`${c.day}: ${c.pct == null ? 'no plant receipt' : `${c.pct < 0 ? 'loss' : 'gain'} ${fmt(Math.abs(c.pct), 2)}%`}`}
+                onClick={() => onPick?.(c.day)}
                 onMouseEnter={() => setHover(c)}
                 onFocus={() => setHover(c)}
                 onMouseLeave={() => setHover(null)}
@@ -598,12 +644,33 @@ export function RoadCalendar({ days, unit }: { days: StageDay[]; unit: ChartUnit
 
 /* --------------------------- One stage, by period ------------------------ */
 
-export function OneStageChart({ title, color, points, unit }: { title: string; color: string; points: Array<{ label: string; value: number }>; unit: ChartUnit }) {
+export function OneStageChart({
+  title,
+  color,
+  points,
+  unit,
+  onPick,
+}: {
+  title: string;
+  color: string;
+  points: Array<{ day: string; label: string; value: number }>;
+  unit: ChartUnit;
+  onPick?: PickPeriod;
+}) {
   return (
     <ChartCard title={title} info={`${unitText(unit)} for this stage. Every figure is also in the table below.`}>
       <div className="h-60">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="30%">
+          <BarChart
+            data={points}
+            margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+            barCategoryGap="30%"
+            style={onPick ? { cursor: 'pointer' } : undefined}
+            onClick={(st: unknown) => {
+              const i = clickIndex(st);
+              if (onPick && i != null && points[i]) onPick(points[i].day);
+            }}
+          >
             <CartesianGrid vertical={false} stroke={STAGE_COLORS.grid} />
             <XAxis {...timeAxis} />
             <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={compact} />
@@ -624,17 +691,83 @@ export function OneStageChart({ title, color, points, unit }: { title: string; c
 
 /* --------------------------------- Board --------------------------------- */
 
-export function StageChartsBoard({ report, unit, bucket }: { report: StageChainReport; unit: ChartUnit; bucket: ChartBucket }) {
+export function StageChartsBoard({
+  report,
+  unit,
+  bucket,
+  onPick,
+  onPickZmcc,
+}: {
+  report: StageChainReport;
+  unit: ChartUnit;
+  bucket: ChartBucket;
+  onPick?: PickPeriod;
+  onPickZmcc?: (id: string) => void;
+}) {
   const points = bucketDays(report.daily, bucket);
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <StageTotalsChart report={report} unit={unit} />
       <LossBreakdownChart report={report} unit={unit} />
-      <IntakeDispatchChart points={points} unit={unit} />
-      <TsChart points={points} />
-      <RoadChart points={points} unit={unit} />
-      <RoadCalendar days={report.daily} unit={unit} />
-      <ZmccRankingChart zmccs={report.zmccs} unit={unit} />
+      <IntakeDispatchChart points={points} unit={unit} onPick={onPick} />
+      <TsChart points={points} onPick={onPick} />
+      <RoadChart points={points} unit={unit} onPick={onPick} />
+      <RoadCalendar days={report.daily} unit={unit} onPick={(d) => onPick?.(d)} />
+      <ZmccRankingChart zmccs={report.zmccs} unit={unit} onPickZmcc={onPickZmcc} />
     </div>
+  );
+}
+
+/* ------------------------- Ranked bars (drill-down) ---------------------- */
+
+export function RankedBarsChart({
+  title,
+  info,
+  rows,
+  signed,
+  color,
+  format,
+  percent,
+}: {
+  title: string;
+  info: string;
+  /** The values are percentages: the axis shows %. */
+  percent?: boolean;
+  rows: Array<{ id: string; name: string; value: number; tip: Array<{ label: string; value: string }> }>;
+  /** Loss red / gain green around zero, instead of one colour. */
+  signed?: boolean;
+  color?: string;
+  format: (v: number) => string;
+}) {
+  const data = rows.slice(0, 12);
+  return (
+    <ChartCard title={title} info={rows.length > 12 ? `${info} The 12 largest are shown; all are in the table.` : info}>
+      <div style={{ height: Math.max(140, data.length * 36 + 40) }}>
+        {data.length === 0 ? (
+          <p className="flex h-full items-center justify-center text-xs text-muted-foreground">Nothing in these days</p>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} layout="vertical" margin={{ top: 4, right: 56, left: 8, bottom: 0 }} barCategoryGap="35%">
+              <CartesianGrid horizontal={false} stroke={STAGE_COLORS.grid} />
+              <XAxis type="number" {...axisProps} tickFormatter={(v: number) => (percent ? `${fmt(v, 1)}%` : compact(v))} domain={signed ? withZeroRoom : [0, (max: number) => max * 1.25]} />
+              <YAxis type="category" dataKey="name" {...axisProps} axisLine={false} width={140} tickFormatter={(v: string) => (v.length > 20 ? `${v.slice(0, 19)}…` : v)} />
+              {signed ? <ReferenceLine x={0} stroke={STAGE_COLORS.zero} /> : null}
+              <Tooltip
+                cursor={{ fill: 'rgba(15,23,42,0.04)' }}
+                content={(p: TipProps) => {
+                  const d = p.payload?.[0]?.payload as (typeof data)[number] | undefined;
+                  return p.active && d ? <TooltipBox title={d.name} rows={d.tip} /> : null;
+                }}
+              />
+              <Bar dataKey="value" radius={4} maxBarSize={16} label={endLabel(format)}>
+                {data.map((d) => (
+                  <Cell key={d.id} fill={signed ? (d.value < 0 ? STAGE_COLORS.loss : STAGE_COLORS.gain) : (color ?? STAGE_COLORS.mc)} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </ChartCard>
   );
 }

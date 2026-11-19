@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Calendar, Filter, Layers, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Filter, Layers, X } from 'lucide-react';
 import { InfoTip } from '@/components/ui/info-tip';
 import { cn } from '@/lib/utils';
 import type { LossFilterOptions, LossPreset } from '@/backend/modules/management-reporting/lossLevelContracts';
@@ -57,8 +57,10 @@ export function StageChartFilters(props: {
   bucket: ChartBucket;
   onBucket: (b: ChartBucket) => void;
   rangeText?: string;
+  /** Shown after a chart click narrowed the view. */
+  onBack?: () => void;
 }) {
-  const { filters, onChange, options, zmccLocked, unit, onUnit, bucket, onBucket, rangeText } = props;
+  const { filters, onChange, options, zmccLocked, unit, onUnit, bucket, onBucket, rangeText, onBack } = props;
   const custom = !!(filters.from && filters.to);
   const [from, setFrom] = React.useState(filters.from);
   const [to, setTo] = React.useState(filters.to);
@@ -87,7 +89,14 @@ export function StageChartFilters(props: {
             <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             Chart filters
             {active > 0 ? <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{active} active</span> : null}
+            <InfoTip text="Click a day, week, month or ZMCC in a chart to look at only that. Back returns to the view before." className="-my-2" />
           </span>
+          {onBack ? (
+            <button type="button" onClick={onBack} className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-border bg-card px-2.5 text-xs font-semibold text-foreground hover:bg-muted">
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+              Back
+            </button>
+          ) : null}
           <div className="flex max-w-full flex-wrap items-center gap-1">
             <span className="mr-1 text-xs text-muted-foreground">Horizon:</span>
             {PRESETS.map((p) => (
