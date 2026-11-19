@@ -69,7 +69,11 @@ export interface StageZmccRow {
 export interface StageDay {
   day: string;
   shops: StagePair;
+  /** Received into ZMCC tanks that day: all, and from Mobile Testers (MC), HC suppliers and other receipts. */
   intake: StagePair;
+  intakeMc: StagePair;
+  intakeHc: StagePair;
+  intakeOther: StagePair;
   dispatchSlip: StagePair;
   plant: StagePair;
   slipOver13ts: number;

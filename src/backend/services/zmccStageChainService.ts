@@ -214,13 +214,14 @@ function dailySeries(
   to: string,
   cycles: Array<WorkCycle & { zmccId: string }>,
   shopDays: Map<string, StagePair>,
-  intakeDays: Map<string, StagePair>
+  intakeDays: Map<string, IntakeByKind>
 ): StageDay[] {
   const byDay = new Map<string, Array<WorkCycle & { zmccId: string }>>();
   for (const c of cycles) byDay.set(c.day, [...(byDay.get(c.day) ?? []), c]);
   const out: StageDay[] = [];
   for (let d = from; d <= to; d = shiftDay(d, 1)) {
-    const intake = intakeDays.get(d) ?? pair();
+    const kinds = intakeDays.get(d) ?? { mot: pair(), hc: pair(), other: pair() };
+    const intake = add(add(kinds.mot, kinds.hc), kinds.other);
     let slip = pair(), plant = pair(), road = pair(), over = 0;
     for (const c of byDay.get(d) ?? []) {
       slip = add(slip, c.dispatchSlip);
@@ -234,6 +235,9 @@ function dailySeries(
       day: d,
       shops: round(shopDays.get(d) ?? pair()),
       intake: round(intake),
+      intakeMc: round(kinds.mot),
+      intakeHc: round(kinds.hc),
+      intakeOther: round(kinds.other),
       dispatchSlip: round(slip),
       plant: round(plant),
       slipOver13ts: r2(over)!,
@@ -367,8 +371,13 @@ export async function getZmccStageChain(input: {
     return out;
   };
   const intakeDaysOf = (zmccIds: string[]) => {
-    const m = new Map<string, StagePair>();
-    for (const id of zmccIds) for (const [d, k] of receipts.get(id) ?? []) m.set(d, add(m.get(d) ?? pair(), add(add(k.mot, k.hc), k.other)));
+    const m = new Map<string, IntakeByKind>();
+    for (const id of zmccIds) {
+      for (const [d, k] of receipts.get(id) ?? []) {
+        const cur = m.get(d) ?? { mot: pair(), hc: pair(), other: pair() };
+        m.set(d, { mot: add(cur.mot, k.mot), hc: add(cur.hc, k.hc), other: add(cur.other, k.other) });
+      }
+    }
     return m;
   };
 

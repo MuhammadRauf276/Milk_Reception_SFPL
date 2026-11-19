@@ -322,7 +322,7 @@ export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ role }) => {
 
           {tab === 'STAGES' && (
             <Block title="Stage by stage" info="Shops, ZMCC intake, dispatch slip and plant for the chosen days, with loss or gain between each step. Open a ZMCC to see every tank fill and its dispatch.">
-              <StageChainPanel filters={filters} />
+              <StageChainPanel filters={filters} onFiltersChange={setFilters} options={optionsQuery.data} zmccLocked={role === 'ZMCC_MANAGER'} />
             </Block>
           )}
 

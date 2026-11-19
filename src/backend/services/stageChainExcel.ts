@@ -65,7 +65,7 @@ export async function generateStageChainExcel(report: StageChainReport, filterTe
     ...(t.receivedOther.liters || p.receivedOther.liters
       ? ([['  other tank receipts', t.receivedOther, p.receivedOther, tsOf(t.receivedOther)]] as Array<[string, StagePair, StagePair, number | null]>)
       : []),
-    ['Dispatch slip', t.dispatchSlip, p.dispatchSlip, t.ts.slip],
+    ['ZMCC dispatch', t.dispatchSlip, p.dispatchSlip, t.ts.slip],
     ['Plant received', t.plant, p.plant, t.ts.plant],
   ];
   const summary: Row[] = stageRows.map(([name, now, before, ts]) => ({
@@ -80,11 +80,11 @@ export async function generateStageChainExcel(report: StageChainReport, filterTe
   summary.push({});
   summary.push({ part: 'Loss / gain (later stage minus earlier; minus = loss)', __bold: true });
   summary.push({ part: 'Tester trip (ZMCC received minus shops)', liters: t.loss.motTrip.liters, at13: t.loss.motTrip.at13ts });
-  summary.push({ part: 'Slip over (slip claims more @13 TS than the milk had; not milk)', at13: t.loss.slipOver13ts });
+  summary.push({ part: 'Dispatch overstated (ZMCC dispatch claims more @13 TS than the milk had; not milk)', at13: t.loss.slipOver13ts });
   summary.push({ part: 'Road (plant minus what really left the ZMCC)', liters: t.loss.road.liters, at13: t.loss.road.at13ts });
   summary.push({ part: 'Whole (shops and HC to plant)', liters: t.loss.whole.liters, at13: t.loss.whole.at13ts, before: p.loss.whole.at13ts, __bold: true });
   summary.push({});
-  summary.push({ part: `Dispatches with slip TS above the tank milk: ${t.slipHighCycles} of ${t.cycleCount}` });
+  summary.push({ part: `Dispatches with dispatch TS above the tank milk: ${t.slipHighCycles} of ${t.cycleCount}` });
   summary.push({ part: `Tankers not yet at the plant (left out of plant, road, whole): ${t.pendingTankers}` });
   summary.push({ part: `Previous period for comparison: ${report.previous.from} to ${report.previous.to}` });
   sheet(
@@ -107,7 +107,8 @@ export async function generateStageChainExcel(report: StageChainReport, filterTe
   const perZmcc: Row[] = report.zmccs.map((z) => ({
     zmcc: z.zmccName,
     shopsL: z.shops.liters, shops13: z.shops.at13ts,
-    inL: intakeOf(z).liters, in13: intakeOf(z).at13ts, inLpd: report.days ? intakeOf(z).liters / report.days : null,
+    inL: intakeOf(z).liters, in13: intakeOf(z).at13ts, mc13: z.receivedMot.at13ts, hc13: z.receivedHc.at13ts + z.receivedOther.at13ts,
+    inLpd: report.days ? intakeOf(z).liters / report.days : null,
     slipL: z.dispatchSlip.liters, slip13: z.dispatchSlip.at13ts,
     plantL: z.plant.liters, plant13: z.plant.at13ts,
     tsIn: z.ts.intake, tsSlip: z.ts.slip, tsPlant: z.ts.plant,
@@ -120,16 +121,18 @@ export async function generateStageChainExcel(report: StageChainReport, filterTe
     { header: 'Shops @13 TS', key: 'shops13', width: 14, fmt: L2 },
     { header: 'Intake litres', key: 'inL', width: 14, fmt: L2 },
     { header: 'Intake @13 TS', key: 'in13', width: 14, fmt: L2 },
+    { header: 'MC intake @13 TS', key: 'mc13', width: 14, fmt: L2 },
+    { header: 'HC intake @13 TS', key: 'hc13', width: 14, fmt: L2 },
     { header: 'Intake LPD', key: 'inLpd', width: 12, fmt: L2 },
-    { header: 'Slip litres', key: 'slipL', width: 14, fmt: L2 },
-    { header: 'Slip @13 TS', key: 'slip13', width: 14, fmt: L2 },
+    { header: 'Dispatch litres', key: 'slipL', width: 14, fmt: L2 },
+    { header: 'Dispatch @13 TS', key: 'slip13', width: 14, fmt: L2 },
     { header: 'Plant litres', key: 'plantL', width: 14, fmt: L2 },
     { header: 'Plant @13 TS', key: 'plant13', width: 14, fmt: L2 },
     { header: 'TS intake', key: 'tsIn', width: 10, fmt: TS },
-    { header: 'TS slip', key: 'tsSlip', width: 10, fmt: TS },
+    { header: 'TS dispatch', key: 'tsSlip', width: 10, fmt: TS },
     { header: 'TS plant', key: 'tsPlant', width: 10, fmt: TS },
     { header: 'Tester trip @13 TS', key: 'trip', width: 14, fmt: L2 },
-    { header: 'Slip over @13 TS', key: 'over', width: 14, fmt: L2 },
+    { header: 'Dispatch overstated @13 TS', key: 'over', width: 16, fmt: L2 },
     { header: 'Road @13 TS', key: 'road', width: 13, fmt: L2 },
     { header: 'Road litres', key: 'roadL', width: 12, fmt: L2 },
     { header: 'Whole @13 TS', key: 'whole', width: 13, fmt: L2 },
@@ -145,19 +148,21 @@ export async function generateStageChainExcel(report: StageChainReport, filterTe
     { header: 'Shops @13 TS', key: 'shops', width: 14, fmt: L2 },
     { header: 'Intake litres', key: 'inL', width: 14, fmt: L2 },
     { header: 'Intake @13 TS', key: 'in13', width: 14, fmt: L2 },
-    { header: 'Slip litres', key: 'slipL', width: 14, fmt: L2 },
-    { header: 'Slip @13 TS', key: 'slip13', width: 14, fmt: L2 },
+    { header: 'MC intake @13 TS', key: 'mc13', width: 14, fmt: L2 },
+    { header: 'HC intake @13 TS', key: 'hc13', width: 14, fmt: L2 },
+    { header: 'Dispatch litres', key: 'slipL', width: 14, fmt: L2 },
+    { header: 'Dispatch @13 TS', key: 'slip13', width: 14, fmt: L2 },
     { header: 'Plant litres', key: 'plantL', width: 14, fmt: L2 },
     { header: 'Plant @13 TS', key: 'plant13', width: 14, fmt: L2 },
     { header: 'TS intake', key: 'tsIn', width: 10, fmt: TS },
-    { header: 'TS slip', key: 'tsSlip', width: 10, fmt: TS },
+    { header: 'TS dispatch', key: 'tsSlip', width: 10, fmt: TS },
     { header: 'TS plant', key: 'tsPlant', width: 10, fmt: TS },
-    { header: 'Slip over @13 TS', key: 'over', width: 14, fmt: L2 },
+    { header: 'Dispatch overstated @13 TS', key: 'over', width: 16, fmt: L2 },
     { header: 'Road @13 TS', key: 'road', width: 13, fmt: L2 },
   ];
   const dayRow = (zmcc: string, d: StageChainReport['daily'][number]): Row => ({
     day: d.day, zmcc,
-    shops: d.shops.at13ts, inL: d.intake.liters, in13: d.intake.at13ts, slipL: d.dispatchSlip.liters, slip13: d.dispatchSlip.at13ts,
+    shops: d.shops.at13ts, inL: d.intake.liters, in13: d.intake.at13ts, mc13: d.intakeMc.at13ts, hc13: d.intakeHc.at13ts + d.intakeOther.at13ts, slipL: d.dispatchSlip.liters, slip13: d.dispatchSlip.at13ts,
     plantL: d.plant.liters, plant13: d.plant.at13ts, tsIn: d.ts.intake, tsSlip: d.ts.slip, tsPlant: d.ts.plant,
     over: d.slipOver13ts, road: d.plant.liters ? d.road.at13ts : null,
   });
@@ -193,16 +198,16 @@ export async function generateStageChainExcel(report: StageChainReport, filterTe
       { header: 'Tank at start', key: 'open', width: 13, fmt: L2 },
       { header: 'Intake litres', key: 'inL', width: 13, fmt: L2 },
       { header: 'Intake @13 TS', key: 'in13', width: 13, fmt: L2 },
-      { header: 'Slip litres', key: 'slipL', width: 13, fmt: L2 },
-      { header: 'Slip @13 TS', key: 'slip13', width: 13, fmt: L2 },
+      { header: 'Dispatch litres', key: 'slipL', width: 13, fmt: L2 },
+      { header: 'Dispatch @13 TS', key: 'slip13', width: 13, fmt: L2 },
       { header: 'True @13 TS (tank quality)', key: 'true13', width: 15, fmt: L2 },
       { header: 'Plant litres', key: 'plantL', width: 13, fmt: L2 },
       { header: 'Plant @13 TS', key: 'plant13', width: 13, fmt: L2 },
       { header: 'Left in tank', key: 'left', width: 12, fmt: L2 },
       { header: 'TS tank', key: 'tsTank', width: 9, fmt: TS },
-      { header: 'TS slip', key: 'tsSlip', width: 9, fmt: TS },
+      { header: 'TS dispatch', key: 'tsSlip', width: 10, fmt: TS },
       { header: 'TS plant', key: 'tsPlant', width: 9, fmt: TS },
-      { header: 'Slip over @13 TS', key: 'over', width: 13, fmt: L2 },
+      { header: 'Dispatch overstated @13 TS', key: 'over', width: 16, fmt: L2 },
       { header: 'Road @13 TS', key: 'road', width: 12, fmt: L2 },
       { header: 'Road litres', key: 'roadL', width: 12, fmt: L2 },
     ],
