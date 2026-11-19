@@ -38,7 +38,7 @@ test('filters reach SQL only as parameters, and the vehicle report searches only
     source: { sourceType: 'CONTRACTOR', sourceIds: ['3', '1; DROP TABLE x'] },
     filters: { vehicle: "LES'--" },
   });
-  assert.equal(where, 'dispatched_at BETWEEN $1::timestamp AND $2::timestamp AND source_type = $3 AND source_id = ANY($4::bigint[]) AND vehicle_number ILIKE $5');
+  assert.equal(where, 'dispatched_at BETWEEN $1::timestamptz AND $2::timestamptz AND source_type = $3 AND source_id = ANY($4::bigint[]) AND vehicle_number ILIKE $5');
   assert.deepEqual(args.slice(2), ['CONTRACTOR', ['3'], "%LES'--%"]);
   const visit = buildVisitWhere({ from: '2026-11-01', to: '2026-11-07', filters: { vehicle: 'A', plantFat: '4', portion: 'P' } });
   assert.ok(visit.where.includes('vehicle_number') && !visit.where.includes('plant_fat') && !visit.where.includes('portion_label'));

@@ -8,7 +8,9 @@ export function createPrismaClient() {
   if (!connectionString) {
     throw new Error('DATABASE_URL is not set');
   }
-  return new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+  // Times are stored with a time zone, and the driver sends and reads them as UTC text without a zone, so this
+  // connection must run in UTC. Database tools keep the database zone (Asia/Karachi) and show Pakistan time.
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString, options: '-c TimeZone=UTC' }) });
 }
 
 declare const globalThis: {

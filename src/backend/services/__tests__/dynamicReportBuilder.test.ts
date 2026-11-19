@@ -54,8 +54,8 @@ test('vehicle dispatch rows match a direct SELECT on the view for the same range
   const direct = (await prisma.$queryRawUnsafe(
     `SELECT COUNT(*)::int AS n, SUM(dispatch_gross_liters)::float8 AS disp, SUM(received_gross_liters)::float8 AS rec
      FROM vw_vehicle_visit_report
-     WHERE dispatched_at >= ('2026-01-01T00:00:00+05:00'::timestamptz AT TIME ZONE 'UTC')
-       AND dispatched_at < ('2027-01-01T00:00:00+05:00'::timestamptz AT TIME ZONE 'UTC')`
+     WHERE dispatched_at >= '2026-01-01T00:00:00+05:00'::timestamptz
+       AND dispatched_at < '2027-01-01T00:00:00+05:00'::timestamptz`
   )) as { n: number; disp: number | null; rec: number | null }[];
   assert.equal(res.totalRecords, direct[0].n);
   assert.equal(res.rows.length, direct[0].n);

@@ -125,7 +125,8 @@ export function buildReportWhere(input: ReportWhereInput): { where: string; args
     new Date(`${input.from}T00:00:00.000+05:00`).toISOString(),
     new Date(`${input.to}T23:59:59.999+05:00`).toISOString(),
   ];
-  let where = 'dispatched_at BETWEEN $1::timestamp AND $2::timestamp';
+  // dispatched_at has a time zone; the bounds are instants.
+  let where = 'dispatched_at BETWEEN $1::timestamptz AND $2::timestamptz';
 
   const sourceType = input.source?.sourceType ?? 'ALL';
   if (sourceType !== 'ALL') {

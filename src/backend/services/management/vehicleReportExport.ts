@@ -272,7 +272,7 @@ export async function buildVehicleReportExcel(params: VehicleExportParams, db: V
   // that have vehicles, so empty days cost nothing later.
   const { days, portions, testRows } = await run(async (tx) => {
     const perDay = (await tx.$queryRawUnsafe(
-      `SELECT to_char(dispatched_at + interval '5 hours', 'YYYY-MM-DD') AS day, SUM(portions) AS portions
+      `SELECT to_char(dispatched_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD') AS day, SUM(portions) AS portions
        FROM ${VISIT_REPORT_VIEW} WHERE ${where} GROUP BY 1 ORDER BY 1 DESC`,
       ...args
     )) as Raw[];

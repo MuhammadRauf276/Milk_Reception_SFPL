@@ -1,13 +1,13 @@
 /**
  * The one place raw SQL turns stored times into Pakistan time.
  *
- * Today timestamp columns have no time zone and hold UTC, so SQL must first say "this is UTC" and then convert.
- * When the columns become "timestamp with time zone" (planned), set DB_TIMESTAMPS_HAVE_TZ to true and every raw
- * query below follows; Prisma queries need no change.
+ * Time columns are "timestamp with time zone", so a stored time converts to Pakistan time in one step, whatever
+ * the session's zone. (Before that switch they held UTC without a zone; DB_TIMESTAMPS_HAVE_TZ = false restores the
+ * old SQL if ever needed.)
  */
 import { Prisma } from '@prisma/client';
 
-export const DB_TIMESTAMPS_HAVE_TZ: boolean = false;
+export const DB_TIMESTAMPS_HAVE_TZ: boolean = true;
 
 /** SQL text: a stored time column as Pakistan local time (a timestamp without zone, for ::date, EXTRACT, to_char). */
 export function pkLocalSql(col: string): string {
