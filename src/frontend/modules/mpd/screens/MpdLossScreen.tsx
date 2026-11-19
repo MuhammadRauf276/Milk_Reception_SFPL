@@ -19,12 +19,14 @@ import type {
 } from '@/backend/modules/management-reporting/lossLevelContracts';
 import { LossFilterBar } from '../components/LossFilterBar';
 import { LossStatCard, Signed, WholeLinesTable, figureColumns, formatLitres, wholeFigure } from '../components/LossLevelCards';
+import { StageChainPanel } from '../components/StageChainPanel';
 import { useLossExport, useLossFilterOptions, useLossLevels } from '../lossData';
 import { useLossFilters } from '../lossFilters';
 
-type LevelTab = 'MOT' | 'AREA' | 'TRANSIT' | 'WHOLE' | 'CONTRACTOR';
+type LevelTab = 'STAGES' | 'MOT' | 'AREA' | 'TRANSIT' | 'WHOLE' | 'CONTRACTOR';
 
 const TABS: Array<{ value: LevelTab; label: string }> = [
+  { value: 'STAGES', label: 'Stages' },
   { value: 'MOT', label: 'Tester' },
   { value: 'AREA', label: 'Area' },
   { value: 'TRANSIT', label: 'Transit' },
@@ -245,7 +247,7 @@ interface MpdLossScreenProps {
 
 export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ role }) => {
   const { filters, setFilters } = useLossFilters();
-  const [tab, setTab] = useState<LevelTab>('MOT');
+  const [tab, setTab] = useState<LevelTab>('STAGES');
   const levelsQuery = useLossLevels(filters);
   const optionsQuery = useLossFilterOptions(filters);
   const exporter = useLossExport(filters);
@@ -317,6 +319,12 @@ export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ role }) => {
           </div>
 
           <SegmentedTabs tabs={TABS} value={tab} onValueChange={setTab} label="Loss levels" mobileOnly={false} fullWidth />
+
+          {tab === 'STAGES' && (
+            <Block title="Stage by stage" info="Shops, ZMCC intake, dispatch slip and plant for the chosen days, with loss or gain between each step. Open a ZMCC to see every tank fill and its dispatch.">
+              <StageChainPanel filters={filters} />
+            </Block>
+          )}
 
           {tab === 'MOT' && (
             <Block title="MOT per Mobile Tester" info="Open a tester to see each journey.">

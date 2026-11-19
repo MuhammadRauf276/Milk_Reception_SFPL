@@ -719,6 +719,11 @@ function normalizeIds(list?: Array<string | bigint>, single?: string | bigint): 
   return [...out.values()];
 }
 
+/** The Pakistan dates a set of loss filters covers (preset or from / to). */
+export function resolveLossRange(filters: LossFilters): { from: string; to: string; label?: string } {
+  return resolveRange(filters);
+}
+
 function resolveRange(filters: LossFilters) {
   if (filters.preset) return resolveLossPresetRange(filters.preset);
   const range = resolvePeriodDateRange(filters.period || 'today', filters.from, filters.to);
