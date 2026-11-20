@@ -1,7 +1,7 @@
 import React from 'react';
 import { User } from '@core/types';
 import { isZmccFieldOfficer } from '@core/roles/hierarchy';
-import {
+import { Gauge,
   Factory,
   Activity,
   ClipboardList,
@@ -59,6 +59,15 @@ export interface RoleNavSection {
   href?: string;
   children?: RoleNavLeaf[];
 }
+
+/** Visuals page, one link per sub-tab (senior management charts). */
+const VISUALS_LINKS: RoleNavLeaf[] = [
+  { id: 'vis-shops', label: 'Shops & routes', href: '/visuals?tab=SHOPS', icon: RouteIcon },
+  { id: 'vis-testers', label: 'Mobile Testers', href: '/visuals?tab=TESTERS', icon: Users },
+  { id: 'vis-hc', label: 'HC suppliers', href: '/visuals?tab=HC', icon: Users },
+  { id: 'vis-zmcc', label: 'ZMCC', href: '/visuals', icon: Gauge },
+  { id: 'vis-plant', label: 'Plant', href: '/visuals?tab=PLANT', icon: Factory },
+];
 
 const MPD_VIEW_LINKS: RoleNavLeaf[] = [
   { id: 'mpd-v-fleet', label: 'Live fleet', href: '/command?view=FLEET_RADAR', icon: Truck },
@@ -790,6 +799,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         children: MPD_VIEW_LINKS,
       },
       {
+        id: 'mpd-visuals',
+        label: 'Visuals',
+        icon: BarChart3,
+        children: VISUALS_LINKS,
+      },
+      {
         id: 'mpd-fleet',
         label: 'Fleet',
         icon: Truck,
@@ -920,6 +935,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
     const pickViews = (ids: string[]) =>
       ids.map((id) => MPD_VIEW_LINKS.find((l) => l.id === id)).filter((l): l is RoleNavLeaf => Boolean(l));
     return [
+      {
+        id: 'exec-visuals',
+        label: 'Visuals',
+        icon: BarChart3,
+        children: VISUALS_LINKS,
+      },
       {
         id: 'exec-reports',
         label: 'Reports',

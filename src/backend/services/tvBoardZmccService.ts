@@ -49,6 +49,7 @@ export interface TvZmccBoard {
 
 export const TV_ZMCC_MAX_ROWS = 6;
 const ACTIVE_JOURNEY = ['COLLECTING', 'RETURNING', 'ARRIVED'];
+const STOP_DONE = ['VISITED', 'REJECTED', 'COMPLETED'];
 /** An HC vehicle that has not left the gate stays on the board this long. */
 const HC_OPEN_DAYS = 3;
 /** A finished card (journey ended, vehicle left the gate) stays on the yard board this long, then drops off. */
@@ -219,7 +220,8 @@ export async function buildTvZmccBoard(now: Date = new Date(), opts: { names?: b
     const key = g.journey_id.toString();
     const cur = stopsByJourney.get(key) ?? { done: 0, total: 0 };
     cur.total += g._count._all;
-    if (g.status === 'COMPLETED') cur.done += g._count._all;
+    // A visited stop is saved as VISITED (REJECTED when its milk was refused); COMPLETED is the older name.
+    if (STOP_DONE.includes(g.status)) cur.done += g._count._all;
     stopsByJourney.set(key, cur);
   }
   const collectedByJourney = new Map(collectionGroups.map((g) => [g.journey_id.toString(), g._sum]));

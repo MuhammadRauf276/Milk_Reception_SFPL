@@ -749,7 +749,7 @@ export function RankedBarsChart({
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} layout="vertical" margin={{ top: 4, right: 56, left: 8, bottom: 0 }} barCategoryGap="35%">
               <CartesianGrid horizontal={false} stroke={STAGE_COLORS.grid} />
-              <XAxis type="number" {...axisProps} tickFormatter={(v: number) => (percent ? `${fmt(v, 1)}%` : compact(v))} domain={signed ? withZeroRoom : [0, (max: number) => max * 1.25]} />
+              <XAxis type="number" {...axisProps} allowDecimals={!!percent} tickFormatter={(v: number) => (percent ? `${fmt(v, 1)}%` : compact(v))} domain={signed ? withZeroRoom : [0, (max: number) => max * 1.25]} />
               <YAxis type="category" dataKey="name" {...axisProps} axisLine={false} width={140} tickFormatter={(v: string) => (v.length > 20 ? `${v.slice(0, 19)}…` : v)} />
               {signed ? <ReferenceLine x={0} stroke={STAGE_COLORS.zero} /> : null}
               <Tooltip

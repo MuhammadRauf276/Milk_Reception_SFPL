@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { ArrowRight, Download, Loader2 } from 'lucide-react';
 import { fetchJson } from '@/lib/fetch-json';
 import { InfoTip } from '@/components/ui/info-tip';
@@ -22,8 +23,7 @@ import type {
   StageZmccRow,
 } from '@/backend/modules/management-reporting/stageChainContracts';
 import { Signed, formatLitres } from './LossLevelCards';
-import { OneStageChart, RankedBarsChart, STAGE_COLORS, StageChartsBoard, bucketDays, type ChartBucket, type ChartUnit } from './StageCharts';
-import { StageChartFilters } from './StageChartFilters';
+import { RankedBarsChart, STAGE_COLORS } from './StageCharts';
 import { lossQueryParams, type LossFilters } from '../lossFilters';
 
 type StageKey = 'ALL' | 'SHOPS' | 'INTAKE' | 'DISPATCH' | 'PLANT';
@@ -44,16 +44,6 @@ const VIEWS: Array<{ value: ViewKey; label: string }> = [
   { value: 'HC', label: 'HC supplier' },
   { value: 'TANKER', label: 'Tanker' },
 ];
-
-/** The days a clicked chart period covers: one day, its week (Monday to Sunday) or its month. */
-function periodRange(dayKey: string, bucket: ChartBucket): { from: string; to: string } {
-  if (bucket === 'DAY') return { from: dayKey, to: dayKey };
-  const start = Date.parse(`${dayKey}T00:00:00Z`);
-  if (bucket === 'WEEK') return { from: dayKey, to: new Date(start + 6 * 86400000).toISOString().slice(0, 10) };
-  const d = new Date(start);
-  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
-  return { from: dayKey, to: last.toISOString().slice(0, 10) };
-}
 
 const pct = (part: number, whole: number) => (whole ? (part / whole) * 100 : 0);
 const pctText = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
@@ -206,12 +196,6 @@ function dayValue(stage: Exclude<StageKey, 'ALL'>, d: StageDay): { pair: StagePa
   return { pair: d.plant, ts: d.ts.plant };
 }
 
-const STAGE_COLOR: Record<Exclude<StageKey, 'ALL'>, string> = {
-  SHOPS: STAGE_COLORS.shops,
-  INTAKE: STAGE_COLORS.mc,
-  DISPATCH: STAGE_COLORS.dispatch,
-  PLANT: STAGE_COLORS.plant,
-};
 const STAGE_INFO: Record<Exclude<StageKey, 'ALL'>, string> = { SHOPS: INFO.shops, INTAKE: INFO.intake, DISPATCH: INFO.dispatch, PLANT: INFO.plant };
 
 function Change({ now, before }: { now: number; before: number }) {
@@ -377,22 +361,17 @@ function oneStageDayColumns(stage: Exclude<StageKey, 'ALL'>): Array<DataColumn<S
 
 export function StageChainPanel({
   filters,
-  onFiltersChange,
-  options,
-  zmccLocked,
 }: {
   filters: LossFilters;
-  onFiltersChange: (next: LossFilters) => void;
+  /** Kept for the callers; the charts (and their filters) now live on the Visuals page. */
+  onFiltersChange?: (next: LossFilters) => void;
   options?: LossFilterOptions;
   zmccLocked?: boolean;
 }) {
   const qs = lossQueryParams(filters).toString();
   const [stage, setStage] = useState<StageKey>('ALL');
   const [view, setView] = useState<ViewKey>('ZMCC');
-  const [unit, setUnit] = useState<ChartUnit>('at13');
-  const [bucket, setBucket] = useState<ChartBucket>('DAY');
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
-  const [history, setHistory] = useState<LossFilters[]>([]);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const query = useQuery<StageChainReport>({
@@ -420,19 +399,6 @@ export function StageChainPanel({
     placeholderData: keepPreviousData,
   });
   const drill = drillLevel && drillQuery.data?.level === drillLevel ? drillQuery.data : undefined;
-  // A click on a chart narrows the whole view; Back returns to the view before it.
-  const narrow = (next: LossFilters) => {
-    setHistory((h) => [...h, filters].slice(-10));
-    onFiltersChange(next);
-  };
-  const pickPeriod = (dayKey: string) => narrow({ ...filters, ...periodRange(dayKey, bucket) });
-  const pickZmcc = (id: string) => narrow({ ...filters, zmccIds: [id] });
-  const back = () => {
-    const prev = history[history.length - 1];
-    if (!prev) return;
-    setHistory((h) => h.slice(0, -1));
-    onFiltersChange(prev);
-  };
   const tankerRows: TankerRow[] = (report?.zmccs ?? []).flatMap((z) =>
     z.cycles.flatMap((c) => c.tankers.map((t) => ({ ...t, day: c.day, zmccName: z.zmccName, tankTs: c.ts.tank })))
   );
@@ -566,35 +532,9 @@ export function StageChainPanel({
         <div className="h-36 animate-pulse rounded-2xl bg-muted" />
       )}
 
-      <StageChartFilters
-        filters={filters}
-        onChange={onFiltersChange}
-        options={options}
-        zmccLocked={zmccLocked}
-        unit={unit}
-        onUnit={setUnit}
-        bucket={bucket}
-        onBucket={setBucket}
-        rangeText={report ? `${report.from} to ${report.to} · ${report.days} d` : undefined}
-        onBack={history.length ? back : undefined}
-      />
-
-      {report ? (
-        stage === 'ALL' ? (
-          <StageChartsBoard report={report} unit={unit} bucket={bucket} onPick={pickPeriod} onPickZmcc={zmccLocked ? undefined : pickZmcc} />
-        ) : (
-          <OneStageChart
-            title={STAGES.find((x) => x.value === stage)!.label}
-            color={STAGE_COLOR[stage]}
-            unit={unit}
-            onPick={pickPeriod}
-            points={bucketDays(report.daily, bucket).map((d) => {
-              const p = dayValue(stage, d).pair;
-              return { day: d.day, label: d.label, value: unit === 'at13' ? p.at13ts : p.liters };
-            })}
-          />
-        )
-      ) : null}
+      <Link href={`/visuals?${qs}`} className="inline-flex min-h-10 items-center text-xs font-semibold text-primary hover:underline">
+        Charts: Visuals → ZMCC
+      </Link>
 
       {view === 'ZMCC' ? (
         <DataTable

@@ -1,5 +1,5 @@
 import type React from 'react';
-import {
+import { BarChart3,
   LayoutDashboard,
   Users,
   Truck,
@@ -71,6 +71,15 @@ const REPORTS_GOVERNANCE_CHILDREN = [
   { href: '/super-admin/reports?tab=warnings', label: 'Warning limits' },
 ];
 
+/** Visuals page, one link per sub-tab. */
+export const VISUALS_CHILDREN = [
+  { href: '/visuals?tab=SHOPS', label: 'Shops & routes' },
+  { href: '/visuals?tab=TESTERS', label: 'Mobile Testers' },
+  { href: '/visuals?tab=HC', label: 'HC suppliers' },
+  { href: '/visuals', label: 'ZMCC' },
+  { href: '/visuals?tab=PLANT', label: 'Plant' },
+];
+
 export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/super-admin', label: 'Overview', icon: LayoutDashboard },
   { href: '/super-admin/corrections', label: 'Corrections', icon: ShieldCheck, children: CORRECTION_CHILDREN },
@@ -78,6 +87,7 @@ export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: '/sources', label: 'Sources', icon: Milk, children: SOURCES_CHILDREN_OWNER },
   { href: '/approvals', label: 'Approval Inbox', icon: ShieldCheck },
   { href: '/command', label: 'Command Center', icon: Activity },
+  { href: '/visuals', label: 'Visuals', icon: BarChart3, children: VISUALS_CHILDREN },
   { href: '/super-admin/silos', label: 'Silos', icon: Database },
   { href: '/super-admin/zmcc-tanks', label: 'ZMCC Tanks', icon: Building2 },
   { href: '/super-admin/weighing-policy', label: 'Weighing Policy', icon: Scale },
@@ -119,6 +129,7 @@ export const DATA_EXECUTIVE_NAV_ITEMS: AdminNavItem[] = [
   { href: '/sources', label: 'Sources', icon: Milk, children: SOURCES_CHILDREN_OWNER },
   { href: '/approvals', label: 'Approval Inbox', icon: ShieldCheck },
   { href: '/command', label: 'Command Center', icon: Activity },
+  { href: '/visuals', label: 'Visuals', icon: BarChart3, children: VISUALS_CHILDREN },
   { href: '/tv-board', label: 'Yard Board', icon: Tv },
 ];
 

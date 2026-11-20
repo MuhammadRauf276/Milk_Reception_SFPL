@@ -42,7 +42,10 @@ function table(rows) {
     const { rows } = await c.query(`
       SELECT x.id, x.tank_id, tk.tank_code, x.transaction_type::text AS type, x.reference_type, x.reference_id,
              x.quantity_liters, x.at_13ts_liters, ${pkDay('x.operational_timestamp')} AS day,
-             tr.gross_liters AS r_l, tr.ts AS r_ts,
+             -- A receipt poured into two tanks has a row per tank: each row gets its own part of the receipt.
+             tr.gross_liters * x.quantity_liters
+               / NULLIF(SUM(x.quantity_liters) FILTER (WHERE x.transaction_type::text = 'RECEIPT') OVER (PARTITION BY x.tank_receipt_id), 0) AS r_l,
+             tr.ts AS r_ts,
              v.visit_number, v.vehicle_number, v.vehicle_dispatch_gross_liters AS d_l, v.vehicle_dispatch_ts AS d_ts,
              v.vehicle_dispatch_at_13ts_liters AS d_13,
              (wt.gross_weight_kg - wt.tare_weight_kg) AS p_net_kg, sr.lr AS p_lr, sr.ts AS p_ts

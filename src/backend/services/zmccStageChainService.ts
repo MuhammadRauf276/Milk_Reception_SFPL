@@ -24,8 +24,10 @@ export interface StageLedgerRow {
   day: string;
   quantityLiters: number;
   at13tsLiters: number | null;
-  /** Receipt as it is now. */
+  /** Receipt as it is now (this row's part of it when the receipt went into more than one tank). */
   receiptLiters: number | null;
+  /** The ZMCC tank receipt this row belongs to. */
+  receiptId?: string | null;
   receiptTs: number | null;
   receiptKind: string | null;
   /** Dispatch as it is now. */
@@ -45,6 +47,25 @@ const add = (a: StagePair, b: StagePair): StagePair => pair(a.liters + b.liters,
 const tsOf = (p: StagePair): number | null => (p.liters > 0 ? (p.at13ts * 13) / p.liters : null);
 const round = (p: StagePair): StagePair => pair(Math.round(p.liters * 100) / 100, Math.round(p.at13ts * 100) / 100);
 const r2 = (v: number | null) => (v == null ? null : Math.round(v * 100) / 100);
+
+/**
+ * One receipt can be poured into two tanks: the ledger then has a RECEIPT row per tank, while the receipt figure is
+ * the whole vehicle. Each row gets its own part of the receipt (by the litres that row put in), so the receipt is
+ * counted once and each tank gets what went into it. Pure.
+ */
+export function splitReceiptsAcrossTanks(rows: StageLedgerRow[]): StageLedgerRow[] {
+  const ledgerTotal = new Map<string, number>();
+  for (const r of rows) {
+    if (r.type !== 'RECEIPT' || !r.receiptId) continue;
+    ledgerTotal.set(r.receiptId, (ledgerTotal.get(r.receiptId) ?? 0) + r.quantityLiters);
+  }
+  return rows.map((r) => {
+    if (r.type !== 'RECEIPT' || !r.receiptId || r.receiptLiters == null) return r;
+    const total = ledgerTotal.get(r.receiptId) ?? 0;
+    if (total <= 0 || Math.abs(total - r.quantityLiters) < 1e-9) return r;
+    return { ...r, receiptLiters: (r.receiptLiters * r.quantityLiters) / total };
+  });
+}
 
 /** Corrections are already in the receipt and dispatch values, so their ledger rows are not counted again. */
 function isCorrectionRow(referenceType: string | null): boolean {
@@ -315,7 +336,7 @@ export async function getZmccStageChain(input: {
     SELECT x.tank_id::text AS tank_id, tk.tank_code, tk.zmcc_id::text AS zmcc_id, x.transaction_type::text AS type,
            x.reference_type, ${dayOf('x.operational_timestamp')} AS day,
            x.quantity_liters::float8 AS quantity_liters, x.at_13ts_liters::float8 AS at13,
-           tr.gross_liters::float8 AS r_l, tr.ts::float8 AS r_ts, tr.arrival_type AS r_kind,
+           x.tank_receipt_id::text AS r_id, tr.gross_liters::float8 AS r_l, tr.ts::float8 AS r_ts, tr.arrival_type AS r_kind,
            v.id::text AS visit_id, v.visit_number, v.vehicle_number,
            v.vehicle_dispatch_gross_liters::float8 AS d_l, v.vehicle_dispatch_at_13ts_liters::float8 AS d_13,
            (wt.gross_weight_kg - wt.tare_weight_kg)::float8 AS p_net_kg, sr.lr::float8 AS p_lr, sr.ts::float8 AS p_ts
@@ -332,7 +353,7 @@ export async function getZmccStageChain(input: {
     ORDER BY x.tank_id, x.id`;
 
   const num = (v: unknown) => (v == null ? null : Number(v));
-  const rows: StageLedgerRow[] = raw.map((r) => ({
+  const rows: StageLedgerRow[] = splitReceiptsAcrossTanks(raw.map((r) => ({
     tankId: String(r.tank_id),
     tankCode: String(r.tank_code),
     zmccId: String(r.zmcc_id),
@@ -342,6 +363,7 @@ export async function getZmccStageChain(input: {
     quantityLiters: Number(r.quantity_liters ?? 0),
     at13tsLiters: num(r.at13),
     receiptLiters: num(r.r_l),
+    receiptId: (r.r_id as string | null) ?? null,
     receiptTs: num(r.r_ts),
     receiptKind: (r.r_kind as string | null) ?? null,
     visitId: (r.visit_id as string | null) ?? null,
@@ -352,7 +374,7 @@ export async function getZmccStageChain(input: {
     plantNetKg: num(r.p_net_kg),
     plantLr: num(r.p_lr),
     plantTs: num(r.p_ts),
-  }));
+  })));
 
   // Shops by day: the journey date for calendar days; the collection time for business days.
   const shopDay = basis === 'business' ? dayOf('device_collected_at') : Prisma.sql`to_char(operational_date, 'YYYY-MM-DD')`;
