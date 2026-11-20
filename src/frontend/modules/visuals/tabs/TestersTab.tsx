@@ -67,7 +67,7 @@ export function TestersTab({ filters, unit, bucket, ids, setIds }: VisualsTabPro
   const prev = query.data?.previous;
   const u = unit === 'at13' ? 'at13ts' : 'liters';
   const unitLabel = unit === 'at13' ? '@13 TS' : 'L';
-  const fmtFull = (v: number | null) => (v == null ? '—' : unit === 'at13' ? `${fmtNum(v)} @13` : fmtLiters(v));
+  const fmtFull = (v: number | null) => (v == null ? '—' : unit === 'at13' ? `${fmtNum(v)} L @13 TS` : fmtLiters(v));
   const signed = (v: number | null) => (v == null ? '—' : `${v > 0 ? '+' : ''}${fmtNum(v)}`);
 
   const points = React.useMemo(() => (cur ? bucketRows(cur.days, bucket, withTrip) : []), [cur, bucket]);
@@ -128,12 +128,12 @@ export function TestersTab({ filters, unit, bucket, ids, setIds }: VisualsTabPro
           label="Trip loss/gain"
           value={tripNow[u]}
           previous={tripBefore ? tripBefore[u] : undefined}
-          format={(v) => (v == null ? '—' : `${signed(v)} ${unit === 'at13' ? '@13' : 'L'}`)}
+          format={(v) => (v == null ? '—' : `${signed(v)} ${unit === 'at13' ? 'L @13 TS' : 'L'}`)}
           sub={fmtPct(tripPct(tripNow[u], t.collectedArrived[u]), 2)}
           info="Received minus collected, only for journeys that arrived. A loss is negative."
         />
-        <KpiTile label="Journeys" value={t.journeys} previous={pv?.journeys} format={(v) => fmtNum(v)} sub={`${fmtNum(t.notArrived)} not arrived`} better="none" info="Journeys that were not cancelled, and how many have not reached the ZMCC." />
-        <KpiTile label="Shops per journey" value={perJourney(t)} previous={pv ? perJourney(pv) : undefined} format={(v) => fmtNum(v, 1)} info="Shops that gave accepted milk, divided by journeys." />
+        <KpiTile label="Journeys" kind="Count" value={t.journeys} previous={pv?.journeys} format={(v) => fmtNum(v)} sub={`${fmtNum(t.notArrived)} not arrived`} better="none" info="Journeys that were not cancelled, and how many have not reached the ZMCC." />
+        <KpiTile label="Shops per journey" kind="Average" value={perJourney(t)} previous={pv ? perJourney(pv) : undefined} format={(v) => fmtNum(v, 1)} info="Shops that gave accepted milk, divided by journeys." />
       </KpiRow>
 
       <ChartGrid>

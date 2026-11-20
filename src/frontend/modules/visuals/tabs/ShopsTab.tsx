@@ -96,7 +96,7 @@ export function ShopsTab({ filters, unit, bucket, ids, setIds }: VisualsTabProps
   const u = unit === 'at13' ? 'at13ts' : 'liters';
   const unitLabel = unit === 'at13' ? '@13 TS' : 'L';
   const fmt = fmtCompact;
-  const fmtFull = (v: number | null) => (v == null ? '—' : unit === 'at13' ? `${fmtNum(v)} @13` : fmtLiters(v));
+  const fmtFull = (v: number | null) => (v == null ? '—' : unit === 'at13' ? `${fmtNum(v)} L @13 TS` : fmtLiters(v));
 
   const view = React.useMemo(() => {
     if (!cur) return null;
@@ -163,10 +163,10 @@ export function ShopsTab({ filters, unit, bucket, ids, setIds }: VisualsTabProps
 
       <KpiRow>
         <KpiTile label={`Shop milk ${unitLabel}`} value={totals[u]} previous={pt ? pt[u] : undefined} format={fmtFull} info="Milk accepted at shops on journeys in these days." />
-        <KpiTile label="Milk per day" value={totals[u] / dayCount} previous={pt ? pt[u] / prevDayCount : undefined} format={fmtFull} info="Shop milk divided by the days in view." />
-        <KpiTile label="Shops with milk" value={cur.shopsGave} previous={prev?.shopsGave} format={(v) => fmtNum(v)} info="Different shops that gave accepted milk in these days." />
-        <KpiTile label="Rejected" value={totals.rejected} previous={pt?.rejected} better="down" format={(v) => fmtNum(v)} sub={`${fmtPct(rate(totals))} of collections`} info="Shop collections rejected, and their share of all collections." />
-        <KpiTile label="Stops done" value={completionPct(totals.done, totals.planned)} previous={pt ? completionPct(pt.done, pt.planned) : undefined} format={(v) => fmtPct(v)} sub={`${fmtNum(totals.done)} of ${fmtNum(totals.planned)}`} info="Shop stops completed out of the stops planned on journeys." />
+        <KpiTile label="Milk per day" kind="Per day" value={totals[u] / dayCount} previous={pt ? pt[u] / prevDayCount : undefined} format={fmtFull} info="Shop milk divided by the days in view." />
+        <KpiTile label="Shops with milk" kind="Count" value={cur.shopsGave} previous={prev?.shopsGave} format={(v) => fmtNum(v)} info="Different shops that gave accepted milk in these days." />
+        <KpiTile label="Rejected" kind="Count" value={totals.rejected} previous={pt?.rejected} better="down" format={(v) => fmtNum(v)} sub={`${fmtPct(rate(totals))} of collections`} info="Shop collections rejected, and their share of all collections." />
+        <KpiTile label="Stops done" kind="Rate" value={completionPct(totals.done, totals.planned)} previous={pt ? completionPct(pt.done, pt.planned) : undefined} format={(v) => fmtPct(v)} sub={`${fmtNum(totals.done)} of ${fmtNum(totals.planned)}`} info="Shop stops completed out of the stops planned on journeys." />
       </KpiRow>
 
       <ChartGrid>

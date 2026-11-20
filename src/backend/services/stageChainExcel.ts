@@ -83,10 +83,10 @@ export async function generateStageChainExcel(
   }));
   summary.push({});
   summary.push({ part: 'Loss / gain (later stage minus earlier; minus = loss)', __bold: true });
-  summary.push({ part: 'Tester trip (ZMCC received minus shops)', liters: t.loss.motTrip.liters, at13: t.loss.motTrip.at13ts });
+  summary.push({ part: 'Tester trip (journeys that reached the ZMCC: received minus shops)', liters: t.loss.motTrip.liters, at13: t.loss.motTrip.at13ts });
   summary.push({ part: 'Dispatch overstated (ZMCC dispatch claims more @13 TS than the milk had; not milk)', at13: t.loss.slipOver13ts });
   summary.push({ part: 'Road (plant minus what really left the ZMCC)', liters: t.loss.road.liters, at13: t.loss.road.at13ts });
-  summary.push({ part: 'Whole (shops and HC to plant)', liters: t.loss.whole.liters, at13: t.loss.whole.at13ts, before: p.loss.whole.at13ts, __bold: true });
+  summary.push({ part: 'Trip + road (finished vehicles; not the Whole card)', liters: t.loss.whole.liters, at13: t.loss.whole.at13ts, before: p.loss.whole.at13ts, __bold: true });
   summary.push({});
   summary.push({ part: `Dispatches with dispatch TS above the tank milk: ${t.slipHighCycles} of ${t.cycleCount}` });
   summary.push({ part: `Tankers not yet at the plant (left out of plant, road, whole): ${t.pendingTankers}` });
@@ -139,7 +139,7 @@ export async function generateStageChainExcel(
     { header: 'Dispatch overstated @13 TS', key: 'over', width: 16, fmt: L2 },
     { header: 'Road @13 TS', key: 'road', width: 13, fmt: L2 },
     { header: 'Road litres', key: 'roadL', width: 12, fmt: L2 },
-    { header: 'Whole @13 TS', key: 'whole', width: 13, fmt: L2 },
+    { header: 'Trip + road @13 TS', key: 'whole', width: 13, fmt: L2 },
     { header: 'Tank at end', key: 'tankEnd', width: 12, fmt: L2 },
     { header: 'Not at plant', key: 'pending', width: 11 },
   ];

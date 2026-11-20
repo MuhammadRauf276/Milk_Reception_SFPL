@@ -52,11 +52,16 @@ export interface StageZmccRow {
   zmccName: string;
   /** Shops collected by Mobile Testers (accepted), by journey date. */
   shops: StagePair;
+  /** Part of shops on journeys that have not reached the ZMCC yet: not in the trip figure. */
+  shopsOnWay: StagePair;
   /** Received into the ZMCC tank from Mobile Testers and from HC suppliers, in the cycles of the period. */
   receivedMot: StagePair;
   receivedHc: StagePair;
   /** Other tank receipts (not from a Mobile Tester or HC arrival). */
   receivedOther: StagePair;
+  /** Stock a Super Admin added to or took out of the ZMCC tanks (admin adjustments, corrections not included). */
+  adminIn: StagePair;
+  adminOut: StagePair;
   dispatchSlip: StagePair;
   dispatchTrue13ts: number;
   plant: StagePair;
@@ -66,12 +71,14 @@ export interface StageZmccRow {
   tankEnd: StagePair;
   ts: { intake: number | null; slip: number | null; plant: number | null };
   loss: {
-    /** Received from Mobile Testers minus shops collected. */
+    /** Completed journeys only: received at the ZMCC minus collected at their shops. Same rule as the MOT card. */
     motTrip: StagePair;
     /** Positive = dispatch slips claim more @13 TS than the milk held. Not a real loss or gain. */
     slipOver13ts: number;
     /** Plant minus the true dispatch: the real loss/gain on the road. */
     road: StagePair;
+    /** Plant minus the dispatch slip, same tankers as road: road plus the slip error. Same basis as the Tanker trip card. */
+    roadVsSlip: StagePair;
     /** Shops and HC to plant: motTrip plus road. */
     whole: StagePair;
   };
@@ -91,6 +98,8 @@ export interface StageDay {
   intakeMc: StagePair;
   intakeHc: StagePair;
   intakeOther: StagePair;
+  adminIn: StagePair;
+  adminOut: StagePair;
   dispatchSlip: StagePair;
   plant: StagePair;
   slipOver13ts: number;

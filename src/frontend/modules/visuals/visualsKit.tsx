@@ -398,7 +398,10 @@ export function KpiTile({
   info,
   better = 'up',
   sub,
+  kind = 'Total',
 }: {
+  /** What the number is: a total for the period, per day, an average, a rate, a level now … shown on the tile. */
+  kind?: 'Total' | 'Per day' | 'Average' | 'Typical (median)' | 'Slowest 10%' | 'Rate' | 'Count' | 'Now' | 'End of period';
   label: string;
   value: number | null;
   previous?: number | null;
@@ -413,9 +416,10 @@ export function KpiTile({
   const Icon = dir > 0 ? ArrowUpRight : dir < 0 ? ArrowDownRight : Minus;
   return (
     <div className="min-w-0 rounded-2xl border border-border/60 bg-card p-4 shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
-      <p className="flex items-center gap-1 text-xs font-medium text-secondary-foreground">
+      <p className="flex flex-wrap items-center gap-1 text-xs font-medium text-secondary-foreground">
         {label}
         {info ? <InfoTip text={info} className="-my-2" /> : null}
+        <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">{kind}</span>
       </p>
       <p className="mt-1 truncate text-2xl font-semibold tabular-nums text-foreground">{format(value)}</p>
       <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">

@@ -13,6 +13,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@core/db';
 import { pkLocal } from '@/backend/core/sqlTime';
+import { loadCompletedJourneyTrips } from './motTripFigures';
 import type { StageChainReport, StageCycle, StageDay, StagePair, StageTotal, StageZmccRow } from '@/backend/modules/management-reporting/stageChainContracts';
 
 export interface StageLedgerRow {
@@ -185,10 +186,12 @@ function summarize(
   zmccName: string,
   shops: StagePair,
   intakeOwnDay: IntakeByKind,
-  cycles: Array<WorkCycle & { zmccId: string }>
+  cycles: Array<WorkCycle & { zmccId: string }>,
+  trip: { shop: StagePair; received: StagePair } = { shop: pair(), received: pair() },
+  admin: { in: StagePair; out: StagePair } = { in: pair(), out: pair() }
 ): StageZmccRow {
   const { mot, hc, other } = intakeOwnDay;
-  let slip = pair(), plant = pair(), roadP = pair();
+  let slip = pair(), plant = pair(), roadP = pair(), slipDone = pair();
   let true13 = 0, slipOver = 0, pending = 0, slipHigh = 0;
   for (const c of cycles) {
     slip = add(slip, c.dispatchSlip);
@@ -198,18 +201,23 @@ function summarize(
     if (c.plant && c.road) {
       plant = add(plant, c.plant);
       roadP = add(roadP, c.road);
+      slipDone = add(slipDone, c.dispatchSlip);
     } else {
       pending += c.tankers.length;
     }
   }
-  const motTrip = pair(mot.liters - shops.liters, mot.at13ts - shops.at13ts);
+  // Completed journeys only (same rule as the MOT card): milk still on a vehicle is not a loss.
+  const motTrip = pair(trip.received.liters - trip.shop.liters, trip.received.at13ts - trip.shop.at13ts);
   return {
     zmccId,
     zmccName,
     shops: round(shops),
+    shopsOnWay: round(pair(shops.liters - trip.shop.liters, shops.at13ts - trip.shop.at13ts)),
     receivedMot: round(mot),
     receivedHc: round(hc),
     receivedOther: round(other),
+    adminIn: round(admin.in),
+    adminOut: round(admin.out),
     dispatchSlip: round(slip),
     dispatchTrue13ts: r2(true13)!,
     plant: round(plant),
@@ -221,6 +229,7 @@ function summarize(
       motTrip: round(motTrip),
       slipOver13ts: r2(slipOver)!,
       road: round(roadP),
+      roadVsSlip: round(pair(plant.liters - slipDone.liters, plant.at13ts - slipDone.at13ts)),
       whole: round(add(motTrip, roadP)),
     },
     cycleCount: cycles.length,
@@ -261,7 +270,8 @@ function dailySeries(
   to: string,
   cycles: Array<WorkCycle & { zmccId: string }>,
   shopDays: Map<string, StagePair>,
-  intakeDays: Map<string, IntakeByKind>
+  intakeDays: Map<string, IntakeByKind>,
+  adminDays: Map<string, { in: StagePair; out: StagePair }> = new Map()
 ): StageDay[] {
   const byDay = new Map<string, Array<WorkCycle & { zmccId: string }>>();
   for (const c of cycles) byDay.set(c.day, [...(byDay.get(c.day) ?? []), c]);
@@ -285,6 +295,8 @@ function dailySeries(
       intakeMc: round(kinds.mot),
       intakeHc: round(kinds.hc),
       intakeOther: round(kinds.other),
+      adminIn: round(adminDays.get(d)?.in ?? pair()),
+      adminOut: round(adminDays.get(d)?.out ?? pair()),
       dispatchSlip: round(slip),
       plant: round(plant),
       slipOver13ts: r2(over)!,
@@ -429,6 +441,50 @@ export async function getZmccStageChain(input: {
     return m;
   };
 
+  // Super Admin tank adjustments by ZMCC and day (corrections are already inside the receipt and dispatch values).
+  const adminByZmcc = new Map<string, Map<string, { in: StagePair; out: StagePair }>>();
+  for (const r of rows) {
+    if ((r.type !== 'ADJUSTMENT_IN' && r.type !== 'ADJUSTMENT_OUT') || isCorrectionRow(r.referenceType)) continue;
+    const byDay = adminByZmcc.get(r.zmccId) ?? new Map<string, { in: StagePair; out: StagePair }>();
+    const cur = byDay.get(r.day) ?? { in: pair(), out: pair() };
+    const p = pair(r.quantityLiters, r.at13tsLiters ?? 0);
+    if (r.type === 'ADJUSTMENT_IN') cur.in = add(cur.in, p);
+    else cur.out = add(cur.out, p);
+    byDay.set(r.day, cur);
+    adminByZmcc.set(r.zmccId, byDay);
+  }
+  const adminIn = (zmccId: string, from: string, to: string) => {
+    const out = { in: pair(), out: pair() };
+    for (const [d, v] of adminByZmcc.get(zmccId) ?? []) {
+      if (d < from || d > to) continue;
+      out.in = add(out.in, v.in);
+      out.out = add(out.out, v.out);
+    }
+    return out;
+  };
+  const adminDaysOf = (zmccIds: string[]) => {
+    const m = new Map<string, { in: StagePair; out: StagePair }>();
+    for (const id of zmccIds) {
+      for (const [d, v] of adminByZmcc.get(id) ?? []) {
+        const cur = m.get(d) ?? { in: pair(), out: pair() };
+        m.set(d, { in: add(cur.in, v.in), out: add(cur.out, v.out) });
+      }
+    }
+    return m;
+  };
+
+  // Mobile Tester trip: completed journeys by journey date, the same rule as the MOT Loss / Gain card.
+  const tripRows = await loadCompletedJourneyTrips({ from: prevFrom, to: input.to, zmccIds: zmccIdList });
+  const tripIn = (zmccId: string, from: string, to: string) => {
+    const out = { shop: pair(), received: pair() };
+    for (const t of tripRows) {
+      if (t.zmccId !== zmccId || t.day < from || t.day > to) continue;
+      out.shop = add(out.shop, t.shop);
+      out.received = add(out.received, t.received);
+    }
+    return out;
+  };
+
   const cycles = buildTankCycles(rows);
   const inRange = (from: string, to: string) => cycles.filter((c) => c.day >= from && c.day <= to);
   const build = (from: string, to: string, withDaily: boolean) =>
@@ -436,11 +492,11 @@ export async function getZmccStageChain(input: {
       .map((z) => {
         const id = z.id.toString();
         const zc = inRange(from, to).filter((c) => c.zmccId === id);
-        const row = summarize(id, z.name, shopsIn(id, from, to), intakeIn(id, from, to), zc);
-        if (withDaily) row.daily = dailySeries(from, to, zc, shopsByZmccDay.get(id) ?? new Map(), intakeDaysOf([id]));
+        const row = summarize(id, z.name, shopsIn(id, from, to), intakeIn(id, from, to), zc, tripIn(id, from, to), adminIn(id, from, to));
+        if (withDaily) row.daily = dailySeries(from, to, zc, shopsByZmccDay.get(id) ?? new Map(), intakeDaysOf([id]), adminDaysOf([id]));
         return row;
       })
-      .filter((r) => r.cycleCount > 0 || r.shops.liters > 0 || r.receivedMot.liters + r.receivedHc.liters + r.receivedOther.liters > 0);
+      .filter((r) => r.cycleCount > 0 || r.shops.liters > 0 || r.receivedMot.liters + r.receivedHc.liters + r.receivedOther.liters + r.adminIn.liters + r.adminOut.liters > 0);
 
   const current = build(input.from, input.to, true);
   const previous = build(prevFrom, prevTo, false);
@@ -453,7 +509,7 @@ export async function getZmccStageChain(input: {
     days,
     zmccs: current,
     total: totalOf(current),
-    daily: dailySeries(input.from, input.to, inRange(input.from, input.to), allShopDays, intakeDaysOf(zmccs.map((z) => z.id.toString()))),
+    daily: dailySeries(input.from, input.to, inRange(input.from, input.to), allShopDays, intakeDaysOf(zmccs.map((z) => z.id.toString())), adminDaysOf(zmccs.map((z) => z.id.toString()))),
     previous: { from: prevFrom, to: prevTo, total: totalOf(previous) },
   };
 }
@@ -471,9 +527,12 @@ function totalOf(rows: StageZmccRow[]): StageTotal {
   const plant = sum((r) => r.plant);
   return {
     shops: sum((r) => r.shops),
+    shopsOnWay: sum((r) => r.shopsOnWay),
     receivedMot,
     receivedHc,
     receivedOther,
+    adminIn: sum((r) => r.adminIn),
+    adminOut: sum((r) => r.adminOut),
     dispatchSlip,
     dispatchTrue13ts: r2(rows.reduce((n, r) => n + r.dispatchTrue13ts, 0))!,
     plant,
@@ -483,6 +542,7 @@ function totalOf(rows: StageZmccRow[]): StageTotal {
       motTrip: sum((r) => r.loss.motTrip),
       slipOver13ts: r2(rows.reduce((n, r) => n + r.loss.slipOver13ts, 0))!,
       road: sum((r) => r.loss.road),
+      roadVsSlip: sum((r) => r.loss.roadVsSlip),
       whole: sum((r) => r.loss.whole),
     },
     cycleCount: rows.reduce((n, r) => n + r.cycleCount, 0),

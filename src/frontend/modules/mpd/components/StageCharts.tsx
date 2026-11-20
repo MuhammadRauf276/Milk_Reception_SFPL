@@ -89,6 +89,8 @@ export function bucketDays(days: StageDay[], bucket: ChartBucket): BucketPoint[]
       intakeMc: zero(),
       intakeHc: zero(),
       intakeOther: zero(),
+      adminIn: zero(),
+      adminOut: zero(),
       dispatchSlip: zero(),
       plant: zero(),
       slipOver13ts: 0,
@@ -100,6 +102,8 @@ export function bucketDays(days: StageDay[], bucket: ChartBucket): BucketPoint[]
     cur.intakeMc = addP(cur.intakeMc, d.intakeMc);
     cur.intakeHc = addP(cur.intakeHc, d.intakeHc);
     cur.intakeOther = addP(cur.intakeOther, d.intakeOther);
+    cur.adminIn = addP(cur.adminIn, d.adminIn);
+    cur.adminOut = addP(cur.adminOut, d.adminOut);
     cur.dispatchSlip = addP(cur.dispatchSlip, d.dispatchSlip);
     cur.plant = addP(cur.plant, d.plant);
     cur.road = addP(cur.road, d.road);
@@ -270,7 +274,7 @@ export function LossBreakdownChart({ report, unit }: { report: StageChainReport;
     { part: 'Tester trip', value: pick(l.motTrip, unit), kind: 'real' },
     ...(unit === 'at13' ? [{ part: 'Overstated', value: l.slipOver13ts, kind: 'over' }] : []),
     { part: 'Road', value: pick(l.road, unit), kind: 'real' },
-    { part: 'Whole', value: pick(l.whole, unit), kind: 'real' },
+    { part: 'Trip + road', value: pick(l.whole, unit), kind: 'real' },
   ];
   const color = (d: (typeof data)[number]) => (d.kind === 'over' ? STAGE_COLORS.overstated : d.value < 0 ? STAGE_COLORS.loss : STAGE_COLORS.gain);
   return (
@@ -527,7 +531,7 @@ export function ZmccRankingChart({ zmccs, unit, onPickZmcc }: { zmccs: StageZmcc
     })
     .sort((a, b) => a.value - b.value);
   return (
-    <ChartCard title="Whole loss / gain by ZMCC" info={`Whole loss or gain (shops and HC to plant) as a share of the ZMCC's intake, ${unitText(unit)}. Worst first. Click a ZMCC to show only it.`}>
+    <ChartCard title="Trip + road loss / gain by ZMCC" info={`Mobile Tester trip plus road (finished vehicles) as a share of the ZMCC's intake, ${unitText(unit)}. Worst first. Click a ZMCC to show only it.`}>
       <div style={{ height: Math.max(140, data.length * 44 + 40) }}>
         {data.length === 0 ? (
           <p className="flex h-full items-center justify-center text-xs text-muted-foreground">No ZMCC milk in these days</p>

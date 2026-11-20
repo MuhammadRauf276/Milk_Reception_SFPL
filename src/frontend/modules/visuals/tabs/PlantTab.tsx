@@ -258,11 +258,11 @@ export function PlantTab({ filters, setFilters, options, bucket, ids }: VisualsT
       ) : (
         <>
           <KpiRow>
-            <KpiTile label="Vehicles in" value={view.vehicles} previous={before?.vehicles} format={(v) => fmtNum(v)} better="none" info="Vehicles that entered the gate in these days, cancelled visits left out." />
-            <KpiTile label="Median in plant" value={view.total.median} previous={before?.total.median} format={fmtMinutes} better="down" info="Gate entry to gate exit, vehicles with both times." sub={`${fmtNum(view.total.n)} vehicles`} />
-            <KpiTile label="Slowest 10%" value={view.total.p90} previous={before?.total.p90} format={fmtMinutes} better="down" info="90th percentile: nine in ten vehicles leave sooner than this." />
+            <KpiTile label="Vehicles in" kind="Count" value={view.vehicles} previous={before?.vehicles} format={(v) => fmtNum(v)} better="none" info="Vehicles that entered the gate in these days, cancelled visits left out." />
+            <KpiTile label="Median in plant" kind="Typical (median)" value={view.total.median} previous={before?.total.median} format={fmtMinutes} better="down" info="Gate entry to gate exit, vehicles with both times." sub={`${fmtNum(view.total.n)} vehicles`} />
+            <KpiTile label="Slowest 10%" kind="Slowest 10%" value={view.total.p90} previous={before?.total.p90} format={fmtMinutes} better="down" info="90th percentile: nine in ten vehicles leave sooner than this." />
             <KpiTile
-              label="Rejection rate"
+              label="Rejection rate" kind="Rate"
               value={rejectionRate(view.accepted, view.rejected)}
               previous={before ? rejectionRate(before.accepted, before.rejected) : undefined}
               format={(v) => fmtPct(v)}
@@ -270,7 +270,7 @@ export function PlantTab({ filters, setFilters, options, bucket, ids }: VisualsT
               info="Rejected share of accepted and rejected portions at the plant. Pending portions are left out."
               sub={`${fmtNum(view.rejected)} of ${fmtNum(view.accepted + view.rejected)}`}
             />
-            <KpiTile label="Still inside" value={view.insideNow} previous={before?.insideNow} format={(v) => fmtNum(v)} better="none" info="Entered, no gate exit yet." />
+            <KpiTile label="Still inside" kind="Now" value={view.insideNow} previous={before?.insideNow} format={(v) => fmtNum(v)} better="none" info="Entered, no gate exit yet." />
           </KpiRow>
 
           <ChartGrid>

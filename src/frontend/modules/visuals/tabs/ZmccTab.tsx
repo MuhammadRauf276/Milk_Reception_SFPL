@@ -6,7 +6,8 @@ import type { StageDay, StagePair } from '@/backend/modules/management-reporting
 import type { TankDay, ZmccVisuals } from '@/backend/modules/management-reporting/visuals/zmccContracts';
 import { StageChartsBoard, STAGE_COLORS, type ChartBucket } from '../../mpd/components/StageCharts';
 import type { VisualsTabProps } from '../VisualsWorkspace';
-import { ChartGrid, KpiRow, KpiTile, TrendChart, VisualTable, bucketRows, fmtCompact, fmtNum, useVisuals, type VisualColumn } from '../visualsKit';
+import { TankFlowPanel } from './TankFlowPanel';
+import { ChartGrid, KpiRow, KpiTile, TrendChart, VisualTable, bucketRows, fmtCompact, useVisuals, type VisualColumn } from '../visualsKit';
 
 const pickPair = (p: StagePair, unit: VisualsTabProps['unit']) => (unit === 'at13' ? p.at13ts : p.liters);
 
@@ -19,27 +20,6 @@ function periodRange(dayKey: string, bucket: ChartBucket): { from: string; to: s
   return { from: dayKey, to: new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10) };
 }
 
-function weekStart(day: string): string {
-  const d = new Date(`${day}T00:00:00Z`);
-  return new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
-}
-const bucketKey = (day: string, bucket: ChartBucket) => (bucket === 'DAY' ? day : bucket === 'WEEK' ? weekStart(day) : `${day.slice(0, 7)}-01`);
-
-/** Tank days grouped by period: milk in and out add up, the level is the one at the end of the period. */
-function tankPoints(days: TankDay[], bucket: ChartBucket) {
-  const closing = new Map<string, number>();
-  const opening = new Map<string, number>();
-  for (const d of days) {
-    const k = bucketKey(d.day, bucket);
-    if (!opening.has(k)) opening.set(k, d.opening);
-    closing.set(k, d.closing);
-  }
-  return bucketRows(days.map((d) => ({ day: d.day, inL: d.inL, outL: d.outL })), bucket).map((p) => ({
-    ...p,
-    opening: opening.get(p.day) ?? 0,
-    closing: closing.get(p.day) ?? 0,
-  }));
-}
 
 /** Several ZMCCs together: the days added up. */
 function sumTankDays(lists: TankDay[][]): TankDay[] {
@@ -83,7 +63,6 @@ export function ZmccTab({ filters, setFilters, unit, bucket }: VisualsTabProps) 
     () => (chosen === 'ALL' ? sumTankDays(tanks.map((t) => t.days)) : (tanks.find((t) => t.zmccId === chosen)?.days ?? [])),
     [tanks, chosen]
   );
-  const tankSeries = React.useMemo(() => tankPoints(tankDays, bucket), [tankDays, bucket]);
   const intakePoints = React.useMemo(() => bucketRows<StageDay>(stage?.daily ?? [], bucket), [stage, bucket]);
 
   const pick = (day: string) => setFilters({ ...filters, ...periodRange(day, bucket) });
@@ -162,7 +141,7 @@ export function ZmccTab({ filters, setFilters, unit, bucket }: VisualsTabProps) 
               info={`Plant received minus what really left the ZMCC, in ${unitText}. Negative = loss.`}
             />
             <KpiTile
-              label="Tank level"
+              label="Tank level" kind="End of period"
               value={lastClosing(tanks)}
               previous={before ? lastClosing(before.tanks) : undefined}
               format={(v) => `${fmtCompact(v ?? 0)} L`}
@@ -191,16 +170,11 @@ export function ZmccTab({ filters, setFilters, unit, bucket }: VisualsTabProps) 
                 </select>
               </label>
             ) : null}
-            <TrendChart
-              title="Tank: in, out and level"
-              info="Litres from the tank ledger (no @13 TS). Bars: milk in and out. Line: level at the end of the period. A big dispatch on a low-intake day is covered by the milk already in the tank."
-              points={tankSeries}
-              series={[
-                { key: 'inL', label: 'In', color: STAGE_COLORS.mc },
-                { key: 'outL', label: 'Out', color: STAGE_COLORS.dispatch },
-                { key: 'closing', label: 'Level', color: STAGE_COLORS.plant, type: 'line' },
-              ]}
-              tipFormat={(v) => `${fmtNum(v)} L`}
+            <TankFlowPanel
+              days={chosen === 'ALL' ? stage.daily : (stage.zmccs.find((z) => z.zmccId === chosen)?.daily ?? [])}
+              tank={tankDays}
+              unit={unit}
+              bucket={bucket}
               onPick={pick}
             />
           </div>

@@ -24,7 +24,7 @@ export const SignedPercent: React.FC<{ value: number | null | undefined }> = ({ 
 /** Each record's own losses and gains, added up, beside the net. */
 export const LossGainSums: React.FC<{ pair: LossPair }> = ({ pair }) => (
   <span className="tabular-nums">
-    <span className="text-rose-700">Loss {lit(pair.lossSum)}</span> · <span className="text-emerald-700">Gain {lit(pair.gainSum)}</span>
+    Records with loss <span className="text-rose-700">{lit(pair.lossSum)}</span> · with gain <span className="text-emerald-700">{lit(pair.gainSum)}</span>
   </span>
 );
 
@@ -36,24 +36,30 @@ interface LossStatCardProps {
   info: React.ReactNode;
   icon?: React.ComponentType<{ className?: string }>;
   className?: string;
+  /** A Mobile Tester is picked but this level cannot be split by tester: say so on the card. */
+  notByTester?: boolean;
+  /** More lines under the figures, e.g. the split per ZMCC. */
+  extra?: React.ReactNode;
 }
 
 /** One level: @13 TS signed is the big number, gross a small line, then every loss and gain and the percent. */
-export const LossStatCard: React.FC<LossStatCardProps> = ({ label, figure, basis = 'sent', info, icon, className }) => {
+export const LossStatCard: React.FC<LossStatCardProps> = ({ label, figure, basis = 'sent', info, icon, className, notByTester, extra }) => {
   const has = !!figure && (figure.records > 0 || figure.at13ts.sent > 0 || figure.gross.sent > 0);
   return (
     <QuantityStat
       className={className}
       label={label}
       icon={icon}
+      basis="@13 TS · total"
       at13ts={null}
       valueText={has && figure ? <Signed value={figure.at13ts.signed} /> : '—'}
       missingAt13tsCount={figure?.missing13ts}
       hint={
         has && figure ? (
           <div className="space-y-0.5">
+            {notByTester ? <p className="font-semibold text-secondary-foreground">All Mobile Testers (not split by tester)</p> : null}
             <p>
-              Gross <Signed value={figure.gross.signed} />
+              Litres as measured <Signed value={figure.gross.signed} />
             </p>
             <p>
               <SignedPercent value={figure.at13ts.percent} /> of milk {basis === 'sent' ? 'sent' : 'bought'}
@@ -61,6 +67,7 @@ export const LossStatCard: React.FC<LossStatCardProps> = ({ label, figure, basis
             <p>
               <LossGainSums pair={figure.at13ts} />
             </p>
+            {extra}
             <p className="flex items-center gap-1">
               How it is measured
               <InfoTip text={info} className="min-h-9 min-w-9" />
@@ -104,7 +111,7 @@ export function figureColumns<T>(get: (row: T) => LossFigure | null | undefined)
     },
     {
       key: 'gross',
-      header: 'Gross',
+      header: 'Litres as measured',
       align: 'right',
       cell: (r) => {
         const f = get(r);

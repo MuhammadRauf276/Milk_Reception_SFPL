@@ -153,12 +153,12 @@ const INFO = {
   intake: 'Milk received into the ZMCC tanks with the ZMCC lab tests: from Mobile Testers (MC) and from HC suppliers.',
   dispatch: 'What the ZMCC dispatched to the plant: litres, and @13 TS from the dispatch test.',
   plant: 'What the plant received: weighbridge net weight with the plant test. Tankers not yet received are left out.',
-  motTrip: 'Received at the ZMCC from Mobile Testers minus collected from shops.',
+  motTrip: 'Journeys that reached the ZMCC: milk received into the tank minus milk collected at their shops. Same figure as the MOT Loss / Gain card. Milk on journeys not at the ZMCC yet is shown under it, not counted as loss.',
   overstated: 'ZMCC dispatch @13 TS minus the same litres at the quality of the milk in the tank. Plus means the dispatch claims more solids than the milk had. A recording difference, not milk.',
-  road: 'Plant received minus what really left the ZMCC (the dispatched litres at the tank milk quality). The real loss or gain on the road.',
-  whole: 'Shops and HC to plant: the Mobile Tester trip plus the road. Dispatch overstated is not part of it.',
+  road: 'Tankers the plant has received: plant minus what really left the ZMCC (the dispatched litres at the tank milk quality). The real loss or gain on the road. "Against slip" compares the plant with the dispatch slip instead, like the Tanker trip card: road plus the slip error.',
+  whole: 'Mobile Tester trip plus road, finished vehicles only. It leaves out milk still in tanks or in tankers, so it is not the Whole Loss / Gain card (that one counts them).',
   ts: 'Milk quality (TS = Fat + SNF). Intake and plant should agree; a higher dispatch TS means the dispatch test is written high.',
-  lpd: 'LPD: litres per day, the period total divided by its days.',
+  lpd: 'Total = the whole period. Per day (LPD) = the total divided by the days of the period. Big numbers are @13 TS; the litres line is the milk as measured.',
   compare: 'Change against the same number of days just before this period.',
 };
 
@@ -217,17 +217,21 @@ function StageCard(props: {
   days: number;
   tsValue?: number | null;
   parts?: Array<{ label: string; value: StagePair }>;
+  /** More lines in @13 TS, e.g. Super Admin tank adjustments. */
+  extra?: Array<{ label: string; value: number }>;
 }) {
-  const { label, info, value, before, days, tsValue, parts } = props;
+  const { label, info, value, before, days, tsValue, parts, extra } = props;
   return (
     <div className="min-w-0 flex-1 rounded-2xl border border-border bg-card p-3 shadow-2xs">
       <p className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
         {label}
         <InfoTip text={info} className="-my-2" />
       </p>
-      <p className="mt-1 text-base font-semibold tabular-nums text-foreground">{formatLitres(value.at13ts)}</p>
+      <p className="mt-1 text-base font-semibold tabular-nums text-foreground">
+        {formatLitres(value.at13ts)} <span className="text-xs font-medium text-muted-foreground">@13 TS · total</span>
+      </p>
       <p className="text-xs text-muted-foreground tabular-nums">
-        @13 TS · {formatLitres(value.liters)} litres{tsValue != null ? ` · TS ${ts(tsValue)}` : ''}
+        Litres as measured {formatLitres(value.liters)}{tsValue != null ? ` · TS ${ts(tsValue)}` : ''}
       </p>
       {parts?.length ? (
         <p className="mt-1 flex flex-wrap gap-x-3 text-xs tabular-nums text-secondary-foreground">
@@ -238,15 +242,24 @@ function StageCard(props: {
           ))}
         </p>
       ) : null}
+      {extra?.length ? (
+        <p className="mt-1 flex flex-wrap gap-x-3 text-xs tabular-nums text-secondary-foreground">
+          {extra.map((p) => (
+            <span key={p.label}>
+              {p.label} {formatLitres(p.value)}
+            </span>
+          ))}
+        </p>
+      ) : null}
       <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs tabular-nums">
-        <span className="text-secondary-foreground">LPD {formatLitres(days > 0 ? value.liters / days : null)}</span>
-        <Change now={value.liters} before={before.liters} />
+        <span className="text-secondary-foreground">Per day (LPD) {formatLitres(days > 0 ? value.at13ts / days : null)}</span>
+        <Change now={value.at13ts} before={before.at13ts} />
       </p>
     </div>
   );
 }
 
-function Step({ label, info, value, neutral }: { label: string; info: string; value: number | null | undefined; neutral?: boolean }) {
+function Step({ label, info, value, neutral, note }: { label: string; info: string; value: number | null | undefined; neutral?: boolean; note?: React.ReactNode }) {
   return (
     <div className="flex min-w-0 shrink-0 flex-col items-center justify-center px-1 text-center">
       <ArrowRight className="hidden h-4 w-4 text-muted-foreground xl:block" aria-hidden="true" />
@@ -255,6 +268,8 @@ function Step({ label, info, value, neutral }: { label: string; info: string; va
         <InfoTip text={info} className="-my-2" />
       </p>
       <p className="text-xs font-semibold">{neutral ? <Over v={value ?? 0} /> : <Signed value={value} />}</p>
+      <p className="text-xs text-muted-foreground">@13 TS · total</p>
+      {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
     </div>
   );
 }
@@ -266,7 +281,12 @@ function Chain({ report }: { report: StageChainReport }) {
     <div className="space-y-3">
       <div className="flex flex-col gap-2 xl:flex-row xl:items-stretch">
         <StageCard label="Shops" info={INFO.shops} value={row.shops} before={prev.shops} days={report.days} />
-        <Step label="Tester trip" info={INFO.motTrip} value={row.loss.motTrip.at13ts} />
+        <Step
+          label="Tester trip"
+          info={INFO.motTrip}
+          value={row.loss.motTrip.at13ts}
+          note={row.shopsOnWay.at13ts > 0.5 ? <>Not at ZMCC yet {formatLitres(row.shopsOnWay.at13ts)}</> : null}
+        />
         <StageCard
           label="ZMCC intake"
           info={INFO.intake}
@@ -275,15 +295,28 @@ function Chain({ report }: { report: StageChainReport }) {
           days={report.days}
           tsValue={row.ts.intake}
           parts={intakeParts(row)}
+          extra={[
+            ...(row.adminIn.at13ts ? [{ label: 'Admin added', value: row.adminIn.at13ts }] : []),
+            ...(row.adminOut.at13ts ? [{ label: 'Admin removed', value: row.adminOut.at13ts }] : []),
+          ]}
         />
         <Step label="Dispatch overstated" info={INFO.overstated} value={row.loss.slipOver13ts} neutral />
         <StageCard label="ZMCC dispatch" info={INFO.dispatch} value={row.dispatchSlip} before={prev.dispatchSlip} days={report.days} tsValue={row.ts.slip} />
-        <Step label="Road" info={INFO.road} value={row.loss.road.at13ts} />
+        <Step
+          label="Road"
+          info={INFO.road}
+          value={row.loss.road.at13ts}
+          note={
+            <>
+              Against slip <Signed value={row.loss.roadVsSlip.at13ts} />
+            </>
+          }
+        />
         <StageCard label="Plant" info={INFO.plant} value={row.plant} before={prev.plant} days={report.days} tsValue={row.ts.plant} />
       </div>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-2xl border border-border bg-subtle px-3 py-2 text-xs">
         <span className="flex items-center gap-1">
-          <span className="font-semibold">Whole loss / gain</span>
+          <span className="font-semibold">Trip + road loss / gain</span>
           <InfoTip text={INFO.whole} className="-my-2" />
           <Signed value={row.loss.whole.at13ts} /> <span className="text-muted-foreground">@13 TS</span>
         </span>
@@ -442,7 +475,7 @@ export function StageChainPanel({
     { key: 'trip', header: 'Tester trip', align: 'right', cell: (z) => <Signed value={z.loss.motTrip.at13ts} /> },
     { key: 'over', header: 'Overstated', align: 'right', cell: (z) => <Over v={z.loss.slipOver13ts} /> },
     { key: 'road', header: 'Road', align: 'right', cell: (z) => <Signed value={z.loss.road.at13ts} /> },
-    { key: 'whole', header: 'Whole', align: 'right', cell: (z) => <Signed value={z.loss.whole.at13ts} /> },
+    { key: 'whole', header: 'Trip + road', align: 'right', cell: (z) => <Signed value={z.loss.whole.at13ts} /> },
   ];
   const oneZmccColumns = (s: Exclude<StageKey, 'ALL'>): Array<DataColumn<StageZmccRow>> => [
     { key: 'zmcc', header: 'ZMCC', primary: true, cell: (z) => <span className="font-medium">{z.zmccName}</span> },
@@ -501,6 +534,11 @@ export function StageChainPanel({
         </div>
       </div>
 
+      {filters.motProfileId ? (
+        <p className="rounded-xl border border-border bg-subtle px-3 py-2 text-xs text-secondary-foreground">
+          Mobile Tester filter does not apply here: these are whole-ZMCC figures.
+        </p>
+      ) : null}
       {report ? (
         <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground tabular-nums">
           <span>

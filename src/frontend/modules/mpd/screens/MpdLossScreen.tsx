@@ -36,10 +36,10 @@ const TABS: Array<{ value: LevelTab; label: string }> = [
 
 const INFO = {
   mot: 'Milk collected from shops vs milk received at the ZMCC, per Mobile Tester journey. Received minus sent. The total is the net of all journeys.',
-  area: 'MOT Loss / Gain added up for each ZMCC.',
+  area: 'The same journeys as MOT, added up per ZMCC. Its total always equals the MOT card; the split per ZMCC is below and in the Area tab.',
   transit: 'At ZMCC (tank) plus the tanker trip from ZMCC to plant.',
   atZmcc: 'Milk received at the ZMCC (MOT and HC) vs milk dispatched, with the change in tank stock taken into account.',
-  onRoad: 'Milk dispatched by the ZMCC vs milk received at the plant. Tankers the plant has not reconciled yet are left out.',
+  onRoad: 'Milk on the ZMCC dispatch slip vs milk received at the plant. Tankers the plant has not reconciled yet are left out. The Stage panel "Road" compares the plant with the real tank milk instead and shows the slip error apart.',
   whole: 'Milk bought from shops and HC vs milk received at the plant, with milk still in ZMCC tanks and in tankers counted. Equals MOT plus Transit.',
   contractor: 'Contractor tankers: dispatched vs received at the plant. Separate from Whole.',
 };
@@ -179,7 +179,7 @@ const tankerColumns: Array<DataColumn<TankerLossRow>> = [
   { key: 'dispatched', header: 'Dispatched @13 TS', align: 'right', cell: (t) => litres(t.dispatched.at13ts) },
   { key: 'plant', header: 'Plant @13 TS', align: 'right', cell: (t) => (t.plantReceived ? litres(t.plantReceived.at13ts) : <span className="text-muted-foreground">Pending</span>) },
   { key: 'figure', header: 'Loss / Gain @13 TS', align: 'right', cell: (t) => (t.figure ? <Signed value={t.figure.at13ts.signed} /> : '—') },
-  { key: 'gross', header: 'Gross', align: 'right', cell: (t) => (t.figure ? <Signed value={t.figure.gross.signed} /> : '—') },
+  { key: 'gross', header: 'Litres as measured', align: 'right', cell: (t) => (t.figure ? <Signed value={t.figure.gross.signed} /> : '—') },
   {
     key: 'alert',
     header: 'Alert',
@@ -292,7 +292,24 @@ export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ role }) => {
         <div className={`space-y-3 ${levelsQuery.isFetching ? 'opacity-60' : ''}`}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <LossStatCard label="MOT Loss / Gain" figure={levels?.mot?.total} info={INFO.mot} icon={Route} />
-            <LossStatCard label="Area Loss / Gain" figure={levels?.area?.total} info={INFO.area} icon={Building2} />
+            <LossStatCard
+              label="Area Loss / Gain"
+              figure={levels?.area?.total}
+              info={INFO.area}
+              icon={Building2}
+              extra={
+                levels?.area?.zmccs?.length ? (
+                  <ul className="space-y-0.5">
+                    {levels.area.zmccs.map((z) => (
+                      <li key={z.zmccId} className="flex justify-between gap-2">
+                        <span className="truncate">{z.zmccName}</span>
+                        <Signed value={z.total.at13ts.signed} />
+                      </li>
+                    ))}
+                  </ul>
+                ) : null
+              }
+            />
           </div>
 
           <div className="space-y-2 rounded-2xl border border-border p-3">
@@ -301,9 +318,9 @@ export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ role }) => {
               <InfoTip text={INFO.transit} />
             </h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <LossStatCard label="Transit" figure={levels?.transit?.net} info={INFO.transit} icon={Truck} />
-              <LossStatCard label="At ZMCC (tank)" figure={levels?.transit?.atZmcc} info={INFO.atZmcc} />
-              <LossStatCard label="Tanker trip (ZMCC to plant)" figure={levels?.transit?.onRoad} info={INFO.onRoad} />
+              <LossStatCard label="Transit" figure={levels?.transit?.net} info={INFO.transit} icon={Truck} notByTester={!!filters.motProfileId} />
+              <LossStatCard label="At ZMCC (tank)" figure={levels?.transit?.atZmcc} info={INFO.atZmcc} notByTester={!!filters.motProfileId} />
+              <LossStatCard label="Tanker trip (vs dispatch slip)" figure={levels?.transit?.onRoad} info={INFO.onRoad} notByTester={!!filters.motProfileId} />
             </div>
           </div>
 
@@ -314,8 +331,9 @@ export const MpdLossScreen: React.FC<MpdLossScreenProps> = ({ role }) => {
               basis="bought"
               info={INFO.whole}
               icon={Layers}
+              notByTester={!!filters.motProfileId}
             />
-            <LossStatCard label="Contractor Transit Loss / Gain" figure={levels?.contractorTransit?.total} info={INFO.contractor} icon={HardHat} />
+            <LossStatCard label="Contractor Transit Loss / Gain" figure={levels?.contractorTransit?.total} info={INFO.contractor} icon={HardHat} notByTester={!!filters.motProfileId} />
           </div>
 
           <SegmentedTabs tabs={TABS} value={tab} onValueChange={setTab} label="Loss levels" mobileOnly={false} fullWidth />

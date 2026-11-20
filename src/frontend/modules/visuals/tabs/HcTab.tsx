@@ -58,7 +58,7 @@ export function HcTab({ filters, unit, bucket, ids, setIds }: VisualsTabProps) {
     { key: 'rejected', label: 'Rejected', value: (r) => r.rejected, align: 'right' },
     { key: 'rate', label: 'Rejected %', value: (r) => rejRate(r), format: (v) => fmtPct(v), align: 'right' },
     { key: 'left', label: 'Left early', value: (r) => r.leftEarly, align: 'right' },
-    { key: 'received', label: unit === 'at13' ? 'Received @13' : 'Received L', value: (r) => pickQty(r.received, unit), align: 'right' },
+    { key: 'received', label: unit === 'at13' ? 'Received L @13 TS' : 'Received L', value: (r) => pickQty(r.received, unit), align: 'right' },
     { key: 'share', label: 'Share', value: (r) => share(pickQty(r.received, unit), totalReceived), format: (v) => fmtPct(v), align: 'right' },
     { key: 'ts', label: 'TS', value: (r) => tsOf(r.received), format: (v) => fmtNum(v, 2), align: 'right' },
     { key: 'days', label: 'Days', value: (r) => r.daysSupplied, align: 'right' },
@@ -83,18 +83,18 @@ export function HcTab({ filters, unit, bucket, ids, setIds }: VisualsTabProps) {
               format={(v) => `${fmtCompact(v ?? 0)} L`}
               info={`Milk from HC suppliers that went into the ZMCC tanks, in ${unitText}.`}
             />
-            <KpiTile label="Arrivals" value={t.arrivals} previous={p?.arrivals} format={(v) => fmtNum(v)} better="none" info="HC vehicles that arrived at the ZMCCs." />
+            <KpiTile label="Arrivals" kind="Count" value={t.arrivals} previous={p?.arrivals} format={(v) => fmtNum(v)} better="none" info="HC vehicles that arrived at the ZMCCs." />
             <KpiTile
-              label="Rejection rate"
+              label="Rejection rate" kind="Rate"
               value={rejRate(t)}
               previous={p ? rejRate(p) : undefined}
               format={(v) => fmtPct(v)}
               better="down"
               info="Rejected arrivals as a share of the arrivals with a decision."
             />
-            <KpiTile label="Active suppliers" value={t.activeSuppliers} previous={p?.activeSuppliers} format={(v) => fmtNum(v)} better="none" info="Suppliers with at least one arrival." />
+            <KpiTile label="Active suppliers" kind="Count" value={t.activeSuppliers} previous={p?.activeSuppliers} format={(v) => fmtNum(v)} better="none" info="Suppliers with at least one arrival." />
             <KpiTile
-              label="Top 5 share"
+              label="Top 5 share" kind="Rate"
               value={t.top5Share}
               previous={p?.top5Share}
               format={(v) => fmtPct(v)}

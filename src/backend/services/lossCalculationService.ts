@@ -1,4 +1,4 @@
-import { collectionFinalDecision } from './motJourneySummaryService';
+import { journeyTripFigures } from './motTripFigures';
 import { prisma } from '@core/db';
 import { Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
@@ -1351,27 +1351,17 @@ export async function getSupplyChainLossHierarchy(filters: LossFilters): Promise
   const levelJourneys: LevelJourneyInput[] = [];
 
   for (const j of journeys) {
-    const summary = j.summary;
     const labSession = j.mot_arrival?.lab_session;
 
-    // A journey without a summary still has its collections: add the accepted ones, as the summary would.
-    const acceptedCollections = j.collections.filter((c) => collectionFinalDecision(c) === 'ACCEPTED');
-    const shopGross = summary
-      ? Number(summary.total_gross_liters)
-      : Number(acceptedCollections.reduce((t, c) => t + Number(c.gross_liters), 0).toFixed(2));
-    const shop13ts = summary
-      ? Number(summary.total_at_13ts_liters)
-      : Number(acceptedCollections.reduce((t, c) => t + Number(c.at_13ts_liters), 0).toFixed(2));
-
-    // Loss uses RECEIVED milk only (unloaded into the tank). Prefer the stored Area figure; fall back to the
-    // tank receipt. Accepted-but-not-received milk is reported separately and never counted as received.
-    const zmccGross = j.area_received_liters != null
-      ? Number(j.area_received_liters)
-      : labSession?.tank_receipt ? Number(labSession.tank_receipt.gross_liters) : 0;
-    const received13Raw = j.area_received_at_13ts_liters != null
-      ? Number(j.area_received_at_13ts_liters)
-      : labSession?.tank_receipt?.at_13ts_liters != null ? Number(labSession.tank_receipt.at_13ts_liters) : null;
+    // Shops from the summary (or the accepted collections); RECEIVED milk only (unloaded into the tank), the stored
+    // Area figure first, else the tank receipt. The same rule feeds the Stage by stage trip (motTripFigures.ts).
+    // Accepted-but-not-received milk is reported separately and never counted as received.
+    const trip = journeyTripFigures(j);
+    const shopGross = trip.shopGross;
+    const shop13ts = trip.shop13ts;
+    const zmccGross = trip.receivedGross;
     // Nothing received at all is a real zero; received milk without an @13 TS figure stays missing.
+    const received13Raw = trip.received13ts;
     const zmcc13ts = received13Raw ?? 0;
     const notReceivedPortions = (labSession?.portions ?? []).filter(
       (p) => p.final_decision === 'ACCEPTED' && p.status !== 'WEIGHED' && p.status !== 'LOADED',
@@ -1399,7 +1389,7 @@ export async function getSupplyChainLossHierarchy(filters: LossFilters): Promise
       shopGross,
       shop13ts,
       receivedGross: zmccGross,
-      received13ts: received13Raw ?? (zmccGross > 0 ? null : 0),
+      received13ts: received13Raw,
       acceptedNotReceived,
     });
 
