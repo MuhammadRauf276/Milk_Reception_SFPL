@@ -331,6 +331,22 @@ function Chain({ report }: { report: StageChainReport }) {
           Dispatch TS above tank milk: {row.slipHighCycles} of {row.cycleCount} dispatches
         </span>
         {row.pendingTankers > 0 ? <span className="text-muted-foreground">Not yet at plant: {row.pendingTankers}</span> : null}
+        {(() => {
+          const fills = report.zmccs.flatMap((z) => z.cycles);
+          const late = fills.filter((c) => !c.overdrawn && (c.lateIntake?.liters ?? 0) > 0).length;
+          const over = fills.filter((c) => c.overdrawn).length;
+          return late || over ? (
+            <span className="flex items-center gap-1 text-amber-800">
+              {late ? `Milk entered after dispatch: ${late}` : null}
+              {late && over ? ' · ' : null}
+              {over ? `More out than in tank: ${over}` : null}
+              <InfoTip
+                text="Milk cannot leave before it arrives. A receipt or Admin addition entered after its dispatch is counted with that tank fill. When even then more left than the tank held, an entry is missing or wrong; open the ZMCC to see the fill."
+                className="-my-2"
+              />
+            </span>
+          ) : null;
+        })()}
       </div>
     </div>
   );
@@ -339,8 +355,10 @@ function Chain({ report }: { report: StageChainReport }) {
 const cycleColumns: Array<DataColumn<StageCycle>> = [
   { key: 'day', header: 'Day', primary: true, cell: (c) => <span className="tabular-nums">{c.day.slice(5)}</span> },
   { key: 'tankers', header: 'Tanker', cardAlways: true, cell: (c) => c.tankers.map((t) => t.vehicleNumber ?? t.visitNumber).join(' + ') },
-  { key: 'intake', header: 'Intake', label: 'Intake', align: 'right', cell: (c) => L(c.intake.liters) },
-  { key: 'dispatch', header: 'Dispatched', align: 'right', cell: (c) => L(c.dispatchSlip.liters) },
+  { key: 'opening', header: 'In tank before (L)', align: 'right', cell: (c) => L(c.opening.liters) },
+  { key: 'intake', header: 'Intake (L)', label: 'Intake', align: 'right', cell: (c) => L(c.intake.liters) },
+  { key: 'admin', header: 'Admin +/− (L)', align: 'right', cell: (c) => (c.adjustments.liters ? <Over v={c.adjustments.liters} /> : '—') },
+  { key: 'dispatch', header: 'Dispatched (L)', align: 'right', cell: (c) => L(c.dispatchSlip.liters) },
   { key: 'plant', header: 'Plant', align: 'right', cell: (c) => (c.plant ? L(c.plant.liters) : <span className="text-muted-foreground">Pending</span>) },
   { key: 'left', header: 'Left in tank', align: 'right', cell: (c) => L(c.leftInTank.liters) },
   {
@@ -361,6 +379,18 @@ const cycleColumns: Array<DataColumn<StageCycle>> = [
   },
   { key: 'over', header: 'Overstated', align: 'right', cell: (c) => <Over v={c.slipOver13ts} /> },
   { key: 'road', header: 'Road @13 TS', align: 'right', cell: (c) => (c.road ? <Signed value={c.road.at13ts} /> : '—') },
+  {
+    key: 'check',
+    header: 'Check',
+    cell: (c) =>
+      c.overdrawn ? (
+        <span className="rounded bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800">More out than in tank</span>
+      ) : c.lateIntake?.liters ? (
+        <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Milk entered after dispatch</span>
+      ) : (
+        '—'
+      ),
+  },
 ];
 
 function allDayColumns(): Array<DataColumn<StageDay>> {
@@ -369,6 +399,8 @@ function allDayColumns(): Array<DataColumn<StageDay>> {
     { key: 'shops', header: 'Shops @13 TS', align: 'right', cell: (d) => L(d.shops.at13ts) },
     { key: 'mc', header: 'MC intake @13 TS', align: 'right', cell: (d) => L(d.intakeMc.at13ts) },
     { key: 'hc', header: 'HC intake @13 TS', align: 'right', cell: (d) => L(d.intakeHc.at13ts) },
+    { key: 'adminIn', header: 'Admin added @13 TS', align: 'right', cell: (d) => (d.adminIn.at13ts ? L(d.adminIn.at13ts) : '—') },
+    { key: 'adminOut', header: 'Admin removed @13 TS', align: 'right', cell: (d) => (d.adminOut.at13ts ? L(d.adminOut.at13ts) : '—') },
     { key: 'dispatch', header: 'Dispatch @13 TS', align: 'right', cell: (d) => L(d.dispatchSlip.at13ts) },
     { key: 'plant', header: 'Plant @13 TS', align: 'right', cell: (d) => L(d.plant.at13ts) },
     { key: 'ts', header: 'TS in / dispatch / plant', align: 'right', cell: (d) => <span className="tabular-nums">{ts(d.ts.intake)} / {ts(d.ts.slip)} / {ts(d.ts.plant)}</span> },
@@ -468,9 +500,11 @@ export function StageChainPanel({
     { key: 'shops', header: 'Shops @13 TS', align: 'right', cell: (z) => L(z.shops.at13ts) },
     { key: 'mc', header: 'MC intake @13 TS', align: 'right', cell: (z) => L(z.receivedMot.at13ts) },
     { key: 'hc', header: 'HC intake @13 TS', align: 'right', cell: (z) => L(hcOf(z).at13ts) },
+    { key: 'adminIn', header: 'Admin added @13 TS', align: 'right', cell: (z) => (z.adminIn.at13ts ? L(z.adminIn.at13ts) : '—') },
+    { key: 'adminOut', header: 'Admin removed @13 TS', align: 'right', cell: (z) => (z.adminOut.at13ts ? L(z.adminOut.at13ts) : '—') },
     { key: 'dispatch', header: 'Dispatch @13 TS', align: 'right', cell: (z) => L(z.dispatchSlip.at13ts) },
     { key: 'plant', header: 'Plant @13 TS', align: 'right', cell: (z) => L(z.plant.at13ts) },
-    { key: 'lpd', header: 'Intake LPD', align: 'right', cell: (z) => L(intakeOf(z).liters / days) },
+    { key: 'lpd', header: 'Intake per day @13 TS', align: 'right', cell: (z) => L(intakeOf(z).at13ts / days) },
     { key: 'ts', header: 'TS in / dispatch / plant', align: 'right', cell: (z) => <span className="tabular-nums">{ts(z.ts.intake)} / {ts(z.ts.slip)} / {ts(z.ts.plant)}</span> },
     { key: 'trip', header: 'Tester trip', align: 'right', cell: (z) => <Signed value={z.loss.motTrip.at13ts} /> },
     { key: 'over', header: 'Overstated', align: 'right', cell: (z) => <Over v={z.loss.slipOver13ts} /> },
@@ -488,7 +522,7 @@ export function StageChainPanel({
         ]
       : []),
     { key: 'ts', header: 'TS', align: 'right', cell: (z) => <span className="tabular-nums">{ts(stageValue(s, z).ts)}</span> },
-    { key: 'lpd', header: 'LPD', align: 'right', cell: (z) => L(stageValue(s, z).pair.liters / days) },
+    { key: 'lpd', header: 'Per day @13 TS', align: 'right', cell: (z) => L(stageValue(s, z).pair.at13ts / days) },
   ];
   const inspect: DataColumn<StageZmccRow> = {
     key: 'inspect',

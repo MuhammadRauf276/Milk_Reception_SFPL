@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Factory, Gauge, Route, Truck, Users } from 'lucide-react';
+import { Container, Factory, Gauge, Route, Truck, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ErrorPopup } from '@/components/ui/error-popup';
 import type { User } from '@core/types';
@@ -17,6 +17,7 @@ import { TestersTab } from './tabs/TestersTab';
 import { HcTab } from './tabs/HcTab';
 import { ZmccTab } from './tabs/ZmccTab';
 import { PlantTab } from './tabs/PlantTab';
+import { TankersTab } from './tabs/TankersTab';
 
 /** What every tab receives from the page: the shared filters and how to draw them. */
 export interface VisualsTabProps {
@@ -35,6 +36,7 @@ const TABS: Array<{ id: VisualTab; label: string; icon: React.ElementType }> = [
   { id: 'TESTERS', label: 'Mobile Testers', icon: Users },
   { id: 'HC', label: 'HC suppliers', icon: Truck },
   { id: 'ZMCC', label: 'ZMCC', icon: Gauge },
+  { id: 'TANKERS', label: 'Tankers', icon: Container },
   { id: 'PLANT', label: 'Plant', icon: Factory },
 ];
 
@@ -43,6 +45,7 @@ const COMPONENTS: Record<VisualTab, React.FC<VisualsTabProps>> = {
   TESTERS: TestersTab,
   HC: HcTab,
   ZMCC: ZmccTab,
+  TANKERS: TankersTab,
   PLANT: PlantTab,
 };
 

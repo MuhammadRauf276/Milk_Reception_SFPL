@@ -6,11 +6,13 @@ import { loadTestersVisuals } from './testersVisuals';
 import { loadHcVisuals } from './hcVisuals';
 import { loadZmccVisuals } from './zmccVisuals';
 import { loadPlantVisuals } from './plantVisuals';
+import { loadTankersVisuals } from './tankersVisuals';
 
 export const VISUAL_LOADERS: Record<VisualTab, (q: VisualsQuery, db: VisualsDb) => Promise<unknown>> = {
   SHOPS: loadShopsVisuals,
   TESTERS: loadTestersVisuals,
   HC: loadHcVisuals,
   ZMCC: loadZmccVisuals,
+  TANKERS: loadTankersVisuals,
   PLANT: loadPlantVisuals,
 };

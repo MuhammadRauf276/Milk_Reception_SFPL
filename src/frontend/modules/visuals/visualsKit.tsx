@@ -462,15 +462,31 @@ export interface VisualColumn<R> {
 }
 
 /** A plain table under the charts, sortable by any column, so every value on a chart can be read exactly. */
-export function VisualTable<R>({ title, rows, columns, rowKey, initialSort }: { title: string; rows: R[]; columns: Array<VisualColumn<R>>; rowKey: (r: R) => string; initialSort?: string }) {
+export function VisualTable<R>({
+  title,
+  rows,
+  columns,
+  rowKey,
+  initialSort,
+  maxRows,
+}: {
+  title: string;
+  rows: R[];
+  columns: Array<VisualColumn<R>>;
+  rowKey: (r: R) => string;
+  initialSort?: string;
+  /** Draw at most this many rows, after sorting all of them. */
+  maxRows?: number;
+}) {
   const [sort, setSort] = React.useState<{ key: string; desc: boolean }>({ key: initialSort ?? columns[1]?.key ?? columns[0].key, desc: true });
   const col = columns.find((c) => c.key === sort.key) ?? columns[0];
-  const sorted = [...rows].sort((a, b) => {
+  const sortedAll = [...rows].sort((a, b) => {
     const x = col.value(a);
     const y = col.value(b);
     const cmp = typeof x === 'number' && typeof y === 'number' ? x - y : String(x ?? '').localeCompare(String(y ?? ''));
     return sort.desc ? -cmp : cmp;
   });
+  const sorted = maxRows != null ? sortedAll.slice(0, maxRows) : sortedAll;
   return (
     <section className="min-w-0 rounded-2xl border border-border/60 bg-card shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
       <h4 className="px-4 pt-4 text-sm font-semibold text-foreground">{title}</h4>

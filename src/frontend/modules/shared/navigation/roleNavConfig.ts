@@ -66,6 +66,7 @@ const VISUALS_LINKS: RoleNavLeaf[] = [
   { id: 'vis-testers', label: 'Mobile Testers', href: '/visuals?tab=TESTERS', icon: Users },
   { id: 'vis-hc', label: 'HC suppliers', href: '/visuals?tab=HC', icon: Users },
   { id: 'vis-zmcc', label: 'ZMCC', href: '/visuals', icon: Gauge },
+  { id: 'vis-tankers', label: 'Tankers', href: '/visuals?tab=TANKERS', icon: Truck },
   { id: 'vis-plant', label: 'Plant', href: '/visuals?tab=PLANT', icon: Factory },
 ];
 

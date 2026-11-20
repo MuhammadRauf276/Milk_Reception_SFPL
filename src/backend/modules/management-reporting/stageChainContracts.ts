@@ -45,6 +45,10 @@ export interface StageCycle {
   slipOver13ts: number;
   /** Plant minus the true dispatch (litres: plant minus dispatched). Null until the plant receipt exists. */
   road: StagePair | null;
+  /** Receipts entered after this fill's dispatch that the dispatched milk needed (milk cannot leave before it arrives). */
+  lateIntake?: StagePair;
+  /** Even with those, more left than the tank held on paper: an entry is missing or wrong. */
+  overdrawn?: boolean;
 }
 
 export interface StageZmccRow {

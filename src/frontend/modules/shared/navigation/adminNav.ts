@@ -77,6 +77,7 @@ export const VISUALS_CHILDREN = [
   { href: '/visuals?tab=TESTERS', label: 'Mobile Testers' },
   { href: '/visuals?tab=HC', label: 'HC suppliers' },
   { href: '/visuals', label: 'ZMCC' },
+  { href: '/visuals?tab=TANKERS', label: 'Tankers' },
   { href: '/visuals?tab=PLANT', label: 'Plant' },
 ];
 

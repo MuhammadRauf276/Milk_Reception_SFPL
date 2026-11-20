@@ -73,9 +73,28 @@ function isCorrectionRow(referenceType: string | null): boolean {
   return referenceType === 'ZMCC_LAB_SESSION_CORRECTION' || /DISPATCH_CORRECTION/.test(referenceType ?? '');
 }
 
-type WorkCycle = StageCycle & { mot: StagePair; hc: StagePair; other: StagePair; plantComplete: boolean };
+type WorkCycle = StageCycle & { mot: StagePair; hc: StagePair; other: StagePair; plantComplete: boolean; unknownQualityLiters?: number };
 
-/** Builds the cycles of each tank from its ledger rows in the order they were entered. Pure. */
+/**
+ * The milk quality in the tank when a fill is dispatched: opening stock plus what came in. Stock the ledger shows as
+ * nothing or below zero (a dispatch recorded before its receipt, an old gap) carries no quality, so it is left out.
+ */
+function fillTs(c: { opening: StagePair; intake: StagePair; adjustments: StagePair }): number | null {
+  const opening = c.opening.liters > 0 && c.opening.at13ts > 0 ? c.opening : pair();
+  return tsOf(add(opening, add(c.intake, c.adjustments)));
+}
+
+/** Litres of tolerance before a tank on paper counts as below zero. */
+const OVERDRAW_TOLERANCE_L = 1;
+
+/**
+ * Builds the cycles of each tank from its ledger rows in the order they were entered. Pure.
+ * Milk cannot leave before it arrives: when a fill sends out more than the tank held, the receipts entered right
+ * after it (until the tank is back at zero or above) are that fill's milk entered late, and join it.
+ * The milk that leaves on a dispatch has the tank's quality, so the tank stock goes down by the dispatched litres at
+ * the tank TS, never by the slip's @13 TS: an overstated slip must not make the milk left behind look poorer and
+ * so inflate the next fill's overstatement.
+ */
 export function buildTankCycles(rows: StageLedgerRow[]): Array<WorkCycle & { zmccId: string }> {
   const out: Array<WorkCycle & { zmccId: string }> = [];
   const stock = new Map<string, StagePair>();
@@ -84,9 +103,14 @@ export function buildTankCycles(rows: StageLedgerRow[]): Array<WorkCycle & { zmc
   const finish = () => {
     if (!cur || cur.tankers.length === 0) return;
     const s = stock.get(cur.tankId)!;
-    cur.leftInTank = { ...s };
     cur.plant = cur.plantComplete ? cur.plant : null;
-    const tankTs = tsOf(add(cur.opening, add(cur.intake, cur.adjustments)));
+    const tankTs = fillTs(cur);
+    // What is left keeps the tank quality: available milk minus the dispatched litres at the tank TS.
+    if (tankTs != null) {
+      s.at13ts = cur.opening.at13ts + cur.intake.at13ts + cur.adjustments.at13ts - (cur.dispatchSlip.liters * tankTs) / 13;
+    }
+    cur.overdrawn = s.liters < -OVERDRAW_TOLERANCE_L;
+    cur.leftInTank = { ...s };
     cur.ts = { tank: tankTs, slip: tsOf(cur.dispatchSlip), plant: cur.plant ? tsOf(cur.plant) : null };
     cur.dispatchTrue13ts = tankTs != null ? (cur.dispatchSlip.liters * tankTs) / 13 : cur.dispatchSlip.at13ts;
     cur.slipOver13ts = cur.dispatchSlip.at13ts - cur.dispatchTrue13ts;
@@ -102,7 +126,13 @@ export function buildTankCycles(rows: StageLedgerRow[]): Array<WorkCycle & { zmc
   for (const r of rows) {
     const s = stock.get(r.tankId) ?? pair();
     stock.set(r.tankId, s);
-    if (!cur || cur.tankId !== r.tankId || (cur.tankers.length > 0 && r.type !== 'ISSUE')) {
+    const belowZero = s.liters < -OVERDRAW_TOLERANCE_L;
+    const lateJoined = (cur?.lateIntake?.liters ?? 0) > 0;
+    const startsNew =
+      !cur ||
+      cur.tankId !== r.tankId ||
+      (cur.tankers.length > 0 && !belowZero && (r.type !== 'ISSUE' || lateJoined));
+    if (startsNew) {
       finish();
       cur = {
         zmccId: r.zmccId,
@@ -126,11 +156,17 @@ export function buildTankCycles(rows: StageLedgerRow[]): Array<WorkCycle & { zmc
         other: pair(),
       };
     }
+    if (!cur) continue;
+    if ((r.type === 'RECEIPT' || r.type === 'ADJUSTMENT_IN') && cur.tankers.length > 0) {
+      // Joins a fill that already sent out more than it held: milk received before, entered after the dispatch.
+      cur.lateIntake = cur.lateIntake ?? pair();
+    }
     if (r.type === 'RECEIPT') {
       const liters = r.receiptLiters ?? r.quantityLiters;
       const at13 = r.receiptLiters != null && r.receiptTs != null ? (r.receiptLiters * r.receiptTs) / 13 : (r.at13tsLiters ?? 0);
       const p = pair(liters, at13);
       cur.intake = add(cur.intake, p);
+      if (cur.lateIntake) cur.lateIntake = add(cur.lateIntake, p);
       if (r.receiptKind === 'HC') cur.hc = add(cur.hc, p);
       else if (r.receiptKind === 'MOT' || r.receiptKind === 'MC') cur.mot = add(cur.mot, p);
       else cur.other = add(cur.other, p);
@@ -140,8 +176,9 @@ export function buildTankCycles(rows: StageLedgerRow[]): Array<WorkCycle & { zmc
       const liters = r.dispatchLiters ?? r.quantityLiters;
       const at13 = r.dispatchAt13ts ?? r.at13tsLiters ?? 0;
       cur.dispatchSlip = add(cur.dispatchSlip, pair(liters, at13));
+      const leavingTs = fillTs(cur);
       s.liters -= liters;
-      s.at13ts -= at13;
+      s.at13ts -= leavingTs != null ? (liters * leavingTs) / 13 : at13; // set again exactly when the fill closes
       let tankerPlant: StagePair | null = null;
       if (r.plantNetKg != null && r.plantLr != null && r.plantTs != null && r.plantNetKg > 0) {
         const pl = r.plantNetKg / (1 + r.plantLr / 1000);
@@ -165,8 +202,13 @@ export function buildTankCycles(rows: StageLedgerRow[]): Array<WorkCycle & { zmc
       cur.day = r.day;
     } else if (!isCorrectionRow(r.referenceType)) {
       const sign = r.type === 'ADJUSTMENT_IN' ? 1 : -1;
-      const p = pair(sign * r.quantityLiters, sign * (r.at13tsLiters ?? 0));
+      // An adjustment without its own @13 TS figure moves stock at the tank's quality; it is not water.
+      const stockTs = s.liters > 0 && s.at13ts > 0 ? (s.at13ts * 13) / s.liters : null;
+      const at13 = r.at13tsLiters ?? (stockTs != null ? (r.quantityLiters * stockTs) / 13 : null);
+      const p = pair(sign * r.quantityLiters, sign * (at13 ?? 0));
+      if (at13 == null) cur.unknownQualityLiters = (cur.unknownQualityLiters ?? 0) + r.quantityLiters;
       cur.adjustments = add(cur.adjustments, p);
+      if (cur.lateIntake && r.type === 'ADJUSTMENT_IN') cur.lateIntake = add(cur.lateIntake, p);
       s.liters += p.liters;
       s.at13ts += p.at13ts;
     }
@@ -257,6 +299,8 @@ function summarize(
       ts: { tank: r2(c.ts.tank), slip: r2(c.ts.slip), plant: r2(c.ts.plant) },
       slipOver13ts: r2(c.slipOver13ts)!,
       road: c.road ? round(c.road) : null,
+      lateIntake: c.lateIntake ? round(c.lateIntake) : undefined,
+      overdrawn: c.overdrawn ?? false,
     })),
   };
 }

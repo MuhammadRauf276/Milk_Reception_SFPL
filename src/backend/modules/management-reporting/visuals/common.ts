@@ -1,6 +1,6 @@
 /** Shared shapes for the Visuals page (see docs/VISUALS_BRIEF.md). Each tab has its own contract file next to this one. */
 
-export const VISUAL_TABS = ['SHOPS', 'TESTERS', 'HC', 'ZMCC', 'PLANT'] as const;
+export const VISUAL_TABS = ['SHOPS', 'TESTERS', 'HC', 'ZMCC', 'TANKERS', 'PLANT'] as const;
 export type VisualTab = (typeof VISUAL_TABS)[number];
 
 /** Who opens the Visuals page: the Command Center roles. */
