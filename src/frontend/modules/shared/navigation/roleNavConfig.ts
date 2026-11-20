@@ -915,7 +915,7 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
   }
 
   // 16. Senior Executive Management: views and reports only. The role cannot approve or act (VIEW and VIEW_AUDIT),
-  // so the Approval Inbox, the Exception Desk, Testing Policies and the yard TV board are left out.
+  // so the Approval Inbox, the Exception Desk and Testing Policies are left out. The Yard Board is view-only, so it is shown.
   if (role === 'EXECUTIVE_MANAGEMENT') {
     const pickViews = (ids: string[]) =>
       ids.map((id) => MPD_VIEW_LINKS.find((l) => l.id === id)).filter((l): l is RoleNavLeaf => Boolean(l));
@@ -937,6 +937,12 @@ function getBaseRoleNavSections(currentUser: User | null): RoleNavSection[] {
         label: 'Live operations',
         icon: LayoutDashboard,
         children: pickViews(['mpd-v-fleet', 'mpd-v-journeys', 'mpd-v-sources', 'mpd-v-hierarchy', 'mpd-v-hierarchy-hc']),
+      },
+      {
+        id: 'tv-board',
+        label: 'Yard Board',
+        icon: Tv,
+        href: '/tv-board',
       },
     ];
   }

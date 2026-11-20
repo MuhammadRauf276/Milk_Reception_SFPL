@@ -14,6 +14,7 @@ test('Senior Executive Management has no test policy link; the Command Center st
   assert.equal(links.includes('/command?view=POLICIES'), false);
   assert.equal(links.some(isTestPolicyPath), false);
   assert.equal(links.includes('/command?view=FLEET_RADAR'), true);
+  assert.equal(links.includes('/tv-board'), true, 'the view-only Yard Board is in the menu');
 });
 
 test('MPD Head keeps the Testing Policies link; Data Executive keeps Lab Policies', () => {
