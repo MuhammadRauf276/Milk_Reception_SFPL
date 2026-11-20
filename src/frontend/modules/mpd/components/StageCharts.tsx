@@ -271,10 +271,10 @@ export function StageTotalsChart({ report, unit }: { report: StageChainReport; u
 export function LossBreakdownChart({ report, unit }: { report: StageChainReport; unit: ChartUnit }) {
   const l = report.total.loss;
   const data = [
-    { part: 'Tester trip', value: pick(l.motTrip, unit), kind: 'real' },
+    { part: 'Area', value: pick(l.motTrip, unit), kind: 'real' },
     ...(unit === 'at13' ? [{ part: 'Overstated', value: l.slipOver13ts, kind: 'over' }] : []),
     { part: 'Road', value: pick(l.road, unit), kind: 'real' },
-    { part: 'Trip + road', value: pick(l.whole, unit), kind: 'real' },
+    { part: 'Area + road', value: pick(l.whole, unit), kind: 'real' },
   ];
   const color = (d: (typeof data)[number]) => (d.kind === 'over' ? STAGE_COLORS.overstated : d.value < 0 ? STAGE_COLORS.loss : STAGE_COLORS.gain);
   return (
@@ -531,7 +531,7 @@ export function ZmccRankingChart({ zmccs, unit, onPickZmcc }: { zmccs: StageZmcc
     })
     .sort((a, b) => a.value - b.value);
   return (
-    <ChartCard title="Trip + road loss / gain by ZMCC" info={`Mobile Tester trip plus road (finished vehicles) as a share of the ZMCC's intake, ${unitText(unit)}. Worst first. Click a ZMCC to show only it.`}>
+    <ChartCard title="Area + road loss / gain by ZMCC" info={`Area (all MOT journeys) plus road (finished vehicles) as a share of the ZMCC's intake, ${unitText(unit)}. Worst first. Click a ZMCC to show only it.`}>
       <div style={{ height: Math.max(140, data.length * 44 + 40) }}>
         {data.length === 0 ? (
           <p className="flex h-full items-center justify-center text-xs text-muted-foreground">No ZMCC milk in these days</p>

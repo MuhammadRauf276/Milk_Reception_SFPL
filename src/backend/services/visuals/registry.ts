@@ -7,8 +7,10 @@ import { loadHcVisuals } from './hcVisuals';
 import { loadZmccVisuals } from './zmccVisuals';
 import { loadPlantVisuals } from './plantVisuals';
 import { loadTankersVisuals } from './tankersVisuals';
+import { loadFlowVisuals } from './flowVisuals';
 
 export const VISUAL_LOADERS: Record<VisualTab, (q: VisualsQuery, db: VisualsDb) => Promise<unknown>> = {
+  FLOW: loadFlowVisuals,
   SHOPS: loadShopsVisuals,
   TESTERS: loadTestersVisuals,
   HC: loadHcVisuals,

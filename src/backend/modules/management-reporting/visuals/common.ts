@@ -1,10 +1,10 @@
 /** Shared shapes for the Visuals page (see docs/VISUALS_BRIEF.md). Each tab has its own contract file next to this one. */
 
-export const VISUAL_TABS = ['SHOPS', 'TESTERS', 'HC', 'ZMCC', 'TANKERS', 'PLANT'] as const;
+export const VISUAL_TABS = ['FLOW', 'SHOPS', 'TESTERS', 'HC', 'ZMCC', 'TANKERS', 'PLANT'] as const;
 export type VisualTab = (typeof VISUAL_TABS)[number];
 
-/** Who opens the Visuals page: the Command Center roles. */
-export const VISUALS_ROLES = ['SUPER_ADMIN', 'EXECUTIVE_MANAGEMENT', 'HEAD_OF_MPD', 'DATA_EXECUTIVE'] as const;
+/** Who opens the Visuals page: senior management only (owner's decision). */
+export const VISUALS_ROLES = ['SUPER_ADMIN', 'EXECUTIVE_MANAGEMENT', 'HEAD_OF_MPD'] as const;
 
 export type DayBasis = 'calendar' | 'business';
 

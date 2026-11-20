@@ -25,6 +25,8 @@ import {
   share,
   useVisuals,
   type VisualColumn,
+  measurePoints,
+  measureValue,
 } from '../visualsKit';
 
 const pickQty = (p: QtyPair, unit: VisualsTabProps['unit']) => (unit === 'at13' ? p.at13ts : p.liters);
@@ -33,7 +35,7 @@ const tsOf = (p: QtyPair) => (p.liters > 0 ? (p.at13ts * 13) / p.liters : null);
 const rejRate = (r: { accepted: number; rejected: number }) => share(r.rejected, r.accepted + r.rejected);
 const MIN_ARRIVALS = 3;
 
-export function HcTab({ filters, unit, bucket, ids, setIds }: VisualsTabProps) {
+export function HcTab({ filters, unit, bucket, measure, ids, setIds }: VisualsTabProps) {
   const query = useVisuals<HcVisuals>('HC', filters, ids);
   const data = query.data?.current;
   const before = query.data?.previous;
@@ -46,7 +48,11 @@ export function HcTab({ filters, unit, bucket, ids, setIds }: VisualsTabProps) {
     { label: 'Rejected', value: fmtNum(s.rejected) },
     { label: 'Received', value: `${fmtNum(pickQty(s.received, unit))} L` },
   ];
-  const days = React.useMemo(() => bucketRows(data?.daily ?? [], bucket), [data, bucket]);
+  const meta = query.data?.meta;
+  const days = React.useMemo(() => {
+    const grouped = bucketRows(data?.daily ?? [], bucket);
+    return meta ? measurePoints(grouped, measure, bucket, meta.from, meta.to) : grouped;
+  }, [data, bucket, measure, meta]);
 
   const totalReceived = data ? pickQty(data.totals.received, unit) : 0;
   const columns: Array<VisualColumn<HcSupplierRow>> = [
@@ -78,8 +84,9 @@ export function HcTab({ filters, unit, bucket, ids, setIds }: VisualsTabProps) {
           <KpiRow>
             <KpiTile
               label="HC received"
-              value={pickQty(t.received, unit)}
-              previous={p ? pickQty(p.received, unit) : undefined}
+              kind={measure === 'perDay' ? 'Per day' : 'Total'}
+              value={measureValue(pickQty(t.received, unit), measure, meta?.days ?? 1)}
+              previous={p ? measureValue(pickQty(p.received, unit), measure, meta?.days ?? 1) : undefined}
               format={(v) => `${fmtCompact(v ?? 0)} L`}
               info={`Milk from HC suppliers that went into the ZMCC tanks, in ${unitText}.`}
             />

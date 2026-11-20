@@ -23,6 +23,8 @@ import {
   useVisuals,
   type TrendSeries,
   type VisualColumn,
+  measurePoints,
+  measureValue,
 } from '../visualsKit';
 
 type DayDerived = TestersDayRow & { trip: QtyPair; tripGain: QtyPair; tripLoss: QtyPair };
@@ -61,7 +63,7 @@ function totalsOf(days: TestersDayRow[]) {
   return t;
 }
 
-export function TestersTab({ filters, unit, bucket, ids, setIds }: VisualsTabProps) {
+export function TestersTab({ filters, unit, bucket, measure, ids, setIds }: VisualsTabProps) {
   const query = useVisuals<TestersVisuals>('TESTERS', filters, ids);
   const cur = query.data?.current;
   const prev = query.data?.previous;
@@ -70,7 +72,13 @@ export function TestersTab({ filters, unit, bucket, ids, setIds }: VisualsTabPro
   const fmtFull = (v: number | null) => (v == null ? '—' : unit === 'at13' ? `${fmtNum(v)} L @13 TS` : fmtLiters(v));
   const signed = (v: number | null) => (v == null ? '—' : `${v > 0 ? '+' : ''}${fmtNum(v)}`);
 
-  const points = React.useMemo(() => (cur ? bucketRows(cur.days, bucket, withTrip) : []), [cur, bucket]);
+  const meta = query.data?.meta;
+  const points = React.useMemo(
+    () => (cur ? (meta ? measurePoints(bucketRows(cur.days, bucket, withTrip), measure, bucket, meta.from, meta.to) : bucketRows(cur.days, bucket, withTrip)) : []),
+    [cur, bucket, measure, meta]
+  );
+  const kind = measure === 'perDay' ? ('Per day' as const) : ('Total' as const);
+  const m = (v: number | null | undefined) => measureValue(v, measure, meta?.days ?? 1);
 
   if (!cur) {
     return (
@@ -102,8 +110,8 @@ export function TestersTab({ filters, unit, bucket, ids, setIds }: VisualsTabPro
     { key: 'rejected', label: 'Rejected', value: (r) => r.rejected, align: 'right' },
     { key: 'collected', label: `Collected ${unitLabel}`, value: (r) => r.collected[u], align: 'right' },
     { key: 'received', label: `Received ${unitLabel}`, value: (r) => r.received[u], align: 'right' },
-    { key: 'trip', label: 'Trip L/G', value: (r) => rowTrip(r)[u], format: signed, align: 'right' },
-    { key: 'tripPct', label: 'Trip %', value: (r) => tripPctOf(r), format: (v) => fmtPct(v, 2), align: 'right' },
+    { key: 'trip', label: 'Journey L/G', value: (r) => rowTrip(r)[u], format: signed, align: 'right' },
+    { key: 'tripPct', label: 'Journey %', value: (r) => tripPctOf(r), format: (v) => fmtPct(v, 2), align: 'right' },
     { key: 'tsc', label: 'TS collected', value: (r) => tsOfLiters(r.collected.liters, r.collected.at13ts), format: (v) => fmtNum(v, 2), align: 'right' },
     { key: 'tsr', label: 'TS received', value: (r) => tsOfLiters(r.received.liters, r.received.at13ts), format: (v) => fmtNum(v, 2), align: 'right' },
   ];
@@ -122,12 +130,13 @@ export function TestersTab({ filters, unit, bucket, ids, setIds }: VisualsTabPro
       <PickList label="Mobile Testers" items={cur.testerOptions} picked={ids} onChange={setIds} />
 
       <KpiRow>
-        <KpiTile label={`Collected ${unitLabel}`} value={t.collected[u]} previous={pv ? pv.collected[u] : undefined} format={fmtFull} info="Accepted shop milk on journeys in these days." />
-        <KpiTile label={`Received ${unitLabel}`} value={t.received[u]} previous={pv ? pv.received[u] : undefined} format={fmtFull} info="Milk the ZMCC tanks received from these journeys." />
+        <KpiTile label={`Collected ${unitLabel}`} kind={kind} value={m(t.collected[u])} previous={pv ? m(pv.collected[u]) : undefined} format={fmtFull} info="Accepted shop milk on journeys in these days." />
+        <KpiTile label={`Received ${unitLabel}`} kind={kind} value={m(t.received[u])} previous={pv ? m(pv.received[u]) : undefined} format={fmtFull} info="Milk the ZMCC tanks received from these journeys." />
         <KpiTile
-          label="Trip loss/gain"
-          value={tripNow[u]}
-          previous={tripBefore ? tripBefore[u] : undefined}
+          label="MOT journey loss / gain" signed
+          kind={kind}
+          value={m(tripNow[u])}
+          previous={tripBefore ? m(tripBefore[u]) : undefined}
           format={(v) => (v == null ? '—' : `${signed(v)} ${unit === 'at13' ? 'L @13 TS' : 'L'}`)}
           sub={fmtPct(tripPct(tripNow[u], t.collectedArrived[u]), 2)}
           info="Received minus collected, only for journeys that arrived. A loss is negative."
@@ -148,7 +157,7 @@ export function TestersTab({ filters, unit, bucket, ids, setIds }: VisualsTabPro
           format={fmtCompact}
         />
         <TrendChart
-          title={`Trip loss/gain (${unitLabel})`}
+          title={`MOT journey loss / gain (${unitLabel})`}
           info="Received minus collected for journeys that arrived. Red is a loss, green a gain."
           points={points}
           series={[
@@ -168,15 +177,15 @@ export function TestersTab({ filters, unit, bucket, ids, setIds }: VisualsTabPro
           format={fmtCompact}
         />
         <RankedBarsChart
-          title="Trip loss/gain %"
-          info="Trip loss or gain as a share of the milk collected on journeys that arrived. Loss is negative."
+          title="MOT journey loss / gain %"
+          info="MOT journey loss or gain as a share of the milk collected on journeys that arrived. Loss is negative."
           signed
           percent
           rows={testers
             .map((r) => ({ r, v: tripPctOf(r) }))
             .filter((x): x is { r: TesterRow; v: number } => x.v != null)
             .sort((a, b) => a.v - b.v)
-            .map(({ r, v }) => ({ id: r.id, name: r.name, value: v, tip: [{ label: 'Trip', value: signed(rowTrip(r)[u]) }] }))}
+            .map(({ r, v }) => ({ id: r.id, name: r.name, value: v, tip: [{ label: 'Journey loss / gain', value: signed(rowTrip(r)[u]) }] }))}
           format={(v) => fmtPct(v, 2)}
         />
         <TrendChart

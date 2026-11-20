@@ -62,10 +62,11 @@ export interface RoleNavSection {
 
 /** Visuals page, one link per sub-tab (senior management charts). */
 const VISUALS_LINKS: RoleNavLeaf[] = [
+  { id: 'vis-flow', label: 'Loss flow', href: '/visuals', icon: ArrowRightLeft },
   { id: 'vis-shops', label: 'Shops & routes', href: '/visuals?tab=SHOPS', icon: RouteIcon },
   { id: 'vis-testers', label: 'Mobile Testers', href: '/visuals?tab=TESTERS', icon: Users },
   { id: 'vis-hc', label: 'HC suppliers', href: '/visuals?tab=HC', icon: Users },
-  { id: 'vis-zmcc', label: 'ZMCC', href: '/visuals', icon: Gauge },
+  { id: 'vis-zmcc', label: 'ZMCC', href: '/visuals?tab=ZMCC', icon: Gauge },
   { id: 'vis-tankers', label: 'Tankers', href: '/visuals?tab=TANKERS', icon: Truck },
   { id: 'vis-plant', label: 'Plant', href: '/visuals?tab=PLANT', icon: Factory },
 ];

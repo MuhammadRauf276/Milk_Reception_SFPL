@@ -28,6 +28,7 @@ import {
   useVisuals,
   type TrendSeries,
   type VisualColumn,
+  measurePoints,
 } from '../visualsKit';
 
 type DayWithOthers = ShopsDayRow & { others: QtyPair };
@@ -89,7 +90,7 @@ function RouteBars({ rows, picked, onPick, format }: { rows: Array<{ id: string;
   );
 }
 
-export function ShopsTab({ filters, unit, bucket, ids, setIds }: VisualsTabProps) {
+export function ShopsTab({ filters, unit, bucket, measure, ids, setIds }: VisualsTabProps) {
   const query = useVisuals<ShopsVisuals>('SHOPS', filters, ids);
   const cur = query.data?.current;
   const prev = query.data?.previous;
@@ -102,14 +103,16 @@ export function ShopsTab({ filters, unit, bucket, ids, setIds }: VisualsTabProps
     if (!cur) return null;
     const totals = totalsOf(cur.days);
     const routeTotal = cur.routes.reduce((s, r) => s + r.collected[u], 0);
-    const points = bucketRows(cur.days, bucket, withOthers);
+    const meta = query.data?.meta;
+    const grouped = bucketRows(cur.days, bucket, withOthers);
+    const points = meta ? measurePoints(grouped, measure, bucket, meta.from, meta.to) : grouped;
     const routeName = (id: string) => cur.routes.find((r) => r.id === id)?.name ?? `Route ${id}`;
     const stackSeries: TrendSeries[] = [
       ...cur.topRouteIds.map((id, i) => ({ key: `byRoute.r${id}.${u}`, label: routeName(id), color: SERIES_COLORS[i] ?? SERIES_COLORS[0], stack: 'a' })),
       { key: `others.${u}`, label: 'Others', color: '#cbd5e1', stack: 'a' },
     ];
     return { totals, routeTotal, points, stackSeries };
-  }, [cur, bucket, u]);
+  }, [cur, bucket, u, measure, query.data?.meta]);
 
   if (!cur || !view) {
     return (
@@ -162,8 +165,7 @@ export function ShopsTab({ filters, unit, bucket, ids, setIds }: VisualsTabProps
       <PickList label="Routes" items={cur.routeOptions} picked={ids} onChange={setIds} />
 
       <KpiRow>
-        <KpiTile label={`Shop milk ${unitLabel}`} value={totals[u]} previous={pt ? pt[u] : undefined} format={fmtFull} info="Milk accepted at shops on journeys in these days." />
-        <KpiTile label="Milk per day" kind="Per day" value={totals[u] / dayCount} previous={pt ? pt[u] / prevDayCount : undefined} format={fmtFull} info="Shop milk divided by the days in view." />
+        <KpiTile label={`Shop milk ${unitLabel}`} kind={measure === 'perDay' ? 'Per day' : 'Total'} value={measure === 'perDay' ? totals[u] / dayCount : totals[u]} previous={pt ? (measure === 'perDay' ? pt[u] / prevDayCount : pt[u]) : undefined} format={fmtFull} info="Milk accepted at shops on journeys in these days. Per day: divided by the days in view." />
         <KpiTile label="Shops with milk" kind="Count" value={cur.shopsGave} previous={prev?.shopsGave} format={(v) => fmtNum(v)} info="Different shops that gave accepted milk in these days." />
         <KpiTile label="Rejected" kind="Count" value={totals.rejected} previous={pt?.rejected} better="down" format={(v) => fmtNum(v)} sub={`${fmtPct(rate(totals))} of collections`} info="Shop collections rejected, and their share of all collections." />
         <KpiTile label="Stops done" kind="Rate" value={completionPct(totals.done, totals.planned)} previous={pt ? completionPct(pt.done, pt.planned) : undefined} format={(v) => fmtPct(v)} sub={`${fmtNum(totals.done)} of ${fmtNum(totals.planned)}`} info="Shop stops completed out of the stops planned on journeys." />

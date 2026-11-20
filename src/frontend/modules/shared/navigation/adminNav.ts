@@ -73,10 +73,11 @@ const REPORTS_GOVERNANCE_CHILDREN = [
 
 /** Visuals page, one link per sub-tab. */
 export const VISUALS_CHILDREN = [
+  { href: '/visuals', label: 'Loss flow' },
   { href: '/visuals?tab=SHOPS', label: 'Shops & routes' },
   { href: '/visuals?tab=TESTERS', label: 'Mobile Testers' },
   { href: '/visuals?tab=HC', label: 'HC suppliers' },
-  { href: '/visuals', label: 'ZMCC' },
+  { href: '/visuals?tab=ZMCC', label: 'ZMCC' },
   { href: '/visuals?tab=TANKERS', label: 'Tankers' },
   { href: '/visuals?tab=PLANT', label: 'Plant' },
 ];
@@ -130,7 +131,6 @@ export const DATA_EXECUTIVE_NAV_ITEMS: AdminNavItem[] = [
   { href: '/sources', label: 'Sources', icon: Milk, children: SOURCES_CHILDREN_OWNER },
   { href: '/approvals', label: 'Approval Inbox', icon: ShieldCheck },
   { href: '/command', label: 'Command Center', icon: Activity },
-  { href: '/visuals', label: 'Visuals', icon: BarChart3, children: VISUALS_CHILDREN },
   { href: '/tv-board', label: 'Yard Board', icon: Tv },
 ];
 

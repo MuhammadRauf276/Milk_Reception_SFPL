@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Container, Factory, Gauge, Route, Truck, Users } from 'lucide-react';
+import { Container, Factory, Gauge, Route, Truck, Users, Waypoints } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ErrorPopup } from '@/components/ui/error-popup';
 import type { User } from '@core/types';
@@ -10,14 +10,16 @@ import { VISUAL_TABS, type VisualTab } from '@/backend/modules/management-report
 import type { LossFilterOptions } from '@/backend/modules/management-reporting/lossLevelContracts';
 import { useLossFilters, type LossFilters } from '../mpd/lossFilters';
 import { useLossFilterOptions } from '../mpd/lossData';
-import { StageChartFilters } from '../mpd/components/StageChartFilters';
+import { VisualsFilterBar } from './VisualsFilterBar';
 import type { ChartBucket, ChartUnit } from '../mpd/components/StageCharts';
+import type { Measure } from './visualsKit';
 import { ShopsTab } from './tabs/ShopsTab';
 import { TestersTab } from './tabs/TestersTab';
 import { HcTab } from './tabs/HcTab';
 import { ZmccTab } from './tabs/ZmccTab';
 import { PlantTab } from './tabs/PlantTab';
 import { TankersTab } from './tabs/TankersTab';
+import { FlowTab } from './tabs/FlowTab';
 
 /** What every tab receives from the page: the shared filters and how to draw them. */
 export interface VisualsTabProps {
@@ -26,12 +28,15 @@ export interface VisualsTabProps {
   options?: LossFilterOptions;
   unit: ChartUnit;
   bucket: ChartBucket;
+  /** Totals for the period, or per day (LPD). Use measurePoints / measureValue from the kit. */
+  measure: Measure;
   /** Tab picks (Mobile Testers, routes, suppliers …), kept in the page address. */
   ids: string[];
   setIds: (ids: string[]) => void;
 }
 
 const TABS: Array<{ id: VisualTab; label: string; icon: React.ElementType }> = [
+  { id: 'FLOW', label: 'Loss flow', icon: Waypoints },
   { id: 'SHOPS', label: 'Shops & routes', icon: Route },
   { id: 'TESTERS', label: 'Mobile Testers', icon: Users },
   { id: 'HC', label: 'HC suppliers', icon: Truck },
@@ -41,6 +46,7 @@ const TABS: Array<{ id: VisualTab; label: string; icon: React.ElementType }> = [
 ];
 
 const COMPONENTS: Record<VisualTab, React.FC<VisualsTabProps>> = {
+  FLOW: FlowTab,
   SHOPS: ShopsTab,
   TESTERS: TestersTab,
   HC: HcTab,
@@ -56,13 +62,14 @@ export function VisualsWorkspace(_props: { currentUser: User }) {
   const key = searchParams?.toString() ?? '';
   const params = React.useMemo(() => new URLSearchParams(key), [key]);
   const raw = (params.get('tab') ?? '').toUpperCase();
-  const tab: VisualTab = (VISUAL_TABS as readonly string[]).includes(raw) ? (raw as VisualTab) : 'ZMCC';
+  const tab: VisualTab = (VISUAL_TABS as readonly string[]).includes(raw) ? (raw as VisualTab) : 'FLOW';
   const ids = React.useMemo(() => (params.get('ids') ?? '').split(',').filter((s) => /^\d{1,18}$/.test(s)), [params]);
 
   const { filters, setFilters } = useLossFilters();
   const optionsQuery = useLossFilterOptions(filters);
   const [unit, setUnit] = React.useState<ChartUnit>('at13');
   const [bucket, setBucket] = React.useState<ChartBucket>('DAY');
+  const [measure, setMeasure] = React.useState<Measure>('total');
 
   const setParam = React.useCallback(
     (changes: Record<string, string | null>) => {
@@ -76,7 +83,7 @@ export function VisualsWorkspace(_props: { currentUser: User }) {
     },
     [pathname]
   );
-  const setTab = (t: VisualTab) => setParam({ tab: t === 'ZMCC' ? null : t, ids: null });
+  const setTab = (t: VisualTab) => setParam({ tab: t === 'FLOW' ? null : t, ids: null });
   const setIds = React.useCallback((next: string[]) => setParam({ ids: next.length ? next.join(',') : null }), [setParam]);
 
   const Tab = COMPONENTS[tab];
@@ -101,7 +108,7 @@ export function VisualsWorkspace(_props: { currentUser: User }) {
         ))}
       </nav>
 
-      <StageChartFilters
+      <VisualsFilterBar
         filters={filters}
         onChange={setFilters}
         options={optionsQuery.data}
@@ -109,9 +116,11 @@ export function VisualsWorkspace(_props: { currentUser: User }) {
         onUnit={setUnit}
         bucket={bucket}
         onBucket={setBucket}
+        measure={measure}
+        onMeasure={setMeasure}
       />
 
-      <Tab filters={filters} setFilters={setFilters} options={optionsQuery.data} unit={unit} bucket={bucket} ids={ids} setIds={setIds} />
+      <Tab filters={filters} setFilters={setFilters} options={optionsQuery.data} unit={unit} bucket={bucket} measure={measure} ids={ids} setIds={setIds} />
     </div>
   );
 }

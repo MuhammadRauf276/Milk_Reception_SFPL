@@ -83,10 +83,10 @@ export async function generateStageChainExcel(
   }));
   summary.push({});
   summary.push({ part: 'Loss / gain (later stage minus earlier; minus = loss)', __bold: true });
-  summary.push({ part: 'Tester trip (journeys that reached the ZMCC: received minus shops)', liters: t.loss.motTrip.liters, at13: t.loss.motTrip.at13ts });
+  summary.push({ part: 'Area loss / gain (all MOT journeys that reached the ZMCC: received minus shops)', liters: t.loss.motTrip.liters, at13: t.loss.motTrip.at13ts });
   summary.push({ part: 'Dispatch overstated (ZMCC dispatch claims more @13 TS than the milk had; not milk)', at13: t.loss.slipOver13ts });
   summary.push({ part: 'Road (plant minus what really left the ZMCC)', liters: t.loss.road.liters, at13: t.loss.road.at13ts });
-  summary.push({ part: 'Trip + road (finished vehicles; not the Whole card)', liters: t.loss.whole.liters, at13: t.loss.whole.at13ts, before: p.loss.whole.at13ts, __bold: true });
+  summary.push({ part: 'Area + road (finished vehicles; not the Whole card)', liters: t.loss.whole.liters, at13: t.loss.whole.at13ts, before: p.loss.whole.at13ts, __bold: true });
   summary.push({});
   summary.push({ part: `Dispatches with dispatch TS above the tank milk: ${t.slipHighCycles} of ${t.cycleCount}` });
   summary.push({ part: `Tankers not yet at the plant (left out of plant, road, whole): ${t.pendingTankers}` });
@@ -140,13 +140,13 @@ export async function generateStageChainExcel(
     { header: 'TS intake', key: 'tsIn', width: 10, fmt: TS },
     { header: 'TS dispatch', key: 'tsSlip', width: 10, fmt: TS },
     { header: 'TS plant', key: 'tsPlant', width: 10, fmt: TS },
-    { header: 'Tester trip @13 TS', key: 'trip', width: 14, fmt: L2 },
+    { header: 'Area loss / gain @13 TS', key: 'trip', width: 14, fmt: L2 },
     { header: 'Shops not at ZMCC yet @13 TS', key: 'onWay13', width: 16, fmt: L2 },
     { header: 'Dispatch overstated @13 TS', key: 'over', width: 16, fmt: L2 },
     { header: 'Road @13 TS', key: 'road', width: 13, fmt: L2 },
     { header: 'Road litres', key: 'roadL', width: 12, fmt: L2 },
     { header: 'Road against slip @13 TS', key: 'roadSlip', width: 14, fmt: L2 },
-    { header: 'Trip + road @13 TS', key: 'whole', width: 13, fmt: L2 },
+    { header: 'Area + road @13 TS', key: 'whole', width: 13, fmt: L2 },
     { header: 'Tank at end', key: 'tankEnd', width: 12, fmt: L2 },
     { header: 'Not at plant', key: 'pending', width: 11 },
   ];
@@ -278,7 +278,7 @@ export async function generateStageChainExcel(
       { header: 'TS received', key: 'tsR', width: 10, fmt: TS },
       { header: 'Trip litres (arrived journeys)', key: 'tL', width: 14, fmt: L2 },
       { header: 'Trip @13 TS', key: 't13', width: 12, fmt: L2 },
-      { header: 'Trip %', key: 'tPct', width: 9, fmt: '0.00' },
+      { header: 'Journey %', key: 'tPct', width: 9, fmt: '0.00' },
     ];
     const motRow = (r: StageMotRow): Row => ({
       name: r.name, code: r.code ?? '', zmcc: r.zmccName, journeys: r.journeys, open: r.notArrived, shops: r.shops, rejected: r.rejectedShops,

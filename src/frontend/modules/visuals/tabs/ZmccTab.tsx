@@ -7,7 +7,7 @@ import type { TankDay, ZmccVisuals } from '@/backend/modules/management-reportin
 import { StageChartsBoard, STAGE_COLORS, type ChartBucket } from '../../mpd/components/StageCharts';
 import type { VisualsTabProps } from '../VisualsWorkspace';
 import { TankFlowPanel } from './TankFlowPanel';
-import { ChartGrid, KpiRow, KpiTile, TrendChart, VisualTable, bucketRows, fmtCompact, useVisuals, type VisualColumn } from '../visualsKit';
+import { ChartGrid, KpiRow, KpiTile, TrendChart, VisualTable, bucketRows, fmtCompact, perDayStageReport, useVisuals, type VisualColumn } from '../visualsKit';
 
 const pickPair = (p: StagePair, unit: VisualsTabProps['unit']) => (unit === 'at13' ? p.at13ts : p.liters);
 
@@ -47,16 +47,18 @@ interface DayRow {
   plant: number;
 }
 
-export function ZmccTab({ filters, setFilters, unit, bucket }: VisualsTabProps) {
+export function ZmccTab({ filters, setFilters, unit, bucket, measure }: VisualsTabProps) {
   const query = useVisuals<ZmccVisuals>('ZMCC', filters);
   const data = query.data?.current;
   const before = query.data?.previous;
   const [tankZmcc, setTankZmcc] = React.useState('ALL');
   const unitText = unit === 'at13' ? '@13 TS litres' : 'litres';
 
-  const stage = data?.stage;
+  // Per day: quantities divided by the days they cover; tank levels, TS and counts stay as they are.
+  const stage = React.useMemo(() => (data?.stage ? perDayStageReport(data.stage, bucket, measure) : undefined), [data, bucket, measure]);
   const total = stage?.total;
-  const prevTotal = before?.stage.total;
+  const prevTotal = stage?.previous.total;
+  const kind = measure === 'perDay' ? ('Per day' as const) : ('Total' as const);
   const tanks = React.useMemo(() => data?.tanks ?? [], [data]);
   const chosen = tankZmcc !== 'ALL' && tanks.some((t) => t.zmccId === tankZmcc) ? tankZmcc : 'ALL';
   const tankDays = React.useMemo(
@@ -106,6 +108,7 @@ export function ZmccTab({ filters, setFilters, unit, bucket }: VisualsTabProps) 
           <KpiRow>
             <KpiTile
               label="Intake MC"
+              kind={kind}
               value={pickPair(total.receivedMot, unit)}
               previous={prevTotal ? pickPair(prevTotal.receivedMot, unit) : undefined}
               format={(v) => `${fmtCompact(v ?? 0)} L`}
@@ -113,6 +116,7 @@ export function ZmccTab({ filters, setFilters, unit, bucket }: VisualsTabProps) 
             />
             <KpiTile
               label="Intake HC"
+              kind={kind}
               value={pickPair(total.receivedHc, unit)}
               previous={prevTotal ? pickPair(prevTotal.receivedHc, unit) : undefined}
               format={(v) => `${fmtCompact(v ?? 0)} L`}
@@ -120,6 +124,7 @@ export function ZmccTab({ filters, setFilters, unit, bucket }: VisualsTabProps) 
             />
             <KpiTile
               label="Dispatched"
+              kind={kind}
               value={pickPair(total.dispatchSlip, unit)}
               previous={prevTotal ? pickPair(prevTotal.dispatchSlip, unit) : undefined}
               format={(v) => `${fmtCompact(v ?? 0)} L`}
@@ -128,13 +133,15 @@ export function ZmccTab({ filters, setFilters, unit, bucket }: VisualsTabProps) 
             />
             <KpiTile
               label="Plant received"
+              kind={kind}
               value={pickPair(total.plant, unit)}
               previous={prevTotal ? pickPair(prevTotal.plant, unit) : undefined}
               format={(v) => `${fmtCompact(v ?? 0)} L`}
               info={`What the plant measured for tankers received, in ${unitText}.`}
             />
             <KpiTile
-              label="Road loss / gain"
+              label="Road loss / gain" signed
+              kind={kind}
               value={pickPair(total.loss.road, unit)}
               previous={prevTotal ? pickPair(prevTotal.loss.road, unit) : undefined}
               format={(v) => `${(v ?? 0) > 0 ? '+' : ''}${fmtCompact(v ?? 0)} L`}
@@ -171,7 +178,10 @@ export function ZmccTab({ filters, setFilters, unit, bucket }: VisualsTabProps) 
               </label>
             ) : null}
             <TankFlowPanel
-              days={chosen === 'ALL' ? stage.daily : (stage.zmccs.find((z) => z.zmccId === chosen)?.daily ?? [])}
+              measure={measure}
+              from={data.stage.from}
+              to={data.stage.to}
+              days={chosen === 'ALL' ? data.stage.daily : (data.stage.zmccs.find((z) => z.zmccId === chosen)?.daily ?? [])}
               tank={tankDays}
               unit={unit}
               bucket={bucket}

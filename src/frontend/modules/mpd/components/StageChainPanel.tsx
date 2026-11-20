@@ -90,7 +90,7 @@ function motColumns(kind: 'TESTER' | 'ROUTE'): Array<DataColumn<StageMotRow>> {
     { key: 'trip', header: 'Trip @13 TS', align: 'right', cell: (r) => <Signed value={r.trip.at13ts} /> },
     {
       key: 'pct',
-      header: 'Trip %',
+      header: 'Journey %',
       align: 'right',
       cell: (r) =>
         r.received.at13ts ? (
@@ -153,10 +153,10 @@ const INFO = {
   intake: 'Milk received into the ZMCC tanks with the ZMCC lab tests: from Mobile Testers (MC) and from HC suppliers.',
   dispatch: 'What the ZMCC dispatched to the plant: litres, and @13 TS from the dispatch test.',
   plant: 'What the plant received: weighbridge net weight with the plant test. Tankers not yet received are left out.',
-  motTrip: 'Journeys that reached the ZMCC: milk received into the tank minus milk collected at their shops. Same figure as the MOT Loss / Gain card. Milk on journeys not at the ZMCC yet is shown under it, not counted as loss.',
+  motTrip: 'Area loss / gain: all MOT journeys of the ZMCC added up. Journeys that reached the ZMCC: milk received into the tank minus milk collected at their shops. Same figure as the MOT Loss / Gain card. Milk on journeys not at the ZMCC yet is shown under it, not counted as loss.',
   overstated: 'ZMCC dispatch @13 TS minus the same litres at the quality of the milk in the tank. Plus means the dispatch claims more solids than the milk had. A recording difference, not milk.',
   road: 'Tankers the plant has received: plant minus what really left the ZMCC (the dispatched litres at the tank milk quality). The real loss or gain on the road. "Against slip" compares the plant with the dispatch slip instead, like the Tanker trip card: road plus the slip error.',
-  whole: 'Mobile Tester trip plus road, finished vehicles only. It leaves out milk still in tanks or in tankers, so it is not the Whole Loss / Gain card (that one counts them).',
+  whole: 'Area loss / gain (all MOT journeys) plus road, finished vehicles only. It leaves out milk still in tanks or in tankers, so it is not the Whole Loss / Gain card (that one counts them).',
   ts: 'Milk quality (TS = Fat + SNF). Intake and plant should agree; a higher dispatch TS means the dispatch test is written high.',
   lpd: 'Total = the whole period. Per day (LPD) = the total divided by the days of the period. Big numbers are @13 TS; the litres line is the milk as measured.',
   compare: 'Change against the same number of days just before this period.',
@@ -282,7 +282,7 @@ function Chain({ report }: { report: StageChainReport }) {
       <div className="flex flex-col gap-2 xl:flex-row xl:items-stretch">
         <StageCard label="Shops" info={INFO.shops} value={row.shops} before={prev.shops} days={report.days} />
         <Step
-          label="Tester trip"
+          label="Area loss / gain"
           info={INFO.motTrip}
           value={row.loss.motTrip.at13ts}
           note={row.shopsOnWay.at13ts > 0.5 ? <>Not at ZMCC yet {formatLitres(row.shopsOnWay.at13ts)}</> : null}
@@ -316,7 +316,7 @@ function Chain({ report }: { report: StageChainReport }) {
       </div>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-2xl border border-border bg-subtle px-3 py-2 text-xs">
         <span className="flex items-center gap-1">
-          <span className="font-semibold">Trip + road loss / gain</span>
+          <span className="font-semibold">Area + road loss / gain</span>
           <InfoTip text={INFO.whole} className="-my-2" />
           <Signed value={row.loss.whole.at13ts} /> <span className="text-muted-foreground">@13 TS</span>
         </span>
@@ -506,10 +506,10 @@ export function StageChainPanel({
     { key: 'plant', header: 'Plant @13 TS', align: 'right', cell: (z) => L(z.plant.at13ts) },
     { key: 'lpd', header: 'Intake per day @13 TS', align: 'right', cell: (z) => L(intakeOf(z).at13ts / days) },
     { key: 'ts', header: 'TS in / dispatch / plant', align: 'right', cell: (z) => <span className="tabular-nums">{ts(z.ts.intake)} / {ts(z.ts.slip)} / {ts(z.ts.plant)}</span> },
-    { key: 'trip', header: 'Tester trip', align: 'right', cell: (z) => <Signed value={z.loss.motTrip.at13ts} /> },
+    { key: 'trip', header: 'Area', align: 'right', cell: (z) => <Signed value={z.loss.motTrip.at13ts} /> },
     { key: 'over', header: 'Overstated', align: 'right', cell: (z) => <Over v={z.loss.slipOver13ts} /> },
     { key: 'road', header: 'Road', align: 'right', cell: (z) => <Signed value={z.loss.road.at13ts} /> },
-    { key: 'whole', header: 'Trip + road', align: 'right', cell: (z) => <Signed value={z.loss.whole.at13ts} /> },
+    { key: 'whole', header: 'Area + road', align: 'right', cell: (z) => <Signed value={z.loss.whole.at13ts} /> },
   ];
   const oneZmccColumns = (s: Exclude<StageKey, 'ALL'>): Array<DataColumn<StageZmccRow>> => [
     { key: 'zmcc', header: 'ZMCC', primary: true, cell: (z) => <span className="font-medium">{z.zmccName}</span> },
@@ -604,7 +604,7 @@ export function StageChainPanel({
         <div className="h-36 animate-pulse rounded-2xl bg-muted" />
       )}
 
-      <Link href={`/visuals?${qs}`} className="inline-flex min-h-10 items-center text-xs font-semibold text-primary hover:underline">
+      <Link href={`/visuals?tab=ZMCC&${qs}`} className="inline-flex min-h-10 items-center text-xs font-semibold text-primary hover:underline">
         Charts: Visuals → ZMCC
       </Link>
 
@@ -689,7 +689,7 @@ export function StageChainPanel({
           ) : (
             <>
               <RankedBarsChart
-                title={view === 'TESTER' ? 'Trip loss / gain by Mobile Tester' : 'Trip loss / gain by route'}
+                title={view === 'TESTER' ? 'MOT journey loss / gain by Mobile Tester' : 'MOT journey loss / gain by route'}
                 info="Received at the ZMCC minus collected from shops, as a share of what was collected (@13 TS), by journey date. Journeys still on the way are left out. Worst first."
                 signed
                 percent
@@ -703,7 +703,7 @@ export function StageChainPanel({
                     tip: [
                       { label: 'Collected', value: formatLitres(r.collected.at13ts) },
                       { label: 'Received', value: formatLitres(r.received.at13ts) },
-                      { label: 'Trip', value: formatLitres(r.trip.at13ts) },
+                      { label: 'Journey loss / gain', value: formatLitres(r.trip.at13ts) },
                     ],
                   }))
                   .sort((a, b) => a.value - b.value)}

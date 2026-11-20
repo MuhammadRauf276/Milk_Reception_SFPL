@@ -12,7 +12,7 @@ import type { StageDay } from '@/backend/modules/management-reporting/stageChain
 import type { TankDay } from '@/backend/modules/management-reporting/visuals/zmccContracts';
 import { flowDays, flowSummary, type FlowDay } from '@/backend/modules/management-reporting/visuals/tankFlow';
 import { STAGE_COLORS, type ChartBucket, type ChartUnit } from '../../mpd/components/StageCharts';
-import { TrendChart, bucketRows, fmtNum, type TrendSeries } from '../visualsKit';
+import { TrendChart, bucketRows, fmtNum, measurePoints, type Measure, type TrendSeries } from '../visualsKit';
 
 type PartKey = keyof Omit<FlowDay, 'day'> | 'level';
 
@@ -77,12 +77,19 @@ export function TankFlowPanel({
   unit,
   bucket,
   onPick,
+  measure = 'total',
+  from,
+  to,
 }: {
   days: StageDay[];
   tank: TankDay[] | null;
   unit: ChartUnit;
   bucket: ChartBucket;
   onPick?: (day: string) => void;
+  /** Per day divides the flows in the chart by the days of each period; the tank level and the totals stay as they are. */
+  measure?: Measure;
+  from?: string;
+  to?: string;
 }) {
   const [on, setOn] = React.useState<PartKey[]>(DEFAULT_ON);
   const parts = PARTS.filter((p) => !p.only || p.only === unit);
@@ -93,8 +100,10 @@ export function TankFlowPanel({
   const points = React.useMemo(() => {
     const level = new Map<string, number>();
     for (const d of tank ?? []) level.set(bucketKey(d.day, bucket), d.closing);
-    return bucketRows(fd, bucket).map((p) => ({ ...p, adminOut: -p.adminOut, dispatch: -p.dispatch, level: level.get(p.day) ?? null }));
-  }, [fd, tank, bucket]);
+    const grouped = bucketRows(fd, bucket);
+    const shown = from && to ? measurePoints(grouped, measure, bucket, from, to) : grouped;
+    return shown.map((p) => ({ ...p, adminOut: -p.adminOut, dispatch: -p.dispatch, level: level.get(p.day) ?? null }));
+  }, [fd, tank, bucket, measure, from, to]);
 
   const series: TrendSeries[] = active.map((p) => ({
     key: p.key,
@@ -158,7 +167,7 @@ export function TankFlowPanel({
       </div>
 
       <TrendChart
-        title={`In, out and level (${unitText})`}
+        title={`In, out and level (${unitText}${measure === 'perDay' ? ', per day' : ''})`}
         info="Bars above zero went into the tanks, below zero came out. Lines: tank level, plant received and dispatch overstated, when ticked."
         points={points}
         series={series}

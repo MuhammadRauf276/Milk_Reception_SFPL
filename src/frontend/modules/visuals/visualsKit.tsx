@@ -13,6 +13,7 @@ import {
   CartesianGrid,
   Cell,
   ComposedChart,
+  LabelList,
   Line,
   Pie,
   PieChart,
@@ -28,6 +29,7 @@ import { InfoTip } from '@/components/ui/info-tip';
 import { fetchJson } from '@/lib/query/fetchJson';
 import { cn } from '@/lib/utils';
 import type { VisualTab, VisualsResponse } from '@/backend/modules/management-reporting/visuals/common';
+import type { StageChainReport } from '@/backend/modules/management-reporting/stageChainContracts';
 import { lossQueryParams, type LossFilters } from '../mpd/lossFilters';
 import { ChartCard, RankedBarsChart, STAGE_COLORS, type ChartBucket } from '../mpd/components/StageCharts';
 
@@ -135,6 +137,94 @@ export function topWithOthers<R extends { id: string; name: string; value: numbe
   return rest > 0 ? [...head, { id: '__others', name: 'Others', value: rest }] : head;
 }
 
+/* --------------------------- Total or per day ---------------------------- */
+
+/** Show totals for the period, or per day (LPD = litres per day): the total divided by the days it covers. */
+export type Measure = 'total' | 'perDay';
+
+const dayMs = (d: string) => Date.parse(`${d}T00:00:00Z`);
+
+/** Days a period (a day, a week from its Monday, a month from its 1st) covers inside from..to. */
+export function daysInBucket(dayKey: string, bucket: ChartBucket, from: string, to: string): number {
+  const start = Math.max(dayMs(dayKey), dayMs(from));
+  let endMs: number;
+  if (bucket === 'DAY') endMs = dayMs(dayKey);
+  else if (bucket === 'WEEK') endMs = dayMs(dayKey) + 6 * 86400000;
+  else {
+    const d = new Date(dayMs(dayKey));
+    endMs = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0);
+  }
+  const end = Math.min(endMs, dayMs(to));
+  return Math.max(1, Math.round((end - start) / 86400000) + 1);
+}
+
+function divideNumbers<T>(row: T, n: number, skip: ReadonlySet<string>): T {
+  if (n === 1) return row;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row as Record<string, unknown>)) {
+    if (skip.has(k) || k === 'day' || k === 'label') out[k] = v;
+    else if (typeof v === 'number') out[k] = v / n;
+    else if (v && typeof v === 'object' && !Array.isArray(v)) out[k] = divideNumbers(v, n, skip);
+    else out[k] = v;
+  }
+  return out as T;
+}
+
+/**
+ * Bucketed points as totals, or per day: each numeric field divided by the days its period covers. Fields that are
+ * not quantities (TS, rates, counts to keep as they are) go in `keep`.
+ */
+export function measurePoints<T extends { day: string }>(points: T[], measure: Measure, bucket: ChartBucket, from: string, to: string, keep: string[] = []): T[] {
+  if (measure === 'total' || bucket === 'DAY') return points;
+  const skip = new Set(keep);
+  return points.map((p) => divideNumbers(p, daysInBucket(p.day, bucket, from, to), skip));
+}
+
+/** A period total as a total, or per day. */
+export const measureValue = (total: number | null | undefined, measure: Measure, days: number): number | null =>
+  total == null ? null : measure === 'perDay' && days > 0 ? total / days : total;
+
+/** The first day of the period a day falls in. */
+export function bucketStart(day: string, bucket: ChartBucket): string {
+  return bucket === 'DAY' ? day : bucket === 'WEEK' ? weekStart(day) : `${day.slice(0, 7)}-01`;
+}
+
+/** Fields of a stage report that are not quantities: quality, counts and tank levels keep their value. */
+const STAGE_KEEP = new Set(['ts', 'cycleCount', 'slipHighCycles', 'pendingTankers', 'days', 'tankStart', 'tankEnd', 'cycles', 'zmccId', 'zmccName', 'from', 'to']);
+
+function scaleDeep<T>(row: T, f: number): T {
+  if (f === 1) return row;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row as Record<string, unknown>)) {
+    if (STAGE_KEEP.has(k) || k === 'day' || k === 'label') out[k] = v;
+    else if (typeof v === 'number') out[k] = v * f;
+    else if (v && typeof v === 'object' && !Array.isArray(v)) out[k] = scaleDeep(v, f);
+    else out[k] = v;
+  }
+  return out as T;
+}
+
+/**
+ * A stage report shown per day: totals divided by the days of the period, and each day divided by the days of the
+ * week or month it falls in, so charts that add days up into weeks or months show the average per day. TS, counts
+ * and tank levels are left as they are.
+ */
+export function perDayStageReport(r: StageChainReport, bucket: ChartBucket, measure: Measure): StageChainReport {
+  if (measure === 'total') return r;
+  const scaleDays = (days: StageChainReport['daily']) => days.map((d) => scaleDeep(d, 1 / daysInBucket(bucketStart(d.day, bucket), bucket, r.from, r.to)));
+  const n = Math.max(1, r.days);
+  return {
+    ...r,
+    total: scaleDeep(r.total, 1 / n),
+    previous: { ...r.previous, total: scaleDeep(r.previous.total, 1 / n) },
+    daily: scaleDays(r.daily),
+    zmccs: r.zmccs.map((z) => ({ ...scaleDeep(z, 1 / n), daily: scaleDays(z.daily), cycles: z.cycles })),
+  };
+}
+
+/** The words for a measure, e.g. in a chart title. */
+export const measureText = (measure: Measure) => (measure === 'perDay' ? 'per day' : 'total');
+
 /* ----------------------------- Chart pieces ------------------------------ */
 
 type TipProps = TooltipContentProps<TooltipValueType, string | number>;
@@ -166,6 +256,66 @@ export function EmptyChart({ text = 'Nothing in these days' }: { text?: string }
   return <p className="flex h-full min-h-32 items-center justify-center text-xs text-muted-foreground">{text}</p>;
 }
 
+type LabelProps = { x?: number | string; y?: number | string; width?: number | string; height?: number | string; value?: unknown };
+const numOf = (v: unknown) => (v == null || v === '' ? null : Number(v));
+
+/** Room above and below the marks so value labels never run into the axis or the chart edge. */
+const withLabelRoom = [
+  (min: number) => (min < 0 ? min * 1.18 : 0),
+  (max: number) => (max > 0 ? max * 1.15 : 0),
+] as [(n: number) => number, (n: number) => number];
+
+/** A value just past a plain bar's end: above a bar that goes up, below one that goes down. */
+function barEndLabel(format: (v: number) => string) {
+  const BarEnd = (p: LabelProps) => {
+    const v = numOf(p.value);
+    if (v == null || v === 0) return null;
+    const x = Number(p.x ?? 0) + Number(p.width ?? 0) / 2;
+    const y = Number(p.y ?? 0);
+    const h = Number(p.height ?? 0);
+    const top = Math.min(y, y + h);
+    const bottom = Math.max(y, y + h);
+    return (
+      <text x={x} y={v < 0 ? bottom + 12 : top - 5} fontSize={10} fill="#374151" textAnchor="middle">
+        {format(v)}
+      </text>
+    );
+  };
+  return BarEnd;
+}
+
+/** A small white value inside a stacked segment, only when the segment is big enough to hold it. */
+function insideLabel(format: (v: number) => string) {
+  const Inside = (p: LabelProps) => {
+    const v = numOf(p.value);
+    const w = Math.abs(Number(p.width ?? 0));
+    const h = Math.abs(Number(p.height ?? 0));
+    if (v == null || v === 0 || h < 12 || w < 26) return null;
+    const x = Number(p.x ?? 0) + Number(p.width ?? 0) / 2;
+    const y = Number(p.y ?? 0) + Number(p.height ?? 0) / 2;
+    return (
+      <text x={x} y={y} dy={3.5} fontSize={10} fill="#ffffff" textAnchor="middle">
+        {format(v)}
+      </text>
+    );
+  };
+  return Inside;
+}
+
+/** A value just above a line point (below when the value is negative). */
+function pointLabel(format: (v: number) => string, color: string) {
+  const Point = (p: LabelProps) => {
+    const v = numOf(p.value);
+    if (v == null) return null;
+    return (
+      <text x={Number(p.x ?? 0)} y={Number(p.y ?? 0) + (v < 0 ? 14 : -8)} fontSize={10} fill={color} textAnchor="middle">
+        {format(v)}
+      </text>
+    );
+  };
+  return Point;
+}
+
 export interface TrendSeries {
   key: string;
   label: string;
@@ -189,6 +339,7 @@ export function TrendChart<P extends { day: string; label: string }>({
   onPick,
   height = 260,
   percent,
+  labels = 'auto',
 }: {
   title: string;
   info?: string;
@@ -199,6 +350,8 @@ export function TrendChart<P extends { day: string; label: string }>({
   onPick?: (day: string) => void;
   height?: number;
   percent?: boolean;
+  /** Numbers on the marks: 'auto' shows them when there are few enough periods to read. */
+  labels?: 'auto' | boolean;
 }) {
   const get = (p: P, key: string): number | null => {
     const v = key.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Record<string, unknown>)[k] : undefined), p);
@@ -211,6 +364,8 @@ export function TrendChart<P extends { day: string; label: string }>({
   });
   const empty = !data.some((r) => series.some((_, i) => (r[`s${i}`] as number | null) != null && r[`s${i}`] !== 0));
   const tf = tipFormat ?? format;
+  const showLabels = labels === true || (labels === 'auto' && data.length <= 16);
+  const lf = (v: number) => (percent ? fmtPct(v, 0) : format(v));
   return (
     <ChartCard title={title} info={info} legend={series.map((s) => ({ label: s.label, color: s.color }))}>
       <div style={{ height }} className={onPick ? 'cursor-pointer' : undefined}>
@@ -220,7 +375,7 @@ export function TrendChart<P extends { day: string; label: string }>({
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
               data={data}
-              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+              margin={{ top: showLabels ? 20 : 8, right: 8, left: 0, bottom: showLabels ? 6 : 0 }}
               barCategoryGap="28%"
               onClick={
                 onPick
@@ -233,7 +388,7 @@ export function TrendChart<P extends { day: string; label: string }>({
             >
               <CartesianGrid vertical={false} stroke={STAGE_COLORS.grid} />
               <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={28} />
-              <YAxis {...axisProps} axisLine={false} width={52} tickFormatter={(v: number) => (percent ? `${fmtNum(v, 0)}%` : format(v))} domain={[(min: number) => Math.min(0, min), 'auto']} />
+              <YAxis {...axisProps} axisLine={false} width={52} tickFormatter={(v: number) => (percent ? `${fmtNum(v, 0)}%` : format(v))} domain={showLabels ? withLabelRoom : [(min: number) => Math.min(0, min), 'auto']} />
               <Tooltip
                 cursor={{ fill: 'rgba(15,23,42,0.04)' }}
                 content={(p: TipProps) =>
@@ -250,9 +405,13 @@ export function TrendChart<P extends { day: string; label: string }>({
               />
               {series.map((s, i) =>
                 s.type === 'line' ? (
-                  <Line key={s.key} type="linear" dataKey={`s${i}`} name={s.label} stroke={s.color} strokeWidth={2} dot={data.length <= 31 ? { r: 3 } : false} activeDot={{ r: 5 }} connectNulls />
+                  <Line key={s.key} type="linear" dataKey={`s${i}`} name={s.label} stroke={s.color} strokeWidth={2} dot={data.length <= 31 ? { r: 3 } : false} activeDot={{ r: 5 }} connectNulls>
+                    {showLabels ? <LabelList dataKey={`s${i}`} content={pointLabel(lf, s.color)} /> : null}
+                  </Line>
                 ) : (
-                  <Bar key={s.key} dataKey={`s${i}`} name={s.label} fill={s.color} stackId={s.stack} radius={s.stack ? 0 : [4, 4, 0, 0]} maxBarSize={28} />
+                  <Bar key={s.key} dataKey={`s${i}`} name={s.label} fill={s.color} stackId={s.stack} radius={s.stack ? 0 : [4, 4, 0, 0]} maxBarSize={28}>
+                    {showLabels ? <LabelList dataKey={`s${i}`} content={s.stack ? insideLabel(lf) : barEndLabel(lf)} /> : null}
+                  </Bar>
                 )
               )}
             </ComposedChart>
@@ -374,8 +533,12 @@ export function AcceptRejectBars({
                   ) : null;
                 }}
               />
-              <Bar dataKey="acc" stackId="a" fill={ACCEPT_COLOR} maxBarSize={16} />
-              <Bar dataKey="rej" stackId="a" fill={REJECT_COLOR} maxBarSize={16} radius={[0, 4, 4, 0]} />
+              <Bar dataKey="acc" stackId="a" fill={ACCEPT_COLOR} maxBarSize={16}>
+                <LabelList dataKey="acc" content={insideLabel((v) => fmtPct(v, 0))} />
+              </Bar>
+              <Bar dataKey="rej" stackId="a" fill={REJECT_COLOR} maxBarSize={16} radius={[0, 4, 4, 0]}>
+                <LabelList dataKey="rej" content={insideLabel((v) => fmtPct(v, 0))} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -399,7 +562,10 @@ export function KpiTile({
   better = 'up',
   sub,
   kind = 'Total',
+  signed,
 }: {
+  /** A loss / gain figure: red when below zero (loss), green when above (gain), with its sign. */
+  signed?: boolean;
   /** What the number is: a total for the period, per day, an average, a rate, a level now … shown on the tile. */
   kind?: 'Total' | 'Per day' | 'Average' | 'Typical (median)' | 'Slowest 10%' | 'Rate' | 'Count' | 'Now' | 'End of period';
   label: string;
@@ -421,7 +587,15 @@ export function KpiTile({
         {info ? <InfoTip text={info} className="-my-2" /> : null}
         <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">{kind}</span>
       </p>
-      <p className="mt-1 truncate text-2xl font-semibold tabular-nums text-foreground">{format(value)}</p>
+      <p
+        className={cn(
+          'mt-1 truncate text-2xl font-semibold tabular-nums',
+          signed && value != null && value < 0 ? 'text-destructive' : signed && value != null && value > 0 ? 'text-emerald-700' : 'text-foreground'
+        )}
+      >
+        {format(value)}
+        {signed && value != null && value !== 0 ? <span className="ml-1.5 align-middle text-xs font-semibold">{value < 0 ? 'Loss' : 'Gain'}</span> : null}
+      </p>
       <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
         {previous !== undefined ? (
           <>
